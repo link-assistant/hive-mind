@@ -6,7 +6,8 @@
  * 1. Progress monitoring module - utility functions
  * 2. CLI configuration - option definition in solve and hive
  * 3. Option forwarding - hive to solve command
- * 4. Interactive mode integration
+ * 4. Display modes - comment and pr
+ * 5. Stream event processing
  */
 
 import { strict as assert } from 'assert';
@@ -39,6 +40,17 @@ const test = (name, fn) => {
   }
 };
 
+const asyncTest = async (name, fn) => {
+  try {
+    await fn();
+    pass(name);
+    testsPassed++;
+  } catch (error) {
+    fail(`${name}: ${error.message}`);
+    testsFailed++;
+  }
+};
+
 section('Testing Progress Monitoring Module Utilities');
 
 // Test 1: Import progress monitoring module
@@ -51,8 +63,12 @@ test('Progress monitoring module exports utils', () => {
   assert(typeof progressModule.utils === 'object');
 });
 
+test('Progress monitoring module exports normalizeDisplayMode', () => {
+  assert(typeof progressModule.normalizeDisplayMode === 'function');
+});
+
 // Test 2: Test utility functions
-const { utils } = progressModule;
+const { utils, normalizeDisplayMode } = progressModule;
 
 test('utils.generateProgressBar generates correct bar for 0%', () => {
   const bar = utils.generateProgressBar(0, 10);
@@ -109,7 +125,7 @@ test('utils.formatTodoList formats todos correctly', () => {
   assert(formatted.includes('[ ] Pending task'));
 });
 
-// Test 5: Test generateProgressSection
+// Test 5: Test generateProgressSection (never collapsible)
 test('utils.generateProgressSection generates valid markdown', () => {
   const todos = [{ status: 'completed', content: 'Task 1' }];
   const section = utils.generateProgressSection(todos, 'test-session');
@@ -118,6 +134,79 @@ test('utils.generateProgressSection generates valid markdown', () => {
   assert(section.includes('## 📊 Live Progress Monitor'));
   assert(section.includes('Session:** test-session'));
   assert(section.includes('100%'));
+});
+
+test('utils.generateProgressSection does NOT use collapsible details/summary', () => {
+  const todos = [
+    { status: 'completed', content: 'Done' },
+    { status: 'pending', content: 'Todo' },
+  ];
+  const section = utils.generateProgressSection(todos, 'test-session');
+  assert(!section.includes('<details>'), 'Should NOT contain <details> tag');
+  assert(!section.includes('<summary>'), 'Should NOT contain <summary> tag');
+  assert(!section.includes('</details>'), 'Should NOT contain </details> tag');
+});
+
+test('utils.generateProgressSection shows task list directly', () => {
+  const todos = [
+    { status: 'completed', content: 'Done' },
+    { status: 'pending', content: 'Todo' },
+  ];
+  const section = utils.generateProgressSection(todos, 'test-session');
+  assert(section.includes('📋 **Task List**'), 'Should have task list header');
+  assert(section.includes('[x] Done'), 'Should include completed task');
+  assert(section.includes('[ ] Todo'), 'Should include pending task');
+});
+
+section('\nTesting normalizeDisplayMode');
+
+test('normalizeDisplayMode returns null for false', () => {
+  assert.equal(normalizeDisplayMode(false), null);
+});
+
+test('normalizeDisplayMode returns null for "false"', () => {
+  assert.equal(normalizeDisplayMode('false'), null);
+});
+
+test('normalizeDisplayMode returns null for null', () => {
+  assert.equal(normalizeDisplayMode(null), null);
+});
+
+test('normalizeDisplayMode returns null for undefined', () => {
+  assert.equal(normalizeDisplayMode(undefined), null);
+});
+
+test('normalizeDisplayMode returns null for empty string ""', () => {
+  // Empty string is falsy in JS, so it's treated as disabled
+  assert.equal(normalizeDisplayMode(''), null);
+});
+
+test('normalizeDisplayMode returns "comment" for true', () => {
+  assert.equal(normalizeDisplayMode(true), 'comment');
+});
+
+test('normalizeDisplayMode returns "comment" for "true"', () => {
+  assert.equal(normalizeDisplayMode('true'), 'comment');
+});
+
+test('normalizeDisplayMode returns "comment" for "comment"', () => {
+  assert.equal(normalizeDisplayMode('comment'), 'comment');
+});
+
+test('normalizeDisplayMode returns "pr" for "pr"', () => {
+  assert.equal(normalizeDisplayMode('pr'), 'pr');
+});
+
+test('normalizeDisplayMode returns "pr" for "PR" (case insensitive)', () => {
+  assert.equal(normalizeDisplayMode('PR'), 'pr');
+});
+
+test('normalizeDisplayMode returns "comment" for "Comment" (case insensitive)', () => {
+  assert.equal(normalizeDisplayMode('Comment'), 'comment');
+});
+
+test('normalizeDisplayMode returns "comment" for unknown values (fallback)', () => {
+  assert.equal(normalizeDisplayMode('unknown'), 'comment');
 });
 
 section('\nTesting CLI Configuration');
@@ -164,17 +253,23 @@ test('solve config defines working-session-live-progress option', () => {
   assert(mockYargs.options['working-session-live-progress'] !== undefined);
 });
 
-test('working-session-live-progress is boolean type', () => {
-  assert.equal(mockYargs.options['working-session-live-progress'].type, 'boolean');
+test('working-session-live-progress is string type', () => {
+  assert.equal(mockYargs.options['working-session-live-progress'].type, 'string');
 });
 
-test('working-session-live-progress defaults to false', () => {
+test('working-session-live-progress defaults to false (disabled)', () => {
   assert.equal(mockYargs.options['working-session-live-progress'].default, false);
 });
 
 test('working-session-live-progress has EXPERIMENTAL marker in description', () => {
   const desc = mockYargs.options['working-session-live-progress'].description;
   assert(desc.includes('[EXPERIMENTAL]'));
+});
+
+test('working-session-live-progress description mentions comment and pr modes', () => {
+  const desc = mockYargs.options['working-session-live-progress'].description;
+  assert(desc.includes('comment'), 'Should mention comment mode');
+  assert(desc.includes('pr'), 'Should mention pr mode');
 });
 
 // Test 8: Check hive.config.lib.mjs
@@ -226,7 +321,7 @@ section('\nTesting Option Forwarding');
 // Test 9: Check option is in SOLVE_OPTION_DEFINITIONS (auto-forwarded by hive)
 test('SOLVE_OPTION_DEFINITIONS includes working-session-live-progress', () => {
   assert(solveConfig.SOLVE_OPTION_DEFINITIONS['working-session-live-progress'] !== undefined);
-  assert.equal(solveConfig.SOLVE_OPTION_DEFINITIONS['working-session-live-progress'].type, 'boolean');
+  assert.equal(solveConfig.SOLVE_OPTION_DEFINITIONS['working-session-live-progress'].type, 'string');
   assert.equal(solveConfig.SOLVE_OPTION_DEFINITIONS['working-session-live-progress'].default, false);
 });
 
@@ -259,7 +354,6 @@ test('claude.lib.mjs calls processStreamEvent for progress monitoring', () => {
 });
 
 test('claude.lib.mjs progress monitoring works without --interactive-mode', () => {
-  // The progressMonitor creation is SEPARATE from interactiveHandler creation
   assert(claudeSource.includes('works with or without --interactive-mode'));
 });
 
@@ -267,14 +361,13 @@ test('Progress module exports initProgressMonitoring factory', () => {
   assert(typeof progressModule.initProgressMonitoring === 'function');
 });
 
-test('initProgressMonitoring returns null when disabled', async () => {
+test('initProgressMonitoring returns null when disabled (false)', async () => {
   const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: false }, { owner: 'o', repo: 'r', prNumber: 1, $: null, log: async () => {} });
   assert.equal(result, null);
 });
 
 section('\nTesting Module Structure');
 
-// Test 11: Verify progress monitoring module structure
 test('Progress monitoring CONFIG is defined', () => {
   assert(typeof utils.CONFIG === 'object');
 });
@@ -298,10 +391,69 @@ test('CONFIG has MIN_UPDATE_INTERVAL for rate limiting', () => {
   assert(utils.CONFIG.MIN_UPDATE_INTERVAL > 0);
 });
 
+test('CONFIG has DISPLAY_MODES with comment and pr', () => {
+  assert(Array.isArray(utils.CONFIG.DISPLAY_MODES));
+  assert(utils.CONFIG.DISPLAY_MODES.includes('comment'));
+  assert(utils.CONFIG.DISPLAY_MODES.includes('pr'));
+});
+
+test('CONFIG has DEFAULT_DISPLAY_MODE set to comment', () => {
+  assert.equal(utils.CONFIG.DEFAULT_DISPLAY_MODE, 'comment');
+});
+
+section('\nTesting createProgressMonitor Display Modes');
+
+test('createProgressMonitor defaults to comment display mode', () => {
+  const monitor = progressModule.createProgressMonitor({
+    owner: 'test',
+    repo: 'test',
+    prNumber: 1,
+    $: async () => ({ stdout: '{}' }),
+    log: async () => {},
+  });
+  assert.equal(monitor.displayMode, 'comment');
+});
+
+test('createProgressMonitor accepts pr display mode', () => {
+  const monitor = progressModule.createProgressMonitor({
+    owner: 'test',
+    repo: 'test',
+    prNumber: 1,
+    $: async () => ({ stdout: '{}' }),
+    log: async () => {},
+    displayMode: 'pr',
+  });
+  assert.equal(monitor.displayMode, 'pr');
+});
+
+test('createProgressMonitor accepts comment display mode', () => {
+  const monitor = progressModule.createProgressMonitor({
+    owner: 'test',
+    repo: 'test',
+    prNumber: 1,
+    $: async () => ({ stdout: '{}' }),
+    log: async () => {},
+    displayMode: 'comment',
+  });
+  assert.equal(monitor.displayMode, 'comment');
+});
+
+test('createProgressMonitor exposes commentId (initially null)', () => {
+  const monitor = progressModule.createProgressMonitor({
+    owner: 'test',
+    repo: 'test',
+    prNumber: 1,
+    $: async () => ({ stdout: '{}' }),
+    log: async () => {},
+    displayMode: 'comment',
+  });
+  assert.equal(monitor.commentId, null);
+});
+
 section('\nTesting processStreamEvent Behavioral Tests');
 
 // Helper: create a mock progress monitor for behavioral testing
-const createMockMonitor = () => {
+const createMockMonitor = (displayMode = 'pr') => {
   const calls = [];
   const mockLog = async () => {};
   const monitor = progressModule.createProgressMonitor({
@@ -317,11 +469,18 @@ const createMockMonitor = () => {
       if (cmd.includes('gh pr edit')) {
         return { stdout: '' };
       }
+      if (cmd.includes('gh pr comment')) {
+        return { stdout: 'https://github.com/test-owner/test-repo/pull/1#issuecomment-12345\n' };
+      }
+      if (cmd.includes('gh api')) {
+        return { stdout: '' };
+      }
       return { stdout: '' };
     },
     log: mockLog,
     verbose: false,
     sessionId: 'test-session',
+    displayMode,
   });
   // Wrap processStreamEvent to track calls
   const origProcess = monitor.processStreamEvent.bind(monitor);
@@ -338,17 +497,6 @@ const createMockMonitor = () => {
 };
 
 // Test: Pattern 1 - Assistant event with TodoWrite tool_use (real event shape from case studies)
-const asyncTest = async (name, fn) => {
-  try {
-    await fn();
-    pass(name);
-    testsPassed++;
-  } catch (error) {
-    fail(`${name}: ${error.message}`);
-    testsFailed++;
-  }
-};
-
 await asyncTest('processStreamEvent detects Pattern 1: assistant TodoWrite tool_use', async () => {
   const monitor = createMockMonitor();
   const event = {
@@ -648,25 +796,67 @@ await asyncTest('processStreamEvent detects TodoWrite with all statuses', async 
   assert.equal(stats.percentage, 33, 'Percentage should be 33%');
 });
 
+section('\nTesting processStreamEvent with Comment Mode');
+
+await asyncTest('processStreamEvent works in comment display mode', async () => {
+  const monitor = createMockMonitor('comment');
+  const event = {
+    type: 'assistant',
+    message: {
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_comment_mode',
+          name: 'TodoWrite',
+          input: {
+            todos: [{ content: 'Comment mode task', status: 'in_progress', activeForm: 'Working' }],
+          },
+        },
+      ],
+    },
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, true, 'Should update progress in comment mode');
+});
+
 section('\nTesting initProgressMonitoring');
 
+await asyncTest('initProgressMonitoring returns null when disabled (false)', async () => {
+  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: false }, { owner: 'o', repo: 'r', prNumber: 1, $: null, log: async () => {} });
+  assert.equal(result, null, 'Should return null when disabled');
+});
+
 await asyncTest('initProgressMonitoring returns null when missing PR info', async () => {
-  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: true }, { owner: '', repo: 'r', prNumber: 1, $: null, log: async () => {} });
+  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: 'comment' }, { owner: '', repo: 'r', prNumber: 1, $: null, log: async () => {} });
   assert.equal(result, null, 'Should return null when owner is empty');
 });
 
 await asyncTest('initProgressMonitoring returns null when prNumber is missing', async () => {
-  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: true }, { owner: 'o', repo: 'r', prNumber: null, $: null, log: async () => {} });
+  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: 'comment' }, { owner: 'o', repo: 'r', prNumber: null, $: null, log: async () => {} });
   assert.equal(result, null, 'Should return null when prNumber is missing');
 });
 
-await asyncTest('initProgressMonitoring returns monitor when enabled with all info', async () => {
-  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: true }, { owner: 'o', repo: 'r', prNumber: 1, $: async () => ({ stdout: '{}' }), log: async () => {} });
+await asyncTest('initProgressMonitoring returns monitor with comment mode', async () => {
+  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: 'comment' }, { owner: 'o', repo: 'r', prNumber: 1, $: async () => ({ stdout: '{}' }), log: async () => {} });
   assert.notEqual(result, null, 'Should return a monitor object');
+  assert.equal(result.displayMode, 'comment', 'Should be in comment mode');
   assert.equal(typeof result.processStreamEvent, 'function', 'Should have processStreamEvent');
   assert.equal(typeof result.updateProgress, 'function', 'Should have updateProgress');
   assert.equal(typeof result.getStats, 'function', 'Should have getStats');
   assert.equal(typeof result.generateSection, 'function', 'Should have generateSection');
+});
+
+await asyncTest('initProgressMonitoring returns monitor with pr mode', async () => {
+  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: 'pr' }, { owner: 'o', repo: 'r', prNumber: 1, $: async () => ({ stdout: '{}' }), log: async () => {} });
+  assert.notEqual(result, null, 'Should return a monitor object');
+  assert.equal(result.displayMode, 'pr', 'Should be in pr mode');
+});
+
+await asyncTest('initProgressMonitoring treats bare true as comment mode', async () => {
+  // When yargs passes true (no value given), normalizeDisplayMode maps it to "comment"
+  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: true }, { owner: 'o', repo: 'r', prNumber: 1, $: async () => ({ stdout: '{}' }), log: async () => {} });
+  assert.notEqual(result, null, 'Should return a monitor object');
+  assert.equal(result.displayMode, 'comment', 'Should default to comment mode');
 });
 
 section('\nTesting Edge Cases');
@@ -745,7 +935,7 @@ test('generateProgressBar clamps negative percentage to 0', () => {
   assert.equal(bar, '░░░░░░░░░░', 'Should clamp to 0% (all empty)');
 });
 
-test('generateProgressSection includes all required markers and sections', () => {
+test('generateProgressSection includes all required markers and sections (no collapsible)', () => {
   const todos = [
     { status: 'completed', content: 'Done' },
     { status: 'pending', content: 'Todo' },
@@ -756,7 +946,8 @@ test('generateProgressSection includes all required markers and sections', () =>
   assert(section.includes('my-session'), 'Should include session ID');
   assert(section.includes('50%'), 'Should include correct percentage');
   assert(section.includes('1/2 completed'), 'Should include task counts');
-  assert(section.includes('<details>'), 'Should include collapsible section');
+  assert(!section.includes('<details>'), 'Should NOT include collapsible section');
+  assert(!section.includes('<summary>'), 'Should NOT include summary tag');
   assert(section.includes('[x] Done'), 'Should include completed task');
   assert(section.includes('[ ] Todo'), 'Should include pending task');
 });

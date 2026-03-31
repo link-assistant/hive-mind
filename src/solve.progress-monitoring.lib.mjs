@@ -3,18 +3,21 @@
  * Progress Monitoring Library
  *
  * [EXPERIMENTAL] This module provides live progress monitoring for work sessions
- * by tracking TODO list updates and reflecting them in PR descriptions.
+ * by tracking TODO list updates and reflecting them in PR comments or descriptions.
+ *
+ * Display modes:
+ * - "comment" (default): Creates a per-session PR comment with updatable progress section
+ * - "pr": Updates the PR description with a live progress section
  *
  * Features:
  * - Tracks TODO list state from TodoWrite tool calls
  * - Calculates progress percentage (completed/total)
- * - Updates PR description with live progress section
  * - Generates progress bar visualization
- * - Can be displayed in PR description or work session comments
+ * - Task list is always shown expanded (never collapsible)
  *
  * Usage:
  *   const { createProgressMonitor } = await import('./solve.progress-monitoring.lib.mjs');
- *   const monitor = createProgressMonitor({ owner, repo, prNumber, $, log });
+ *   const monitor = createProgressMonitor({ owner, repo, prNumber, $, log, displayMode: 'comment' });
  *   await monitor.updateProgress(todos);
  *
  * @module solve.progress-monitoring.lib.mjs
@@ -35,6 +38,10 @@ const CONFIG = {
   PROGRESS_SECTION_END: '<!-- LIVE-PROGRESS-END -->',
   // Minimum interval between PR description updates (in ms)
   MIN_UPDATE_INTERVAL: 10000, // 10 seconds to avoid rate limiting
+  // Valid display modes
+  DISPLAY_MODES: ['comment', 'pr'],
+  // Default display mode when enabled without explicit value
+  DEFAULT_DISPLAY_MODE: 'comment',
 };
 
 /**
@@ -123,7 +130,7 @@ const formatTodoList = (todos, maxDisplay = 0) => {
 };
 
 /**
- * Generate the progress section markdown
+ * Generate the progress section markdown (never collapsible)
  *
  * @param {Array<Object>} todos - Array of TODO items
  * @param {string} sessionId - Work session identifier (optional)
@@ -148,14 +155,29 @@ ${progressBar} ${stats.percentage}%
 
 **Tasks:** ${stats.completed}/${stats.total} completed · ${stats.inProgress} in progress · ${stats.pending} pending
 
-<details>
-<summary>📋 Task List (${stats.total} total)</summary>
+📋 **Task List** (${stats.total} total)
 
 ${formatTodoList(todos)}
 
-</details>
-
 ${CONFIG.PROGRESS_SECTION_END}`;
+};
+
+/**
+ * Normalize the display mode value.
+ * - false/falsy → null (disabled)
+ * - true or "true" → default mode ("comment")
+ * - "comment" or "pr" → that mode
+ *
+ * @param {*} value - Raw option value
+ * @returns {string|null} Normalized display mode or null if disabled
+ */
+export const normalizeDisplayMode = value => {
+  if (!value || value === 'false') return null;
+  if (value === true || value === 'true') return CONFIG.DEFAULT_DISPLAY_MODE;
+  const mode = String(value).toLowerCase();
+  if (CONFIG.DISPLAY_MODES.includes(mode)) return mode;
+  // Unknown value falls back to default
+  return CONFIG.DEFAULT_DISPLAY_MODE;
 };
 
 /**
@@ -169,35 +191,78 @@ ${CONFIG.PROGRESS_SECTION_END}`;
  * @param {Function} options.log - Logging function
  * @param {boolean} options.verbose - Enable verbose logging
  * @param {string} options.sessionId - Work session identifier
+ * @param {string} options.displayMode - Display mode: "comment" or "pr"
  * @returns {Object} Progress monitor instance
  */
-export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose = false, sessionId = null }) => {
+export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose = false, sessionId = null, displayMode = 'comment' }) => {
   const state = {
     lastUpdate: 0,
     currentTodos: null,
     sessionId: sessionId || `session-${Date.now()}`,
+    commentId: null, // For comment mode: the ID of the progress comment to update
+    displayMode: displayMode || CONFIG.DEFAULT_DISPLAY_MODE,
   };
 
   /**
-   * Update PR description with current progress
+   * Update progress via PR comment (comment mode)
+   * Creates a new comment on first call, then edits it on subsequent calls.
    *
    * @param {Array<Object>} todos - Array of TODO items
-   * @param {boolean} force - Force update even if within rate limit interval
    * @returns {Promise<boolean>} True if update was successful
    */
-  const updateProgress = async (todos, force = false) => {
-    const now = Date.now();
+  const updateProgressComment = async todos => {
+    try {
+      state.currentTodos = todos;
+      const progressSection = generateProgressSection(todos, state.sessionId);
 
-    // Rate limiting: don't update too frequently unless forced
-    if (!force && now - state.lastUpdate < CONFIG.MIN_UPDATE_INTERVAL) {
-      if (verbose) {
-        await log(`⏭️  Skipping PR progress update (rate limited, ${Math.round((CONFIG.MIN_UPDATE_INTERVAL - (now - state.lastUpdate)) / 1000)}s remaining)`, { verbose: true });
+      if (state.commentId) {
+        // Edit existing comment
+        const fs = (await import('fs')).promises;
+        const tempFile = `/tmp/pr-progress-comment-${prNumber}-${Date.now()}.md`;
+        await fs.writeFile(tempFile, progressSection);
+        await $`gh api repos/${owner}/${repo}/issues/comments/${state.commentId} --method PATCH --field body=@${tempFile}`;
+        await fs.unlink(tempFile).catch(() => {});
+      } else {
+        // Create new comment
+        const fs = (await import('fs')).promises;
+        const tempFile = `/tmp/pr-progress-comment-${prNumber}-${Date.now()}.md`;
+        await fs.writeFile(tempFile, progressSection);
+        const result = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body-file ${tempFile}`;
+        await fs.unlink(tempFile).catch(() => {});
+
+        // Extract comment ID from the created comment URL for future edits
+        // gh pr comment outputs the URL of the created comment
+        const output = result.stdout?.toString?.() || '';
+        const urlMatch = output.match(/\/comments\/(\d+)/);
+        if (urlMatch) {
+          state.commentId = urlMatch[1];
+        } else {
+          // Fallback: find the comment we just created by looking for our marker
+          const commentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq ${`[.[] | select(.body | contains("${CONFIG.PROGRESS_SECTION_START}")) | .id] | last`}`;
+          const commentId = commentsResult.stdout?.toString?.().trim();
+          if (commentId && commentId !== 'null') {
+            state.commentId = commentId;
+          }
+        }
       }
+
+      const stats = calculateProgress(todos);
+      await log(`📊 Updated progress comment: ${stats.percentage}% (${stats.completed}/${stats.total} tasks completed)`);
+      return true;
+    } catch (error) {
+      await log(`⚠️  Failed to update progress comment: ${error.message}`);
       return false;
     }
+  };
 
+  /**
+   * Update progress via PR description (pr mode)
+   *
+   * @param {Array<Object>} todos - Array of TODO items
+   * @returns {Promise<boolean>} True if update was successful
+   */
+  const updateProgressPrDescription = async todos => {
     try {
-      // Store current todos
       state.currentTodos = todos;
 
       // Fetch current PR description
@@ -220,11 +285,9 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
         if (startIdx !== -1 && endIdx !== -1) {
           updatedBody = currentBody.substring(0, startIdx) + progressSection + currentBody.substring(endIdx + CONFIG.PROGRESS_SECTION_END.length);
         } else {
-          // Malformed markers, append new section
           updatedBody = currentBody + '\n\n' + progressSection;
         }
       } else {
-        // Add progress section at the end
         updatedBody = currentBody + '\n\n' + progressSection;
       }
 
@@ -232,21 +295,47 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
       const fs = (await import('fs')).promises;
       const tempBodyFile = `/tmp/pr-progress-${prNumber}-${Date.now()}.md`;
       await fs.writeFile(tempBodyFile, updatedBody);
-
       await $`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
-
       await fs.unlink(tempBodyFile).catch(() => {});
-
-      state.lastUpdate = now;
 
       const stats = calculateProgress(todos);
       await log(`📊 Updated PR progress: ${stats.percentage}% (${stats.completed}/${stats.total} tasks completed)`);
-
       return true;
     } catch (error) {
       await log(`⚠️  Failed to update PR progress: ${error.message}`);
       return false;
     }
+  };
+
+  /**
+   * Update progress using the configured display mode
+   *
+   * @param {Array<Object>} todos - Array of TODO items
+   * @param {boolean} force - Force update even if within rate limit interval
+   * @returns {Promise<boolean>} True if update was successful
+   */
+  const updateProgress = async (todos, force = false) => {
+    const now = Date.now();
+
+    // Rate limiting: don't update too frequently unless forced
+    if (!force && now - state.lastUpdate < CONFIG.MIN_UPDATE_INTERVAL) {
+      if (verbose) {
+        await log(`⏭️  Skipping progress update (rate limited, ${Math.round((CONFIG.MIN_UPDATE_INTERVAL - (now - state.lastUpdate)) / 1000)}s remaining)`, { verbose: true });
+      }
+      return false;
+    }
+
+    let result;
+    if (state.displayMode === 'pr') {
+      result = await updateProgressPrDescription(todos);
+    } else {
+      result = await updateProgressComment(todos);
+    }
+
+    if (result) {
+      state.lastUpdate = now;
+    }
+    return result;
   };
 
   /**
@@ -259,7 +348,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
   };
 
   /**
-   * Generate progress section without updating PR
+   * Generate progress section without updating
    *
    * @param {Array<Object>} todos - Array of TODO items
    * @returns {string} Progress section markdown
@@ -306,6 +395,12 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
     get sessionId() {
       return state.sessionId;
     },
+    get displayMode() {
+      return state.displayMode;
+    },
+    get commentId() {
+      return state.commentId;
+    },
   };
 };
 
@@ -318,13 +413,14 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
  * @returns {Promise<Object|null>} Progress monitor instance or null
  */
 export const initProgressMonitoring = async (argv, { owner, repo, prNumber, $, log }) => {
-  if (!argv.workingSessionLiveProgress) return null;
+  const displayMode = normalizeDisplayMode(argv.workingSessionLiveProgress);
+  if (!displayMode) return null;
   if (!owner || !repo || !prNumber) {
     await log('⚠️ Live progress monitoring: Disabled - missing PR info', { verbose: true });
     return null;
   }
-  const monitor = createProgressMonitor({ owner, repo, prNumber, $, log, verbose: argv.verbose, sessionId: `session-${Date.now()}` });
-  await log(`📊 Live progress monitoring: ENABLED (session: ${monitor.sessionId})`, { verbose: true });
+  const monitor = createProgressMonitor({ owner, repo, prNumber, $, log, verbose: argv.verbose, sessionId: `session-${Date.now()}`, displayMode });
+  await log(`📊 Live progress monitoring: ENABLED (mode: ${displayMode}, session: ${monitor.sessionId})`, { verbose: true });
   return monitor;
 };
 

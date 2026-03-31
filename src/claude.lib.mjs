@@ -11,6 +11,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
+import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
@@ -668,10 +669,8 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
 export const isStderrError = message => {
   const trimmed = message.trim();
   if (!trimmed) return false;
-
   // Detection 1: Emoji-prefixed warnings (Issue #477)
   let isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
-
   // Detection 2: JSON-structured log messages (Issue #1337)
   if (!isWarning && trimmed.startsWith('{')) {
     try {
@@ -687,13 +686,11 @@ export const isStderrError = message => {
       // Not valid JSON — fall through to keyword matching
     }
   }
-
   if (!isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {
     return true;
   }
   return false;
 };
-
 export const executeClaudeCommand = async params => {
   const {
     tempDir,
@@ -796,6 +793,7 @@ export const executeClaudeCommand = async params => {
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }
+    const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
     const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined; // Issue #1223
@@ -962,6 +960,7 @@ export const executeClaudeCommand = async params => {
               }
               if (data.type === 'message') messageCount++;
               else if (data.type === 'tool_use') toolUseCount++;
+              if (progressMonitor) await progressMonitor.processStreamEvent(data).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
               if (data.type === 'result') {
                 if (!resultEventReceived) {
                   resultEventReceived = true;
@@ -1121,6 +1120,7 @@ export const executeClaudeCommand = async params => {
               await log(`⚠️ Interactive mode error (remaining buffer): ${interactiveError.message}`, { verbose: true });
             }
           }
+          if (progressMonitor) await progressMonitor.processStreamEvent(data, true).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
         } catch {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
         }

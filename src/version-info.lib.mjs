@@ -34,6 +34,393 @@ async function execCommandAsync(command, timeout = 5000) {
 }
 
 /**
+ * Per-tool regex parsers to normalize raw --version output into uniform format:
+ *   <version> (<commit>, <revision>, <date>, etc.)
+ *
+ * Each parser returns { version, extra[] } or null if it doesn't match.
+ * The `version` is the most specific version string (for bug reporting).
+ * Items in `extra` are joined with ", " and placed in parentheses.
+ *
+ * @type {Record<string, (raw: string) => {version: string, extra: string[]} | null>}
+ */
+const VERSION_PARSERS = {
+  // rustc 1.94.1 (e408947bf 2026-03-25)
+  rust: raw => {
+    const m = raw.match(/^rustc\s+([\d.]+(?:-\S+)?)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    const extra = m[2] ? m[2].trim().split(/\s+/) : [];
+    return { version: m[1], extra };
+  },
+  // cargo 1.94.1 (29ea6fb6a 2026-03-24)
+  cargo: raw => {
+    const m = raw.match(/^cargo\s+([\d.]+(?:-\S+)?)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    const extra = m[2] ? m[2].trim().split(/\s+/) : [];
+    return { version: m[1], extra };
+  },
+  // go version go1.26.1 linux/amd64
+  go: raw => {
+    const m = raw.match(/go([\d.]+(?:\S*)?)\s+(.*)/);
+    if (!m) return null;
+    return { version: m[1], extra: [m[2].trim()] };
+  },
+  // PHP 8.3.30 (cli) (built: Jan 13 2026 22:36:55) (NTS)
+  php: raw => {
+    const m = raw.match(/^PHP\s+([\d.]+(?:-\S+)?)\s*(.*)/);
+    if (!m) return null;
+    const tags = [];
+    const parts = m[2].matchAll(/\(([^)]+)\)/g);
+    for (const p of parts) tags.push(p[1]);
+    return { version: m[1], extra: tags };
+  },
+  // openjdk version "21" 2023-09-19 LTS
+  java: raw => {
+    const m = raw.match(/version\s+"([^"]+)"(?:\s+(.+))?/);
+    if (!m) return null;
+    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+  },
+  // gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+  gcc: raw => {
+    const m = raw.match(/^gcc\s+(?:\(([^)]+)\)\s+)?([\d.]+)/);
+    if (!m) return null;
+    return { version: m[2], extra: m[1] ? [m[1]] : [] };
+  },
+  // g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+  gpp: raw => {
+    const m = raw.match(/^g\+\+\s+(?:\(([^)]+)\)\s+)?([\d.]+)/);
+    if (!m) return null;
+    return { version: m[2], extra: m[1] ? [m[1]] : [] };
+  },
+  // clang version 17.0.0 (https://github.com/... commit)
+  clang: raw => {
+    const m = raw.match(/^clang\s+version\s+([\d.]+(?:-\S+)?)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+  },
+  // LLD 17.0.0 (compatible with GNU linkers)
+  lld: raw => {
+    const m = raw.match(/^LLD\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+  },
+  // Python 3.14.3
+  python: raw => {
+    const m = raw.match(/^Python\s+([\d.]+(?:\S*)?)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // ruby 3.4.9 (2026-03-11 revision 76cca827ab) +PRISM [x86_64-linux]
+  ruby: raw => {
+    const m = raw.match(/^ruby\s+([\d.]+(?:p\d+)?)\s*(?:\(([^)]+)\))?\s*(.*)/);
+    if (!m) return null;
+    const extra = [];
+    if (m[2]) extra.push(m[2].trim());
+    const tail = m[3] ? m[3].trim() : '';
+    if (tail) extra.push(tail);
+    return { version: m[1], extra };
+  },
+  // Kotlin version 2.3.20-release-208 (JRE 21+35-LTS)
+  kotlin: raw => {
+    const m = raw.match(/^Kotlin\s+version\s+([\d.\-\w]+)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+  },
+  // Swift version 6.0.3 (swift-6.0.3-RELEASE)
+  swift: raw => {
+    const m = raw.match(/^Swift\s+version\s+([\d.]+(?:\.\d+)?)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+  },
+  // R version 4.3.3 (2024-02-29) -- "Angel Food Cake"
+  r: raw => {
+    const m = raw.match(/^R\s+version\s+([\d.]+)\s*(?:\(([^)]+)\))?(?:\s+--\s+"([^"]+)")?/);
+    if (!m) return null;
+    const extra = [];
+    if (m[2]) extra.push(m[2]);
+    if (m[3]) extra.push(m[3]);
+    return { version: m[1], extra };
+  },
+  // git version 2.43.0
+  git: raw => {
+    const m = raw.match(/^git\s+version\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // gh version 2.89.0 (2026-03-26)
+  gh: raw => {
+    const m = raw.match(/^gh\s+version\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    return { version: m[1], extra: m[2] ? [m[2]] : [] };
+  },
+  // glab version 1.36.0
+  glab: raw => {
+    const m = raw.match(/^glab\s+version\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // curl 8.19.0 (x86_64-pc-linux-gnu) libcurl/8.19.0 ...
+  curl: raw => {
+    const m = raw.match(/^curl\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    return { version: m[1], extra: m[2] ? [m[2]] : [] };
+  },
+  // GNU Wget 1.21.4 built on linux-gnu.
+  wget: raw => {
+    const m = raw.match(/^GNU\s+Wget\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // cmake version 3.28.3
+  cmake: raw => {
+    const m = raw.match(/^cmake\s+version\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // GNU Make 4.3
+  make: raw => {
+    const m = raw.match(/^GNU\s+Make\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // NASM version 2.16.01
+  nasm: raw => {
+    const m = raw.match(/^NASM\s+version\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // flat assembler  version 1.73.32
+  fasm: raw => {
+    const m = raw.match(/version\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // Screen version 4.09.01 (GNU) 20-Aug-23
+  screen: raw => {
+    const m = raw.match(/^Screen\s+version\s+([\d.]+)\s*(?:\(([^)]+)\))?\s*(.*)/);
+    if (!m) return null;
+    const extra = [];
+    if (m[2]) extra.push(m[2]);
+    if (m[3] && m[3].trim()) extra.push(m[3].trim());
+    return { version: m[1], extra };
+  },
+  // expect version 5.45.4
+  expect: raw => {
+    const m = raw.match(/^expect\s+version\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // The OCaml toplevel, version 5.4.1
+  ocaml: raw => {
+    const m = raw.match(/version\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // The Rocq Prover, version 9.1.1
+  rocq: raw => {
+    const m = raw.match(/version\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // elan 4.2.1 (3d5138e15 2026-03-18)
+  elan: raw => {
+    const m = raw.match(/^elan\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    const extra = m[2] ? m[2].trim().split(/\s+/) : [];
+    return { version: m[1], extra };
+  },
+  // Lean (version 4.29.0, x86_64-unknown-linux-gnu, commit abc123, Release)
+  lean: raw => {
+    const m = raw.match(/version\s+([\d.]+)(?:,\s*(.+?))\)?$/);
+    if (!m) return null;
+    const extra = m[2]
+      ? m[2]
+          .split(',')
+          .map(s => s.trim().replace(/\)$/, ''))
+          .filter(Boolean)
+      : [];
+    return { version: m[1], extra };
+  },
+  // Google Chrome 146.0.7680.164
+  chrome: raw => {
+    const m = raw.match(/^Google\s+Chrome\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // Chromium 137.0.7151.0
+  chromium: raw => {
+    const m = raw.match(/^Chromium\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // Mozilla Firefox 139.0
+  firefox: raw => {
+    const m = raw.match(/^Mozilla\s+Firefox\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // Microsoft Edge 146.0.3856.84
+  msedge: raw => {
+    const m = raw.match(/^Microsoft\s+Edge\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // deno 2.7.9 (stable, release, x86_64-unknown-linux-gnu)
+  deno: raw => {
+    const m = raw.match(/^deno\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    const extra = m[2]
+      ? m[2]
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean)
+      : [];
+    return { version: m[1], extra };
+  },
+  // Version 1.58.2  (Playwright CLI)
+  playwright: raw => {
+    const m = raw.match(/(?:Version\s+)?([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // @playwright/test@1.58.2
+  playwrightTest: raw => {
+    const m = raw.match(/@playwright\/test@([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // @playwright/mcp@0.0.69 or `-- @playwright/mcp@0.0.69
+  playwrightMcp: raw => {
+    const m = raw.match(/@playwright\/mcp@([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // @puppeteer/browsers@2.13.0
+  puppeteerBrowsers: raw => {
+    const m = raw.match(/@puppeteer\/browsers@([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // 2.1.87 (Claude Code)
+  claudeCode: raw => {
+    const m = raw.match(/([\d.]+)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    return { version: m[1], extra: m[2] ? [m[2]] : [] };
+  },
+  // GitHub Copilot CLI 1.0.14.\nRun 'copilot update'...
+  copilot: raw => {
+    const m = raw.match(/([\d.]+)/);
+    if (!m) return null;
+    // Strip trailing dot from version (e.g. "1.0.14." -> "1.0.14")
+    const version = m[1].replace(/\.$/, '');
+    return { version, extra: [] };
+  },
+  // pyenv 2.6.26
+  pyenv: raw => {
+    const m = raw.match(/^pyenv\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // /workspace/.perl5/bin/perlbrew  - App::perlbrew/1.02
+  perlbrew: raw => {
+    const m = raw.match(/App::perlbrew\/([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // rbenv 1.3.2-20-g23c3041
+  rbenv: raw => {
+    const m = raw.match(/^rbenv\s+([\d.]+(?:-[\w]+)*)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // Homebrew 5.1.2
+  brew: raw => {
+    const m = raw.match(/^Homebrew\s+([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // This is Zip 3.0 (July 5th 2008), by Info-ZIP.
+  zip: raw => {
+    const m = raw.match(/Zip\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+    if (!m) return null;
+    return { version: m[1], extra: m[2] ? [m[2]] : [] };
+  },
+  // UnZip 6.00 of 20 April 2009, by Debian.
+  unzip: raw => {
+    const m = raw.match(/UnZip\s+([\d.]+)\s*(?:of\s+([^,]+))?/);
+    if (!m) return null;
+    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+  },
+  // ii  xvfb  2:21.1.12-1ubuntu1.5  amd64  Virtual Framebuffer...
+  xvfb: raw => {
+    // dpkg output format
+    const dpkg = raw.match(/^ii\s+xvfb\s+(\S+)/);
+    if (dpkg) {
+      // Strip epoch (e.g. "2:21.1.12-1ubuntu1.5" -> "21.1.12-1ubuntu1.5")
+      const ver = dpkg[1].replace(/^\d+:/, '');
+      return { version: ver, extra: [] };
+    }
+    // X.Org X Server version output (if it ever works)
+    const xorg = raw.match(/X\.Org\s+X\s+Server\s+([\d.]+)/);
+    if (xorg) return { version: xorg[1], extra: [] };
+    return null;
+  },
+  // Xvfb returns "Unrecognized option: -version" — this is handled by fixing the command
+  // to use dpkg fallback first
+
+  // agent 1.0.0 or similar
+  agent: raw => {
+    const m = raw.match(/([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // codex-cli 0.117.0 or similar
+  codex: raw => {
+    const m = raw.match(/([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // opencode 1.3.10 or similar
+  opencode: raw => {
+    const m = raw.match(/([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // qwen-code version
+  qwenCode: raw => {
+    const m = raw.match(/([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+  // gemini version
+  gemini: raw => {
+    const m = raw.match(/([\d.]+)/);
+    if (!m) return null;
+    return { version: m[1], extra: [] };
+  },
+};
+
+/**
+ * Parse a raw version string using the per-tool parser, returning uniform format:
+ *   "<version>" or "<version> (<extra1>, <extra2>, ...)"
+ * Falls back to the raw string if no parser matches.
+ * @param {string} key - Tool key (must match a key in VERSION_PARSERS)
+ * @param {string} raw - Raw version string from command output
+ * @returns {string} Parsed version string in uniform format
+ */
+export function parseVersion(key, raw) {
+  if (!raw) return raw;
+  const parser = VERSION_PARSERS[key];
+  if (!parser) return raw;
+  const result = parser(raw);
+  if (!result) return raw;
+  const { version, extra } = result;
+  if (extra && extra.length > 0) {
+    return `${version} (${extra.join(', ')})`;
+  }
+  return version;
+}
+
+/**
  * Command definitions for version checking
  * Each entry has: key, command, and optional fallbacks
  * @type {Array<{key: string, command: string, fallbacks?: string[]}>}
@@ -57,8 +444,8 @@ const VERSION_COMMANDS = [
 
   // Browsers (installed via Playwright)
   { key: 'chrome', command: 'google-chrome --version 2>&1' },
-  { key: 'chromium', command: 'chromium --version 2>&1', fallbacks: ['chromium-browser --version 2>&1'] },
-  { key: 'firefox', command: 'firefox --version 2>&1' },
+  { key: 'chromium', command: 'chromium --version 2>&1', fallbacks: ['chromium-browser --version 2>&1', "ls ~/.cache/ms-playwright/ 2>/dev/null | grep -oE 'chromium-[0-9]+' | head -1"] },
+  { key: 'firefox', command: 'firefox --version 2>&1', fallbacks: ["ls ~/.cache/ms-playwright/ 2>/dev/null | grep -oE 'firefox-[0-9]+' | head -1"] },
   { key: 'msedge', command: 'microsoft-edge --version 2>&1', fallbacks: ['microsoft-edge-stable --version 2>&1'] },
   { key: 'webkit', command: "ls ~/.cache/ms-playwright/ 2>/dev/null | grep -oE 'webkit-[0-9]+' | head -1" },
 
@@ -109,7 +496,7 @@ const VERSION_COMMANDS = [
   { key: 'gpp', command: 'g++ --version 2>&1 | head -n1' },
   { key: 'clang', command: 'clang --version 2>&1 | head -n1' },
   { key: 'llvm', command: 'llvm-config --version 2>&1' },
-  { key: 'lld', command: 'lld --version 2>&1 | head -n1' },
+  { key: 'lld', command: 'ld.lld --version 2>&1 | head -n1', fallbacks: ['lld --version 2>&1 | head -n1'] },
   { key: 'make', command: 'make --version 2>&1 | head -n1' },
   { key: 'cmake', command: 'cmake --version 2>&1 | head -n1' },
 
@@ -139,7 +526,7 @@ const VERSION_COMMANDS = [
   { key: 'unzip', command: 'unzip -v 2>&1 | head -n1' },
   { key: 'expect', command: 'expect -version 2>&1' },
   { key: 'screen', command: 'screen --version 2>&1' },
-  { key: 'xvfb', command: 'Xvfb -version 2>&1 | head -n1', fallbacks: ['dpkg -l xvfb 2>/dev/null | grep xvfb | head -1'] },
+  { key: 'xvfb', command: 'dpkg -l xvfb 2>/dev/null | grep "^ii" | head -1', fallbacks: ['Xvfb -version 2>&1 | head -n1'] },
 ];
 
 /**
@@ -353,14 +740,17 @@ export async function getVersionInfo(verbose = false, processVersion = null) {
 }
 
 /**
- * Helper to add version line if version exists
+ * Helper to add version line if version exists.
+ * Uses parseVersion() to normalize raw output into uniform format.
  * @param {string[]} lines - Array to push to
  * @param {string} label - Display label
  * @param {string|null} version - Version string or null
+ * @param {string} [key] - Tool key for version parser lookup
  */
-function addVersionLine(lines, label, version) {
+function addVersionLine(lines, label, version, key) {
   if (version) {
-    lines.push(`• ${label}: \`${version}\``);
+    const display = key ? parseVersion(key, version) : version;
+    lines.push(`• ${label}: \`${display}\``);
   }
 }
 
@@ -384,13 +774,13 @@ export function formatVersionMessage(versions) {
 
   // === AI Agents (--tool options) ===
   const agentLines = [];
-  addVersionLine(agentLines, 'Claude Code', versions.claudeCode);
-  addVersionLine(agentLines, 'Agent CLI', versions.agent);
-  addVersionLine(agentLines, 'OpenAI Codex', versions.codex);
-  addVersionLine(agentLines, 'OpenCode', versions.opencode);
-  addVersionLine(agentLines, 'Qwen Code', versions.qwenCode);
-  addVersionLine(agentLines, 'Gemini CLI', versions.gemini);
-  addVersionLine(agentLines, 'GitHub Copilot', versions.copilot);
+  addVersionLine(agentLines, 'Claude Code', versions.claudeCode, 'claudeCode');
+  addVersionLine(agentLines, 'Agent CLI', versions.agent, 'agent');
+  addVersionLine(agentLines, 'OpenAI Codex', versions.codex, 'codex');
+  addVersionLine(agentLines, 'OpenCode', versions.opencode, 'opencode');
+  addVersionLine(agentLines, 'Qwen Code', versions.qwenCode, 'qwenCode');
+  addVersionLine(agentLines, 'Gemini CLI', versions.gemini, 'gemini');
+  addVersionLine(agentLines, 'GitHub Copilot', versions.copilot, 'copilot');
 
   if (agentLines.length > 0) {
     lines.push('');
@@ -402,7 +792,7 @@ export function formatVersionMessage(versions) {
   const jsLines = [];
   addVersionLine(jsLines, 'Node.js', versions.node);
   addVersionLine(jsLines, 'Bun', versions.bun);
-  addVersionLine(jsLines, 'Deno', versions.deno);
+  addVersionLine(jsLines, 'Deno', versions.deno, 'deno');
   addVersionLine(jsLines, 'NPM', versions.npm);
   addVersionLine(jsLines, 'NVM', versions.nvm);
 
@@ -414,8 +804,8 @@ export function formatVersionMessage(versions) {
 
   // === Python ===
   const pythonLines = [];
-  addVersionLine(pythonLines, 'Python', versions.python);
-  addVersionLine(pythonLines, 'Pyenv', versions.pyenv);
+  addVersionLine(pythonLines, 'Python', versions.python, 'python');
+  addVersionLine(pythonLines, 'Pyenv', versions.pyenv, 'pyenv');
 
   if (pythonLines.length > 0) {
     lines.push('');
@@ -425,8 +815,8 @@ export function formatVersionMessage(versions) {
 
   // === Rust ===
   const rustLines = [];
-  addVersionLine(rustLines, 'Rustc', versions.rust);
-  addVersionLine(rustLines, 'Cargo', versions.cargo);
+  addVersionLine(rustLines, 'Rustc', versions.rust, 'rust');
+  addVersionLine(rustLines, 'Cargo', versions.cargo, 'cargo');
 
   if (rustLines.length > 0) {
     lines.push('');
@@ -436,7 +826,7 @@ export function formatVersionMessage(versions) {
 
   // === Java ===
   const javaLines = [];
-  addVersionLine(javaLines, 'Java', versions.java);
+  addVersionLine(javaLines, 'Java', versions.java, 'java');
   addVersionLine(javaLines, 'SDKMAN', versions.sdkman);
 
   if (javaLines.length > 0) {
@@ -449,14 +839,14 @@ export function formatVersionMessage(versions) {
   if (versions.go) {
     lines.push('');
     lines.push('*🔷 Go*');
-    addVersionLine(lines, 'Go', versions.go);
+    addVersionLine(lines, 'Go', versions.go, 'go');
   }
 
   // === PHP ===
   if (versions.php) {
     lines.push('');
     lines.push('*🐘 PHP*');
-    addVersionLine(lines, 'PHP', versions.php);
+    addVersionLine(lines, 'PHP', versions.php, 'php');
   }
 
   // === .NET ===
@@ -469,7 +859,7 @@ export function formatVersionMessage(versions) {
   // === Perl ===
   const perlLines = [];
   addVersionLine(perlLines, 'Perl', versions.perl);
-  addVersionLine(perlLines, 'Perlbrew', versions.perlbrew);
+  addVersionLine(perlLines, 'Perlbrew', versions.perlbrew, 'perlbrew');
 
   if (perlLines.length > 0) {
     lines.push('');
@@ -479,9 +869,9 @@ export function formatVersionMessage(versions) {
 
   // === OCaml/Rocq ===
   const ocamlLines = [];
-  addVersionLine(ocamlLines, 'OCaml', versions.ocaml);
+  addVersionLine(ocamlLines, 'OCaml', versions.ocaml, 'ocaml');
   addVersionLine(ocamlLines, 'Opam', versions.opam);
-  addVersionLine(ocamlLines, 'Rocq/Coq', versions.rocq);
+  addVersionLine(ocamlLines, 'Rocq/Coq', versions.rocq, 'rocq');
 
   if (ocamlLines.length > 0) {
     lines.push('');
@@ -491,8 +881,8 @@ export function formatVersionMessage(versions) {
 
   // === Lean ===
   const leanLines = [];
-  addVersionLine(leanLines, 'Lean', versions.lean);
-  addVersionLine(leanLines, 'Elan', versions.elan);
+  addVersionLine(leanLines, 'Lean', versions.lean, 'lean');
+  addVersionLine(leanLines, 'Elan', versions.elan, 'elan');
   addVersionLine(leanLines, 'Lake', versions.lake);
 
   if (leanLines.length > 0) {
@@ -503,8 +893,8 @@ export function formatVersionMessage(versions) {
 
   // === Ruby ===
   const rubyLines = [];
-  addVersionLine(rubyLines, 'Ruby', versions.ruby);
-  addVersionLine(rubyLines, 'Rbenv', versions.rbenv);
+  addVersionLine(rubyLines, 'Ruby', versions.ruby, 'ruby');
+  addVersionLine(rubyLines, 'Rbenv', versions.rbenv, 'rbenv');
 
   if (rubyLines.length > 0) {
     lines.push('');
@@ -516,34 +906,34 @@ export function formatVersionMessage(versions) {
   if (versions.kotlin) {
     lines.push('');
     lines.push('*🟣 Kotlin*');
-    addVersionLine(lines, 'Kotlin', versions.kotlin);
+    addVersionLine(lines, 'Kotlin', versions.kotlin, 'kotlin');
   }
 
   // === Swift ===
   if (versions.swift) {
     lines.push('');
     lines.push('*🦅 Swift*');
-    addVersionLine(lines, 'Swift', versions.swift);
+    addVersionLine(lines, 'Swift', versions.swift, 'swift');
   }
 
   // === R ===
   if (versions.r) {
     lines.push('');
     lines.push('*📊 R*');
-    addVersionLine(lines, 'R', versions.r);
+    addVersionLine(lines, 'R', versions.r, 'r');
   }
 
   // === C/C++ ===
   const cppLines = [];
-  addVersionLine(cppLines, 'GCC', versions.gcc);
-  addVersionLine(cppLines, 'G++', versions.gpp);
-  addVersionLine(cppLines, 'Clang', versions.clang);
+  addVersionLine(cppLines, 'GCC', versions.gcc, 'gcc');
+  addVersionLine(cppLines, 'G++', versions.gpp, 'gpp');
+  addVersionLine(cppLines, 'Clang', versions.clang, 'clang');
   addVersionLine(cppLines, 'LLVM', versions.llvm);
-  addVersionLine(cppLines, 'LLD', versions.lld);
-  addVersionLine(cppLines, 'Make', versions.make);
-  addVersionLine(cppLines, 'CMake', versions.cmake);
-  addVersionLine(cppLines, 'NASM', versions.nasm);
-  addVersionLine(cppLines, 'FASM', versions.fasm);
+  addVersionLine(cppLines, 'LLD', versions.lld, 'lld');
+  addVersionLine(cppLines, 'Make', versions.make, 'make');
+  addVersionLine(cppLines, 'CMake', versions.cmake, 'cmake');
+  addVersionLine(cppLines, 'NASM', versions.nasm, 'nasm');
+  addVersionLine(cppLines, 'FASM', versions.fasm, 'fasm');
 
   if (cppLines.length > 0) {
     lines.push('');
@@ -553,10 +943,10 @@ export function formatVersionMessage(versions) {
 
   // === Browsers ===
   const browserLines = [];
-  addVersionLine(browserLines, 'Google Chrome', versions.chrome);
-  addVersionLine(browserLines, 'Chromium', versions.chromium);
-  addVersionLine(browserLines, 'Firefox', versions.firefox);
-  addVersionLine(browserLines, 'Microsoft Edge', versions.msedge);
+  addVersionLine(browserLines, 'Google Chrome', versions.chrome, 'chrome');
+  addVersionLine(browserLines, 'Chromium', versions.chromium, 'chromium');
+  addVersionLine(browserLines, 'Firefox', versions.firefox, 'firefox');
+  addVersionLine(browserLines, 'Microsoft Edge', versions.msedge, 'msedge');
   addVersionLine(browserLines, 'WebKit', versions.webkit);
 
   if (browserLines.length > 0) {
@@ -567,15 +957,15 @@ export function formatVersionMessage(versions) {
 
   // === Browser Automation ===
   const browserAutoLines = [];
-  addVersionLine(browserAutoLines, 'Playwright', versions.playwright);
-  addVersionLine(browserAutoLines, 'Playwright Test', versions.playwrightTest);
-  addVersionLine(browserAutoLines, 'Playwright MCP', versions.playwrightMcp);
-  if (versions.playwrightMcpStatus) {
-    browserAutoLines.push(`• Playwright MCP in Claude Code: \`${versions.playwrightMcpStatus}\``);
-  } else if (versions.playwrightMcp) {
-    browserAutoLines.push('• Playwright MCP in Claude Code: `not configured`');
+  addVersionLine(browserAutoLines, 'Playwright', versions.playwright, 'playwright');
+  addVersionLine(browserAutoLines, 'Playwright Test', versions.playwrightTest, 'playwrightTest');
+  // Playwright MCP: show version with Claude Code connection status inline
+  if (versions.playwrightMcp) {
+    const mcpVersion = parseVersion('playwrightMcp', versions.playwrightMcp);
+    const claudeStatus = versions.playwrightMcpStatus ? 'connected' : 'not connected';
+    browserAutoLines.push(`• Playwright MCP: \`${mcpVersion} (Claude Code: ${claudeStatus})\``);
   }
-  addVersionLine(browserAutoLines, 'Puppeteer Browsers', versions.puppeteerBrowsers);
+  addVersionLine(browserAutoLines, 'Puppeteer Browsers', versions.puppeteerBrowsers, 'puppeteerBrowsers');
 
   if (browserAutoLines.length > 0) {
     lines.push('');
@@ -585,17 +975,17 @@ export function formatVersionMessage(versions) {
 
   // === Development Tools ===
   const toolLines = [];
-  addVersionLine(toolLines, 'Git', versions.git);
-  addVersionLine(toolLines, 'GitHub CLI', versions.gh);
-  addVersionLine(toolLines, 'GitLab CLI', versions.glab);
-  addVersionLine(toolLines, 'Homebrew', versions.brew);
-  addVersionLine(toolLines, 'cURL', versions.curl);
-  addVersionLine(toolLines, 'Wget', versions.wget);
-  addVersionLine(toolLines, 'Zip', versions.zip);
-  addVersionLine(toolLines, 'Unzip', versions.unzip);
-  addVersionLine(toolLines, 'Expect', versions.expect);
-  addVersionLine(toolLines, 'Screen', versions.screen);
-  addVersionLine(toolLines, 'Xvfb', versions.xvfb);
+  addVersionLine(toolLines, 'Git', versions.git, 'git');
+  addVersionLine(toolLines, 'GitHub CLI', versions.gh, 'gh');
+  addVersionLine(toolLines, 'GitLab CLI', versions.glab, 'glab');
+  addVersionLine(toolLines, 'Homebrew', versions.brew, 'brew');
+  addVersionLine(toolLines, 'cURL', versions.curl, 'curl');
+  addVersionLine(toolLines, 'Wget', versions.wget, 'wget');
+  addVersionLine(toolLines, 'Zip', versions.zip, 'zip');
+  addVersionLine(toolLines, 'Unzip', versions.unzip, 'unzip');
+  addVersionLine(toolLines, 'Expect', versions.expect, 'expect');
+  addVersionLine(toolLines, 'Screen', versions.screen, 'screen');
+  addVersionLine(toolLines, 'Xvfb', versions.xvfb, 'xvfb');
 
   if (toolLines.length > 0) {
     lines.push('');
@@ -616,4 +1006,5 @@ export function formatVersionMessage(versions) {
 export default {
   getVersionInfo,
   formatVersionMessage,
+  parseVersion,
 };

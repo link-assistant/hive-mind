@@ -227,7 +227,7 @@ test('formatVersionMessage groups C/C++ tools under C/C++ section', () => {
     cmake: 'cmake 3.28.3',
   };
   const message = formatVersionMessage(versions);
-  assert.ok(message.includes('*🔨 C/C++*'), 'Should have C/C++ section');
+  assert.ok(message.includes('*🔨 C/C++/Assembly*'), 'Should have C/C++/Assembly section');
   assert.ok(message.includes('GCC'), 'Should include GCC');
   assert.ok(message.includes('Clang'), 'Should include Clang');
   assert.ok(message.includes('CMake'), 'Should include CMake');

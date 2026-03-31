@@ -111,17 +111,16 @@ test('formatVersionMessage shows Playwright MCP status when connected', () => {
     playwrightMcpStatus: 'playwright: connected',
   };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('Playwright MCP in Claude Code'), `Expected MCP status line but got: ${result}`);
-  assert.ok(result.includes('playwright: connected'), `Expected connected status but got: ${result}`);
+  assert.ok(result.includes('Playwright MCP: `0.0.32 (Claude Code: connected)`'), `Expected MCP connected format but got: ${result}`);
 });
 
-test('formatVersionMessage shows not configured when MCP installed but not in Claude', () => {
+test('formatVersionMessage shows not connected when MCP installed but not in Claude', () => {
   const versions = {
     playwrightMcp: '@playwright/mcp@0.0.32',
     playwrightMcpStatus: null,
   };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('not configured'), `Expected not configured status but got: ${result}`);
+  assert.ok(result.includes('Playwright MCP: `0.0.32 (Claude Code: not connected)`'), `Expected MCP not connected format but got: ${result}`);
 });
 
 test('formatVersionMessage separates Playwright from Development Tools', () => {

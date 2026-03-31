@@ -809,24 +809,18 @@ bot.command('version', async ctx => {
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
 
-// Register /accept_invites command from separate module
-// This keeps telegram-bot.mjs under the 1500 line limit
+// Register external command modules (keeps telegram-bot.mjs under line limit)
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
-// Shared options for external command modules (issue #1100: added isTopicAuthorized, buildAuthErrorMessage)
 const sharedCommandOpts = { VERBOSE, isOldMessage, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage };
 registerAcceptInvitesCommand(bot, sharedCommandOpts);
-// Register /merge command from separate module (experimental, see issue #1143)
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
 registerMergeCommand(bot, sharedCommandOpts);
-// Register /solve_queue command from separate module (issue #1232)
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
 async function handleSolveCommand(ctx) {
-  if (VERBOSE) {
-    console.log('[VERBOSE] /solve command received');
-  }
+  VERBOSE && console.log('[VERBOSE] /solve command received');
 
   // Add breadcrumb for error tracking
   await addBreadcrumb({
@@ -887,6 +881,7 @@ async function handleSolveCommand(ctx) {
   }
 
   // Check if chat is stopped (issue #1081) - reject with same style as queue rejected mode
+  const chatId = ctx.chat.id;
   if (isChatStopped(chatId)) {
     VERBOSE && console.log('[VERBOSE] /solve rejected: chat is stopped');
     await safeReply(ctx, getStoppedChatRejectMessage(chatId, 'Solve'), { reply_to_message_id: ctx.message.message_id });
@@ -1023,7 +1018,7 @@ async function handleSolveCommand(ctx) {
   const existingItem = solveQueue.findByUrl(normalizedUrl);
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
-    await safeReply(ctx, `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve\\_queue to check the queue status.`, { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve_queue to check the queue status.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1114,6 +1109,7 @@ async function handleHiveCommand(ctx) {
   }
 
   // Check if chat is stopped (issue #1081) - reject with same style as queue rejected mode
+  const chatId = ctx.chat.id;
   if (isChatStopped(chatId)) {
     VERBOSE && console.log('[VERBOSE] /hive rejected: chat is stopped');
     await safeReply(ctx, getStoppedChatRejectMessage(chatId, 'Hive'), { reply_to_message_id: ctx.message.message_id });
@@ -1206,11 +1202,10 @@ async function handleHiveCommand(ctx) {
 
 bot.command(/^hive$/i, handleHiveCommand);
 
-// Register commands from separate modules (keeps telegram-bot.mjs under line limit)
 const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
 const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
-registerStartStopCommands(bot, sharedCommandOpts); // issue #1081
+registerStartStopCommands(bot, sharedCommandOpts);
 
 // Add message listener for verbose debugging
 if (VERBOSE) {

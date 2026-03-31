@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.41.0
+
+### Minor Changes
+
+- 2c9396d: feat: simplify Dockerfile — bump sandbox 1.5.0→1.6.0, remove Playwright setup, eliminate USER root, remove silent fallbacks (#1505)
+
 ## 1.40.2
 
 ### Patch Changes

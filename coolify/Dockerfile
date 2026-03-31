@@ -54,6 +54,20 @@ RUN NODE_VERSION_DIR=$(ls -d /workspace/.nvm/versions/node/v* 2>/dev/null | head
 
 ENV PATH="/workspace/.node-bin:${PATH}"
 
+# --- Install opam binary ---
+# The sandbox full image copies ~/.opam (opam switch data) from the rocq stage
+# but does NOT copy the opam binary from ~/.local/bin. Install it as sandbox user.
+# See: https://github.com/link-foundation/sandbox/issues/74
+RUN mkdir -p /workspace/.local/bin && \
+    ARCH="$(uname -m)" && \
+    case "$ARCH" in \
+      x86_64)  OPAM_ARCH="x86_64" ;; \
+      aarch64) OPAM_ARCH="arm64" ;; \
+      *)       OPAM_ARCH="$ARCH" ;; \
+    esac && \
+    curl -fsSL "https://github.com/ocaml/opam/releases/latest/download/opam-2.3.0-${OPAM_ARCH}-linux" -o /workspace/.local/bin/opam && \
+    chmod +x /workspace/.local/bin/opam
+
 # --- AI-specific packages installation ---
 # Every install must fail the build on error — no silent fallbacks (see issue #1505)
 

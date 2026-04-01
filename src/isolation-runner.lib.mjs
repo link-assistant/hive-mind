@@ -5,17 +5,20 @@
  * (screen, tmux, docker). Uses GUIDs for unique session tracking and
  * `$ --status <uuid>` for reliable completion detection.
  *
+ * Uses command-stream library to invoke the globally-installed `$` CLI,
+ * following the same pattern as claude.lib.mjs, agent.lib.mjs, etc.
+ *
  * @see https://github.com/link-foundation/start
  * @see https://github.com/link-assistant/hive-mind/issues/380
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import { createRequire } from 'module';
 import crypto from 'crypto';
 
-const execFileAsync = promisify(execFile);
-const require = createRequire(import.meta.url);
+if (typeof use === 'undefined') {
+  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+}
+
+const { $ } = await use('command-stream');
 
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
@@ -29,20 +32,16 @@ export function generateSessionId() {
 }
 
 /**
- * Find the `$` CLI binary from start-command
+ * Find the `$` CLI binary path
  * @returns {Promise<string|null>} Path to `$` binary or null
  */
 async function findStartCommandBinary() {
   try {
-    const { stdout } = await execFileAsync('which', ['$']);
-    return stdout.trim() || null;
+    const result = await $`which $`;
+    const path = result.stdout?.toString().trim() || '';
+    return path || null;
   } catch {
-    // Try resolving from node_modules
-    try {
-      return require.resolve('start-command/src/bin/cli.js');
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 
@@ -86,20 +85,19 @@ export async function executeWithIsolation(command, args, options = {}) {
     console.log(`[VERBOSE] isolation-runner: Backend: ${backend}, Session ID: ${sessionId}`);
   }
 
-  // Build the $ command arguments:
+  // Build arguments as array for the $ CLI:
   // $ --isolated <backend> --detached --session <sessionId> -- <command> <args...>
-  const dollarArgs = ['--isolated', backend, '--detached', '--session', sessionId, '--', command, ...args];
+  const argsStr = args.join(' ');
 
   if (verbose) {
-    console.log(`[VERBOSE] isolation-runner: $ ${dollarArgs.join(' ')}`);
+    console.log(`[VERBOSE] isolation-runner: $ --isolated ${backend} --detached --session ${sessionId} -- ${command} ${argsStr}`);
   }
 
   try {
-    const { stdout, stderr } = await execFileAsync(binPath, dollarArgs, {
-      timeout: 30000,
-      env: process.env,
-    });
+    const result = await $({ mirror: false })`${binPath} --isolated ${backend} --detached --session ${sessionId} -- ${command} ${argsStr}`;
 
+    const stdout = result.stdout?.toString() || '';
+    const stderr = result.stderr?.toString() || '';
     const output = stdout + (stderr ? '\n' + stderr : '');
 
     if (verbose) {
@@ -112,7 +110,9 @@ export async function executeWithIsolation(command, args, options = {}) {
       output: output.trim(),
     };
   } catch (error) {
-    const output = (error.stdout || '') + (error.stderr || '');
+    const stdout = error.stdout?.toString() || '';
+    const stderr = error.stderr?.toString() || '';
+    const output = stdout + stderr;
 
     if (verbose) {
       console.error(`[VERBOSE] isolation-runner: Error: ${error.message}`);
@@ -145,22 +145,21 @@ export async function querySessionStatus(sessionId, verbose = false) {
   }
 
   try {
-    const { stdout } = await execFileAsync(binPath, ['--status', sessionId, '--output-format', 'json'], {
-      timeout: 10000,
-      env: process.env,
-    });
+    const result = await $({ mirror: false })`${binPath} --status ${sessionId} --output-format json`;
+
+    const stdout = result.stdout?.toString().trim() || '';
 
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: Status query result: ${stdout.substring(0, 300)}`);
     }
 
     try {
-      const data = JSON.parse(stdout.trim());
+      const data = JSON.parse(stdout);
       return {
         exists: true,
         status: data.status || null,
         exitCode: data.exitCode !== undefined ? data.exitCode : null,
-        raw: stdout.trim(),
+        raw: stdout,
       };
     } catch {
       // If JSON parsing fails, try text-based detection
@@ -170,7 +169,7 @@ export async function querySessionStatus(sessionId, verbose = false) {
         exists: isExecuting || isExecuted,
         status: isExecuting ? 'executing' : isExecuted ? 'executed' : null,
         exitCode: null,
-        raw: stdout.trim(),
+        raw: stdout,
       };
     }
   } catch (error) {

@@ -1351,11 +1351,20 @@ export function resetSolveQueue() {
 /**
  * Create an execute callback for the queue
  * @param {Function} executeStartScreen - Function to execute start-screen command
+ * @param {Function} [trackSessionFn] - Optional function to track session for completion notifications
  * @returns {Function} Execute callback for queue items
  */
-export function createQueueExecuteCallback(executeStartScreen) {
+export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
   return async item => {
-    return await executeStartScreen('solve', item.args);
+    const result = await executeStartScreen('solve', item.args);
+    if (trackSessionFn && result.success) {
+      const match = result.output && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
+      const session = match ? match[1] : null;
+      if (session) {
+        trackSessionFn(session, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: 'solve' });
+      }
+    }
+    return result;
   };
 }
 

@@ -153,6 +153,7 @@ async function getIsolatedSessionExitCode(sessionId, verbose = false) {
  * @param {string} sessionName - Name of the screen session or isolation session UUID
  * @param {Object} sessionInfo - Session metadata
  * @param {number} sessionInfo.chatId - Telegram chat ID to notify
+ * @param {number} [sessionInfo.messageId] - Telegram message ID to update on completion
  * @param {Date} sessionInfo.startTime - When the session started
  * @param {string} sessionInfo.url - GitHub URL being processed
  * @param {string} sessionInfo.command - Command type (solve/hive)
@@ -174,6 +175,7 @@ export function trackSession(sessionName, sessionInfo, verbose = false) {
       workingDirectory: process.cwd(),
       options: {
         chatId: sessionInfo.chatId,
+        messageId: sessionInfo.messageId || null,
         url: sessionInfo.url,
         commandType: sessionInfo.command,
         sessionName: sessionName,
@@ -238,6 +240,7 @@ function getActiveSessions(verbose = false) {
           sessionName: record.options?.sessionName || record.uuid,
           sessionInfo: {
             chatId: record.options?.chatId,
+            messageId: record.options?.messageId || null,
             startTime: new Date(record.startTime),
             url: record.options?.url,
             command: record.options?.commandType,
@@ -346,7 +349,12 @@ export async function monitorSessions(bot, verbose = false) {
         message += `🔗 URL: ${sessionInfo.url}${isolationInfo}\n\n`;
         message += `The work session has finished. You can now review the results.`;
 
-        await bot.telegram.sendMessage(sessionInfo.chatId, message, { parse_mode: 'Markdown' });
+        // Update the original reply message if messageId is available, otherwise send new message
+        if (sessionInfo.messageId) {
+          await bot.telegram.editMessageText(sessionInfo.chatId, sessionInfo.messageId, undefined, message, { parse_mode: 'Markdown' });
+        } else {
+          await bot.telegram.sendMessage(sessionInfo.chatId, message, { parse_mode: 'Markdown' });
+        }
 
         completeSession(sessionName, exitCode || 0, verbose);
       } catch (error) {

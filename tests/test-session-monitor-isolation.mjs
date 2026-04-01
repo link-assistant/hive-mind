@@ -34,6 +34,7 @@ trackSession(
   testSessionId,
   {
     chatId: 12345,
+    messageId: 67890,
     startTime: new Date(),
     url: 'https://github.com/test/repo/issues/1',
     command: 'solve',
@@ -46,6 +47,25 @@ trackSession(
 // Verify session is tracked
 const count = getActiveSessionCount(false);
 assert(count >= 1, `At least 1 active session tracked (got ${count})`);
+
+// Test trackSession with messageId for reply-update notifications
+console.log('\n  trackSession with messageId:');
+
+const testSessionId2 = 'test-msg-' + Date.now();
+trackSession(
+  testSessionId2,
+  {
+    chatId: 11111,
+    messageId: 22222,
+    startTime: new Date(),
+    url: 'https://github.com/test/repo/issues/2',
+    command: 'solve',
+  },
+  false
+);
+
+const count2 = getActiveSessionCount(false);
+assert(count2 >= 2, `At least 2 active sessions tracked (got ${count2})`);
 
 // Test getSessionStats with isolation info
 console.log('\n  getSessionStats:');

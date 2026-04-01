@@ -563,9 +563,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
       for (let attempt = 1; attempt <= maxForkRetries; attempt++) {
         // Try to create fork with optional custom name
         let forkResult;
-        const forkCmd = argv.prefixForkNameWithOwnerName
-          ? `gh repo fork ${owner}/${repo} --fork-name ${owner}-${repo} --clone=false`
-          : `gh repo fork ${owner}/${repo} --clone=false`;
+        const forkCmd = argv.prefixForkNameWithOwnerName ? `gh repo fork ${owner}/${repo} --fork-name ${owner}-${repo} --clone=false` : `gh repo fork ${owner}/${repo} --clone=false`;
         // Issue #1518: Log the exact fork command for debugging non-fork creation scenarios
         if (argv.verbose) {
           await log(`${formatAligned('🔧', 'Fork command:', forkCmd)}`);
@@ -796,8 +794,12 @@ Thank you!`;
             await log(`${formatAligned('⚠️', 'WARNING:', `Newly created fork failed validation: ${postCreateValidation.error}`)}`, { level: 'warning' });
             await log(`${formatAligned('', '', 'This may indicate a gh CLI bug. See issue #1518 for details.')}`);
             reportError(new Error(`Fork created as non-fork: ${postCreateValidation.error}`), {
-              context: 'fork_creation_validation', forkRepo: actualForkName, expectedUpstream: `${owner}/${repo}`,
-              isFork: postCreateValidation.isFork, parent: postCreateValidation.parent, source: postCreateValidation.source,
+              context: 'fork_creation_validation',
+              forkRepo: actualForkName,
+              expectedUpstream: `${owner}/${repo}`,
+              isFork: postCreateValidation.isFork,
+              parent: postCreateValidation.parent,
+              source: postCreateValidation.source,
             });
           }
         }

@@ -429,6 +429,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: '[EXPERIMENTAL] Model to use for --finalize iterations. Defaults to the same model as --model.',
     default: undefined,
   },
+  'working-session-live-progress': {
+    type: 'string',
+    description: '[EXPERIMENTAL] Enable live progress monitoring. Accepts "comment" (default, updates a per-session PR comment) or "pr" (updates PR description). Plain --working-session-live-progress means "comment". Works with or without --interactive-mode.',
+    default: false,
+  },
 };
 
 // Function to create yargs configuration - avoids duplication
@@ -604,6 +609,20 @@ export const parseArguments = async (yargs, hideBin) => {
     // Normalize: if passed as boolean true (flag without value), treat as 1 iteration
     if (argv.finalize === true) {
       argv.finalize = 1;
+    }
+  }
+
+  // --working-session-live-progress normalization
+  // When passed as --working-session-live-progress (no value), yargs gives true for string type
+  // Normalize: true → "comment", validate known values
+  if (argv && argv.workingSessionLiveProgress) {
+    const val = argv.workingSessionLiveProgress;
+    if (val === true || val === 'true') {
+      argv.workingSessionLiveProgress = 'comment';
+    } else if (typeof val === 'string' && !['comment', 'pr'].includes(val.toLowerCase())) {
+      throw new Error(`Invalid --working-session-live-progress value: "${val}". Expected "comment" or "pr".`);
+    } else if (typeof val === 'string') {
+      argv.workingSessionLiveProgress = val.toLowerCase();
     }
   }
 

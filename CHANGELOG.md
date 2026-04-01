@@ -1,5 +1,47 @@
 # @link-assistant/hive-mind
 
+## 1.45.1
+
+### Patch Changes
+
+- 003c5ca: Fix premature finish signaling and leaked child processes (Issue #1516)
+  - Kill entire process group on stream timeout using negative PID, preventing leaked /bin/sh child processes from continuing to make commits after completion
+  - Move .gitkeep cleanup to after all completion signals (log upload, "Ready to merge" comment) so no new commits appear after the system reports "session ended"
+  - drainHandles now reports surviving child processes as errors instead of silently killing them, so root causes are investigated rather than hidden
+
+## 1.45.0
+
+### Minor Changes
+
+- c308660: Add experimental live progress monitoring for work sessions
+  - Implement `--working-session-live-progress [comment|pr]` CLI flag for both solve and hive commands
+    - `comment` mode (default): Creates a per-session PR comment with updatable progress section
+    - `pr` mode: Updates PR description with live progress section
+    - Plain `--working-session-live-progress` defaults to `comment` mode
+  - Create progress monitoring module (`solve.progress-monitoring.lib.mjs`) with:
+    - Live TODO list tracking from TodoWrite tool calls
+    - Progress bar visualization (percentage complete)
+    - Comment mode: creates/edits a dedicated PR comment per work session
+    - PR mode: updates PR description with progress section
+    - Task list is always shown expanded (never collapsible)
+    - Rate limiting to avoid GitHub API throttling
+  - Integrate progress monitoring into claude.lib.mjs event stream processing
+    - Detects TodoWrite tool_use events (assistant) and tool_use_result events (user)
+    - Updates progress when TodoWrite tool is invoked
+    - Displays task completion stats and progress bar
+    - Supports work session identification
+  - Works with or without `--interactive-mode` (independent feature)
+  - Auto-registered in hive via SOLVE_OPTION_DEFINITIONS (no manual forwarding needed)
+  - Add comprehensive test suite (89 tests) covering:
+    - Progress calculation and formatting
+    - Display mode normalization
+    - CLI configuration in solve and hive
+    - Auto-registration and forwarding via getSolvePassthroughOptionNames
+    - Claude integration for TodoWrite detection
+    - Comment and PR display modes
+  - Feature is experimental, opt-in via `--working-session-live-progress`
+  - Implements issue #936
+
 ## 1.44.0
 
 ### Minor Changes

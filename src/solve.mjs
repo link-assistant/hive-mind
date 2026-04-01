@@ -1175,8 +1175,7 @@ try {
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
   const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
 
-  // Remove initial commit file (CLAUDE.md or .gitkeep) now that Claude command has finished
-  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
+  // Issue #1516: cleanupClaudeFile() moved to after completion signals (before endWorkSession)
 
   // Show summary of session and log file
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
@@ -1441,6 +1440,9 @@ try {
       logsAttached = true;
     }
   }
+
+  // Issue #1516: Cleanup after all signals (was before verifyResults, caused premature commits)
+  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
 
   // End work session using the new module
   await endWorkSession({

@@ -121,12 +121,30 @@ const drainHandles = async () => {
     // undici may not be available in all Node versions — safe to ignore
   }
 
-  // 3. Unref surviving child processes from command-stream.
-  //    These are typically already-exited but their OS handle entry lingers.
+  // 3. Detect surviving child processes from command-stream.
+  //    Issue #1516: Surviving ChildProcess handles indicate a bug — a leaked /bin/sh
+  //    child can continue executing (making commits, pushing to GitHub) after we've
+  //    declared completion. Instead of silently killing them (which hides root causes),
+  //    we log an error so each occurrence is investigated and the root cause is fixed.
+  //    The process group kill in claude.lib.mjs (killProcessTree) should have already
+  //    terminated all children; if any survive, that's a bug we need to know about.
   try {
     for (const handle of process._getActiveHandles()) {
-      if (handle?.constructor?.name === 'ChildProcess' && typeof handle.unref === 'function') {
-        handle.unref();
+      if (handle?.constructor?.name === 'ChildProcess') {
+        // Issue #1516: Report surviving child processes as errors instead of killing them.
+        // This surfaces the root cause for investigation rather than hiding it.
+        const detail = [handle.pid != null ? `pid=${handle.pid}` : null, handle.spawnfile ? `file=${handle.spawnfile}` : null, handle.killed ? 'killed=true' : 'killed=false'].filter(Boolean).join(', ');
+        const errorMsg = `❌ ERROR: Surviving ChildProcess detected at exit (${detail}). This indicates a leaked process that was not properly terminated. Investigate the root cause — do NOT suppress this error by killing the process. (Issue #1516)`;
+        if (logFunction) {
+          await logFunction(errorMsg, { level: 'error' });
+        } else {
+          console.error(errorMsg);
+        }
+        // Still unref so Node.js can exit, but do NOT kill — let the OS process
+        // continue so its effects are visible and the root cause can be diagnosed.
+        if (typeof handle.unref === 'function') {
+          handle.unref();
+        }
       }
     }
   } catch {

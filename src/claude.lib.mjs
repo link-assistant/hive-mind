@@ -852,42 +852,21 @@ export const executeClaudeCommand = async params => {
       let lastEventTime = null;
       let activityTimeoutId = null;
       let isActivityTimeout = false;
-      // Issue #1510: Separate SIGTERM (graceful) and SIGKILL (force) phases to allow
-      // capturing final output from the process during graceful shutdown
-      // Issue #1516: Helper to kill the entire process tree (parent + children)
-      // When Claude CLI spawns /bin/sh child processes for Bash tool calls, sending
-      // SIGTERM only to the parent leaves children running. They can continue making
-      // commits/pushes after we declare completion. Sending the signal to the negative
-      // PID targets the entire process group.
-      const killProcessTree = (signal) => {
-        // First try process-group kill (negative PID) to reach all children
-        try {
-          const pid = execCommand.pid || execCommand._pid;
-          if (pid) {
-            process.kill(-pid, signal);
-            return;
-          }
-        } catch {
-          // Process group kill failed (e.g., not a process group leader) — fall through
-        }
-        // Fallback: kill just the parent process
-        execCommand.kill(signal);
-      };
+      // Issue #1516: Kill process group (-pid) so leaked /bin/sh children don't survive
+      // prettier-ignore
+      const killProcessTree = signal => { try { const pid = execCommand.pid || execCommand._pid; if (pid) { process.kill(-pid, signal); return; } } catch { /* not group leader */ } execCommand.kill(signal); };
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
         await log(`⚠️ Stream timeout — sending SIGTERM for graceful shutdown (Issue #1280, #1510, #1516)`, { verbose: true });
         try {
           if (execCommand.kill) {
-            // Issue #1516: Kill entire process tree, not just parent
             killProcessTree('SIGTERM');
             // Issue #1346/#1510: Follow up with SIGKILL after 5s if still alive
-            // Increased from 2s to 5s to give more time for final output capture
             const t = setTimeout(() => {
               try {
                 if (!execCommand.result?.code) {
-                  log(`⚠️ Process did not exit after SIGTERM, sending SIGKILL to process tree (Issue #1516)`, { verbose: true });
-                  // Issue #1516: SIGKILL the entire process tree too
+                  log(`⚠️ Process tree did not exit after SIGTERM, sending SIGKILL (Issue #1516)`, { verbose: true });
                   killProcessTree('SIGKILL');
                 }
               } catch {

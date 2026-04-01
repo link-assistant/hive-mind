@@ -12,27 +12,27 @@ The system reported task completion ("solution log uploaded", "✅ Ready to merg
 
 All timestamps in UTC.
 
-| Time | Event | Source |
-|------|-------|--------|
-| 09:27:40 | solve.mjs starts (v1.42.0) | solve.mjs |
-| 09:27:56 | `.gitkeep` initial commit (`bc0ef41`) pushed | solve.mjs |
-| 09:28:05 | PR #33 created as draft | solve.mjs |
-| 09:28:17 | Claude CLI execution begins | claude.lib.mjs |
-| 09:30:50 | Claude commits "Remove downloaded.md files" (`c007d8d`) | Claude CLI |
-| 09:33:17 | Claude commits "Add case study" (`c6054e0`) and pushes | Claude CLI |
-| 09:33:41 | Claude runs `gh pr ready 33` — PR marked as ready for review | Claude CLI |
-| **09:34:38.319** | **Stream timeout fires — SIGTERM sent to Claude CLI process** | claude.lib.mjs |
-| 09:34:38.320 | Force-kill timeout triggered — process declared exited | claude.lib.mjs |
-| 09:34:38.532 | `.gitkeep` revert committed (`17b8611`) | solve.results.lib.mjs |
-| **09:34:39.456** | **`.gitkeep` revert pushed to GitHub** (new commit on PR) | solve.results.lib.mjs |
-| 09:34:39.470 | Session Summary displayed | solve.mjs |
-| 09:34:40 | `verifyResults()` starts — finds PR #33 already ready | solve.results.lib.mjs |
-| **09:34:47.346** | **Solution draft log uploaded to PR as Gist** | solve.results.lib.mjs |
-| 09:34:48.400 | "🎉 SUCCESS: A solution draft has been prepared" printed | solve.results.lib.mjs |
-| **09:34:52.201** | **"✅ Ready to merge" comment posted on PR** | solve.auto-merge.lib.mjs |
-| 09:34:54.891 | **Leaked ChildProcess detected** (pid=1075674, file=/bin/sh) | exit-handler.lib.mjs |
-| 09:34:54.897 | "✅ Process completed" — solve.mjs exits | exit-handler.lib.mjs |
-| **09:35:04** | **NEW COMMIT `62e01ec` appears on PR** — "Add screenshot comparison findings to case study" | Leaked /bin/sh process |
+| Time             | Event                                                                                       | Source                   |
+| ---------------- | ------------------------------------------------------------------------------------------- | ------------------------ |
+| 09:27:40         | solve.mjs starts (v1.42.0)                                                                  | solve.mjs                |
+| 09:27:56         | `.gitkeep` initial commit (`bc0ef41`) pushed                                                | solve.mjs                |
+| 09:28:05         | PR #33 created as draft                                                                     | solve.mjs                |
+| 09:28:17         | Claude CLI execution begins                                                                 | claude.lib.mjs           |
+| 09:30:50         | Claude commits "Remove downloaded.md files" (`c007d8d`)                                     | Claude CLI               |
+| 09:33:17         | Claude commits "Add case study" (`c6054e0`) and pushes                                      | Claude CLI               |
+| 09:33:41         | Claude runs `gh pr ready 33` — PR marked as ready for review                                | Claude CLI               |
+| **09:34:38.319** | **Stream timeout fires — SIGTERM sent to Claude CLI process**                               | claude.lib.mjs           |
+| 09:34:38.320     | Force-kill timeout triggered — process declared exited                                      | claude.lib.mjs           |
+| 09:34:38.532     | `.gitkeep` revert committed (`17b8611`)                                                     | solve.results.lib.mjs    |
+| **09:34:39.456** | **`.gitkeep` revert pushed to GitHub** (new commit on PR)                                   | solve.results.lib.mjs    |
+| 09:34:39.470     | Session Summary displayed                                                                   | solve.mjs                |
+| 09:34:40         | `verifyResults()` starts — finds PR #33 already ready                                       | solve.results.lib.mjs    |
+| **09:34:47.346** | **Solution draft log uploaded to PR as Gist**                                               | solve.results.lib.mjs    |
+| 09:34:48.400     | "🎉 SUCCESS: A solution draft has been prepared" printed                                    | solve.results.lib.mjs    |
+| **09:34:52.201** | **"✅ Ready to merge" comment posted on PR**                                                | solve.auto-merge.lib.mjs |
+| 09:34:54.891     | **Leaked ChildProcess detected** (pid=1075674, file=/bin/sh)                                | exit-handler.lib.mjs     |
+| 09:34:54.897     | "✅ Process completed" — solve.mjs exits                                                    | exit-handler.lib.mjs     |
+| **09:35:04**     | **NEW COMMIT `62e01ec` appears on PR** — "Add screenshot comparison findings to case study" | Leaked /bin/sh process   |
 
 ## Root Causes
 
@@ -72,6 +72,7 @@ The `.gitkeep` revert commit `17b8611` was pushed at 09:34:39, but the solution 
 ## Leaked Process Evidence
 
 Normal process at exit:
+
 ```
 Active Node.js handles at exit (3 handles, 1 requests):
   Handle: WriteStream (fd=2)
@@ -81,6 +82,7 @@ Active Node.js handles at exit (3 handles, 1 requests):
 ```
 
 This session at exit (showing leaked resources):
+
 ```
 Active Node.js handles at exit (6 handles, 1 requests):
   Handle: WriteStream (fd=2)
@@ -113,6 +115,7 @@ try {
 ```
 
 Also add SIGKILL to the process group in the 5-second follow-up:
+
 ```javascript
 try {
   process.kill(-execCommand.pid, 'SIGKILL');
@@ -127,12 +130,12 @@ Reorder the operations in `solve.mjs` so that `.gitkeep` revert happens **after*
 
 ```javascript
 // Before:
-await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);  // line 1179
+await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv); // line 1179
 // ... verifyResults, auto-merge, etc ...
 
 // After:
 // ... verifyResults, auto-merge, etc ...
-await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);  // moved to end
+await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv); // moved to end
 ```
 
 ### Fix 3: Actively Kill Leaked Child Processes in drainHandles
@@ -144,7 +147,9 @@ for (const handle of process._getActiveHandles()) {
   if (handle?.constructor?.name === 'ChildProcess') {
     try {
       handle.kill('SIGTERM');
-    } catch { /* already exited */ }
+    } catch {
+      /* already exited */
+    }
     handle.unref();
   }
 }
@@ -152,12 +157,12 @@ for (const handle of process._getActiveHandles()) {
 
 ## Files Involved
 
-| File | Relevance |
-|------|-----------|
-| `src/claude.lib.mjs` | Stream timeout and force-kill logic (lines 857-881) |
-| `src/solve.mjs` | Execution ordering after Claude exits (lines 1179-1413) |
-| `src/solve.results.lib.mjs` | `.gitkeep` revert and push logic (lines 238-372) |
-| `src/exit-handler.lib.mjs` | Handle draining that only unrefs but doesn't kill (lines 124-134) |
+| File                        | Relevance                                                         |
+| --------------------------- | ----------------------------------------------------------------- |
+| `src/claude.lib.mjs`        | Stream timeout and force-kill logic (lines 857-881)               |
+| `src/solve.mjs`             | Execution ordering after Claude exits (lines 1179-1413)           |
+| `src/solve.results.lib.mjs` | `.gitkeep` revert and push logic (lines 238-372)                  |
+| `src/exit-handler.lib.mjs`  | Handle draining that only unrefs but doesn't kill (lines 124-134) |
 
 ## Related Issues
 

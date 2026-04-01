@@ -1,5 +1,5 @@
 ---
-"@link-assistant/hive-mind": patch
+'@link-assistant/hive-mind': patch
 ---
 
 Fix premature finish signaling and leaked child processes (Issue #1516)

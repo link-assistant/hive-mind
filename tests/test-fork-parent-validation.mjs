@@ -99,23 +99,28 @@ runTest('error message references issue #967', () => {
   }
 });
 
-// Test 5: Verify helpful fix suggestions are provided
-runTest('fix suggestions provided', () => {
+// Test 5: Verify auto-recovery for non-fork repositories (Issue #1518)
+runTest('auto-recovery for non-fork/mismatch repos (Issue #1518)', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
-  // Check for Option 1: Delete fork
-  if (!content.includes('Option 1: Delete the problematic fork')) {
-    throw new Error('Missing suggestion to delete fork');
+  // Check for auto-recovery logic
+  if (!content.includes('Auto-recovery:')) {
+    throw new Error('Missing auto-recovery logic for non-fork repos');
   }
 
-  // Check for Option 2: Prefix fork name
-  if (!content.includes('prefix-fork-name-with-owner-name')) {
-    throw new Error('Missing suggestion for --prefix-fork-name-with-owner-name');
+  // Check for delete operation
+  if (!content.includes('gh repo delete ${existingForkName} --yes')) {
+    throw new Error('Missing repo deletion in auto-recovery');
   }
 
-  // Check for Option 3: No fork
-  if (!content.includes('Option 3: Work directly on the repository')) {
-    throw new Error('Missing suggestion for --no-fork');
+  // Check for fallback when delete fails
+  if (!content.includes('Manual fix required:')) {
+    throw new Error('Missing manual fix fallback when auto-recovery fails');
+  }
+
+  // Check existingForkName is cleared after deletion to trigger fork creation
+  if (!content.includes('existingForkName = null')) {
+    throw new Error('existingForkName should be cleared after deletion to trigger fresh fork creation');
   }
 });
 
@@ -261,29 +266,62 @@ runTest('isTransientNetworkError helper exists', () => {
   }
 });
 
-// Test 15: Verify existing error messages preserved (Issue #1311 feedback)
-runTest('existing error messages preserved', () => {
+// Test 15: Verify error context preserved in auto-recovery messages (Issue #1518)
+runTest('error context in auto-recovery messages', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
-  // Check that original verbose error messages are preserved
+  // Check that issue references are preserved
+  if (!content.includes('see issue #1518')) {
+    throw new Error('Missing issue #1518 reference for non-fork repos');
+  }
+
+  if (!content.includes('see issue #967')) {
+    throw new Error('Missing issue #967 reference for intermediate forks');
+  }
+
+  // Check that fork relationship details are logged
+  if (!content.includes('Fork parent:')) {
+    throw new Error('Missing fork parent details in log output');
+  }
+
+  // Check for network error handling
   if (!content.includes('🔍 What happened:')) {
-    throw new Error('Missing "What happened" section in error message');
+    throw new Error('Missing "What happened" section in network error message');
+  }
+});
+
+// Test 16: Verify post-creation fork validation (Issue #1518)
+runTest('post-creation fork validation (Issue #1518)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check that validateForkParent is called after fork creation
+  if (!content.includes('postCreateValidation')) {
+    throw new Error('Missing post-creation fork validation');
   }
 
-  if (!content.includes('📦 Fork relationship:')) {
-    throw new Error('Missing "Fork relationship" section in error message');
+  // Check for Sentry error reporting on post-creation validation failure
+  if (!content.includes("context: 'fork_creation_validation'")) {
+    throw new Error('Missing Sentry error reporting for post-creation validation failure');
   }
 
-  if (!content.includes('⚠️  Why this is a problem:')) {
-    throw new Error('Missing "Why this is a problem" section in error message');
+  // Check for gh CLI bug reference
+  if (!content.includes('gh CLI bug')) {
+    throw new Error('Missing gh CLI bug reference in post-creation warning');
+  }
+});
+
+// Test 17: Verify verbose fork command logging (Issue #1518)
+runTest('verbose fork command logging (Issue #1518)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check for fork command logging
+  if (!content.includes("'Fork command:'")) {
+    throw new Error('Missing fork command verbose logging');
   }
 
-  if (!content.includes('📖 Case study: See issue #967')) {
-    throw new Error('Missing case study reference in error message');
-  }
-
-  if (!content.includes('💡 How to fix:')) {
-    throw new Error('Missing "How to fix" section in error message');
+  // Check it is behind verbose flag
+  if (!content.includes('if (argv.verbose)')) {
+    throw new Error('Fork command logging should be behind verbose flag');
   }
 });
 

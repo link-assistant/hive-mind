@@ -307,7 +307,26 @@ if (argv.autoFork && !argv.fork) {
 
 // Accept pending GitHub invitation for the specific repo/org before checking write access
 if (argv.autoAcceptInvite) {
-  await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
+  const inviteResult = await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
+
+  // Issue #1513: If an invitation was accepted and fork mode was auto-enabled,
+  // re-check write permissions. The user may now have direct write access,
+  // making fork mode unnecessary and avoiding cross-fork GraphQL timing issues.
+  if ((inviteResult.acceptedRepo || inviteResult.acceptedOrg) && argv.fork && argv.autoFork) {
+    const recheckResult = await $`gh api repos/${owner}/${repo} --jq .permissions`;
+    if (recheckResult.code === 0) {
+      try {
+        const permissions = JSON.parse(recheckResult.stdout.toString().trim());
+        const hasWriteNow = permissions.push === true || permissions.admin === true || permissions.maintain === true;
+        if (hasWriteNow) {
+          await log('✅ Auto-fork: Write access detected after invitation acceptance, disabling fork mode');
+          argv.fork = false;
+        }
+      } catch {
+        // JSON parse failed - keep fork mode as-is
+      }
+    }
+  }
 }
 
 // Early check: Verify repository write permissions BEFORE doing any work

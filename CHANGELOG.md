@@ -1,5 +1,17 @@
 # @link-assistant/hive-mind
 
+## 1.46.1
+
+### Patch Changes
+
+- fix: Add retry logic for transient GraphQL errors during PR creation (Issue #1513)
+  - Add exponential backoff retry (up to 5 attempts) for `gh pr create` when GitHub returns transient GraphQL errors like "Something went wrong while executing your query"
+  - Re-evaluate fork mode after accepting repository invitation: if user now has write access, disable unnecessary fork mode to avoid cross-fork GraphQL timing issues
+  - Add `isTransientGraphqlError()` helper to detect retryable error patterns (GraphQL errors, rate limiting, 502/503)
+  - Log retry attempts and success for observability
+  - Add comprehensive test suite (`test-pr-creation-retry-1513.mjs`) with 12 test cases
+  - Add case study documentation in `docs/case-studies/issue-1513/`
+
 ## 1.46.0
 
 ### Minor Changes

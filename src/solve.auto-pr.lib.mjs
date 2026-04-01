@@ -1116,43 +1116,81 @@ ${prBody}`,
           let prCreateStderr = '';
           let assigneeFailed = false;
 
-          // Try to create PR with assignee first (if specified)
-          try {
-            const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
-            output = result.stdout;
-            prCreateStderr = result.stderr || '';
-          } catch (firstError) {
-            // Check if the error is specifically about assignee validation
-            const errorMsg = firstError.message || '';
-            if ((errorMsg.includes('could not assign user') || errorMsg.includes('not found')) && currentUser && canAssign) {
-              // Assignee validation failed - retry without assignee
-              assigneeFailed = true;
-              await log('');
-              await log(formatAligned('⚠️', 'Warning:', `User assignment failed for '${currentUser}'`), {
-                level: 'warning',
-              });
-              await log('     Retrying PR creation without assignee...');
+          // Issue #1513: Retry logic for transient GraphQL errors during PR creation.
+          // GitHub's API is eventually consistent - newly created forks and accepted
+          // invitations may not be fully propagated when gh pr create is called.
+          // This matches the existing retry patterns for compare API (lines 571-624)
+          // and PR verification (lines 1206-1258, Issue #1468).
+          const isTransientGraphqlError = msg => msg.includes('Something went wrong while executing your query') || msg.includes('was submitted too quickly') || msg.includes('internal error') || msg.includes('Internal Server Error') || msg.includes('502') || msg.includes('503');
 
-              // Rebuild command without --assignee flag
-              if (argv.fork && forkedRepo) {
-                const forkUser = forkedRepo.split('/')[0];
-                command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${forkUser}:${branchName} --repo ${owner}/${repo}`;
-              } else {
-                command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName}`;
-              }
+          const maxPrCreateAttempts = 5;
+          let prCreateAttempts = 0;
+          let lastPrCreateError = null;
 
-              if (argv.verbose) {
-                await log(`   Retry command (without assignee): ${command}`, { verbose: true });
-              }
+          while (prCreateAttempts < maxPrCreateAttempts) {
+            prCreateAttempts++;
+            lastPrCreateError = null;
 
-              // Retry without assignee - if this fails, let the error propagate to outer catch
-              const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
-              output = retryResult.stdout;
-              prCreateStderr = retryResult.stderr || '';
-            } else {
-              // Not an assignee error, re-throw the original error
-              throw firstError;
+            if (prCreateAttempts > 1) {
+              const waitTime = Math.min(2000 * prCreateAttempts, 10000);
+              await log(`   Retry ${prCreateAttempts}/${maxPrCreateAttempts}: Waiting ${waitTime}ms before retrying PR creation...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
             }
+
+            // Try to create PR with assignee first (if specified)
+            try {
+              const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+              output = result.stdout;
+              prCreateStderr = result.stderr || '';
+              break; // Success - exit retry loop
+            } catch (firstError) {
+              // Check if the error is specifically about assignee validation
+              const errorMsg = firstError.message || '';
+              if ((errorMsg.includes('could not assign user') || errorMsg.includes('not found')) && currentUser && canAssign) {
+                // Assignee validation failed - retry without assignee
+                assigneeFailed = true;
+                await log('');
+                await log(formatAligned('⚠️', 'Warning:', `User assignment failed for '${currentUser}'`), {
+                  level: 'warning',
+                });
+                await log('     Retrying PR creation without assignee...');
+
+                // Rebuild command without --assignee flag
+                if (argv.fork && forkedRepo) {
+                  const forkUser = forkedRepo.split('/')[0];
+                  command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${forkUser}:${branchName} --repo ${owner}/${repo}`;
+                } else {
+                  command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName}`;
+                }
+
+                if (argv.verbose) {
+                  await log(`   Retry command (without assignee): ${command}`, { verbose: true });
+                }
+
+                // Retry without assignee - if this fails, let the error propagate to outer catch
+                const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+                output = retryResult.stdout;
+                prCreateStderr = retryResult.stderr || '';
+                break; // Success - exit retry loop
+              } else if (isTransientGraphqlError(errorMsg) && prCreateAttempts < maxPrCreateAttempts) {
+                // Transient GraphQL error - retry with backoff (Issue #1513)
+                lastPrCreateError = firstError;
+                await log(`   ⚠️ Transient GraphQL error on attempt ${prCreateAttempts}/${maxPrCreateAttempts}: ${errorMsg.split('\n')[0]}`, { level: 'warning' });
+              } else {
+                // Non-retryable error or max attempts reached, re-throw the original error
+                throw firstError;
+              }
+            }
+          }
+
+          // If all retry attempts were exhausted with transient errors, throw the last error
+          if (lastPrCreateError && !output) {
+            throw lastPrCreateError;
+          }
+
+          // Log retry success if it took more than one attempt
+          if (prCreateAttempts > 1 && output) {
+            await log(`   ✅ PR creation succeeded on attempt ${prCreateAttempts}/${maxPrCreateAttempts}`);
           }
 
           // Clean up temp files

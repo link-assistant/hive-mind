@@ -661,14 +661,18 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
 
     if (result.success) {
       // Track the session with isolation metadata for $ --status based monitoring
-      trackSession(sessionId, {
-        chatId: ctx.chat.id,
-        startTime: new Date(),
-        url: args[0],
-        command: commandName,
-        isolationBackend: ISOLATION_BACKEND,
+      trackSession(
         sessionId,
-      }, VERBOSE);
+        {
+          chatId: ctx.chat.id,
+          startTime: new Date(),
+          url: args[0],
+          command: commandName,
+          isolationBackend: ISOLATION_BACKEND,
+          sessionId,
+        },
+        VERBOSE
+      );
 
       const isolationBadge = `🔒 Isolation: \`${ISOLATION_BACKEND}\``;
       await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${sessionId}\`\n${isolationBadge}\n\n${infoBlock}\n\n🔔 You will receive a notification when the session finishes.`);
@@ -1125,14 +1129,18 @@ async function handleSolveCommand(ctx) {
           });
           // Track isolation session for completion monitoring
           if (result.success) {
-            trackSession(sessionId, {
-              chatId: item.ctx?.chat?.id,
-              startTime: new Date(),
-              url: item.url,
-              command: 'solve',
-              isolationBackend: ISOLATION_BACKEND,
+            trackSession(
               sessionId,
-            }, VERBOSE);
+              {
+                chatId: item.ctx?.chat?.id,
+                startTime: new Date(),
+                url: item.url,
+                command: 'solve',
+                isolationBackend: ISOLATION_BACKEND,
+                sessionId,
+              },
+              VERBOSE
+            );
           }
           // Return result in same format as executeStartScreen for queue compatibility
           return { ...result, output: result.output || `session: ${sessionId}` };

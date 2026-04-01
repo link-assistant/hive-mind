@@ -39,9 +39,7 @@ async function findStartCommandBinary() {
   } catch {
     // Try resolving from node_modules
     try {
-      const pkgJson = require('start-command/package.json');
-      const binPath = require.resolve('start-command/src/bin/cli.js');
-      return binPath;
+      return require.resolve('start-command/src/bin/cli.js');
     } catch {
       return null;
     }

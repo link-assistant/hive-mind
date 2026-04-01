@@ -30,14 +30,18 @@ console.log('='.repeat(60));
 console.log('\n  trackSession with isolation:');
 
 const testSessionId = 'test-' + Date.now();
-trackSession(testSessionId, {
-  chatId: 12345,
-  startTime: new Date(),
-  url: 'https://github.com/test/repo/issues/1',
-  command: 'solve',
-  isolationBackend: 'screen',
-  sessionId: testSessionId,
-}, false);
+trackSession(
+  testSessionId,
+  {
+    chatId: 12345,
+    startTime: new Date(),
+    url: 'https://github.com/test/repo/issues/1',
+    command: 'solve',
+    isolationBackend: 'screen',
+    sessionId: testSessionId,
+  },
+  false
+);
 
 // Verify session is tracked
 const count = getActiveSessionCount(false);

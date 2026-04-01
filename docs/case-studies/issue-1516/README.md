@@ -138,31 +138,30 @@ await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv); // line 11
 await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv); // moved to end
 ```
 
-### Fix 3: Actively Kill Leaked Child Processes in drainHandles
+### Fix 3: Report Surviving Child Processes as Errors (Not Kill Silently)
 
-Instead of just `.unref()`, actively send SIGTERM to surviving ChildProcess handles:
+Instead of silently killing surviving child processes in `drainHandles()` (which hides root causes), report them as errors so each occurrence is investigated:
 
 ```javascript
 for (const handle of process._getActiveHandles()) {
   if (handle?.constructor?.name === 'ChildProcess') {
-    try {
-      handle.kill('SIGTERM');
-    } catch {
-      /* already exited */
-    }
-    handle.unref();
+    // Report as error — do NOT kill silently
+    console.error(`ERROR: Surviving ChildProcess detected (pid=${handle.pid})`);
+    handle.unref(); // Let Node exit, but leave OS process for diagnosis
   }
 }
 ```
 
+This ensures that any leaked processes are visible and the root cause is investigated each time, rather than masking bugs by silently terminating them.
+
 ## Files Involved
 
-| File                        | Relevance                                                         |
-| --------------------------- | ----------------------------------------------------------------- |
-| `src/claude.lib.mjs`        | Stream timeout and force-kill logic (lines 857-881)               |
-| `src/solve.mjs`             | Execution ordering after Claude exits (lines 1179-1413)           |
-| `src/solve.results.lib.mjs` | `.gitkeep` revert and push logic (lines 238-372)                  |
-| `src/exit-handler.lib.mjs`  | Handle draining that only unrefs but doesn't kill (lines 124-134) |
+| File                        | Relevance                                                          |
+| --------------------------- | ------------------------------------------------------------------ |
+| `src/claude.lib.mjs`        | Stream timeout and force-kill logic (lines 857-881)                |
+| `src/solve.mjs`             | Execution ordering after Claude exits (lines 1179-1413)            |
+| `src/solve.results.lib.mjs` | `.gitkeep` revert and push logic (lines 238-372)                   |
+| `src/exit-handler.lib.mjs`  | Handle draining that errors on surviving processes (lines 124-148) |
 
 ## Related Issues
 

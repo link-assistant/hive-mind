@@ -93,9 +93,9 @@ console.log('\u2500'.repeat(60));
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Test Suite 3: drainHandles kills child processes
+// Test Suite 3: drainHandles reports surviving child processes as errors
 // ═══════════════════════════════════════════════════════════════════
-console.log('\n\ud83e\uddea Test Suite 3: drainHandles kills child processes (Issue #1516)');
+console.log('\n\ud83e\uddea Test Suite 3: drainHandles reports surviving child processes (Issue #1516)');
 console.log('\u2500'.repeat(60));
 
 {
@@ -104,17 +104,23 @@ console.log('\u2500'.repeat(60));
   // Find the section that handles ChildProcess in drainHandles
   const childProcessSection = exitHandlerContent.substring(exitHandlerContent.indexOf('// 3.'), exitHandlerContent.indexOf('// 4.'));
 
-  // Test: drainHandles sends SIGTERM to child processes
-  assert(childProcessSection.includes("handle.kill('SIGTERM')"), 'drainHandles sends SIGTERM to surviving child processes', "Expected handle.kill('SIGTERM') in child process handling");
+  // Test: drainHandles does NOT silently kill child processes (we want to surface root causes)
+  assert(!childProcessSection.includes("handle.kill('SIGTERM')"), 'drainHandles does NOT silently SIGTERM surviving child processes (surfaces root cause instead)', "Expected NO handle.kill('SIGTERM') — surviving processes should be reported as errors, not silently killed");
 
-  // Test: drainHandles still calls .unref() after kill
-  assert(childProcessSection.includes('handle.unref()'), 'drainHandles still calls .unref() after killing child processes', 'Expected handle.unref() to still be called');
+  // Test: drainHandles reports surviving child processes as errors
+  assert(childProcessSection.includes('ERROR: Surviving ChildProcess detected'), 'drainHandles reports surviving ChildProcess as an error', 'Expected error message about surviving ChildProcess');
 
-  // Test: drainHandles checks if process is already killed
-  assert(childProcessSection.includes('!handle.killed'), 'drainHandles checks handle.killed before sending SIGTERM', 'Expected !handle.killed guard to avoid killing already-dead processes');
+  // Test: drainHandles logs at error level
+  assert(childProcessSection.includes("level: 'error'"), 'drainHandles logs surviving ChildProcess at error level', "Expected { level: 'error' } in log call");
+
+  // Test: drainHandles still calls .unref() so Node can exit
+  assert(childProcessSection.includes('handle.unref()'), 'drainHandles still calls .unref() so Node.js can exit', 'Expected handle.unref() to still be called');
 
   // Test: Issue #1516 comment present
   assert(exitHandlerContent.includes('Issue #1516'), 'exit-handler.lib.mjs references Issue #1516 in comments');
+
+  // Test: Comment explains WHY we don't kill (root cause investigation)
+  assert(childProcessSection.includes('root cause'), 'Comment explains that we report errors to investigate root causes', 'Expected comment about root cause investigation');
 }
 
 // ═══════════════════════════════════════════════════════════════════

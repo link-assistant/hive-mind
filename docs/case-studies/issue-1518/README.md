@@ -21,19 +21,19 @@ Despite this, the repository shares the same first commit SHA (`1649952a`) as th
 
 ## Timeline of Events
 
-| Time (UTC)             | Event                                                                                 |
-| ---------------------- | ------------------------------------------------------------------------------------- |
-| 2026-03-26T20:26:30Z   | `MixaByk1996/elements-app` (upstream) created                                        |
-| 2026-03-26T20:27:07Z   | First commit in upstream: "first" (SHA: `1649952a`)                                  |
-| 2026-03-26T21:25:28Z   | Issue #1 created in upstream (Vercel build failure)                                   |
-| 2026-03-26T23:57:10Z   | `konard/MixaByk1996-elements-app` created (**not as a fork**)                        |
-| 2026-03-26T23:57:17Z   | First solve commit pushed: "Initial commit with task details" (issue #1)              |
-| 2026-03-26T23:57:23Z   | PR #2 created from non-fork repo to upstream (successfully)                           |
-| 2026-03-29T06:26:28Z   | PR #9 created from non-fork repo (issue #8)                                          |
-| 2026-03-29T14:06:48Z   | PR #13 created from non-fork repo (issue #12)                                        |
-| 2026-03-29T19:43:01Z   | PR #15 created from non-fork repo (issue #14)                                        |
-| 2026-03-31T07:17:29Z   | Solve attempt for issue #16 started                                                   |
-| 2026-03-31T07:17:50Z   | **Fork validation failed** — "Repository is NOT a GitHub fork"                       |
+| Time (UTC)           | Event                                                                    |
+| -------------------- | ------------------------------------------------------------------------ |
+| 2026-03-26T20:26:30Z | `MixaByk1996/elements-app` (upstream) created                            |
+| 2026-03-26T20:27:07Z | First commit in upstream: "first" (SHA: `1649952a`)                      |
+| 2026-03-26T21:25:28Z | Issue #1 created in upstream (Vercel build failure)                      |
+| 2026-03-26T23:57:10Z | `konard/MixaByk1996-elements-app` created (**not as a fork**)            |
+| 2026-03-26T23:57:17Z | First solve commit pushed: "Initial commit with task details" (issue #1) |
+| 2026-03-26T23:57:23Z | PR #2 created from non-fork repo to upstream (successfully)              |
+| 2026-03-29T06:26:28Z | PR #9 created from non-fork repo (issue #8)                              |
+| 2026-03-29T14:06:48Z | PR #13 created from non-fork repo (issue #12)                            |
+| 2026-03-29T19:43:01Z | PR #15 created from non-fork repo (issue #14)                            |
+| 2026-03-31T07:17:29Z | Solve attempt for issue #16 started                                      |
+| 2026-03-31T07:17:50Z | **Fork validation failed** — "Repository is NOT a GitHub fork"           |
 
 ### Key Observation
 
@@ -50,23 +50,28 @@ Three possible scenarios explain how a non-fork repository was created:
 #### Scenario 1: GitHub CLI `--fork-name` Bug (Most Likely)
 
 The `gh repo fork` command with `--fork-name` has known bugs:
+
 - [cli/cli#6329](https://github.com/cli/cli/issues/6329): When a fork already exists, `--fork-name` **renames the existing repo** instead of creating a new fork
 - [cli/cli#5200](https://github.com/cli/cli/issues/5200): Forking own repo with `--fork-name` renames the original instead of failing
 
 If the user already had `konard/elements-app` (a fork of a different `elements-app` repo), running:
+
 ```bash
 gh repo fork MixaByk1996/elements-app --fork-name MixaByk1996-elements-app --clone=false
 ```
+
 could have renamed the existing fork, detaching it from the fork network. However, `konard/elements-app` does not currently exist (404), so if this scenario occurred, the original was deleted or renamed away.
 
 #### Scenario 2: AI Agent Created Repository Directly
 
 During a solve session, the AI agent (Claude/Codex) has access to the full `gh` CLI. It could have:
+
 1. Encountered a fork creation failure
 2. Decided to work around it by running `gh repo create konard/MixaByk1996-elements-app`
 3. Then cloned upstream content and pushed to the new repo
 
 This would explain why:
+
 - The repo has the same commit history as upstream
 - The repo is not tracked as a fork
 - PRs could still be created (GitHub allows cross-repo PRs between unrelated repos that share history)
@@ -118,6 +123,7 @@ The fork parent validation (`validateForkParent()` in `solve.repository.lib.mjs`
 ### 1. Auto-Recovery for Non-Fork Repositories
 
 When the solve system detects a repository that exists but is NOT a proper fork, it now offers automatic recovery:
+
 - Delete the non-fork repository
 - Create a fresh proper fork using `gh repo fork`
 - Continue with the solve operation
@@ -127,6 +133,7 @@ This is controlled by the existing `--fork` flag behavior — when fork mode is 
 ### 2. Enhanced Debug Logging
 
 Added verbose logging during fork creation to capture:
+
 - The exact `gh repo fork` command executed
 - The raw output from the fork creation command
 - The fork validation result immediately after creation

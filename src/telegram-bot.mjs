@@ -588,10 +588,10 @@ async function safeReply(ctx, text, options = {}) {
 
 // Execute a command via isolation mode ($ from start-command) or start-screen, then update message
 async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
-  const { chat, message_id } = startingMessage;
+  const { chat, message_id: msgId } = startingMessage;
   const safeEdit = async text => {
     try {
-      await ctx.telegram.editMessageText(chat.id, message_id, undefined, text, { parse_mode: 'Markdown' });
+      await ctx.telegram.editMessageText(chat.id, msgId, undefined, text, { parse_mode: 'Markdown' });
     } catch (e) {
       console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
     }
@@ -605,12 +605,12 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
     result = await isolationRunner.executeWithIsolation(commandName, args, { backend: ISOLATION_BACKEND, sessionId: sid, verbose: VERBOSE });
     session = sid;
     extraInfo = `\n🔒 Isolation: \`${ISOLATION_BACKEND}\``;
-    if (result.success) trackSession(sid, { chatId: ctx.chat.id, messageId: message_id, startTime: new Date(), url: args[0], command: commandName, isolationBackend: ISOLATION_BACKEND, sessionId: sid }, VERBOSE);
+    if (result.success) trackSession(sid, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: ISOLATION_BACKEND, sessionId: sid }, VERBOSE);
   } else {
     result = await executeStartScreen(commandName, args);
     const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
     session = match ? match[1] : 'unknown';
-    if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: message_id, startTime: new Date(), url: args[0], command: commandName }, VERBOSE);
+    if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName }, VERBOSE);
   }
   if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
   if (result.success) await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`${extraInfo}\n\n${infoBlock}\n\n🔔 You will receive a notification when the session finishes.`);

@@ -23,27 +23,18 @@ const { loadLenvConfig } = await import('./lenv-reader.lib.mjs');
 
 const dotenvxModule = await use('@dotenvx/dotenvx');
 const dotenvx = dotenvxModule.default || dotenvxModule;
-
 const getenvModule = await use('getenv');
-// Node 24 CJS/ESM interop may return the whole module object instead of the function directly
 const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
 
-// Load .env configuration as base
-// quiet: true suppresses info messages, ignore: ['MISSING_ENV_FILE'] suppresses error when .env doesn't exist
-// This makes .env file optional (issue #1318)
+// Load .env/.lenv configuration (issue #1318)
 dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
-
-// Load .lenv configuration (if exists)
-// .lenv overrides .env
 loadLenvConfig({ override: true, quiet: true });
 
 const yargsModule = await use('yargs@17.7.2');
 const yargs = yargsModule.default || yargsModule;
 const helpersModuleBot = await use('yargs@17.7.2/helpers');
-// Node 24 CJS/ESM interop may return the whole module object instead of named exports directly
 const _helpersBot = helpersModuleBot.default || helpersModuleBot;
 const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));
-// Import yargs configurations, GitHub utilities, and telegram helpers
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
 const { parseGitHubUrl } = await import('./github.lib.mjs');
@@ -55,8 +46,8 @@ const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCha
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
-// Import bot launcher with exponential backoff retry (issue #1240)
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
+const { trackSession, startSessionMonitoring } = await import('./session-monitor.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -118,6 +109,7 @@ const config = yargs(hideBin(process.argv))
     alias: 'v',
     default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
   })
+  .option('isolation', { type: 'string', description: 'Experimental: isolation backend (screen/tmux/docker)', default: getenv('TELEGRAM_ISOLATION', '') })
   .help('h')
   .alias('h', 'help')
   .parserConfiguration({
@@ -127,65 +119,52 @@ const config = yargs(hideBin(process.argv))
   .strict() // Enable strict mode to reject unknown options (consistent with solve.mjs and hive.mjs)
   .parse();
 
-// Load configuration from --configuration option if provided
-// This allows users to pass environment variables via command line
-//
-// Complete configuration priority order (highest priority last):
-// 1. .env (base configuration, loaded first - already loaded above at line 24)
-// 2. .lenv (overrides .env - already loaded above at line 28)
-// 3. yargs CLI options parsed above (lines 41-102) use getenv() for defaults,
-//    which reads from process.env populated by .env and .lenv
-// 4. --configuration option (overrides process.env, affecting getenv() calls below)
-// 5. Final resolution (lines 116+): CLI option values > environment variables
-//    Pattern: config.X || getenv('VAR') means CLI options have highest priority
+// Configuration priority: CLI option > --configuration LINO > .lenv > .env
 if (config.configuration) {
   loadLenvConfig({ configuration: config.configuration, override: true, quiet: true });
 }
 
-// After loading configuration, resolve final values
-// Priority: CLI option > environment variable
 const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
 const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
-
 if (!BOT_TOKEN) {
-  console.error('Error: TELEGRAM_BOT_TOKEN environment variable or --token option is not set');
-  console.error('Please set it with: export TELEGRAM_BOT_TOKEN=your_bot_token');
-  console.error('Or use: hive-telegram-bot --token your_bot_token');
+  console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --token or TELEGRAM_BOT_TOKEN env var.');
   process.exit(1);
 }
 
-// After loading configuration, resolve final values from environment or config
-// Priority: CLI option > environment variable (from .lenv or .env)
-// NOTE: This section moved BEFORE loading telegraf for faster dry-run mode (issue #801)
+// Resolve final config values (CLI option > environment variable)
 const resolvedAllowedChats = config.allowedChats || getenv('TELEGRAM_ALLOWED_CHATS', '');
 const allowedChats = resolvedAllowedChats ? lino.parseNumericIds(resolvedAllowedChats) : null;
 
 // Parse allowed topics (chatId:topicId pairs in Links Notation)
 const resolvedAllowedTopics = config.allowedTopics || getenv('TELEGRAM_ALLOWED_TOPICS', '');
 const allowedTopics = resolvedAllowedTopics ? lino.parseLinks(resolvedAllowedTopics) : null;
-
-// Parse override options
 const resolvedSolveOverrides = config.solveOverrides || getenv('TELEGRAM_SOLVE_OVERRIDES', '');
 const solveOverrides = resolvedSolveOverrides
   ? lino
       .parseStringValues(resolvedSolveOverrides)
-      .map(line => line.trim())
-      .filter(line => line)
+      .map(l => l.trim())
+      .filter(l => l)
   : [];
-
 const resolvedHiveOverrides = config.hiveOverrides || getenv('TELEGRAM_HIVE_OVERRIDES', '');
 const hiveOverrides = resolvedHiveOverrides
   ? lino
       .parseStringValues(resolvedHiveOverrides)
-      .map(line => line.trim())
-      .filter(line => line)
+      .map(l => l.trim())
+      .filter(l => l)
   : [];
-
-// Command enable/disable flags
-// Note: yargs automatically supports --no-solve and --no-hive for negation
-// Priority: CLI option > environment variable
 const solveEnabled = config.solve;
 const hiveEnabled = config.hive;
+// Isolation mode (experimental): uses `$` from start-command with specified backend
+const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
+let isolationRunner = null;
+if (ISOLATION_BACKEND) {
+  if (!['screen', 'tmux', 'docker'].includes(ISOLATION_BACKEND)) {
+    console.error(`Error: Invalid --isolation value '${ISOLATION_BACKEND}'. Must be: screen, tmux, or docker`);
+    process.exit(1);
+  }
+  console.log(`🔒 Isolation mode enabled: ${ISOLATION_BACKEND} (experimental)`);
+  isolationRunner = await import('./isolation-runner.lib.mjs');
+}
 
 // Validate solve overrides early using solve's yargs config
 // Only validate if solve command is enabled
@@ -607,29 +586,35 @@ async function safeReply(ctx, text, options = {}) {
   }
 }
 
-// Execute a start-screen command and update the initial message with the result
+// Execute a command via isolation mode ($ from start-command) or start-screen, then update message
 async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
-  const result = await executeStartScreen(commandName, args);
-  const { chat, message_id } = startingMessage;
-
-  // Safely edit message - catch errors to prevent stuck "Starting..." messages (issue #1062)
+  const { chat, message_id: msgId } = startingMessage;
   const safeEdit = async text => {
     try {
-      await ctx.telegram.editMessageText(chat.id, message_id, undefined, text, { parse_mode: 'Markdown' });
+      await ctx.telegram.editMessageText(chat.id, msgId, undefined, text, { parse_mode: 'Markdown' });
     } catch (e) {
       console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
     }
   };
-
-  if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
-
-  if (result.success) {
-    const match = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/);
-    const session = match ? match[1] : 'unknown';
-    await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`\n\n${infoBlock}`);
+  let result,
+    session,
+    extraInfo = '';
+  if (ISOLATION_BACKEND && isolationRunner) {
+    const sid = isolationRunner.generateSessionId();
+    VERBOSE && console.log(`[VERBOSE] Using isolation (${ISOLATION_BACKEND}), session: ${sid}`);
+    result = await isolationRunner.executeWithIsolation(commandName, args, { backend: ISOLATION_BACKEND, sessionId: sid, verbose: VERBOSE });
+    session = sid;
+    extraInfo = `\n🔒 Isolation: \`${ISOLATION_BACKEND}\``;
+    if (result.success) trackSession(sid, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: ISOLATION_BACKEND, sessionId: sid }, VERBOSE);
   } else {
-    await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
+    result = await executeStartScreen(commandName, args);
+    const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
+    session = match ? match[1] : 'unknown';
+    if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName }, VERBOSE);
   }
+  if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
+  if (result.success) await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`${extraInfo}\n\n${infoBlock}\n\n🔔 You will receive a notification when the session finishes.`);
+  else await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
 }
 
 bot.command('help', async ctx => {
@@ -707,6 +692,9 @@ bot.command('help', async ctx => {
   message += '*/help* - Show this help message\n';
   message += '*/stop* - Stop accepting new tasks (owner only)\n';
   message += '*/start* - Resume accepting tasks (owner only)\n\n';
+  message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete.\n';
+  if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
+  message += '\n';
   message += '⚠️ *Note:* /solve, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
@@ -1043,7 +1031,17 @@ async function handleSolveCommand(ctx) {
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
-    if (!solveQueue.executeCallback) solveQueue.executeCallback = createQueueExecuteCallback(executeStartScreen);
+    if (!solveQueue.executeCallback) {
+      solveQueue.executeCallback =
+        ISOLATION_BACKEND && isolationRunner
+          ? async item => {
+              const sid = isolationRunner.generateSessionId();
+              const r = await isolationRunner.executeWithIsolation('solve', item.args, { backend: ISOLATION_BACKEND, sessionId: sid, verbose: VERBOSE });
+              if (r.success) trackSession(sid, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: 'solve', isolationBackend: ISOLATION_BACKEND, sessionId: sid }, VERBOSE);
+              return { ...r, output: r.output || `session: ${sid}` };
+            }
+          : createQueueExecuteCallback(executeStartScreen, (session, info) => trackSession(session, info, VERBOSE));
+    }
   }
 }
 
@@ -1457,6 +1455,9 @@ launchBotWithRetry(
 
       console.log('[VERBOSE] Send a message to the bot to test message reception');
     }
+
+    // Start session monitoring - check for completed sessions every 30 seconds
+    startSessionMonitoring(bot, VERBOSE);
   })
   .catch(error => {
     console.error('❌ Failed to start bot:', error);

@@ -383,7 +383,6 @@ if (autoContinueResult.isContinueMode) {
             await log(`   Fork owner: ${forkOwner}`, { verbose: true });
             await log('   Will clone fork repository for continue mode', { verbose: true });
           }
-
           // Check if maintainer can push to the fork when --allow-to-push-to-contributors-pull-requests-as-maintainer is enabled
           if (argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
             const { checkMaintainerCanModifyPR, requestMaintainerAccess } = githubLib;
@@ -463,7 +462,6 @@ if (isPrUrl) {
         await log(`   Fork owner: ${forkOwner}`, { verbose: true });
         await log('   Will clone fork repository for continue mode', { verbose: true });
       }
-
       // Check if maintainer can push to the fork when --allow-to-push-to-contributors-pull-requests-as-maintainer is enabled
       if (argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
         const { checkMaintainerCanModifyPR, requestMaintainerAccess } = githubLib;

@@ -1175,8 +1175,10 @@ try {
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
   const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
 
-  // Remove initial commit file (CLAUDE.md or .gitkeep) now that Claude command has finished
-  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
+  // Issue #1516: Moved cleanupClaudeFile() to after all completion signals (verifyResults,
+  // log upload, "Ready to merge" comment) to prevent a new commit from appearing on the PR
+  // after we've already told the user that execution is finished.
+  // The cleanup is now performed later, right before endWorkSession().
 
   // Show summary of session and log file
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
@@ -1441,6 +1443,12 @@ try {
       logsAttached = true;
     }
   }
+
+  // Issue #1516: Remove initial commit file (CLAUDE.md or .gitkeep) AFTER all completion
+  // signals have been sent (solution log uploaded, "Ready to merge" comment posted, etc.).
+  // Previously this ran before verifyResults(), causing a new commit to appear on the PR
+  // after the system had already told the user that execution was finished.
+  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
 
   // End work session using the new module
   await endWorkSession({

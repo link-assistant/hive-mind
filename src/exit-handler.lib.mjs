@@ -121,12 +121,25 @@ const drainHandles = async () => {
     // undici may not be available in all Node versions — safe to ignore
   }
 
-  // 3. Unref surviving child processes from command-stream.
-  //    These are typically already-exited but their OS handle entry lingers.
+  // 3. Kill and unref surviving child processes from command-stream.
+  //    Issue #1516: Previously we only called .unref() which lets Node exit but leaves
+  //    the OS processes running. A leaked /bin/sh child can continue executing (making
+  //    commits, pushing to GitHub) after we've declared completion. Now we actively
+  //    SIGTERM them first, then unref so Node can exit without waiting for cleanup.
   try {
     for (const handle of process._getActiveHandles()) {
-      if (handle?.constructor?.name === 'ChildProcess' && typeof handle.unref === 'function') {
-        handle.unref();
+      if (handle?.constructor?.name === 'ChildProcess') {
+        // Issue #1516: Kill the child process before unreffing it
+        try {
+          if (handle.pid && !handle.killed) {
+            handle.kill('SIGTERM');
+          }
+        } catch {
+          // Already exited or not killable — safe to ignore
+        }
+        if (typeof handle.unref === 'function') {
+          handle.unref();
+        }
       }
     }
   } catch {

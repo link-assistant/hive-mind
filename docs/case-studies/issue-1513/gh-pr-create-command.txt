@@ -1,0 +1,1 @@
+cd "/tmp/gh-issue-solver-1774955458801" && gh pr create --draft --title "$(cat '/tmp/pr-title-1774955475148.txt')" --body-file "/tmp/pr-body-1774955475147.md" --base main --head konard:issue-1-28a455e15c07 --repo rumaster/saas-project --assignee konard

@@ -490,78 +490,64 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
 
       const forkValidation = await validateForkParent(existingForkName, `${owner}/${repo}`);
 
-      if (!forkValidation.isValid) {
+      if (forkValidation.isValid) {
+        // Fork is valid — use it
+        await log(`${formatAligned('✅', 'Fork parent validated:', `${forkValidation.parent}`)}`);
+        repoToClone = existingForkName;
+        forkedRepo = existingForkName;
+        upstreamRemote = `${owner}/${repo}`;
+      } else if (forkValidation.isNetworkError) {
         // Issue #1311: Handle network errors separately from fork mismatch errors
-        if (forkValidation.isNetworkError) {
-          await log('');
-          await log(`${formatAligned('❌', 'NETWORK ERROR DURING FORK VALIDATION', '')}`, { level: 'error' });
-          await log('');
-          await log('  🔍 What happened:');
-          await log(`     Failed to connect to GitHub API while validating fork.`);
-          await log(`     Error: ${forkValidation.error}`);
-          await log('');
-          await log('  💡 This is likely a temporary network issue. You can:');
-          await log('     1. Wait a moment and try again');
-          await log('     2. Check your internet connection');
-          await log('     3. Check GitHub status: https://www.githubstatus.com/');
-          await log('');
-          await log('     Or use --no-fork to skip fork validation if you have write access.');
-          await log('');
-          await safeExit(1, 'Network error during fork validation - please retry');
-        }
-
-        // Fork parent mismatch detected - this prevents issue #967
         await log('');
-        await log(`${formatAligned('❌', 'FORK PARENT MISMATCH DETECTED', '')}`, { level: 'error' });
+        await log(`${formatAligned('❌', 'NETWORK ERROR DURING FORK VALIDATION', '')}`, { level: 'error' });
         await log('');
         await log('  🔍 What happened:');
+        await log(`     Failed to connect to GitHub API while validating fork.`);
+        await log(`     Error: ${forkValidation.error}`);
+        await log('');
+        await log('  💡 This is likely a temporary network issue. You can:');
+        await log('     1. Wait a moment and try again');
+        await log('     2. Check your internet connection');
+        await log('     3. Check GitHub status: https://www.githubstatus.com/');
+        await log('');
+        await log('     Or use --no-fork to skip fork validation if you have write access.');
+        await log('');
+        await safeExit(1, 'Network error during fork validation - please retry');
+      } else {
+        // Issue #1518: Auto-recovery for non-fork repositories and fork parent mismatches
+        // Instead of failing, automatically delete the problematic repo and create a fresh fork
+        await log('');
+        await log(`${formatAligned('⚠️', 'FORK PARENT MISMATCH DETECTED', '')}`, { level: 'warning' });
+        await log('');
         if (!forkValidation.isFork) {
-          await log(`     The repository ${existingForkName} is NOT a GitHub fork.`);
-          await log('     It may have been created by cloning and pushing instead of forking.');
+          await log(`${formatAligned('', '', `Repository ${existingForkName} is NOT a GitHub fork (see issue #1518)`)}`);
         } else {
-          await log(`     Your fork ${existingForkName} was created from an intermediate fork,`);
-          await log(`     not directly from the target repository ${owner}/${repo}.`);
+          await log(`${formatAligned('', '', `Fork ${existingForkName} was created from ${forkValidation.parent} instead of ${owner}/${repo} (see issue #967)`)}`);
         }
+        await log(`${formatAligned('', '', `Fork parent: ${forkValidation.parent || 'N/A (not a fork)'}, source: ${forkValidation.source || 'N/A'}, expected: ${owner}/${repo}`)}`);
         await log('');
-        await log('  📦 Fork relationship:');
-        await log(`     • Your fork: ${existingForkName}`);
-        await log(`     • Fork parent: ${forkValidation.parent || 'N/A (not a fork)'}`);
-        await log(`     • Fork source (root): ${forkValidation.source || 'N/A'}`);
-        await log(`     • Expected parent: ${owner}/${repo}`);
-        await log('');
-        await log('  ⚠️  Why this is a problem:');
-        await log('     When a fork is created from an intermediate fork (a "fork of a fork"),');
-        await log('     any commits that exist in the intermediate fork but not in the target');
-        await log('     repository will be included in your pull requests. This can result in');
-        await log('     pull requests with hundreds or thousands of unexpected commits.');
-        await log('');
-        await log('  📖 Case study: See issue #967');
-        await log('     A fork created from veb86/zcadvelecAI (which had 1,678 extra commits)');
-        await log('     instead of zamtmn/zcad resulted in a PR with 1,681 commits');
-        await log('     instead of the expected 3 commits.');
-        await log('');
-        await log('  💡 How to fix:');
-        await log('');
-        await log('     Option 1: Delete the problematic fork and create a fresh one');
-        await log(`        gh repo delete ${existingForkName}`);
-        await log(`        Then run this command again to create a proper fork of ${owner}/${repo}`);
-        await log('');
-        await log('     Option 2: Use --prefix-fork-name-with-owner-name to create a new fork');
-        await log(`        This creates a fork named ${currentUser}/${owner}-${repo} instead`);
-        await log(`        ./solve.mjs "${issueUrl || `https://github.com/${owner}/${repo}/issues/<number>`}" --prefix-fork-name-with-owner-name --fork`);
-        await log('');
-        await log('     Option 3: Work directly on the repository (if you have write access)');
-        await log(`        ./solve.mjs "${issueUrl || `https://github.com/${owner}/${repo}/issues/<number>`}" --no-fork`);
-        await log('');
+        await log(`${formatAligned('🔄', 'Auto-recovery:', 'Deleting problematic repository and creating fresh fork...')}`);
 
-        await safeExit(1, 'Fork parent mismatch - fork was created from intermediate fork');
+        // Delete the non-fork / mismatched repository
+        const deleteResult = await $`gh repo delete ${existingForkName} --yes 2>&1`;
+        if (deleteResult.code !== 0) {
+          const deleteOutput = (deleteResult.stderr?.toString() || '') + (deleteResult.stdout?.toString() || '');
+          await log(`${formatAligned('❌', 'Delete failed:', deleteOutput.split('\n')[0])}`, { level: 'error' });
+          await log('');
+          await log('  💡 Manual fix required:');
+          await log(`     gh repo delete ${existingForkName} --yes`);
+          await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);
+          await log('');
+          await safeExit(1, 'Auto-recovery failed - could not delete problematic repository');
+        }
+
+        await log(`${formatAligned('✅', 'Deleted:', existingForkName)}`);
+        // Clear existingForkName so we fall through to the fork creation code below
+        existingForkName = null;
       }
+    }
 
-      await log(`${formatAligned('✅', 'Fork parent validated:', `${forkValidation.parent}`)}`);
-      repoToClone = existingForkName;
-      forkedRepo = existingForkName;
-      upstreamRemote = `${owner}/${repo}`;
-    } else {
+    if (!existingForkName) {
       // Need to create fork with retry logic for concurrent scenarios
       await log(`${formatAligned('🔄', 'Creating fork...', '')}`);
 
@@ -577,11 +563,16 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
       for (let attempt = 1; attempt <= maxForkRetries; attempt++) {
         // Try to create fork with optional custom name
         let forkResult;
+        const forkCmd = argv.prefixForkNameWithOwnerName
+          ? `gh repo fork ${owner}/${repo} --fork-name ${owner}-${repo} --clone=false`
+          : `gh repo fork ${owner}/${repo} --clone=false`;
+        // Issue #1518: Log the exact fork command for debugging non-fork creation scenarios
+        if (argv.verbose) {
+          await log(`${formatAligned('🔧', 'Fork command:', forkCmd)}`);
+        }
         if (argv.prefixForkNameWithOwnerName) {
-          // Use --fork-name flag to create fork with owner prefix
           forkResult = await $`gh repo fork ${owner}/${repo} --fork-name ${owner}-${repo} --clone=false 2>&1`;
         } else {
-          // Standard fork creation (no custom name)
           forkResult = await $`gh repo fork ${owner}/${repo} --clone=false 2>&1`;
         }
 
@@ -796,6 +787,19 @@ Thank you!`;
         if (forkCreated) {
           await log(`${formatAligned('⏳', 'Waiting:', 'For fork to be fully ready...')}`);
           await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+
+        // Issue #1518: Validate fork parent immediately after creation to detect non-fork repos early
+        if (forkCreated) {
+          const postCreateValidation = await validateForkParent(actualForkName, `${owner}/${repo}`);
+          if (!postCreateValidation.isValid && !postCreateValidation.isNetworkError) {
+            await log(`${formatAligned('⚠️', 'WARNING:', `Newly created fork failed validation: ${postCreateValidation.error}`)}`, { level: 'warning' });
+            await log(`${formatAligned('', '', 'This may indicate a gh CLI bug. See issue #1518 for details.')}`);
+            reportError(new Error(`Fork created as non-fork: ${postCreateValidation.error}`), {
+              context: 'fork_creation_validation', forkRepo: actualForkName, expectedUpstream: `${owner}/${repo}`,
+              isFork: postCreateValidation.isFork, parent: postCreateValidation.parent, source: postCreateValidation.source,
+            });
+          }
         }
       }
 

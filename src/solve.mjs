@@ -86,7 +86,6 @@ const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solv
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
 const { validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
-
 // Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
 
@@ -110,12 +109,9 @@ try {
   await safeExit(1, 'Invalid command-line arguments');
 }
 global.verboseMode = argv.verbose;
-
 // Issue #1466: Intercept console.log to capture [VERBOSE] output in log files
 setupVerboseLogInterceptor();
-
 // Early logs go to cwd; custom log dir takes effect after argv is parsed
-
 // Conditionally import tool-specific functions after argv is parsed
 let checkForUncommittedChanges;
 if (argv.tool === 'opencode') {
@@ -161,7 +157,6 @@ const cleanupWrapper = async () => {
 const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper);
 installGlobalExitHandlers();
-
 // Now handle argument validation that was moved from early checks
 let issueUrl = argv['issue-url'] || argv._[0];
 if (!issueUrl) {
@@ -210,7 +205,6 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 // Model validation is a simple string check and should always be performed
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
-
 // Validate --plan-model if provided (Issue #1223)
 if (argv.planModel) {
   if (tool !== 'claude') {
@@ -219,7 +213,6 @@ if (argv.planModel) {
   }
   await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
 }
-
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
 if (!(await performSystemChecks(argv.minDiskSpace || 2048, skipToolConnectionCheck, argv.model, argv))) {
@@ -234,15 +227,12 @@ if (argv.verbose) {
 }
 const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
 // Note: owner, repo, and urlNumber are extracted from validateGitHubUrl() above (parseUrlComponents() removed due to hash fragment bug)
-
 // Handle --auto-fork option: automatically fork public repositories without write access
 if (argv.autoFork && !argv.fork) {
   const { detectRepositoryVisibility } = githubLib;
-
   // Check if we have write access first
   await log('🔍 Checking repository access for auto-fork...');
   const permResult = await $`gh api repos/${owner}/${repo} --jq .permissions`;
-
   if (permResult.code === 0) {
     const permissions = JSON.parse(permResult.stdout.toString().trim());
     const hasWriteAccess = permissions.push === true || permissions.admin === true || permissions.maintain === true;
@@ -308,23 +298,16 @@ if (argv.autoFork && !argv.fork) {
 // Accept pending GitHub invitation for the specific repo/org before checking write access
 if (argv.autoAcceptInvite) {
   const inviteResult = await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
-
-  // Issue #1513: If an invitation was accepted and fork mode was auto-enabled,
-  // re-check write permissions. The user may now have direct write access,
-  // making fork mode unnecessary and avoiding cross-fork GraphQL timing issues.
+  // Issue #1513: Re-check write access after invitation acceptance to avoid unnecessary fork mode
   if ((inviteResult.acceptedRepo || inviteResult.acceptedOrg) && argv.fork && argv.autoFork) {
-    const recheckResult = await $`gh api repos/${owner}/${repo} --jq .permissions`;
-    if (recheckResult.code === 0) {
-      try {
-        const permissions = JSON.parse(recheckResult.stdout.toString().trim());
-        const hasWriteNow = permissions.push === true || permissions.admin === true || permissions.maintain === true;
-        if (hasWriteNow) {
-          await log('✅ Auto-fork: Write access detected after invitation acceptance, disabling fork mode');
-          argv.fork = false;
-        }
-      } catch {
-        // JSON parse failed - keep fork mode as-is
+    try {
+      const perms = JSON.parse((await $`gh api repos/${owner}/${repo} --jq .permissions`).stdout.toString().trim());
+      if (perms.push || perms.admin || perms.maintain) {
+        await log('✅ Auto-fork: Write access detected after invitation acceptance, disabling fork mode');
+        argv.fork = false;
       }
+    } catch {
+      /* keep fork mode as-is */
     }
   }
 }

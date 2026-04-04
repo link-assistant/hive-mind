@@ -19,11 +19,7 @@ The CI/CD pipeline triggers workflow runs when `.gitkeep` files are pushed to pu
 1. The `.gitkeep` exclusion added in issue #1436 was removed in the same PR's refactor commit (`4f4c18df`) when switching to a "positive-matching" approach. The refactor correctly ensured `code=false` for `.gitkeep` via the `codePattern` regex, but left `.gitkeep` passing through `isExcludedFromCodeChanges()`.
 2. The workflow `on.pull_request` trigger has no `paths-ignore` filter, so GitHub Actions creates a run for every push to a PR branch regardless of which files changed.
 
-**Fixes:**
-
-1. Re-add `.gitkeep` exclusion in `isExcludedFromCodeChanges()` for correctness — `.gitkeep` files should not appear in "Files considered as code changes"
-2. Add `paths-ignore: ['**.gitkeep']` to the `pull_request` trigger to avoid creating workflow runs for `.gitkeep`-only pushes
-3. Add unit tests for the change detection logic
+**Fix:** Use consistent positive matching throughout the pipeline. Instead of adding exclusion rules for each unknown file type (whack-a-mole), the "Files considered as code changes" list now only shows files that positively match `codePattern`. Unknown file types like `.gitkeep` are naturally excluded without explicit rules. Unit tests validate the full two-step pipeline (exclusion filter + positive pattern match).
 
 ---
 
@@ -115,56 +111,40 @@ The refactor in commit `4f4c18df` correctly prevented `code=true` for `.gitkeep`
 
 ## Solutions Implemented
 
-### Solution 1: Exclude `.gitkeep` from Code Changes Detection
+### Solution: Consistent Positive Matching (Root Cause Fix)
 
-**File:** `scripts/detect-code-changes.mjs`
+The root cause (RCA 3) was that the "Files considered as code changes" list showed all files that passed `isExcludedFromCodeChanges()`, regardless of whether they matched `codePattern`. This created false positives for any file type not in the exclusion list (`.gitkeep`, `.txt`, `.log`, `LICENSE`, etc.).
 
-- Re-add `.gitkeep` exclusion to `isExcludedFromCodeChanges()` function
-- This ensures `.gitkeep` files don't appear in "Files considered as code changes" list
-- Consistent with the exclusion of other non-code files (markdown, docs, etc.)
+**Fix in `scripts/detect-code-changes.mjs`:**
 
-### Solution 2: Add `paths-ignore` to Workflow Trigger
+1. **Removed the `.gitkeep`-specific exclusion** from `isExcludedFromCodeChanges()` — this was a band-aid that only addressed one file type
+2. **Changed "Files considered as code changes" to only show files matching `codePattern`** — the list now uses a two-step pipeline: first filter by `isExcludedFromCodeChanges()`, then positively match against `codePattern`. Only files passing both steps appear in the list.
+3. **Added "Files NOT considered as code changes" log** for debugging — shows all files that were changed but not classified as code, making it easy to verify the detection logic.
 
-**File:** `.github/workflows/release.yml`
+**No changes to `.github/workflows/release.yml`** — the `paths-ignore` approach was removed because it's a band-aid. The detection script correctly handles all file types through positive matching, and the ~8s overhead of running `detect-changes` on a `.gitkeep`-only push is acceptable compared to the maintenance cost of keeping exclusion lists in sync.
 
-- Add `paths-ignore: ['**.gitkeep']` to the `pull_request` trigger
-- This prevents GitHub Actions from creating a workflow run when only `.gitkeep` files change
-- Saves ~8 seconds of runner time per `.gitkeep`-only push
-- Note: This only affects the initial `.gitkeep` commit (first push to PR branch). The revert commit typically occurs when there are other code changes in the PR, so the workflow would run anyway.
+### Unit Tests
 
-### Solution 3: Unit Tests for Change Detection
+**File:** `tests/test-detect-code-changes-1528.mjs` — 40 tests covering:
 
-**File:** `tests/test-detect-code-changes-1528.mjs`
-
-- Tests that `.gitkeep` is excluded from code changes
-- Tests that markdown files, docs, experiments, etc. are excluded
-- Tests that real code files (.mjs, .json, .yml) are not excluded
-- Validates the `codePattern` regex behavior
+- `isExcludedFromCodeChanges()`: markdown, folder exclusions, non-excluded files
+- `matchesPattern()` with `codePattern`: positive matches (.mjs, .json, .yml, .yaml, workflows) and negative matches (.gitkeep, Dockerfile, .sh, .txt, .gitignore)
+- Full pipeline integration: `.gitkeep`-only, mixed changes, docs-only, unknown file types, realistic mixed change sets
+- Validates that `.gitkeep` is naturally excluded by not matching `codePattern`, not by explicit exclusion rules
 
 ---
 
-## CI/CD Resources Saved (Estimated)
+## Key Insight: Positive Matching vs Exclusion Lists
 
-Per Pull Request initial `.gitkeep` commit:
+The original approach tried to fix `.gitkeep` by adding it to an exclusion list. This is a **whack-a-mole** approach — every new unknown file type would need its own exclusion rule.
 
-| Before                                      | After                |
-| ------------------------------------------- | -------------------- |
-| Workflow run created                        | No workflow run      |
-| `detect-changes` job runs (~8s)             | No job runs          |
-| All other jobs evaluate conditions and skip | No evaluation needed |
+The correct approach uses **positive matching**: only files matching known code patterns (`codePattern` regex) are reported as code changes. Everything else is naturally excluded. This means:
 
-**Savings per PR:** ~8 seconds of GitHub Actions runner time + avoided workflow queuing overhead.
+- `.gitkeep` → not code (doesn't match `.mjs`, `.json`, `.yml`, `.yaml`, or `.github/workflows/`)
+- `.txt`, `.log`, `LICENSE`, `.env` → not code (same reason)
+- New unknown file types in the future → automatically not code
 
----
-
-## Key Insight: `paths-ignore` and PR Diffs
-
-GitHub Actions `paths-ignore` for `pull_request` events uses the **cumulative PR diff** (three-dot diff between topic branch and base branch), not per-commit diffs. This means:
-
-- For the initial `.gitkeep` commit (first push to a new PR branch): the cumulative diff is just `.gitkeep` → workflow is skipped by `paths-ignore`
-- For the `.gitkeep` revert commit (after real code is pushed): the cumulative diff includes all real code changes → workflow runs normally
-
-This is exactly the desired behavior. The `paths-ignore` filter correctly skips only the truly irrelevant initial commit.
+The `isExcludedFromCodeChanges()` function still serves a purpose: it filters out files in known non-code directories (`.changeset/`, `data/`, `docs/`, `experiments/`) and markdown files. Without this, a file like `data/records.json` would match `codePattern` by extension but should not be considered a code change.
 
 ---
 

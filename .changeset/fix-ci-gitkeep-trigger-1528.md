@@ -2,6 +2,6 @@
 '@link-assistant/hive-mind': patch
 ---
 
-Fix CI/CD triggering on .gitkeep files (Issue #1528).
+Fix CI/CD false positive for .gitkeep files using positive matching (Issue #1528).
 
-Add `paths-ignore` for `.gitkeep` to the `pull_request` workflow trigger to prevent creating workflow runs for `.gitkeep`-only pushes. Re-add `.gitkeep` exclusion in `isExcludedFromCodeChanges()` so `.gitkeep` files don't appear in the "Files considered as code changes" list. Export change detection functions for testing and add 29 unit tests.
+Use consistent positive matching in detect-code-changes.mjs: "Files considered as code changes" now only shows files matching codePattern, so unknown file types like .gitkeep are naturally excluded without explicit exclusion rules. Add 40 unit tests covering the full detection pipeline.

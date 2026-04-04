@@ -9,11 +9,13 @@
  * Key behavior:
  * - For PRs: compares PR head against base branch
  * - For pushes: compares HEAD against HEAD^
- * - Excludes certain folders and file types from "code changes" detection
+ * - Uses positive matching to detect code changes (only files matching known
+ *   code extensions are considered code), so unknown file types like .gitkeep
+ *   are naturally excluded without needing explicit exclusion rules (issue #1528)
  *
- * Excluded from code changes (don't require changesets):
+ * Files NOT considered code changes (don't require changesets):
+ * - Any file not matching codePattern (e.g., .gitkeep, .txt, etc.)
  * - Markdown files (*.md) in any folder
- * - .gitkeep files (auto-generated for PR creation, see issue #1528)
  * - .changeset/ folder (changeset metadata)
  * - data/ folder (data files)
  * - docs/ folder (documentation)
@@ -121,19 +123,21 @@ function matchesPattern(filePath, pattern) {
 }
 
 /**
- * Check if a file should be excluded from code changes detection
+ * Check if a file should be excluded from code changes detection.
+ *
+ * This function handles known non-code directories and file types.
+ * Files that don't match any exclusion rule here are further checked
+ * against codePattern — only files matching that positive pattern
+ * are reported as code changes. This means unknown file types (like
+ * .gitkeep, .txt, etc.) are naturally excluded without needing
+ * explicit exclusion rules. See issue #1528.
+ *
  * @param {string} filePath - The file path to check
  * @returns {boolean} True if the file should be excluded
  */
 function isExcludedFromCodeChanges(filePath) {
   // Exclude markdown files in any folder
   if (filePath.endsWith('.md')) {
-    return true;
-  }
-
-  // Exclude .gitkeep files — these are auto-generated for PR creation and should
-  // never be considered code changes. See: docs/case-studies/issue-1528/README.md
-  if (filePath === '.gitkeep' || filePath.endsWith('/.gitkeep')) {
     return true;
   }
 
@@ -191,8 +195,18 @@ function detectChanges() {
   const helmChanged = changedFiles.some(file => file.startsWith('helm/'));
   setOutput('helm', helmChanged ? 'true' : 'false');
 
-  // Detect code changes (excluding docs, changesets, experiments, data folders, and markdown files)
-  const codeChangedFiles = changedFiles.filter(file => !isExcludedFromCodeChanges(file));
+  // Detect code changes using positive matching (issue #1528):
+  // 1. First exclude known non-code directories/types (docs, changesets, experiments, data, markdown)
+  // 2. Then positively match against known code file patterns
+  // This ensures unknown file types (like .gitkeep) are naturally excluded
+  // without needing explicit exclusion rules for each one.
+  const nonExcludedFiles = changedFiles.filter(file => !isExcludedFromCodeChanges(file));
+
+  // Check if any code files changed (.mjs, .json, .yml, .yaml, workflow files)
+  // Note: Docker files (Dockerfile etc.) are NOT included here — they are detected separately via
+  // docker=true. The release job is configured to also trigger on docker-changed=true. (see issue #1423)
+  const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\//;
+  const codeChangedFiles = nonExcludedFiles.filter(file => codePattern.test(file));
 
   console.log('\nFiles considered as code changes:');
   if (codeChangedFiles.length === 0) {
@@ -200,13 +214,16 @@ function detectChanges() {
   } else {
     codeChangedFiles.forEach(file => console.log(`  ${file}`));
   }
+
+  // Log files that were changed but not considered code (for debugging)
+  const nonCodeFiles = changedFiles.filter(file => !codeChangedFiles.includes(file));
+  if (nonCodeFiles.length > 0) {
+    console.log('\nFiles NOT considered as code changes:');
+    nonCodeFiles.forEach(file => console.log(`  ${file}`));
+  }
   console.log('');
 
-  // Check if any code files changed (.mjs, .json, .yml, .yaml, workflow files)
-  // Note: Docker files (Dockerfile etc.) are NOT included here — they are detected separately via
-  // docker=true. The release job is configured to also trigger on docker-changed=true. (see issue #1423)
-  const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\//;
-  const codeChanged = codeChangedFiles.some(file => codePattern.test(file));
+  const codeChanged = codeChangedFiles.length > 0;
   setOutput('code', codeChanged ? 'true' : 'false');
 
   console.log('\nChange detection completed.');

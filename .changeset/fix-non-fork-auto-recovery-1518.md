@@ -10,3 +10,5 @@ Auto-recover from non-fork repositories during fork validation (Issue #1518)
 - Report non-fork creation to Sentry for monitoring
 - Add `--allow-force-non-fork-repository-deletion` flag to force deletion even when additional commits would be lost
 - Add case study documenting the root cause analysis of konard/MixaByk1996-elements-app
+- Document all previously undocumented solve options in CONFIGURATION.md (12 options including --allow-force-non-fork-repository-deletion)
+- Add CI/CD test to verify documentation stays in sync with code options (prevents drift)

@@ -97,26 +97,6 @@ export function normalizeDate(dateStr) {
 }
 
 /**
- * Strip OS/architecture info from a version extra string.
- * Removes patterns like "x86_64-unknown-linux-gnu", "linux/amd64", "[x86_64-linux]", etc.
- * @param {string} s - String to clean
- * @returns {string} Cleaned string
- */
-function stripArchInfo(s) {
-  if (!s) return s;
-  return (
-    s
-      // Remove bracketed arch like [x86_64-linux]
-      .replace(/\[[\w-]+\]\s*/g, '')
-      // Remove triple-target patterns like x86_64-unknown-linux-gnu, x86_64-pc-linux-gnu
-      .replace(/\b\w+[-_]\w+[-_]\w+[-_]\w+\b/g, '')
-      // Remove platform/arch patterns like linux/amd64
-      .replace(/\b(?:linux|darwin|win32|windows)\/\w+\b/gi, '')
-      .trim()
-  );
-}
-
-/**
  * Execute a command asynchronously and return its output, or null if it fails
  * @param {string} command - Command to execute
  * @param {number} timeout - Timeout in milliseconds (default: 5000ms)

@@ -82,8 +82,8 @@ runTest('context window percentage with large cache reads stays reasonable', () 
   const result = buildBudgetStatsString(tokenUsage, null);
   // Should NOT show 7516.89% — that was the old bug
   assertNotContains(result, '7516', 'Context should NOT show 7516% (cumulative sum)');
-  // Should show max context window with peak usage
-  assertContains(result, 'Max context window:', 'Should show max context window');
+  // Issue #1526: Single-line format with Context window prefix
+  assertContains(result, 'Context window:', 'Should show context window');
   assertContains(result, '850K', 'Should show 850K peak context');
 });
 
@@ -109,9 +109,9 @@ runTest('output format shows totals with cached tokens separately', () => {
     },
   };
   const result = buildBudgetStatsString(tokenUsage, null);
-  // Should show "Total input tokens: X + Y cached" format
-  assertContains(result, 'Total input tokens: 60K + 200K cached', 'Should show input + cached separately');
-  assertContains(result, 'Total output tokens: 15K output', 'Should show total output tokens');
+  // Issue #1526: Shorter total format
+  assertContains(result, '60K + 200K cached input tokens', 'Should show input + cached separately');
+  assertContains(result, '15K output tokens', 'Should show output tokens');
 });
 
 // ==== Test Group: JSONL Deduplication ====
@@ -219,9 +219,10 @@ runTest('single sub-session shows simplified format', () => {
     modelUsage: { 'claude-opus-4-6': { inputTokens: 645, cacheCreationTokens: 2101865, cacheReadTokens: 73066385, outputTokens: 82449, modelName: 'Claude Opus 4.6', modelInfo: OPUS_MODEL_INFO, peakContextUsage: 850000 } },
   };
   const result = buildBudgetStatsString(tokenUsage, null);
-  // Single sub-session: simplified format with Max context / Max output
-  assertContains(result, 'Max context window:', 'Should show Max context window');
-  assertContains(result, 'Max output tokens:', 'Should show Max output tokens');
+  // Issue #1526: Single-line format with context + output on one line
+  assertContains(result, 'Context window:', 'Should show Context window');
+  assertContains(result, '850K / 1M input tokens', 'Should show peak context');
+  assertContains(result, '82.4K / 128K output tokens', 'Should show output tokens');
   assertNotContains(result, 'Sub sessions', 'Single sub-session should NOT show sub-sessions list');
 });
 
@@ -242,10 +243,9 @@ runTest('multiple sub-sessions shows numbered list', () => {
     },
   };
   const result = buildBudgetStatsString(tokenUsage, null);
-  assertContains(result, 'Sub sessions (between compact events):', 'Should show sub-sessions header');
-  assertContains(result, '1. ', 'Should number first sub-session');
-  assertContains(result, '2. ', 'Should number second sub-session');
-  assertNotContains(result, 'Max context window:', 'Multiple sub-sessions should NOT show single simplified format');
+  // Issue #1526: Numbered sub-sessions with Context window prefix
+  assertContains(result, '1. Context window:', 'Should number first sub-session');
+  assertContains(result, '2. Context window:', 'Should number second sub-session');
 });
 
 runTest('createEmptySubSessionUsage has peak tracking fields', () => {

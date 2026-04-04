@@ -40,6 +40,12 @@ export const parseAgentTokenUsage = output => {
     cacheWriteTokens: 0,
     totalCost: 0,
     stepCount: 0,
+    // Issue #1526: Track model and context info from step_finish events
+    requestedModelId: null,
+    respondedModelId: null,
+    contextLimit: null,
+    outputLimit: null,
+    peakContextUsage: 0, // Track peak context usage across steps
   };
 
   // Try to parse each line as JSON (agent outputs NDJSON format)
@@ -70,6 +76,24 @@ export const parseAgentTokenUsage = output => {
         // Add cost from step_finish (usually 0 for free models like grok-code)
         if (parsed.part.cost !== undefined) {
           usage.totalCost += parsed.part.cost;
+        }
+
+        // Issue #1526: Extract model info from step_finish events
+        if (parsed.part.model) {
+          if (parsed.part.model.requestedModelID) usage.requestedModelId = parsed.part.model.requestedModelID;
+          if (parsed.part.model.respondedModelID) usage.respondedModelId = parsed.part.model.respondedModelID;
+        }
+
+        // Issue #1526: Extract context limits and track peak context usage
+        if (parsed.part.context) {
+          if (parsed.part.context.contextLimit) usage.contextLimit = parsed.part.context.contextLimit;
+          if (parsed.part.context.outputLimit) usage.outputLimit = parsed.part.context.outputLimit;
+          // Track peak context usage: input_tokens (current request) is the context usage for this step
+          // The actual context used per request = input tokens + cache_read tokens for that request
+          const stepContextUsage = (tokens.input || 0) + (tokens.cache?.read || 0);
+          if (stepContextUsage > usage.peakContextUsage) {
+            usage.peakContextUsage = stepContextUsage;
+          }
         }
       }
     } catch {
@@ -560,6 +584,12 @@ export const executeAgentCommand = async params => {
         cacheWriteTokens: 0,
         totalCost: 0,
         stepCount: 0,
+        // Issue #1526: Track model and context info from step_finish events
+        requestedModelId: null,
+        respondedModelId: null,
+        contextLimit: null,
+        outputLimit: null,
+        peakContextUsage: 0,
       };
       // Helper to accumulate tokens from step_finish events during streaming
       const accumulateTokenUsage = data => {
@@ -575,6 +605,20 @@ export const executeAgentCommand = async params => {
           }
           if (data.part.cost !== undefined) {
             streamingTokenUsage.totalCost += data.part.cost;
+          }
+          // Issue #1526: Extract model info from step_finish events
+          if (data.part.model) {
+            if (data.part.model.requestedModelID) streamingTokenUsage.requestedModelId = data.part.model.requestedModelID;
+            if (data.part.model.respondedModelID) streamingTokenUsage.respondedModelId = data.part.model.respondedModelID;
+          }
+          // Issue #1526: Extract context limits and track peak context usage
+          if (data.part.context) {
+            if (data.part.context.contextLimit) streamingTokenUsage.contextLimit = data.part.context.contextLimit;
+            if (data.part.context.outputLimit) streamingTokenUsage.outputLimit = data.part.context.outputLimit;
+            const stepContextUsage = (tokens.input || 0) + (tokens.cache?.read || 0);
+            if (stepContextUsage > streamingTokenUsage.peakContextUsage) {
+              streamingTokenUsage.peakContextUsage = stepContextUsage;
+            }
           }
         }
       };

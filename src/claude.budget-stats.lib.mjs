@@ -141,6 +141,9 @@ export const displayCostComparison = async (publicCost, anthropicCost, log) => {
  * @param {Object} tokenUsage - Full token usage data (with subSessions)
  * @param {Function} log - Logging function
  */
+/**
+ * Issue #1526: Updated to use single-line context+output format.
+ */
 export const displayBudgetStats = async (usage, tokenUsage, log) => {
   const modelInfo = usage.modelInfo;
   if (!modelInfo?.limit) {
@@ -156,48 +159,46 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
   const hasMultipleSubSessions = subSessions.length > 1;
 
   if (hasMultipleSubSessions) {
-    await log('        Sub sessions (between compact events):');
     for (let i = 0; i < subSessions.length; i++) {
       const sub = subSessions[i];
       const subPeak = sub.peakContextUsage || 0;
-      let line = `          ${i + 1}. `;
+      const parts = [];
       if (contextLimit && subPeak > 0) {
         const pct = ((subPeak / contextLimit) * 100).toFixed(0);
-        line += `${formatNumber(subPeak)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`;
-      } else {
-        const subTotal = sub.inputTokens + sub.cacheCreationTokens + sub.cacheReadTokens;
-        line += `${formatNumber(subTotal)} input tokens`;
+        parts.push(`${formatNumber(subPeak)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
       }
       if (outputLimit) {
         const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
-        line += `; ${formatNumber(sub.outputTokens)} / ${formatNumber(outputLimit)} output tokens (${outPct}%)`;
-      } else {
-        line += `; ${formatNumber(sub.outputTokens)} output tokens`;
+        parts.push(`${formatNumber(sub.outputTokens)} / ${formatNumber(outputLimit)} output tokens (${outPct}%)`);
       }
-      await log(line);
+      if (parts.length > 0) {
+        await log(`        ${i + 1}. Context window: ${parts.join(', ')}`);
+      }
     }
   } else {
-    // Single sub-session: simplified format
+    // Single sub-session: single-line format
     const peakContext = usage.peakContextUsage || 0;
-    if (contextLimit) {
-      if (peakContext > 0) {
-        const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-        await log(`        Max context window: ${formatNumber(peakContext)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
-      }
+    const parts = [];
+    if (contextLimit && peakContext > 0) {
+      const pct = ((peakContext / contextLimit) * 100).toFixed(0);
+      parts.push(`${formatNumber(peakContext)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
     }
     if (outputLimit) {
       const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
-      await log(`        Max output tokens: ${formatNumber(usage.outputTokens)} / ${formatNumber(outputLimit)} output tokens (${outPct}%)`);
+      parts.push(`${formatNumber(usage.outputTokens)} / ${formatNumber(outputLimit)} output tokens (${outPct}%)`);
+    }
+    if (parts.length > 0) {
+      await log(`        Context window: ${parts.join(', ')}`);
     }
   }
 
-  // Cumulative totals
+  // Cumulative totals — single line
   const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
   const cachedTokens = usage.cacheReadTokens;
-  let totalLine = `        Total input tokens: ${formatNumber(totalInputNonCached)}`;
+  let totalLine = `${formatNumber(totalInputNonCached)}`;
   if (cachedTokens > 0) totalLine += ` + ${formatNumber(cachedTokens)} cached`;
-  await log(totalLine);
-  await log(`        Total output tokens: ${formatNumber(usage.outputTokens)}`);
+  totalLine += ` input tokens, ${formatNumber(usage.outputTokens)} output tokens`;
+  await log(`        Total: ${totalLine}`);
 };
 
 /**
@@ -261,39 +262,55 @@ const formatTokensCompact = tokens => {
  * @param {number|null} outputLimit - Output token limit for the model
  * @returns {string} Formatted sub-sessions string
  */
+/**
+ * Issue #1526: Format sub-sessions list using numbered single-line format.
+ * Each sub-session gets: "N. Context window: X / Y input tokens (Z%), A / B output tokens (W%)"
+ */
 const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
-  let result = '\n\nSub sessions (between compact events):';
+  let result = '';
   for (let i = 0; i < subSessions.length; i++) {
     const sub = subSessions[i];
     const subPeakContext = sub.peakContextUsage || 0;
-    const subTotalInput = sub.inputTokens + sub.cacheCreationTokens + sub.cacheReadTokens;
-    let line = `\n${i + 1}. `;
-    if (contextLimit && subPeakContext > 0) {
-      const pct = ((subPeakContext / contextLimit) * 100).toFixed(0);
-      line += `${formatTokensCompact(subPeakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`;
-    } else {
-      line += `${formatTokensCompact(subTotalInput)} input tokens`;
-    }
-    if (outputLimit) {
-      const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
-      line += `; ${formatTokensCompact(sub.outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`;
-    } else {
-      line += `; ${formatTokensCompact(sub.outputTokens)} output tokens`;
-    }
-    result += line;
+    result += formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `);
   }
   return result;
 };
 
 /**
- * Build budget stats string for GitHub PR comments (Issue #1491, #1501, #1508)
+ * Issue #1526: Build a single-line context window + output tokens string.
+ * Format: "- Context window: X / Y input tokens (Z%), A / B output tokens (W%)"
+ * When only one of context or output limits is available, shows just that part.
+ * @param {number} peakContext - Peak context usage (0 if unknown)
+ * @param {number} contextLimit - Context window limit (null if unknown)
+ * @param {number} outputTokens - Output tokens used
+ * @param {number} outputLimit - Output token limit (null if unknown)
+ * @param {string} [prefix='- '] - Line prefix
+ * @returns {string} Formatted line or empty string
+ */
+const formatContextOutputLine = (peakContext, contextLimit, outputTokens, outputLimit, prefix = '- ') => {
+  const parts = [];
+  if (contextLimit && peakContext > 0) {
+    const pct = ((peakContext / contextLimit) * 100).toFixed(0);
+    parts.push(`${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`);
+  }
+  if (outputLimit) {
+    const outPct = ((outputTokens / outputLimit) * 100).toFixed(0);
+    parts.push(`${formatTokensCompact(outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`);
+  }
+  if (parts.length === 0) return '';
+  return `\n${prefix}Context window: ${parts.join(', ')}`;
+};
+
+/**
+ * Build budget stats string for GitHub PR comments (Issue #1491, #1501, #1508, #1526)
  * Format requested by user: sub-sessions between compactification events,
  * per-model breakdown, cumulative totals with cached tokens shown separately.
  * Issue #1508: When multiple models are used, token and context usage is now split by model.
  * Sub-sessions are shown as a global section (not duplicated per model) since JSONL
  * sub-session tracking is global across all models.
- * @param {Object} tokenUsage - Token usage data from calculateSessionTokens
- * @param {Object|null} streamTokenUsage - Token usage from stream JSON events (used for comparison, not displayed)
+ * Issue #1526: Shorter output format — context window + output tokens on single line.
+ * Fix: exclude cacheReadTokens from context window fallback calculation (cumulative ≠ per-request).
+ * @param {Object} tokenUsage - Token usage data from calculateSessionTokens or buildAgentBudgetStats
  * @returns {string} Formatted markdown string for PR comment
  */
 export const buildBudgetStatsString = tokenUsage => {
@@ -329,61 +346,72 @@ export const buildBudgetStatsString = tokenUsage => {
       if (isMultiModel) stats += `\n\n**${modelName}:**`;
 
       if (!isMultiModel && hasMultipleSubSessions) {
-        // Single-model + multiple sub-sessions: show sub-sessions under that model
+        // Single-model + multiple sub-sessions: show numbered sub-sessions under that model
         stats += formatSubSessionsList(subSessions, contextLimit, outputLimit);
-      } else if (!isMultiModel && !hasMultipleSubSessions) {
-        // Single-model + single sub-session: simplified format with context/output limits
-        const peakContext = usage.peakContextUsage || 0;
-        if (contextLimit) {
-          if (peakContext > 0) {
-            const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-            stats += `\n- Max context window: ${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`;
-          } else {
-            const totalInput = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
-            const pct = ((totalInput / contextLimit) * 100).toFixed(0);
-            stats += `\n- Context window: ${formatTokensCompact(totalInput)} / ${formatTokensCompact(contextLimit)} tokens (${pct}%)`;
-          }
-        }
-        if (outputLimit) {
-          const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
-          stats += `\n- Max output tokens: ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`;
-        }
       } else {
-        // Multi-model (single or multiple sub-sessions): show per-model context/output limits
-        // Issue #1508: Context window and max output tokens should be split by model
+        // Issue #1526: Single line format for context window + output tokens
+        // Use peakContextUsage when available; skip context display when peak is unknown
+        // (e.g., for result-JSON-sourced sub-agent models where only cumulative totals are available)
         const peakContext = usage.peakContextUsage || 0;
-        if (contextLimit) {
-          if (peakContext > 0) {
-            const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-            stats += `\n- Max context window: ${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`;
-          } else {
-            const totalInput = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
-            const pct = ((totalInput / contextLimit) * 100).toFixed(0);
-            stats += `\n- Context window: ${formatTokensCompact(totalInput)} / ${formatTokensCompact(contextLimit)} tokens (${pct}%)`;
-          }
-        }
-        if (outputLimit) {
-          const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
-          stats += `\n- Max output tokens: ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`;
-        }
+        stats += formatContextOutputLine(peakContext, contextLimit, usage.outputTokens, outputLimit);
       }
 
       // Cumulative totals per model: input tokens + cached shown separately
+      // Issue #1526: Shorter format — single "Total:" line
       const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
       const cachedTokens = usage.cacheReadTokens;
-      stats += `\n\nTotal input tokens: ${formatTokensCompact(totalInputNonCached)}`;
-      if (cachedTokens > 0) stats += ` + ${formatTokensCompact(cachedTokens)} cached`;
-      stats += `\nTotal output tokens: ${formatTokensCompact(usage.outputTokens)} output`;
+      let totalLine = `${formatTokensCompact(totalInputNonCached)}`;
+      if (cachedTokens > 0) totalLine += ` + ${formatTokensCompact(cachedTokens)} cached`;
+      totalLine += ` input tokens, ${formatTokensCompact(usage.outputTokens)} output tokens`;
 
       // Issue #1508: Show per-model cost when available
       if (usage.costUSD !== null && usage.costUSD !== undefined) {
-        stats += `\nCost: $${usage.costUSD.toFixed(6)}`;
+        totalLine += `, $${usage.costUSD.toFixed(6)} cost`;
       }
+
+      stats += `\n\nTotal: ${totalLine}`;
     }
   }
 
-  // Stream vs JSONL comparison — kept for internal diagnostics only in verbose/debug mode
-  // Not shown to users per feedback (Issue #1501 PR comment)
-
   return stats;
+};
+
+/**
+ * Issue #1526: Build budget stats data from Agent CLI token/context information.
+ * Converts Agent CLI parsed data into the same format used by calculateSessionTokens
+ * so that buildBudgetStatsString can render it uniformly.
+ * @param {Object} tokenUsage - Token usage from parseAgentTokenUsage (with context/model info)
+ * @param {Object|null} pricingInfo - Pricing info from calculateAgentPricing
+ * @returns {Object|null} Budget stats data compatible with buildBudgetStatsString, or null if no data
+ */
+export const buildAgentBudgetStats = (tokenUsage, pricingInfo) => {
+  if (!tokenUsage || tokenUsage.stepCount === 0) return null;
+
+  const modelName = pricingInfo?.modelName || tokenUsage.respondedModelId || tokenUsage.requestedModelId || 'Unknown';
+  const modelId = tokenUsage.respondedModelId || tokenUsage.requestedModelId || pricingInfo?.modelId || 'unknown';
+
+  // Use context limits from step_finish events if available, otherwise from pricing model info
+  const contextLimit = tokenUsage.contextLimit || pricingInfo?.modelInfo?.limit?.context || null;
+  const outputLimit = tokenUsage.outputLimit || pricingInfo?.modelInfo?.limit?.output || null;
+
+  const modelUsageEntry = {
+    inputTokens: tokenUsage.inputTokens,
+    cacheCreationTokens: tokenUsage.cacheWriteTokens || 0,
+    cacheReadTokens: tokenUsage.cacheReadTokens || 0,
+    outputTokens: tokenUsage.outputTokens,
+    modelName,
+    modelInfo: contextLimit || outputLimit ? { limit: { context: contextLimit, output: outputLimit } } : null,
+    peakContextUsage: tokenUsage.peakContextUsage || 0,
+    costUSD: pricingInfo?.totalCostUSD ?? null,
+  };
+
+  return {
+    modelUsage: { [modelId]: modelUsageEntry },
+    subSessions: [],
+    inputTokens: tokenUsage.inputTokens,
+    cacheCreationTokens: tokenUsage.cacheWriteTokens || 0,
+    cacheReadTokens: tokenUsage.cacheReadTokens || 0,
+    outputTokens: tokenUsage.outputTokens,
+    totalTokens: tokenUsage.inputTokens + (tokenUsage.cacheWriteTokens || 0) + tokenUsage.outputTokens,
+  };
 };

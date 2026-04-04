@@ -497,7 +497,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null, streamTokenUsage = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
-  // Issue #1491: Build budget stats data for GitHub comment (computed once, used in both PR and issue paths)
+  // Issue #1491, #1526: Build budget stats data for GitHub comment (computed once, used in both PR and issue paths)
   let budgetStatsData = null;
   if (argv.tokensBudgetStats && sessionId && tempDir) {
     try {
@@ -508,6 +508,18 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
       }
     } catch (budgetError) {
       if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });
+    }
+  }
+  // Issue #1526: Build budget stats from Agent CLI token/context data when no JSONL session available
+  if (!budgetStatsData && argv.tokensBudgetStats && pricingInfo?.tokenUsage) {
+    try {
+      const { buildAgentBudgetStats } = await import('./claude.budget-stats.lib.mjs');
+      const agentBudgetData = buildAgentBudgetStats(pricingInfo.tokenUsage, pricingInfo);
+      if (agentBudgetData) {
+        budgetStatsData = { tokenUsage: agentBudgetData };
+      }
+    } catch (agentBudgetError) {
+      if (argv.verbose) await log(`  ⚠️  Could not build agent budget stats: ${agentBudgetError.message}`, { verbose: true });
     }
   }
 

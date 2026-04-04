@@ -14,6 +14,96 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 /**
+ * Month name/abbreviation to zero-padded number mapping
+ */
+const MONTH_MAP = {
+  jan: '01', january: '01',
+  feb: '02', february: '02',
+  mar: '03', march: '03',
+  apr: '04', april: '04',
+  may: '05',
+  jun: '06', june: '06',
+  jul: '07', july: '07',
+  aug: '08', august: '08',
+  sep: '09', september: '09',
+  oct: '10', october: '10',
+  nov: '11', november: '11',
+  dec: '12', december: '12',
+};
+
+/**
+ * Normalize a date string to ISO format (YYYY-MM-DD).
+ * Handles formats like:
+ *   "20-Aug-23"       → "2023-08-20"
+ *   "20 April 2009"   → "2009-04-20"
+ *   "July 5th 2008"   → "2008-07-05"
+ *   "Jan 13 2026"     → "2026-01-13"
+ *   "2024-02-29"      → "2024-02-29" (passthrough)
+ * Returns the original string if parsing fails.
+ * @param {string} dateStr - Date string to normalize
+ * @returns {string} ISO date string or original
+ */
+export function normalizeDate(dateStr) {
+  if (!dateStr) return dateStr;
+  const s = dateStr.trim();
+
+  // Already ISO: YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // "DD-Mon-YY" (e.g. "20-Aug-23")
+  const dmy = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
+  if (dmy) {
+    const month = MONTH_MAP[dmy[2].toLowerCase()];
+    if (month) {
+      const year = parseInt(dmy[3], 10);
+      const fullYear = year >= 70 ? `19${dmy[3]}` : `20${dmy[3]}`;
+      return `${fullYear}-${month}-${dmy[1].padStart(2, '0')}`;
+    }
+  }
+
+  // "DD Month YYYY" (e.g. "20 April 2009")
+  const dmY = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (dmY) {
+    const month = MONTH_MAP[dmY[2].toLowerCase()];
+    if (month) return `${dmY[3]}-${month}-${dmY[1].padStart(2, '0')}`;
+  }
+
+  // "Month DDth YYYY" or "Month DD YYYY" (e.g. "July 5th 2008", "Jan 13 2026")
+  const mdY = s.match(/^([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s+(\d{4})$/);
+  if (mdY) {
+    const month = MONTH_MAP[mdY[1].toLowerCase()];
+    if (month) return `${mdY[3]}-${month}-${mdY[2].padStart(2, '0')}`;
+  }
+
+  // "Month DD YYYY HH:MM:SS" (e.g. "Jan 13 2026 22:36:55")
+  const mdYt = s.match(/^([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})\s+(\d{2}:\d{2}:\d{2})$/);
+  if (mdYt) {
+    const month = MONTH_MAP[mdYt[1].toLowerCase()];
+    if (month) return `${mdYt[3]}-${month}-${mdYt[2].padStart(2, '0')} ${mdYt[4]}`;
+  }
+
+  return s;
+}
+
+/**
+ * Strip OS/architecture info from a version extra string.
+ * Removes patterns like "x86_64-unknown-linux-gnu", "linux/amd64", "[x86_64-linux]", etc.
+ * @param {string} s - String to clean
+ * @returns {string} Cleaned string
+ */
+function stripArchInfo(s) {
+  if (!s) return s;
+  return s
+    // Remove bracketed arch like [x86_64-linux]
+    .replace(/\[[\w-]+\]\s*/g, '')
+    // Remove triple-target patterns like x86_64-unknown-linux-gnu, x86_64-pc-linux-gnu
+    .replace(/\b\w+[-_]\w+[-_]\w+[-_]\w+\b/g, '')
+    // Remove platform/arch patterns like linux/amd64
+    .replace(/\b(?:linux|darwin|win32|windows)\/\w+\b/gi, '')
+    .trim();
+}
+
+/**
  * Execute a command asynchronously and return its output, or null if it fails
  * @param {string} command - Command to execute
  * @param {number} timeout - Timeout in milliseconds (default: 5000ms)
@@ -58,19 +148,30 @@ const VERSION_PARSERS = {
     const extra = m[2] ? m[2].trim().split(/\s+/) : [];
     return { version: m[1], extra };
   },
-  // go version go1.26.1 linux/amd64
+  // go version go1.26.1 linux/amd64 → strip platform/arch
   go: raw => {
-    const m = raw.match(/go([\d.]+(?:\S*)?)\s+(.*)/);
+    const m = raw.match(/go([\d.]+(?:\S*)?)/);
     if (!m) return null;
-    return { version: m[1], extra: [m[2].trim()] };
+    return { version: m[1], extra: [] };
   },
-  // PHP 8.3.30 (cli) (built: Jan 13 2026 22:36:55) (NTS)
+  // PHP 8.3.30 (cli) (built: Jan 13 2026 22:36:55) (NTS) → strip cli, normalize date
   php: raw => {
     const m = raw.match(/^PHP\s+([\d.]+(?:-\S+)?)\s*(.*)/);
     if (!m) return null;
     const tags = [];
     const parts = m[2].matchAll(/\(([^)]+)\)/g);
-    for (const p of parts) tags.push(p[1]);
+    for (const p of parts) {
+      const tag = p[1].trim();
+      // Skip "cli" — not meaningful for version display
+      if (tag === 'cli') continue;
+      // Normalize "built: Jan 13 2026 22:36:55" → "2026-01-13 22:36:55"
+      const built = tag.match(/^built:\s+(.+)$/);
+      if (built) {
+        tags.push(normalizeDate(built[1]));
+        continue;
+      }
+      tags.push(tag);
+    }
     return { version: m[1], extra: tags };
   },
   // openjdk version "21" 2023-09-19 LTS
@@ -79,27 +180,29 @@ const VERSION_PARSERS = {
     if (!m) return null;
     return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
   },
-  // gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 — use full distro version
+  // gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 → use base version only
   gcc: raw => {
-    const m = raw.match(/^gcc\s+(?:\((\S+)\s+([\d.]+\S*)\)\s+)?([\d.]+)/);
+    const m = raw.match(/^gcc\s+(?:\([^)]*\)\s+)?([\d.]+)/);
     if (!m) return null;
-    // If distro info present, use full distro version (e.g. 13.3.0-6ubuntu2~24.04.1)
-    if (m[1] && m[2]) return { version: m[2], extra: [] };
-    return { version: m[3], extra: [] };
+    return { version: m[1], extra: [] };
   },
-  // g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 — use full distro version
+  // g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 → use base version only
   gpp: raw => {
-    const m = raw.match(/^g\+\+\s+(?:\((\S+)\s+([\d.]+\S*)\)\s+)?([\d.]+)/);
+    const m = raw.match(/^g\+\+\s+(?:\([^)]*\)\s+)?([\d.]+)/);
     if (!m) return null;
-    // If distro info present, use full distro version (e.g. 13.3.0-6ubuntu2~24.04.1)
-    if (m[1] && m[2]) return { version: m[2], extra: [] };
-    return { version: m[3], extra: [] };
+    return { version: m[1], extra: [] };
   },
-  // clang version 17.0.0 (https://github.com/... commit)
+  // clang version 17.0.0 (https://github.com/... 2e6139970eda) → strip URL, keep commit
   clang: raw => {
     const m = raw.match(/^clang\s+version\s+([\d.]+(?:-\S+)?)\s*(?:\(([^)]+)\))?/);
     if (!m) return null;
-    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+    if (m[2]) {
+      // Remove URLs, keep only hex commit hashes
+      const parts = m[2].trim().split(/\s+/).filter(p => !p.includes('://') && !p.includes('.git'));
+      const commitParts = parts.filter(p => /^[0-9a-f]{7,}$/i.test(p));
+      return { version: m[1], extra: commitParts };
+    }
+    return { version: m[1], extra: [] };
   },
   // LLD 17.0.0 (compatible with GNU linkers) — only version number matters
   lld: raw => {
@@ -113,34 +216,47 @@ const VERSION_PARSERS = {
     if (!m) return null;
     return { version: m[1], extra: [] };
   },
-  // ruby 3.4.9 (2026-03-11 revision 76cca827ab) +PRISM [x86_64-linux]
+  // ruby 3.4.9 (2026-03-11 revision 76cca827ab) +PRISM [x86_64-linux] → strip arch, reformat
   ruby: raw => {
     const m = raw.match(/^ruby\s+([\d.]+(?:p\d+)?)\s*(?:\(([^)]+)\))?\s*(.*)/);
     if (!m) return null;
     const extra = [];
-    if (m[2]) extra.push(m[2].trim());
+    if (m[2]) {
+      // Parse "2026-03-11 revision 76cca827ab" → commit, date
+      const revMatch = m[2].match(/^(\d{4}-\d{2}-\d{2})\s+revision\s+(\w+)$/);
+      if (revMatch) {
+        extra.push(revMatch[2]); // commit first
+        extra.push(revMatch[1]); // then date
+      } else {
+        extra.push(m[2].trim());
+      }
+    }
+    // Capture +PRISM or similar flags, but strip [arch] info
     const tail = m[3] ? m[3].trim() : '';
-    if (tail) extra.push(tail);
+    if (tail) {
+      const cleaned = tail.replace(/\[[\w-]+\]/g, '').trim();
+      if (cleaned) extra.push(cleaned);
+    }
     return { version: m[1], extra };
   },
-  // Kotlin version 2.3.20-release-208 (JRE 21+35-LTS)
+  // Kotlin version 2.3.20-release-208 (JRE 21+35-LTS) → strip -release-NNN suffix
   kotlin: raw => {
-    const m = raw.match(/^Kotlin\s+version\s+([\d.\-\w]+)\s*(?:\(([^)]+)\))?/);
+    const m = raw.match(/^Kotlin\s+version\s+([\d.]+)(?:-release-\d+)?\s*(?:\(([^)]+)\))?/);
     if (!m) return null;
     return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
   },
-  // Swift version 6.0.3 (swift-6.0.3-RELEASE)
+  // Swift version 6.0.3 (swift-6.0.3-RELEASE) → strip redundant release tag
   swift: raw => {
-    const m = raw.match(/^Swift\s+version\s+([\d.]+(?:\.\d+)?)\s*(?:\(([^)]+)\))?/);
+    const m = raw.match(/^Swift\s+version\s+([\d.]+(?:\.\d+)?)/);
     if (!m) return null;
-    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+    return { version: m[1], extra: [] };
   },
-  // R version 4.3.3 (2024-02-29) -- "Angel Food Cake"
+  // R version 4.3.3 (2024-02-29) -- "Angel Food Cake" → normalize date
   r: raw => {
     const m = raw.match(/^R\s+version\s+([\d.]+)\s*(?:\(([^)]+)\))?(?:\s+--\s+"([^"]+)")?/);
     if (!m) return null;
     const extra = [];
-    if (m[2]) extra.push(m[2]);
+    if (m[2]) extra.push(normalizeDate(m[2]));
     if (m[3]) extra.push(m[3]);
     return { version: m[1], extra };
   },
@@ -162,11 +278,11 @@ const VERSION_PARSERS = {
     if (!m) return null;
     return { version: m[1], extra: [] };
   },
-  // curl 8.19.0 (x86_64-pc-linux-gnu) libcurl/8.19.0 ...
+  // curl 8.19.0 (x86_64-pc-linux-gnu) libcurl/8.19.0 ... → strip arch info
   curl: raw => {
-    const m = raw.match(/^curl\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+    const m = raw.match(/^curl\s+([\d.]+)/);
     if (!m) return null;
-    return { version: m[1], extra: m[2] ? [m[2]] : [] };
+    return { version: m[1], extra: [] };
   },
   // GNU Wget 1.21.4 built on linux-gnu.
   wget: raw => {
@@ -198,13 +314,13 @@ const VERSION_PARSERS = {
     if (!m) return null;
     return { version: m[1], extra: [] };
   },
-  // Screen version 4.09.01 (GNU) 20-Aug-23
+  // Screen version 4.09.01 (GNU) 20-Aug-23 → normalize date, strip GNU
   screen: raw => {
-    const m = raw.match(/^Screen\s+version\s+([\d.]+)\s*(?:\(([^)]+)\))?\s*(.*)/);
+    const m = raw.match(/^Screen\s+version\s+([\d.]+)\s*(?:\([^)]*\))?\s*(.*)/);
     if (!m) return null;
     const extra = [];
-    if (m[2]) extra.push(m[2]);
-    if (m[3] && m[3].trim()) extra.push(m[3].trim());
+    const dateStr = m[2] ? m[2].trim() : '';
+    if (dateStr) extra.push(normalizeDate(dateStr));
     return { version: m[1], extra };
   },
   // expect version 5.45.4
@@ -232,7 +348,7 @@ const VERSION_PARSERS = {
     const extra = m[2] ? m[2].trim().split(/\s+/) : [];
     return { version: m[1], extra };
   },
-  // Lean (version 4.29.0, x86_64-unknown-linux-gnu, commit abc123, Release)
+  // Lean (version 4.29.0, x86_64-unknown-linux-gnu, commit abc123, Release) → strip arch/Release
   lean: raw => {
     const m = raw.match(/version\s+([\d.]+)(?:,\s*(.+?))\)?$/);
     if (!m) return null;
@@ -240,7 +356,13 @@ const VERSION_PARSERS = {
       ? m[2]
           .split(',')
           .map(s => s.trim().replace(/\)$/, ''))
-          .filter(Boolean)
+          .filter(s => {
+            if (!s) return false;
+            // Strip arch patterns and "Release"
+            if (/^\w+[-_]\w+[-_]\w+[-_]\w+$/.test(s)) return false;
+            if (s === 'Release') return false;
+            return true;
+          })
       : [];
     return { version: m[1], extra };
   },
@@ -268,7 +390,7 @@ const VERSION_PARSERS = {
     if (!m) return null;
     return { version: m[1], extra: [] };
   },
-  // deno 2.7.9 (stable, release, x86_64-unknown-linux-gnu)
+  // deno 2.7.9 (stable, release, x86_64-unknown-linux-gnu) → keep only channel (stable)
   deno: raw => {
     const m = raw.match(/^deno\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
     if (!m) return null;
@@ -276,7 +398,7 @@ const VERSION_PARSERS = {
       ? m[2]
           .split(',')
           .map(s => s.trim())
-          .filter(Boolean)
+          .filter(s => s && s !== 'release' && !s.includes('-') && !s.includes('/'))
       : [];
     return { version: m[1], extra };
   },
@@ -304,11 +426,11 @@ const VERSION_PARSERS = {
     if (!m) return null;
     return { version: m[1], extra: [] };
   },
-  // 2.1.87 (Claude Code)
+  // 2.1.87 (Claude Code) → strip redundant product name
   claudeCode: raw => {
-    const m = raw.match(/([\d.]+)\s*(?:\(([^)]+)\))?/);
+    const m = raw.match(/([\d.]+)/);
     if (!m) return null;
-    return { version: m[1], extra: m[2] ? [m[2]] : [] };
+    return { version: m[1], extra: [] };
   },
   // GitHub Copilot CLI 1.0.14.\nRun 'copilot update'...
   copilot: raw => {
@@ -342,25 +464,26 @@ const VERSION_PARSERS = {
     if (!m) return null;
     return { version: m[1], extra: [] };
   },
-  // This is Zip 3.0 (July 5th 2008), by Info-ZIP.
+  // This is Zip 3.0 (July 5th 2008), by Info-ZIP. → normalize date
   zip: raw => {
     const m = raw.match(/Zip\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
     if (!m) return null;
-    return { version: m[1], extra: m[2] ? [m[2]] : [] };
+    return { version: m[1], extra: m[2] ? [normalizeDate(m[2])] : [] };
   },
-  // UnZip 6.00 of 20 April 2009, by Debian.
+  // UnZip 6.00 of 20 April 2009, by Debian. → normalize date
   unzip: raw => {
     const m = raw.match(/UnZip\s+([\d.]+)\s*(?:of\s+([^,]+))?/);
     if (!m) return null;
-    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+    return { version: m[1], extra: m[2] ? [normalizeDate(m[2].trim())] : [] };
   },
-  // ii  xvfb  2:21.1.12-1ubuntu1.5  amd64  Virtual Framebuffer...
+  // ii  xvfb  2:21.1.12-1ubuntu1.5  amd64  Virtual Framebuffer... → base version only
   xvfb: raw => {
     // dpkg output format
     const dpkg = raw.match(/^ii\s+xvfb\s+(\S+)/);
     if (dpkg) {
       // Strip epoch (e.g. "2:21.1.12-1ubuntu1.5" -> "21.1.12-1ubuntu1.5")
-      const ver = dpkg[1].replace(/^\d+:/, '');
+      // Then strip distro suffix (e.g. "21.1.12-1ubuntu1.5" -> "21.1.12")
+      const ver = dpkg[1].replace(/^\d+:/, '').replace(/-.*$/, '');
       return { version: ver, extra: [] };
     }
     // X.Org X Server version output (if it ever works)
@@ -560,6 +683,95 @@ async function executeVersionCommand(cmdDef, verbose) {
 }
 
 /**
+ * Map of process.arch values to human-friendly architecture names
+ */
+const ARCH_NAMES = {
+  x64: 'AMD64 (x86-64)',
+  arm64: 'ARM64 (aarch64)',
+  arm: 'ARM32',
+  ia32: 'x86 (IA-32)',
+  mips: 'MIPS',
+  mipsel: 'MIPS (LE)',
+  ppc64: 'PowerPC 64',
+  s390x: 's390x',
+  riscv64: 'RISC-V 64',
+};
+
+/**
+ * Detect detailed platform information: environment type, OS, architecture, kernel.
+ * @param {boolean} verbose - Enable verbose logging
+ * @returns {Promise<{environment: string, arch: string, os: string, kernel: string}>}
+ */
+async function detectPlatformInfo(verbose) {
+  const info = { environment: '', arch: '', os: '', kernel: '' };
+
+  // Architecture
+  info.arch = ARCH_NAMES[process.arch] || process.arch;
+
+  // Kernel
+  const uname = await execCommandAsync('uname -r 2>/dev/null');
+  if (uname) {
+    info.kernel = `Linux ${uname}`;
+  } else if (process.platform === 'darwin') {
+    const darwinVer = await execCommandAsync('uname -r 2>/dev/null');
+    info.kernel = darwinVer ? `Darwin ${darwinVer}` : 'Darwin';
+  } else if (process.platform === 'win32') {
+    info.kernel = 'Windows NT';
+  }
+
+  // OS detection
+  if (process.platform === 'linux') {
+    // Try /etc/os-release for distro info
+    const osRelease = await execCommandAsync('cat /etc/os-release 2>/dev/null');
+    if (osRelease) {
+      const nameMatch = osRelease.match(/^PRETTY_NAME="?([^"\n]+)"?/m);
+      if (nameMatch) {
+        info.os = nameMatch[1];
+      } else {
+        const idMatch = osRelease.match(/^ID="?([^"\n]+)"?/m);
+        const versionMatch = osRelease.match(/^VERSION_ID="?([^"\n]+)"?/m);
+        if (idMatch) {
+          info.os = versionMatch ? `${idMatch[1]} ${versionMatch[1]}` : idMatch[1];
+        }
+      }
+    }
+    if (!info.os) info.os = 'Linux';
+  } else if (process.platform === 'darwin') {
+    const swVers = await execCommandAsync('sw_vers -productVersion 2>/dev/null');
+    info.os = swVers ? `macOS ${swVers}` : 'macOS';
+  } else if (process.platform === 'win32') {
+    info.os = 'Windows';
+  } else {
+    info.os = process.platform;
+  }
+
+  // Environment detection: docker container, VM, or host
+  const isDocker = await execCommandAsync('cat /proc/1/cgroup 2>/dev/null | grep -qi docker && echo docker || test -f /.dockerenv && echo docker || echo no');
+  if (isDocker && isDocker.trim() === 'docker') {
+    info.environment = 'docker container';
+  } else {
+    // Check for VM/hypervisor
+    const systemdDetect = await execCommandAsync('systemd-detect-virt 2>/dev/null');
+    if (systemdDetect && systemdDetect !== 'none') {
+      info.environment = `virtual machine (${systemdDetect})`;
+    } else {
+      const dmi = await execCommandAsync('cat /sys/class/dmi/id/product_name 2>/dev/null');
+      if (dmi && /virtual|vmware|kvm|qemu|hyper-v|xen|bochs/i.test(dmi)) {
+        info.environment = `virtual machine`;
+      } else {
+        info.environment = 'host machine';
+      }
+    }
+  }
+
+  if (verbose) {
+    console.log(`[VERBOSE] Platform detection: ${JSON.stringify(info)}`);
+  }
+
+  return info;
+}
+
+/**
  * Get comprehensive version information for all components
  * Uses Promise.all for parallel execution (issue #1320)
  * @param {boolean} verbose - Enable verbose logging
@@ -595,12 +807,16 @@ export async function getVersionInfo(verbose = false, processVersion = null) {
       console.log(`[VERBOSE] Node.js version: ${versions.node}`);
     }
 
-    // Platform information
-    const platform = process.platform;
-    const arch = process.arch;
-    versions.platform = `${platform} (${arch})`;
+    // Platform information — detailed detection
+    const platformInfo = await detectPlatformInfo(verbose);
+    versions.platformEnvironment = platformInfo.environment;
+    versions.platformArch = platformInfo.arch;
+    versions.platformOs = platformInfo.os;
+    versions.platformKernel = platformInfo.kernel;
+    // Keep legacy field for backward compat
+    versions.platform = platformInfo.os;
     if (verbose) {
-      console.log(`[VERBOSE] Platform: ${versions.platform}`);
+      console.log(`[VERBOSE] Platform: env=${platformInfo.environment}, arch=${platformInfo.arch}, os=${platformInfo.os}, kernel=${platformInfo.kernel}`);
     }
 
     // Check if process version differs from installed version (restart warning)
@@ -717,8 +933,12 @@ export async function getVersionInfo(verbose = false, processVersion = null) {
         screen: versions.screen,
         xvfb: versions.xvfb,
 
-        // Platform
+        // Platform (detailed)
         platform: versions.platform,
+        platformEnvironment: versions.platformEnvironment,
+        platformArch: versions.platformArch,
+        platformOs: versions.platformOs,
+        platformKernel: versions.platformKernel,
       },
       // Performance metrics
       gatherTimeMs: Date.now() - startTime,
@@ -941,7 +1161,7 @@ export function formatVersionMessage(versions) {
 
   if (cppLines.length > 0) {
     lines.push('');
-    lines.push('*🔨 C/C++/Assembly*');
+    lines.push('*🔨 C, C++, Assembly*');
     lines.push(...cppLines);
   }
 
@@ -997,11 +1217,22 @@ export function formatVersionMessage(versions) {
     lines.push(...toolLines);
   }
 
-  // === Platform ===
-  if (versions.platform) {
-    lines.push('');
-    lines.push('*💻 Platform*');
-    lines.push(`• System: \`${versions.platform}\``);
+  // === Platform (detailed) ===
+  {
+    const platformLines = [];
+    if (versions.platformEnvironment) platformLines.push(`• Environment: \`${versions.platformEnvironment}\``);
+    if (versions.platformArch) platformLines.push(`• Architecture: \`${versions.platformArch}\``);
+    if (versions.platformOs) platformLines.push(`• OS: \`${versions.platformOs}\``);
+    if (versions.platformKernel) platformLines.push(`• Kernel: \`${versions.platformKernel}\``);
+    // Fallback to legacy single-line format
+    if (platformLines.length === 0 && versions.platform) {
+      platformLines.push(`• System: \`${versions.platform}\``);
+    }
+    if (platformLines.length > 0) {
+      lines.push('');
+      lines.push('*💻 Platform*');
+      lines.push(...platformLines);
+    }
   }
 
   return lines.join('\n');
@@ -1011,4 +1242,5 @@ export default {
   getVersionInfo,
   formatVersionMessage,
   parseVersion,
+  normalizeDate,
 };

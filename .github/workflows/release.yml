@@ -6,6 +6,10 @@ on:
       - main
   pull_request:
     types: [opened, synchronize, reopened]
+    # Skip workflow for .gitkeep-only changes (auto-generated for PR branch creation)
+    # See: docs/case-studies/issue-1528/README.md
+    paths-ignore:
+      - '**.gitkeep'
   # Manual release support - consolidated here to work with npm trusted publishing
   # npm only allows ONE workflow file as trusted publisher, so all publishing
   # must go through this workflow (release.yml)

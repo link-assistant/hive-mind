@@ -13,6 +13,7 @@
  *
  * Excluded from code changes (don't require changesets):
  * - Markdown files (*.md) in any folder
+ * - .gitkeep files (auto-generated for PR creation, see issue #1528)
  * - .changeset/ folder (changeset metadata)
  * - data/ folder (data files)
  * - docs/ folder (documentation)
@@ -127,6 +128,12 @@ function matchesPattern(filePath, pattern) {
 function isExcludedFromCodeChanges(filePath) {
   // Exclude markdown files in any folder
   if (filePath.endsWith('.md')) {
+    return true;
+  }
+
+  // Exclude .gitkeep files — these are auto-generated for PR creation and should
+  // never be considered code changes. See: docs/case-studies/issue-1528/README.md
+  if (filePath === '.gitkeep' || filePath.endsWith('/.gitkeep')) {
     return true;
   }
 

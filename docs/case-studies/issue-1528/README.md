@@ -87,6 +87,7 @@ The CI/CD pipeline triggers workflow runs when `.gitkeep` files are pushed to pu
 ### RCA 1: `.gitkeep` Not Excluded from Code Changes List
 
 The `isExcludedFromCodeChanges()` function in `scripts/detect-code-changes.mjs` excludes:
+
 - Markdown files (`*.md`)
 - Files in `.changeset/`, `data/`, `docs/`, `experiments/` folders
 
@@ -146,10 +147,10 @@ The refactor in commit `4f4c18df` correctly prevented `code=true` for `.gitkeep`
 
 Per Pull Request initial `.gitkeep` commit:
 
-| Before | After |
-|--------|-------|
-| Workflow run created | No workflow run |
-| `detect-changes` job runs (~8s) | No job runs |
+| Before                                      | After                |
+| ------------------------------------------- | -------------------- |
+| Workflow run created                        | No workflow run      |
+| `detect-changes` job runs (~8s)             | No job runs          |
 | All other jobs evaluate conditions and skip | No evaluation needed |
 
 **Savings per PR:** ~8 seconds of GitHub Actions runner time + avoided workflow queuing overhead.

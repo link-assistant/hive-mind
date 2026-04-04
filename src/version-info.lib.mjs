@@ -17,18 +17,29 @@ const execAsync = promisify(exec);
  * Month name/abbreviation to zero-padded number mapping
  */
 const MONTH_MAP = {
-  jan: '01', january: '01',
-  feb: '02', february: '02',
-  mar: '03', march: '03',
-  apr: '04', april: '04',
+  jan: '01',
+  january: '01',
+  feb: '02',
+  february: '02',
+  mar: '03',
+  march: '03',
+  apr: '04',
+  april: '04',
   may: '05',
-  jun: '06', june: '06',
-  jul: '07', july: '07',
-  aug: '08', august: '08',
-  sep: '09', september: '09',
-  oct: '10', october: '10',
-  nov: '11', november: '11',
-  dec: '12', december: '12',
+  jun: '06',
+  june: '06',
+  jul: '07',
+  july: '07',
+  aug: '08',
+  august: '08',
+  sep: '09',
+  september: '09',
+  oct: '10',
+  october: '10',
+  nov: '11',
+  november: '11',
+  dec: '12',
+  december: '12',
 };
 
 /**
@@ -93,14 +104,16 @@ export function normalizeDate(dateStr) {
  */
 function stripArchInfo(s) {
   if (!s) return s;
-  return s
-    // Remove bracketed arch like [x86_64-linux]
-    .replace(/\[[\w-]+\]\s*/g, '')
-    // Remove triple-target patterns like x86_64-unknown-linux-gnu, x86_64-pc-linux-gnu
-    .replace(/\b\w+[-_]\w+[-_]\w+[-_]\w+\b/g, '')
-    // Remove platform/arch patterns like linux/amd64
-    .replace(/\b(?:linux|darwin|win32|windows)\/\w+\b/gi, '')
-    .trim();
+  return (
+    s
+      // Remove bracketed arch like [x86_64-linux]
+      .replace(/\[[\w-]+\]\s*/g, '')
+      // Remove triple-target patterns like x86_64-unknown-linux-gnu, x86_64-pc-linux-gnu
+      .replace(/\b\w+[-_]\w+[-_]\w+[-_]\w+\b/g, '')
+      // Remove platform/arch patterns like linux/amd64
+      .replace(/\b(?:linux|darwin|win32|windows)\/\w+\b/gi, '')
+      .trim()
+  );
 }
 
 /**
@@ -198,7 +211,10 @@ const VERSION_PARSERS = {
     if (!m) return null;
     if (m[2]) {
       // Remove URLs, keep only hex commit hashes
-      const parts = m[2].trim().split(/\s+/).filter(p => !p.includes('://') && !p.includes('.git'));
+      const parts = m[2]
+        .trim()
+        .split(/\s+/)
+        .filter(p => !p.includes('://') && !p.includes('.git'));
       const commitParts = parts.filter(p => /^[0-9a-f]{7,}$/i.test(p));
       return { version: m[1], extra: commitParts };
     }

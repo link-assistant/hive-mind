@@ -60,9 +60,10 @@ await asyncTest('getVersionInfo includes Node.js version from process', async ()
 
 await asyncTest('getVersionInfo includes platform info', async () => {
   const result = await getVersionInfo(false);
-  assert.ok(result.versions.platform, 'Should have platform info');
-  assert.ok(result.versions.platform.includes(process.platform), 'Platform should include OS');
-  assert.ok(result.versions.platform.includes(process.arch), 'Platform should include architecture');
+  assert.ok(result.versions.platformOs, 'Should have platform OS info');
+  assert.ok(result.versions.platformArch, 'Should have platform architecture info');
+  assert.ok(result.versions.platformEnvironment, 'Should have platform environment info');
+  assert.ok(result.versions.platformKernel, 'Should have platform kernel info');
 });
 
 await asyncTest('getVersionInfo includes AI agent version fields', async () => {
@@ -200,7 +201,7 @@ test('formatVersionMessage groups C/C++ tools under C/C++ section', () => {
     cmake: 'cmake 3.28.3',
   };
   const message = formatVersionMessage(versions);
-  assert.ok(message.includes('*🔨 C/C++/Assembly*'), 'Should have C/C++/Assembly section');
+  assert.ok(message.includes('*🔨 C, C++, Assembly*'), 'Should have C, C++, Assembly section');
   assert.ok(message.includes('GCC'), 'Should include GCC');
   assert.ok(message.includes('Clang'), 'Should include Clang');
   assert.ok(message.includes('CMake'), 'Should include CMake');

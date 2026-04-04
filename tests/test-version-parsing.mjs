@@ -2,18 +2,64 @@
 /**
  * Version Parsing Unit Tests
  *
- * Tests for the parseVersion() function in version-info.lib.mjs
+ * Tests for the parseVersion() and normalizeDate() functions in version-info.lib.mjs
  * Validates that all raw --version output strings are normalized to uniform format:
- *   <version> (<commit>, <revision>, <date>, etc.)
+ *   <version> (<commit>, <date>, etc.)
+ *
+ * Standardization rules (issue #1524):
+ *   - Strip OS/architecture info from version strings
+ *   - Normalize dates to ISO format (YYYY-MM-DD)
+ *   - Remove meaningless/redundant data (e.g. "swift-6.0.3-RELEASE", "Claude Code")
+ *   - Remove URLs, keep only commit hashes
+ *   - Use base version only for distro-specific packages (strip -ubuntu, etc.)
  *
  * Run with: node tests/test-version-parsing.mjs
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1514
+ * @see https://github.com/link-assistant/hive-mind/issues/1524
  */
 
 import assert from 'node:assert/strict';
-import { parseVersion, formatVersionMessage } from '../src/version-info.lib.mjs';
+import { parseVersion, formatVersionMessage, normalizeDate } from '../src/version-info.lib.mjs';
 import { test, printSummary, getFailCount } from './test-helpers.mjs';
+
+// ============================================================================
+// normalizeDate Tests (issue #1524)
+// ============================================================================
+
+console.log('\n📋 normalizeDate\n');
+
+test('normalizeDate: ISO passthrough', () => {
+  assert.equal(normalizeDate('2024-02-29'), '2024-02-29');
+});
+
+test('normalizeDate: DD-Mon-YY format', () => {
+  assert.equal(normalizeDate('20-Aug-23'), '2023-08-20');
+});
+
+test('normalizeDate: DD Month YYYY format', () => {
+  assert.equal(normalizeDate('20 April 2009'), '2009-04-20');
+});
+
+test('normalizeDate: Month DDth YYYY format', () => {
+  assert.equal(normalizeDate('July 5th 2008'), '2008-07-05');
+});
+
+test('normalizeDate: Month DD YYYY format', () => {
+  assert.equal(normalizeDate('Jan 13 2026'), '2026-01-13');
+});
+
+test('normalizeDate: Month DD YYYY HH:MM:SS format', () => {
+  assert.equal(normalizeDate('Jan 13 2026 22:36:55'), '2026-01-13 22:36:55');
+});
+
+test('normalizeDate: null returns null', () => {
+  assert.equal(normalizeDate(null), null);
+});
+
+test('normalizeDate: unrecognized string passthrough', () => {
+  assert.equal(normalizeDate('unknown date'), 'unknown date');
+});
 
 // ============================================================================
 // parseVersion Tests — Rust ecosystem
@@ -32,25 +78,25 @@ test('parseVersion: cargo with commit and date', () => {
 });
 
 // ============================================================================
-// parseVersion Tests — Go
+// parseVersion Tests — Go (issue #1524: strip platform/arch)
 // ============================================================================
 
 console.log('\n📋 parseVersion - Go\n');
 
-test('parseVersion: go version with platform', () => {
+test('parseVersion: go version strips platform/arch', () => {
   const result = parseVersion('go', 'go version go1.26.1 linux/amd64');
-  assert.equal(result, '1.26.1 (linux/amd64)');
+  assert.equal(result, '1.26.1');
 });
 
 // ============================================================================
-// parseVersion Tests — PHP
+// parseVersion Tests — PHP (issue #1524: strip cli, normalize date)
 // ============================================================================
 
 console.log('\n📋 parseVersion - PHP\n');
 
-test('parseVersion: PHP with cli, built date, NTS', () => {
+test('parseVersion: PHP strips cli, normalizes date', () => {
   const result = parseVersion('php', 'PHP 8.3.30 (cli) (built: Jan 13 2026 22:36:55) (NTS)');
-  assert.equal(result, '8.3.30 (cli, built: Jan 13 2026 22:36:55, NTS)');
+  assert.equal(result, '8.3.30 (2026-01-13 22:36:55, NTS)');
 });
 
 // ============================================================================
@@ -70,24 +116,29 @@ test('parseVersion: openjdk with detailed version', () => {
 });
 
 // ============================================================================
-// parseVersion Tests — C/C++ tools
+// parseVersion Tests — C/C++ tools (issue #1524: base version only)
 // ============================================================================
 
 console.log('\n📋 parseVersion - C/C++ tools\n');
 
-test('parseVersion: gcc with Ubuntu distro info uses full distro version', () => {
+test('parseVersion: gcc strips distro suffix, uses base version', () => {
   const result = parseVersion('gcc', 'gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0');
-  assert.equal(result, '13.3.0-6ubuntu2~24.04.1');
+  assert.equal(result, '13.3.0');
 });
 
-test('parseVersion: g++ with Ubuntu distro info uses full distro version', () => {
+test('parseVersion: g++ strips distro suffix, uses base version', () => {
   const result = parseVersion('gpp', 'g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0');
-  assert.equal(result, '13.3.0-6ubuntu2~24.04.1');
+  assert.equal(result, '13.3.0');
 });
 
-test('parseVersion: clang with git URL', () => {
-  const result = parseVersion('clang', 'clang version 17.0.0 (https://github.com/swiftlang/llvm-project.git abc123)');
-  assert.equal(result, '17.0.0 (https://github.com/swiftlang/llvm-project.git abc123)');
+test('parseVersion: clang strips URL, keeps commit hash', () => {
+  const result = parseVersion('clang', 'clang version 17.0.0 (https://github.com/swiftlang/llvm-project.git 2e6139970eda445d9c6872c0ca293088b4e63dd2)');
+  assert.equal(result, '17.0.0 (2e6139970eda445d9c6872c0ca293088b4e63dd2)');
+});
+
+test('parseVersion: clang plain version without parens', () => {
+  const result = parseVersion('clang', 'clang version 18.1.3');
+  assert.equal(result, '18.1.3');
 });
 
 test('parseVersion: LLD with compat info outputs just version', () => {
@@ -131,14 +182,14 @@ test('parseVersion: pyenv', () => {
 });
 
 // ============================================================================
-// parseVersion Tests — Ruby
+// parseVersion Tests — Ruby (issue #1524: strip arch, reorder commit/date)
 // ============================================================================
 
 console.log('\n📋 parseVersion - Ruby\n');
 
-test('parseVersion: ruby with revision and platform', () => {
+test('parseVersion: ruby strips arch, reorders to commit then date', () => {
   const result = parseVersion('ruby', 'ruby 3.4.9 (2026-03-11 revision 76cca827ab) +PRISM [x86_64-linux]');
-  assert.equal(result, '3.4.9 (2026-03-11 revision 76cca827ab, +PRISM [x86_64-linux])');
+  assert.equal(result, '3.4.9 (76cca827ab, 2026-03-11, +PRISM)');
 });
 
 test('parseVersion: rbenv', () => {
@@ -146,19 +197,19 @@ test('parseVersion: rbenv', () => {
 });
 
 // ============================================================================
-// parseVersion Tests — Kotlin / Swift / R
+// parseVersion Tests — Kotlin / Swift / R (issue #1524: strip meaningless data)
 // ============================================================================
 
 console.log('\n📋 parseVersion - Kotlin, Swift, R\n');
 
-test('parseVersion: kotlin with JRE', () => {
+test('parseVersion: kotlin strips release build number', () => {
   const result = parseVersion('kotlin', 'Kotlin version 2.3.20-release-208 (JRE 21+35-LTS)');
-  assert.equal(result, '2.3.20-release-208 (JRE 21+35-LTS)');
+  assert.equal(result, '2.3.20 (JRE 21+35-LTS)');
 });
 
-test('parseVersion: swift with release tag', () => {
+test('parseVersion: swift strips redundant release tag', () => {
   const result = parseVersion('swift', 'Swift version 6.0.3 (swift-6.0.3-RELEASE)');
-  assert.equal(result, '6.0.3 (swift-6.0.3-RELEASE)');
+  assert.equal(result, '6.0.3');
 });
 
 test('parseVersion: R with date and codename', () => {
@@ -167,7 +218,7 @@ test('parseVersion: R with date and codename', () => {
 });
 
 // ============================================================================
-// parseVersion Tests — Dev tools
+// parseVersion Tests — Dev tools (issue #1524: strip arch, normalize dates)
 // ============================================================================
 
 console.log('\n📋 parseVersion - Development tools\n');
@@ -184,28 +235,28 @@ test('parseVersion: glab', () => {
   assert.equal(parseVersion('glab', 'glab version 1.36.0'), '1.36.0');
 });
 
-test('parseVersion: curl with platform', () => {
-  assert.equal(parseVersion('curl', 'curl 8.19.0 (x86_64-pc-linux-gnu) libcurl/8.19.0'), '8.19.0 (x86_64-pc-linux-gnu)');
+test('parseVersion: curl strips platform/arch', () => {
+  assert.equal(parseVersion('curl', 'curl 8.19.0 (x86_64-pc-linux-gnu) libcurl/8.19.0'), '8.19.0');
 });
 
 test('parseVersion: wget', () => {
   assert.equal(parseVersion('wget', 'GNU Wget 1.21.4 built on linux-gnu.'), '1.21.4');
 });
 
-test('parseVersion: screen with GNU and date', () => {
-  assert.equal(parseVersion('screen', 'Screen version 4.09.01 (GNU) 20-Aug-23'), '4.09.01 (GNU, 20-Aug-23)');
+test('parseVersion: screen normalizes date, strips GNU', () => {
+  assert.equal(parseVersion('screen', 'Screen version 4.09.01 (GNU) 20-Aug-23'), '4.09.01 (2023-08-20)');
 });
 
 test('parseVersion: expect', () => {
   assert.equal(parseVersion('expect', 'expect version 5.45.4'), '5.45.4');
 });
 
-test('parseVersion: zip with date', () => {
-  assert.equal(parseVersion('zip', 'This is Zip 3.0 (July 5th 2008), by Info-ZIP.'), '3.0 (July 5th 2008)');
+test('parseVersion: zip normalizes date', () => {
+  assert.equal(parseVersion('zip', 'This is Zip 3.0 (July 5th 2008), by Info-ZIP.'), '3.0 (2008-07-05)');
 });
 
-test('parseVersion: unzip with date', () => {
-  assert.equal(parseVersion('unzip', 'UnZip 6.00 of 20 April 2009, by Debian. Original by Info-ZIP.'), '6.00 (20 April 2009)');
+test('parseVersion: unzip normalizes date', () => {
+  assert.equal(parseVersion('unzip', 'UnZip 6.00 of 20 April 2009, by Debian. Original by Info-ZIP.'), '6.00 (2009-04-20)');
 });
 
 test('parseVersion: homebrew', () => {
@@ -213,14 +264,14 @@ test('parseVersion: homebrew', () => {
 });
 
 // ============================================================================
-// parseVersion Tests — Xvfb (dpkg format)
+// parseVersion Tests — Xvfb (issue #1524: strip distro suffix)
 // ============================================================================
 
 console.log('\n📋 parseVersion - Xvfb\n');
 
-test('parseVersion: xvfb from dpkg output', () => {
+test('parseVersion: xvfb from dpkg strips distro suffix', () => {
   const result = parseVersion('xvfb', "ii  xvfb           2:21.1.12-1ubuntu1.5 amd64        Virtual Framebuffer 'fake' X server");
-  assert.equal(result, '21.1.12-1ubuntu1.5');
+  assert.equal(result, '21.1.12');
 });
 
 test('parseVersion: xvfb X.Org format', () => {
@@ -229,7 +280,7 @@ test('parseVersion: xvfb X.Org format', () => {
 });
 
 // ============================================================================
-// parseVersion Tests — OCaml/Lean ecosystem
+// parseVersion Tests — OCaml/Lean ecosystem (issue #1524: strip arch/Release)
 // ============================================================================
 
 console.log('\n📋 parseVersion - OCaml, Lean\n');
@@ -247,28 +298,32 @@ test('parseVersion: elan with commit and date', () => {
   assert.equal(result, '4.2.1 (3d5138e15, 2026-03-18)');
 });
 
-test('parseVersion: lean with platform and commit', () => {
+test('parseVersion: lean strips arch and Release', () => {
   const result = parseVersion('lean', 'Lean (version 4.29.0, x86_64-unknown-linux-gnu, commit 98dc76e3c0a9b856c9b98726b713fb04fab16740, Release)');
-  assert.equal(result, '4.29.0 (x86_64-unknown-linux-gnu, commit 98dc76e3c0a9b856c9b98726b713fb04fab16740, Release)');
+  assert.equal(result, '4.29.0 (commit 98dc76e3c0a9b856c9b98726b713fb04fab16740)');
 });
 
 // ============================================================================
-// parseVersion Tests — AI agents and browsers
+// parseVersion Tests — AI agents and browsers (issue #1524: strip redundant data)
 // ============================================================================
 
 console.log('\n📋 parseVersion - AI agents, browsers\n');
 
-test('parseVersion: claude code', () => {
-  assert.equal(parseVersion('claudeCode', '2.1.87 (Claude Code)'), '2.1.87 (Claude Code)');
+test('parseVersion: claude code strips product name', () => {
+  assert.equal(parseVersion('claudeCode', '2.1.87 (Claude Code)'), '2.1.87');
+});
+
+test('parseVersion: claude code plain version', () => {
+  assert.equal(parseVersion('claudeCode', '2.1.92'), '2.1.92');
 });
 
 test('parseVersion: copilot strips trailing dot', () => {
   assert.equal(parseVersion('copilot', 'GitHub Copilot CLI 1.0.14.'), '1.0.14');
 });
 
-test('parseVersion: deno with build info', () => {
+test('parseVersion: deno keeps only channel, strips arch', () => {
   const result = parseVersion('deno', 'deno 2.7.9 (stable, release, x86_64-unknown-linux-gnu)');
-  assert.equal(result, '2.7.9 (stable, release, x86_64-unknown-linux-gnu)');
+  assert.equal(result, '2.7.9 (stable)');
 });
 
 test('parseVersion: playwright', () => {
@@ -314,7 +369,7 @@ test('parseVersion: non-matching output returns raw string', () => {
 });
 
 // ============================================================================
-// formatVersionMessage Tests — Playwright MCP new format (Issue #1514)
+// formatVersionMessage Tests — Playwright MCP format (Issue #1514)
 // ============================================================================
 
 console.log('\n📋 formatVersionMessage - Playwright MCP format (Issue #1514)\n');
@@ -347,10 +402,10 @@ test('formatVersionMessage does not show Playwright MCP when not installed', () 
 });
 
 // ============================================================================
-// formatVersionMessage Tests — Parsed versions in output (Issue #1514)
+// formatVersionMessage Tests — Parsed versions in output (Issue #1514, #1524)
 // ============================================================================
 
-console.log('\n📋 formatVersionMessage - Parsed version output (Issue #1514)\n');
+console.log('\n📋 formatVersionMessage - Parsed version output (Issue #1514, #1524)\n');
 
 test('formatVersionMessage shows parsed rustc version', () => {
   const versions = { rust: 'rustc 1.94.1 (e408947bf 2026-03-25)' };
@@ -358,10 +413,11 @@ test('formatVersionMessage shows parsed rustc version', () => {
   assert.ok(result.includes('1.94.1 (e408947bf, 2026-03-25)'), `Expected parsed version but got: ${result}`);
 });
 
-test('formatVersionMessage shows parsed gcc version with full distro version', () => {
+test('formatVersionMessage shows base gcc version without distro suffix', () => {
   const versions = { gcc: 'gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0' };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('13.3.0-6ubuntu2~24.04.1'), `Expected full distro version but got: ${result}`);
+  assert.ok(result.includes('`13.3.0`'), `Expected base version but got: ${result}`);
+  assert.ok(!result.includes('ubuntu'), `Should not include distro suffix but got: ${result}`);
 });
 
 test('formatVersionMessage shows parsed LLD version without compat info', () => {
@@ -371,10 +427,50 @@ test('formatVersionMessage shows parsed LLD version without compat info', () => 
   assert.ok(!result.includes('compatible with GNU linkers'), `Should not include compat info but got: ${result}`);
 });
 
-test('formatVersionMessage shows parsed xvfb version from dpkg', () => {
+test('formatVersionMessage shows base xvfb version without distro suffix', () => {
   const versions = { xvfb: 'ii  xvfb           2:21.1.12-1ubuntu1.5 amd64        Virtual Framebuffer' };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('21.1.12-1ubuntu1.5'), `Expected parsed xvfb version but got: ${result}`);
+  assert.ok(result.includes('`21.1.12`'), `Expected base version but got: ${result}`);
+  assert.ok(!result.includes('ubuntu'), `Should not include distro suffix but got: ${result}`);
+});
+
+// ============================================================================
+// formatVersionMessage Tests — Section headers (Issue #1524)
+// ============================================================================
+
+console.log('\n📋 formatVersionMessage - Section headers (Issue #1524)\n');
+
+test('formatVersionMessage uses "C, C++, Assembly" header (no /Assembly)', () => {
+  const versions = { gcc: 'gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0' };
+  const result = formatVersionMessage(versions);
+  assert.ok(result.includes('C, C++, Assembly'), `Expected "C, C++, Assembly" header but got: ${result}`);
+  assert.ok(!result.includes('C/C++/Assembly'), `Should not contain /Assembly but got: ${result}`);
+});
+
+// ============================================================================
+// formatVersionMessage Tests — Platform detection (Issue #1524)
+// ============================================================================
+
+console.log('\n📋 formatVersionMessage - Platform detection (Issue #1524)\n');
+
+test('formatVersionMessage shows detailed platform info', () => {
+  const versions = {
+    platformEnvironment: 'docker container',
+    platformArch: 'AMD64 (x86-64)',
+    platformOs: 'Ubuntu 24.04.1 LTS',
+    platformKernel: 'Linux 6.8.0-94-generic',
+  };
+  const result = formatVersionMessage(versions);
+  assert.ok(result.includes('Environment: `docker container`'), `Expected environment but got: ${result}`);
+  assert.ok(result.includes('Architecture: `AMD64 (x86-64)`'), `Expected architecture but got: ${result}`);
+  assert.ok(result.includes('OS: `Ubuntu 24.04.1 LTS`'), `Expected OS but got: ${result}`);
+  assert.ok(result.includes('Kernel: `Linux 6.8.0-94-generic`'), `Expected kernel but got: ${result}`);
+});
+
+test('formatVersionMessage falls back to legacy platform format', () => {
+  const versions = { platform: 'linux (x64)' };
+  const result = formatVersionMessage(versions);
+  assert.ok(result.includes('System: `linux (x64)`'), `Expected fallback format but got: ${result}`);
 });
 
 // ============================================================================

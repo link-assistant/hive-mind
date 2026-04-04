@@ -574,13 +574,9 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
       let actualForkName = `${currentUser}/${defaultForkName}`;
 
       for (let attempt = 1; attempt <= maxForkRetries; attempt++) {
-        // Try to create fork with optional custom name
         let forkResult;
         // Issue #1518: Log the exact fork command for debugging non-fork creation scenarios
-        if (argv.verbose) {
-          const forkCmd = argv.prefixForkNameWithOwnerName ? `gh repo fork ${owner}/${repo} --fork-name ${owner}-${repo} --clone=false` : `gh repo fork ${owner}/${repo} --clone=false`;
-          await log(`${formatAligned('🔧', 'Fork command:', forkCmd)}`);
-        }
+        if (argv.verbose) await log(`${formatAligned('🔧', 'Fork command:', argv.prefixForkNameWithOwnerName ? `gh repo fork ${owner}/${repo} --fork-name ${owner}-${repo} --clone=false` : `gh repo fork ${owner}/${repo} --clone=false`)}`);
         if (argv.prefixForkNameWithOwnerName) {
           forkResult = await $`gh repo fork ${owner}/${repo} --fork-name ${owner}-${repo} --clone=false 2>&1`;
         } else {
@@ -589,7 +585,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
 
         // Always capture output to parse actual fork name
         const forkOutput = (forkResult.stderr ? forkResult.stderr.toString() : '') + (forkResult.stdout ? forkResult.stdout.toString() : '');
-
+        if (argv.verbose) await log(`${formatAligned('🔧', 'Fork output:', forkOutput.split('\n')[0] || '(empty)')}`); // Issue #1518
         // Parse actual fork name from output (e.g., "konard/netkeep80-jsonRVM already exists")
         // GitHub may create forks with modified names to avoid conflicts
         // Use regex that won't match domain names like "github.com/user" -> "com/user"
@@ -798,13 +794,15 @@ Thank you!`;
           // Wait a moment for fork to be fully ready
           await log(`${formatAligned('⏳', 'Waiting:', 'For fork to be fully ready...')}`);
           await new Promise(resolve => setTimeout(resolve, 3000));
-          // Issue #1518: Validate fork parent after creation to detect non-fork repos early
-          const pcv = await validateForkParent(actualForkName, `${owner}/${repo}`);
-          if (!pcv.isValid && !pcv.isNetworkError) {
-            await log(`${formatAligned('⚠️', 'WARNING:', `Newly created fork failed validation (possible gh CLI bug, see issue #1518): ${pcv.error}`)}`, { level: 'warning' });
-            const errCtx = { context: 'fork_creation_validation', forkRepo: actualForkName, expectedUpstream: `${owner}/${repo}`, isFork: pcv.isFork, parent: pcv.parent, source: pcv.source };
-            reportError(new Error(`Fork created as non-fork: ${pcv.error}`), errCtx);
-          }
+        }
+        // Issue #1518: Validate fork parent after creation/discovery to detect non-fork repos early (covers concurrent worker scenarios too)
+        await log(`${formatAligned('🔍', 'Validating fork parent...', '')}`);
+        const pcv = await validateForkParent(actualForkName, `${owner}/${repo}`);
+        if (pcv.isValid) {
+          await log(`${formatAligned('✅', 'Fork parent validated:', `${pcv.parent}`)}`);
+        } else if (!pcv.isNetworkError) {
+          await log(`${formatAligned('⚠️', 'WARNING:', `Fork failed validation (possible gh CLI bug, see issue #1518): ${pcv.error}`)}`, { level: 'warning' });
+          reportError(new Error(`Fork created as non-fork: ${pcv.error}`), { context: 'fork_creation_validation', forkRepo: actualForkName, expectedUpstream: `${owner}/${repo}`, isFork: pcv.isFork, parent: pcv.parent, source: pcv.source });
         }
       }
 

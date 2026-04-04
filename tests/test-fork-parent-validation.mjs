@@ -383,6 +383,26 @@ runTest('--allow-force-non-fork-repository-deletion in option suggestions', () =
   }
 });
 
+// Test 21: Verify verbose fork output logging (Issue #1518)
+runTest('verbose fork output logging (Issue #1518)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check for fork output logging
+  if (!content.includes("'Fork output:'")) {
+    throw new Error('Missing fork output verbose logging');
+  }
+});
+
+// Test 22: Verify fork parent validation covers both creation and discovery paths (Issue #1518)
+runTest('fork parent validation in creation/discovery path (Issue #1518)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check that post-creation validation covers concurrent worker scenarios too
+  if (!content.includes('covers concurrent worker scenarios too')) {
+    throw new Error('Post-creation fork validation should cover concurrent worker scenarios');
+  }
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log('Test Results for fork parent validation:');

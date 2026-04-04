@@ -394,6 +394,21 @@ jobs:
           echo "Running test suite for stderr warning detection (isStderrError)..."
           node tests/test-issue-1337-stderr-warning-detection.mjs
 
+      - name: Run hive-solve option parity test (Issue #1209)
+        run: |
+          echo "Running test suite for hive-solve option parity..."
+          node tests/test-hive-solve-option-parity.mjs
+
+      - name: Run fork parent validation test (Issue #1518)
+        run: |
+          echo "Running test suite for fork parent validation..."
+          node tests/test-fork-parent-validation.mjs
+
+      - name: Run docs-code options sync test (Issue #1518)
+        run: |
+          echo "Running test suite for documentation-code options sync..."
+          node tests/test-docs-options-sync.mjs
+
   # === EXECUTION TESTS ===
   test-execution:
     runs-on: ubuntu-latest

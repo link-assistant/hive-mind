@@ -99,11 +99,26 @@ runTest('error message references issue #967', () => {
   }
 });
 
-// Test 5: Verify auto-recovery for non-fork repositories (Issue #1518)
-runTest('auto-recovery for non-fork/mismatch repos (Issue #1518)', () => {
+// Test 5: Verify safe auto-recovery for non-fork repositories (Issue #1518)
+runTest('safe auto-recovery for non-fork/mismatch repos (Issue #1518)', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
-  // Check for auto-recovery logic
+  // Check for safety check before deletion — compares commits against upstream
+  if (!content.includes('Safety check:')) {
+    throw new Error('Missing safety check before auto-recovery deletion');
+  }
+
+  // Check that commit comparison is performed via GitHub compare API
+  if (!content.includes('compare/')) {
+    throw new Error('Missing commit comparison via GitHub compare API');
+  }
+
+  // Check that deletion is blocked when extra commits exist
+  if (!content.includes('repository may contain commits that would be lost')) {
+    throw new Error('Missing safety exit when extra commits would be lost');
+  }
+
+  // Check for auto-recovery logic (only when safe)
   if (!content.includes('Auto-recovery:')) {
     throw new Error('Missing auto-recovery logic for non-fork repos');
   }
@@ -114,7 +129,7 @@ runTest('auto-recovery for non-fork/mismatch repos (Issue #1518)', () => {
   }
 
   // Check for fallback when delete fails
-  if (!content.includes('Manual fix required:')) {
+  if (!content.includes('Manual fix required')) {
     throw new Error('Missing manual fix fallback when auto-recovery fails');
   }
 
@@ -295,7 +310,7 @@ runTest('post-creation fork validation (Issue #1518)', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
   // Check that validateForkParent is called after fork creation
-  if (!content.includes('postCreateValidation')) {
+  if (!content.includes('fork_creation_validation')) {
     throw new Error('Missing post-creation fork validation');
   }
 

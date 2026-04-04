@@ -8,4 +8,5 @@ Auto-recover from non-fork repositories during fork validation (Issue #1518)
 - Add verbose logging of fork commands for debugging non-fork creation scenarios
 - Add post-creation fork validation to detect non-fork repos immediately after `gh repo fork`
 - Report non-fork creation to Sentry for monitoring
+- Add `--allow-force-non-fork-repository-deletion` flag to force deletion even when additional commits would be lost
 - Add case study documenting the root cause analysis of konard/MixaByk1996-elements-app

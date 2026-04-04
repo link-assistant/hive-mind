@@ -199,6 +199,7 @@ const KNOWN_OPTION_NAMES = [
   'only-prepare-command',
   'auto-merge-default-branch-to-pull-request-branch',
   'allow-fork-divergence-resolution-using-force-push-with-lease',
+  'allow-force-non-fork-repository-deletion',
   'allow-to-push-to-contributors-pull-requests-as-maintainer',
   'prefix-fork-name-with-owner-name',
   'auto-restart-max-iterations',

@@ -340,6 +340,49 @@ runTest('verbose fork command logging (Issue #1518)', () => {
   }
 });
 
+// Test 18: Verify --allow-force-non-fork-repository-deletion flag support (Issue #1518)
+runTest('--allow-force-non-fork-repository-deletion flag support (Issue #1518)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check that the flag is checked in the auto-recovery path
+  if (!content.includes('argv.allowForceNonForkRepositoryDeletion')) {
+    throw new Error('Missing argv.allowForceNonForkRepositoryDeletion check in auto-recovery');
+  }
+
+  // Check that force deletion message is logged when flag is enabled
+  if (!content.includes('Force deletion ENABLED:')) {
+    throw new Error('Missing force deletion enabled message');
+  }
+
+  // Check that the flag is suggested in the error message when not enabled
+  if (!content.includes('--allow-force-non-fork-repository-deletion')) {
+    throw new Error('Missing --allow-force-non-fork-repository-deletion suggestion in error message');
+  }
+});
+
+// Test 19: Verify --allow-force-non-fork-repository-deletion option defined in config
+runTest('--allow-force-non-fork-repository-deletion option in config', () => {
+  const configContent = execSync(`cat ${srcDir}/solve.config.lib.mjs`, { encoding: 'utf8' });
+
+  if (!configContent.includes("'allow-force-non-fork-repository-deletion'")) {
+    throw new Error('Missing allow-force-non-fork-repository-deletion option in solve.config.lib.mjs');
+  }
+
+  // Check it has proper description mentioning data loss
+  if (!configContent.includes('data loss possible')) {
+    throw new Error('Missing data loss warning in option description');
+  }
+});
+
+// Test 20: Verify --allow-force-non-fork-repository-deletion in option suggestions
+runTest('--allow-force-non-fork-repository-deletion in option suggestions', () => {
+  const suggestionsContent = execSync(`cat ${srcDir}/option-suggestions.lib.mjs`, { encoding: 'utf8' });
+
+  if (!suggestionsContent.includes("'allow-force-non-fork-repository-deletion'")) {
+    throw new Error('Missing allow-force-non-fork-repository-deletion in option-suggestions.lib.mjs');
+  }
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log('Test Results for fork parent validation:');

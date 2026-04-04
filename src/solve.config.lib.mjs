@@ -273,6 +273,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Allow automatic force-push (--force-with-lease) when fork diverges from upstream (DANGEROUS: can overwrite fork history)',
     default: false,
   },
+  'allow-force-non-fork-repository-deletion': {
+    type: 'boolean',
+    description: 'Allow deletion of non-fork repositories even when they contain additional commits that would be lost (DANGEROUS: data loss possible)',
+    default: false,
+  },
   'allow-to-push-to-contributors-pull-requests-as-maintainer': {
     type: 'boolean',
     description: 'When continuing a fork PR as a maintainer, attempt to push directly to the contributor\'s fork if "Allow edits by maintainers" is enabled. Requires --auto-fork to be enabled.',

@@ -537,9 +537,15 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
           await log(`${formatAligned('⚠️', 'Compare error:', e.message)}`, { level: 'warning' });
         }
         if (!safeToDelete) {
-          await log(`  💡 Manual fix required: back up work, then: gh repo delete ${existingForkName} --yes`);
-          await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);
-          await safeExit(1, 'Auto-recovery skipped - repository may contain commits that would be lost');
+          if (argv.allowForceNonForkRepositoryDeletion) {
+            await log(`${formatAligned('⚠️', 'Force deletion ENABLED:', '--allow-force-non-fork-repository-deletion — proceeding despite potential data loss')}`, { level: 'warning' });
+            safeToDelete = true;
+          } else {
+            await log(`  💡 Manual fix required: back up work, then: gh repo delete ${existingForkName} --yes`);
+            await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);
+            await log(`  🔧 Or force deletion (DANGEROUS): solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-force-non-fork-repository-deletion`);
+            await safeExit(1, 'Auto-recovery skipped - repository may contain commits that would be lost');
+          }
         }
         await log(`${formatAligned('🔄', 'Auto-recovery:', 'Deleting non-fork repository and creating fresh fork...')}`);
         const deleteResult = await $`gh repo delete ${existingForkName} --yes 2>&1`;

@@ -409,6 +409,11 @@ jobs:
           echo "Running test suite for documentation-code options sync..."
           node tests/test-docs-options-sync.mjs
 
+      - name: Run detect-code-changes test (Issue #1528)
+        run: |
+          echo "Running test suite for CI/CD change detection..."
+          node tests/test-detect-code-changes-1528.mjs
+
   # === EXECUTION TESTS ===
   test-execution:
     runs-on: ubuntu-latest

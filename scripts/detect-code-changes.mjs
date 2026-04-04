@@ -212,5 +212,10 @@ function detectChanges() {
   console.log('\nChange detection completed.');
 }
 
-// Run the detection
-detectChanges();
+// Export functions for testing (Issue #1528)
+export { isExcludedFromCodeChanges, matchesPattern };
+
+// Run the detection when executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  detectChanges();
+}

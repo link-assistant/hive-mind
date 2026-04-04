@@ -2,4 +2,4 @@
 '@link-assistant/hive-mind': patch
 ---
 
-fix: pass OPENCODE_VERBOSE env var to agent process for HTTP logging (#1521)
+fix: pass LINK_ASSISTANT_AGENT_VERBOSE env var to agent process for HTTP logging (#1521)

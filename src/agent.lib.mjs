@@ -510,14 +510,13 @@ export const executeAgentCommand = async params => {
       // Use agentArgs which includes --model and optionally --verbose
 
       // Issue #1521: Build environment for agent process
-      // Pass OPENCODE_VERBOSE and LINK_ASSISTANT_AGENT_VERBOSE env vars when --verbose is enabled
-      // This ensures Flag.OPENCODE_VERBOSE is true at module load time inside the agent,
+      // Pass LINK_ASSISTANT_AGENT_VERBOSE env var when --verbose is enabled
+      // This ensures Flag.LINK_ASSISTANT_AGENT_VERBOSE is true at module load time inside the agent,
       // which is required for HTTP request/response logging to work.
       // The --verbose CLI flag alone is not sufficient because the agent's Flag module
       // reads the env var at initialization, before yargs middleware calls Flag.setVerbose().
       const agentEnv = { ...process.env };
       if (argv.verbose) {
-        agentEnv.OPENCODE_VERBOSE = 'true';
         agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
       }
 

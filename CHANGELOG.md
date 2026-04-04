@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.46.1
+
+### Patch Changes
+
+- 84aacf7: fix: pass LINK_ASSISTANT_AGENT_VERBOSE env var to agent process for HTTP logging (#1521)
+
 ## 1.46.0
 
 ### Minor Changes

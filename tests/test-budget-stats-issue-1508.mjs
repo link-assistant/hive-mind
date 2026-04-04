@@ -153,10 +153,11 @@ runTest('multi-model shows per-model output tokens', () => {
   assertContains(result, '5.4K output', 'Should show Haiku output tokens');
 });
 
-runTest('multi-model shows per-model cost', () => {
+runTest('multi-model shows per-model cost on Total line', () => {
   const result = buildBudgetStatsString(makeMultiModelTokenUsage());
-  assertContains(result, 'Cost: $2.199580', 'Should show Opus cost');
-  assertContains(result, 'Cost: $0.164660', 'Should show Haiku cost');
+  // Issue #1526: Cost now shown on the Total line
+  assertContains(result, '$2.199580 cost', 'Should show Opus cost');
+  assertContains(result, '$0.164660 cost', 'Should show Haiku cost');
 });
 
 // ==== Test Group: Sub-session deduplication in multi-model ====
@@ -175,12 +176,9 @@ runTest('multi sub-sessions shown only once in multi-model', () => {
     ],
   });
   const result = buildBudgetStatsString(tokenUsage);
-  // Sub-sessions header should appear exactly once (globally, not per model)
-  const subSessionCount = countOccurrences(result, 'Sub sessions (between compact events):');
-  assertEqual(subSessionCount, 1, 'Sub-sessions header should appear exactly once in multi-model');
-  // Sub-session numbers should appear exactly once each
-  assertEqual(countOccurrences(result, '\n1. '), 1, 'Sub-session 1 should appear once');
-  assertEqual(countOccurrences(result, '\n2. '), 1, 'Sub-session 2 should appear once');
+  // Issue #1526: Sub-sessions shown as numbered "Context window:" lines, appearing once globally
+  assertEqual(countOccurrences(result, '1. Context window:'), 1, 'Sub-session 1 should appear once');
+  assertEqual(countOccurrences(result, '2. Context window:'), 1, 'Sub-session 2 should appear once');
 });
 
 runTest('single-model multi sub-sessions still shown under that model', () => {
@@ -208,9 +206,9 @@ runTest('single-model multi sub-sessions still shown under that model', () => {
     },
   };
   const result = buildBudgetStatsString(tokenUsage);
-  assertContains(result, 'Sub sessions (between compact events):', 'Single model should still show sub-sessions');
-  assertContains(result, '1. ', 'Should show sub-session 1');
-  assertContains(result, '2. ', 'Should show sub-session 2');
+  // Issue #1526: Sub-sessions shown as numbered "Context window:" lines
+  assertContains(result, '1. Context window:', 'Should show sub-session 1');
+  assertContains(result, '2. Context window:', 'Should show sub-session 2');
 });
 
 // ==== Test Group: accumulateModelUsage with multi-model ====
@@ -289,9 +287,10 @@ runTest('model with null costUSD does not show cost line', () => {
   assertNotContains(result, 'Cost:', 'Should not show cost when null');
 });
 
-runTest('model with zero costUSD shows $0 cost', () => {
+runTest('model with zero costUSD shows $0 cost on Total line', () => {
   const result = buildBudgetStatsString(makeSingleModelTokenUsage('free-model', 'Free Model', { costUSD: 0 }));
-  assertContains(result, 'Cost: $0.000000', 'Should show $0.000000 for zero cost');
+  // Issue #1526: Cost now shown on the Total line
+  assertContains(result, '$0.000000 cost', 'Should show $0.000000 for zero cost');
 });
 
 // ==== Test Group: Per-model context window and max output tokens (Issue #1508 feedback) ====
@@ -299,11 +298,12 @@ console.log('\n📋 Test Group: Per-model context window and max output tokens\n
 
 runTest('multi-model single sub-session shows per-model context window', () => {
   const result = buildBudgetStatsString(makeMultiModelTokenUsage());
-  // Opus: peakContextUsage 71907 / contextLimit 1000000 = 7%
-  assertContains(result, 'Max context window: 71.9K / 1M input tokens (7%)', 'Should show Opus context window usage');
-  // Haiku: peakContextUsage 0, so shows total input / contextLimit 200000
-  // Haiku total: 1649 + 51802 + 712034 = 765485 ≈ 765.5K / 200K → but since no peak, shows totalInput / contextLimit
-  assertContains(result, 'Context window:', 'Should show Haiku context window');
+  // Opus: peakContextUsage 71907 / contextLimit 1000000 = 7% — shown as single-line format
+  assertContains(result, '71.9K / 1M input tokens (7%)', 'Should show Opus context window usage');
+  // Issue #1526: Haiku peakContextUsage is 0 — falls back to cumulative total
+  // Cumulative: 1649 + 51802 + 712034 = 765485 ≈ 765.5K / 200K = 383%
+  assertContains(result, '765.5K / 200K input tokens (383%)', 'Should show Haiku cumulative context as fallback');
+  assertContains(result, '5.4K / 32K output tokens (17%)', 'Should show Haiku output tokens');
 });
 
 runTest('multi-model single sub-session shows per-model max output tokens', () => {
@@ -322,9 +322,10 @@ runTest('multi-model multi sub-sessions shows global sub-sessions AND per-model 
     ],
   });
   const result = buildBudgetStatsString(tokenUsage);
-  // Global sub-sessions shown once
-  assertEqual(countOccurrences(result, 'Sub sessions (between compact events):'), 1, 'Sub-sessions shown once globally');
-  // Per-model context window shown per model (Opus uses context limit 1000000, Haiku uses 200000)
+  // Issue #1526: Global sub-sessions shown as numbered Context window lines
+  assertContains(result, '1. Context window:', 'Sub-session 1 shown globally');
+  assertContains(result, '2. Context window:', 'Sub-session 2 shown globally');
+  // Per-model headings
   assertContains(result, '**Claude Opus 4.6:**', 'Should show Opus heading');
   assertContains(result, '**Claude Haiku 4.5:**', 'Should show Haiku heading');
   // Per-model output limits shown (Opus 128K, Haiku 32K)

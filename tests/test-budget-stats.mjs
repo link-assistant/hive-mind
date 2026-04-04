@@ -72,18 +72,18 @@ runTest('returns empty string when tokenUsage is null', () => {
   assertEqual(buildBudgetStatsString(null, null), '', 'Should return empty string for null tokenUsage');
 });
 
-runTest('single sub-session shows simplified format with max context/output', () => {
+runTest('single sub-session shows simplified format with context/output on single line', () => {
   const result = buildBudgetStatsString(makeTokenUsage({ peakContext: 65000 }), null);
   assertContains(result, '📊 **Context and tokens usage:**', 'Should have new header');
-  assertContains(result, 'Max context window:', 'Should show max context window');
-  assertContains(result, 'Max output tokens:', 'Should show max output tokens');
-  assertContains(result, 'Total input tokens:', 'Should show total input');
-  assertContains(result, 'Total output tokens:', 'Should show total output');
+  // Issue #1526: Single-line format
+  assertContains(result, 'Context window: 65K / 200K input tokens (33%), 15K / 64K output tokens (23%)', 'Should show context+output on single line');
+  assertContains(result, 'Total:', 'Should show total line');
 });
 
 runTest('shows cached tokens separately in totals', () => {
   const result = buildBudgetStatsString(makeTokenUsage({ input: 50000, cacheCreate: 10000, cacheRead: 5000 }), null);
-  assertContains(result, 'Total input tokens: 60K + 5K cached', 'Should show input + cached separately');
+  // Issue #1526: Shorter total format
+  assertContains(result, '60K + 5K cached input tokens', 'Should show input + cached separately');
 });
 
 runTest('does not show cached when zero', () => {
@@ -91,10 +91,10 @@ runTest('does not show cached when zero', () => {
   assertNotContains(result, 'cached', 'Should not show cached when zero');
 });
 
-runTest('shows context tokens without percentage when no model limits', () => {
+runTest('shows total without context when no model limits', () => {
   const result = buildBudgetStatsString(makeTokenUsage({ cacheCreate: 0, cacheRead: 0, modelId: 'unknown-model', modelName: 'unknown-model', modelInfo: null }), null);
-  assertContains(result, 'Total input tokens:', 'Should show total input tokens');
-  assertNotContains(result, 'Max context window:', 'Should not show max context when no limits');
+  assertContains(result, 'Total:', 'Should show total');
+  assertNotContains(result, 'Context window:', 'Should not show context window when no limits');
 });
 
 runTest('shows sub-session breakdown when compactification occurred', () => {
@@ -110,9 +110,9 @@ runTest('shows sub-session breakdown when compactification occurred', () => {
     compactifications: [{ timestamp: '2026-03-29T10:00:00Z', preTokens: 167219, trigger: 'auto' }],
   });
   const result = buildBudgetStatsString(tokenUsage, null);
-  assertContains(result, 'Sub sessions (between compact events):', 'Should show sub-sessions header');
-  assertContains(result, '1. ', 'Should number sub-sessions');
-  assertContains(result, '2. ', 'Should number sub-sessions');
+  // Issue #1526: Numbered sub-sessions with Context window prefix
+  assertContains(result, '1. Context window:', 'Should number sub-sessions with Context window prefix');
+  assertContains(result, '2. Context window:', 'Should number sub-sessions');
   assertContains(result, 'input tokens', 'Should show input tokens per sub-session');
   assertContains(result, 'output tokens', 'Should show output tokens per sub-session');
 });
@@ -189,8 +189,8 @@ console.log('\n📋 Test Group: Edge cases\n');
 
 runTest('handles zero tokens gracefully', () => {
   const result = buildBudgetStatsString(makeTokenUsage({ input: 0, cacheCreate: 0, cacheRead: 0, output: 0, peakContext: 0 }), null);
-  assertContains(result, 'Total input tokens: 0', 'Should show 0 for zero tokens');
-  assertContains(result, 'Total output tokens: 0', 'Should show 0 output');
+  // Issue #1526: Shorter total format
+  assertContains(result, 'Total: 0 input tokens, 0 output tokens', 'Should show 0 for zero tokens');
 });
 
 runTest('handles multiple compactifications with numbered sub-sessions', () => {
@@ -210,10 +210,10 @@ runTest('handles multiple compactifications with numbered sub-sessions', () => {
     ],
   });
   const result = buildBudgetStatsString(tokenUsage, null);
-  assertContains(result, 'Sub sessions (between compact events):', 'Should show sub-sessions');
-  assertContains(result, '1. ', 'Should show sub-session 1');
-  assertContains(result, '2. ', 'Should show sub-session 2');
-  assertContains(result, '3. ', 'Should show sub-session 3');
+  // Issue #1526: Numbered sub-sessions with Context window prefix
+  assertContains(result, '1. Context window:', 'Should show sub-session 1');
+  assertContains(result, '2. Context window:', 'Should show sub-session 2');
+  assertContains(result, '3. Context window:', 'Should show sub-session 3');
 });
 
 // ==== Summary ====

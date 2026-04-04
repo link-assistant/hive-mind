@@ -180,7 +180,7 @@ runTest('renders Agent CLI budget stats with context window', () => {
   assertContains(result, '$0.005000 cost', 'Should show cost on total line');
 });
 
-runTest('renders Agent CLI budget stats without context when peakContextUsage is 0', () => {
+runTest('renders Agent CLI budget stats with cumulative fallback when peakContextUsage is 0', () => {
   const tokenUsage = {
     inputTokens: 1000,
     outputTokens: 500,
@@ -195,22 +195,25 @@ runTest('renders Agent CLI budget stats without context when peakContextUsage is
   const pricingInfo = { modelName: 'Test Model', totalCostUSD: null };
   const budgetData = buildAgentBudgetStats(tokenUsage, pricingInfo);
   const result = buildBudgetStatsString(budgetData);
-  // Issue #1526 fix: peakContextUsage=0 should NOT show context window input part
-  // (prevents the 288% bug where cumulative tokens / context limit is meaningless)
-  assertContains(result, 'Context window:', 'Should still show output part');
+  // Issue #1526: peakContextUsage=0 falls back to cumulative total (inputTokens + cacheCreation + cacheRead)
+  // Nothing should be skipped or hidden
+  assertContains(result, 'Context window:', 'Should show context window');
   assertContains(result, '500 / 64K output tokens', 'Should show output usage');
-  // Context line should not have "X / Y input tokens (Z%)" part since peakContext is 0
-  assertNotContains(result, '/ 200K input tokens', 'Should NOT show input tokens ratio in context line when peak is 0');
+  // Cumulative: 1000 + 0 + 0 = 1000 → "1K / 200K input tokens (1%)"
+  assertContains(result, '1K / 200K input tokens (1%)', 'Should show cumulative input tokens as fallback');
 });
 
 // ==== Test Group: Context window 288% bug fix ====
 console.log('\n📋 Test Group: Context window 288% bug fix (Issue #1526)\n');
 
-runTest('Haiku with peakContextUsage=0 does not show misleading context percentage', () => {
-  // This reproduces the exact bug from Issue #1526:
+runTest('Haiku with peakContextUsage=0 shows cumulative fallback context', () => {
+  // Issue #1526: When peakContextUsage is 0 (e.g., model from result JSON only),
+  // fall back to cumulative total tokens instead of hiding context.
   // Haiku model from result JSON has peakContextUsage=0, and cumulative
   // inputTokens + cacheCreationTokens + cacheReadTokens = 575269
-  // Context limit = 200000 → 575269/200000 = 288% (WRONG!)
+  // Context limit = 200000 → 575269/200000 = 288%
+  // This is the cumulative total across all requests, not a per-request peak.
+  // Showing it is intentional — nothing should be skipped or hidden.
   const tokenUsage = {
     inputTokens: 50000,
     cacheCreationTokens: 30000,
@@ -231,10 +234,8 @@ runTest('Haiku with peakContextUsage=0 does not show misleading context percenta
     },
   };
   const result = buildBudgetStatsString(tokenUsage);
-  // The old code would show: "Context window: 575.3K / 200K tokens (288%)" — WRONG
-  assertNotContains(result, '288%', 'Should NOT show 288% (the old bug)');
-  assertNotContains(result, '575.3K / 200K', 'Should NOT show cumulative tokens vs context limit');
-  // With peakContextUsage=0, only output tokens should be in the context window line
+  // Cumulative fallback: 75 + 47259 + 527935 = 575269 ≈ 575.3K
+  assertContains(result, '575.3K / 200K input tokens (288%)', 'Should show cumulative context as fallback');
   assertContains(result, '4.9K / 64K output tokens', 'Should show output tokens correctly');
 });
 

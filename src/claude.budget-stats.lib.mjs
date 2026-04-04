@@ -162,10 +162,12 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
     for (let i = 0; i < subSessions.length; i++) {
       const sub = subSessions[i];
       const subPeak = sub.peakContextUsage || 0;
+      const subCumulative = (sub.inputTokens || 0) + (sub.cacheCreationTokens || 0) + (sub.cacheReadTokens || 0);
+      const contextValue = subPeak > 0 ? subPeak : subCumulative;
       const parts = [];
-      if (contextLimit && subPeak > 0) {
-        const pct = ((subPeak / contextLimit) * 100).toFixed(0);
-        parts.push(`${formatNumber(subPeak)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
+      if (contextLimit && contextValue > 0) {
+        const pct = ((contextValue / contextLimit) * 100).toFixed(0);
+        parts.push(`${formatNumber(contextValue)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
       }
       if (outputLimit) {
         const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
@@ -178,10 +180,12 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
   } else {
     // Single sub-session: single-line format
     const peakContext = usage.peakContextUsage || 0;
+    const cumulativeContext = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
+    const contextValue = peakContext > 0 ? peakContext : cumulativeContext;
     const parts = [];
-    if (contextLimit && peakContext > 0) {
-      const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-      parts.push(`${formatNumber(peakContext)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
+    if (contextLimit && contextValue > 0) {
+      const pct = ((contextValue / contextLimit) * 100).toFixed(0);
+      parts.push(`${formatNumber(contextValue)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
     }
     if (outputLimit) {
       const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
@@ -271,7 +275,9 @@ const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
   for (let i = 0; i < subSessions.length; i++) {
     const sub = subSessions[i];
     const subPeakContext = sub.peakContextUsage || 0;
-    result += formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `);
+    // Cumulative fallback: inputTokens + cacheCreationTokens + cacheReadTokens for this sub-session
+    const subCumulative = (sub.inputTokens || 0) + (sub.cacheCreationTokens || 0) + (sub.cacheReadTokens || 0);
+    result += formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `, subCumulative);
   }
   return result;
 };
@@ -287,11 +293,18 @@ const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
  * @param {string} [prefix='- '] - Line prefix
  * @returns {string} Formatted line or empty string
  */
-const formatContextOutputLine = (peakContext, contextLimit, outputTokens, outputLimit, prefix = '- ') => {
+const formatContextOutputLine = (peakContext, contextLimit, outputTokens, outputLimit, prefix = '- ', cumulativeContext = 0) => {
   const parts = [];
-  if (contextLimit && peakContext > 0) {
-    const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-    parts.push(`${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`);
+  if (contextLimit) {
+    // Use peakContextUsage when available (per-request peak from JSONL tracking).
+    // Fall back to cumulative total (inputTokens + cacheCreationTokens + cacheReadTokens)
+    // when peak is unknown (e.g., model only from result JSON, not in JSONL).
+    // Issue #1526: Never skip context display — always show what data we have.
+    const contextValue = peakContext > 0 ? peakContext : cumulativeContext;
+    if (contextValue > 0) {
+      const pct = ((contextValue / contextLimit) * 100).toFixed(0);
+      parts.push(`${formatTokensCompact(contextValue)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`);
+    }
   }
   if (outputLimit) {
     const outPct = ((outputTokens / outputLimit) * 100).toFixed(0);
@@ -350,10 +363,11 @@ export const buildBudgetStatsString = tokenUsage => {
         stats += formatSubSessionsList(subSessions, contextLimit, outputLimit);
       } else {
         // Issue #1526: Single line format for context window + output tokens
-        // Use peakContextUsage when available; skip context display when peak is unknown
+        // Use peakContextUsage when available; fall back to cumulative total when peak is unknown
         // (e.g., for result-JSON-sourced sub-agent models where only cumulative totals are available)
         const peakContext = usage.peakContextUsage || 0;
-        stats += formatContextOutputLine(peakContext, contextLimit, usage.outputTokens, outputLimit);
+        const cumulativeContext = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
+        stats += formatContextOutputLine(peakContext, contextLimit, usage.outputTokens, outputLimit, '- ', cumulativeContext);
       }
 
       // Cumulative totals per model: input tokens + cached shown separately

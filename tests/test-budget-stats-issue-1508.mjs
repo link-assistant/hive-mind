@@ -300,8 +300,9 @@ runTest('multi-model single sub-session shows per-model context window', () => {
   const result = buildBudgetStatsString(makeMultiModelTokenUsage());
   // Opus: peakContextUsage 71907 / contextLimit 1000000 = 7% — shown as single-line format
   assertContains(result, '71.9K / 1M input tokens (7%)', 'Should show Opus context window usage');
-  // Issue #1526: Haiku peakContextUsage is 0 — context window not shown (fix for 288% bug)
-  // Only output tokens should be shown for Haiku
+  // Issue #1526: Haiku peakContextUsage is 0 — falls back to cumulative total
+  // Cumulative: 1649 + 51802 + 712034 = 765485 ≈ 765.5K / 200K = 383%
+  assertContains(result, '765.5K / 200K input tokens (383%)', 'Should show Haiku cumulative context as fallback');
   assertContains(result, '5.4K / 32K output tokens (17%)', 'Should show Haiku output tokens');
 });
 

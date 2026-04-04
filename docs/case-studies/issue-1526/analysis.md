@@ -21,7 +21,7 @@ This sums **all tokens across the entire session** (cumulative), but the context
 
 For Haiku: `75 + 47,259 + 527,935 = 575,269` vs context limit `200,000` = 288%.
 
-**Fix**: When `peakContextUsage` is 0, skip the context window display entirely rather than showing a misleading cumulative-vs-limit ratio. Only `peakContextUsage` (tracked per-request from JSONL) is meaningful for context window comparison.
+**Fix**: When `peakContextUsage` is 0 (model only from result JSON, not in JSONL), fall back to cumulative total tokens (`inputTokens + cacheCreationTokens + cacheReadTokens`) as the context value. This shows all available data — nothing is skipped or hidden. For models in the JSONL (the common case), `peakContextUsage` is tracked correctly per-request and gives accurate context window percentages.
 
 ### 2. Agent CLI Missing "Context and tokens usage" Section
 
@@ -72,7 +72,8 @@ After: Numbered entries with "Context window:" prefix directly, no header line.
   - 6 steps, 15,218 input tokens, 1,064 output tokens, 56,544 cache read tokens
 - `claude-cli-log.txt`: Full verbose log from Claude Code CLI (Opus + Haiku)
   - Shows Opus with peakContextUsage 90,814 (correct)
-  - Shows Haiku with peakContextUsage 0 (from result JSON, triggering 288% bug)
+  - Shows Haiku with peakContextUsage 0 when from result JSON only; falls back to cumulative total
+  - When Haiku IS in JSONL (common case), peakContextUsage is tracked correctly (peak ~42.3K / 200K = 21%)
 
 ## Files Changed
 

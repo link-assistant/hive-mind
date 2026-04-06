@@ -170,13 +170,23 @@ export async function monitorSessions(bot, verbose = false) {
 
     if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
       // Isolation mode: use $ --status for reliable tracking
+      if (verbose) {
+        console.log(`[VERBOSE] Session ${sessionName}: checking isolation status (backend: ${sessionInfo.isolationBackend}, id: ${sessionInfo.sessionId})`);
+      }
       stillRunning = await checkIsolatedSessionRunning(sessionInfo.sessionId, verbose);
       if (!stillRunning) {
         exitCode = await getIsolatedSessionExitCode(sessionInfo.sessionId, verbose);
       }
     } else {
       // Screen mode: use screen -ls for detection
+      if (verbose) {
+        console.log(`[VERBOSE] Session ${sessionName}: checking screen session existence`);
+      }
       stillRunning = await checkScreenSessionExists(sessionName);
+    }
+
+    if (verbose) {
+      console.log(`[VERBOSE] Session ${sessionName}: stillRunning=${stillRunning}, exitCode=${exitCode}, messageId=${sessionInfo.messageId}`);
     }
 
     if (!stillRunning) {
@@ -199,11 +209,21 @@ export async function monitorSessions(bot, verbose = false) {
         message += `🔗 URL: ${sessionInfo.url}${isolationInfo}\n\n`;
         message += `The work session has finished. You can now review the results.`;
 
+        if (verbose) {
+          console.log(`[VERBOSE] Session ${sessionName}: sending completion notification (messageId: ${sessionInfo.messageId}, chatId: ${sessionInfo.chatId})`);
+        }
+
         // Update the original reply message if messageId is available, otherwise send new message
         if (sessionInfo.messageId) {
           await bot.telegram.editMessageText(sessionInfo.chatId, sessionInfo.messageId, undefined, message, { parse_mode: 'Markdown' });
+          if (verbose) {
+            console.log(`[VERBOSE] Session ${sessionName}: updated original message ${sessionInfo.messageId}`);
+          }
         } else {
           await bot.telegram.sendMessage(sessionInfo.chatId, message, { parse_mode: 'Markdown' });
+          if (verbose) {
+            console.log(`[VERBOSE] Session ${sessionName}: sent new notification message`);
+          }
         }
 
         completeSession(sessionName, exitCode || 0, verbose);

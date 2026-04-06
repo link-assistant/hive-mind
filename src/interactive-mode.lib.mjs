@@ -52,12 +52,67 @@ const CONFIG = {
 // See: https://github.com/link-assistant/hive-mind/issues/1324
 import { sanitizeUnicode } from './unicode-sanitization.lib.mjs';
 
-// Use child_process for stdin-based API calls to avoid shell quoting issues
-// with large/complex comment bodies containing backticks, quotes, etc.
+// Use child_process.spawn for stdin-based API calls to avoid shell quoting
+// issues with large/complex comment bodies containing backticks, quotes, etc.
+// IMPORTANT: We use spawn (not execFile) because promisify(execFile) silently
+// ignores the `input` option — only the sync variants (execFileSync, execSync,
+// spawnSync) support `input`. Using execFile with `input` causes `gh api --input -`
+// to hang forever waiting for stdin, which blocks the stream processing loop and
+// prevents interactive mode from working at all.
 // See: https://github.com/link-assistant/hive-mind/issues/1458
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-const execFileAsync = promisify(execFile);
+// See: https://github.com/link-assistant/hive-mind/issues/1532
+import { spawn } from 'node:child_process';
+
+/**
+ * Spawn a child process with stdin piping support.
+ * Unlike promisify(execFile), this correctly writes `input` to the child's
+ * stdin before closing it, so commands like `gh api --input -` work.
+ *
+ * @param {string} command - The command to run
+ * @param {string[]} args - Command arguments
+ * @param {Object} [options] - Options
+ * @param {string} [options.input] - Data to write to stdin
+ * @param {number} [options.maxBuffer=1048576] - Max stdout/stderr buffer size
+ * @returns {Promise<{stdout: string, stderr: string}>}
+ */
+const execFileAsync = (command, args, options = {}) => {
+  return new Promise((resolve, reject) => {
+    const { input, maxBuffer = 1024 * 1024, ...spawnOpts } = options;
+    const child = spawn(command, args, { ...spawnOpts, stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let stdoutLen = 0;
+    let stderrLen = 0;
+    child.stdout.on('data', chunk => {
+      const str = chunk.toString();
+      stdoutLen += str.length;
+      if (stdoutLen <= maxBuffer) stdout += str;
+    });
+    child.stderr.on('data', chunk => {
+      const str = chunk.toString();
+      stderrLen += str.length;
+      if (stderrLen <= maxBuffer) stderr += str;
+    });
+    child.on('error', reject);
+    child.on('close', code => {
+      if (code !== 0) {
+        const err = new Error(`Command failed: ${command} ${args.join(' ')}\n${stderr}`);
+        err.code = code;
+        err.stdout = stdout;
+        err.stderr = stderr;
+        reject(err);
+      } else {
+        resolve({ stdout, stderr });
+      }
+    });
+    if (input != null) {
+      child.stdin.write(input);
+      child.stdin.end();
+    } else {
+      child.stdin.end();
+    }
+  });
+};
 
 /**
  * Truncate content in the middle, keeping start and end
@@ -1302,6 +1357,7 @@ export const utils = {
   formatCost,
   escapeMarkdown,
   getToolIcon,
+  execFileAsync,
   CONFIG,
 };
 

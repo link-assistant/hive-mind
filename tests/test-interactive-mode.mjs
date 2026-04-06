@@ -1110,6 +1110,58 @@ await runTest('CONFIG constants have reasonable values', () => {
   if (utils.CONFIG.MAX_LINES_BEFORE_TRUNCATION < 10) throw new Error('MAX_LINES_BEFORE_TRUNCATION should be at least 10');
 });
 
+// ============================================
+// EXECFILEASYNC STDIN PIPING TESTS (Issue #1532)
+// ============================================
+
+console.log('\n=== Testing execFileAsync stdin piping (Issue #1532) ===\n');
+
+await runTest('execFileAsync passes input to child stdin (Issue #1532)', async () => {
+  // This test verifies the root cause fix for issue #1532:
+  // The old promisify(execFile) silently ignored the `input` option,
+  // causing `gh api --input -` to hang forever waiting for stdin.
+  // The new spawn-based execFileAsync must correctly pipe input to stdin.
+  const { stdout } = await utils.execFileAsync('cat', [], { input: 'hello from stdin' });
+  if (stdout !== 'hello from stdin') {
+    throw new Error(`Expected "hello from stdin", got: "${stdout}"`);
+  }
+});
+
+await runTest('execFileAsync works without input option', async () => {
+  const { stdout } = await utils.execFileAsync('echo', ['test output']);
+  if (stdout.trim() !== 'test output') {
+    throw new Error(`Expected "test output", got: "${stdout.trim()}"`);
+  }
+});
+
+await runTest('execFileAsync rejects on non-zero exit code', async () => {
+  try {
+    await utils.execFileAsync('sh', ['-c', 'exit 1']);
+    throw new Error('Expected rejection');
+  } catch (error) {
+    if (error.message === 'Expected rejection') throw error;
+    if (error.code !== 1) throw new Error(`Expected exit code 1, got: ${error.code}`);
+  }
+});
+
+await runTest('execFileAsync handles large stdin input', async () => {
+  const largeInput = 'x'.repeat(100000); // 100KB
+  const { stdout } = await utils.execFileAsync('cat', [], { input: largeInput });
+  if (stdout.length !== largeInput.length) {
+    throw new Error(`Expected ${largeInput.length} chars, got: ${stdout.length}`);
+  }
+});
+
+await runTest('execFileAsync handles JSON payload for gh api simulation (Issue #1532)', async () => {
+  // Simulates the actual use case: passing JSON payload to a command via stdin
+  const jsonPayload = JSON.stringify({ body: '## Interactive session started\n\nSome **markdown** content with `code`' });
+  const { stdout } = await utils.execFileAsync('cat', [], { input: jsonPayload });
+  const parsed = JSON.parse(stdout);
+  if (!parsed.body.includes('Interactive session started')) {
+    throw new Error(`Expected JSON body to contain "Interactive session started", got: ${parsed.body}`);
+  }
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`Test Results for interactive-mode.lib.mjs:`);

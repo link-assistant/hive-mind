@@ -3,6 +3,7 @@
 ## Problem Statement
 
 When a `/solve` command is executed via Telegram, the bot sends a message:
+
 ```
 ✅ Solve command started successfully!
 📊 Session: solve-link-assistant-web-capture-9
@@ -35,6 +36,7 @@ screenCommand = `screen -dmS ${sessionName} bash -c '${escapedCommand}; exec bas
 The `; exec bash` ensures the screen session **stays alive** after the solve command finishes. This is intentional (allows reattachment for review), but it breaks session monitoring.
 
 The session monitor in `src/session-monitor.lib.mjs` (`monitorSessions`, line 156-216) checks:
+
 ```javascript
 stillRunning = await checkScreenSessionExists(sessionName); // Uses `screen -ls`
 ```

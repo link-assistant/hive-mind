@@ -40,6 +40,7 @@ const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config
 const { parseGitHubUrl } = await import('./github.lib.mjs');
 const { validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
 const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
+const { extractIsolationFromArgs, isValidPerCommandIsolation, resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
@@ -586,8 +587,7 @@ async function safeReply(ctx, text, options = {}) {
   }
 }
 
-// Execute a command via isolation mode ($ from start-command) or start-screen, then update message
-async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
+async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null) {
   const { chat, message_id: msgId } = startingMessage;
   const safeEdit = async text => {
     try {
@@ -596,16 +596,16 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
       console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
     }
   };
+  const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
   let result,
     session,
     extraInfo = '';
-  if (ISOLATION_BACKEND && isolationRunner) {
-    const sid = isolationRunner.generateSessionId();
-    VERBOSE && console.log(`[VERBOSE] Using isolation (${ISOLATION_BACKEND}), session: ${sid}`);
-    result = await isolationRunner.executeWithIsolation(commandName, args, { backend: ISOLATION_BACKEND, sessionId: sid, verbose: VERBOSE });
-    session = sid;
-    extraInfo = `\n🔒 Isolation: \`${ISOLATION_BACKEND}\``;
-    if (result.success) trackSession(sid, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: ISOLATION_BACKEND, sessionId: sid }, VERBOSE);
+  if (iso) {
+    session = iso.runner.generateSessionId();
+    VERBOSE && console.log(`[VERBOSE] Using isolation (${iso.backend}), session: ${session}`);
+    result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, verbose: VERBOSE });
+    extraInfo = `\n🔒 Isolation: \`${iso.backend}\``;
+    if (result.success) trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: iso.backend, sessionId: session }, VERBOSE);
   } else {
     result = await executeStartScreen(commandName, args);
     const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
@@ -934,9 +934,12 @@ async function handleSolveCommand(ctx) {
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
   }
-
-  // Merge user args with overrides
-  const args = mergeArgsWithOverrides(userArgs, solveOverrides);
+  const { backend: solvePerCommandIsolation, filteredArgs: userArgsWithoutIsolation } = extractIsolationFromArgs(userArgs); // issue #1534
+  if (solvePerCommandIsolation && !isValidPerCommandIsolation(solvePerCommandIsolation)) {
+    await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(solvePerCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+  const args = mergeArgsWithOverrides(userArgsWithoutIsolation, solveOverrides);
 
   // Determine tool from args (default: claude)
   let solveTool = 'claude';
@@ -1024,23 +1027,16 @@ async function handleSolveCommand(ctx) {
 
   if (check.canStart && queueStats.queued === 0) {
     const startingMessage = await safeReply(ctx, `🚀 Starting solve command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, solvePerCommandIsolation);
   } else {
-    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool });
+    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: solvePerCommandIsolation });
     let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
     if (!solveQueue.executeCallback) {
-      solveQueue.executeCallback =
-        ISOLATION_BACKEND && isolationRunner
-          ? async item => {
-              const sid = isolationRunner.generateSessionId();
-              const r = await isolationRunner.executeWithIsolation('solve', item.args, { backend: ISOLATION_BACKEND, sessionId: sid, verbose: VERBOSE });
-              if (r.success) trackSession(sid, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: 'solve', isolationBackend: ISOLATION_BACKEND, sessionId: sid }, VERBOSE);
-              return { ...r, output: r.output || `session: ${sid}` };
-            }
-          : createQueueExecuteCallback(executeStartScreen, (session, info) => trackSession(session, info, VERBOSE));
+      const _t = (s, i) => trackSession(s, i, VERBOSE);
+      solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE);
     }
   }
 }
@@ -1135,8 +1131,12 @@ async function handleHiveCommand(ctx) {
     if (VERBOSE) console.log(`[VERBOSE] /hive: Normalized ${p.type} URL to repo URL: ${normalizedArgs[0]}`);
   } else if (validation.normalizedUrl && validation.normalizedUrl !== userArgs[0]) normalizedArgs[0] = validation.normalizedUrl;
 
-  // Merge user args with overrides
-  const args = mergeArgsWithOverrides(normalizedArgs, hiveOverrides);
+  const { backend: hivePerCommandIsolation, filteredArgs: normalizedArgsWithoutIsolation } = extractIsolationFromArgs(normalizedArgs); // issue #1534
+  if (hivePerCommandIsolation && !isValidPerCommandIsolation(hivePerCommandIsolation)) {
+    await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(hivePerCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+  const args = mergeArgsWithOverrides(normalizedArgsWithoutIsolation, hiveOverrides);
 
   // Determine tool from args (default: claude)
   let hiveTool = 'claude';
@@ -1195,7 +1195,7 @@ async function handleHiveCommand(ctx) {
   }
 
   const startingMessage = await safeReply(ctx, `🚀 Starting hive command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
-  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
+  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock, hivePerCommandIsolation);
 }
 
 bot.command(/^hive$/i, handleHiveCommand);

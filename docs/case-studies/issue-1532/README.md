@@ -9,14 +9,14 @@ causing `gh api --input -` to hang forever waiting for stdin data that never arr
 
 ## Timeline
 
-| Date | Event |
-|------|-------|
-| 2025-12-03 | Interactive mode skeleton added (commit `8c92cd95`) |
-| 2025-12-04 | Wire-up to claude.lib.mjs completed (commit `89568ece`) |
+| Date       | Event                                                                               |
+| ---------- | ----------------------------------------------------------------------------------- |
+| 2025-12-03 | Interactive mode skeleton added (commit `8c92cd95`)                                 |
+| 2025-12-04 | Wire-up to claude.lib.mjs completed (commit `89568ece`)                             |
 | 2026-03-21 | **BREAKING**: `execFileAsync` + `input` introduced (commit `4b0beaf2`, issue #1458) |
-| 2026-03-28 | Activity timeout + diagnostics added (commit `3a1feea1`, issue #1472) |
-| 2026-03-30 | Activity timeout increased to 1hr (commit `83ad9520`, issue #1510) |
-| 2026-04-06 | Bug reported (issue #1532) |
+| 2026-03-28 | Activity timeout + diagnostics added (commit `3a1feea1`, issue #1472)               |
+| 2026-03-30 | Activity timeout increased to 1hr (commit `83ad9520`, issue #1510)                  |
+| 2026-04-06 | Bug reported (issue #1532)                                                          |
 
 ## Root Cause
 
@@ -80,6 +80,7 @@ Replaced `promisify(execFile)` with a custom `execFileAsync` function that uses
 closing it.
 
 Key differences:
+
 - Uses `spawn()` which gives access to `child.stdin` for writing
 - Writes `input` data to `child.stdin` and calls `child.stdin.end()`
 - Collects stdout/stderr into buffers

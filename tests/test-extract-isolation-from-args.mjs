@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 /**
- * Tests for extractIsolationFromArgs function in telegram-bot.mjs
- *
- * Verifies that --isolation <backend> is correctly extracted from user args
- * in /solve and /hive Telegram commands, and that the remaining args are
- * properly filtered.
+ * Tests for extractIsolationFromArgs and isValidPerCommandIsolation
+ * from telegram-isolation.lib.mjs
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1534
  */
+
+import { extractIsolationFromArgs, isValidPerCommandIsolation } from '../src/telegram-isolation.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -34,27 +33,6 @@ function assertDeepEqual(actual, expected, message) {
     console.error(`    Actual:   ${actualStr}`);
     failed++;
   }
-}
-
-/**
- * Re-implement extractIsolationFromArgs for testing purposes.
- * This mirrors the function in telegram-bot.mjs (which cannot be easily imported
- * because it's embedded in a top-level script that requires Telegram bot setup).
- */
-function extractIsolationFromArgs(args) {
-  const filteredArgs = [];
-  let backend = null;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--isolation' && i + 1 < args.length) {
-      backend = args[i + 1].trim().toLowerCase();
-      i++; // Skip the value
-    } else if (args[i].startsWith('--isolation=')) {
-      backend = args[i].substring('--isolation='.length).trim().toLowerCase();
-    } else {
-      filteredArgs.push(args[i]);
-    }
-  }
-  return { backend, filteredArgs };
 }
 
 console.log('Testing extractIsolationFromArgs (issue #1534)');
@@ -152,6 +130,14 @@ console.log('\n  Invalid backend value (extraction only):');
   assert(result.backend === 'ssh', 'extracts invalid backend (validation is separate)');
   assertDeepEqual(result.filteredArgs, ['https://github.com/owner/repo/issues/1'], '--isolation stripped even for invalid backend');
 }
+
+// Test: isValidPerCommandIsolation
+console.log('\n  isValidPerCommandIsolation:');
+assert(isValidPerCommandIsolation('screen') === true, 'screen is valid');
+assert(isValidPerCommandIsolation('tmux') === true, 'tmux is valid');
+assert(isValidPerCommandIsolation('docker') === true, 'docker is valid');
+assert(isValidPerCommandIsolation('ssh') === false, 'ssh is invalid');
+assert(isValidPerCommandIsolation('') === false, 'empty string is invalid');
 
 // Results
 console.log('\n' + '='.repeat(60));

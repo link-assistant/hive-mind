@@ -586,8 +586,33 @@ async function safeReply(ctx, text, options = {}) {
   }
 }
 
+/**
+ * Extract --isolation <backend> from args array.
+ * Returns { backend: string|null, filteredArgs: string[] }.
+ * The --isolation flag is a per-command option that controls execution isolation
+ * (screen/tmux/docker). It is NOT a solve/hive option and must be stripped before
+ * passing args to solve/hive validation and execution.
+ * @see https://github.com/link-assistant/hive-mind/issues/1534
+ */
+function extractIsolationFromArgs(args) {
+  const filteredArgs = [];
+  let backend = null;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--isolation' && i + 1 < args.length) {
+      backend = args[i + 1].trim().toLowerCase();
+      i++; // Skip the value
+    } else if (args[i].startsWith('--isolation=')) {
+      backend = args[i].substring('--isolation='.length).trim().toLowerCase();
+    } else {
+      filteredArgs.push(args[i]);
+    }
+  }
+  return { backend, filteredArgs };
+}
+
 // Execute a command via isolation mode ($ from start-command) or start-screen, then update message
-async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
+// The perCommandIsolation parameter allows per-command --isolation override from user args (issue #1534)
+async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null) {
   const { chat, message_id: msgId } = startingMessage;
   const safeEdit = async text => {
     try {
@@ -596,16 +621,27 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
       console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
     }
   };
+  // Per-command --isolation from user args takes precedence over bot-level ISOLATION_BACKEND
+  const effectiveBackend = perCommandIsolation || ISOLATION_BACKEND;
+  // Dynamically import isolation-runner if needed for per-command isolation (bot may not have loaded it at startup)
+  let effectiveIsolationRunner = isolationRunner;
+  if (effectiveBackend && !effectiveIsolationRunner) {
+    try {
+      effectiveIsolationRunner = await import('./isolation-runner.lib.mjs');
+    } catch (e) {
+      console.error(`[telegram-bot] Failed to import isolation-runner: ${e.message}`);
+    }
+  }
   let result,
     session,
     extraInfo = '';
-  if (ISOLATION_BACKEND && isolationRunner) {
-    const sid = isolationRunner.generateSessionId();
-    VERBOSE && console.log(`[VERBOSE] Using isolation (${ISOLATION_BACKEND}), session: ${sid}`);
-    result = await isolationRunner.executeWithIsolation(commandName, args, { backend: ISOLATION_BACKEND, sessionId: sid, verbose: VERBOSE });
+  if (effectiveBackend && effectiveIsolationRunner) {
+    const sid = effectiveIsolationRunner.generateSessionId();
+    VERBOSE && console.log(`[VERBOSE] Using isolation (${effectiveBackend}), session: ${sid}`);
+    result = await effectiveIsolationRunner.executeWithIsolation(commandName, args, { backend: effectiveBackend, sessionId: sid, verbose: VERBOSE });
     session = sid;
-    extraInfo = `\n🔒 Isolation: \`${ISOLATION_BACKEND}\``;
-    if (result.success) trackSession(sid, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: ISOLATION_BACKEND, sessionId: sid }, VERBOSE);
+    extraInfo = `\n🔒 Isolation: \`${effectiveBackend}\``;
+    if (result.success) trackSession(sid, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: effectiveBackend, sessionId: sid }, VERBOSE);
   } else {
     result = await executeStartScreen(commandName, args);
     const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
@@ -935,8 +971,23 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  // Merge user args with overrides
-  const args = mergeArgsWithOverrides(userArgs, solveOverrides);
+  // Issue #1534: Extract --isolation from user args before merging with overrides.
+  // --isolation is a per-command execution option (not a solve/hive option), so it must
+  // be stripped before validation against solve's yargs config to avoid "Unknown argument" errors.
+  const { backend: solvePerCommandIsolation, filteredArgs: userArgsWithoutIsolation } = extractIsolationFromArgs(userArgs);
+
+  // Validate per-command isolation backend if specified
+  if (solvePerCommandIsolation && !['screen', 'tmux', 'docker'].includes(solvePerCommandIsolation)) {
+    await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(solvePerCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
+  if (solvePerCommandIsolation && VERBOSE) {
+    console.log(`[VERBOSE] /solve: Per-command isolation detected: ${solvePerCommandIsolation}`);
+  }
+
+  // Merge user args (without --isolation) with overrides
+  const args = mergeArgsWithOverrides(userArgsWithoutIsolation, solveOverrides);
 
   // Determine tool from args (default: claude)
   let solveTool = 'claude';
@@ -1024,23 +1075,33 @@ async function handleSolveCommand(ctx) {
 
   if (check.canStart && queueStats.queued === 0) {
     const startingMessage = await safeReply(ctx, `🚀 Starting solve command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, solvePerCommandIsolation);
   } else {
-    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool });
+    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: solvePerCommandIsolation });
     let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
     if (!solveQueue.executeCallback) {
-      solveQueue.executeCallback =
-        ISOLATION_BACKEND && isolationRunner
-          ? async item => {
-              const sid = isolationRunner.generateSessionId();
-              const r = await isolationRunner.executeWithIsolation('solve', item.args, { backend: ISOLATION_BACKEND, sessionId: sid, verbose: VERBOSE });
-              if (r.success) trackSession(sid, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: 'solve', isolationBackend: ISOLATION_BACKEND, sessionId: sid }, VERBOSE);
-              return { ...r, output: r.output || `session: ${sid}` };
-            }
-          : createQueueExecuteCallback(executeStartScreen, (session, info) => trackSession(session, info, VERBOSE));
+      solveQueue.executeCallback = async item => {
+        // Per-command --isolation from user args takes precedence over bot-level ISOLATION_BACKEND (issue #1534)
+        const effectiveBackend = item.perCommandIsolation || ISOLATION_BACKEND;
+        let effectiveRunner = isolationRunner;
+        if (effectiveBackend && !effectiveRunner) {
+          try {
+            effectiveRunner = await import('./isolation-runner.lib.mjs');
+          } catch (e) {
+            console.error(`[telegram-bot] Failed to import isolation-runner for queue: ${e.message}`);
+          }
+        }
+        if (effectiveBackend && effectiveRunner) {
+          const sid = effectiveRunner.generateSessionId();
+          const r = await effectiveRunner.executeWithIsolation('solve', item.args, { backend: effectiveBackend, sessionId: sid, verbose: VERBOSE });
+          if (r.success) trackSession(sid, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: 'solve', isolationBackend: effectiveBackend, sessionId: sid }, VERBOSE);
+          return { ...r, output: r.output || `session: ${sid}` };
+        }
+        return createQueueExecuteCallback(executeStartScreen, (session, info) => trackSession(session, info, VERBOSE))(item);
+      };
     }
   }
 }
@@ -1135,8 +1196,21 @@ async function handleHiveCommand(ctx) {
     if (VERBOSE) console.log(`[VERBOSE] /hive: Normalized ${p.type} URL to repo URL: ${normalizedArgs[0]}`);
   } else if (validation.normalizedUrl && validation.normalizedUrl !== userArgs[0]) normalizedArgs[0] = validation.normalizedUrl;
 
-  // Merge user args with overrides
-  const args = mergeArgsWithOverrides(normalizedArgs, hiveOverrides);
+  // Issue #1534: Extract --isolation from user args before merging with overrides.
+  const { backend: hivePerCommandIsolation, filteredArgs: normalizedArgsWithoutIsolation } = extractIsolationFromArgs(normalizedArgs);
+
+  // Validate per-command isolation backend if specified
+  if (hivePerCommandIsolation && !['screen', 'tmux', 'docker'].includes(hivePerCommandIsolation)) {
+    await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(hivePerCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
+  if (hivePerCommandIsolation && VERBOSE) {
+    console.log(`[VERBOSE] /hive: Per-command isolation detected: ${hivePerCommandIsolation}`);
+  }
+
+  // Merge user args (without --isolation) with overrides
+  const args = mergeArgsWithOverrides(normalizedArgsWithoutIsolation, hiveOverrides);
 
   // Determine tool from args (default: claude)
   let hiveTool = 'claude';
@@ -1195,7 +1269,7 @@ async function handleHiveCommand(ctx) {
   }
 
   const startingMessage = await safeReply(ctx, `🚀 Starting hive command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
-  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
+  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock, hivePerCommandIsolation);
 }
 
 bot.command(/^hive$/i, handleHiveCommand);

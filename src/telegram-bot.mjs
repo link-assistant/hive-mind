@@ -379,9 +379,7 @@ async function executeStartScreen(command, args) {
 
 function executeWithCommand(startScreenCmd, command, args) {
   return new Promise(resolve => {
-    // Pass --auto-terminate so the screen session terminates when the command finishes,
-    // allowing session monitoring to detect completion via `screen -ls` (issue #1530)
-    const allArgs = ['--auto-terminate', command, ...args];
+    const allArgs = ['--auto-terminate', command, ...args]; // issue #1530: terminate screen session on finish for monitoring
 
     if (VERBOSE) {
       console.log(`[VERBOSE] Executing: ${startScreenCmd} ${allArgs.join(' ')}`);

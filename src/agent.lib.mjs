@@ -111,6 +111,29 @@ export const parseAgentTokenUsage = output => {
  * @param {string} providerId - Provider identifier (e.g., 'openai', 'anthropic', 'moonshot')
  * @returns {string} Human-readable provider name for pricing reference
  */
+
+/**
+ * Issue #1541: Check if an error event is actually a verbose/informational log message
+ * that the Agent CLI incorrectly emits as "type": "error".
+ *
+ * The Agent CLI wraps verbose HTTP logging messages as error events:
+ *   {"type": "error", "errorType": "RuntimeError", "message": "[verbose] HTTP logging active for provider: opencode"}
+ *
+ * These are not real errors and should be filtered out during error detection.
+ *
+ * @param {object} data - Parsed JSON event from agent output
+ * @returns {boolean} True if the event is a verbose log, not a real error
+ */
+const isVerboseLogError = data => {
+  const message = data.message || '';
+  const errorText = typeof data.error === 'string' ? data.error : '';
+  // Skip events where message starts with "[verbose]" - these are informational logs
+  if (message.startsWith('[verbose]') || errorText.startsWith('[verbose]')) {
+    return true;
+  }
+  return false;
+};
+
 const getOriginalProviderName = providerId => {
   if (!providerId) return null;
 
@@ -574,6 +597,8 @@ export const executeAgentCommand = async params => {
       // Issue #1276: Track successful completion events to clear error flags
       // When agent emits session.idle or disposal events, it means it recovered and completed successfully
       let agentCompletedSuccessfully = false;
+      // Issue #1541: Track agent's own hasError signal from its exit log event
+      let agentReportedNoError = false;
       // Issue #1250: Accumulate token usage during streaming instead of parsing fullOutput later
       // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
       const streamingTokenUsage = {
@@ -644,10 +669,15 @@ export const executeAgentCommand = async params => {
               // Issue #1250: Accumulate token usage during streaming
               accumulateTokenUsage(data);
               // Issue #1201: Detect error events during streaming for reliable detection
-              if (data.type === 'error' || data.type === 'step_error') {
+              // Issue #1541: Skip verbose/informational messages that agent CLI incorrectly emits as "type": "error"
+              if ((data.type === 'error' || data.type === 'step_error') && !isVerboseLogError(data)) {
                 streamingErrorDetected = true;
                 streamingErrorMessage = data.message || data.error || line.substring(0, 100);
                 await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
+              }
+              // Issue #1541: Track agent's own hasError signal from its exit event
+              if (data.type === 'log' && data.message === 'Agent exiting' && data.hasError === false) {
+                agentReportedNoError = true;
               }
               // Issue #1263: Track text content for result summary
               // Agent outputs text via 'text', 'assistant', or 'message' type events
@@ -718,10 +748,15 @@ export const executeAgentCommand = async params => {
                 // Issue #1250: Accumulate token usage during streaming (stderr)
                 accumulateTokenUsage(stderrData);
                 // Issue #1201: Detect error events during streaming (stderr) for reliable detection
-                if (stderrData.type === 'error' || stderrData.type === 'step_error') {
+                // Issue #1541: Skip verbose/informational messages incorrectly emitted as error events
+                if ((stderrData.type === 'error' || stderrData.type === 'step_error') && !isVerboseLogError(stderrData)) {
                   streamingErrorDetected = true;
                   streamingErrorMessage = stderrData.message || stderrData.error || stderrLine.substring(0, 100);
                   await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
+                }
+                // Issue #1541: Track agent's own hasError signal from its exit log event (stderr)
+                if (stderrData.type === 'log' && stderrData.message === 'Agent exiting' && stderrData.hasError === false) {
+                  agentReportedNoError = true;
                 }
                 // Issue #1263: Track text content for result summary (stderr)
                 if (stderrData.type === 'text' && stderrData.text) {
@@ -788,7 +823,8 @@ export const executeAgentCommand = async params => {
             const msg = sanitizeObjectStrings(JSON.parse(line));
 
             // Check for explicit error message types from agent
-            if (msg.type === 'error' || msg.type === 'step_error') {
+            // Issue #1541: Skip verbose/informational messages incorrectly emitted as error events
+            if ((msg.type === 'error' || msg.type === 'step_error') && !isVerboseLogError(msg)) {
               return { detected: true, type: 'AgentError', match: msg.message || msg.error || line.substring(0, 100) };
             }
           } catch {
@@ -806,10 +842,11 @@ export const executeAgentCommand = async params => {
       // Issue #1276: Clear streaming error detection if agent completed successfully
       // When an error occurs during execution (e.g., timeout) but the agent recovers and completes,
       // we should NOT treat it as a failure. The exit code is the authoritative success indicator.
-      // Check for: exit code 0 AND (completion event detected OR no streaming error)
-      if (exitCode === 0 && (agentCompletedSuccessfully || !streamingErrorDetected)) {
+      // Check for: exit code 0 AND (completion event detected OR no streaming error OR agent reported no error)
+      // Issue #1541: Also consider the agent's own hasError field from its exit log
+      if (exitCode === 0 && (agentCompletedSuccessfully || agentReportedNoError || !streamingErrorDetected)) {
         // Agent exited successfully - clear any streaming errors that were recovered from
-        if (streamingErrorDetected && agentCompletedSuccessfully) {
+        if (streamingErrorDetected && (agentCompletedSuccessfully || agentReportedNoError)) {
           await log(`ℹ️  Agent recovered from earlier error and completed successfully`, { verbose: true });
         }
         streamingErrorDetected = false;
@@ -831,7 +868,8 @@ export const executeAgentCommand = async params => {
       // Issue #1290: Skip fallback when agent completed successfully with exit code 0
       // The fallback can cause false positives when error events (like AI_JSONParseError)
       // appear in the output but the agent recovered and completed successfully
-      if (!outputError.detected && !streamingErrorDetected && !(exitCode === 0 && agentCompletedSuccessfully)) {
+      // Issue #1541: Also skip fallback when agent reported no error at exit
+      if (!outputError.detected && !streamingErrorDetected && !(exitCode === 0 && (agentCompletedSuccessfully || agentReportedNoError))) {
         // Check for error type patterns in raw output (handles pretty-printed JSON)
         const errorTypePatterns = [
           { pattern: '"type": "error"', type: 'AgentError' },

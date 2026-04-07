@@ -2,7 +2,7 @@
 // GitHub-related utility functions. Check if use is already defined (when imported from solve.mjs), if not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
-import { log, maskToken, cleanErrorMessage, isENOSPC } from './lib.mjs';
+import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
@@ -172,8 +172,11 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
   }
   try {
     await log('🔍 Checking repository write permissions...');
-    // Use GitHub API to check repository permissions
-    const permResult = await $`gh api repos/${owner}/${repo} --jq .permissions`;
+    // Use GitHub API to check repository permissions (issue #1536: retry on transient network errors)
+    const permResult = await ghCmdRetry(
+      () => $`gh api repos/${owner}/${repo} --jq .permissions`,
+      { label: `check write permissions for ${owner}/${repo}` },
+    );
     if (permResult.code !== 0) {
       // API call failed - might be a private repo or network issue
       const errorOutput = (permResult.stderr ? permResult.stderr.toString() : '') + (permResult.stdout ? permResult.stdout.toString() : '');
@@ -1435,9 +1438,13 @@ export async function handlePRNotFoundError({ prNumber, owner, repo, argv, shoul
  * @param {string} repo - Repository name
  * @returns {Promise<{isPublic: boolean, visibility: string|null}>} Repository visibility info
  */
+// Issue #1536: retry on transient network errors
 export async function detectRepositoryVisibility(owner, repo) {
   try {
-    const visibilityResult = await $`gh api repos/${owner}/${repo} --jq .visibility`;
+    const visibilityResult = await ghCmdRetry(
+      () => $`gh api repos/${owner}/${repo} --jq .visibility`,
+      { label: `detect visibility for ${owner}/${repo}` },
+    );
     if (visibilityResult.code === 0) {
       const visibility = visibilityResult.stdout.toString().trim();
       const isPublic = visibility === 'public';

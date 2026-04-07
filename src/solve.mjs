@@ -239,9 +239,12 @@ const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_
 if (argv.autoFork && !argv.fork) {
   const { detectRepositoryVisibility } = githubLib;
 
-  // Check if we have write access first
+  // Check if we have write access first (issue #1536: retry on transient network errors)
   await log('🔍 Checking repository access for auto-fork...');
-  const permResult = await $`gh api repos/${owner}/${repo} --jq .permissions`;
+  const permResult = await lib.ghCmdRetry(
+    () => $`gh api repos/${owner}/${repo} --jq .permissions`,
+    { label: 'check repo permissions for auto-fork' },
+  );
 
   if (permResult.code === 0) {
     const permissions = JSON.parse(permResult.stdout.toString().trim());

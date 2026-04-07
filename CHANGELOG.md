@@ -5,6 +5,7 @@
 ### Patch Changes
 
 - Fix wrong context window calculation showing impossible percentages like 250% (Issue #1539). When peakContextUsage is unknown (e.g. sub-agent models from result JSON only), skip the context window input tokens display entirely instead of falling back to cumulative totals across all requests, which are not valid per-request context window metrics.
+- bcf2b9b: Retry on network issues and minimize terminal/log output differences (#1536): add ghRetry/ghCmdRetry utilities with exponential backoff for transient network errors (TCP reset, TLS timeout, connection refused, unexpected EOF). Apply retry to critical gh CLI calls: accept-invite, repository setup, auto-fork permission check, visibility detection, write permission check. Log stderr to log file on command failure for terminal/log parity. Add 'unexpected eof' to transient error detection patterns.
 
 ## 1.46.7
 

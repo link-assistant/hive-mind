@@ -291,9 +291,90 @@ export const isTransientNetworkError = error => {
   const output = (error?.stderr?.toString() || error?.stdout?.toString() || '').toLowerCase();
   const combined = msg + ' ' + output;
 
-  const transientPatterns = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up'];
+  // Issue #1536: added 'unexpected eof' — seen in gh CLI when connection drops mid-response
+  const transientPatterns = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up', 'unexpected eof'];
 
   return transientPatterns.some(pattern => combined.includes(pattern));
+};
+
+/**
+ * Retry a GitHub CLI / API operation with exponential backoff on transient network errors.
+ * Unlike the generic `retry()`, this function:
+ * - Only retries on transient network errors (TCP reset, TLS timeout, etc.)
+ * - Immediately rethrows non-transient errors (404, 403, auth failures)
+ * - Logs stderr to the log file when a command fails (fixing terminal/log parity)
+ *
+ * Issue #1536: Most gh commands had no retry logic, causing solve to abort on
+ * intermittent network issues.
+ *
+ * @param {Function} fn - Async function to execute (should call gh CLI or GitHub API)
+ * @param {Object} [options] - Options
+ * @param {number} [options.maxAttempts=3] - Maximum number of attempts
+ * @param {number} [options.delay=1000] - Initial delay between retries in ms
+ * @param {number} [options.backoff=2] - Backoff multiplier
+ * @param {string} [options.label='gh command'] - Label for log messages
+ * @returns {Promise<*>} Result of successful function execution
+ * @throws {Error} Last error if all attempts fail or error is non-transient
+ */
+export const ghRetry = async (fn, options = {}) => {
+  const { maxAttempts = 3, delay = 1000, backoff = 2, label = 'gh command' } = options;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (isTransientNetworkError(error) && attempt < maxAttempts) {
+        const waitTime = delay * Math.pow(backoff, attempt - 1);
+        await log(`⚠️ ${label}: Network error (attempt ${attempt}/${maxAttempts}), retrying in ${waitTime / 1000}s...`, { level: 'warn' });
+        await sleep(waitTime);
+        continue;
+      }
+      throw error;
+    }
+  }
+};
+
+/**
+ * Execute a command-stream `$` call with retry on transient network errors.
+ * This wraps the pattern: call $`gh ...`, check exit code, handle errors.
+ * On failure, stderr is logged to the log file (fixing terminal/log parity from issue #1536).
+ *
+ * @param {Function} cmdFn - Function that returns a command-stream result (e.g., () => $`gh api ...`)
+ * @param {Object} [options] - Options
+ * @param {number} [options.maxAttempts=3] - Maximum number of attempts
+ * @param {number} [options.delay=1000] - Initial delay between retries in ms
+ * @param {number} [options.backoff=2] - Backoff multiplier
+ * @param {string} [options.label='gh command'] - Label for log messages
+ * @returns {Promise<{stdout: string, stderr: string, code: number}>} Command result
+ */
+export const ghCmdRetry = async (cmdFn, options = {}) => {
+  const { maxAttempts = 3, delay = 1000, backoff = 2, label = 'gh command' } = options;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const result = await cmdFn();
+
+    // Log stderr to log file for parity (issue #1536)
+    const stderr = result.stderr?.toString().trim();
+    if (stderr && result.code !== 0) {
+      await log(`   [stderr] ${stderr}`, { level: 'warn' });
+    }
+
+    if (result.code === 0) {
+      return result;
+    }
+
+    // Check if this is a transient network error worth retrying
+    const combinedOutput = (result.stdout?.toString() || '') + ' ' + (result.stderr?.toString() || '');
+    if (isTransientNetworkError({ message: combinedOutput }) && attempt < maxAttempts) {
+      const waitTime = delay * Math.pow(backoff, attempt - 1);
+      await log(`⚠️ ${label}: Network error (attempt ${attempt}/${maxAttempts}), retrying in ${waitTime / 1000}s...`, { level: 'warn' });
+      await sleep(waitTime);
+      continue;
+    }
+
+    // Non-transient error or last attempt — return the result as-is
+    return result;
+  }
 };
 
 /**

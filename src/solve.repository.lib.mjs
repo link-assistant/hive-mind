@@ -36,7 +36,7 @@ const { checkRepositoryWritePermission } = githubLib;
 // Get root repository (fork source or self), or null if inaccessible
 export const getRootRepository = async (owner, repo) => {
   try {
-    const result = await $`gh api repos/${owner}/${repo} --jq '{fork: .fork, source: .source.full_name}' 2>&1`;
+    const result = await lib.ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq '{fork: .fork, source: .source.full_name}' 2>&1`, { label: `get root repo ${owner}/${repo}` });
     if (result.code !== 0) return null;
 
     const repoInfo = JSON.parse(result.stdout.toString().trim());
@@ -50,11 +50,10 @@ export const getRootRepository = async (owner, repo) => {
 // Check if current user has a fork of the given root repository
 export const checkExistingForkOfRoot = async rootRepo => {
   try {
-    const userResult = await $`gh api user --jq .login`;
+    const userResult = await lib.ghCmdRetry(() => $`gh api user --jq .login`, { label: 'get user (fork check)' });
     if (userResult.code !== 0) return null;
     const currentUser = userResult.stdout.toString().trim();
-
-    const forksResult = await $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`;
+    const forksResult = await lib.ghCmdRetry(() => $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`, { label: `check forks of ${rootRepo}` });
     if (forksResult.code !== 0) return null;
 
     const forks = forksResult.stdout
@@ -363,8 +362,8 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
     await log(`\n${formatAligned('🍴', 'Fork mode:', 'ENABLED')}`);
     await log(`${formatAligned('', 'Checking fork status...', '')}\n`);
 
-    // Get current user
-    const userResult = await $`gh api user --jq .login`;
+    // Get current user (issue #1536: retry on transient network errors)
+    const userResult = await lib.ghCmdRetry(() => $`gh api user --jq .login`, { label: 'get current user' });
     if (userResult.code !== 0) {
       await log(`${formatAligned('❌', 'Error:', 'Failed to get current user')}`);
       await safeExit(1, 'Repository setup failed');

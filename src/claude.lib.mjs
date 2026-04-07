@@ -610,7 +610,19 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
         usage.costUSD = usage._resultCostUSD ?? null;
         usage.costBreakdown = null;
         usage.modelName = modelId;
-        usage.modelInfo = null;
+        // Issue #1539: Use model limits from result JSON as fallback for sub-agent models
+        // Claude Code's result event includes contextWindow and maxOutputTokens per model,
+        // which we use when the model info API doesn't return data for this model.
+        if (usage._resultContextWindow || usage._resultMaxOutputTokens) {
+          usage.modelInfo = {
+            limit: {
+              context: usage._resultContextWindow || null,
+              output: usage._resultMaxOutputTokens || null,
+            },
+          };
+        } else {
+          usage.modelInfo = null;
+        }
       }
     }
     // Calculate grand totals across all models

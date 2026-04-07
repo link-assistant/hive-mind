@@ -232,6 +232,15 @@ export const mergeResultModelUsage = (modelUsage, resultModelUsage) => {
       if (resultUsage.costUSD != null) {
         modelUsage[modelId]._resultCostUSD = resultUsage.costUSD;
       }
+      // Issue #1539: Extract model limits from result JSON for sub-agent models
+      // Claude Code's result event includes contextWindow and maxOutputTokens per model,
+      // which we use as fallback when modelInfo API is unavailable.
+      if (resultUsage.contextWindow) {
+        modelUsage[modelId]._resultContextWindow = resultUsage.contextWindow;
+      }
+      if (resultUsage.maxOutputTokens) {
+        modelUsage[modelId]._resultMaxOutputTokens = resultUsage.maxOutputTokens;
+      }
     } else {
       const jsonlUsage = modelUsage[modelId];
       const jsonlTotal = jsonlUsage.inputTokens + jsonlUsage.cacheCreationTokens + jsonlUsage.cacheReadTokens + jsonlUsage.outputTokens;
@@ -245,6 +254,13 @@ export const mergeResultModelUsage = (modelUsage, resultModelUsage) => {
       }
       if (resultUsage.costUSD != null) {
         jsonlUsage._resultCostUSD = resultUsage.costUSD;
+      }
+      // Issue #1539: Also extract model limits from result JSON as fallback
+      if (resultUsage.contextWindow) {
+        jsonlUsage._resultContextWindow = resultUsage.contextWindow;
+      }
+      if (resultUsage.maxOutputTokens) {
+        jsonlUsage._resultMaxOutputTokens = resultUsage.maxOutputTokens;
       }
     }
   }

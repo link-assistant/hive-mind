@@ -14,7 +14,7 @@
  * Output tokens and cumulative totals on the "Total:" line are unaffected.
  */
 
-import { buildBudgetStatsString, displayBudgetStats } from '../src/claude.budget-stats.lib.mjs';
+import { buildBudgetStatsString, displayBudgetStats, mergeResultModelUsage } from '../src/claude.budget-stats.lib.mjs';
 
 // Test framework
 let testsPassed = 0;
@@ -302,6 +302,74 @@ runTest('displayBudgetStats shows input context when peakContextUsage > 0', asyn
   const output = logLines.join('\n');
   assertContains(output, '150 000 / 200 000 input tokens (75%)', 'Should show peak context usage');
   assertContains(output, '/ 64 000 output tokens', 'Should show output tokens');
+});
+
+// ==== Test Group: mergeResultModelUsage extracts contextWindow and maxOutputTokens ====
+console.log('\n📋 Test Group: mergeResultModelUsage extracts model limits from result JSON\n');
+
+function assertEqual(actual, expected, message = '') {
+  if (actual !== expected) {
+    throw new Error(`${message}\nExpected: ${JSON.stringify(expected)}\nActual: ${JSON.stringify(actual)}`);
+  }
+}
+
+runTest('mergeResultModelUsage stores _resultContextWindow for new model', () => {
+  const modelUsage = {};
+  const resultModelUsage = {
+    'claude-haiku-4-5-20251001': {
+      inputTokens: 3208,
+      outputTokens: 6977,
+      cacheReadInputTokens: 429633,
+      cacheCreationInputTokens: 67285,
+      costUSD: 0.165,
+      contextWindow: 200000,
+      maxOutputTokens: 32000,
+    },
+  };
+  mergeResultModelUsage(modelUsage, resultModelUsage);
+  assertEqual(modelUsage['claude-haiku-4-5-20251001']._resultContextWindow, 200000, 'Should store contextWindow from result JSON');
+  assertEqual(modelUsage['claude-haiku-4-5-20251001']._resultMaxOutputTokens, 32000, 'Should store maxOutputTokens from result JSON');
+});
+
+runTest('mergeResultModelUsage stores limits for existing model with higher result totals', () => {
+  const modelUsage = {
+    'claude-haiku-4-5-20251001': {
+      inputTokens: 100,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 50,
+    },
+  };
+  const resultModelUsage = {
+    'claude-haiku-4-5-20251001': {
+      inputTokens: 3208,
+      outputTokens: 6977,
+      cacheReadInputTokens: 429633,
+      cacheCreationInputTokens: 67285,
+      costUSD: 0.165,
+      contextWindow: 200000,
+      maxOutputTokens: 32000,
+    },
+  };
+  mergeResultModelUsage(modelUsage, resultModelUsage);
+  assertEqual(modelUsage['claude-haiku-4-5-20251001']._resultContextWindow, 200000, 'Should store contextWindow on merge');
+  assertEqual(modelUsage['claude-haiku-4-5-20251001']._resultMaxOutputTokens, 32000, 'Should store maxOutputTokens on merge');
+});
+
+runTest('mergeResultModelUsage handles missing contextWindow/maxOutputTokens gracefully', () => {
+  const modelUsage = {};
+  const resultModelUsage = {
+    'claude-opus-4-6': {
+      inputTokens: 1670,
+      outputTokens: 30550,
+      cacheReadInputTokens: 6972897,
+      cacheCreationInputTokens: 171113,
+      costUSD: 5.328,
+    },
+  };
+  mergeResultModelUsage(modelUsage, resultModelUsage);
+  assertEqual(modelUsage['claude-opus-4-6']._resultContextWindow, undefined, 'Should not set _resultContextWindow when not in result');
+  assertEqual(modelUsage['claude-opus-4-6']._resultMaxOutputTokens, undefined, 'Should not set _resultMaxOutputTokens when not in result');
 });
 
 // ==== Summary ====

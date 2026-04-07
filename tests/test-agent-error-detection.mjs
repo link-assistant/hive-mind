@@ -15,20 +15,9 @@
 
 import { strict as assert } from 'assert';
 
-// Issue #1541: Check if an error event is actually a verbose/informational log message
-const isVerboseLogError = data => {
-  const message = data.message || '';
-  const errorText = typeof data.error === 'string' ? data.error : '';
-  if (message.startsWith('[verbose]') || errorText.startsWith('[verbose]')) {
-    return true;
-  }
-  return false;
-};
-
 // Simplified error detection function - matches agent.lib.mjs
 // Only detects explicit JSON error messages from agent
 // Issue #1201: Also checks msg.error field (not just msg.message)
-// Issue #1541: Filters out verbose/informational messages emitted as error events
 const detectAgentErrors = stdoutOutput => {
   const lines = stdoutOutput.split('\n');
 
@@ -39,8 +28,7 @@ const detectAgentErrors = stdoutOutput => {
       const msg = JSON.parse(line);
 
       // Check for explicit error message types from agent
-      // Issue #1541: Skip verbose/informational messages incorrectly emitted as error events
-      if ((msg.type === 'error' || msg.type === 'step_error') && !isVerboseLogError(msg)) {
+      if (msg.type === 'error' || msg.type === 'step_error') {
         return { detected: true, type: 'AgentError', match: msg.message || msg.error || line.substring(0, 100) };
       }
     } catch {
@@ -605,189 +593,6 @@ console.log('Test 26: Full Issue #1296 scenario - timeout then successful comple
   console.log('  ✅ PASSED: Issue #1296 scenario correctly handled - no false positive error\n');
 }
 
-// ====================================================================
-// Issue #1541 Tests: Verbose log messages emitted as "type": "error" cause false positives
-// Agent CLI wraps "[verbose] ..." info messages as error events
-// ====================================================================
-console.log('--- Issue #1541 Tests ---\n');
-
-// Test 27: Verbose HTTP logging message should NOT be treated as error
-console.log('Test 27: Verbose HTTP logging message should NOT trigger error (Issue #1541)');
-{
-  const verboseErrorOutput = `{"type":"error","errorType":"RuntimeError","message":"[verbose] HTTP logging active for provider: opencode"}`;
-  const result = detectAgentErrors(verboseErrorOutput);
-  assert.strictEqual(result.detected, false, 'Verbose log message should NOT be detected as error');
-  console.log('  ✅ PASSED: Verbose HTTP logging message correctly filtered out\n');
-}
-
-// Test 28: Multiple verbose error events mixed with real output
-console.log('Test 28: Multiple verbose error events mixed with normal output');
-{
-  const mixedVerboseOutput = ['{"type":"status","message":"Agent CLI in continuous listening mode."}', '{"type":"error","errorType":"RuntimeError","message":"[verbose] HTTP logging active for provider: opencode"}', '{"type":"log","level":"info","message":"using explicit provider/model"}', '{"type":"error","errorType":"RuntimeError","message":"[verbose] HTTP logging active for provider: opencode"}', '{"type":"step_start","timestamp":1}'].join('\n');
-  const result = detectAgentErrors(mixedVerboseOutput);
-  assert.strictEqual(result.detected, false, 'Only verbose error events should be filtered - no real errors present');
-  console.log('  ✅ PASSED: Multiple verbose errors correctly filtered, no false positive\n');
-}
-
-// Test 29: Verbose error followed by real error should still detect the real error
-console.log('Test 29: Verbose error followed by real error should detect real error');
-{
-  const verboseThenRealError = ['{"type":"error","errorType":"RuntimeError","message":"[verbose] HTTP logging active for provider: opencode"}', '{"type":"error","message":"Rate limit exceeded"}'].join('\n');
-  const result = detectAgentErrors(verboseThenRealError);
-  assert.strictEqual(result.detected, true, 'Real error after verbose error should be detected');
-  assert.strictEqual(result.match, 'Rate limit exceeded', 'Should capture the real error message');
-  console.log('  ✅ PASSED: Real error correctly detected after verbose error\n');
-}
-
-// Test 30: isVerboseLogError helper function tests
-console.log('Test 30: isVerboseLogError helper function');
-{
-  assert.strictEqual(isVerboseLogError({ type: 'error', message: '[verbose] HTTP logging active' }), true, 'Should detect verbose message');
-  assert.strictEqual(isVerboseLogError({ type: 'error', error: '[verbose] something' }), true, 'Should detect verbose in error field');
-  assert.strictEqual(isVerboseLogError({ type: 'error', message: 'Rate limit exceeded' }), false, 'Real errors should not be filtered');
-  assert.strictEqual(isVerboseLogError({ type: 'error', message: 'The operation timed out.' }), false, 'Timeout errors should not be filtered');
-  assert.strictEqual(isVerboseLogError({ type: 'error' }), false, 'Error without message should not be filtered');
-  console.log('  ✅ PASSED: isVerboseLogError correctly identifies verbose messages\n');
-}
-
-// Test 31: Streaming detection should also filter verbose errors
-console.log('Test 31: Streaming detection filters verbose errors');
-{
-  let test31StreamingError = false;
-  let test31StreamingErrorMessage = null;
-
-  const simulateStreamChunk31 = chunk => {
-    const lines = chunk.split('\n');
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const data = JSON.parse(line);
-        // Issue #1541: Skip verbose/informational messages
-        if ((data.type === 'error' || data.type === 'step_error') && !isVerboseLogError(data)) {
-          test31StreamingError = true;
-          test31StreamingErrorMessage = data.message || data.error || line.substring(0, 100);
-        }
-      } catch {
-        // Not JSON - ignore
-      }
-    }
-  };
-
-  // Simulate the exact sequence from Issue #1541 log
-  simulateStreamChunk31('{"type":"status","message":"Agent CLI in continuous listening mode."}');
-  simulateStreamChunk31('{"type":"error","errorType":"RuntimeError","message":"[verbose] HTTP logging active for provider: opencode"}');
-  simulateStreamChunk31('{"type":"error","errorType":"RuntimeError","message":"[verbose] HTTP logging active for provider: opencode"}');
-
-  assert.strictEqual(test31StreamingError, false, 'Verbose error events should NOT trigger streaming error detection');
-  assert.strictEqual(test31StreamingErrorMessage, null, 'No error message should be captured');
-  console.log('  ✅ PASSED: Streaming detection correctly filters verbose errors\n');
-}
-
-// Test 32: Agent exit event with hasError=false should set agentReportedNoError
-console.log('Test 32: Agent exit event with hasError=false tracking');
-{
-  let test32AgentReportedNoError = false;
-  let test32StreamingError = false;
-
-  const simulateStreamChunk32 = chunk => {
-    const lines = chunk.split('\n');
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const data = JSON.parse(line);
-        if ((data.type === 'error' || data.type === 'step_error') && !isVerboseLogError(data)) {
-          test32StreamingError = true;
-        }
-        if (data.type === 'log' && data.message === 'Agent exiting' && data.hasError === false) {
-          test32AgentReportedNoError = true;
-        }
-      } catch {
-        // Not JSON
-      }
-    }
-  };
-
-  // Simulate agent with a real error that was recovered
-  simulateStreamChunk32('{"type":"error","message":"The operation timed out."}');
-  assert.strictEqual(test32StreamingError, true, 'Real error should be detected');
-
-  // Agent reports no error at exit
-  simulateStreamChunk32('{"type":"log","level":"info","service":"default","hasError":false,"message":"Agent exiting"}');
-  assert.strictEqual(test32AgentReportedNoError, true, 'Should detect agent hasError=false');
-
-  // Apply recovery logic (exit code 0 + agent reported no error)
-  const test32ExitCode = 0;
-  if (test32ExitCode === 0 && test32AgentReportedNoError) {
-    test32StreamingError = false;
-  }
-
-  assert.strictEqual(test32StreamingError, false, 'Error should be cleared when agent reports hasError=false');
-  console.log('  ✅ PASSED: Agent hasError=false correctly clears error state\n');
-}
-
-// Test 33: Full Issue #1541 scenario reproduction
-console.log('Test 33: Full Issue #1541 scenario - verbose errors + zero tokens + hasError=false');
-{
-  let test33StreamingError = false;
-  let test33StreamingErrorMessage = null;
-  let test33AgentCompleted = false;
-  let test33AgentReportedNoError = false;
-
-  const simulateStreamChunk33 = chunk => {
-    const lines = chunk.split('\n');
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const data = JSON.parse(line);
-        if ((data.type === 'error' || data.type === 'step_error') && !isVerboseLogError(data)) {
-          test33StreamingError = true;
-          test33StreamingErrorMessage = data.message || data.error || line.substring(0, 100);
-        }
-        if (data.type === 'session.idle' || (data.type === 'log' && data.message === 'exiting loop')) {
-          test33AgentCompleted = true;
-        }
-        if (data.type === 'step_finish' && data.part?.reason === 'stop') {
-          test33AgentCompleted = true;
-        }
-        if (data.type === 'log' && data.message === 'Agent exiting' && data.hasError === false) {
-          test33AgentReportedNoError = true;
-        }
-      } catch {
-        // Not JSON
-      }
-    }
-  };
-
-  // Reproduce the exact sequence from the Issue #1541 log
-  simulateStreamChunk33('{"type":"status","message":"Agent CLI in continuous listening mode."}');
-  // Two verbose error events (these should be filtered)
-  simulateStreamChunk33('{"type":"error","errorType":"RuntimeError","message":"[verbose] HTTP logging active for provider: opencode"}');
-  simulateStreamChunk33('{"type":"error","errorType":"RuntimeError","message":"[verbose] HTTP logging active for provider: opencode"}');
-  // Agent exits with hasError=false
-  simulateStreamChunk33('{"type":"log","level":"info","service":"default","hasError":false,"uptimeSeconds":7,"message":"Agent exiting"}');
-
-  // With fix: verbose errors should be filtered
-  assert.strictEqual(test33StreamingError, false, 'Verbose errors should be filtered - no real errors');
-  assert.strictEqual(test33AgentReportedNoError, true, 'Agent should report no error');
-
-  // Apply recovery logic
-  const test33ExitCode = 0;
-  if (test33ExitCode === 0 && (test33AgentCompleted || test33AgentReportedNoError || !test33StreamingError)) {
-    test33StreamingError = false;
-    test33StreamingErrorMessage = null;
-  }
-
-  // Post-hoc detection should also not find anything (verbose errors filtered)
-  const fullOutput = ['{"type":"error","errorType":"RuntimeError","message":"[verbose] HTTP logging active for provider: opencode"}', '{"type":"error","errorType":"RuntimeError","message":"[verbose] HTTP logging active for provider: opencode"}'].join('\n');
-  const postHocResult = detectAgentErrors(fullOutput);
-  assert.strictEqual(postHocResult.detected, false, 'Post-hoc should also filter verbose errors');
-
-  // Final check: no error should be reported
-  const finalError = test33ExitCode !== 0 || postHocResult.detected;
-  assert.strictEqual(finalError, false, 'No error should be reported for Issue #1541 scenario');
-  console.log('  ✅ PASSED: Full Issue #1541 scenario correctly handled - no false positive\n');
-}
-
 console.log('========================================');
 console.log('All tests passed! ✅');
 console.log('========================================');
@@ -806,7 +611,3 @@ console.log('  - "resets" pattern uses regex to avoid false positives in code ou
 console.log('\nIssue #1296 fix adds:');
 console.log('  - step_finish with reason "stop" now marks agent as completed successfully');
 console.log('  - This prevents false positive errors when timeout errors are recovered from');
-console.log('\nIssue #1541 fix adds:');
-console.log('  - Verbose log messages ("[verbose] ...") emitted as "type": "error" are filtered out');
-console.log('  - Agent exit event hasError=false is tracked and used for recovery');
-console.log('  - Both streaming and post-hoc detection skip verbose error events');

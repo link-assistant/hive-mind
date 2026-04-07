@@ -43,10 +43,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
 
   // Check for pending repository invitation
   try {
-    const { stdout: repoInvJson } = await ghRetry(
-      () => exec('gh api /user/repository_invitations 2>/dev/null || echo "[]"'),
-      { label: 'fetch repo invitations' },
-    );
+    const { stdout: repoInvJson } = await ghRetry(() => exec('gh api /user/repository_invitations 2>/dev/null || echo "[]"'), { label: 'fetch repo invitations' });
     const repoInvitations = JSON.parse(repoInvJson.trim() || '[]');
     verbose && (await log(`   Found ${repoInvitations.length} total pending repo invitation(s)`, { verbose: true }));
 
@@ -54,10 +51,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
 
     if (matchingInv) {
       try {
-        await ghRetry(
-          () => exec(`gh api -X PATCH /user/repository_invitations/${matchingInv.id}`),
-          { label: `accept repo invitation for ${fullName}` },
-        );
+        await ghRetry(() => exec(`gh api -X PATCH /user/repository_invitations/${matchingInv.id}`), { label: `accept repo invitation for ${fullName}` });
         await log(`✅ --auto-accept-invite: Accepted repository invitation for ${fullName}`);
         result.acceptedRepo = true;
       } catch (e) {
@@ -72,10 +66,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
 
   // Check for pending organization membership
   try {
-    const { stdout: orgMemJson } = await ghRetry(
-      () => exec('gh api /user/memberships/orgs 2>/dev/null || echo "[]"'),
-      { label: 'fetch org memberships' },
-    );
+    const { stdout: orgMemJson } = await ghRetry(() => exec('gh api /user/memberships/orgs 2>/dev/null || echo "[]"'), { label: 'fetch org memberships' });
     const orgMemberships = JSON.parse(orgMemJson.trim() || '[]');
     const pendingOrgs = orgMemberships.filter(m => m.state === 'pending');
     verbose && (await log(`   Found ${pendingOrgs.length} total pending org invitation(s)`, { verbose: true }));
@@ -85,10 +76,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
     if (matchingOrg) {
       const orgName = matchingOrg.organization.login;
       try {
-        await ghRetry(
-          () => exec(`gh api -X PATCH /user/memberships/orgs/${orgName} -f state=active`),
-          { label: `accept org invitation for ${orgName}` },
-        );
+        await ghRetry(() => exec(`gh api -X PATCH /user/memberships/orgs/${orgName} -f state=active`), { label: `accept org invitation for ${orgName}` });
         await log(`✅ --auto-accept-invite: Accepted organization invitation for ${orgName}`);
         result.acceptedOrg = true;
       } catch (e) {

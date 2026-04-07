@@ -241,10 +241,7 @@ if (argv.autoFork && !argv.fork) {
 
   // Check if we have write access first (issue #1536: retry on transient network errors)
   await log('🔍 Checking repository access for auto-fork...');
-  const permResult = await lib.ghCmdRetry(
-    () => $`gh api repos/${owner}/${repo} --jq .permissions`,
-    { label: 'check repo permissions for auto-fork' },
-  );
+  const permResult = await lib.ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .permissions`, { label: 'auto-fork perms' });
 
   if (permResult.code === 0) {
     const permissions = JSON.parse(permResult.stdout.toString().trim());

@@ -24,22 +24,23 @@
 
 ### Error Summary
 
-| Time | API Call | Error | Had Retry? |
-|------|----------|-------|-----------|
-| 05:54 | `repos/{o}/{r}` (visibility) | HTTP 404 | No |
-| 05:54 | `repos/{o}/{r}` (visibility) | `connection refused` | No |
-| 05:54 | `PATCH /user/repository_invitations/{id}` | `unexpected EOF` | No |
-| 05:54 | `repos/{o}/{r}/forks` (fork) | HTTP 404 | No (correct for 404) |
-| 06:00 | `repos/{o}/{r}` (visibility) | `connection refused` | No |
-| 06:00 | `PATCH /user/repository_invitations/{id}` | `TLS handshake timeout` | No |
-| 06:00 | `POST graphql` (PR search) | `connection reset by peer` | No |
-| 06:00 | `GET /user` (current user) | `connection reset by peer` | No |
+| Time  | API Call                                  | Error                      | Had Retry?           |
+| ----- | ----------------------------------------- | -------------------------- | -------------------- |
+| 05:54 | `repos/{o}/{r}` (visibility)              | HTTP 404                   | No                   |
+| 05:54 | `repos/{o}/{r}` (visibility)              | `connection refused`       | No                   |
+| 05:54 | `PATCH /user/repository_invitations/{id}` | `unexpected EOF`           | No                   |
+| 05:54 | `repos/{o}/{r}/forks` (fork)              | HTTP 404                   | No (correct for 404) |
+| 06:00 | `repos/{o}/{r}` (visibility)              | `connection refused`       | No                   |
+| 06:00 | `PATCH /user/repository_invitations/{id}` | `TLS handshake timeout`    | No                   |
+| 06:00 | `POST graphql` (PR search)                | `connection reset by peer` | No                   |
+| 06:00 | `GET /user` (current user)                | `connection reset by peer` | No                   |
 
 ## Root Cause Analysis
 
 ### Problem 1: No retry on transient network errors (most gh commands)
 
 The codebase has a generic `retry()` function in `lib.mjs` and an `isTransientNetworkError()` detector, but they are only used in:
+
 - `validateForkParent()` in `solve.repository.lib.mjs` (added for issue #1311)
 - `launchBotWithRetry()` in `telegram-bot-launcher.lib.mjs`
 - PR verification loop in `solve.auto-pr.lib.mjs`
@@ -47,6 +48,7 @@ The codebase has a generic `retry()` function in `lib.mjs` and an `isTransientNe
 Most `gh api` and `gh` CLI calls execute without any retry logic. When GitHub's API is intermittently unreachable (TCP resets, TLS timeouts, DNS failures), a single failure causes the entire solve process to abort.
 
 **Affected locations (from the log failures):**
+
 1. `solve.accept-invite.lib.mjs` — `exec('gh api ...')` calls for invitations (lines 38, 46, 61, 71)
 2. `solve.repository.lib.mjs:367` — `$\`gh api user --jq .login\`` (get current user)
 3. `solve.mjs:244` — `$\`gh api repos/{o}/{r} --jq .permissions\`` (auto-fork check)
@@ -55,11 +57,13 @@ Most `gh api` and `gh` CLI calls execute without any retry logic. When GitHub's 
 ### Problem 2: Terminal/log output divergence
 
 The `$` tagged template from `command-stream` captures both `stdout` and `stderr`. However:
+
 - **stderr goes directly to terminal** (real-time process pipe)
 - **Only `stdout` is typically processed** by the code and logged via `log()`
 - **stderr is not logged** to the log file unless explicitly captured
 
 This means:
+
 - Terminal shows raw API error JSON like `{"message":"Not Found","documentation_url":"...","status":"404"}`
 - Log file only shows the high-level message like "Warning: Could not detect repository visibility"
 - Diagnostic information visible in terminal is lost in the log file
@@ -71,6 +75,7 @@ Additionally, `console.log()` / `console.error()` calls in some files bypass the
 ### Solution 1: `ghRetry()` — Generic retry wrapper for gh commands
 
 Create a `ghRetry()` utility in `lib.mjs` that:
+
 - Wraps any async function that calls `gh` CLI
 - Retries up to 3 times with exponential backoff (1s, 2s, 4s)
 - Only retries on transient network errors (using existing `isTransientNetworkError()`)
@@ -80,6 +85,7 @@ Create a `ghRetry()` utility in `lib.mjs` that:
 ### Solution 2: Apply `ghRetry()` to all critical gh command locations
 
 Wrap the following with retry:
+
 - `solve.accept-invite.lib.mjs`: All `exec()` calls for API requests
 - `solve.repository.lib.mjs`: `gh api user --jq .login` in `setupRepository()`
 - `solve.mjs`: Auto-fork permission check

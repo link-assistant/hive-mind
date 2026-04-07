@@ -498,13 +498,10 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
   }
   // Initialize per-model usage tracking
   const modelUsage = {};
-  // Issue #1501: Deduplicate JSONL entries by message ID (upstream: anthropics/claude-code#6805)
-  // Claude Code's stream-json mode splits single API responses with multiple content blocks
-  // into separate JSONL entries, each with the same message ID and identical usage stats.
+  // Issue #1501: Deduplicate JSONL entries by message ID (stream-json splits responses)
   const seenMessageIds = new Set();
   let duplicateCount = 0;
   // Issue #1501: Track peak context usage per request (not cumulative)
-  // The context window limit is per-request, so we track the max single-request fill.
   const peakContextByModel = {};
   let globalPeakContext = 0;
   // Issue #1491: Track sub-sessions between compactification events
@@ -610,19 +607,10 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
         usage.costUSD = usage._resultCostUSD ?? null;
         usage.costBreakdown = null;
         usage.modelName = modelId;
-        // Issue #1539: Use model limits from result JSON as fallback for sub-agent models
-        // Claude Code's result event includes contextWindow and maxOutputTokens per model,
-        // which we use when the model info API doesn't return data for this model.
-        if (usage._resultContextWindow || usage._resultMaxOutputTokens) {
-          usage.modelInfo = {
-            limit: {
-              context: usage._resultContextWindow || null,
-              output: usage._resultMaxOutputTokens || null,
-            },
-          };
-        } else {
-          usage.modelInfo = null;
-        }
+        // Issue #1539: Use contextWindow/maxOutputTokens from result JSON as fallback model limits
+        const ctx = usage._resultContextWindow,
+          out = usage._resultMaxOutputTokens;
+        usage.modelInfo = ctx || out ? { limit: { context: ctx || null, output: out || null } } : null;
       }
     }
     // Calculate grand totals across all models

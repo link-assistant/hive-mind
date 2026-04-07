@@ -96,8 +96,10 @@ runTest('Haiku with peakContextUsage=0 does NOT show cumulative as context windo
   assertNotContains(result, '500.1K / 200K', 'Should NOT show cumulative as context window');
   assertNotContains(result, '/ 200K input tokens', 'Should NOT show any input token context for Haiku');
 
-  // Output tokens should still be shown (we have the limit)
-  assertContains(result, '/ 64K output tokens', 'Should still show Haiku output token limit');
+  // Issue #1539: Context window line should be skipped entirely for unknown peak.
+  // Output percentage is embedded in the Total line instead.
+  assertNotContains(result, 'Context window: 7K / 64K output tokens', 'Should NOT show separate context window line for Haiku');
+  assertContains(result, '11% of 64K output limit', 'Should embed output percentage in Total line');
 
   // Cumulative totals on Total: line should be unaffected
   assertContains(result, '70.5K', 'Should show Haiku non-cached input in Total');
@@ -187,9 +189,11 @@ runTest('zero peakContextUsage with large cumulative does NOT show impossible pe
   // Should NOT show 500% (1M / 200K)
   assertNotContains(result, '500%', 'Should NOT show 500% context usage');
   assertNotContains(result, '/ 200K input tokens', 'Should NOT show input context when peak unknown');
-  // Total line should still show all token data
+  assertNotContains(result, 'Context window:', 'Should NOT show context window line when peak unknown');
+  // Total line should still show all token data plus output percentage
   assertContains(result, '100K', 'Should show non-cached input in Total');
   assertContains(result, '900K cached', 'Should show cached tokens in Total');
+  assertContains(result, '31% of 32K output limit', 'Should embed output percentage in Total line');
 });
 
 // ==== Test Group: Sub-sessions with unknown peak ====
@@ -280,8 +284,9 @@ runTest('displayBudgetStats skips input context when peakContextUsage is 0', asy
   const output = logLines.join('\n');
   assertNotContains(output, '/ 200 000 input tokens', 'Should NOT show input context when peak is 0');
   assertNotContains(output, '250%', 'Should NOT show 250%');
-  // Output tokens should still appear
-  assertContains(output, '/ 64 000 output tokens', 'Should show output tokens');
+  assertNotContains(output, 'Context window:', 'Should NOT show context window line when peak is 0');
+  // Output percentage should be embedded in Total line
+  assertContains(output, '11% of 64 000 output limit', 'Should embed output percentage in Total line');
 });
 
 runTest('displayBudgetStats shows input context when peakContextUsage > 0', async () => {

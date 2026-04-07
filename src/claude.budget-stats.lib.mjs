@@ -158,16 +158,19 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
   const subSessions = tokenUsage?.subSessions || [];
   const hasMultipleSubSessions = subSessions.length > 1;
 
+  const peakContext = usage.peakContextUsage || 0;
+
   if (hasMultipleSubSessions) {
     for (let i = 0; i < subSessions.length; i++) {
       const sub = subSessions[i];
       const subPeak = sub.peakContextUsage || 0;
-      const subCumulative = (sub.inputTokens || 0) + (sub.cacheCreationTokens || 0) + (sub.cacheReadTokens || 0);
-      const contextValue = subPeak > 0 ? subPeak : subCumulative;
+      // Issue #1539: Only use peak per-request context for context window display.
+      // Cumulative totals across all requests can exceed the context limit and produce
+      // impossible percentages (e.g. 250%). When peak is unknown, skip context display.
       const parts = [];
-      if (contextLimit && contextValue > 0) {
-        const pct = ((contextValue / contextLimit) * 100).toFixed(0);
-        parts.push(`${formatNumber(contextValue)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
+      if (contextLimit && subPeak > 0) {
+        const pct = ((subPeak / contextLimit) * 100).toFixed(0);
+        parts.push(`${formatNumber(subPeak)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
       }
       if (outputLimit) {
         const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
@@ -177,15 +180,12 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
         await log(`        ${i + 1}. Context window: ${parts.join(', ')}`);
       }
     }
-  } else {
-    // Single sub-session: single-line format
-    const peakContext = usage.peakContextUsage || 0;
-    const cumulativeContext = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
-    const contextValue = peakContext > 0 ? peakContext : cumulativeContext;
+  } else if (peakContext > 0) {
+    // Single sub-session with known peak: single-line format
     const parts = [];
-    if (contextLimit && contextValue > 0) {
-      const pct = ((contextValue / contextLimit) * 100).toFixed(0);
-      parts.push(`${formatNumber(contextValue)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
+    if (contextLimit) {
+      const pct = ((peakContext / contextLimit) * 100).toFixed(0);
+      parts.push(`${formatNumber(peakContext)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
     }
     if (outputLimit) {
       const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
@@ -195,6 +195,8 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
       await log(`        Context window: ${parts.join(', ')}`);
     }
   }
+  // Issue #1539: When peakContextUsage is unknown, skip context window line entirely.
+  // Cumulative totals are shown on the Total line below — no duplication needed.
 
   // Cumulative totals — single line
   const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
@@ -202,6 +204,11 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
   let totalLine = `${formatNumber(totalInputNonCached)}`;
   if (cachedTokens > 0) totalLine += ` + ${formatNumber(cachedTokens)} cached`;
   totalLine += ` input tokens, ${formatNumber(usage.outputTokens)} output tokens`;
+  // Issue #1539: When peakContextUsage is unknown, embed output percentage in Total line
+  if (peakContext === 0 && outputLimit) {
+    const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
+    totalLine += ` (${outPct}% of ${formatNumber(outputLimit)} output limit)`;
+  }
   await log(`        Total: ${totalLine}`);
 };
 
@@ -230,6 +237,15 @@ export const mergeResultModelUsage = (modelUsage, resultModelUsage) => {
       if (resultUsage.costUSD != null) {
         modelUsage[modelId]._resultCostUSD = resultUsage.costUSD;
       }
+      // Issue #1539: Extract model limits from result JSON for sub-agent models
+      // Claude Code's result event includes contextWindow and maxOutputTokens per model,
+      // which we use as fallback when modelInfo API is unavailable.
+      if (resultUsage.contextWindow) {
+        modelUsage[modelId]._resultContextWindow = resultUsage.contextWindow;
+      }
+      if (resultUsage.maxOutputTokens) {
+        modelUsage[modelId]._resultMaxOutputTokens = resultUsage.maxOutputTokens;
+      }
     } else {
       const jsonlUsage = modelUsage[modelId];
       const jsonlTotal = jsonlUsage.inputTokens + jsonlUsage.cacheCreationTokens + jsonlUsage.cacheReadTokens + jsonlUsage.outputTokens;
@@ -243,6 +259,13 @@ export const mergeResultModelUsage = (modelUsage, resultModelUsage) => {
       }
       if (resultUsage.costUSD != null) {
         jsonlUsage._resultCostUSD = resultUsage.costUSD;
+      }
+      // Issue #1539: Also extract model limits from result JSON as fallback
+      if (resultUsage.contextWindow) {
+        jsonlUsage._resultContextWindow = resultUsage.contextWindow;
+      }
+      if (resultUsage.maxOutputTokens) {
+        jsonlUsage._resultMaxOutputTokens = resultUsage.maxOutputTokens;
       }
     }
   }
@@ -274,36 +297,35 @@ const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
   let result = '';
   for (let i = 0; i < subSessions.length; i++) {
     const sub = subSessions[i];
+    // Issue #1539: Only use peak per-request context; skip context display when unknown
     const subPeakContext = sub.peakContextUsage || 0;
-    // Cumulative fallback: inputTokens + cacheCreationTokens + cacheReadTokens for this sub-session
-    const subCumulative = (sub.inputTokens || 0) + (sub.cacheCreationTokens || 0) + (sub.cacheReadTokens || 0);
-    result += formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `, subCumulative);
+    result += formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `);
   }
   return result;
 };
 
 /**
  * Issue #1526: Build a single-line context window + output tokens string.
+ * Issue #1539: Only show context window when peakContext > 0 (per-request peak known).
+ * When peakContext is 0 (unknown), context part is omitted to avoid misleading percentages.
  * Format: "- Context window: X / Y input tokens (Z%), A / B output tokens (W%)"
- * When only one of context or output limits is available, shows just that part.
- * @param {number} peakContext - Peak context usage (0 if unknown)
+ * @param {number} peakContext - Peak context usage (0 if unknown — context display skipped)
  * @param {number} contextLimit - Context window limit (null if unknown)
  * @param {number} outputTokens - Output tokens used
  * @param {number} outputLimit - Output token limit (null if unknown)
  * @param {string} [prefix='- '] - Line prefix
  * @returns {string} Formatted line or empty string
  */
-const formatContextOutputLine = (peakContext, contextLimit, outputTokens, outputLimit, prefix = '- ', cumulativeContext = 0) => {
+const formatContextOutputLine = (peakContext, contextLimit, outputTokens, outputLimit, prefix = '- ') => {
   const parts = [];
   if (contextLimit) {
-    // Use peakContextUsage when available (per-request peak from JSONL tracking).
-    // Fall back to cumulative total (inputTokens + cacheCreationTokens + cacheReadTokens)
-    // when peak is unknown (e.g., model only from result JSON, not in JSONL).
-    // Issue #1526: Never skip context display — always show what data we have.
-    const contextValue = peakContext > 0 ? peakContext : cumulativeContext;
-    if (contextValue > 0) {
-      const pct = ((contextValue / contextLimit) * 100).toFixed(0);
-      parts.push(`${formatTokensCompact(contextValue)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`);
+    // Issue #1539: Only use peak per-request context for context window display.
+    // When peak is unknown (e.g., model only from result JSON, not in JSONL),
+    // skip context display. Cumulative totals across all requests are not valid
+    // context window metrics and produce impossible percentages (e.g. 250%).
+    if (peakContext > 0) {
+      const pct = ((peakContext / contextLimit) * 100).toFixed(0);
+      parts.push(`${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`);
     }
   }
   if (outputLimit) {
@@ -322,7 +344,8 @@ const formatContextOutputLine = (peakContext, contextLimit, outputTokens, output
  * Sub-sessions are shown as a global section (not duplicated per model) since JSONL
  * sub-session tracking is global across all models.
  * Issue #1526: Shorter output format — context window + output tokens on single line.
- * Fix: exclude cacheReadTokens from context window fallback calculation (cumulative ≠ per-request).
+ * Issue #1539: Only display context window when peak per-request usage is known.
+ * Cumulative totals are never used as context window metrics (they can exceed model limits).
  * @param {Object} tokenUsage - Token usage data from calculateSessionTokens or buildAgentBudgetStats
  * @returns {string} Formatted markdown string for PR comment
  */
@@ -358,17 +381,17 @@ export const buildBudgetStatsString = tokenUsage => {
 
       if (isMultiModel) stats += `\n\n**${modelName}:**`;
 
+      const peakContext = usage.peakContextUsage || 0;
+
       if (!isMultiModel && hasMultipleSubSessions) {
         // Single-model + multiple sub-sessions: show numbered sub-sessions under that model
         stats += formatSubSessionsList(subSessions, contextLimit, outputLimit);
-      } else {
+      } else if (peakContext > 0) {
         // Issue #1526: Single line format for context window + output tokens
-        // Use peakContextUsage when available; fall back to cumulative total when peak is unknown
-        // (e.g., for result-JSON-sourced sub-agent models where only cumulative totals are available)
-        const peakContext = usage.peakContextUsage || 0;
-        const cumulativeContext = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
-        stats += formatContextOutputLine(peakContext, contextLimit, usage.outputTokens, outputLimit, '- ', cumulativeContext);
+        stats += formatContextOutputLine(peakContext, contextLimit, usage.outputTokens, outputLimit, '- ');
       }
+      // Issue #1539: When peakContextUsage is unknown, skip context window line entirely.
+      // Cumulative totals are shown on the Total line below — no duplication needed.
 
       // Cumulative totals per model: input tokens + cached shown separately
       // Issue #1526: Shorter format — single "Total:" line
@@ -377,6 +400,13 @@ export const buildBudgetStatsString = tokenUsage => {
       let totalLine = `${formatTokensCompact(totalInputNonCached)}`;
       if (cachedTokens > 0) totalLine += ` + ${formatTokensCompact(cachedTokens)} cached`;
       totalLine += ` input tokens, ${formatTokensCompact(usage.outputTokens)} output tokens`;
+
+      // Issue #1539: When peakContextUsage is unknown (no per-request data), embed
+      // output token percentage in the Total line so no data is lost.
+      if (peakContext === 0 && outputLimit) {
+        const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
+        totalLine += ` (${outPct}% of ${formatTokensCompact(outputLimit)} output limit)`;
+      }
 
       // Issue #1508: Show per-model cost when available
       if (usage.costUSD !== null && usage.costUSD !== undefined) {

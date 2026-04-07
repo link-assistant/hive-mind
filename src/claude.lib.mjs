@@ -498,13 +498,10 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
   }
   // Initialize per-model usage tracking
   const modelUsage = {};
-  // Issue #1501: Deduplicate JSONL entries by message ID (upstream: anthropics/claude-code#6805)
-  // Claude Code's stream-json mode splits single API responses with multiple content blocks
-  // into separate JSONL entries, each with the same message ID and identical usage stats.
+  // Issue #1501: Deduplicate JSONL entries by message ID (stream-json splits responses)
   const seenMessageIds = new Set();
   let duplicateCount = 0;
   // Issue #1501: Track peak context usage per request (not cumulative)
-  // The context window limit is per-request, so we track the max single-request fill.
   const peakContextByModel = {};
   let globalPeakContext = 0;
   // Issue #1491: Track sub-sessions between compactification events
@@ -610,7 +607,10 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
         usage.costUSD = usage._resultCostUSD ?? null;
         usage.costBreakdown = null;
         usage.modelName = modelId;
-        usage.modelInfo = null;
+        // Issue #1539: Use contextWindow/maxOutputTokens from result JSON as fallback model limits
+        const ctx = usage._resultContextWindow,
+          out = usage._resultMaxOutputTokens;
+        usage.modelInfo = ctx || out ? { limit: { context: ctx || null, output: out || null } } : null;
       }
     }
     // Calculate grand totals across all models

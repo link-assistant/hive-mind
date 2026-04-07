@@ -6,19 +6,19 @@ When using Agent CLI with `--tool agent --verbose` mode, Hive Mind's `solve.mjs`
 
 ## Timeline of Events
 
-| Timestamp (UTC)         | Event                                                                                           |
-| ----------------------- | ----------------------------------------------------------------------------------------------- |
-| 2026-04-07T17:24:00Z    | `solve.mjs` v1.46.9 started for PR #1763 (Jhon-Crow/godot-topdown-MVP)                         |
-| 2026-04-07T17:24:07Z    | Continue mode activated, using existing PR branch `issue-1762-c0f424e30cbb`                     |
-| 2026-04-07T17:24:25Z    | Work session started, Agent CLI invoked with `--model opencode/minimax-m2.5-free --verbose`     |
-| 2026-04-07T17:24:34Z    | Agent CLI starts, configuration resolved                                                        |
-| 2026-04-07T17:24:35Z    | Migration failure: `ENOENT: no such file or directory` with null byte in path (non-fatal)       |
-| 2026-04-07T17:24:35Z    | **FALSE POSITIVE #1**: `"type": "error"` emitted for "verbose HTTP logging active" (chat/completions endpoint) |
-| 2026-04-07T17:24:35Z    | **FALSE POSITIVE #2**: `"type": "error"` emitted for "verbose HTTP logging active" (messages endpoint) |
-| 2026-04-07T17:24:35Z    | Provider sends request to `https://opencode.ai/zen/v1/messages`                                 |
-| 2026-04-07T17:24:41Z    | Provider returns zero tokens with unknown finish reason (the actual error)                       |
-| 2026-04-07T17:24:41Z    | Agent exits with `hasError: false`, exit code 0, uptime 7 seconds                               |
-| 2026-04-07T17:24:41Z    | `solve.mjs` reports: "Agent reported error: [verbose] HTTP logging active for provider: opencode" |
+| Timestamp (UTC)      | Event                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 2026-04-07T17:24:00Z | `solve.mjs` v1.46.9 started for PR #1763 (Jhon-Crow/godot-topdown-MVP)                                         |
+| 2026-04-07T17:24:07Z | Continue mode activated, using existing PR branch `issue-1762-c0f424e30cbb`                                    |
+| 2026-04-07T17:24:25Z | Work session started, Agent CLI invoked with `--model opencode/minimax-m2.5-free --verbose`                    |
+| 2026-04-07T17:24:34Z | Agent CLI starts, configuration resolved                                                                       |
+| 2026-04-07T17:24:35Z | Migration failure: `ENOENT: no such file or directory` with null byte in path (non-fatal)                      |
+| 2026-04-07T17:24:35Z | **FALSE POSITIVE #1**: `"type": "error"` emitted for "verbose HTTP logging active" (chat/completions endpoint) |
+| 2026-04-07T17:24:35Z | **FALSE POSITIVE #2**: `"type": "error"` emitted for "verbose HTTP logging active" (messages endpoint)         |
+| 2026-04-07T17:24:35Z | Provider sends request to `https://opencode.ai/zen/v1/messages`                                                |
+| 2026-04-07T17:24:41Z | Provider returns zero tokens with unknown finish reason (the actual error)                                     |
+| 2026-04-07T17:24:41Z | Agent exits with `hasError: false`, exit code 0, uptime 7 seconds                                              |
+| 2026-04-07T17:24:41Z | `solve.mjs` reports: "Agent reported error: [verbose] HTTP logging active for provider: opencode"              |
 
 ## Root Cause Analysis
 
@@ -37,6 +37,7 @@ The Agent CLI wraps verbose logging messages in `"type": "error"` JSON events:
 This is not a real error -- it's an informational message about HTTP logging being enabled in verbose mode. However, because it uses `"type": "error"`, Hive Mind's error detection treats it as a genuine error.
 
 **Evidence from log (lines 1258-1261):**
+
 ```
 {
   "type": "error",
@@ -66,7 +67,7 @@ The actual failure is that the OpenCode provider returned zero tokens:
 ```json
 {
   "finishReason": "unknown",
-  "tokens": {"input": 0, "output": 0, "reasoning": 0},
+  "tokens": { "input": 0, "output": 0, "reasoning": 0 },
   "message": "Provider returned zero tokens with unknown finish reason. Requested model: unknown (provider: unknown). Responded model: unknown."
 }
 ```
@@ -106,10 +107,10 @@ Two issues should be filed against `link-assistant/agent`:
 
 ## Files Involved
 
-| File | Role |
-| --- | --- |
+| File                                              | Role                               |
+| ------------------------------------------------- | ---------------------------------- |
 | `src/agent.lib.mjs` (lines 647, 781-801, 810-826) | Error detection and recovery logic |
-| `tests/test-agent-error-detection.mjs` | Error detection test suite |
+| `tests/test-agent-error-detection.mjs`            | Error detection test suite         |
 
 ## References
 

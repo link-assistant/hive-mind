@@ -291,7 +291,8 @@ export const isTransientNetworkError = error => {
   const output = (error?.stderr?.toString() || error?.stdout?.toString() || '').toLowerCase();
   const combined = msg + ' ' + output;
 
-  const transientPatterns = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up'];
+  // Issue #1536: added 'unexpected eof' — seen in gh CLI when connection drops mid-response
+  const transientPatterns = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up', 'unexpected eof'];
 
   return transientPatterns.some(pattern => combined.includes(pattern));
 };

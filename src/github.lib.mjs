@@ -1328,7 +1328,7 @@ export async function ghPrView({ prNumber, owner, repo, jsonFields = 'headRefNam
     const stderr = prResult.stderr ? prResult.stderr.toString() : '';
     const code = prResult.code || 0;
     let data = null;
-    if (code === 0 && stdout && !stdout.includes('Could not resolve')) {
+    if (code === 0 && stdout && !(stderr && stderr.includes('Could not resolve'))) {
       try {
         data = JSON.parse(stdout);
       } catch {
@@ -1368,7 +1368,7 @@ export async function ghIssueView({ issueNumber, owner, repo, jsonFields = 'numb
     const stderr = issueResult.stderr ? issueResult.stderr.toString() : '';
     const code = issueResult.code || 0;
     let data = null;
-    if (code === 0 && stdout && !stdout.includes('Could not resolve')) {
+    if (code === 0 && stdout && !(stderr && stderr.includes('Could not resolve'))) {
       try {
         data = JSON.parse(stdout);
       } catch {

@@ -60,17 +60,16 @@ export async function checkScreenSessionExists(sessionName) {
  * @param {string} sessionId - UUID of the isolated session (screen session name)
  * @param {Object} [options] - Options
  * @param {string} [options.backend] - Isolation backend ('screen', 'tmux', 'docker')
- * @param {string} [options.internalUuid] - Internal UUID from $ CLI
  * @param {boolean} [options.verbose] - Whether to log verbose output
  * @returns {Promise<boolean>} True if session is still running
  * @see https://github.com/link-assistant/hive-mind/issues/1545
  */
 async function checkIsolatedSessionRunning(sessionId, options = {}) {
   const opts = typeof options === 'boolean' ? { verbose: options } : options;
-  const { backend, internalUuid, verbose = false } = opts;
+  const { backend, verbose = false } = opts;
   try {
     const runner = await getIsolationRunner();
-    return await runner.isSessionRunning(sessionId, { backend, internalUuid, verbose });
+    return await runner.isSessionRunning(sessionId, { backend, verbose });
   } catch (error) {
     if (verbose) {
       console.error(`[VERBOSE] Error checking isolated session ${sessionId}: ${error.message}`);
@@ -80,28 +79,14 @@ async function checkIsolatedSessionRunning(sessionId, options = {}) {
 }
 
 /**
- * Get the exit code of a completed isolated session.
- * Tries the internalUuid first (if available), then falls back to sessionId.
- *
+ * Get the exit code of a completed isolated session
  * @param {string} sessionId - UUID of the isolated session
- * @param {Object} [options] - Options
- * @param {string} [options.internalUuid] - Internal UUID from $ CLI
- * @param {boolean} [options.verbose] - Whether to log verbose output
+ * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<number|null>} Exit code or null if unknown
  */
-async function getIsolatedSessionExitCode(sessionId, options = {}) {
-  const opts = typeof options === 'boolean' ? { verbose: options } : options;
-  const { internalUuid, verbose = false } = opts;
+async function getIsolatedSessionExitCode(sessionId, verbose = false) {
   try {
     const queryStatus = await getQuerySessionStatus();
-    // Try internal UUID first ($ --status only works with its own UUIDs)
-    if (internalUuid) {
-      const result = await queryStatus(internalUuid, verbose);
-      if (result.exists && result.status === 'executed') {
-        return result.exitCode;
-      }
-    }
-    // Fallback to session name
     const result = await queryStatus(sessionId, verbose);
     if (result.exists && result.status === 'executed') {
       return result.exitCode;
@@ -199,14 +184,10 @@ export async function monitorSessions(bot, verbose = false) {
       // See: https://github.com/link-assistant/hive-mind/issues/1545
       stillRunning = await checkIsolatedSessionRunning(sessionInfo.sessionId, {
         backend: sessionInfo.isolationBackend,
-        internalUuid: sessionInfo.internalUuid,
         verbose,
       });
       if (!stillRunning) {
-        exitCode = await getIsolatedSessionExitCode(sessionInfo.sessionId, {
-          internalUuid: sessionInfo.internalUuid,
-          verbose,
-        });
+        exitCode = await getIsolatedSessionExitCode(sessionInfo.sessionId, verbose);
       }
     } else {
       // Screen mode: use screen -ls for detection

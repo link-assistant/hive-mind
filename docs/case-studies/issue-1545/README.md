@@ -91,11 +91,7 @@ if (!stillRunning && sessionInfo.isolationBackend === 'screen') {
 
 Also add the same fallback in `isolation-runner.lib.mjs` `querySessionStatus()` for screen sessions.
 
-### Fix 2: Parse Internal UUID from `$` Output (This PR)
-
-Extract the internal UUID from `$` CLI output (the `session` field) and store it alongside the screen session name. This allows `$ --status` to work with the correct UUID.
-
-### Fix 3: Report start-command Bugs (Separate Issue)
+### Fix 2: Report start-command Bugs (Separate Issue)
 
 Two bugs should be filed against `link-foundation/start`:
 
@@ -105,12 +101,12 @@ Two bugs should be filed against `link-foundation/start`:
 
 ## Files Involved
 
-| File                                  | Role                                                   |
-| ------------------------------------- | ------------------------------------------------------ |
-| `src/session-monitor.lib.mjs`         | Session monitoring — needs screen -ls fallback         |
-| `src/isolation-runner.lib.mjs`        | Isolation execution — needs UUID extraction + fallback |
-| `src/telegram-isolation.lib.mjs`      | Per-command isolation resolution                       |
-| `src/telegram-bot.mjs` (line 590-618) | `executeAndUpdateMessage()` — session tracking         |
+| File                                  | Role                                            |
+| ------------------------------------- | ----------------------------------------------- |
+| `src/session-monitor.lib.mjs`         | Session monitoring — needs screen -ls fallback  |
+| `src/isolation-runner.lib.mjs`        | Isolation execution — needs screen -ls fallback |
+| `src/telegram-isolation.lib.mjs`      | Per-command isolation resolution                |
+| `src/telegram-bot.mjs` (line 590-618) | `executeAndUpdateMessage()` — session tracking  |
 
 ## References
 

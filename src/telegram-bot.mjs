@@ -662,7 +662,6 @@ bot.command('help', async ctx => {
     message += 'Usage: `/solve <github-url> [options]`\n';
     message += 'Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`\n';
     message += 'Or reply to a message with a GitHub link: `/solve`\n';
-    message += 'You can also use `/do` or `/continue` as shorter alternatives.\n';
     if (solveOverrides.length > 0) {
       message += `🔒 Locked options: \`${solveOverrides.join(' ')}\`\n`;
     }
@@ -1042,11 +1041,7 @@ async function handleSolveCommand(ctx) {
   }
 }
 
-bot.command(/^solve$/i, handleSolveCommand);
-
-// Register /do and /continue as aliases for /solve (issue #525)
-bot.command(/^do$/i, handleSolveCommand);
-bot.command(/^continue$/i, handleSolveCommand);
+bot.command([/^solve$/i, /^do$/i, /^continue$/i], handleSolveCommand); // /do and /continue are aliases (issue #525)
 
 // Named handler for /hive command - extracted for reuse by text-based fallback (issue #1207)
 async function handleHiveCommand(ctx) {
@@ -1273,14 +1268,8 @@ bot.on('message', async (ctx, next) => {
   }
 
   // Check if this is a command we handle
-  const handlers = {
-    solve: handleSolveCommand,
-    do: handleSolveCommand,
-    continue: handleSolveCommand,
-    hive: handleHiveCommand,
-    solve_queue: handleSolveQueueCommand,
-    solvequeue: handleSolveQueueCommand,
-  };
+  // /do and /continue are aliases for /solve (issue #525)
+  const handlers = { solve: handleSolveCommand, do: handleSolveCommand, continue: handleSolveCommand, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();

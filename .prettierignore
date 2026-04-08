@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+*.min.js
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+.cache/
+
+# Git
+.git/
+
+# Claude Code instructions (may contain system-specific formatting)
+CLAUDE.md
+
+# Case study logs (some .json files are actually log files)
+docs/case-studies/**/working-session-logs/**/*.json
+docs/case-studies/issue-731-unable-to-solve-space-compiler/commits-response.json
+docs/case-studies/issue-789-unrecognized-model-error/full-log.json

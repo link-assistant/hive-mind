@@ -1,107 +1,152 @@
-FROM ubuntu:24.04
+# Hive Mind Coolify Docker image
+# Inherits from konard/sandbox which provides all general-purpose development tools
+# This image adds AI-specific tools and application code for Coolify deployment
+#
+# Architecture (see issue #1394, #1499, #1505 and sandbox#73, sandbox#74):
+#   konard/sandbox (pinned version)
+#     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.
+#     └── Playwright browsers pre-installed (chromium, firefox, webkit, msedge, chrome)
+#     └── /workspace directory owned by sandbox user
+#   hive-mind (this Dockerfile)
+#     └── Inherits sandbox, adds AI coding assistants, Playwright MCP, and app code
+#     └── Runs entirely as sandbox user (no USER root needed for tool installs)
+#
+# Sandbox image version: pinned to a specific release for stable, reproducible builds.
+# To upgrade: update the version tag below and in the root Dockerfile.
+# Latest sandbox releases: https://hub.docker.com/r/konard/sandbox/tags
+#
+# Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-# Prevent interactive prompts during installation
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=UTC
+FROM konard/sandbox:1.6.0
 
-# Update and install base packages
-RUN apt-get update && apt-get install -y \
-    wget \
-    curl \
-    unzip \
-    git \
-    sudo \
-    ca-certificates \
-    gnupg \
-    lsb-release \
-    build-essential \
-    python3 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# --- Environment variables ---
+# Set environment variables EARLY so they're available in subsequent RUN commands
+# All paths use /workspace (shared directory owned by sandbox:sandbox)
+ENV HOME=/workspace
+ENV NVM_DIR="/workspace/.nvm"
+ENV PYENV_ROOT="/workspace/.pyenv"
+ENV BUN_INSTALL="/workspace/.bun"
+ENV DENO_INSTALL="/workspace/.deno"
+ENV CARGO_HOME="/workspace/.cargo"
+ENV GOROOT="/workspace/.go"
+ENV GOPATH="/workspace/.go/path"
+ENV SDKMAN_DIR="/workspace/.sdkman"
+ENV PERLBREW_ROOT="/workspace/.perl5"
+ENV RBENV_ROOT="/workspace/.rbenv"
 
-# Install .NET SDK 8.0
-RUN wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh \
-    && chmod +x dotnet-install.sh \
-    && ./dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet \
-    && rm dotnet-install.sh \
-    && ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+ENV OPAM_SWITCH_PREFIX="/workspace/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/workspace/.opam/default/lib/stublibs:/workspace/.opam/default/lib/ocaml/stublibs:/workspace/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/workspace/.opam/default/lib/toplevel"
 
-# Install GitHub CLI
-RUN mkdir -p -m 755 /etc/apt/keyrings \
-    && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
-    && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt-get update \
-    && apt-get install -y gh \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Comprehensive PATH including all tools
+# Note: ~/.local/bin is included for user-installed binaries (e.g., opam binary from sandbox rocq image)
+ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/workspace/.pyenv/bin:/workspace/.pyenv/shims:/workspace/.rbenv/bin:/workspace/.rbenv/shims:/workspace/.swift/usr/bin:/workspace/.elan/bin:/workspace/.opam/default/bin:/workspace/.local/bin:/workspace/.cargo/bin:/workspace/.deno/bin:/workspace/.bun/bin:/workspace/.go/bin:/workspace/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Create hive user
-RUN useradd -m -s /bin/bash hive
+# Run entirely as sandbox user — no USER root needed (see issue #1505)
+USER sandbox
+WORKDIR /workspace
 
-# Switch to hive user for language tools installation
-USER hive
-WORKDIR /home/hive
+# Create stable symlink to Node.js bin directory
+RUN NODE_VERSION_DIR=$(ls -d /workspace/.nvm/versions/node/v* 2>/dev/null | head -1) && \
+    if [ -n "$NODE_VERSION_DIR" ] && [ -d "$NODE_VERSION_DIR/bin" ]; then \
+      ln -sf "$NODE_VERSION_DIR/bin" /workspace/.node-bin; \
+    fi
 
-# Install Bun
-RUN curl -fsSL https://bun.sh/install | bash
-ENV BUN_INSTALL="/home/hive/.bun"
-ENV PATH="${BUN_INSTALL}/bin:${PATH}"
+ENV PATH="/workspace/.node-bin:${PATH}"
 
-# Install Node.js via n with proper prefix for user installation
-ENV N_PREFIX=/home/hive/.n
-ENV PATH="${N_PREFIX}/bin:${PATH}"
-RUN curl -L https://raw.githubusercontent.com/tj/n/master/bin/n -o n \
-    && bash n lts \
-    && rm n
+# --- Install opam binary ---
+# The sandbox full image copies ~/.opam (opam switch data) from the rocq stage
+# but does NOT copy the opam binary from ~/.local/bin. Install it as sandbox user.
+# See: https://github.com/link-foundation/sandbox/issues/74
+RUN mkdir -p /workspace/.local/bin && \
+    ARCH="$(uname -m)" && \
+    case "$ARCH" in \
+      x86_64)  OPAM_ARCH="x86_64" ;; \
+      aarch64) OPAM_ARCH="arm64" ;; \
+      *)       OPAM_ARCH="$ARCH" ;; \
+    esac && \
+    OPAM_TAG=$(curl -fsSIL -o /dev/null -w '%{url_effective}' https://github.com/ocaml/opam/releases/latest | sed 's|.*/||') && \
+    curl -fsSL "https://github.com/ocaml/opam/releases/download/${OPAM_TAG}/opam-${OPAM_TAG}-${OPAM_ARCH}-linux" -o /workspace/.local/bin/opam && \
+    chmod +x /workspace/.local/bin/opam
 
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/home/hive/.cargo/bin:${PATH}"
+# --- AI-specific packages installation ---
+# Every install must fail the build on error — no silent fallbacks (see issue #1505)
 
-# Install global npm/bun packages
-RUN bun install -g \
-    @anthropic-ai/claude-code \
-    @deep-assistant/claude-profiles \
-    @deep-assistant/hive-mind
+# Install AI coding assistant CLIs
+RUN bun install -g @anthropic-ai/claude-code && \
+    bun install -g @openai/codex && \
+    bun install -g @qwen-code/qwen-code && \
+    bun install -g @google/gemini-cli && \
+    bun install -g @github/copilot && \
+    bun install -g opencode-ai
 
-# Create app directory
+# Install hive-mind workflow utilities
+# Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
+# The sandbox base image includes screen. For tmux/docker isolation, ensure they are
+# available in the base image or install them separately.
+RUN bun install -g @link-assistant/hive-mind && \
+    bun install -g @link-assistant/claude-profiles && \
+    bun install -g @link-assistant/agent && \
+    bun install -g start-command && \
+    bun install -g gh-setup-git-identity && \
+    bun install -g gh-pull-all && \
+    bun install -g gh-load-issue && \
+    bun install -g gh-load-pull-request && \
+    bun install -g gh-upload-log
+
+# --- Playwright MCP Setup ---
+# Sandbox 1.6.0 pre-installs Playwright browsers and @playwright/test (sandbox#74).
+# We only add @playwright/mcp (AI-specific MCP server for Claude).
+# --force handles the shared 'playwright' binary conflict between packages.
+RUN npm install -g @playwright/mcp@latest --no-fund --force
+
+# Configure Playwright MCP for Claude CLI — fail the build if registration fails (issue #1514)
+RUN if command -v claude &>/dev/null; then \
+      claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
+    fi
+
+# --- Application Setup ---
+# Minimal USER root: only for creating /app directory and copying files.
+# All /workspace operations run as sandbox user to prevent permission issues (issue #1505).
+USER root
 WORKDIR /app
 
-# Switch back to root to copy files and set permissions
-USER root
-
-# Copy application files from repo root (build context)
-COPY --chown=hive:hive . .
+# Copy application files from repo root
+COPY --chown=sandbox:sandbox . .
 
 # Ensure scripts are executable
-RUN chmod +x *.mjs || true
+RUN chmod +x *.mjs 2>/dev/null || true && \
+    chmod +x src/*.mjs 2>/dev/null || true
 
-# Create necessary directories
-RUN mkdir -p /app/claude-logs /app/claude-sessions /app/output \
-    && mkdir -p /home/hive/.claude/plugins /home/hive/.config \
-    && chown -R hive:hive /app /home/hive/.claude /home/hive/.config
+# Create /app subdirectories (root-owned parent)
+RUN mkdir -p /app/claude-logs /app/claude-sessions /app/output && \
+    chown -R sandbox:sandbox /app
 
-# Create bash profile for hive user to set PATH
-RUN echo 'export PATH="/home/hive/.bun/bin:/home/hive/.n/bin:/home/hive/.cargo/bin:$PATH"' > /home/hive/.bashrc \
-    && echo 'export BUN_INSTALL="/home/hive/.bun"' >> /home/hive/.bashrc \
-    && echo 'export N_PREFIX="/home/hive/.n"' >> /home/hive/.bashrc \
-    && chown hive:hive /home/hive/.bashrc
+# Copy and configure startup script
+COPY --chown=root:root coolify/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
-# Create git config file for hive user
-RUN echo "[user]" > /home/hive/.gitconfig \
-    && echo "  name = Hive-Mind Bot" >> /home/hive/.gitconfig \
-    && echo "  email = hive@localhost" >> /home/hive/.gitconfig \
-    && echo "[init]" >> /home/hive/.gitconfig \
-    && echo "  defaultBranch = main" >> /home/hive/.gitconfig \
-    && echo "[safe]" >> /home/hive/.gitconfig \
-    && echo "  directory = *" >> /home/hive/.gitconfig \
-    && chown hive:hive /home/hive/.gitconfig
+# Switch to sandbox user for /workspace operations and runtime
+USER sandbox
 
-# Switch back to hive user for runtime
-USER hive
+# Create necessary /workspace directories
+RUN mkdir -p /workspace/.claude/plugins /workspace/.config
 
-# Environment variables (can be overridden)
+# Create bash profile for sandbox user
+# Note: .node-bin is a symlink to the active Node.js version's bin directory
+RUN echo 'export PATH="/workspace/.node-bin:/workspace/.bun/bin:/workspace/.cargo/bin:/workspace/.elan/bin:/workspace/.opam/default/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"' >> /workspace/.bashrc && \
+    echo 'export BUN_INSTALL="/workspace/.bun"' >> /workspace/.bashrc
+
+# Create git config file for sandbox user
+RUN echo "[user]" > /workspace/.gitconfig && \
+    echo "  name = Hive-Mind Bot" >> /workspace/.gitconfig && \
+    echo "  email = hive-mind@localhost" >> /workspace/.gitconfig && \
+    echo "[init]" >> /workspace/.gitconfig && \
+    echo "  defaultBranch = main" >> /workspace/.gitconfig && \
+    echo "[safe]" >> /workspace/.gitconfig && \
+    echo "  directory = *" >> /workspace/.gitconfig
+
+# Runtime configuration
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV MONITOR_TAG="help wanted"
@@ -109,14 +154,9 @@ ENV CONCURRENCY=2
 ENV INTERVAL=300
 ENV MODEL=sonnet
 
-# Health check - check if container is running (either hive.mjs or tail)
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD pgrep -f "hive.mjs\|tail" > /dev/null || exit 1
 
-# Create startup script with proper permissions handling
-USER root
-COPY --chown=root:root coolify/start.sh /app/start.sh
-RUN chmod +x /app/start.sh
-
-# Default command - run the startup script
+SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/app/start.sh"]

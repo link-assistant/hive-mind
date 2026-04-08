@@ -3,6 +3,7 @@
 ## Purpose
 
 This guide provides a **universal solution** for converting Sentry issues into GitHub Issues that works with:
+
 - ✅ **Self-hosted Sentry** (on-premise deployments)
 - ✅ **Cloud-hosted Sentry** (sentry.io)
 - ✅ **Restricted environments** (firewall, air-gapped, limited API access)
@@ -11,6 +12,7 @@ This guide provides a **universal solution** for converting Sentry issues into G
 ## Why This Guide?
 
 Many Sentry-to-GitHub integration options have limitations:
+
 - Native Sentry GitHub integration requires Business/Enterprise plan
 - Third-party platforms (Zapier, Pipedream) only work with cloud Sentry
 - Webhook-based solutions require publicly accessible endpoints
@@ -21,6 +23,7 @@ This guide focuses on **API-based approaches** that work universally.
 ## Core Approach: Sentry API + GitHub API
 
 The most universal approach uses direct API calls to both platforms. This works regardless of:
+
 - Your Sentry hosting type (self-hosted or cloud)
 - Your network restrictions
 - Your Sentry subscription plan
@@ -53,6 +56,7 @@ The most universal approach uses direct API calls to both platforms. This works 
    - Save token securely
 
 2. **Test Authentication:**
+
 ```bash
 curl -H "Authorization: Bearer YOUR_SENTRY_TOKEN" \
   https://sentry.io/api/0/organizations/YOUR_ORG/
@@ -67,6 +71,7 @@ curl -H "Authorization: Bearer YOUR_SENTRY_TOKEN" \
    - Save token securely
 
 2. **Test Authentication:**
+
 ```bash
 curl -H "Authorization: Bearer YOUR_SENTRY_TOKEN" \
   https://your-sentry-domain.com/api/0/organizations/YOUR_ORG/
@@ -101,19 +106,20 @@ GET {SENTRY_URL}/api/0/organizations/{organization_slug}/issues/
 ```
 
 Where:
+
 - `{SENTRY_URL}` = `https://sentry.io` for cloud, `https://your-domain.com` for self-hosted
 - `{organization_slug}` = your organization identifier
 
 ### Query Parameters
 
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `query` | Filter issues | `is:unresolved` |
-| `statsPeriod` | Time range | `24h`, `7d`, `14d` |
-| `project` | Filter by project ID | `12345` |
-| `sort` | Sort order | `date`, `freq`, `new` |
-| `limit` | Results per page (max 100) | `50` |
-| `cursor` | Pagination cursor | From `Link` header |
+| Parameter     | Description                | Example               |
+| ------------- | -------------------------- | --------------------- |
+| `query`       | Filter issues              | `is:unresolved`       |
+| `statsPeriod` | Time range                 | `24h`, `7d`, `14d`    |
+| `project`     | Filter by project ID       | `12345`               |
+| `sort`        | Sort order                 | `date`, `freq`, `new` |
+| `limit`       | Results per page (max 100) | `50`                  |
+| `cursor`      | Pagination cursor          | From `Link` header    |
 
 ### Example: Fetch Unresolved Issues
 
@@ -208,7 +214,7 @@ const CONFIG = {
   SENTRY_ORG: process.env.SENTRY_ORG,
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
   GITHUB_REPO: process.env.GITHUB_REPO, // format: "owner/repo"
-  STATE_FILE: process.env.STATE_FILE || './sentry-sync-state.json'
+  STATE_FILE: process.env.STATE_FILE || './sentry-sync-state.json',
 };
 
 // State management to prevent duplicates
@@ -231,13 +237,13 @@ async function fetchSentryIssues() {
   const params = new URLSearchParams({
     query: 'is:unresolved',
     statsPeriod: '24h',
-    limit: '50'
+    limit: '50',
   });
 
   const response = await fetch(`${url}?${params}`, {
     headers: {
-      'Authorization': `Bearer ${CONFIG.SENTRY_TOKEN}`
-    }
+      Authorization: `Bearer ${CONFIG.SENTRY_TOKEN}`,
+    },
   });
 
   if (!response.ok) {
@@ -251,35 +257,20 @@ async function fetchSentryIssues() {
 async function createGitHubIssue(sentryIssue) {
   const [owner, repo] = CONFIG.GITHUB_REPO.split('/');
 
-  const issueBody = [
-    `**Sentry Issue:** ${sentryIssue.permalink}`,
-    ``,
-    `**Error Type:** ${sentryIssue.metadata?.type || 'Unknown'}`,
-    `**Message:** ${sentryIssue.metadata?.value || sentryIssue.title}`,
-    `**Location:** ${sentryIssue.culprit || 'Unknown'}`,
-    ``,
-    `**Statistics:**`,
-    `- Events: ${sentryIssue.count}`,
-    `- Users affected: ${sentryIssue.userCount}`,
-    `- First seen: ${sentryIssue.firstSeen}`,
-    `- Last seen: ${sentryIssue.lastSeen}`,
-    ``,
-    `**Project:** ${sentryIssue.project?.name || 'Unknown'}`,
-    `**Short ID:** ${sentryIssue.shortId}`
-  ].join('\n');
+  const issueBody = [`**Sentry Issue:** ${sentryIssue.permalink}`, ``, `**Error Type:** ${sentryIssue.metadata?.type || 'Unknown'}`, `**Message:** ${sentryIssue.metadata?.value || sentryIssue.title}`, `**Location:** ${sentryIssue.culprit || 'Unknown'}`, ``, `**Statistics:**`, `- Events: ${sentryIssue.count}`, `- Users affected: ${sentryIssue.userCount}`, `- First seen: ${sentryIssue.firstSeen}`, `- Last seen: ${sentryIssue.lastSeen}`, ``, `**Project:** ${sentryIssue.project?.name || 'Unknown'}`, `**Short ID:** ${sentryIssue.shortId}`].join('\n');
 
   const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${CONFIG.GITHUB_TOKEN}`,
-      'Accept': 'application/vnd.github+json',
-      'Content-Type': 'application/json'
+      Authorization: `Bearer ${CONFIG.GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       title: `🐛 Sentry: ${sentryIssue.title}`,
       body: issueBody,
-      labels: ['sentry', 'bug', 'automated']
-    })
+      labels: ['sentry', 'bug', 'automated'],
+    }),
   });
 
   if (!response.ok) {
@@ -320,7 +311,7 @@ async function sync() {
       state.synced[issue.id] = {
         githubIssueNumber: githubIssue.number,
         githubIssueUrl: githubIssue.html_url,
-        syncedAt: new Date().toISOString()
+        syncedAt: new Date().toISOString(),
       };
 
       created++;
@@ -328,7 +319,6 @@ async function sync() {
 
       // Rate limiting: wait 1 second between requests
       await new Promise(resolve => setTimeout(resolve, 1000));
-
     } catch (error) {
       console.error(`✗ Failed to create issue for ${issue.shortId}:`, error.message);
     }
@@ -515,7 +505,7 @@ docker run --rm \
 const params = new URLSearchParams({
   query: 'is:unresolved issue.priority:[high,medium]',
   statsPeriod: '24h',
-  limit: '50'
+  limit: '50',
 });
 ```
 
@@ -526,7 +516,7 @@ const params = new URLSearchParams({
 const params = new URLSearchParams({
   query: 'is:unresolved',
   project: '12345', // Project ID
-  statsPeriod: '24h'
+  statsPeriod: '24h',
 });
 ```
 
@@ -536,7 +526,7 @@ const params = new URLSearchParams({
 // Fetch issues with specific tags
 const params = new URLSearchParams({
   query: 'is:unresolved environment:production',
-  statsPeriod: '24h'
+  statsPeriod: '24h',
 });
 ```
 
@@ -554,7 +544,7 @@ function getPriorityLabel(sentryIssue) {
 }
 
 // Add to GitHub issue labels
-labels: ['sentry', 'bug', 'automated', getPriorityLabel(sentryIssue)]
+labels: ['sentry', 'bug', 'automated', getPriorityLabel(sentryIssue)];
 ```
 
 ## Security Best Practices
@@ -602,7 +592,7 @@ export SENTRY_TOKEN=$(vault kv get -field=token secret/sentry)
 ```javascript
 // Enable SSL verification
 const response = await fetch(url, {
-  headers: { 'Authorization': `Bearer ${token}` },
+  headers: { Authorization: `Bearer ${token}` },
   // Node.js will verify SSL by default
 });
 ```
@@ -640,7 +630,6 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
       }
 
       return await response.json();
-
     } catch (error) {
       if (i === maxRetries - 1) throw error;
       console.log(`Retry ${i + 1}/${maxRetries}...`);
@@ -655,11 +644,13 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
 ### Issue: "Unauthorized" Error from Sentry
 
 **Causes:**
+
 - Invalid or expired auth token
 - Insufficient token permissions
 - Wrong organization slug
 
 **Solutions:**
+
 ```bash
 # Test token
 curl -H "Authorization: Bearer YOUR_TOKEN" \
@@ -672,11 +663,13 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 ### Issue: "Not Found" Error from Sentry
 
 **Causes:**
+
 - Wrong organization slug
 - Wrong Sentry URL (self-hosted)
 - Project doesn't exist
 
 **Solutions:**
+
 ```bash
 # List all organizations
 curl -H "Authorization: Bearer YOUR_TOKEN" \
@@ -690,10 +683,12 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 ### Issue: GitHub API Rate Limit
 
 **Causes:**
+
 - Too many requests in short time
 - Using unauthenticated requests
 
 **Solutions:**
+
 ```bash
 # Check rate limit status
 curl -H "Authorization: Bearer YOUR_GITHUB_TOKEN" \
@@ -706,11 +701,13 @@ curl -H "Authorization: Bearer YOUR_GITHUB_TOKEN" \
 ### Issue: Duplicate Issues Created
 
 **Causes:**
+
 - State file not persisting
 - State file corruption
 - Running multiple instances simultaneously
 
 **Solutions:**
+
 ```javascript
 // Ensure state file is writable
 await fs.access(CONFIG.STATE_FILE, fs.constants.W_OK);
@@ -726,10 +723,12 @@ await lockfile.lock(CONFIG.STATE_FILE);
 ### Issue: Self-Hosted Sentry SSL Verification Failed
 
 **Causes:**
+
 - Self-signed SSL certificate
 - Certificate not trusted by system
 
 **Solutions:**
+
 ```javascript
 // Option 1: Add certificate to system trust store (recommended)
 
@@ -737,7 +736,7 @@ await lockfile.lock(CONFIG.STATE_FILE);
 import https from 'https';
 
 const agent = new https.Agent({
-  rejectUnauthorized: false
+  rejectUnauthorized: false,
 });
 
 fetch(url, { agent });
@@ -759,7 +758,7 @@ async function fetchAllSentryIssues() {
     if (cursor) url.searchParams.set('cursor', cursor);
 
     const response = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${CONFIG.SENTRY_TOKEN}` }
+      headers: { Authorization: `Bearer ${CONFIG.SENTRY_TOKEN}` },
     });
 
     const issues = await response.json();
@@ -768,7 +767,6 @@ async function fetchAllSentryIssues() {
     // Get next cursor from Link header
     const linkHeader = response.headers.get('Link');
     cursor = parseLinkHeader(linkHeader)?.next?.cursor;
-
   } while (cursor);
 
   return allIssues;
@@ -800,7 +798,7 @@ const lastSyncTime = state.lastSync || '24h';
 
 const params = new URLSearchParams({
   query: 'is:unresolved',
-  statsPeriod: lastSyncTime
+  statsPeriod: lastSyncTime,
 });
 
 // Update last sync time
@@ -829,12 +827,14 @@ await saveState(state);
 ### Recommended Setup
 
 **For most environments:**
+
 1. Use the Node.js script provided above
 2. Schedule with cron or systemd
 3. Store state in a file
 4. Monitor logs for errors
 
 **For restricted environments:**
+
 1. Deploy script on internal server with access to both Sentry and GitHub
 2. Use environment variables for configuration
 3. Run on schedule (hourly or daily)

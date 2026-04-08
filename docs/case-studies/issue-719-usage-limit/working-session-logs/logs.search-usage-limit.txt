@@ -1,0 +1,121 @@
+src/usage-limit.lib.mjs:2: * Usage Limit Detection Utilities
+src/usage-limit.lib.mjs:4: * This module provides utilities for detecting and handling usage limit errors
+src/usage-limit.lib.mjs:11: * Detect if an error message indicates a usage limit has been reached
+src/usage-limit.lib.mjs:14: * @returns {boolean} - True if message indicates usage limit
+src/usage-limit.lib.mjs:23:  // Check for specific usage limit patterns
+src/usage-limit.lib.mjs:25:    'you\'ve hit your usage limit',
+src/usage-limit.lib.mjs:26:    'hit your usage limit',
+src/usage-limit.lib.mjs:28:    'usage limit reached',
+src/usage-limit.lib.mjs:29:    'usage limit exceeded',
+src/usage-limit.lib.mjs:37: * Extract reset time from usage limit error message
+src/usage-limit.lib.mjs:40: * @returns {string|null} - Reset time string (e.g., "12:16 PM") or null if not found
+src/usage-limit.lib.mjs:42:export function extractResetTime(message) {
+src/usage-limit.lib.mjs:59:  // Pattern 3: "reset at 12:16 PM"
+src/usage-limit.lib.mjs:60:  const resetMatch = message.match(/reset at ([0-9]{1,2}:[0-9]{2}\s*[AP]M)/i);
+src/usage-limit.lib.mjs:61:  if (resetMatch) {
+src/usage-limit.lib.mjs:62:    return resetMatch[1];
+src/usage-limit.lib.mjs:75: * Detect usage limit error and extract all relevant information
+src/usage-limit.lib.mjs:78: * @returns {Object} - { isUsageLimit: boolean, resetTime: string|null }
+src/usage-limit.lib.mjs:82:  const resetTime = isUsageLimit ? extractResetTime(message) : null;
+src/usage-limit.lib.mjs:86:    resetTime
+src/usage-limit.lib.mjs:91: * Format usage limit error message for console output
+src/usage-limit.lib.mjs:95: * @param {string|null} options.resetTime - Time when limit resets
+src/usage-limit.lib.mjs:100:export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeCommand }) {
+src/usage-limit.lib.mjs:103:    '⏳ Usage Limit Reached!',
+src/usage-limit.lib.mjs:105:    `Your ${tool || 'AI tool'} usage limit has been reached.`
+src/usage-limit.lib.mjs:108:  if (resetTime) {
+src/usage-limit.lib.mjs:109:    lines.push(`The limit will reset at: ${resetTime}`);
+src/usage-limit.lib.mjs:111:    lines.push('Please wait for the limit to reset.');
+src/usage-limit.lib.mjs:118:    lines.push('To resume this session after the limit resets, run:');
+src/usage-limit.lib.mjs:128: * Check if a message contains both usage limit error and is in JSON format
+src/solve.feedback.lib.mjs:195:        feedbackLines = []; // Reset for this execution
+src/solve.config.lib.mjs:122:      description: 'Automatically continue when Claude limit resets (waits until reset time)',
+src/exit-handler.lib.mjs:201: * Reset the exit message flag (useful for testing)
+src/exit-handler.lib.mjs:203:export const resetExitHandler = () => {
+src/solve.repository.lib.mjs:584:            const syncResult = await $({ cwd: tempDir })`git reset --hard upstream/${upstreamDefaultBranch}`;
+src/solve.repository.lib.mjs:607:                  await log('     This typically occurs when upstream had a force push (e.g., git reset --hard)');
+src/solve.repository.lib.mjs:654:                      await log(`        git reset --hard upstream/${upstreamDefaultBranch}`);
+src/solve.repository.lib.mjs:677:                    await log(`                 git reset --hard upstream/${upstreamDefaultBranch}`);
+src/solve.repository.lib.mjs:834:  const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoContinueLimit && global.limitResetTime);
+src/review.mjs:366:      await log('\n⏰ LIMIT REACHED DETECTED!');
+src/review.mjs:367:      await log('\n🔄 To resume when limit resets, use:\n');
+src/review.mjs:414:  // Clean up temporary directory (but not when resuming or when limit reached)
+src/codex.lib.mjs:321:      let limitResetTime = null;
+src/codex.lib.mjs:396:        // Check for usage limit errors first (more specific)
+src/codex.lib.mjs:400:          limitResetTime = limitInfo.resetTime;
+src/codex.lib.mjs:405:            resetTime: limitInfo.resetTime,
+src/codex.lib.mjs:426:          limitResetTime
+src/codex.lib.mjs:436:        limitResetTime
+src/codex.lib.mjs:460:        limitResetTime: null
+src/solve.mjs:803:  // Capture limit reset time globally for downstream handlers (auto-continue, cleanup decisions)
+src/solve.mjs:804:  if (toolResult && toolResult.limitResetTime) {
+src/solve.mjs:805:    global.limitResetTime = toolResult.limitResetTime;
+src/solve.mjs:824:          // For usage limit, use a dedicated comment format to make it clear and actionable
+src/solve.mjs:826:          limitResetTime: limitReached ? toolResult.limitResetTime : null,
+src/solve.mjs:833:          // If not a usage limit case, fall back to generic failure format
+src/instrument.mjs:113:        'ECONNRESET',
+src/solve.validation.lib.mjs:275:export const parseResetTime = (timeStr) => {
+src/solve.validation.lib.mjs:299:export const calculateWaitTime = (resetTime) => {
+src/solve.validation.lib.mjs:300:  const { hour, minute } = parseResetTime(resetTime);
+src/github.lib.mjs:440: * @param {boolean} [options.isUsageLimit] - Whether this is a usage limit error
+src/github.lib.mjs:441: * @param {string} [options.limitResetTime] - Time when usage limit resets
+src/github.lib.mjs:464:    limitResetTime = null,
+src/github.lib.mjs:515:    // Usage limit comments should be shown whenever isUsageLimit is true,
+src/github.lib.mjs:518:      // Usage limit error format - separate from general failures
+src/github.lib.mjs:519:      logComment = `## ⏳ Usage Limit Reached
+src/github.lib.mjs:521:The automated solution draft was interrupted because the ${toolName} usage limit was reached.
+src/github.lib.mjs:525:- **Limit Type**: Usage limit exceeded`;
+src/github.lib.mjs:527:      if (limitResetTime) {
+src/github.lib.mjs:528:        logComment += `\n- **Reset Time**: ${limitResetTime}`;
+src/github.lib.mjs:537:      if (limitResetTime) {
+src/github.lib.mjs:538:        logComment += `Once the limit resets at **${limitResetTime}**, `;
+src/github.lib.mjs:540:        logComment += 'Once the limit resets, ';
+src/github.lib.mjs:565:*This session was interrupted due to usage limits. You can resume once the limit resets.*`;
+src/github.lib.mjs:657:          // For usage limit cases, always use the dedicated format regardless of errorMessage
+src/github.lib.mjs:659:            // Usage limit error gist format
+src/github.lib.mjs:660:            gistComment = `## ⏳ Usage Limit Reached
+src/github.lib.mjs:662:The automated solution draft was interrupted because the ${toolName} usage limit was reached.
+src/github.lib.mjs:666:- **Limit Type**: Usage limit exceeded`;
+src/github.lib.mjs:668:            if (limitResetTime) {
+src/github.lib.mjs:669:              gistComment += `\n- **Reset Time**: ${limitResetTime}`;
+src/github.lib.mjs:678:            if (limitResetTime) {
+src/github.lib.mjs:679:              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+src/github.lib.mjs:681:              gistComment += 'Once the limit resets, ';
+src/github.lib.mjs:701:*This session was interrupted due to usage limits. You can resume once the limit resets.*`;
+src/opencode.lib.mjs:311:      let limitResetTime = null;
+src/opencode.lib.mjs:332:        // Check for usage limit errors first (more specific)
+src/opencode.lib.mjs:336:          limitResetTime = limitInfo.resetTime;
+src/opencode.lib.mjs:341:            resetTime: limitInfo.resetTime,
+src/opencode.lib.mjs:362:          limitResetTime
+src/opencode.lib.mjs:372:        limitResetTime
+src/opencode.lib.mjs:387:        limitResetTime: null
+src/solve.auto-continue.lib.mjs:58:// Auto-continue function that waits until limit resets
+src/solve.auto-continue.lib.mjs:59:export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs) => {
+src/solve.auto-continue.lib.mjs:61:    const resetTime = global.limitResetTime;
+src/solve.auto-continue.lib.mjs:62:    const waitMs = calculateWaitTime(resetTime);
+src/solve.auto-continue.lib.mjs:64:    await log(`\n⏰ Waiting until ${resetTime} for limit to reset...`);
+src/solve.auto-continue.lib.mjs:76:        await log(`⏳ ${remainingMinutes} minutes remaining until ${resetTime}`);
+src/solve.auto-continue.lib.mjs:80:    // Wait until reset time
+src/solve.auto-continue.lib.mjs:84:    await log('\n✅ Limit reset time reached! Resuming session...');
+src/claude.lib.mjs:832:    let limitResetTime = null;
+src/claude.lib.mjs:949:            // Example: {"type": "result", "subtype": "success", "is_error": true, "result": "Session limit reached ∙ resets 10am"}
+src/claude.lib.mjs:960:                if (lastMessage.includes('Session limit reached') || lastMessage.includes('limit reached')) {
+src/claude.lib.mjs:1059:          limitResetTime: null,
+src/claude.lib.mjs:1107:          limitResetTime: null,
+src/claude.lib.mjs:1115:      // Check for usage limit errors first (more specific)
+src/claude.lib.mjs:1119:        limitResetTime = limitInfo.resetTime;
+src/claude.lib.mjs:1124:          resetTime: limitInfo.resetTime,
+src/claude.lib.mjs:1182:        limitResetTime,
+src/claude.lib.mjs:1277:      limitResetTime,
+src/claude.lib.mjs:1324:      limitResetTime: null,
+src/solve.execution.lib.mjs:235:  // Clean up temporary directory (but not when resuming, when limit reached, or when auto-continue is active)
+src/solve.execution.lib.mjs:236:  if (!argv.resume && !limitReached && !(argv.autoContinueLimit && global.limitResetTime)) {
+src/solve.results.lib.mjs:40:  autoContinueWhenLimitResets
+src/solve.results.lib.mjs:197:// Show session summary and handle limit reached scenarios
+src/solve.results.lib.mjs:209:      await log('\n⏰ LIMIT REACHED DETECTED!');
+src/solve.results.lib.mjs:211:      if (argv.autoContinueLimit && global.limitResetTime) {
+src/solve.results.lib.mjs:212:        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+src/solve.results.lib.mjs:213:        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
+src/solve.results.lib.mjs:217:          await log('\n🔄 To resume when limit resets, use:\n');
+src/solve.results.lib.mjs:220:          if (global.limitResetTime) {
+src/solve.results.lib.mjs:221:            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);

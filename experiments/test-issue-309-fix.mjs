@@ -13,34 +13,29 @@ console.log('Testing issue #309 fix...\n');
 const testCommentFiltering = () => {
   console.log('Test 1: Comment filtering with log patterns');
 
-  const logPatterns = [
-    /📊.*Log file|solution\s+draft.*log/i,
-    /🔗.*Link:|💻.*Session:/i,
-    /Generated with.*solve\.mjs/i,
-    /Session ID:|Log file available:/i
-  ];
+  const logPatterns = [/📊.*Log file|solution\s+draft.*log/i, /🔗.*Link:|💻.*Session:/i, /Generated with.*solve\.mjs/i, /Session ID:|Log file available:/i];
 
   const mockComments = [
     {
       body: 'This is a real user comment asking for changes',
       user: { login: 'other-user' },
-      created_at: '2025-09-27T12:00:00Z'
+      created_at: '2025-09-27T12:00:00Z',
     },
     {
       body: '📊 Log file available at: https://example.com\n\nGenerated with solve.mjs',
       user: { login: 'current-user' },
-      created_at: '2025-09-27T11:00:00Z'
+      created_at: '2025-09-27T11:00:00Z',
     },
     {
       body: '💻 Session: abc123\n🔗 Link: https://example.com',
       user: { login: 'current-user' },
-      created_at: '2025-09-27T11:30:00Z'
+      created_at: '2025-09-27T11:30:00Z',
     },
     {
       body: 'Another real comment from a reviewer',
       user: { login: 'reviewer' },
-      created_at: '2025-09-27T13:00:00Z'
-    }
+      created_at: '2025-09-27T13:00:00Z',
+    },
   ];
 
   const lastCommitTime = new Date('2025-09-27T10:00:00Z');

@@ -165,16 +165,15 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
       const sub = subSessions[i];
       const subPeak = sub.peakContextUsage || 0;
       // Issue #1539: Only use peak per-request context for context window display.
-      // Cumulative totals across all requests can exceed the context limit and produce
-      // impossible percentages (e.g. 250%). When peak is unknown, skip context display.
+      // Issue #1547: Percentage before unit label: X / Y (Z%) input tokens
       const parts = [];
       if (contextLimit && subPeak > 0) {
         const pct = ((subPeak / contextLimit) * 100).toFixed(0);
-        parts.push(`${formatNumber(subPeak)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
+        parts.push(`${formatNumber(subPeak)} / ${formatNumber(contextLimit)} (${pct}%) input tokens`);
       }
       if (outputLimit) {
         const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
-        parts.push(`${formatNumber(sub.outputTokens)} / ${formatNumber(outputLimit)} output tokens (${outPct}%)`);
+        parts.push(`${formatNumber(sub.outputTokens)} / ${formatNumber(outputLimit)} (${outPct}%) output tokens`);
       }
       if (parts.length > 0) {
         await log(`        ${i + 1}. Context window: ${parts.join(', ')}`);
@@ -182,14 +181,15 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
     }
   } else if (peakContext > 0) {
     // Single sub-session with known peak: single-line format
+    // Issue #1547: Percentage before unit label
     const parts = [];
     if (contextLimit) {
       const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-      parts.push(`${formatNumber(peakContext)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
+      parts.push(`${formatNumber(peakContext)} / ${formatNumber(contextLimit)} (${pct}%) input tokens`);
     }
     if (outputLimit) {
       const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
-      parts.push(`${formatNumber(usage.outputTokens)} / ${formatNumber(outputLimit)} output tokens (${outPct}%)`);
+      parts.push(`${formatNumber(usage.outputTokens)} / ${formatNumber(outputLimit)} (${outPct}%) output tokens`);
     }
     if (parts.length > 0) {
       await log(`        Context window: ${parts.join(', ')}`);
@@ -199,15 +199,20 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
   // Cumulative totals are shown on the Total line below — no duplication needed.
 
   // Cumulative totals — single line
+  // Issue #1547: Parenthesized cached format and consistent output format
   const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
   const cachedTokens = usage.cacheReadTokens;
-  let totalLine = `${formatNumber(totalInputNonCached)}`;
-  if (cachedTokens > 0) totalLine += ` + ${formatNumber(cachedTokens)} cached`;
-  totalLine += ` input tokens, ${formatNumber(usage.outputTokens)} output tokens`;
-  // Issue #1539: When peakContextUsage is unknown, embed output percentage in Total line
+  let totalLine;
+  if (cachedTokens > 0) {
+    totalLine = `(${formatNumber(totalInputNonCached)} + ${formatNumber(cachedTokens)} cached) input tokens`;
+  } else {
+    totalLine = `${formatNumber(totalInputNonCached)} input tokens`;
+  }
   if (peakContext === 0 && outputLimit) {
     const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
-    totalLine += ` (${outPct}% of ${formatNumber(outputLimit)} output limit)`;
+    totalLine += `, ${formatNumber(usage.outputTokens)} / ${formatNumber(outputLimit)} (${outPct}%) output tokens`;
+  } else {
+    totalLine += `, ${formatNumber(usage.outputTokens)} output tokens`;
   }
   await log(`        Total: ${totalLine}`);
 };
@@ -325,12 +330,12 @@ const formatContextOutputLine = (peakContext, contextLimit, outputTokens, output
     // context window metrics and produce impossible percentages (e.g. 250%).
     if (peakContext > 0) {
       const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-      parts.push(`${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`);
+      parts.push(`${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} (${pct}%) input tokens`);
     }
   }
   if (outputLimit) {
     const outPct = ((outputTokens / outputLimit) * 100).toFixed(0);
-    parts.push(`${formatTokensCompact(outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`);
+    parts.push(`${formatTokensCompact(outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`);
   }
   if (parts.length === 0) return '';
   return `\n${prefix}Context window: ${parts.join(', ')}`;
@@ -364,15 +369,6 @@ export const buildBudgetStatsString = tokenUsage => {
     const subSessions = tokenUsage.subSessions || [];
     const hasMultipleSubSessions = subSessions.length > 1;
 
-    if (isMultiModel && hasMultipleSubSessions) {
-      // Issue #1508: For multi-model sessions, show global sub-sessions once (not per-model),
-      // since sub-sessions track compactification boundaries which are session-wide.
-      // Per-model context/output limits are shown below under each model heading.
-      const primaryModelId = modelIds[0];
-      const primaryUsage = tokenUsage.modelUsage[primaryModelId];
-      stats += formatSubSessionsList(subSessions, primaryUsage.modelInfo?.limit?.context, primaryUsage.modelInfo?.limit?.output);
-    }
-
     for (const modelId of modelIds) {
       const usage = tokenUsage.modelUsage[modelId];
       const modelName = usage.modelName || modelId;
@@ -383,8 +379,9 @@ export const buildBudgetStatsString = tokenUsage => {
 
       const peakContext = usage.peakContextUsage || 0;
 
-      if (!isMultiModel && hasMultipleSubSessions) {
-        // Single-model + multiple sub-sessions: show numbered sub-sessions under that model
+      if (hasMultipleSubSessions && (!isMultiModel || modelId === modelIds[0])) {
+        // Issue #1547: Show sub-sessions under the primary model heading (not globally).
+        // For single-model sessions, show under that model. For multi-model, under the first model.
         stats += formatSubSessionsList(subSessions, contextLimit, outputLimit);
       } else if (peakContext > 0) {
         // Issue #1526: Single line format for context window + output tokens
@@ -394,18 +391,22 @@ export const buildBudgetStatsString = tokenUsage => {
       // Cumulative totals are shown on the Total line below — no duplication needed.
 
       // Cumulative totals per model: input tokens + cached shown separately
-      // Issue #1526: Shorter format — single "Total:" line
+      // Issue #1547: Parenthesized cached format: (X + Y cached) input tokens
       const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
       const cachedTokens = usage.cacheReadTokens;
-      let totalLine = `${formatTokensCompact(totalInputNonCached)}`;
-      if (cachedTokens > 0) totalLine += ` + ${formatTokensCompact(cachedTokens)} cached`;
-      totalLine += ` input tokens, ${formatTokensCompact(usage.outputTokens)} output tokens`;
+      let totalLine;
+      if (cachedTokens > 0) {
+        totalLine = `(${formatTokensCompact(totalInputNonCached)} + ${formatTokensCompact(cachedTokens)} cached) input tokens`;
+      } else {
+        totalLine = `${formatTokensCompact(totalInputNonCached)} input tokens`;
+      }
 
-      // Issue #1539: When peakContextUsage is unknown (no per-request data), embed
-      // output token percentage in the Total line so no data is lost.
+      // Issue #1547: Consistent output format — use X / Y (Z%) output tokens when limit known
       if (peakContext === 0 && outputLimit) {
         const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
-        totalLine += ` (${outPct}% of ${formatTokensCompact(outputLimit)} output limit)`;
+        totalLine += `, ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`;
+      } else {
+        totalLine += `, ${formatTokensCompact(usage.outputTokens)} output tokens`;
       }
 
       // Issue #1508: Show per-model cost when available

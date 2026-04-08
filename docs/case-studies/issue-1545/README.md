@@ -10,19 +10,19 @@ When using `/solve` with `--isolation screen` in the Telegram bot, the session m
 
 ## Timeline of Events
 
-| Timestamp (UTC)      | Event                                                                                              |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| 2026-04-08T07:28:00Z | User sends `/solve https://github.com/link-assistant/hive-mind/pull/564 --isolation screen`        |
-| 2026-04-08T07:28:04Z | `isolation-runner` generates session UUID: `54fc440a-0f4b-44f6-8191-ea630b8f73d0`                  |
-| 2026-04-08T07:28:04Z | Executes: `$ --isolated screen --detached --session 54fc440a-... -- solve <url> <args>`            |
-| 2026-04-08T07:28:04Z | `$` CLI creates its OWN internal UUID: `6a176d96-59ee-4101-9212-f45147c0bc93`                      |
-| 2026-04-08T07:28:04Z | `$` CLI launches screen session named `54fc440a-...` and immediately exits (detached mode)         |
-| 2026-04-08T07:28:04Z | `$` CLI reports exit code 0 — the wrapper itself exited, not the screen process                    |
-| 2026-04-08T07:28:04Z | Telegram bot sends success message with session `54fc440a-...`                                     |
-| 2026-04-08T07:28:04Z | Session tracked in memory with `sessionId: 54fc440a-...`                                           |
-| ~07:28:34Z           | Session monitor runs, calls `$ --status 54fc440a-...` → "No execution found"                      |
-| ~07:28:34Z           | Monitor concludes session ended (false negative), sends premature completion notification           |
-| (continuing)         | Screen session `54fc440a-...` is STILL running (`screen -r 54fc440a-...` works)                    |
+| Timestamp (UTC)      | Event                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| 2026-04-08T07:28:00Z | User sends `/solve https://github.com/link-assistant/hive-mind/pull/564 --isolation screen` |
+| 2026-04-08T07:28:04Z | `isolation-runner` generates session UUID: `54fc440a-0f4b-44f6-8191-ea630b8f73d0`           |
+| 2026-04-08T07:28:04Z | Executes: `$ --isolated screen --detached --session 54fc440a-... -- solve <url> <args>`     |
+| 2026-04-08T07:28:04Z | `$` CLI creates its OWN internal UUID: `6a176d96-59ee-4101-9212-f45147c0bc93`               |
+| 2026-04-08T07:28:04Z | `$` CLI launches screen session named `54fc440a-...` and immediately exits (detached mode)  |
+| 2026-04-08T07:28:04Z | `$` CLI reports exit code 0 — the wrapper itself exited, not the screen process             |
+| 2026-04-08T07:28:04Z | Telegram bot sends success message with session `54fc440a-...`                              |
+| 2026-04-08T07:28:04Z | Session tracked in memory with `sessionId: 54fc440a-...`                                    |
+| ~07:28:34Z           | Session monitor runs, calls `$ --status 54fc440a-...` → "No execution found"                |
+| ~07:28:34Z           | Monitor concludes session ended (false negative), sends premature completion notification   |
+| (continuing)         | Screen session `54fc440a-...` is STILL running (`screen -r 54fc440a-...` works)             |
 
 ## Root Cause Analysis
 
@@ -31,6 +31,7 @@ When using `/solve` with `--isolation screen` in the Telegram bot, the session m
 The `$` CLI from `start-command` generates its own internal UUID (`6a176d96-...`) for tracking executions. The `--session` parameter (`54fc440a-...`) is passed through to the isolation backend (screen) as the session name, but `$ --status` only looks up executions by the internal UUID.
 
 **Evidence:**
+
 ```
 $ $ --status 54fc440a-0f4b-44f6-8191-ea630b8f73d0
 Error: No execution found with UUID: 54fc440a-0f4b-44f6-8191-ea630b8f73d0
@@ -48,6 +49,7 @@ The `$ --session <name>` flag allows setting a custom screen session name, but t
 When `$ --isolated screen --detached` is used, the `$` wrapper itself exits immediately after launching the screen session. It reports `status: executed, exitCode: 0` — tracking the wrapper's lifecycle, not the actual screen process inside.
 
 **Evidence:**
+
 ```
   status executed
   exitCode 0
@@ -66,6 +68,7 @@ The session monitor in `session-monitor.lib.mjs` uses `$ --status <sessionId>` a
 For screen-backend isolation, the monitor should fall back to `screen -ls` to verify the session is actually gone before declaring it complete.
 
 **Code path:**
+
 ```
 monitorSessions() → checkIsolatedSessionRunning(sessionId)
   → querySessionStatus(sessionId)     // $ --status → "not found" or "executed"
@@ -102,12 +105,12 @@ Two bugs should be filed against `link-foundation/start`:
 
 ## Files Involved
 
-| File                              | Role                                               |
-| --------------------------------- | -------------------------------------------------- |
-| `src/session-monitor.lib.mjs`     | Session monitoring — needs screen -ls fallback      |
-| `src/isolation-runner.lib.mjs`    | Isolation execution — needs UUID extraction + fallback |
-| `src/telegram-isolation.lib.mjs`  | Per-command isolation resolution                    |
-| `src/telegram-bot.mjs` (line 590-618) | `executeAndUpdateMessage()` — session tracking   |
+| File                                  | Role                                                   |
+| ------------------------------------- | ------------------------------------------------------ |
+| `src/session-monitor.lib.mjs`         | Session monitoring — needs screen -ls fallback         |
+| `src/isolation-runner.lib.mjs`        | Isolation execution — needs UUID extraction + fallback |
+| `src/telegram-isolation.lib.mjs`      | Per-command isolation resolution                       |
+| `src/telegram-bot.mjs` (line 590-618) | `executeAndUpdateMessage()` — session tracking         |
 
 ## References
 

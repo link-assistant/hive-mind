@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.47.2
+
+### Patch Changes
+
+- 7afe67b: Fix ghPrView false positive on "Could not resolve" in PR body causing "Failed to get PR details" error on fork PRs, and add stdio log interceptor for terminal/log output parity
+
 ## 1.47.1
 
 ### Patch Changes

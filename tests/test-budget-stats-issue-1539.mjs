@@ -99,7 +99,7 @@ runTest('Haiku with peakContextUsage=0 does NOT show cumulative as context windo
   // Issue #1539: Context window line should be skipped entirely for unknown peak.
   // Output percentage is embedded in the Total line instead.
   assertNotContains(result, 'Context window: 7K / 64K output tokens', 'Should NOT show separate context window line for Haiku');
-  assertContains(result, '11% of 64K output limit', 'Should embed output percentage in Total line');
+  assertContains(result, '7K / 64K (11%) output tokens', 'Should show output percentage in Total line');
 
   // Cumulative totals on Total: line should be unaffected
   assertContains(result, '70.5K', 'Should show Haiku non-cached input in Total');
@@ -129,8 +129,8 @@ runTest('Opus with peakContextUsage > 0 still shows context window normally', ()
   };
 
   const result = buildBudgetStatsString(tokenUsage);
-  assertContains(result, '109.9K / 1M input tokens (11%)', 'Should show Opus context window');
-  assertContains(result, '30.7K / 128K output tokens (24%)', 'Should show Opus output tokens');
+  assertContains(result, '109.9K / 1M (11%) input tokens', 'Should show Opus context window');
+  assertContains(result, '30.7K / 128K (24%) output tokens', 'Should show Opus output tokens');
 });
 
 // ==== Test Group: Context window never exceeds 100% ====
@@ -159,7 +159,7 @@ runTest('peakContextUsage near context limit shows valid percentage', () => {
   };
 
   const result = buildBudgetStatsString(tokenUsage);
-  assertContains(result, '190K / 200K input tokens (95%)', 'Should show 95% context usage');
+  assertContains(result, '190K / 200K (95%) input tokens', 'Should show 95% context usage');
 });
 
 runTest('zero peakContextUsage with large cumulative does NOT show impossible percentage', () => {
@@ -193,7 +193,7 @@ runTest('zero peakContextUsage with large cumulative does NOT show impossible pe
   // Total line should still show all token data plus output percentage
   assertContains(result, '100K', 'Should show non-cached input in Total');
   assertContains(result, '900K cached', 'Should show cached tokens in Total');
-  assertContains(result, '31% of 32K output limit', 'Should embed output percentage in Total line');
+  assertContains(result, '10K / 32K (31%) output tokens', 'Should show output percentage in Total line');
 });
 
 // ==== Test Group: Sub-sessions with unknown peak ====
@@ -227,7 +227,7 @@ runTest('sub-session with peakContextUsage=0 skips input context but shows outpu
   const result = buildBudgetStatsString(tokenUsage);
   // Sub-session 1: peakContextUsage=0 → no input context shown
   // Sub-session 2: peakContextUsage=45000 → shown as 45K / 200K (23%)
-  assertContains(result, '45K / 200K input tokens (23%)', 'Sub-session 2 should show context');
+  assertContains(result, '45K / 200K (23%) input tokens', 'Sub-session 2 should show context');
   // Sub-session 1 should NOT show cumulative (235K / 200K = 118%)
   assertNotContains(result, '118%', 'Sub-session 1 should NOT show impossible percentage');
   assertNotContains(result, '235K / 200K', 'Sub-session 1 should NOT show cumulative as context');
@@ -259,8 +259,8 @@ runTest('sub-session with peakContextUsage > 0 displays normally', () => {
   };
 
   const result = buildBudgetStatsString(tokenUsage);
-  assertContains(result, '80K / 200K input tokens (40%)', 'Sub-session 1 should show peak context');
-  assertContains(result, '45K / 200K input tokens (23%)', 'Sub-session 2 should show peak context');
+  assertContains(result, '80K / 200K (40%) input tokens', 'Sub-session 1 should show peak context');
+  assertContains(result, '45K / 200K (23%) input tokens', 'Sub-session 2 should show peak context');
 });
 
 // ==== Test Group: displayBudgetStats (async version) ====
@@ -286,7 +286,7 @@ runTest('displayBudgetStats skips input context when peakContextUsage is 0', asy
   assertNotContains(output, '250%', 'Should NOT show 250%');
   assertNotContains(output, 'Context window:', 'Should NOT show context window line when peak is 0');
   // Output percentage should be embedded in Total line
-  assertContains(output, '11% of 64 000 output limit', 'Should embed output percentage in Total line');
+  assertContains(output, '7 000 / 64 000 (11%) output tokens', 'Should show output percentage in Total line');
 });
 
 runTest('displayBudgetStats shows input context when peakContextUsage > 0', async () => {
@@ -305,8 +305,8 @@ runTest('displayBudgetStats shows input context when peakContextUsage > 0', asyn
   await displayBudgetStats(usage, tokenUsage, log);
 
   const output = logLines.join('\n');
-  assertContains(output, '150 000 / 200 000 input tokens (75%)', 'Should show peak context usage');
-  assertContains(output, '/ 64 000 output tokens', 'Should show output tokens');
+  assertContains(output, '150 000 / 200 000 (75%) input tokens', 'Should show peak context usage');
+  assertContains(output, '/ 64 000 (11%) output tokens', 'Should show output tokens');
 });
 
 // ==== Test Group: mergeResultModelUsage extracts contextWindow and maxOutputTokens ====

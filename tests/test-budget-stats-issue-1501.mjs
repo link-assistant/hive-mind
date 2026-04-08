@@ -110,7 +110,7 @@ runTest('output format shows totals with cached tokens separately', () => {
   };
   const result = buildBudgetStatsString(tokenUsage, null);
   // Issue #1526: Shorter total format
-  assertContains(result, '60K + 200K cached input tokens', 'Should show input + cached separately');
+  assertContains(result, '(60K + 200K cached) input tokens', 'Should show input + cached separately');
   assertContains(result, '15K output tokens', 'Should show output tokens');
 });
 
@@ -221,8 +221,8 @@ runTest('single sub-session shows simplified format', () => {
   const result = buildBudgetStatsString(tokenUsage, null);
   // Issue #1526: Single-line format with context + output on one line
   assertContains(result, 'Context window:', 'Should show Context window');
-  assertContains(result, '850K / 1M input tokens', 'Should show peak context');
-  assertContains(result, '82.4K / 128K output tokens', 'Should show output tokens');
+  assertContains(result, '850K / 1M (85%) input tokens', 'Should show peak context');
+  assertContains(result, '82.4K / 128K (64%) output tokens', 'Should show output tokens');
   assertNotContains(result, 'Sub sessions', 'Single sub-session should NOT show sub-sessions list');
 });
 

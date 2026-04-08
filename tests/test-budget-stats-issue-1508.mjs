@@ -148,9 +148,9 @@ runTest('multi-model shows per-model cached tokens', () => {
 runTest('multi-model shows per-model output tokens', () => {
   const result = buildBudgetStatsString(makeMultiModelTokenUsage());
   // Opus output: 20,546 ≈ 20.5K
-  assertContains(result, '20.5K output', 'Should show Opus output tokens');
-  // Haiku output: 5,411 ≈ 5.4K
-  assertContains(result, '5.4K output', 'Should show Haiku output tokens');
+  assertContains(result, '20.5K output tokens', 'Should show Opus output tokens');
+  // Haiku output: 5,411 ≈ 5.4K — shown with limit in Total line since peakContextUsage is 0
+  assertContains(result, '5.4K / 32K', 'Should show Haiku output tokens');
 });
 
 runTest('multi-model shows per-model cost on Total line', () => {
@@ -299,20 +299,20 @@ console.log('\n📋 Test Group: Per-model context window and max output tokens\n
 runTest('multi-model single sub-session shows per-model context window', () => {
   const result = buildBudgetStatsString(makeMultiModelTokenUsage());
   // Opus: peakContextUsage 71907 / contextLimit 1000000 = 7% — shown as single-line format
-  assertContains(result, '71.9K / 1M input tokens (7%)', 'Should show Opus context window usage');
+  assertContains(result, '71.9K / 1M (7%) input tokens', 'Should show Opus context window usage');
   // Issue #1539: Haiku peakContextUsage is 0 — context window line skipped entirely.
   // Output percentage is embedded in the Total line instead.
   assertNotContains(result, '765.5K / 200K input tokens (383%)', 'Should NOT show cumulative as context window');
   assertNotContains(result, '/ 200K input tokens', 'Should NOT show any input token context for Haiku when peak is unknown');
-  assertContains(result, '17% of 32K output limit', 'Should embed Haiku output percentage in Total line');
+  assertContains(result, '5.4K / 32K (17%) output tokens', 'Should show Haiku output percentage in Total line');
 });
 
 runTest('multi-model single sub-session shows per-model max output tokens', () => {
   const result = buildBudgetStatsString(makeMultiModelTokenUsage());
   // Opus: 20546 output / 128000 outputLimit = 16%
-  assertContains(result, '20.5K / 128K output tokens (16%)', 'Should show Opus max output usage');
-  // Haiku: 5411 / 32000 = 17% — embedded in Total line since peakContextUsage is 0
-  assertContains(result, '17% of 32K output limit', 'Should embed Haiku output percentage in Total line');
+  assertContains(result, '20.5K / 128K (16%) output tokens', 'Should show Opus max output usage');
+  // Haiku: 5411 / 32000 = 17% — shown in Total line with consistent format since peakContextUsage is 0
+  assertContains(result, '5.4K / 32K (17%) output tokens', 'Should show Haiku output percentage in Total line');
 });
 
 runTest('multi-model multi sub-sessions shows global sub-sessions AND per-model context/output', () => {
@@ -329,10 +329,10 @@ runTest('multi-model multi sub-sessions shows global sub-sessions AND per-model 
   // Per-model headings
   assertContains(result, '**Claude Opus 4.6:**', 'Should show Opus heading');
   assertContains(result, '**Claude Haiku 4.5:**', 'Should show Haiku heading');
-  // Per-model output limits shown (Opus 128K, Haiku 32K)
-  assertContains(result, '20.5K / 128K output tokens', 'Should show Opus output usage');
-  // Haiku peakContextUsage is 0, so output percentage is in Total line
-  assertContains(result, '17% of 32K output limit', 'Should embed Haiku output percentage in Total line');
+  // Per-model output limits shown in sub-sessions (Opus 128K) and Total line (Haiku 32K)
+  assertContains(result, '/ 128K', 'Should show Opus output limit in sub-sessions');
+  // Haiku peakContextUsage is 0, so output percentage uses consistent format in Total line
+  assertContains(result, '5.4K / 32K (17%) output tokens', 'Should show Haiku output percentage in Total line');
 });
 
 // ==== Summary ====

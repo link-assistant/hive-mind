@@ -76,14 +76,14 @@ runTest('single sub-session shows simplified format with context/output on singl
   const result = buildBudgetStatsString(makeTokenUsage({ peakContext: 65000 }), null);
   assertContains(result, '📊 **Context and tokens usage:**', 'Should have new header');
   // Issue #1526: Single-line format
-  assertContains(result, 'Context window: 65K / 200K input tokens (33%), 15K / 64K output tokens (23%)', 'Should show context+output on single line');
+  assertContains(result, 'Context window: 65K / 200K (33%) input tokens, 15K / 64K (23%) output tokens', 'Should show context+output on single line');
   assertContains(result, 'Total:', 'Should show total line');
 });
 
 runTest('shows cached tokens separately in totals', () => {
   const result = buildBudgetStatsString(makeTokenUsage({ input: 50000, cacheCreate: 10000, cacheRead: 5000 }), null);
   // Issue #1526: Shorter total format
-  assertContains(result, '60K + 5K cached input tokens', 'Should show input + cached separately');
+  assertContains(result, '(60K + 5K cached) input tokens', 'Should show input + cached separately');
 });
 
 runTest('does not show cached when zero', () => {
@@ -190,7 +190,7 @@ console.log('\n📋 Test Group: Edge cases\n');
 runTest('handles zero tokens gracefully', () => {
   const result = buildBudgetStatsString(makeTokenUsage({ input: 0, cacheCreate: 0, cacheRead: 0, output: 0, peakContext: 0 }), null);
   // Issue #1526: Shorter total format
-  assertContains(result, 'Total: 0 input tokens, 0 output tokens', 'Should show 0 for zero tokens');
+  assertContains(result, 'Total: 0 input tokens, 0 / 64K (0%) output tokens', 'Should show 0 for zero tokens');
 });
 
 runTest('handles multiple compactifications with numbered sub-sessions', () => {

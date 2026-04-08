@@ -47,6 +47,7 @@ export const claudeModels = {
 
 // Agent models (OpenCode API and Kilo Gateway via agent CLI)
 // Issue #1300: Updated free models to match agent PR #191
+// Issue #1543: Added qwen3.6-plus-free (new default) and nemotron-3-super-free per agent PR #234
 export const agentModels = {
   // OpenCode Zen free models (current)
   grok: 'opencode/grok-code',
@@ -54,7 +55,9 @@ export const agentModels = {
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
-  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // New: upgraded from M2.1 (Issue #1391: now default)
+  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // Upgraded from M2.1 (Issue #1391)
+  'qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // New: ~1M context, default (Issue #1543)
+  'nemotron-3-super-free': 'opencode/nemotron-3-super-free', // New: NVIDIA hybrid Mamba-Transformer (Issue #1543)
   // Kilo Gateway free models (Issue #1282, updated in #1300)
   // Short names for Kilo-exclusive models (Issue #1300)
   'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive
@@ -112,7 +115,7 @@ export const codexModels = {
 // Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
 export const defaultModels = {
   claude: 'sonnet',
-  agent: 'minimax-m2.5-free',
+  agent: 'qwen3.6-plus-free', // Issue #1543: changed from minimax-m2.5-free per agent PR #234
   opencode: 'grok-code-fast-1',
   codex: 'gpt-5',
 };
@@ -140,6 +143,8 @@ export const freeToBaseModelMap = {
   'glm-4.7-free': 'glm-4.7',
   'minimax-m2.1-free': 'minimax-m2.1',
   'minimax-m2.5-free': 'minimax-m2.5',
+  'qwen3.6-plus-free': 'qwen3.6-plus', // Issue #1543
+  'nemotron-3-super-free': 'nemotron-3-super', // Issue #1543
   'glm-5-free': 'glm-5',
   'glm-4.5-air-free': 'glm-4.5-air',
   'deepseek-r1-free': 'deepseek-r1',
@@ -187,6 +192,8 @@ export const AGENT_MODELS = {
   'opencode/big-pickle': 'opencode/big-pickle',
   'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
   'opencode/minimax-m2.5-free': 'opencode/minimax-m2.5-free',
+  'opencode/qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Issue #1543
+  'opencode/nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Issue #1543
   'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated
   'opencode/glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated
   'opencode/minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated
@@ -297,7 +304,7 @@ export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan'],
   opencode: ['grok', 'gpt4o'],
   codex: ['gpt5', 'gpt5-codex', 'o3'],
-  agent: ['minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
+  agent: ['qwen3.6-plus-free', 'nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
 };
 
 /**

@@ -27,6 +27,7 @@ Hive-mind needed to sync these changes to stay aligned with the upstream agent C
 **Why it's the new default:** Its ~1M context window is 5x larger than `minimax-m2.5-free` (~200K), resulting in fewer compaction cycles and better long-running agent performance for issue-solving tasks.
 
 Sources:
+
 - [Qwen 3.6 Plus Preview on OpenRouter](https://openrouter.ai/qwen/qwen3.6-plus-preview)
 - [Qwen 3.6 Blog Post](https://qwen.ai/blog?id=qwen3.6)
 - [Qwen 3.6 Plus Review (BuildFastWithAI)](https://www.buildfastwithai.com/blogs/qwen-3-6-plus-preview-review)
@@ -43,32 +44,33 @@ Sources:
 - **Open Weights:** Yes
 
 Sources:
+
 - [NVIDIA Nemotron 3 Super Blog](https://developer.nvidia.com/blog/introducing-nemotron-3-super-an-open-hybrid-mamba-transformer-moe-for-agentic-reasoning/)
 - [NVIDIA Nemotron 3 Super on OpenRouter](https://openrouter.ai/nvidia/nemotron-3-super-120b-a12b:free)
 - [NVIDIA NIM Model Card](https://build.nvidia.com/nvidia/nemotron-3-super-120b-a12b/modelcard)
 
 ## Context Window Comparison (OpenCode Zen Free Models, April 2026)
 
-| Model                  | Context     | Output   | Notes                                     |
-| ---------------------- | ----------- | -------- | ----------------------------------------- |
-| big-pickle             | ~200,000    | 128,000  | Stealth model, free during evaluation     |
-| minimax-m2.5-free      | ~200,000    | 131,072  | Former default, general-purpose           |
-| nemotron-3-super-free  | ~262,144    | 262,144  | NVIDIA hybrid Mamba-Transformer           |
-| gpt-5-nano             | ~400,000    | 128,000  | OpenAI, smallest GPT-5 variant            |
-| qwen3.6-plus-free      | ~1,000,000  | 65,536   | **New default**, largest context           |
+| Model                 | Context    | Output  | Notes                                 |
+| --------------------- | ---------- | ------- | ------------------------------------- |
+| big-pickle            | ~200,000   | 128,000 | Stealth model, free during evaluation |
+| minimax-m2.5-free     | ~200,000   | 131,072 | Former default, general-purpose       |
+| nemotron-3-super-free | ~262,144   | 262,144 | NVIDIA hybrid Mamba-Transformer       |
+| gpt-5-nano            | ~400,000   | 128,000 | OpenAI, smallest GPT-5 variant        |
+| qwen3.6-plus-free     | ~1,000,000 | 65,536  | **New default**, largest context      |
 
 ## Solution
 
 ### Changes Made
 
-| Area       | File                          | Change                                                       |
-| ---------- | ----------------------------- | ------------------------------------------------------------ |
-| **Core**   | `src/models/index.mjs`        | Add new models to agentModels, AGENT_MODELS, freeToBaseModelMap, primaryModelNames; change defaultModels.agent |
-| **Docs**   | `docs/FREE_MODELS.md`         | Add new models, update default references, usage examples    |
-| **Docs**   | `README.md`                   | Update free model examples                                   |
-| **Tests**  | `tests/test-free-models.mjs`  | Add new models to test arrays, update default model test     |
-| **Docs**   | `docs/case-studies/issue-1543/` | This case study                                            |
-| **Release**| `.changeset/`                 | Changeset for minor version bump                             |
+| Area        | File                            | Change                                                                                                         |
+| ----------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Core**    | `src/models/index.mjs`          | Add new models to agentModels, AGENT_MODELS, freeToBaseModelMap, primaryModelNames; change defaultModels.agent |
+| **Docs**    | `docs/FREE_MODELS.md`           | Add new models, update default references, usage examples                                                      |
+| **Docs**    | `README.md`                     | Update free model examples                                                                                     |
+| **Tests**   | `tests/test-free-models.mjs`    | Add new models to test arrays, update default model test                                                       |
+| **Docs**    | `docs/case-studies/issue-1543/` | This case study                                                                                                |
+| **Release** | `.changeset/`                   | Changeset for minor version bump                                                                               |
 
 ### Backward Compatibility
 

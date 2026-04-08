@@ -285,16 +285,16 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 ## Provider Comparison
 
-| Feature       | OpenCode Zen                                     | Kilo Gateway             |
-| ------------- | ------------------------------------------------ | ------------------------ |
-| Free Models   | 5 models                                         | 6 models                 |
-| Default Model | qwen3.6-plus-free (~1M context)                  | glm-5-free (recommended) |
-| API Format    | OpenAI-compatible                                | OpenAI-compatible        |
-| Free API Key  | `public`                                         | `public`                 |
-| Total Models  | 50+                                              | 500+                     |
-| Flagship Free | Qwen 3.6 Plus (~1M context)                      | GLM-5 (limited time)     |
-| BYOK Support  | Yes                                              | Yes                      |
-| New Models    | Qwen 3.6 Plus, Nemotron 3 Super (Issue #1543)   | DeepSeek R1, GLM 4.5 Air |
+| Feature       | OpenCode Zen                                  | Kilo Gateway             |
+| ------------- | --------------------------------------------- | ------------------------ |
+| Free Models   | 5 models                                      | 6 models                 |
+| Default Model | qwen3.6-plus-free (~1M context)               | glm-5-free (recommended) |
+| API Format    | OpenAI-compatible                             | OpenAI-compatible        |
+| Free API Key  | `public`                                      | `public`                 |
+| Total Models  | 50+                                           | 500+                     |
+| Flagship Free | Qwen 3.6 Plus (~1M context)                   | GLM-5 (limited time)     |
+| BYOK Support  | Yes                                           | Yes                      |
+| New Models    | Qwen 3.6 Plus, Nemotron 3 Super (Issue #1543) | DeepSeek R1, GLM 4.5 Air |
 
 ---
 

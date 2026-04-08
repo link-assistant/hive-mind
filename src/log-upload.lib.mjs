@@ -69,6 +69,15 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     const urlMatch = output.match(/🔗\s+(https:\/\/[^\s\n]+)/);
     if (urlMatch) {
       result.url = urlMatch[1].trim();
+
+      // Validate URL - detect malformed URLs like https://github.com//repo (double slash)
+      // This can happen when gh-upload-log fails to get GitHub username due to network issues
+      // See: https://github.com/link-assistant/hive-mind/issues/1317
+      if (result.url.includes('github.com//') || result.url.match(/github\.com\/[^/]*\/\//) || result.url.endsWith('/')) {
+        await log(`  ⚠️  gh-upload-log returned malformed URL (possible network issue during upload): ${result.url}`);
+        // Still return the URL so it can be logged, but mark as potentially invalid
+        result.urlMalformed = true;
+      }
     }
 
     // Determine type from output

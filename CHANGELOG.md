@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.48.0
+
+### Minor Changes
+
+- 28f7ace: Add /do and /continue as alias commands for /solve in telegram bot
+
 ## 1.47.2
 
 ### Patch Changes

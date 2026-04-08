@@ -111,11 +111,8 @@ try {
 }
 global.verboseMode = argv.verbose;
 
-// Issue #1466: Intercept console.log to capture [VERBOSE] output in log files
-setupVerboseLogInterceptor();
-// Issue #1549: Intercept process.stdout/stderr.write to capture ALL terminal output in the log file
-// This ensures command-stream's mirror output (e.g., gh CLI JSON responses) is also logged
-setupStdioLogInterceptor();
+setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
+setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
 
 // Early logs go to cwd; custom log dir takes effect after argv is parsed
 

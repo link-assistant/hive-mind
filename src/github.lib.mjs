@@ -1328,10 +1328,6 @@ export async function ghPrView({ prNumber, owner, repo, jsonFields = 'headRefNam
     const stderr = prResult.stderr ? prResult.stderr.toString() : '';
     const code = prResult.code || 0;
     let data = null;
-    // Issue #1549: Only check exit code and stderr for errors, NOT stdout content.
-    // Previously checked stdout.includes('Could not resolve') which caused false positives
-    // when PR body text happened to contain that string (e.g. code examples with
-    // "Could not resolve sender info").
     if (code === 0 && stdout && !(stderr && stderr.includes('Could not resolve'))) {
       try {
         data = JSON.parse(stdout);
@@ -1372,8 +1368,6 @@ export async function ghIssueView({ issueNumber, owner, repo, jsonFields = 'numb
     const stderr = issueResult.stderr ? issueResult.stderr.toString() : '';
     const code = issueResult.code || 0;
     let data = null;
-    // Issue #1549: Only check exit code and stderr for errors, NOT stdout content.
-    // Same fix as ghPrView - avoid false positives from issue body content.
     if (code === 0 && stdout && !(stderr && stderr.includes('Could not resolve'))) {
       try {
         data = JSON.parse(stdout);

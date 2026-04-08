@@ -54,53 +54,53 @@ const tests = [
   {
     name: '/do command with basic URL',
     input: '/do https://github.com/test/repo/issues/1',
-    expected: ['https://github.com/test/repo/issues/1']
+    expected: ['https://github.com/test/repo/issues/1'],
   },
   {
     name: '/do command with options',
     input: '/do https://github.com/test/repo/issues/1 --fork --auto-continue',
-    expected: ['https://github.com/test/repo/issues/1', '--fork', '--auto-continue']
+    expected: ['https://github.com/test/repo/issues/1', '--fork', '--auto-continue'],
   },
   {
     name: '/continue command with basic URL',
     input: '/continue https://github.com/test/repo/issues/2',
-    expected: ['https://github.com/test/repo/issues/2']
+    expected: ['https://github.com/test/repo/issues/2'],
   },
   {
     name: '/continue command with options',
     input: '/continue https://github.com/test/repo/issues/2 --verbose --attach-logs',
-    expected: ['https://github.com/test/repo/issues/2', '--verbose', '--attach-logs']
+    expected: ['https://github.com/test/repo/issues/2', '--verbose', '--attach-logs'],
   },
   {
     name: '/solve command still works',
     input: '/solve https://github.com/test/repo/issues/3 --fork',
-    expected: ['https://github.com/test/repo/issues/3', '--fork']
+    expected: ['https://github.com/test/repo/issues/3', '--fork'],
   },
   {
     name: '/do with model option',
     input: '/do https://github.com/test/repo/issues/4 --model sonnet',
-    expected: ['https://github.com/test/repo/issues/4', '--model', 'sonnet']
+    expected: ['https://github.com/test/repo/issues/4', '--model', 'sonnet'],
   },
   {
     name: '/continue with think option',
     input: '/continue https://github.com/test/repo/issues/5 --think high',
-    expected: ['https://github.com/test/repo/issues/5', '--think', 'high']
+    expected: ['https://github.com/test/repo/issues/5', '--think', 'high'],
   },
   {
     name: '/do with em-dash',
     input: '/do https://github.com/test/repo/issues/6 —fork',
-    expected: ['https://github.com/test/repo/issues/6', '--fork']
+    expected: ['https://github.com/test/repo/issues/6', '--fork'],
   },
   {
     name: '/continue with em-dash',
     input: '/continue https://github.com/test/repo/issues/7 —verbose',
-    expected: ['https://github.com/test/repo/issues/7', '--verbose']
+    expected: ['https://github.com/test/repo/issues/7', '--verbose'],
   },
   {
     name: '/do with multiple options',
     input: '/do https://github.com/test/repo/issues/8 --fork --auto-continue --attach-logs --verbose',
-    expected: ['https://github.com/test/repo/issues/8', '--fork', '--auto-continue', '--attach-logs', '--verbose']
-  }
+    expected: ['https://github.com/test/repo/issues/8', '--fork', '--auto-continue', '--attach-logs', '--verbose'],
+  },
 ];
 
 let passed = 0;

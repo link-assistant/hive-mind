@@ -37,7 +37,7 @@ const _helpersBot = helpersModuleBot.default || helpersModuleBot;
 const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
-const { parseGitHubUrl } = await import('./github.lib.mjs');
+const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');
 const { validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
 const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
 const { extractIsolationFromArgs, isValidPerCommandIsolation, resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
@@ -989,6 +989,37 @@ async function handleSolveCommand(ctx) {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
+  }
+
+  // Issue #1552: Validate GitHub entity existence before queueing/executing
+  // This prevents wasting resources on non-existent users, repos, or issues
+  {
+    const parsed = validation.parsed;
+
+    // If --auto-accept-invite is in args, try accepting invitations first
+    // so that newly-accepted repos become accessible for entity checks
+    const hasAutoAcceptInvite = args.some(a => a === '--auto-accept-invite');
+    if (hasAutoAcceptInvite && parsed.owner && parsed.repo) {
+      try {
+        const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
+        const noop = async () => {}; // Telegram bot doesn't need verbose log output here
+        await autoAcceptInviteForRepo(parsed.owner, parsed.repo, noop, false);
+      } catch (e) {
+        VERBOSE && console.log(`[VERBOSE] Auto-accept invite pre-check failed: ${e.message}`);
+      }
+    }
+
+    const entityCheck = await validateGitHubEntityExistence({
+      owner: parsed.owner,
+      repo: parsed.repo,
+      number: parsed.number,
+      type: parsed.type,
+      verbose: VERBOSE,
+    });
+    if (!entityCheck.valid) {
+      await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
   }
 
   // Use normalized URL from validation to ensure consistent duplicate detection

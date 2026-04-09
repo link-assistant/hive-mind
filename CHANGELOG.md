@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.48.1
+
+### Patch Changes
+
+- Validate GitHub entity existence (user/org, repository, issue/PR) before executing /solve command. The telegram bot and solve CLI now fail immediately with helpful error messages when targeting non-existent entities, preventing wasted resources and providing faster feedback.
+
 ## 1.48.0
 
 ### Minor Changes

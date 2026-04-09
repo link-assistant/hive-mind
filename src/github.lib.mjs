@@ -1540,7 +1540,9 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
               if (issueCheck.code === 0 && issueCheck.data) {
                 suggestion = `\n\n💡 However, Issue #${number} exists: "${issueCheck.data.title}"\n   Did you mean: https://github.com/${owner}/${repo}/issues/${number}`;
               }
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
             return {
               valid: false,
               error: `Pull request #${number} does not exist in ${owner}/${repo}.${suggestion}\n\n💡 Please check:\n• The PR number is correct\n• The PR has not been deleted`,
@@ -1566,7 +1568,9 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
               if (prCheck.code === 0 && prCheck.data) {
                 suggestion = `\n\n💡 However, Pull Request #${number} exists: "${prCheck.data.title}"\n   Did you mean: https://github.com/${owner}/${repo}/pull/${number}`;
               }
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
             return {
               valid: false,
               error: `Issue #${number} does not exist in ${owner}/${repo}.${suggestion}\n\n💡 Please check:\n• The issue number is correct\n• The issue has not been deleted or transferred`,

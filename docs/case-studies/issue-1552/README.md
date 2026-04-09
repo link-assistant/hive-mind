@@ -19,16 +19,19 @@ When a user runs `/solve https://github.com/1Anastasios1/Magic-Quintet/issues/2 
 ### Problem: No entity existence check before execution
 
 The `/solve` command in `telegram-bot.mjs` validates:
+
 - URL **format** (is it a valid GitHub issue/PR URL?)
 - Command **options** (model name, branch name, isolation backend, yargs config)
 - Queue **availability** (duplicates, resource limits)
 
 But it does **not** check whether the referenced GitHub entities actually exist:
+
 - Does the **user/organization** (`1Anastasios1`) exist?
 - Does the **repository** (`Magic-Quintet`) exist and is it accessible?
 - Does the **issue** (`#2`) exist?
 
 Similarly, `solve.mjs` validates:
+
 - URL format
 - System resources (disk, memory)
 - Tool connections (Claude CLI)
@@ -65,6 +68,7 @@ Validates entities in hierarchical order using GitHub API:
 3. **Issue/PR**: Uses existing `ghIssueView()` / `ghPrView()` functions
 
 Key design decisions:
+
 - Checks entities **in order** (user -> repo -> issue/PR), failing fast at the first missing entity
 - **Only blocks on 404 errors** - network/auth errors are logged but don't prevent execution (to avoid false positives)
 - Provides **helpful suggestions** (e.g., "Did you mean the issue URL?" when PR doesn't exist but issue does)
@@ -83,16 +87,17 @@ Key design decisions:
 
 ## Affected Components
 
-| Component | File | Change |
-|-----------|------|--------|
-| Entity validation | `src/github.lib.mjs` | New `validateGitHubEntityExistence()` function |
-| Telegram /solve | `src/telegram-bot.mjs` | Added entity check before queueing |
-| Solve CLI | `src/solve.mjs` | Added entity check after auto-accept-invite |
-| Tests | `tests/test-entity-validation-1552.mjs` | 13 unit tests for validation logic |
+| Component         | File                                    | Change                                         |
+| ----------------- | --------------------------------------- | ---------------------------------------------- |
+| Entity validation | `src/github.lib.mjs`                    | New `validateGitHubEntityExistence()` function |
+| Telegram /solve   | `src/telegram-bot.mjs`                  | Added entity check before queueing             |
+| Solve CLI         | `src/solve.mjs`                         | Added entity check after auto-accept-invite    |
+| Tests             | `tests/test-entity-validation-1552.mjs` | 13 unit tests for validation logic             |
 
 ## Test Coverage
 
 13 unit tests covering:
+
 - Non-existent user/organization detection
 - Non-existent repository detection
 - Non-existent issue detection
@@ -106,6 +111,7 @@ Key design decisions:
 ## Before/After Behavior
 
 ### Before (buggy)
+
 ```
 User: /solve https://github.com/1Anastasios1/Magic-Quintet/issues/2 --tool agent
 Bot:  ✅ Solve command started successfully!
@@ -114,6 +120,7 @@ Bot:  ✅ Solve command started successfully!
 ```
 
 ### After (fixed)
+
 ```
 User: /solve https://github.com/1Anastasios1/Magic-Quintet/issues/2 --tool agent
 Bot:  ❌ Issue #2 does not exist in 1Anastasios1/Magic-Quintet.

@@ -310,6 +310,26 @@ if (argv.autoAcceptInvite) {
   await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
 }
 
+// Issue #1552: Validate GitHub entity existence before doing any work
+// This prevents wasting resources on non-existent users, repos, or issues/PRs
+{
+  const { validateGitHubEntityExistence } = githubLib;
+  const urlType = isIssueUrl ? 'issue' : isPrUrl ? 'pull' : undefined;
+  const entityCheck = await validateGitHubEntityExistence({
+    owner,
+    repo,
+    number: urlNumber,
+    type: urlType,
+    verbose: argv.verbose,
+  });
+  if (!entityCheck.valid) {
+    await log('');
+    await log(`❌ ${entityCheck.error}`, { level: 'error' });
+    await log('');
+    await safeExit(1, `GitHub entity not found (${entityCheck.level})`);
+  }
+}
+
 // Early check: Verify repository write permissions BEFORE doing any work
 // This prevents wasting AI tokens when user doesn't have access and --fork is not used
 const { checkRepositoryWritePermission } = githubLib;

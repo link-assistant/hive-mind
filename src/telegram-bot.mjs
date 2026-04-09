@@ -1025,12 +1025,17 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  if (check.canStart && queueStats.queued === 0) {
+  // Use tool-specific queue count so items in other tool queues don't block this tool
+  // See: https://github.com/link-assistant/hive-mind/issues/1551
+  const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0;
+  if (check.canStart && toolQueuedCount === 0) {
     const startingMessage = await safeReply(ctx, `🚀 Starting solve command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, solvePerCommandIsolation);
   } else {
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: solvePerCommandIsolation });
-    let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
+    // Show position within this tool's queue only, not across all tools
+    // See: https://github.com/link-assistant/hive-mind/issues/1551
+    let queueMessage = `📋 Solve command queued (${solveTool} queue position #${toolQueuedCount + 1})\n\n${infoBlock}`;
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };

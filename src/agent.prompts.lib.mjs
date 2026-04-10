@@ -82,7 +82,10 @@ export const buildUserPrompt = params => {
  * @returns {string} The formatted system prompt
  */
 export const buildSystemPrompt = params => {
-  const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv, modelSupportsVision } = params;
+  const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv, modelSupportsVision, forkedRepo } = params;
+
+  // When in fork mode, screenshots are pushed to the fork, not the original repo
+  const screenshotRepoPath = argv?.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;
 
   // Build thinking instruction based on --think level
   let thinkLine = '';
@@ -245,7 +248,7 @@ GitHub CLI command patterns.
 Visual UI work and screenshots.
    - When you work on visual UI changes (frontend, CSS, HTML, design), include a render or screenshot of the final result in the pull request description.
    - When you need to show visual results, take a screenshot and save it to the repository (e.g., in a docs/screenshots/ or assets/ folder).
-   - When you save screenshots to the repository, use permanent links in the pull request description markdown (e.g., https://github.com/${owner}/${repo}/blob/${branchName}/docs/screenshots/result.png?raw=true).
+   - When you save screenshots to the repository, use permanent links in the pull request description markdown (e.g., https://github.com/${screenshotRepoPath}/blob/${branchName}/docs/screenshots/result.png?raw=true).
    - When uploading images, commit them to the branch first, then reference them using the GitHub blob URL format with ?raw=true suffix (works for both public and private repositories).
    - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.
    - When fixing UI bugs, capture both the "before" (problem) and "after" (fixed) screenshots as evidence for human verification.

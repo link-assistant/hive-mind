@@ -56,13 +56,13 @@ OpenCode Zen provider discontinued the free tier for `qwen3.6-plus-free`. The mo
 
 ## Updated Free Models (OpenCode Zen, April 2026)
 
-| Model                 | Context    | Output  | Status                                    |
-| --------------------- | ---------- | ------- | ----------------------------------------- |
-| nemotron-3-super-free | ~262,144   | 262,144 | **New default**, NVIDIA hybrid Mamba-Transformer |
-| minimax-m2.5-free     | ~200,000   | 131,072 | Former default, general-purpose           |
-| gpt-5-nano            | ~400,000   | 128,000 | OpenAI, smallest GPT-5 variant            |
-| big-pickle            | ~200,000   | 128,000 | Stealth model, free during evaluation     |
-| ~~qwen3.6-plus-free~~ | ~~1,000,000~~ | ~~65,536~~ | **Discontinued** - free promotion ended |
+| Model                 | Context       | Output     | Status                                           |
+| --------------------- | ------------- | ---------- | ------------------------------------------------ |
+| nemotron-3-super-free | ~262,144      | 262,144    | **New default**, NVIDIA hybrid Mamba-Transformer |
+| minimax-m2.5-free     | ~200,000      | 131,072    | Former default, general-purpose                  |
+| gpt-5-nano            | ~400,000      | 128,000    | OpenAI, smallest GPT-5 variant                   |
+| big-pickle            | ~200,000      | 128,000    | Stealth model, free during evaluation            |
+| ~~qwen3.6-plus-free~~ | ~~1,000,000~~ | ~~65,536~~ | **Discontinued** - free promotion ended          |
 
 ## References
 

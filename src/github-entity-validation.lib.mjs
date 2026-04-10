@@ -55,7 +55,7 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
         return {
           valid: false,
-          error: `Repository '${owner}/${repo}' not found.\n\n💡 Please check:\n• The repository name is spelled correctly\n• If it's a private repository, ensure the bot has been granted access\n• The repository has not been deleted or transferred`,
+          error: `Repository '${owner}/${repo}' not found or not accessible.\n\n💡 Please check:\n• The repository name is spelled correctly\n• If it's a private repository, ensure the bot has been granted access (GitHub returns 404 for private repos without permissions)\n• The repository has not been deleted or transferred\n• If you were recently invited, try using --auto-accept-invite to accept pending invitations`,
           level: 'repo',
         };
       }

@@ -48,7 +48,7 @@ async function validateGitHubEntityExistenceWithMocks({ owner, repo, number, typ
     if (repoResponse?.error?.includes('404') || repoResponse?.error?.includes('Not Found')) {
       return {
         valid: false,
-        error: `Repository '${owner}/${repo}' not found.\n\n💡 Please check:\n• The repository name is spelled correctly\n• If it's a private repository, ensure the bot has been granted access\n• The repository has not been deleted or transferred`,
+        error: `Repository '${owner}/${repo}' not found or not accessible.\n\n💡 Please check:\n• The repository name is spelled correctly\n• If it's a private repository, ensure the bot has been granted access (GitHub returns 404 for private repos without permissions)\n• The repository has not been deleted or transferred\n• If you were recently invited, try using --auto-accept-invite to accept pending invitations`,
         level: 'repo',
       };
     }
@@ -108,7 +108,7 @@ const testCases = [
       repoCheck: () => ({ code: 1, error: '404 Not Found' }),
     },
     expected: { valid: false, level: 'repo' },
-    errorContains: "Repository 'valid-user/nonexistent-repo' not found",
+    errorContains: "Repository 'valid-user/nonexistent-repo' not found or not accessible",
   },
   {
     name: 'Fails when issue does not exist',
@@ -224,7 +224,27 @@ const testCases = [
       repoCheck: () => ({ code: 1, error: '404' }),
     },
     expected: { valid: false, level: 'repo' },
-    errorContains: "Repository 'valid-user/bad-repo' not found",
+    errorContains: "Repository 'valid-user/bad-repo' not found or not accessible",
+  },
+  {
+    name: 'Repo 404 error message suggests auto-accept-invite for pending invitations',
+    input: { owner: 'valid-user', repo: 'private-repo', number: 1, type: 'issue' },
+    mocks: {
+      userCheck: () => ({ code: 0 }),
+      repoCheck: () => ({ code: 1, error: '404 Not Found' }),
+    },
+    expected: { valid: false, level: 'repo' },
+    errorContains: '--auto-accept-invite',
+  },
+  {
+    name: 'Repo 404 error message mentions private repos return 404 without permissions',
+    input: { owner: 'valid-user', repo: 'private-repo', number: 1, type: 'issue' },
+    mocks: {
+      userCheck: () => ({ code: 0 }),
+      repoCheck: () => ({ code: 1, error: '404 Not Found' }),
+    },
+    expected: { valid: false, level: 'repo' },
+    errorContains: 'GitHub returns 404 for private repos without permissions',
   },
 ];
 

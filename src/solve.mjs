@@ -231,6 +231,10 @@ if (argv.verbose) {
 }
 const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
 // Note: owner, repo, and urlNumber are extracted from validateGitHubUrl() above
+// Accept pending invitation BEFORE any access checks (auto-fork, permissions, entity validation)
+if (argv.autoAcceptInvite) {
+  await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
+}
 // Handle --auto-fork option: automatically fork public repositories without write access
 if (argv.autoFork && !argv.fork) {
   const { detectRepositoryVisibility } = githubLib;
@@ -299,19 +303,7 @@ if (argv.autoFork && !argv.fork) {
     argv.fork = true;
   }
 }
-// Accept pending GitHub invitation for the specific repo/org before checking write access
-if (argv.autoAcceptInvite) {
-  await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
-}
-// Issue #1552: Validate GitHub entity existence before doing any work
-const entityCheck = await (await import('./github-entity-validation.lib.mjs')).validateGitHubEntityExistence({ owner, repo, number: urlNumber, type: isIssueUrl ? 'issue' : isPrUrl ? 'pull' : undefined, verbose: argv.verbose });
-if (!entityCheck.valid) {
-  await log('');
-  await log(`❌ ${entityCheck.error}`, { level: 'error' });
-  await log('');
-  await safeExit(1, `GitHub entity not found (${entityCheck.level})`);
-}
-// Early check: Verify repository write permissions BEFORE doing any work (prevents wasting AI tokens)
+// Permission check BEFORE entity validation (#1552): avoids false 404 on private repos without access
 const { checkRepositoryWritePermission } = githubLib;
 const hasWriteAccess = await checkRepositoryWritePermission(owner, repo, {
   useFork: argv.fork,
@@ -322,6 +314,13 @@ if (!hasWriteAccess) {
   await log('');
   await log('❌ Cannot proceed without repository write access or --fork option', { level: 'error' });
   await safeExit(1, 'Permission check failed');
+}
+
+// Issue #1552: Validate entity existence AFTER permissions (cascade: user/org → repo → issue/PR)
+const entityCheck = await (await import('./github-entity-validation.lib.mjs')).validateGitHubEntityExistence({ owner, repo, number: urlNumber, type: isIssueUrl ? 'issue' : isPrUrl ? 'pull' : undefined, verbose: argv.verbose });
+if (!entityCheck.valid) {
+  await log(`\n❌ ${entityCheck.error}\n`, { level: 'error' });
+  await safeExit(1, `GitHub entity not found (${entityCheck.level})`);
 }
 
 // Detect repository visibility and set auto-cleanup default if not explicitly set

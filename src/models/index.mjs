@@ -47,7 +47,8 @@ export const claudeModels = {
 
 // Agent models (OpenCode API and Kilo Gateway via agent CLI)
 // Issue #1300: Updated free models to match agent PR #191
-// Issue #1543: Added qwen3.6-plus-free (new default) and nemotron-3-super-free per agent PR #234
+// Issue #1543: Added qwen3.6-plus-free (former default) and nemotron-3-super-free per agent PR #234
+// Issue #1563: qwen3.6-plus-free free promotion ended (April 2026), nemotron-3-super-free is now default per agent PR #243
 export const agentModels = {
   // OpenCode Zen free models (current)
   grok: 'opencode/grok-code',
@@ -56,8 +57,7 @@ export const agentModels = {
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
   'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // Upgraded from M2.1 (Issue #1391)
-  'qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // New: ~1M context, default (Issue #1543)
-  'nemotron-3-super-free': 'opencode/nemotron-3-super-free', // New: NVIDIA hybrid Mamba-Transformer (Issue #1543)
+  'nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Default: NVIDIA hybrid Mamba-Transformer (Issue #1563)
   // Kilo Gateway free models (Issue #1282, updated in #1300)
   // Short names for Kilo-exclusive models (Issue #1300)
   'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive
@@ -73,6 +73,7 @@ export const agentModels = {
   'kilo/giga-potato-free': 'kilo/giga-potato-free',
   'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
   // Deprecated free models (kept for backward compatibility)
+  'qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended April 2026 (Issue #1563)
   'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported (Issue #1391)
   'glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated: no longer free
   'minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated: replaced by m2.5
@@ -115,7 +116,7 @@ export const codexModels = {
 // Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
 export const defaultModels = {
   claude: 'sonnet',
-  agent: 'qwen3.6-plus-free', // Issue #1543: changed from minimax-m2.5-free per agent PR #234
+  agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'grok-code-fast-1',
   codex: 'gpt-5',
 };
@@ -192,8 +193,8 @@ export const AGENT_MODELS = {
   'opencode/big-pickle': 'opencode/big-pickle',
   'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
   'opencode/minimax-m2.5-free': 'opencode/minimax-m2.5-free',
-  'opencode/qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Issue #1543
-  'opencode/nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Issue #1543
+  'opencode/nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Issue #1563: now default
+  'opencode/qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended (Issue #1563)
   'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated
   'opencode/glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated
   'opencode/minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated
@@ -304,7 +305,7 @@ export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan'],
   opencode: ['grok', 'gpt4o'],
   codex: ['gpt5', 'gpt5-codex', 'o3'],
-  agent: ['qwen3.6-plus-free', 'nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
+  agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
 };
 
 /**

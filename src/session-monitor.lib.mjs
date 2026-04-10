@@ -21,13 +21,17 @@ import { exec as execCallback } from 'child_process';
 const exec = promisify(execCallback);
 
 // Lazy import for isolation runner (only when needed)
-let _querySessionStatus = null;
-async function getQuerySessionStatus() {
-  if (!_querySessionStatus) {
-    const mod = await import('./isolation-runner.lib.mjs');
-    _querySessionStatus = mod.querySessionStatus;
+let _isolationRunner = null;
+async function getIsolationRunner() {
+  if (!_isolationRunner) {
+    _isolationRunner = await import('./isolation-runner.lib.mjs');
   }
-  return _querySessionStatus;
+  return _isolationRunner;
+}
+// Legacy accessor for querySessionStatus
+async function getQuerySessionStatus() {
+  const mod = await getIsolationRunner();
+  return mod.querySessionStatus;
 }
 
 // In-memory session store
@@ -49,16 +53,23 @@ export async function checkScreenSessionExists(sessionName) {
 }
 
 /**
- * Check if an isolated session is still running using $ --status
- * @param {string} sessionId - UUID of the isolated session
- * @param {boolean} verbose - Whether to log verbose output
+ * Check if an isolated session is still running.
+ * Uses isolation-runner's isSessionRunning which includes screen -ls fallback
+ * for screen-backend sessions to work around start-command UUID mismatch.
+ *
+ * @param {string} sessionId - UUID of the isolated session (screen session name)
+ * @param {Object} [options] - Options
+ * @param {string} [options.backend] - Isolation backend ('screen', 'tmux', 'docker')
+ * @param {boolean} [options.verbose] - Whether to log verbose output
  * @returns {Promise<boolean>} True if session is still running
+ * @see https://github.com/link-assistant/hive-mind/issues/1545
  */
-async function checkIsolatedSessionRunning(sessionId, verbose = false) {
+async function checkIsolatedSessionRunning(sessionId, options = {}) {
+  const opts = typeof options === 'boolean' ? { verbose: options } : options;
+  const { backend, verbose = false } = opts;
   try {
-    const queryStatus = await getQuerySessionStatus();
-    const result = await queryStatus(sessionId, verbose);
-    return result.exists && result.status === 'executing';
+    const runner = await getIsolationRunner();
+    return await runner.isSessionRunning(sessionId, { backend, verbose });
   } catch (error) {
     if (verbose) {
       console.error(`[VERBOSE] Error checking isolated session ${sessionId}: ${error.message}`);
@@ -169,8 +180,12 @@ export async function monitorSessions(bot, verbose = false) {
     let exitCode = null;
 
     if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
-      // Isolation mode: use $ --status for reliable tracking
-      stillRunning = await checkIsolatedSessionRunning(sessionInfo.sessionId, verbose);
+      // Isolation mode: use $ --status with screen -ls fallback for screen backend
+      // See: https://github.com/link-assistant/hive-mind/issues/1545
+      stillRunning = await checkIsolatedSessionRunning(sessionInfo.sessionId, {
+        backend: sessionInfo.isolationBackend,
+        verbose,
+      });
       if (!stillRunning) {
         exitCode = await getIsolatedSessionExitCode(sessionInfo.sessionId, verbose);
       }

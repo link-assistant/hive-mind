@@ -181,15 +181,65 @@ export async function querySessionStatus(sessionId, verbose = false) {
 }
 
 /**
- * Check if an isolated session is still running
+ * Check if a screen session exists via `screen -ls`.
+ * Used as a fallback when `$ --status` fails to find or correctly track
+ * screen-based isolation sessions.
  *
- * @param {string} sessionId - UUID of the session
+ * @param {string} sessionName - Name of the screen session to check
  * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<boolean>} True if screen session exists
+ * @see https://github.com/link-assistant/hive-mind/issues/1545
+ */
+export async function checkScreenSessionRunning(sessionName, verbose = false) {
+  try {
+    const result = await $({ mirror: false })`screen -ls`;
+    const output = result.stdout?.toString() || '';
+    const exists = output.includes(sessionName);
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: screen -ls check for '${sessionName}': ${exists ? 'running' : 'not found'}`);
+    }
+    return exists;
+  } catch {
+    // screen -ls returns exit code 1 when no sessions exist
+    return false;
+  }
+}
+
+/**
+ * Check if an isolated session is still running.
+ * Uses `$ --status` first, with a `screen -ls` fallback for screen-backend
+ * sessions to work around start-command UUID mismatch issues.
+ *
+ * @param {string} sessionId - UUID of the session (used for both $ --status and screen session name)
+ * @param {Object} [options] - Options
+ * @param {string} [options.backend] - Isolation backend ('screen', 'tmux', 'docker')
+ * @param {boolean} [options.verbose] - Enable verbose logging
  * @returns {Promise<boolean>} True if session is still executing
  */
-export async function isSessionRunning(sessionId, verbose = false) {
+export async function isSessionRunning(sessionId, options = {}) {
+  // Support legacy call signature: isSessionRunning(sessionId, verbose)
+  const opts = typeof options === 'boolean' ? { verbose: options } : options;
+  const { backend, verbose = false } = opts;
+
   const result = await querySessionStatus(sessionId, verbose);
-  return result.exists && result.status === 'executing';
+  if (result.exists && result.status === 'executing') {
+    return true;
+  }
+
+  // Fallback: for screen backend, check screen -ls directly.
+  // This works around start-command bugs where:
+  // 1. $ --status can't find session by --session name (only by internal UUID)
+  // 2. $ --status reports "executed" immediately for --detached screen sessions
+  // See: https://github.com/link-assistant/hive-mind/issues/1545
+  if (backend === 'screen') {
+    const screenRunning = await checkScreenSessionRunning(sessionId, verbose);
+    if (screenRunning && verbose) {
+      console.log(`[VERBOSE] isolation-runner: $ --status says not running, but screen -ls confirms session '${sessionId}' is still active`);
+    }
+    return screenRunning;
+  }
+
+  return false;
 }
 
 /**

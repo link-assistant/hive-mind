@@ -2,10 +2,11 @@
 
 This document provides comprehensive information about the free models supported by hive-mind when using the `--tool agent` option.
 
-> **Last Updated:** April 8, 2026
+> **Last Updated:** April 10, 2026
 > **Related:**
 >
 > - [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) - Upstream free models list (canonical source)
+> - [Agent PR #243](https://github.com/link-assistant/agent/pull/243) - Upstream: replace deprecated qwen3.6-plus-free with nemotron-3-super-free as default
 > - [Agent PR #234](https://github.com/link-assistant/agent/pull/234) - Upstream: qwen3.6-plus-free as default, add nemotron-3-super-free
 > - [Agent PR #209](https://github.com/link-assistant/agent/pull/209) - Upstream free model updates (minimax-m2.5-free as default)
 > - [Agent Issue #208](https://github.com/link-assistant/agent/issues/208) - kimi-k2.5-free removed from OpenCode Zen
@@ -14,32 +15,18 @@ This document provides comprehensive information about the free models supported
 
 Hive-mind supports free models from two providers:
 
-1. **OpenCode Zen** - 5 free models with `opencode/` prefix
+1. **OpenCode Zen** - 4 free models with `opencode/` prefix
 2. **Kilo Gateway** - 6 free models with `kilo/` prefix (Issue #1282)
 
 ---
 
 ## OpenCode Zen Free Models
 
-### 1. opencode/qwen3.6-plus-free **Default Model**
-
-- **Short Alias**: `qwen3.6-plus-free`
-- **Provider**: OpenCode Zen
-- **Status**: Fully Supported (Default for `--tool agent` as of Issue #1543)
-- **Features**: Reasoning, tool calling, temperature control
-- **Context Window**: ~1,000,000 tokens
-- **Output Limit**: 65,536 tokens
-- **Cost**: Free (no input/output charges)
-- **Knowledge Cutoff**: March 2025
-- **Release Date**: March 2026
-- **Open Weights**: Yes
-- **Notes**: Largest context window among free models (5x larger than minimax-m2.5-free)
-
-### 2. opencode/nemotron-3-super-free
+### 1. opencode/nemotron-3-super-free **Default Model**
 
 - **Short Alias**: `nemotron-3-super-free`
 - **Provider**: OpenCode Zen
-- **Status**: Fully Supported (Added in Issue #1543)
+- **Status**: Fully Supported (Default for `--tool agent` as of Issue #1563)
 - **Features**: Reasoning, tool calling, hybrid Mamba-Transformer architecture
 - **Context Window**: ~262,144 tokens
 - **Output Limit**: 262,144 tokens
@@ -49,11 +36,11 @@ Hive-mind supports free models from two providers:
 - **Open Weights**: Yes
 - **Notes**: NVIDIA hybrid Mamba-Transformer MoE, strong reasoning capabilities
 
-### 3. opencode/minimax-m2.5-free
+### 2. opencode/minimax-m2.5-free
 
 - **Short Alias**: `minimax-m2.5-free`
 - **Provider**: OpenCode Zen
-- **Status**: Fully Supported (Former default, Issue #1391)
+- **Status**: Fully Supported (Former default, Issues #1391, #1543)
 - **Features**: Reasoning, tool calling, temperature control
 - **Context Window**: 204,800 tokens
 - **Output Limit**: 131,072 tokens
@@ -62,7 +49,7 @@ Hive-mind supports free models from two providers:
 - **Release Date**: February 2026
 - **Open Weights**: Yes
 
-### 4. opencode/gpt-5-nano
+### 3. opencode/gpt-5-nano
 
 - **Short Alias**: `gpt-5-nano`
 - **Provider**: OpenCode Zen
@@ -73,7 +60,7 @@ Hive-mind supports free models from two providers:
 - **Cost**: Free (no input/output charges)
 - **Knowledge Cutoff**: January 2025
 
-### 5. opencode/big-pickle
+### 4. opencode/big-pickle
 
 - **Short Alias**: `big-pickle`
 - **Provider**: OpenCode Zen
@@ -92,6 +79,7 @@ The following models were previously free but are no longer available:
 
 | Model             | Former Model ID              | Status                                                                                                       |
 | ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Qwen 3.6 Plus Free | `opencode/qwen3.6-plus-free` | Free promotion ended (April 2026) — now requires OpenCode Go subscription. See [agent#242](https://github.com/link-assistant/agent/issues/242) |
 | Kimi K2.5 Free    | `opencode/kimi-k2.5-free`    | Removed from OpenCode Zen (March 2026) — see [agent#208](https://github.com/link-assistant/agent/issues/208) |
 | Grok Code Fast 1  | `opencode/grok-code`         | Discontinued January 2026                                                                                    |
 | MiniMax M2.1 Free | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free`                                                                     |
@@ -198,12 +186,11 @@ The following Kilo models were previously the recommended free models but have b
 
 ```bash
 # OpenCode Zen models (short aliases without prefix)
-solve https://github.com/owner/repo/issues/123 --tool agent --model qwen3.6-plus-free
 solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
 hive https://github.com/owner/repo --tool agent --model minimax-m2.5-free
 
 # OpenCode Zen models (full model IDs)
-solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/qwen3.6-plus-free
+solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
 hive https://github.com/owner/repo --tool agent --model opencode/big-pickle
 
 # Kilo Gateway models (full model IDs)
@@ -219,7 +206,6 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 
 ```bash
 # OpenCode Zen models (short aliases)
-/solve https://github.com/owner/repo/issues/123 --tool agent --model qwen3.6-plus-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
 
@@ -231,7 +217,7 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
 /hive https://github.com/owner/repo --tool agent --model glm-4.5-air-free
 
-# Default model (qwen3.6-plus-free via OpenCode Zen):
+# Default model (nemotron-3-super-free via OpenCode Zen):
 /solve https://github.com/owner/repo/issues/123 --tool agent
 ```
 
@@ -239,7 +225,6 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 
 ```bash
 # OpenCode Zen models
-echo "Your prompt here" | agent --model opencode/qwen3.6-plus-free
 echo "Your prompt here" | agent --model opencode/nemotron-3-super-free
 echo "Your prompt here" | agent --model opencode/minimax-m2.5-free
 
@@ -256,9 +241,8 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 **Flagship Free Models**:
 
-- `opencode/qwen3.6-plus-free` - Largest context (~1M tokens), strong agent performance (OpenCode, default)
+- `opencode/nemotron-3-super-free` - NVIDIA hybrid Mamba-Transformer, strong reasoning (OpenCode, default)
 - `kilo/glm-5-free` - Z.AI flagship, matches Opus 4.5 on many tasks (Kilo)
-- `opencode/nemotron-3-super-free` - NVIDIA hybrid Mamba-Transformer, strong reasoning (OpenCode)
 
 **General Purpose & Reasoning**:
 
@@ -269,7 +253,6 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 **For Large Context Tasks**:
 
-- `opencode/qwen3.6-plus-free` - Largest context (~1,000,000 tokens)
 - `opencode/gpt-5-nano` - Very large context (~400,000 tokens)
 - `opencode/nemotron-3-super-free` - Large context (~262,144 tokens)
 - `kilo/giga-potato-free` - Large context (256,000 tokens)
@@ -287,14 +270,14 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 | Feature       | OpenCode Zen                                  | Kilo Gateway             |
 | ------------- | --------------------------------------------- | ------------------------ |
-| Free Models   | 5 models                                      | 6 models                 |
-| Default Model | qwen3.6-plus-free (~1M context)               | glm-5-free (recommended) |
+| Free Models   | 4 models                                      | 6 models                 |
+| Default Model | nemotron-3-super-free (~262K context)          | glm-5-free (recommended) |
 | API Format    | OpenAI-compatible                             | OpenAI-compatible        |
 | Free API Key  | `public`                                      | `public`                 |
 | Total Models  | 50+                                           | 500+                     |
-| Flagship Free | Qwen 3.6 Plus (~1M context)                   | GLM-5 (limited time)     |
+| Flagship Free | Nemotron 3 Super (~262K context)               | GLM-5 (limited time)     |
 | BYOK Support  | Yes                                           | Yes                      |
-| New Models    | Qwen 3.6 Plus, Nemotron 3 Super (Issue #1543) | DeepSeek R1, GLM 4.5 Air |
+| New Models    | Nemotron 3 Super (Issue #1543, #1563)          | DeepSeek R1, GLM 4.5 Air |
 
 ---
 
@@ -332,11 +315,12 @@ If you encounter issues with any of these models:
 - [Case Study: Issue #1391](./case-studies/issue-1391/README.md) - Free models update (minimax-m2.5-free as default, kimi-k2.5-free deprecated)
 - [Case Study: Issue #1473](./case-studies/issue-1473/README.md) - Model recognition fix and free models sync
 - [Case Study: Issue #1543](./case-studies/issue-1543/README.md) - Free models update (qwen3.6-plus-free as default, nemotron-3-super-free added)
+- [Case Study: Issue #1563](./case-studies/issue-1563/README.md) - Free models update (qwen3.6-plus-free deprecated, nemotron-3-super-free as default)
 - [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) - OpenCode Zen provider details
 - [Kilo Gateway Documentation](https://kilo.ai/docs/gateway) - Kilo Gateway provider details
 
 ---
 
-**Last Updated**: April 8, 2026
-**Hive-Mind Version**: 1.46.9
-**Agent CLI Version**: Latest (with free model updates from PR #234)
+**Last Updated**: April 10, 2026
+**Hive-Mind Version**: 1.48.2
+**Agent CLI Version**: Latest (with free model updates from PR #243)

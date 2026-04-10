@@ -118,15 +118,23 @@ export const displayModelUsage = async (usage, log) => {
 
 /**
  * Display cost comparison between public pricing and Anthropic's official cost
+ * Issue #1557: Show simplified format when costs match, remove USD suffix
  * @param {number|null} publicCost - Public pricing estimate
  * @param {number|null} anthropicCost - Anthropic's official cost
  * @param {Function} log - Logging function
  */
 export const displayCostComparison = async (publicCost, anthropicCost, log) => {
+  const hasPublic = publicCost !== null && publicCost !== undefined;
+  const hasAnthropic = anthropicCost !== null && anthropicCost !== undefined;
+  // Issue #1557: When both costs match, show simplified format
+  if (hasPublic && hasAnthropic && publicCost.toFixed(6) === anthropicCost.toFixed(6)) {
+    await log(`\n   💰 Cost: $${anthropicCost.toFixed(6)}`);
+    return;
+  }
   await log('\n   💰 Cost estimation:');
-  await log(`      Public pricing estimate: ${publicCost !== null && publicCost !== undefined ? `$${publicCost.toFixed(6)} USD` : 'unknown'}`);
-  await log(`      Calculated by Anthropic: ${anthropicCost !== null && anthropicCost !== undefined ? `$${anthropicCost.toFixed(6)} USD` : 'unknown'}`);
-  if (publicCost !== null && publicCost !== undefined && anthropicCost !== null && anthropicCost !== undefined) {
+  await log(`      Public pricing estimate: ${hasPublic ? `$${publicCost.toFixed(6)}` : 'unknown'}`);
+  await log(`      Calculated by Anthropic: ${hasAnthropic ? `$${anthropicCost.toFixed(6)}` : 'unknown'}`);
+  if (hasPublic && hasAnthropic) {
     const difference = anthropicCost - publicCost;
     const percentDiff = publicCost > 0 ? (difference / publicCost) * 100 : 0;
     await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);

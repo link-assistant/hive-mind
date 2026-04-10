@@ -15,13 +15,18 @@ import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
 export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 
-/** Build cost estimation string for log comments (Issue #1250) */
+/** Build cost estimation string for log comments (Issue #1250, Issue #1557) */
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
   const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
   const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
+  // Issue #1557: When both public and Anthropic costs match (no difference), show simplified format
+  const costsMatch = hasPublic && hasAnthropic && totalCostUSD.toFixed(6) === anthropicTotalCostUSD.toFixed(6);
+  if (costsMatch) {
+    return `\n\n### 💰 Cost: **$${anthropicTotalCostUSD.toFixed(6)}**`;
+  }
   let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
@@ -57,7 +62,7 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     costInfo += tokenInfo;
   }
   if (hasAnthropic) {
-    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
+    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)}`;
     if (hasPublic) {
       const diff = anthropicTotalCostUSD - totalCostUSD;
       const pct = totalCostUSD > 0 ? (diff / totalCostUSD) * 100 : 0;

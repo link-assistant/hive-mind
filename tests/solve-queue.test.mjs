@@ -1482,7 +1482,6 @@ test('default tool for queue item is claude', () => {
   assert.equal(item.tool, 'claude');
   queue.stop();
 });
-
 console.log('\n📊 Test Results\n');
 console.log(`Tests passed: ${testsPassed}`);
 console.log(`Tests failed: ${testsFailed}`);

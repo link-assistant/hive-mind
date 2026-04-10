@@ -169,6 +169,12 @@ Initial research.
       Note: The command "gh pr view --json comments" only returns conversation comments and misses review comments.
    - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.
 
+Scope management.
+   - When a reviewer or issue commenter expands the scope of work beyond the original issue title (e.g., "not only X, but also Y and Z"), treat their expanded scope as the new binding requirement. DO NOT narrow scope back to the original issue title.
+   - When you read all requirements and plan your work, the user's LATEST comment defines scope, not the issue title. If the latest comment says "sync all features", you must sync all features — not just the one mentioned in the issue title.
+   - When you believe a requirement is too large or risky to implement in the current PR, you MUST write a PR comment explaining your concern and asking for confirmation BEFORE reducing scope. Never silently reduce scope and present partial work as complete.
+   - When you notice you are rationalizing why a requirement "doesn't apply" or is "out of scope" despite the user explicitly requesting it, stop and re-read the requirement. If the user said it, it is in scope.
+
 Solution development and testing.
    - When issue is solvable, first create a test that reproduces the problem, then implement the fix.
    - When implementing features, search for similar existing implementations in the codebase and use them as examples instead of implementing everything from scratch.

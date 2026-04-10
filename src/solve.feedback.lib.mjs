@@ -198,6 +198,26 @@ export const detectAndCountFeedback = async params => {
           feedbackLines.push(`New comments on the issue: ${newIssueComments}`);
         }
 
+        // Include the latest non-bot reviewer comment verbatim in the prompt
+        // so the AI cannot miss or reinterpret the requirement (fix for issue #1565)
+        const allFilteredComments = [...filteredPrConversationComments, ...filteredPrReviewComments];
+        const latestReviewerComment = allFilteredComments
+          .filter(c => !currentUser || c.user?.login !== currentUser)
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+          .pop();
+
+        if (latestReviewerComment && latestReviewerComment.body) {
+          feedbackLines.push('');
+          feedbackLines.push('--- LATEST REVIEWER COMMENT (address ALL requirements below) ---');
+          feedbackLines.push(latestReviewerComment.body.trim());
+          feedbackLines.push('--- END OF REVIEWER COMMENT ---');
+          feedbackLines.push('');
+          feedbackLines.push('IMPORTANT: You MUST address every requirement in the reviewer comment above.');
+          feedbackLines.push('If you believe a requirement is out of scope, you MUST ask the reviewer');
+          feedbackLines.push('for clarification via a PR comment BEFORE proceeding without it.');
+          feedbackLines.push('Never silently reduce scope.');
+        }
+
         // Enhanced feedback detection for all continue modes
         if (isContinueMode || argv.autoContinue) {
           if (argv.continueOnlyOnFeedback) {

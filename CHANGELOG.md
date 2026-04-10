@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.48.2
+
+### Patch Changes
+
+- 7c3a8c1: Fix agent queue not isolated from claude queue in bot entry point. The start decision and position display now use tool-specific queue counts instead of the total across all tools, so items in one tool's queue don't block or mislead the other.
+
 ## 1.48.1
 
 ### Patch Changes

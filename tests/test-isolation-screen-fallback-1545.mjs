@@ -13,19 +13,7 @@
 
 import { checkScreenSessionRunning, isSessionRunning } from '../src/isolation-runner.lib.mjs';
 import { trackSession, getActiveSessionCount } from '../src/session-monitor.lib.mjs';
-
-let passed = 0;
-let failed = 0;
-
-function assert(condition, message) {
-  if (condition) {
-    console.log(`  ✅ PASS: ${message}`);
-    passed++;
-  } else {
-    console.error(`  ❌ FAIL: ${message}`);
-    failed++;
-  }
-}
+import { assert, printSummary, getFailCount } from './test-helpers.mjs';
 
 console.log('Testing isolation screen fallback (issue #1545)');
 console.log('='.repeat(60));
@@ -75,13 +63,8 @@ const count = getActiveSessionCount(false);
 assert(count >= 1, `Session tracked successfully (${count} active)`);
 
 // Results
-console.log('\n' + '='.repeat(60));
-console.log(`Results: ${passed} passed, ${failed} failed, ${passed + failed} total`);
-console.log('='.repeat(60));
+printSummary();
 
-if (failed > 0) {
-  console.error(`\n❌ ${failed} test(s) failed!`);
+if (getFailCount() > 0) {
   process.exit(1);
-} else {
-  console.log('\n✅ All tests passed!');
 }

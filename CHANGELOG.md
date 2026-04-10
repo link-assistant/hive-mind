@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.48.1
+
+### Patch Changes
+
+- 6d385ab: Simplified cost display when public and Anthropic costs match, removed USD suffix from Anthropic cost line
+
 ## 1.48.0
 
 ### Minor Changes

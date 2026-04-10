@@ -1007,32 +1007,22 @@ async function handleSolveCommand(ctx) {
   if (solveOverrides.length > 0) infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(solveOverrides.join(' '))}`;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
 
-  // Check for duplicate URL in queue
-  // See: https://github.com/link-assistant/hive-mind/issues/1080
+  // Check for duplicate URL in queue (issue #1080)
   const existingItem = solveQueue.findByUrl(normalizedUrl);
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
     await safeReply(ctx, `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve_queue to check the queue status.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
-
-  // Issue #1567: Check for active sessions running on the same URL.
-  // This prevents concurrent sessions on the same PR/issue, which causes
-  // iteration number jumps, duplicate "Ready to merge" comments, and
-  // other inconsistencies when two watchUntilMergeable processes run simultaneously.
+  // Issue #1567: Prevent concurrent sessions on the same PR/issue
   const activeSession = hasActiveSessionForUrl(normalizedUrl, VERBOSE);
   if (activeSession.isActive) {
     await safeReply(ctx, `❌ A working session is already running for this URL.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nSession: \`${activeSession.sessionName}\`\n\n💡 Wait for the current session to complete, or use /solve\\_stop to cancel it.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
-
   const check = await solveQueue.canStartCommand({ tool: solveTool }); // Skip Claude limits for agent (#1159)
   const queueStats = solveQueue.getStats();
-
-  // Handle rejection: when a threshold strategy is 'reject', the command should fail immediately
-  // without being placed in the queue. This ensures users get clear feedback about why
-  // their command cannot be processed (e.g., disk full, server maintenance pending).
-  // See: https://github.com/link-assistant/hive-mind/issues/1267
+  // Handle rejection: threshold strategy is 'reject' — fail immediately (issue #1267)
   if (check.rejected) {
     await safeReply(ctx, `❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${escapeMarkdown(check.rejectReason || 'Unknown')}`, { reply_to_message_id: ctx.message.message_id });
     return;

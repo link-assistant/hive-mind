@@ -1,14 +1,5 @@
 # @link-assistant/hive-mind
 
-## 1.50.0
-
-### Minor Changes
-
-- fix: prevent AI solver from ignoring changed/expanded requirements (#1565)
-  - Include latest reviewer comment verbatim in the continue-mode prompt so the AI cannot miss or reinterpret requirements
-  - Add "Scope management" instructions to all prompt variants (claude, opencode, codex, agent) that explicitly prevent scope narrowing when a reviewer expands requirements
-  - Case study with full root cause analysis in docs/case-studies/issue-1565/
-
 ## 1.49.1
 
 ### Patch Changes

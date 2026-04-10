@@ -414,6 +414,26 @@ jobs:
           echo "Running test suite for CI/CD change detection..."
           node tests/test-detect-code-changes-1528.mjs
 
+      - name: Run isolation runner test (Issue #380)
+        run: |
+          echo "Running test suite for isolation runner..."
+          node tests/test-isolation-runner.mjs
+
+      - name: Run session monitor isolation test (Issue #380)
+        run: |
+          echo "Running test suite for session monitor isolation support..."
+          node tests/test-session-monitor-isolation.mjs
+
+      - name: Run isolation screen fallback test (Issue #1545)
+        run: |
+          echo "Running test suite for isolation screen fallback..."
+          node tests/test-isolation-screen-fallback-1545.mjs
+
+      - name: Run isolation screen integration test (Issue #1545)
+        run: |
+          echo "Running integration tests for isolation screen session monitoring..."
+          node tests/test-isolation-screen-integration-1545.mjs
+
   # === EXECUTION TESTS ===
   test-execution:
     runs-on: ubuntu-latest

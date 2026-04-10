@@ -93,23 +93,28 @@ Also add the same fallback in `isolation-runner.lib.mjs` `querySessionStatus()` 
 
 ### Fix 2: Report start-command Bugs (Separate Issue)
 
-Two bugs should be filed against `link-foundation/start`:
+Two bugs were filed against `link-foundation/start` as link-foundation/start#101:
 
 1. **`$ --status` should support `--session` name lookups**: When a session is created with `--session <name>`, `$ --status <name>` should find it (in addition to `$ --status <internal-uuid>`).
 
 2. **`$ --detached` should track screen process lifecycle**: When using `--isolated screen --detached`, the status should reflect whether the screen session is still running, not just whether the `$` wrapper exited.
 
+**Resolution:** Both issues were fixed in link-foundation/start#102 (merged 2026-04-08), released as start-command v0.25.2. The `screen -ls` fallback in hive-mind is retained as defense-in-depth.
+
 ## Files Involved
 
-| File                                  | Role                                            |
-| ------------------------------------- | ----------------------------------------------- |
-| `src/session-monitor.lib.mjs`         | Session monitoring — needs screen -ls fallback  |
-| `src/isolation-runner.lib.mjs`        | Isolation execution — needs screen -ls fallback |
-| `src/telegram-isolation.lib.mjs`      | Per-command isolation resolution                |
-| `src/telegram-bot.mjs` (line 590-618) | `executeAndUpdateMessage()` — session tracking  |
+| File                                               | Role                                                        |
+| -------------------------------------------------- | ----------------------------------------------------------- |
+| `src/session-monitor.lib.mjs`                      | Session monitoring — uses isSessionRunning with fallback    |
+| `src/isolation-runner.lib.mjs`                     | Isolation execution — $ --status + screen -ls fallback      |
+| `src/telegram-isolation.lib.mjs`                   | Per-command isolation resolution                            |
+| `src/telegram-bot.mjs` (line 590-618)              | `executeAndUpdateMessage()` — session tracking              |
+| `tests/test-isolation-screen-integration-1545.mjs` | Integration tests verifying session monitoring requirements |
 
 ## References
 
 - Issue: https://github.com/link-assistant/hive-mind/issues/1545
 - start-command: https://github.com/link-foundation/start
+- Upstream bug report: https://github.com/link-foundation/start/issues/101
+- Upstream fix: https://github.com/link-foundation/start/pull/102
 - Per-command isolation PR: https://github.com/link-assistant/hive-mind/pull/1535

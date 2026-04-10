@@ -238,11 +238,8 @@ if (hiveEnabled && hiveOverrides.length > 0) {
           throw new Error(msg);
         });
       await testYargs.parse(testArgs);
-      // Issue #1482: Validate --base-branch/--target-branch in overrides early
-      const overrideBranchError = validateBranchInArgs(hiveOverrides);
-      if (overrideBranchError) {
-        throw new Error(overrideBranchError);
-      }
+      const overrideBranchError = validateBranchInArgs(hiveOverrides); // Issue #1482
+      if (overrideBranchError) throw new Error(overrideBranchError);
       console.log('✅ Hive overrides validated successfully');
     } finally {
       // Restore stderr
@@ -755,17 +752,9 @@ bot.command('limits', async ctx => {
   // Get all limits using shared cache (3min for API, 2min for system)
   const limits = await getAllCachedLimits(VERBOSE);
 
-  // Format the message with usage limits and queue status
-  // If Claude auth failed, pass the error to formatUsageMessage to show it in the Claude sections
-  // while still displaying all other limits sections (disk, GitHub, CPU, memory)
-  // See: https://github.com/link-assistant/hive-mind/issues/1343
+  // Format message with usage limits and queue status (issues #1343, #1267)
   const claudeError = limits.claude.success ? null : limits.claude.error;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
-  // Fetch queue status and pass it as an extra section to formatUsageMessage so that all
-  // sections are assembled before the code block is formed — no fragile string-searching needed.
-  // Shows each queue (claude, agent) with pending/processing counts.
-  // Processing counts are actual running system processes (via pgrep).
-  // See: https://github.com/link-assistant/hive-mind/issues/1267
   const queueStatus = await solveQueue.formatStatus();
   const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [queueStatus]);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
@@ -1288,13 +1277,11 @@ bot.on('message', async (ctx, next) => {
 bot.catch((error, ctx) => {
   console.error('Unhandled error while processing update', ctx.update.update_id);
   console.error('Error:', error);
-  // Log detailed error information
   console.error('Error details:', {
     name: error.name,
     message: error.message,
     stack: error.stack?.split('\n').slice(0, 10).join('\n'),
   });
-  // Log context information for debugging
   if (VERBOSE) {
     console.log('[VERBOSE] Error context:', {
       chatId: ctx.chat?.id,
@@ -1319,7 +1306,6 @@ bot.catch((error, ctx) => {
 
   // Try to notify the user about the error with more details
   if (ctx?.reply) {
-    // Detect if this is a Telegram API parsing error
     const isTelegramParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('400')));
 
     let errorMessage;
@@ -1342,7 +1328,6 @@ bot.catch((error, ctx) => {
       // Issue #1460: Show user a simple, non-confusing message — all details are in the logs
       errorMessage = `❌ Failed to send formatted message. Please try your command again.\n\nIf the issue persists, contact support with Update ID: ${ctx.update.update_id}`;
     } else {
-      // Build informative error message for other errors
       errorMessage = '❌ An error occurred while processing your request.\n\n';
       if (error.message) {
         // Filter out sensitive info and escape markdown
@@ -1358,8 +1343,7 @@ bot.catch((error, ctx) => {
       if (VERBOSE) errorMessage += `\n\n🔍 Debug info: Update ID: ${ctx.update.update_id}`;
     }
 
-    // Issue #1460: For parsing errors, always send as plain text (we already know Markdown is the problem)
-    // For other errors, try Markdown first, then fall back to plain text
+    // Issue #1460: For parsing errors send plain text; otherwise try Markdown first
     if (isTelegramParsingError) {
       ctx.reply(errorMessage).catch(fallbackError => {
         console.error('Failed to send plain text error message:', fallbackError);

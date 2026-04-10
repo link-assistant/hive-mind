@@ -154,18 +154,18 @@ test('[agent] No vision model → no screenshot section', () => {
 // ===== Source code verification tests =====
 console.log(`\n${BLUE}📋 Source code verification tests${RESET}\n`);
 
-test('claude.prompts.lib.mjs: uses github.com/blob/?raw=true URL format', () => {
+test('claude.prompts.lib.mjs: uses github.com/blob/?raw=true URL format via screenshotRepoPath', () => {
   const claudePromptsPath = join(__dirname, '../src/claude.prompts.lib.mjs');
   const content = readFileSync(claudePromptsPath, 'utf-8');
-  assert(content.includes('github.com/${owner}/${repo}/blob/${branchName}'), 'Should use github.com/blob/ URL format');
+  assert(content.includes('github.com/${screenshotRepoPath}/blob/${branchName}'), 'Should use github.com/blob/ URL format with screenshotRepoPath');
   assert(content.includes('?raw=true'), 'Should include ?raw=true suffix');
   assert(!content.includes('raw.githubusercontent.com'), 'Should NOT use raw.githubusercontent.com');
 });
 
-test('agent.prompts.lib.mjs: uses github.com/blob/?raw=true URL format', () => {
+test('agent.prompts.lib.mjs: uses github.com/blob/?raw=true URL format via screenshotRepoPath', () => {
   const agentPromptsPath = join(__dirname, '../src/agent.prompts.lib.mjs');
   const content = readFileSync(agentPromptsPath, 'utf-8');
-  assert(content.includes('github.com/${owner}/${repo}/blob/${branchName}'), 'Should use github.com/blob/ URL format');
+  assert(content.includes('github.com/${screenshotRepoPath}/blob/${branchName}'), 'Should use github.com/blob/ URL format with screenshotRepoPath');
   assert(content.includes('?raw=true'), 'Should include ?raw=true suffix');
   assert(!content.includes('raw.githubusercontent.com'), 'Should NOT use raw.githubusercontent.com');
 });

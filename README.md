@@ -445,9 +445,8 @@ Examples:
 /solve https://github.com/owner/repo/issues/123 --model opus --think max
 
 Free Models (with --tool agent):
-/solve https://github.com/owner/repo/issues/123 --tool agent --model qwen3.6-plus-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/qwen3.6-plus-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
 

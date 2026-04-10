@@ -1,5 +1,35 @@
 # @link-assistant/hive-mind
 
+## 1.48.2
+
+### Patch Changes
+
+- 7c3a8c1: Fix agent queue not isolated from claude queue in bot entry point. The start decision and position display now use tool-specific queue counts instead of the total across all tools, so items in one tool's queue don't block or mislead the other.
+
+## 1.48.1
+
+### Patch Changes
+
+- 6d385ab: Simplified cost display when public and Anthropic costs match, removed USD suffix from Anthropic cost line
+
+## 1.48.0
+
+### Minor Changes
+
+- 28f7ace: Add /do and /continue as alias commands for /solve in telegram bot
+
+## 1.47.2
+
+### Patch Changes
+
+- 7afe67b: Fix ghPrView false positive on "Could not resolve" in PR body causing "Failed to get PR details" error on fork PRs, and add stdio log interceptor for terminal/log output parity
+
+## 1.47.1
+
+### Patch Changes
+
+- 3bbd66e: Improve Context and tokens usage output format: move percentage before unit label, parenthesize cached tokens in Total line, use consistent X / Y (Z%) format for output tokens when limit is known, and show sub-sessions under model heading instead of globally
+
 ## 1.47.0
 
 ### Minor Changes

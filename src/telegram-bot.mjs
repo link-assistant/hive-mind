@@ -658,7 +658,7 @@ bot.command('help', async ctx => {
   message += '📝 *Available Commands:*\n\n';
 
   if (solveEnabled) {
-    message += '*/solve* - Solve a GitHub issue\n';
+    message += '*/solve* (aliases: */do*, */continue*) - Solve a GitHub issue\n';
     message += 'Usage: `/solve <github-url> [options]`\n';
     message += 'Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`\n';
     message += 'Or reply to a message with a GitHub link: `/solve`\n';
@@ -667,7 +667,7 @@ bot.command('help', async ctx => {
     }
     message += '\n';
   } else {
-    message += '*/solve* - ❌ Disabled\n\n';
+    message += '*/solve* (aliases: */do*, */continue*) - ❌ Disabled\n\n';
   }
 
   if (hiveEnabled) {
@@ -695,7 +695,7 @@ bot.command('help', async ctx => {
   message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete.\n';
   if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
   message += '\n';
-  message += '⚠️ *Note:* /solve, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /do, /continue, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -1025,12 +1025,13 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  if (check.canStart && queueStats.queued === 0) {
+  const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
+  if (check.canStart && toolQueuedCount === 0) {
     const startingMessage = await safeReply(ctx, `🚀 Starting solve command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, solvePerCommandIsolation);
   } else {
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: solvePerCommandIsolation });
-    let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
+    let queueMessage = `📋 Solve command queued (${solveTool} queue position #${toolQueuedCount + 1})\n\n${infoBlock}`; // tool-specific position (#1551)
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
@@ -1041,7 +1042,7 @@ async function handleSolveCommand(ctx) {
   }
 }
 
-bot.command(/^solve$/i, handleSolveCommand);
+bot.command([/^solve$/i, /^do$/i, /^continue$/i], handleSolveCommand); // /do and /continue are aliases (issue #525)
 
 // Named handler for /hive command - extracted for reuse by text-based fallback (issue #1207)
 async function handleHiveCommand(ctx) {
@@ -1268,12 +1269,8 @@ bot.on('message', async (ctx, next) => {
   }
 
   // Check if this is a command we handle
-  const handlers = {
-    solve: handleSolveCommand,
-    hive: handleHiveCommand,
-    solve_queue: handleSolveQueueCommand,
-    solvequeue: handleSolveQueueCommand,
-  };
+  // /do and /continue are aliases for /solve (issue #525)
+  const handlers = { solve: handleSolveCommand, do: handleSolveCommand, continue: handleSolveCommand, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();

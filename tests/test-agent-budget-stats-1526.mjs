@@ -174,13 +174,13 @@ runTest('renders Agent CLI budget stats with context window', () => {
   const result = buildBudgetStatsString(budgetData);
   assertContains(result, '📊 **Context and tokens usage:**', 'Should have header');
   assertContains(result, 'Context window:', 'Should show context window');
-  assertContains(result, '14K / 204.8K input tokens', 'Should show peak context vs limit');
-  assertContains(result, '1K / 32K output tokens', 'Should show output vs limit');
+  assertContains(result, '14K / 204.8K (7%) input tokens', 'Should show peak context vs limit');
+  assertContains(result, '1K / 32K (3%) output tokens', 'Should show output vs limit');
   assertContains(result, 'Total:', 'Should show Total line');
   assertContains(result, '$0.005000 cost', 'Should show cost on total line');
 });
 
-runTest('renders Agent CLI budget stats with cumulative fallback when peakContextUsage is 0', () => {
+runTest('renders Agent CLI budget stats without context window when peakContextUsage is 0', () => {
   const tokenUsage = {
     inputTokens: 1000,
     outputTokens: 500,
@@ -195,25 +195,19 @@ runTest('renders Agent CLI budget stats with cumulative fallback when peakContex
   const pricingInfo = { modelName: 'Test Model', totalCostUSD: null };
   const budgetData = buildAgentBudgetStats(tokenUsage, pricingInfo);
   const result = buildBudgetStatsString(budgetData);
-  // Issue #1526: peakContextUsage=0 falls back to cumulative total (inputTokens + cacheCreation + cacheRead)
-  // Nothing should be skipped or hidden
-  assertContains(result, 'Context window:', 'Should show context window');
-  assertContains(result, '500 / 64K output tokens', 'Should show output usage');
-  // Cumulative: 1000 + 0 + 0 = 1000 → "1K / 200K input tokens (1%)"
-  assertContains(result, '1K / 200K input tokens (1%)', 'Should show cumulative input tokens as fallback');
+  // Issue #1539: peakContextUsage=0 — context window line skipped entirely.
+  // Issue #1547: Output percentage uses consistent X / Y (Z%) format in Total line.
+  assertNotContains(result, 'Context window:', 'Should NOT show context window when peak is 0');
+  assertContains(result, '500 / 64K (1%) output tokens', 'Should show output usage in Total line');
 });
 
 // ==== Test Group: Context window 288% bug fix ====
 console.log('\n📋 Test Group: Context window 288% bug fix (Issue #1526)\n');
 
-runTest('Haiku with peakContextUsage=0 shows cumulative fallback context', () => {
-  // Issue #1526: When peakContextUsage is 0 (e.g., model from result JSON only),
-  // fall back to cumulative total tokens instead of hiding context.
-  // Haiku model from result JSON has peakContextUsage=0, and cumulative
-  // inputTokens + cacheCreationTokens + cacheReadTokens = 575269
-  // Context limit = 200000 → 575269/200000 = 288%
-  // This is the cumulative total across all requests, not a per-request peak.
-  // Showing it is intentional — nothing should be skipped or hidden.
+runTest('Haiku with peakContextUsage=0 skips context window line', () => {
+  // Issue #1539: When peakContextUsage is 0 (e.g., model from result JSON only),
+  // skip context window display entirely — cumulative totals produce impossible
+  // percentages like 288%. Output percentage shown in Total line instead.
   const tokenUsage = {
     inputTokens: 50000,
     cacheCreationTokens: 30000,
@@ -234,9 +228,11 @@ runTest('Haiku with peakContextUsage=0 shows cumulative fallback context', () =>
     },
   };
   const result = buildBudgetStatsString(tokenUsage);
-  // Cumulative fallback: 75 + 47259 + 527935 = 575269 ≈ 575.3K
-  assertContains(result, '575.3K / 200K input tokens (288%)', 'Should show cumulative context as fallback');
-  assertContains(result, '4.9K / 64K output tokens', 'Should show output tokens correctly');
+  // Issue #1539: Context window line skipped when peak is unknown
+  assertNotContains(result, 'Context window:', 'Should NOT show context window when peak is 0');
+  assertNotContains(result, '288%', 'Should NOT show impossible 288% percentage');
+  // Issue #1547: Output percentage uses consistent format in Total line
+  assertContains(result, '4.9K / 64K (8%) output tokens', 'Should show output tokens in Total line');
 });
 
 runTest('Opus with valid peakContextUsage still shows context correctly', () => {
@@ -261,8 +257,8 @@ runTest('Opus with valid peakContextUsage still shows context correctly', () => 
   };
   const result = buildBudgetStatsString(tokenUsage);
   // Should show 90.8K / 1M input tokens (9%)
-  assertContains(result, '90.8K / 1M input tokens (9%)', 'Should show correct context window for Opus');
-  assertContains(result, '27.8K / 128K output tokens', 'Should show output tokens');
+  assertContains(result, '90.8K / 1M (9%) input tokens', 'Should show correct context window for Opus');
+  assertContains(result, '27.8K / 128K (22%) output tokens', 'Should show output tokens');
 });
 
 // ==== Summary ====

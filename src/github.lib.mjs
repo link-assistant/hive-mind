@@ -15,13 +15,15 @@ import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
 export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 
-/** Build cost estimation string for log comments (Issue #1250) */
+/** Build cost estimation string for log comments (Issue #1250, Issue #1557) */
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
   const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
   const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
+  // Issue #1557: Simplified display when public and Anthropic costs match
+  if (hasPublic && hasAnthropic && totalCostUSD.toFixed(6) === anthropicTotalCostUSD.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicTotalCostUSD.toFixed(6)}**`;
   let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
@@ -57,7 +59,7 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     costInfo += tokenInfo;
   }
   if (hasAnthropic) {
-    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
+    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)}`;
     if (hasPublic) {
       const diff = anthropicTotalCostUSD - totalCostUSD;
       const pct = totalCostUSD > 0 ? (diff / totalCostUSD) * 100 : 0;
@@ -66,12 +68,8 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   }
   return costInfo;
 };
-
-// Helper function to mask GitHub tokens (alias for backward compatibility)
-export const maskGitHubToken = maskToken;
-// Escape ``` in logs for safe markdown embedding (replaces with \`\`\` to prevent code block closure)
-export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`');
-// Helper function to check if a file exists in a GitHub branch
+export const maskGitHubToken = maskToken; // Alias for backward compatibility
+export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
   const { $ } = await use('command-stream');
 
@@ -1328,7 +1326,7 @@ export async function ghPrView({ prNumber, owner, repo, jsonFields = 'headRefNam
     const stderr = prResult.stderr ? prResult.stderr.toString() : '';
     const code = prResult.code || 0;
     let data = null;
-    if (code === 0 && stdout && !stdout.includes('Could not resolve')) {
+    if (code === 0 && stdout && !(stderr && stderr.includes('Could not resolve'))) {
       try {
         data = JSON.parse(stdout);
       } catch {
@@ -1368,7 +1366,7 @@ export async function ghIssueView({ issueNumber, owner, repo, jsonFields = 'numb
     const stderr = issueResult.stderr ? issueResult.stderr.toString() : '';
     const code = issueResult.code || 0;
     let data = null;
-    if (code === 0 && stdout && !stdout.includes('Could not resolve')) {
+    if (code === 0 && stdout && !(stderr && stderr.includes('Could not resolve'))) {
       try {
         data = JSON.parse(stdout);
       } catch {

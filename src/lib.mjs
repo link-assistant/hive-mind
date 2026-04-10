@@ -99,18 +99,24 @@ export const log = async (message, options = {}) => {
   }
 
   // Write to console based on level
-  switch (level) {
-    case 'error':
-      console.error(message);
-      break;
-    case 'warning':
-    case 'warn':
-      console.warn(message);
-      break;
-    case 'info':
-    default:
-      console.log(message);
-      break;
+  // Set guard flag to prevent stdio interceptor from double-logging (issue #1549)
+  _writingFromLog = true;
+  try {
+    switch (level) {
+      case 'error':
+        console.error(message);
+        break;
+      case 'warning':
+      case 'warn':
+        console.warn(message);
+        break;
+      case 'info':
+      default:
+        console.log(message);
+        break;
+    }
+  } finally {
+    _writingFromLog = false;
   }
 };
 
@@ -134,20 +140,90 @@ export const setupVerboseLogInterceptor = () => {
 
   const originalConsoleLog = console.log.bind(console);
   console.log = (...args) => {
-    // Always call original console.log first
-    originalConsoleLog(...args);
-
     // If a log file is set and the message looks like a [VERBOSE] log, append to file
+    // and set guard flag to prevent stdio interceptor from double-logging (issue #1549)
     if (logFile && args.length > 0) {
       const firstArg = String(args[0]);
       if (firstArg.includes('[VERBOSE]')) {
         const message = args.map(a => String(a)).join(' ');
         const logMessage = `[${new Date().toISOString()}] [VERBOSE] ${message}`;
+        _writingFromLog = true;
         fs.appendFile(logFile, logMessage + '\n').catch(() => {
           // Silent fail to avoid infinite loops
         });
       }
     }
+
+    // Always call original console.log (with guard flag set if [VERBOSE])
+    try {
+      originalConsoleLog(...args);
+    } finally {
+      _writingFromLog = false;
+    }
+  };
+};
+
+/**
+ * Issue #1549: Intercept process.stdout.write and process.stderr.write to capture
+ * ALL terminal output in the log file, ensuring 100% parity between terminal and log.
+ *
+ * The command-stream library uses process.stdout.write/process.stderr.write directly
+ * when mirror:true (the default). console.log/console.error also end up calling these.
+ * By intercepting at the write() level, we capture everything regardless of source:
+ * - command-stream mirror output (e.g., gh CLI JSON responses)
+ * - console.log() / console.error() calls
+ * - process.stdout.write() / process.stderr.write() direct calls
+ *
+ * To avoid double-logging (since the log() function already writes to the log file AND
+ * calls console.log which calls process.stdout.write), we use a guard flag
+ * `_writingFromLog` to skip interception when the write originates from log().
+ *
+ * This ensures the log file is a complete record of all terminal output.
+ * Call this once after setLogFile() to enable the interceptor.
+ */
+let stdioInterceptorInstalled = false;
+let _writingFromLog = false; // Guard flag to prevent double-logging from log()
+export const setupStdioLogInterceptor = () => {
+  if (stdioInterceptorInstalled) return;
+  stdioInterceptorInstalled = true;
+
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+  const originalStderrWrite = process.stderr.write.bind(process.stderr);
+
+  process.stdout.write = (chunk, encoding, callback) => {
+    // Always write to terminal first
+    const result = originalStdoutWrite(chunk, encoding, callback);
+
+    // Also append to log file if set, but skip if this write originated from log()
+    if (logFile && !_writingFromLog) {
+      const text = typeof chunk === 'string' ? chunk : chunk.toString(encoding || 'utf8');
+      if (text.trim()) {
+        const logMessage = `[${new Date().toISOString()}] [STDOUT] ${text.replace(/\n$/, '')}`;
+        fs.appendFile(logFile, logMessage + '\n').catch(() => {
+          // Silent fail to avoid infinite loops
+        });
+      }
+    }
+
+    return result;
+  };
+
+  process.stderr.write = (chunk, encoding, callback) => {
+    // Always write to terminal first
+    const result = originalStderrWrite(chunk, encoding, callback);
+
+    // Also append to log file if set, but skip if this write originated from log()
+    if (logFile && !_writingFromLog) {
+      const text = typeof chunk === 'string' ? chunk : chunk.toString(encoding || 'utf8');
+      if (text.trim()) {
+        const logMessage = `[${new Date().toISOString()}] [STDERR] ${text.replace(/\n$/, '')}`;
+        fs.appendFile(logFile, logMessage + '\n').catch(() => {
+          // Silent fail to avoid infinite loops
+        });
+      }
+    }
+
+    return result;
   };
 };
 
@@ -611,6 +687,7 @@ export default {
   displayFormattedError,
   cleanupTempDirectories,
   setupVerboseLogInterceptor,
+  setupStdioLogInterceptor,
 };
 
 /**

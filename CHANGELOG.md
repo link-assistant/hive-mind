@@ -1,5 +1,14 @@
 # @link-assistant/hive-mind
 
+## 1.48.3
+
+### Patch Changes
+
+- 2ac7f3c: Fix CI/CD lint failure caused by code duplication exceeding jscpd threshold (11.03% > 11%). Refactored test files to use shared `test-helpers.mjs` instead of duplicating assert/summary boilerplate, reducing duplication to 10.93%.
+- 0b06bda: Fix `--isolation screen` session monitoring bug where sessions were prematurely detected as completed (Issue #1545). Add `screen -ls` fallback for screen-backend sessions to work around start-command UUID mismatch issues (link-foundation/start#101).
+- 94eeaac: Immediately reject queued tasks when disk space (or any reject-strategy threshold) is exceeded, instead of leaving them in a waiting state indefinitely
+- f955f0b: Add GitHub entity existence validation to /solve command to fail immediately on non-existent issues, PRs, repos, or users
+
 ## 1.48.2
 
 ### Patch Changes

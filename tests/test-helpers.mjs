@@ -8,6 +8,22 @@
 
 let testsPassed = 0;
 let testsFailed = 0;
+let testsSkipped = 0;
+
+export function assert(condition, message) {
+  if (condition) {
+    console.log(`  ✅ PASS: ${message}`);
+    testsPassed++;
+  } else {
+    console.error(`  ❌ FAIL: ${message}`);
+    testsFailed++;
+  }
+}
+
+export function skip(message) {
+  console.log(`  ⏭️ SKIP: ${message}`);
+  testsSkipped++;
+}
 
 export function test(name, fn) {
   try {
@@ -33,9 +49,12 @@ export async function asyncTest(name, fn) {
   }
 }
 
-export function printSummary() {
-  console.log('\n' + '='.repeat(60));
-  console.log(`\n📊 Results: ${testsPassed} passed, ${testsFailed} failed, ${testsPassed + testsFailed} total\n`);
+export function printSummary(separator = 60) {
+  console.log('\n' + '='.repeat(separator));
+  const skipPart = testsSkipped > 0 ? `, ${testsSkipped} skipped` : '';
+  const total = testsPassed + testsFailed + testsSkipped;
+  console.log(`Results: ${testsPassed} passed, ${testsFailed} failed${skipPart}, ${total} total`);
+  console.log('='.repeat(separator));
 }
 
 export function getFailCount() {

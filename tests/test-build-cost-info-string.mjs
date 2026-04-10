@@ -17,6 +17,7 @@
 // Copy of the buildCostInfoString function from src/github.lib.mjs for testing
 // This allows us to test the function in isolation without requiring the full module dependencies
 // Issue #1250: Enhanced to support OpenCode Zen cost, original provider reference, and base model pricing
+// Issue #1557: Simplified display when costs match, removed USD suffix
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
   // Issue #1015: Don't show cost section when all values are unknown (clutters output)
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
@@ -25,6 +26,8 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   // Issue #1250: Check for OpenCode Zen actual cost
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
+  // Issue #1557: Simplified display when public and Anthropic costs match
+  if (hasPublic && hasAnthropic && totalCostUSD.toFixed(6) === anthropicTotalCostUSD.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicTotalCostUSD.toFixed(6)}**`;
   let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
@@ -66,7 +69,7 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     costInfo += tokenInfo;
   }
   if (hasAnthropic) {
-    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
+    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)}`;
     if (hasPublic) {
       const diff = anthropicTotalCostUSD - totalCostUSD;
       const pct = totalCostUSD > 0 ? (diff / totalCostUSD) * 100 : 0;
@@ -160,7 +163,8 @@ console.log('\n📋 Test Group: Anthropic calculated cost\n');
 
 runTest('shows Anthropic calculated cost when available', () => {
   const result = buildCostInfoString(null, 2.5, null);
-  assertContains(result, 'Calculated by Anthropic: $2.500000 USD', 'Should show Anthropic cost');
+  assertContains(result, 'Calculated by Anthropic: $2.500000', 'Should show Anthropic cost');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix (Issue #1557)');
 });
 
 runTest('shows difference when both costs available (Anthropic higher)', () => {
@@ -173,14 +177,17 @@ runTest('shows difference when both costs available (Anthropic lower)', () => {
   assertContains(result, 'Difference: $-0.500000 (-25.00%)', 'Should show negative difference');
 });
 
-runTest('shows zero difference when costs are equal', () => {
+runTest('shows simplified format when costs are equal (Issue #1557)', () => {
   const result = buildCostInfoString(1.0, 1.0, null);
-  assertContains(result, 'Difference: $0.000000 (0.00%)', 'Should show zero difference');
+  assertEqual(result, '\n\n### 💰 Cost: **$1.000000**', 'Should show simplified cost header');
+  assertNotContains(result, 'Difference', 'Should not show difference when costs match');
+  assertNotContains(result, 'Public pricing estimate', 'Should not show breakdown when costs match');
 });
 
 runTest('handles zero public cost in percentage calculation', () => {
   const result = buildCostInfoString(0, 1.0, null);
   assertContains(result, 'Difference: $1.000000 (0.00%)', 'Should handle division by zero');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix (Issue #1557)');
 });
 
 // ==== Pricing info tests ====
@@ -322,7 +329,8 @@ runTest('shows all information when everything is available', () => {
   assertContains(result, '1,000 reasoning', 'Should show reasoning tokens');
   assertContains(result, 'cache read', 'Should show cache read');
   assertContains(result, 'cache write', 'Should show cache write');
-  assertContains(result, 'Calculated by Anthropic: $1.200000 USD', 'Should have Anthropic cost');
+  assertContains(result, 'Calculated by Anthropic: $1.200000', 'Should have Anthropic cost');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix (Issue #1557)');
   assertContains(result, 'Difference:', 'Should have difference');
 });
 
@@ -345,7 +353,8 @@ runTest('real-world example with actual work', () => {
   });
 
   assertContains(result, '$8.089715', 'Should show public cost');
-  assertContains(result, '$5.636999 USD', 'Should show Anthropic cost');
+  assertContains(result, 'Calculated by Anthropic: $5.636999', 'Should show Anthropic cost');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix (Issue #1557)');
   assertContains(result, 'Difference: $-2.452716 (-30.32%)', 'Should show negative difference');
 });
 
@@ -366,7 +375,8 @@ runTest('handles large token counts', () => {
 runTest('handles very small costs', () => {
   const result = buildCostInfoString(0.000001, 0.000002, null);
   assertContains(result, '$0.000001', 'Should show small public cost');
-  assertContains(result, '$0.000002 USD', 'Should show small Anthropic cost');
+  assertContains(result, 'Calculated by Anthropic: $0.000002', 'Should show small Anthropic cost');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix (Issue #1557)');
 });
 
 runTest('returns proper string format starting with newlines', () => {
@@ -560,9 +570,54 @@ runTest('does not show base model reference when no baseModelName', () => {
   assertNotContains(result, 'gpt-4o-mini prices', 'Should not reference model name in pricing');
 });
 
+// ==== Issue #1557: Simplified cost display ====
+console.log('\n📋 Test Group: Issue #1557 - Simplified cost display when costs match\n');
+
+runTest('shows simplified format when public and Anthropic costs match exactly', () => {
+  const result = buildCostInfoString(5.207635, 5.207635, null);
+  assertEqual(result, '\n\n### 💰 Cost: **$5.207635**', 'Should show simplified cost header with bold amount');
+});
+
+runTest('shows simplified format with real-world matching costs', () => {
+  const result = buildCostInfoString(0.123456, 0.123456, {
+    modelName: 'claude-3-opus',
+    provider: 'Anthropic',
+    tokenUsage: { inputTokens: 1000, outputTokens: 500 },
+  });
+  // Even with pricing info, simplified format is used when costs match
+  assertEqual(result, '\n\n### 💰 Cost: **$0.123456**', 'Should show simplified format ignoring model/token info');
+});
+
+runTest('shows full format when costs differ slightly', () => {
+  const result = buildCostInfoString(5.207635, 5.207636, null);
+  assertContains(result, '### 💰 **Cost estimation:**', 'Should show full header when costs differ');
+  assertContains(result, 'Public pricing estimate: $5.207635', 'Should show public estimate');
+  assertContains(result, 'Calculated by Anthropic: $5.207636', 'Should show Anthropic cost');
+  assertContains(result, 'Difference:', 'Should show difference');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix');
+});
+
+runTest('does not show simplified format when only public cost available', () => {
+  const result = buildCostInfoString(5.0, null, null);
+  assertContains(result, '### 💰 **Cost estimation:**', 'Should show full header');
+  assertContains(result, 'Public pricing estimate: $5.000000', 'Should show public estimate');
+});
+
+runTest('does not show simplified format when only Anthropic cost available', () => {
+  const result = buildCostInfoString(null, 5.0, null);
+  assertContains(result, '### 💰 **Cost estimation:**', 'Should show full header');
+  assertContains(result, 'Calculated by Anthropic: $5.000000', 'Should show Anthropic cost');
+});
+
+runTest('no USD suffix in Anthropic cost line (Issue #1557)', () => {
+  const result = buildCostInfoString(1.0, 2.0, null);
+  assertContains(result, 'Calculated by Anthropic: $2.000000', 'Should show Anthropic cost');
+  assertNotContains(result, 'USD', 'Should not contain USD anywhere');
+});
+
 // Summary
 console.log('\n' + '='.repeat(80));
-console.log(`Test Results for buildCostInfoString (Issues #1015 & #1250):`);
+console.log(`Test Results for buildCostInfoString (Issues #1015, #1250 & #1557):`);
 console.log(`  ✅ Passed: ${testsPassed}`);
 console.log(`  ❌ Failed: ${testsFailed}`);
 console.log('='.repeat(80));

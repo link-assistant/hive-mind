@@ -6,7 +6,7 @@
  * Tests verify that:
  * 1. Fork mode → screenshot URL uses forked repo path instead of original repo
  * 2. Non-fork mode → screenshot URL uses original owner/repo (unchanged behavior)
- * 3. Same behavior in both claude.prompts.lib.mjs and agent.prompts.lib.mjs
+ * 3. Same behavior in all prompt modules: claude, agent, codex, and opencode
  * 4. Source code uses screenshotRepoPath variable for fork-aware URL generation
  *
  * Run with: node tests/test-fork-screenshot-url-1561.mjs
@@ -23,20 +23,20 @@ import { test, printSummary, getFailCount } from './test-helpers.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Import the prompt builder functions
-let claudePrompts;
-let agentPrompts;
+// Import all prompt builder functions
+let modules;
 
 try {
-  claudePrompts = await import('../src/claude.prompts.lib.mjs');
-  agentPrompts = await import('../src/agent.prompts.lib.mjs');
+  modules = {
+    claude: await import('../src/claude.prompts.lib.mjs'),
+    agent: await import('../src/agent.prompts.lib.mjs'),
+    codex: await import('../src/codex.prompts.lib.mjs'),
+    opencode: await import('../src/opencode.prompts.lib.mjs'),
+  };
 } catch (e) {
   console.error(`Failed to import prompt modules: ${e.message}`);
   process.exit(1);
 }
-
-const { buildSystemPrompt: claudeBuildSystemPrompt } = claudePrompts;
-const { buildSystemPrompt: agentBuildSystemPrompt } = agentPrompts;
 
 // Common base params for tests
 const baseParams = {
@@ -49,129 +49,59 @@ const baseParams = {
   modelSupportsVision: true,
 };
 
-// ===== Tests for claude.prompts.lib.mjs: Fork mode =====
-console.log('\n📋 Claude prompts: Fork mode screenshot URLs\n');
+const forkUrl = 'github.com/fork-user/original-repo/blob/issue-1790-abc123';
+const originalUrl = 'github.com/original-owner/original-repo/blob/issue-1790-abc123';
 
-test('Fork mode → screenshot URL uses forked repo path', () => {
-  const prompt = claudeBuildSystemPrompt({
-    ...baseParams,
-    argv: { fork: true },
-    forkedRepo: 'fork-user/original-repo',
+// ===== Fork mode tests for all prompt modules =====
+for (const [name, mod] of Object.entries(modules)) {
+  const buildSystemPrompt = mod.buildSystemPrompt;
+
+  console.log(`\n📋 ${name} prompts: Fork mode screenshot URLs\n`);
+
+  test(`[${name}] Fork mode → screenshot URL uses forked repo path`, () => {
+    const prompt = buildSystemPrompt({ ...baseParams, argv: { fork: true }, forkedRepo: 'fork-user/original-repo' });
+    assert.ok(prompt.includes(forkUrl), 'Should use forked repo in screenshot URL');
+    assert.ok(!prompt.includes(originalUrl), 'Should NOT use original repo in screenshot URL when in fork mode');
   });
 
-  assert.ok(prompt.includes('github.com/fork-user/original-repo/blob/issue-1790-abc123'), 'Should use forked repo in screenshot URL');
-  assert.ok(!prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should NOT use original repo in screenshot URL when in fork mode');
-});
-
-test('Non-fork mode → screenshot URL uses original repo', () => {
-  const prompt = claudeBuildSystemPrompt({
-    ...baseParams,
-    argv: {},
+  test(`[${name}] Non-fork mode → screenshot URL uses original repo`, () => {
+    const prompt = buildSystemPrompt({ ...baseParams, argv: {} });
+    assert.ok(prompt.includes(originalUrl), 'Should use original owner/repo in screenshot URL');
   });
 
-  assert.ok(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should use original owner/repo in screenshot URL');
-});
-
-test('Fork mode without forkedRepo → falls back to original repo', () => {
-  const prompt = claudeBuildSystemPrompt({
-    ...baseParams,
-    argv: { fork: true },
+  test(`[${name}] Fork mode without forkedRepo → falls back to original repo`, () => {
+    const prompt = buildSystemPrompt({ ...baseParams, argv: { fork: true } });
+    assert.ok(prompt.includes(originalUrl), 'Should fall back to original repo when forkedRepo is not available');
   });
+}
 
-  assert.ok(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should fall back to original repo when forkedRepo is not available');
-});
-
+// Claude-specific: fork flag not set but forkedRepo provided
 test('Fork mode with empty argv → uses original repo', () => {
-  const prompt = claudeBuildSystemPrompt({
-    ...baseParams,
-    argv: {},
-    forkedRepo: 'fork-user/original-repo',
-  });
-
-  assert.ok(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should use original repo when fork flag is not set');
-});
-
-// ===== Tests for agent.prompts.lib.mjs: Fork mode =====
-console.log('\n📋 Agent prompts: Fork mode screenshot URLs\n');
-
-test('[agent] Fork mode → screenshot URL uses forked repo path', () => {
-  const prompt = agentBuildSystemPrompt({
-    ...baseParams,
-    argv: { fork: true },
-    forkedRepo: 'fork-user/original-repo',
-  });
-
-  assert.ok(prompt.includes('github.com/fork-user/original-repo/blob/issue-1790-abc123'), 'Should use forked repo in screenshot URL');
-  assert.ok(!prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should NOT use original repo in screenshot URL when in fork mode');
-});
-
-test('[agent] Non-fork mode → screenshot URL uses original repo', () => {
-  const prompt = agentBuildSystemPrompt({
-    ...baseParams,
-    argv: {},
-  });
-
-  assert.ok(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should use original owner/repo in screenshot URL');
-});
-
-test('[agent] Fork mode without forkedRepo → falls back to original repo', () => {
-  const prompt = agentBuildSystemPrompt({
-    ...baseParams,
-    argv: { fork: true },
-  });
-
-  assert.ok(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should fall back to original repo when forkedRepo is not available');
+  const prompt = modules.claude.buildSystemPrompt({ ...baseParams, argv: {}, forkedRepo: 'fork-user/original-repo' });
+  assert.ok(prompt.includes(originalUrl), 'Should use original repo when fork flag is not set');
 });
 
 // ===== Source code verification =====
 console.log('\n📋 Source code verification\n');
 
-test('claude.prompts.lib.mjs: extracts forkedRepo from params', () => {
-  const content = readFileSync(join(__dirname, '../src/claude.prompts.lib.mjs'), 'utf-8');
-  assert.ok(content.includes('forkedRepo'), 'Should destructure forkedRepo from params');
-  assert.ok(content.includes('screenshotRepoPath'), 'Should compute screenshotRepoPath');
-});
+for (const name of Object.keys(modules)) {
+  test(`${name}.prompts.lib.mjs: extracts forkedRepo and computes screenshotRepoPath`, () => {
+    const content = readFileSync(join(__dirname, `../src/${name}.prompts.lib.mjs`), 'utf-8');
+    assert.ok(content.includes('forkedRepo'), 'Should destructure forkedRepo from params');
+    assert.ok(content.includes('screenshotRepoPath'), 'Should compute screenshotRepoPath');
+    assert.ok(content.includes('argv?.fork && forkedRepo ? forkedRepo'), 'Should conditionally use forkedRepo when fork mode is active');
+  });
+}
 
-test('agent.prompts.lib.mjs: extracts forkedRepo from params', () => {
-  const content = readFileSync(join(__dirname, '../src/agent.prompts.lib.mjs'), 'utf-8');
-  assert.ok(content.includes('forkedRepo'), 'Should destructure forkedRepo from params');
-  assert.ok(content.includes('screenshotRepoPath'), 'Should compute screenshotRepoPath');
-});
-
-test('claude.prompts.lib.mjs: screenshotRepoPath uses fork when available', () => {
-  const content = readFileSync(join(__dirname, '../src/claude.prompts.lib.mjs'), 'utf-8');
-  assert.ok(content.includes('argv?.fork && forkedRepo ? forkedRepo'), 'Should conditionally use forkedRepo when fork mode is active');
-});
-
-test('agent.prompts.lib.mjs: screenshotRepoPath uses fork when available', () => {
-  const content = readFileSync(join(__dirname, '../src/agent.prompts.lib.mjs'), 'utf-8');
-  assert.ok(content.includes('argv?.fork && forkedRepo ? forkedRepo'), 'Should conditionally use forkedRepo when fork mode is active');
-});
-
-// ===== Regression: Existing tests from #1349 still hold =====
+// ===== Regression: Vision disabled =====
 console.log('\n📋 Regression: Issue #1349 compatibility\n');
 
-test('Vision disabled → no screenshot section (claude)', () => {
-  const prompt = claudeBuildSystemPrompt({
-    ...baseParams,
-    modelSupportsVision: false,
-    argv: { fork: true },
-    forkedRepo: 'fork-user/original-repo',
+for (const [name, mod] of Object.entries(modules)) {
+  test(`[${name}] Vision disabled → no screenshot section`, () => {
+    const prompt = mod.buildSystemPrompt({ ...baseParams, modelSupportsVision: false, argv: { fork: true }, forkedRepo: 'fork-user/original-repo' });
+    assert.ok(!prompt.includes('Visual UI work and screenshots'), 'Should not include screenshot section without vision');
   });
-
-  assert.ok(!prompt.includes('Visual UI work and screenshots'), 'Should not include screenshot section without vision');
-});
-
-test('Vision disabled → no screenshot section (agent)', () => {
-  const prompt = agentBuildSystemPrompt({
-    ...baseParams,
-    modelSupportsVision: false,
-    argv: { fork: true },
-    forkedRepo: 'fork-user/original-repo',
-  });
-
-  assert.ok(!prompt.includes('Visual UI work and screenshots'), 'Should not include screenshot section without vision');
-});
+}
 
 // ===== Summary =====
 printSummary(80);

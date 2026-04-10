@@ -480,8 +480,13 @@ export class SolveQueue {
    * Find startable items from each tool queue
    * Returns the first item from each tool queue that can start.
    * With separate queues, each tool is checked independently so they don't block each other.
+   *
+   * Also immediately rejects all queued items when a 'reject' strategy threshold
+   * is exceeded, instead of leaving them waiting indefinitely.
+   *
    * @returns {Promise<Array<{item: SolveQueueItem, tool: string, index: number, check: Object}>>}
    * @see https://github.com/link-assistant/hive-mind/issues/1159
+   * @see https://github.com/link-assistant/hive-mind/issues/1555
    */
   async findStartableItems() {
     const startableItems = [];
@@ -490,10 +495,18 @@ export class SolveQueue {
       if (toolQueue.length === 0) continue;
 
       // Check if first item in this tool's queue can start
-      const item = toolQueue[0];
       const check = await this.canStartCommand({ tool });
 
+      // When a 'reject' strategy threshold is exceeded, immediately reject
+      // all items in this tool's queue instead of leaving them waiting.
+      // See: https://github.com/link-assistant/hive-mind/issues/1555
+      if (check.rejected) {
+        await this.rejectAllItemsInQueue(tool, toolQueue, check.rejectReason);
+        continue;
+      }
+
       if (check.canStart) {
+        const item = toolQueue[0];
         // Also check one-at-a-time mode for this specific tool
         // For tool-specific one-at-a-time, only count that tool's processing items
         const toolProcessingCount = this.getProcessingCountByTool(tool);
@@ -507,6 +520,30 @@ export class SolveQueue {
     }
 
     return startableItems;
+  }
+
+  /**
+   * Reject all items in a tool queue and notify users.
+   * Called when a 'reject' strategy threshold is exceeded for queued items.
+   *
+   * @param {string} tool - Tool type (e.g., 'claude', 'agent')
+   * @param {SolveQueueItem[]} toolQueue - The tool's queue array
+   * @param {string} rejectReason - Reason for rejection
+   * @see https://github.com/link-assistant/hive-mind/issues/1555
+   */
+  async rejectAllItemsInQueue(tool, toolQueue, rejectReason) {
+    const reason = rejectReason || 'Resource limit exceeded';
+    while (toolQueue.length > 0) {
+      const item = toolQueue.shift();
+      item.setFailed(reason);
+      this.failed.push(item);
+      this.stats.totalFailed++;
+
+      this.log(`Rejected queued item: ${item.toString()} from ${tool} queue - ${reason}`);
+
+      await this.updateItemMessage(item, `❌ Solve command rejected.\n\n${item.infoBlock}\n\n🚫 Reason: ${reason}`);
+    }
+    while (this.failed.length > 100) this.failed.shift();
   }
 
   /**
@@ -1069,22 +1106,31 @@ export class SolveQueue {
   }
 
   /**
-   * Update all waiting items with their tool-specific waiting reasons
+   * Update all waiting items with their tool-specific waiting reasons.
+   * Items blocked by a 'reject' strategy threshold are immediately rejected
+   * and removed from the queue, since they cannot proceed and keeping them
+   * queued would only confuse users (the queue is lost on restart anyway).
+   *
    * @see https://github.com/link-assistant/hive-mind/issues/1078
+   * @see https://github.com/link-assistant/hive-mind/issues/1555
    */
   async updateAllWaitingItems() {
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      // First check if the tool's threshold triggers a 'reject' strategy.
+      // If so, reject all items at once rather than iterating one by one.
+      // See: https://github.com/link-assistant/hive-mind/issues/1555
+      const toolCheck = await this.canStartCommand({ tool });
+      if (toolCheck.rejected) {
+        await this.rejectAllItemsInQueue(tool, toolQueue, toolCheck.rejectReason);
+        continue;
+      }
+
       for (let i = 0; i < toolQueue.length; i++) {
         const item = toolQueue[i];
         if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
-          // Get the specific reason for this item's tool
-          const itemCheck = await this.canStartCommand({ tool: item.tool });
           const previousStatus = item.status;
           const previousReason = item.waitingReason;
-          // Use rejectReason when threshold strategy is 'reject', otherwise use reason
-          // This ensures disk-full and other rejection reasons are shown properly
-          // See: https://github.com/link-assistant/hive-mind/issues/1267
-          const waitReason = itemCheck.rejectReason || itemCheck.reason || 'Waiting in queue';
+          const waitReason = toolCheck.reason || 'Waiting in queue';
           item.setWaiting(waitReason);
 
           // Update message if status/reason changed or it's time for periodic update

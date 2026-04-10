@@ -1279,7 +1279,7 @@ test('checkApiLimits with tool agent should not block on Claude limits', async (
   queue.stop();
 });
 
-test('checkApiLimits default tool is claude', async () => {
+await asyncTest('checkApiLimits default tool is claude', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 

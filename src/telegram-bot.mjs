@@ -48,7 +48,7 @@ const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-s
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { trackSession, startSessionMonitoring } = await import('./session-monitor.lib.mjs');
+const { trackSession, startSessionMonitoring, hasActiveSessionForUrl } = await import('./session-monitor.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -1013,6 +1013,16 @@ async function handleSolveCommand(ctx) {
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
     await safeReply(ctx, `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve_queue to check the queue status.`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
+  // Issue #1567: Check for active sessions running on the same URL.
+  // This prevents concurrent sessions on the same PR/issue, which causes
+  // iteration number jumps, duplicate "Ready to merge" comments, and
+  // other inconsistencies when two watchUntilMergeable processes run simultaneously.
+  const activeSession = hasActiveSessionForUrl(normalizedUrl, VERBOSE);
+  if (activeSession.isActive) {
+    await safeReply(ctx, `❌ A working session is already running for this URL.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nSession: \`${activeSession.sessionName}\`\n\n💡 Wait for the current session to complete, or use /solve\\_stop to cancel it.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 

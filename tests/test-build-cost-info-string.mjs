@@ -26,11 +26,8 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   // Issue #1250: Check for OpenCode Zen actual cost
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
-  // Issue #1557: When both public and Anthropic costs match (no difference), show simplified format
-  const costsMatch = hasPublic && hasAnthropic && totalCostUSD.toFixed(6) === anthropicTotalCostUSD.toFixed(6);
-  if (costsMatch) {
-    return `\n\n### 💰 Cost: **$${anthropicTotalCostUSD.toFixed(6)}**`;
-  }
+  // Issue #1557: Simplified display when public and Anthropic costs match
+  if (hasPublic && hasAnthropic && totalCostUSD.toFixed(6) === anthropicTotalCostUSD.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicTotalCostUSD.toFixed(6)}**`;
   let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;

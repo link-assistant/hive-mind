@@ -22,11 +22,8 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
-  // Issue #1557: When both public and Anthropic costs match (no difference), show simplified format
-  const costsMatch = hasPublic && hasAnthropic && totalCostUSD.toFixed(6) === anthropicTotalCostUSD.toFixed(6);
-  if (costsMatch) {
-    return `\n\n### 💰 Cost: **$${anthropicTotalCostUSD.toFixed(6)}**`;
-  }
+  // Issue #1557: Simplified display when public and Anthropic costs match
+  if (hasPublic && hasAnthropic && totalCostUSD.toFixed(6) === anthropicTotalCostUSD.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicTotalCostUSD.toFixed(6)}**`;
   let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
@@ -71,12 +68,8 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   }
   return costInfo;
 };
-
-// Helper function to mask GitHub tokens (alias for backward compatibility)
-export const maskGitHubToken = maskToken;
-// Escape ``` in logs for safe markdown embedding (replaces with \`\`\` to prevent code block closure)
-export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`');
-// Helper function to check if a file exists in a GitHub branch
+export const maskGitHubToken = maskToken; // Alias for backward compatibility
+export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
   const { $ } = await use('command-stream');
 

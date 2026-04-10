@@ -292,11 +292,16 @@ test('Two concurrent processes with independent counters produce confusing inter
   const timeline = [];
 
   // Interleaved events (as they appeared in PR #1796)
-  processA_count++; timeline.push({ process: 'A', iteration: processA_count }); // A:1
-  processA_count++; timeline.push({ process: 'A', iteration: processA_count }); // A:2
-  processA_count++; timeline.push({ process: 'A', iteration: processA_count }); // A:3
-  processB_count++; timeline.push({ process: 'B', iteration: processB_count }); // B:1 ← appears as "jump from 3 to 1"
-  processA_count++; timeline.push({ process: 'A', iteration: processA_count }); // A:4 ← appears as "jump from 1 to 4"
+  processA_count++;
+  timeline.push({ process: 'A', iteration: processA_count }); // A:1
+  processA_count++;
+  timeline.push({ process: 'A', iteration: processA_count }); // A:2
+  processA_count++;
+  timeline.push({ process: 'A', iteration: processA_count }); // A:3
+  processB_count++;
+  timeline.push({ process: 'B', iteration: processB_count }); // B:1 ← appears as "jump from 3 to 1"
+  processA_count++;
+  timeline.push({ process: 'A', iteration: processA_count }); // A:4 ← appears as "jump from 1 to 4"
 
   // The "jump from 1 to 4" is actually correct per-process numbering
   assert(timeline[3].iteration === 1, 'Process B starts at 1');

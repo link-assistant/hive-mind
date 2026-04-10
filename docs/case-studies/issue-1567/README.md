@@ -6,13 +6,13 @@ This case study analyzes six interrelated bugs in the hive-mind auto-restart and
 
 ## Affected Pull Requests
 
-| PR | Comments | Key Issues Observed |
-|----|----------|-------------------|
-| [#1796](https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1796) | 62 | Iteration jumps (1→4), duplicate "Ready to merge", concurrent sessions |
-| [#1720](https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1720) | 31 | ~27min gap between session end and "Ready to merge" |
-| [#1661](https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1661) | 23 | "Ready to merge" posted before "Solution log", ~70min gap |
-| [#1609](https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1609) | 51 | General restart issues |
-| [#1739](https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1739) | 16 | ~1h47m gap between session end and "Ready to merge" |
+| PR                                                                | Comments | Key Issues Observed                                                    |
+| ----------------------------------------------------------------- | -------- | ---------------------------------------------------------------------- |
+| [#1796](https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1796) | 62       | Iteration jumps (1→4), duplicate "Ready to merge", concurrent sessions |
+| [#1720](https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1720) | 31       | ~27min gap between session end and "Ready to merge"                    |
+| [#1661](https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1661) | 23       | "Ready to merge" posted before "Solution log", ~70min gap              |
+| [#1609](https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1609) | 51       | General restart issues                                                 |
+| [#1739](https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1739) | 16       | ~1h47m gap between session end and "Ready to merge"                    |
 
 ## Requirements from Issue
 
@@ -40,6 +40,7 @@ This was introduced in Issue #1503 to conserve GitHub API rate limits. However, 
 The iteration numbering logic itself (`restartCount` in `solve.auto-merge.lib.mjs:528`) is correct per-process. The real fix is preventing concurrent sessions (Issue 3).
 
 **Evidence**: PR #1796 timeline shows two distinct streams:
+
 - Stream A: iterations 1-10 (started 18:42:40)
 - Stream B: iterations 1-7 (started 19:28:29)
 
@@ -48,6 +49,7 @@ The iteration numbering logic itself (`restartCount` in `solve.auto-merge.lib.mj
 ### Issue 3: Concurrent sessions on same PR
 
 **Root cause**: No PR-level or issue-level locking mechanism exists. The system has:
+
 - Queue-level concurrency via `telegram-solve-queue.lib.mjs` (tool-specific `dequeue-one-at-a-time`)
 - Per-repository merge concurrency check in `telegram-merge-command.lib.mjs`
 - But **no per-PR session deduplication**
@@ -67,12 +69,13 @@ Reducing to 2-minute intervals will significantly reduce these gaps.
 ### Issue 5: "Ready to merge" before "Solution log"
 
 **Root cause**: In `solve.mjs`, the flow is:
+
 1. Line 1218: `verifyResults()` runs — this posts the "Solution Draft Log" via `attachLogToGitHub()`
 2. Line 1410: `startAutoRestartUntilMergeable()` runs — this can post "Ready to merge" on its first check
 
 However, in `verifyResults()` at `solve.results.lib.mjs:716`, the log upload is async and may take time (uploading large log content). Meanwhile, `startAutoRestartUntilMergeable()` starts its first check cycle immediately and can reach the "PR IS MERGEABLE" branch (line 703) and post "Ready to merge" before the log upload completes.
 
-But actually, looking at the code more carefully: `verifyResults` is awaited before `startAutoRestartUntilMergeable`. The actual issue is that the solution log in `verifyResults` may fail silently or the initial solution working session doesn't post a log at all (e.g., when `shouldAttachLogs` is true but `shouldRestart` is also true, the log upload is deferred to after watch mode at line 1370). If the temporary watch mode runs and finishes quickly, the deferred log upload (line 1373) happens *after* auto-restart-until-mergeable starts at line 1410... No — the code is sequential. Line 1373 is inside `if (temporaryWatchMode)` which completes before line 1410.
+But actually, looking at the code more carefully: `verifyResults` is awaited before `startAutoRestartUntilMergeable`. The actual issue is that the solution log in `verifyResults` may fail silently or the initial solution working session doesn't post a log at all (e.g., when `shouldAttachLogs` is true but `shouldRestart` is also true, the log upload is deferred to after watch mode at line 1370). If the temporary watch mode runs and finishes quickly, the deferred log upload (line 1373) happens _after_ auto-restart-until-mergeable starts at line 1410... No — the code is sequential. Line 1373 is inside `if (temporaryWatchMode)` which completes before line 1410.
 
 Re-examining: The actual race is when the system is in `--auto-restart-until-mergeable` mode (not first run). In `watchUntilMergeable()`, after `executeToolIteration()` succeeds (line 1115), the log is attached (line 1147), and then the loop continues to check blockers. On the NEXT iteration, if `blockers.length === 0`, it posts "Ready to merge" (line 742). But the log upload at line 1147 and the "Ready to merge" at line 742 are in the same process — the issue is that the log upload might still be in-flight when the next iteration starts... No, it's awaited.
 
@@ -93,19 +96,23 @@ The in-memory flag (`readyToMergeCommentPosted`) at `solve.auto-merge.lib.mjs:53
 ## Solution Plan
 
 ### Fix 1: Reduce CI check interval to 2 minutes
+
 - Change `MIN_CI_CHECK_INTERVAL_SECONDS` from 300 to 120 in `solve.auto-merge.lib.mjs:515`
 
 ### Fix 2: Prevent concurrent sessions on the same PR/issue
+
 - Add a PR-level session lock using a lock file or in-memory registry
 - Before starting `watchUntilMergeable()` or `watchForFeedback()`, check if another session is already active for the same PR
 - Implement in `telegram-solve-queue.lib.mjs` to reject/queue commands for PRs that already have active sessions
 - Also add a guard at the `solve.auto-merge.lib.mjs` level using `checkForExistingComment()` to detect if another process recently posted
 
 ### Fix 3: Ensure "Ready to merge" never comes before "Solution log"
+
 - In `solve.auto-merge.lib.mjs`, before posting "Ready to merge", check if a solution log exists for the current commit SHA
 - Alternatively, ensure the initial working session's log is always uploaded before entering auto-restart-until-mergeable mode
 
 ### Fix 4: Use `checkForExistingComment()` as cross-process duplicate guard for "Ready to merge"
+
 - Re-enable the `checkForExistingComment()` check for "Ready to merge" as a cross-process guard
 - Keep the in-memory flag for intra-process deduplication
 - Only suppress if the existing comment was posted for the CURRENT commit SHA

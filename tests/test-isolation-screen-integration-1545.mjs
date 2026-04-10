@@ -18,25 +18,7 @@
 
 import { execSync } from 'child_process';
 import { querySessionStatus, checkScreenSessionRunning, isSessionRunning, executeWithIsolation } from '../src/isolation-runner.lib.mjs';
-
-let passed = 0;
-let failed = 0;
-let skipped = 0;
-
-function assert(condition, message) {
-  if (condition) {
-    console.log(`  ✅ PASS: ${message}`);
-    passed++;
-  } else {
-    console.error(`  ❌ FAIL: ${message}`);
-    failed++;
-  }
-}
-
-function skip(message) {
-  console.log(`  ⏭️ SKIP: ${message}`);
-  skipped++;
-}
+import { assert, skip, printSummary, getFailCount } from './test-helpers.mjs';
 
 /**
  * Check if a tool is available
@@ -182,13 +164,8 @@ if (hasScreen && hasStartCommand) {
 }
 
 // Results
-console.log('\n' + '='.repeat(70));
-console.log(`Results: ${passed} passed, ${failed} failed, ${skipped} skipped, ${passed + failed + skipped} total`);
-console.log('='.repeat(70));
+printSummary(70);
 
-if (failed > 0) {
-  console.error(`\n❌ ${failed} test(s) failed!`);
+if (getFailCount() > 0) {
   process.exit(1);
-} else {
-  console.log('\n✅ All tests passed!');
 }

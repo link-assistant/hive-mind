@@ -11,6 +11,7 @@
 ### Patch Changes
 
 - 6d385ab: Simplified cost display when public and Anthropic costs match, removed USD suffix from Anthropic cost line
+- Validate GitHub entity existence (user/org, repository, issue/PR) before executing /solve command. The telegram bot and solve CLI now fail immediately with helpful error messages when targeting non-existent entities, preventing wasted resources and providing faster feedback.
 
 ## 1.48.0
 

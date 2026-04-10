@@ -89,8 +89,7 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
 
 // Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
-
-// Log version and raw command IMMEDIATELY after log file initialization (ensures they appear even if parsing fails)
+// Log version and raw command IMMEDIATELY after log file initialization
 const versionInfo = await getVersionInfo();
 await log('');
 await log(`🚀 solve v${versionInfo}`);
@@ -115,7 +114,6 @@ setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log fi
 setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
 
 // Early logs go to cwd; custom log dir takes effect after argv is parsed
-
 // Conditionally import tool-specific functions after argv is parsed
 let checkForUncommittedChanges;
 if (argv.tool === 'opencode') {
@@ -206,8 +204,7 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
   await safeExit(1, 'Feedback validation failed');
 }
 
-// Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
-// Model validation is a simple string check and should always be performed
+// Validate model name EARLY - always runs regardless of --skip-tool-connection-check
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
 
@@ -233,12 +230,14 @@ if (argv.verbose) {
   await log(`   Is PR URL: ${!!isPrUrl}`, { verbose: true });
 }
 const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
-// Note: owner, repo, and urlNumber are extracted from validateGitHubUrl() above (parseUrlComponents() removed due to hash fragment bug)
-
+// Note: owner, repo, and urlNumber are extracted from validateGitHubUrl() above
+// Accept pending invitation BEFORE any access checks (auto-fork, permissions, entity validation)
+if (argv.autoAcceptInvite) {
+  await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
+}
 // Handle --auto-fork option: automatically fork public repositories without write access
 if (argv.autoFork && !argv.fork) {
   const { detectRepositoryVisibility } = githubLib;
-
   // Check if we have write access first (issue #1536: retry on transient network errors)
   await log('🔍 Checking repository access for auto-fork...');
   const permResult = await lib.ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .permissions`, { label: 'auto-fork perms' });
@@ -304,14 +303,7 @@ if (argv.autoFork && !argv.fork) {
     argv.fork = true;
   }
 }
-
-// Accept pending GitHub invitation for the specific repo/org before checking write access
-if (argv.autoAcceptInvite) {
-  await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
-}
-
-// Early check: Verify repository write permissions BEFORE doing any work
-// This prevents wasting AI tokens when user doesn't have access and --fork is not used
+// Permission check BEFORE entity validation (#1552): avoids false 404 on private repos without access
 const { checkRepositoryWritePermission } = githubLib;
 const hasWriteAccess = await checkRepositoryWritePermission(owner, repo, {
   useFork: argv.fork,
@@ -322,6 +314,13 @@ if (!hasWriteAccess) {
   await log('');
   await log('❌ Cannot proceed without repository write access or --fork option', { level: 'error' });
   await safeExit(1, 'Permission check failed');
+}
+
+// Issue #1552: Validate entity existence AFTER permissions (cascade: user/org → repo → issue/PR)
+const entityCheck = await (await import('./github-entity-validation.lib.mjs')).validateGitHubEntityExistence({ owner, repo, number: urlNumber, type: isIssueUrl ? 'issue' : isPrUrl ? 'pull' : undefined, verbose: argv.verbose });
+if (!entityCheck.valid) {
+  await log(`\n❌ ${entityCheck.error}\n`, { level: 'error' });
+  await safeExit(1, `GitHub entity not found (${entityCheck.level})`);
 }
 
 // Detect repository visibility and set auto-cleanup default if not explicitly set

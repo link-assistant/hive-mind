@@ -37,7 +37,7 @@ const _helpersBot = helpersModuleBot.default || helpersModuleBot;
 const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
-const { parseGitHubUrl } = await import('./github.lib.mjs');
+const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');
 const { validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
 const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
 const { extractIsolationFromArgs, isValidPerCommandIsolation, resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
@@ -282,10 +282,7 @@ if (config.dryRun) {
 }
 
 // === HEAVY DEPENDENCIES LOADED BELOW (skipped in dry-run mode) ===
-// These imports are placed after the dry-run check to significantly speed up
-// configuration validation. The telegraf module in particular can take 3-8 seconds
-// to load on cold start due to network fetch from unpkg.com CDN.
-// See issue #801 for details.
+// These imports are after dry-run check to speed up config validation. Telegraf can take 3-8s to load on cold start (issue #801).
 
 // Initialize Sentry for error tracking
 await initializeSentry({
@@ -297,17 +294,12 @@ const telegrafModule = await use('telegraf');
 const { Telegraf } = telegrafModule;
 
 const bot = new Telegraf(BOT_TOKEN, {
-  // Remove the default 90-second timeout for message handlers
-  // This is important because command handlers (like /solve) spawn long-running processes
-  handlerTimeout: Infinity,
+  handlerTimeout: Infinity, // Remove default 90s timeout; command handlers like /solve spawn long-running processes
 });
 
-// Track bot startup time to ignore messages sent before bot started
-// Using Unix timestamp (seconds since epoch) to match Telegram's message.date format
+// Track bot startup time (Unix seconds to match Telegram's message.date format)
 const BOT_START_TIME = Math.floor(Date.now() / 1000);
-
-// Wrapper functions that bind extracted filter functions to bot-specific state
-// The actual logic is in telegram-message-filters.lib.mjs for testability (issue #1207)
+// Wrapper functions binding filter logic to bot state (actual logic in telegram-message-filters.lib.mjs, issue #1207)
 function isChatAuthorized(chatId) {
   return _isChatAuthorized(chatId, allowedChats);
 }
@@ -990,9 +982,20 @@ async function handleSolveCommand(ctx) {
     });
     return;
   }
-
-  // Use normalized URL from validation to ensure consistent duplicate detection
-  // See: https://github.com/link-assistant/hive-mind/issues/1080
+  // Issue #1552: Validate GitHub entity existence before queueing/executing
+  if (args.some(a => a === '--auto-accept-invite') && validation.parsed.owner && validation.parsed.repo) {
+    try {
+      await (await import('./solve.accept-invite.lib.mjs')).autoAcceptInviteForRepo(validation.parsed.owner, validation.parsed.repo, async () => {}, false);
+    } catch (e) {
+      VERBOSE && console.log(`[VERBOSE] Auto-accept invite pre-check failed: ${e.message}`);
+    }
+  }
+  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, verbose: VERBOSE });
+  if (!entityCheck.valid) {
+    await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+  // Use normalized URL from validation to ensure consistent duplicate detection (issue #1080)
   const normalizedUrl = validation.parsed.normalized;
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });

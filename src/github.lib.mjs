@@ -1464,10 +1464,9 @@ export async function detectRepositoryVisibility(owner, repo) {
     return { isPublic: true, visibility: null };
   }
 }
-// Re-export batch archived check from separate module
-export const batchCheckArchivedRepositories = batchCheckArchived;
-// Re-export log upload function from separate module
-export { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+export { validateGitHubEntityExistence } from './github-entity-validation.lib.mjs'; // Issue #1552
+export const batchCheckArchivedRepositories = batchCheckArchived; // Re-export batch archived check
+export { uploadLogWithGhUploadLog } from './log-upload.lib.mjs'; // Re-export log upload function
 // Export all functions as default object too
 export default {
   maskGitHubToken,

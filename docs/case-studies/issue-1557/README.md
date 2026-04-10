@@ -10,12 +10,14 @@ The cost estimation section in GitHub PR/issue comments was verbose and showed r
 
 ```markdown
 ### 💰 **Cost estimation:**
+
 - Public pricing estimate: $5.207635
 - Calculated by Anthropic: $5.207635 USD
 - Difference: $0.000000 (0.00%)
 ```
 
 Issues:
+
 1. **Redundant information**: When both calculations agree, showing both values plus a zero difference is noise
 2. **Unnecessary "USD" suffix**: The "Calculated by Anthropic" line included a "USD" suffix not present on other cost lines, creating inconsistency
 3. **Visual clutter**: Three lines of cost data when a single line would suffice
@@ -30,6 +32,7 @@ When there IS a difference:
 
 ```markdown
 ### 💰 **Cost estimation:**
+
 - Public pricing estimate: $5.207635
 - Calculated by Anthropic: $5.207636
 - Difference: $0.000001 (+0.00%)
@@ -37,23 +40,23 @@ When there IS a difference:
 
 ## Requirements Analysis
 
-| # | Requirement | Source |
-|---|-------------|--------|
-| 1 | Remove "USD" suffix from "Calculated by Anthropic" line | Issue description |
-| 2 | When costs match: show simplified `💰 Cost: **$X.XXXXXX**` header | Issue description |
-| 3 | When costs differ: show full breakdown with Public/Anthropic/Difference | Issue description |
-| 4 | Apply changes to all tools (agent, claude, codex) | Issue description |
-| 5 | Bold formatting for cost value in simplified display | Issue description |
+| #   | Requirement                                                             | Source            |
+| --- | ----------------------------------------------------------------------- | ----------------- |
+| 1   | Remove "USD" suffix from "Calculated by Anthropic" line                 | Issue description |
+| 2   | When costs match: show simplified `💰 Cost: **$X.XXXXXX**` header       | Issue description |
+| 3   | When costs differ: show full breakdown with Public/Anthropic/Difference | Issue description |
+| 4   | Apply changes to all tools (agent, claude, codex)                       | Issue description |
+| 5   | Bold formatting for cost value in simplified display                    | Issue description |
 
 ## Root Cause Analysis
 
 ### Affected Components
 
-| File | Function | Role |
-|------|----------|------|
-| `src/github.lib.mjs` | `buildCostInfoString()` | Generates cost markdown for GitHub comments (used by all tools) |
-| `src/claude.budget-stats.lib.mjs` | `displayCostComparison()` | Displays cost comparison in terminal/log output |
-| `tests/test-build-cost-info-string.mjs` | Test suite | Unit tests for `buildCostInfoString()` |
+| File                                    | Function                  | Role                                                            |
+| --------------------------------------- | ------------------------- | --------------------------------------------------------------- |
+| `src/github.lib.mjs`                    | `buildCostInfoString()`   | Generates cost markdown for GitHub comments (used by all tools) |
+| `src/claude.budget-stats.lib.mjs`       | `displayCostComparison()` | Displays cost comparison in terminal/log output                 |
+| `tests/test-build-cost-info-string.mjs` | Test suite                | Unit tests for `buildCostInfoString()`                          |
 
 ### Architecture
 

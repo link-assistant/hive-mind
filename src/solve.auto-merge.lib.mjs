@@ -551,16 +551,32 @@ export const watchUntilMergeable = async params => {
   let consecutiveNoRunsChecks = 0;
   let lastKnownHeadSha = null;
 
+  // Issue #1567: Initial cooldown before first check.
+  // Wait at least MIN_CI_CHECK_INTERVAL_SECONDS after working session finishes before
+  // starting to check. This ensures:
+  // 1. Solution Draft Log is fully posted before any "Ready to merge" can appear
+  // 2. CI/CD checks have time to register with GitHub (avoids false "no CI" detection)
+  // 3. Consistent behavior whether CI/CD is configured or not
+  const INITIAL_COOLDOWN_SECONDS = MIN_CI_CHECK_INTERVAL_SECONDS;
+
   await log('');
   await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE', ''));
   await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
   await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergeable (will NOT auto-merge)', 2));
   await log(formatAligned('', 'Checking interval:', `${watchInterval} seconds (minimum: ${MIN_CI_CHECK_INTERVAL_SECONDS}s)`, 2));
+  await log(formatAligned('', 'Initial cooldown:', `${INITIAL_COOLDOWN_SECONDS} seconds`, 2));
   await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (absolute safety)' : 'No', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
   await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
   await log('');
   await log('Press Ctrl+C to stop watching manually');
+  await log('');
+
+  // Issue #1567: Wait for initial cooldown before first check.
+  // This gives CI/CD time to start and solution logs time to be posted.
+  await log(formatAligned('⏳', 'Initial cooldown:', `Waiting ${INITIAL_COOLDOWN_SECONDS}s before first check...`));
+  await new Promise(resolve => setTimeout(resolve, INITIAL_COOLDOWN_SECONDS * 1000));
+  await log(formatAligned('✅', 'Cooldown complete:', 'Starting monitoring loop'));
   await log('');
 
   let iteration = 0;

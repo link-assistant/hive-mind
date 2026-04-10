@@ -14,43 +14,14 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1561
  */
 
+import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { test, printSummary, getFailCount } from './test-helpers.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// ANSI color codes for terminal output
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const BLUE = '\x1b[34m';
-const RESET = '\x1b[0m';
-
-let passed = 0;
-let failed = 0;
-
-const test = (description, fn) => {
-  try {
-    fn();
-    console.log(`  ${GREEN}✅ PASS:${RESET} ${description}`);
-    passed++;
-  } catch (e) {
-    console.log(`  ${RED}❌ FAIL:${RESET} ${description}`);
-    console.log(`      Error: ${e.message}`);
-    failed++;
-  }
-};
-
-const assert = (condition, message) => {
-  if (!condition) {
-    throw new Error(message);
-  }
-};
-
-console.log('================================================================================');
-console.log('Unit Tests: Issue #1561 - Fork mode screenshot URL fix');
-console.log('================================================================================\n');
 
 // Import the prompt builder functions
 let claudePrompts;
@@ -60,7 +31,7 @@ try {
   claudePrompts = await import('../src/claude.prompts.lib.mjs');
   agentPrompts = await import('../src/agent.prompts.lib.mjs');
 } catch (e) {
-  console.error(`${RED}❌ Failed to import prompt modules: ${e.message}${RESET}`);
+  console.error(`Failed to import prompt modules: ${e.message}`);
   process.exit(1);
 }
 
@@ -79,7 +50,7 @@ const baseParams = {
 };
 
 // ===== Tests for claude.prompts.lib.mjs: Fork mode =====
-console.log(`${BLUE}📋 Claude prompts: Fork mode screenshot URLs${RESET}\n`);
+console.log('\n📋 Claude prompts: Fork mode screenshot URLs\n');
 
 test('Fork mode → screenshot URL uses forked repo path', () => {
   const prompt = claudeBuildSystemPrompt({
@@ -88,8 +59,8 @@ test('Fork mode → screenshot URL uses forked repo path', () => {
     forkedRepo: 'fork-user/original-repo',
   });
 
-  assert(prompt.includes('github.com/fork-user/original-repo/blob/issue-1790-abc123'), 'Should use forked repo in screenshot URL');
-  assert(!prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should NOT use original repo in screenshot URL when in fork mode');
+  assert.ok(prompt.includes('github.com/fork-user/original-repo/blob/issue-1790-abc123'), 'Should use forked repo in screenshot URL');
+  assert.ok(!prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should NOT use original repo in screenshot URL when in fork mode');
 });
 
 test('Non-fork mode → screenshot URL uses original repo', () => {
@@ -98,17 +69,16 @@ test('Non-fork mode → screenshot URL uses original repo', () => {
     argv: {},
   });
 
-  assert(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should use original owner/repo in screenshot URL');
+  assert.ok(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should use original owner/repo in screenshot URL');
 });
 
 test('Fork mode without forkedRepo → falls back to original repo', () => {
   const prompt = claudeBuildSystemPrompt({
     ...baseParams,
     argv: { fork: true },
-    // forkedRepo not provided
   });
 
-  assert(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should fall back to original repo when forkedRepo is not available');
+  assert.ok(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should fall back to original repo when forkedRepo is not available');
 });
 
 test('Fork mode with empty argv → uses original repo', () => {
@@ -118,11 +88,11 @@ test('Fork mode with empty argv → uses original repo', () => {
     forkedRepo: 'fork-user/original-repo',
   });
 
-  assert(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should use original repo when fork flag is not set');
+  assert.ok(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should use original repo when fork flag is not set');
 });
 
 // ===== Tests for agent.prompts.lib.mjs: Fork mode =====
-console.log(`\n${BLUE}📋 Agent prompts: Fork mode screenshot URLs${RESET}\n`);
+console.log('\n📋 Agent prompts: Fork mode screenshot URLs\n');
 
 test('[agent] Fork mode → screenshot URL uses forked repo path', () => {
   const prompt = agentBuildSystemPrompt({
@@ -131,8 +101,8 @@ test('[agent] Fork mode → screenshot URL uses forked repo path', () => {
     forkedRepo: 'fork-user/original-repo',
   });
 
-  assert(prompt.includes('github.com/fork-user/original-repo/blob/issue-1790-abc123'), 'Should use forked repo in screenshot URL');
-  assert(!prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should NOT use original repo in screenshot URL when in fork mode');
+  assert.ok(prompt.includes('github.com/fork-user/original-repo/blob/issue-1790-abc123'), 'Should use forked repo in screenshot URL');
+  assert.ok(!prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should NOT use original repo in screenshot URL when in fork mode');
 });
 
 test('[agent] Non-fork mode → screenshot URL uses original repo', () => {
@@ -141,7 +111,7 @@ test('[agent] Non-fork mode → screenshot URL uses original repo', () => {
     argv: {},
   });
 
-  assert(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should use original owner/repo in screenshot URL');
+  assert.ok(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should use original owner/repo in screenshot URL');
 });
 
 test('[agent] Fork mode without forkedRepo → falls back to original repo', () => {
@@ -150,36 +120,36 @@ test('[agent] Fork mode without forkedRepo → falls back to original repo', () 
     argv: { fork: true },
   });
 
-  assert(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should fall back to original repo when forkedRepo is not available');
+  assert.ok(prompt.includes('github.com/original-owner/original-repo/blob/issue-1790-abc123'), 'Should fall back to original repo when forkedRepo is not available');
 });
 
 // ===== Source code verification =====
-console.log(`\n${BLUE}📋 Source code verification${RESET}\n`);
+console.log('\n📋 Source code verification\n');
 
 test('claude.prompts.lib.mjs: extracts forkedRepo from params', () => {
   const content = readFileSync(join(__dirname, '../src/claude.prompts.lib.mjs'), 'utf-8');
-  assert(content.includes('forkedRepo'), 'Should destructure forkedRepo from params');
-  assert(content.includes('screenshotRepoPath'), 'Should compute screenshotRepoPath');
+  assert.ok(content.includes('forkedRepo'), 'Should destructure forkedRepo from params');
+  assert.ok(content.includes('screenshotRepoPath'), 'Should compute screenshotRepoPath');
 });
 
 test('agent.prompts.lib.mjs: extracts forkedRepo from params', () => {
   const content = readFileSync(join(__dirname, '../src/agent.prompts.lib.mjs'), 'utf-8');
-  assert(content.includes('forkedRepo'), 'Should destructure forkedRepo from params');
-  assert(content.includes('screenshotRepoPath'), 'Should compute screenshotRepoPath');
+  assert.ok(content.includes('forkedRepo'), 'Should destructure forkedRepo from params');
+  assert.ok(content.includes('screenshotRepoPath'), 'Should compute screenshotRepoPath');
 });
 
 test('claude.prompts.lib.mjs: screenshotRepoPath uses fork when available', () => {
   const content = readFileSync(join(__dirname, '../src/claude.prompts.lib.mjs'), 'utf-8');
-  assert(content.includes('argv?.fork && forkedRepo ? forkedRepo'), 'Should conditionally use forkedRepo when fork mode is active');
+  assert.ok(content.includes('argv?.fork && forkedRepo ? forkedRepo'), 'Should conditionally use forkedRepo when fork mode is active');
 });
 
 test('agent.prompts.lib.mjs: screenshotRepoPath uses fork when available', () => {
   const content = readFileSync(join(__dirname, '../src/agent.prompts.lib.mjs'), 'utf-8');
-  assert(content.includes('argv?.fork && forkedRepo ? forkedRepo'), 'Should conditionally use forkedRepo when fork mode is active');
+  assert.ok(content.includes('argv?.fork && forkedRepo ? forkedRepo'), 'Should conditionally use forkedRepo when fork mode is active');
 });
 
 // ===== Regression: Existing tests from #1349 still hold =====
-console.log(`\n${BLUE}📋 Regression: Issue #1349 compatibility${RESET}\n`);
+console.log('\n📋 Regression: Issue #1349 compatibility\n');
 
 test('Vision disabled → no screenshot section (claude)', () => {
   const prompt = claudeBuildSystemPrompt({
@@ -189,7 +159,7 @@ test('Vision disabled → no screenshot section (claude)', () => {
     forkedRepo: 'fork-user/original-repo',
   });
 
-  assert(!prompt.includes('Visual UI work and screenshots'), 'Should not include screenshot section without vision');
+  assert.ok(!prompt.includes('Visual UI work and screenshots'), 'Should not include screenshot section without vision');
 });
 
 test('Vision disabled → no screenshot section (agent)', () => {
@@ -200,18 +170,12 @@ test('Vision disabled → no screenshot section (agent)', () => {
     forkedRepo: 'fork-user/original-repo',
   });
 
-  assert(!prompt.includes('Visual UI work and screenshots'), 'Should not include screenshot section without vision');
+  assert.ok(!prompt.includes('Visual UI work and screenshots'), 'Should not include screenshot section without vision');
 });
 
 // ===== Summary =====
-console.log('\n================================================================================');
-console.log(`Test Summary: ${GREEN}${passed} passed${RESET}, ${failed > 0 ? RED : ''}${failed} failed${RESET}`);
-console.log('================================================================================\n');
+printSummary(80);
 
-if (failed > 0) {
-  console.log(`${RED}❌ Tests FAILED${RESET}\n`);
+if (getFailCount() > 0) {
   process.exit(1);
-} else {
-  console.log(`${GREEN}✅ All tests PASSED${RESET}\n`);
-  process.exit(0);
 }

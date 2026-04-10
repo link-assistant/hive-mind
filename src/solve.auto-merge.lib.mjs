@@ -510,9 +510,11 @@ export const watchUntilMergeable = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
   const rawWatchInterval = argv.watchInterval || 60; // seconds
-  // Issue #1503: Enforce minimum 5-minute (300s) CI check interval to conserve GitHub API rate limits.
-  // This prevents excessive API calls during long-running CI pipelines.
-  const MIN_CI_CHECK_INTERVAL_SECONDS = 300;
+  // Issue #1503: Enforce minimum CI check interval to conserve GitHub API rate limits.
+  // Issue #1567: Reduced from 5 minutes (300s) to 2 minutes (120s) to decrease wait times
+  // between working session finish and "Ready to merge" / next action detection.
+  // This also applies uniformly whether CI/CD is configured or not.
+  const MIN_CI_CHECK_INTERVAL_SECONDS = 120;
   const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
   // Issue #1503: --wait-for-all-actions-in-repository-before-mergable (default: true)

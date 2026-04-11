@@ -62,10 +62,7 @@ export const watchUntilMergeable = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
   const rawWatchInterval = argv.watchInterval || 60; // seconds
-  // Issue #1503: Enforce minimum CI check interval to conserve GitHub API rate limits.
-  // Issue #1567: Reduced from 5 minutes (300s) to 2 minutes (120s) to decrease wait times
-  // between working session finish and "Ready to merge" / next action detection.
-  // This also applies uniformly whether CI/CD is configured or not.
+  // Issue #1567: Minimum 120s interval to conserve API rate limits while keeping responsiveness
   const MIN_CI_CHECK_INTERVAL_SECONDS = 120;
   const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
@@ -76,39 +73,19 @@ export const watchUntilMergeable = async params => {
   let latestSessionId = null;
   let latestAnthropicCost = null;
 
-  // Issue #1323: Track actual restart count separately from check cycle iteration
-  // `iteration` counts check cycles (how many times we check for blockers)
-  // `restartCount` counts actual AI tool executions (when we actually restart the AI)
+  // Issue #1323: Track actual AI restarts separately from check cycle iterations
   let restartCount = 0;
 
-  // Issue #1371: Track whether a "Ready to merge" comment was posted in THIS session.
-  // This replaces the all-time history check (checkForExistingComment) which incorrectly
-  // suppressed new notifications when a previous solve run had already posted one.
-  // In-memory deduplication correctly handles the case where multiple check cycles in
-  // the same run detect mergeability simultaneously, without blocking fresh runs.
+  // Issue #1371: In-memory dedup for "Ready to merge" comment (per-session, not all-time)
   let readyToMergeCommentPosted = false;
 
   let currentBackoffSeconds = watchInterval;
 
-  // Issue #1503: Track consecutive "no workflow runs" checks per-SHA separately from iteration count.
-  // The `checkCount` parameter in getMergeBlockers is a safety valve that triggers after
-  // MAX_NO_RUNS_CHECKS (5) consecutive checks with zero workflow runs, concluding CI was
-  // genuinely not triggered (paths-ignore, fork PRs, etc.). Previously, `iteration` (total
-  // loop count) was passed as `checkCount`, which meant after 5 iterations (regardless of
-  // CI state), any new push would immediately trigger the safety valve because checkCount
-  // was already >= 5. This caused false positive "Ready to merge" when a new commit was
-  // pushed and CI hadn't registered yet.
-  //
-  // Fix: Track the HEAD SHA and reset the counter when it changes (new push detected).
+  // Issue #1503: Track consecutive "no workflow runs" checks per-SHA (reset on new push)
   let consecutiveNoRunsChecks = 0;
   let lastKnownHeadSha = null;
 
-  // Issue #1567: Initial cooldown before first check.
-  // Wait at least MIN_CI_CHECK_INTERVAL_SECONDS after working session finishes before
-  // starting to check. This ensures:
-  // 1. Solution Draft Log is fully posted before any "Ready to merge" can appear
-  // 2. CI/CD checks have time to register with GitHub (avoids false "no CI" detection)
-  // 3. Consistent behavior whether CI/CD is configured or not
+  // Issue #1567: Initial cooldown to let CI register and solution logs post
   const INITIAL_COOLDOWN_SECONDS = MIN_CI_CHECK_INTERVAL_SECONDS;
 
   await log('');
@@ -161,9 +138,7 @@ export const watchUntilMergeable = async params => {
     await log(formatAligned('🔍', `Check #${iteration}:`, currentTime.toLocaleTimeString()));
 
     try {
-      // Issue #1503: Get the current HEAD SHA to detect new pushes and reset the
-      // consecutive no-runs counter. This prevents false positives where the counter
-      // from a previous commit's checks carries over to a new commit.
+      // Issue #1503: Get current HEAD SHA to detect new pushes and reset no-runs counter
       let currentHeadSha = null;
       try {
         const shaResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid --jq .headRefOid`;
@@ -184,17 +159,13 @@ export const watchUntilMergeable = async params => {
         readyToMergeCommentPosted = false;
       }
 
-      // Issue #1503: Increment counter; getMergeBlockers will use it as a safety valve.
-      // If getMergeBlockers sees no workflow runs on this check, the counter stays incremented.
-      // If it sees workflow runs or checks, the counter is irrelevant (different code paths).
+      // Issue #1503: Increment counter; getMergeBlockers uses it as a safety valve
       consecutiveNoRunsChecks++;
 
       // Get merge blockers
       const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
 
-      // Issue #1503: Reset consecutive counter when CI checks or workflow runs were found.
-      // This ensures the safety valve only fires after truly consecutive "no runs" checks,
-      // not after interleaved pending/success/failure states that happened to reach the count.
+      // Issue #1503: Reset counter when CI checks exist (safety valve only for consecutive "no runs")
       if (ciStatus && ciStatus.status !== 'no_checks') {
         // CI checks exist (pending, success, failure, etc.) — the "no runs" counter is irrelevant
         consecutiveNoRunsChecks = 0;

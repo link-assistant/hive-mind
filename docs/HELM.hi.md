@@ -1,28 +1,28 @@
-# Helm Chart Documentation (Experimental) (languages: en • [zh](HELM.zh.md) • [hi](HELM.hi.md) • [ru](HELM.ru.md))
+# Helm Chart दस्तावेज़ीकरण (Experimental) (languages: [en](HELM.md) • [zh](HELM.zh.md) • hi • [ru](HELM.ru.md))
 
-> ⚠️ **EXPERIMENTAL:** The Helm/Kubernetes installation method is experimental and may not be fully stable.
+> ⚠️ **EXPERIMENTAL:** Helm/Kubernetes installation method experimental है और पूरी तरह stable नहीं हो सकती।
 >
-> For a more reliable installation, we recommend using the [Docker installation method](../README.md#using-docker) instead.
+> अधिक reliable installation के लिए, हम इसके बजाय [Docker installation method](../README.hi.md#using-docker) उपयोग करने की सलाह देते हैं।
 
-This document provides comprehensive guidance for deploying Hive Mind on Kubernetes using Helm.
+यह दस्तावेज़ Helm का उपयोग करके Kubernetes पर Hive Mind deploy करने के लिए व्यापक मार्गदर्शन प्रदान करता है।
 
-## Prerequisites
+## पूर्वापेक्षाएँ
 
 - Kubernetes cluster 1.19+
 - Helm 3.0+
-- `kubectl` configured to access your cluster
-- Sufficient cluster resources (see [Resource Requirements](#resource-requirements))
+- `kubectl` आपके cluster तक पहुँचने के लिए configured
+- पर्याप्त cluster resources (देखें [Resource Requirements](#resource-requirements))
 
 ## Installation
 
-### Add the Helm Repository
+### Helm Repository जोड़ें
 
 ```bash
 helm repo add link-assistant https://link-assistant.github.io/hive-mind
 helm repo update
 ```
 
-### Install the Chart
+### Chart Install करें
 
 #### Basic Installation
 
@@ -30,13 +30,13 @@ helm repo update
 helm install hive-mind link-assistant/hive-mind
 ```
 
-#### Installation with Custom Values
+#### Custom Values के साथ Installation
 
 ```bash
 helm install hive-mind link-assistant/hive-mind -f custom-values.yaml
 ```
 
-#### Installation in a Specific Namespace
+#### एक Specific Namespace में Installation
 
 ```bash
 kubectl create namespace hive-mind
@@ -47,7 +47,7 @@ helm install hive-mind link-assistant/hive-mind -n hive-mind
 
 ### Default Values
 
-The default `values.yaml` provides sensible defaults for most deployments. Key configuration options:
+Default `values.yaml` अधिकांश deployments के लिए sensible defaults प्रदान करती है। मुख्य configuration विकल्प:
 
 ### Resource Requirements
 
@@ -63,7 +63,7 @@ resources:
     memory: 1Gi
 ```
 
-**Recommended minimum resources per pod:**
+**प्रति pod अनुशंसित minimum resources:**
 
 - CPU: 500m (0.5 cores)
 - Memory: 1Gi RAM
@@ -71,7 +71,7 @@ resources:
 
 ### Persistence Configuration
 
-By default, persistent storage is enabled with 50Gi:
+Default रूप से, 50Gi के साथ persistent storage सक्षम है:
 
 ```yaml
 persistence:
@@ -80,7 +80,7 @@ persistence:
   size: 50Gi
 ```
 
-**Using a specific storage class:**
+**एक specific storage class उपयोग करना:**
 
 ```yaml
 persistence:
@@ -89,7 +89,7 @@ persistence:
   size: 100Gi
 ```
 
-**Using an existing PVC:**
+**एक existing PVC उपयोग करना:**
 
 ```yaml
 persistence:
@@ -99,23 +99,23 @@ persistence:
 
 ### Authentication Configuration
 
-Hive Mind requires GitHub and Claude authentication. These should be configured via Kubernetes secrets:
+Hive Mind को GitHub और Claude authentication की आवश्यकता है। इन्हें Kubernetes secrets के माध्यम से configure किया जाना चाहिए:
 
-#### Create GitHub Token Secret
+#### GitHub Token Secret बनाएं
 
 ```bash
 kubectl create secret generic hive-github-token \
   --from-literal=token='ghp_your_github_token_here'
 ```
 
-#### Create Claude API Key Secret
+#### Claude API Key Secret बनाएं
 
 ```bash
 kubectl create secret generic hive-claude-api-key \
   --from-literal=apiKey='sk-ant-your_claude_key_here'
 ```
 
-#### Reference Secrets in Values
+#### Values में Secrets Reference करें
 
 ```yaml
 secrets:
@@ -123,9 +123,9 @@ secrets:
   claudeApiKey: 'hive-claude-api-key'
 ```
 
-### Running as a Telegram Bot
+### Telegram Bot के रूप में चलाना
 
-To run Hive Mind as a Telegram bot in Kubernetes:
+Kubernetes में Hive Mind को Telegram bot के रूप में चलाने के लिए:
 
 ```yaml
 command:
@@ -154,7 +154,7 @@ env:
 
 ### Autoscaling
 
-Enable horizontal pod autoscaling for multiple bot instances:
+Multiple bot instances के लिए horizontal pod autoscaling सक्षम करें:
 
 ```yaml
 autoscaling:
@@ -165,11 +165,11 @@ autoscaling:
   targetMemoryUtilizationPercentage: 80
 ```
 
-### Node Selection and Affinity
+### Node Selection और Affinity
 
 #### Node Selector
 
-Deploy to specific nodes:
+Specific nodes पर deploy करें:
 
 ```yaml
 nodeSelector:
@@ -179,7 +179,7 @@ nodeSelector:
 
 #### Tolerations
 
-Allow scheduling on tainted nodes:
+Tainted nodes पर scheduling की अनुमति दें:
 
 ```yaml
 tolerations:
@@ -191,7 +191,7 @@ tolerations:
 
 #### Affinity Rules
 
-Co-locate or spread pods:
+Pods को co-locate या spread करें:
 
 ```yaml
 affinity:
@@ -208,11 +208,11 @@ affinity:
           topologyKey: kubernetes.io/hostname
 ```
 
-## Common Use Cases
+## सामान्य Use Cases
 
 ### Example 1: Single Bot Instance
 
-Simple deployment for testing or small-scale usage:
+Testing या small-scale usage के लिए सरल deployment:
 
 ```yaml
 # values-simple.yaml
@@ -237,7 +237,7 @@ helm install hive-mind link-assistant/hive-mind -f values-simple.yaml
 
 ### Example 2: Production Telegram Bot
 
-High-availability deployment with autoscaling:
+Autoscaling के साथ high-availability deployment:
 
 ```yaml
 # values-production.yaml
@@ -290,7 +290,7 @@ helm install hive-mind link-assistant/hive-mind -f values-production.yaml
 
 ### Example 3: Development Environment
 
-Minimal resources for development/testing:
+Development/testing के लिए minimal resources:
 
 ```yaml
 # values-dev.yaml
@@ -314,19 +314,19 @@ helm install hive-mind-dev link-assistant/hive-mind -f values-dev.yaml
 
 ## Upgrading
 
-### Update Repository
+### Repository अपडेट करें
 
 ```bash
 helm repo update
 ```
 
-### Upgrade Release
+### Release Upgrade करें
 
 ```bash
 helm upgrade hive-mind link-assistant/hive-mind
 ```
 
-### Upgrade with New Values
+### New Values के साथ Upgrade करें
 
 ```bash
 helm upgrade hive-mind link-assistant/hive-mind -f new-values.yaml
@@ -335,13 +335,13 @@ helm upgrade hive-mind link-assistant/hive-mind -f new-values.yaml
 ### Rollback
 
 ```bash
-# List release history
+# Release history देखें
 helm history hive-mind
 
-# Rollback to previous version
+# Previous version पर rollback करें
 helm rollback hive-mind
 
-# Rollback to specific revision
+# Specific revision पर rollback करें
 helm rollback hive-mind 2
 ```
 
@@ -351,7 +351,7 @@ helm rollback hive-mind 2
 helm uninstall hive-mind
 ```
 
-**Note:** By default, PersistentVolumeClaims are not deleted automatically. To delete them:
+**नोट:** Default रूप से, PersistentVolumeClaims automatically delete नहीं होते। उन्हें delete करने के लिए:
 
 ```bash
 kubectl delete pvc -l app.kubernetes.io/name=hive-mind
@@ -359,52 +359,52 @@ kubectl delete pvc -l app.kubernetes.io/name=hive-mind
 
 ## Troubleshooting
 
-### Check Pod Status
+### Pod Status जांचें
 
 ```bash
 kubectl get pods -l app.kubernetes.io/name=hive-mind
 ```
 
-### View Pod Logs
+### Pod Logs देखें
 
 ```bash
 kubectl logs -l app.kubernetes.io/name=hive-mind --tail=100 -f
 ```
 
-### Access Pod Shell
+### Pod Shell Access करें
 
 ```bash
 kubectl exec -it deployment/hive-mind -- /bin/bash
 ```
 
-### Check PVC Status
+### PVC Status जांचें
 
 ```bash
 kubectl get pvc
 kubectl describe pvc hive-mind
 ```
 
-### Common Issues
+### सामान्य Issues
 
-#### Pod Not Starting
+#### Pod शुरू नहीं हो रहा
 
-**Symptom:** Pod stuck in `Pending` state
+**Symptom:** Pod `Pending` state में अटका हुआ
 
-**Solutions:**
+**समाधान:**
 
-1. Check node resources: `kubectl describe node`
-2. Verify PVC is bound: `kubectl get pvc`
-3. Check storage class exists: `kubectl get storageclass`
+1. Node resources जांचें: `kubectl describe node`
+2. Verify करें कि PVC bound है: `kubectl get pvc`
+3. जांचें कि storage class मौजूद है: `kubectl get storageclass`
 
 #### Authentication Issues
 
-**Symptom:** GitHub/Claude commands fail
+**Symptom:** GitHub/Claude commands fail हो रहे हैं
 
-**Solutions:**
+**समाधान:**
 
-1. Verify secrets exist: `kubectl get secrets`
-2. Check secret contents: `kubectl describe secret hive-github-token`
-3. Manually authenticate inside pod:
+1. Verify करें कि secrets मौजूद हैं: `kubectl get secrets`
+2. Secret contents जांचें: `kubectl describe secret hive-github-token`
+3. Pod के अंदर manually authenticate करें:
    ```bash
    kubectl exec -it deployment/hive-mind -- /bin/bash
    gh auth login
@@ -413,19 +413,19 @@ kubectl describe pvc hive-mind
 
 #### Out of Memory
 
-**Symptom:** Pod crashes with OOMKilled
+**Symptom:** Pod OOMKilled के साथ crash होता है
 
-**Solutions:**
+**समाधान:**
 
-1. Increase memory limits in values.yaml
-2. Monitor actual usage: `kubectl top pods`
-3. Consider using autoscaling
+1. values.yaml में memory limits बढ़ाएं
+2. वास्तविक usage monitor करें: `kubectl top pods`
+3. Autoscaling उपयोग करने पर विचार करें
 
 ## Advanced Configuration
 
 ### Multiple Helm Releases
 
-Run multiple isolated Hive Mind instances:
+Multiple isolated Hive Mind instances चलाएं:
 
 ```bash
 # Instance 1 - Team A
@@ -441,7 +441,7 @@ helm install hive-team-b link-assistant/hive-mind \
 
 ### Custom Image
 
-Use a custom Docker image:
+एक custom Docker image उपयोग करें:
 
 ```yaml
 image:
@@ -455,7 +455,7 @@ imagePullSecrets:
 
 ### Additional Volumes
 
-Mount additional volumes:
+Additional volumes mount करें:
 
 ```yaml
 volumes:
@@ -469,21 +469,21 @@ volumeMounts:
     readOnly: true
 ```
 
-## Monitoring and Observability
+## Monitoring और Observability
 
 ### Resource Monitoring
 
 ```bash
-# Watch resource usage
+# Resource usage देखें
 kubectl top pods -l app.kubernetes.io/name=hive-mind
 
-# Watch continuously
+# Continuously देखें
 watch kubectl top pods -l app.kubernetes.io/name=hive-mind
 ```
 
 ### Logging
 
-Integrate with logging systems like ELK, Loki, or CloudWatch:
+ELK, Loki या CloudWatch जैसे logging systems के साथ integrate करें:
 
 ```yaml
 podAnnotations:
@@ -491,11 +491,11 @@ podAnnotations:
   prometheus.io/port: '9090'
 ```
 
-## Security Best Practices
+## Security सर्वोत्तम प्रथाएँ
 
-1. **Use Secrets Management:** Store GitHub tokens and API keys in Kubernetes secrets or external secret managers (HashiCorp Vault, AWS Secrets Manager)
+1. **Secrets Management उपयोग करें:** GitHub tokens और API keys को Kubernetes secrets या external secret managers (HashiCorp Vault, AWS Secrets Manager) में store करें
 
-2. **Network Policies:** Restrict network access between pods:
+2. **Network Policies:** Pods के बीच network access restrict करें:
 
    ```yaml
    apiVersion: networking.k8s.io/v1
@@ -514,7 +514,7 @@ podAnnotations:
            - namespaceSelector: {}
    ```
 
-3. **Pod Security Standards:** Use restricted pod security standards:
+3. **Pod Security Standards:** Restricted pod security standards उपयोग करें:
 
    ```yaml
    podSecurityContext:
@@ -525,11 +525,11 @@ podAnnotations:
        type: RuntimeDefault
    ```
 
-4. **RBAC:** Create minimal role permissions for the service account
+4. **RBAC:** Service account के लिए minimal role permissions बनाएं
 
-5. **Regular Updates:** Keep the chart and container image updated
+5. **Regular Updates:** Chart और container image को updated रखें
 
-## Support and Contributing
+## Support और Contributing
 
 - **GitHub Issues:** https://github.com/link-assistant/hive-mind/issues
 - **Documentation:** https://github.com/link-assistant/hive-mind
@@ -538,4 +538,4 @@ podAnnotations:
 
 ## License
 
-This Helm chart is released under the Unlicense. See the [LICENSE](https://github.com/link-assistant/hive-mind/blob/main/LICENSE) file for details.
+यह Helm chart Unlicense के तहत released है। विवरण के लिए [LICENSE](https://github.com/link-assistant/hive-mind/blob/main/LICENSE) फ़ाइल देखें।

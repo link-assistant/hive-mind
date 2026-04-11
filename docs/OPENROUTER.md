@@ -1,4 +1,4 @@
-# OpenRouter Setup Guide
+# OpenRouter Setup Guide (languages: en • [zh](OPENROUTER.zh.md) • [hi](OPENROUTER.hi.md) • [ru](OPENROUTER.ru.md))
 
 This guide explains how to configure OpenRouter for both Claude Code CLI and @link-assistant/agent, enabling you to use 500+ AI models from 60+ providers through a unified API.
 

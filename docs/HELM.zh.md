@@ -1,57 +1,57 @@
-# Helm Chart Documentation (Experimental) (languages: en • [zh](HELM.zh.md) • [hi](HELM.hi.md) • [ru](HELM.ru.md))
+# Helm Chart 文档（实验性）(languages: [en](HELM.md) • zh • [hi](HELM.hi.md) • [ru](HELM.ru.md))
 
-> ⚠️ **EXPERIMENTAL:** The Helm/Kubernetes installation method is experimental and may not be fully stable.
+> ⚠️ **实验性：** Helm/Kubernetes 安装方法是实验性的，可能尚不完全稳定。
 >
-> For a more reliable installation, we recommend using the [Docker installation method](../README.md#using-docker) instead.
+> 对于更可靠的安装，我们建议改用 [Docker 安装方法](../README.zh.md#using-docker)。
 
-This document provides comprehensive guidance for deploying Hive Mind on Kubernetes using Helm.
+本文档提供了使用 Helm 在 Kubernetes 上部署 Hive Mind 的全面指南。
 
-## Prerequisites
+## 前提条件
 
-- Kubernetes cluster 1.19+
+- Kubernetes 集群 1.19+
 - Helm 3.0+
-- `kubectl` configured to access your cluster
-- Sufficient cluster resources (see [Resource Requirements](#resource-requirements))
+- 已配置访问集群的 `kubectl`
+- 足够的集群资源（参见[资源要求](#resource-requirements)）
 
-## Installation
+## 安装
 
-### Add the Helm Repository
+### 添加 Helm 仓库
 
 ```bash
 helm repo add link-assistant https://link-assistant.github.io/hive-mind
 helm repo update
 ```
 
-### Install the Chart
+### 安装 Chart
 
-#### Basic Installation
+#### 基本安装
 
 ```bash
 helm install hive-mind link-assistant/hive-mind
 ```
 
-#### Installation with Custom Values
+#### 使用自定义值安装
 
 ```bash
 helm install hive-mind link-assistant/hive-mind -f custom-values.yaml
 ```
 
-#### Installation in a Specific Namespace
+#### 在特定命名空间中安装
 
 ```bash
 kubectl create namespace hive-mind
 helm install hive-mind link-assistant/hive-mind -n hive-mind
 ```
 
-## Configuration
+## 配置
 
-### Default Values
+### 默认值
 
-The default `values.yaml` provides sensible defaults for most deployments. Key configuration options:
+默认的 `values.yaml` 为大多数部署提供了合理的默认值。关键配置选项：
 
-### Resource Requirements
+### 资源要求
 
-Default resource allocation:
+默认资源分配：
 
 ```yaml
 resources:
@@ -63,15 +63,15 @@ resources:
     memory: 1Gi
 ```
 
-**Recommended minimum resources per pod:**
+**每个 Pod 推荐的最低资源：**
 
-- CPU: 500m (0.5 cores)
-- Memory: 1Gi RAM
-- Disk: 50Gi persistent storage
+- CPU：500m（0.5 核）
+- 内存：1Gi RAM
+- 磁盘：50Gi 持久存储
 
-### Persistence Configuration
+### 持久化配置
 
-By default, persistent storage is enabled with 50Gi:
+默认情况下，持久存储已启用，大小为 50Gi：
 
 ```yaml
 persistence:
@@ -80,7 +80,7 @@ persistence:
   size: 50Gi
 ```
 
-**Using a specific storage class:**
+**使用特定存储类：**
 
 ```yaml
 persistence:
@@ -89,7 +89,7 @@ persistence:
   size: 100Gi
 ```
 
-**Using an existing PVC:**
+**使用现有 PVC：**
 
 ```yaml
 persistence:
@@ -97,25 +97,25 @@ persistence:
   existingClaim: 'my-existing-pvc'
 ```
 
-### Authentication Configuration
+### 认证配置
 
-Hive Mind requires GitHub and Claude authentication. These should be configured via Kubernetes secrets:
+Hive Mind 需要 GitHub 和 Claude 认证。这些应通过 Kubernetes 密钥配置：
 
-#### Create GitHub Token Secret
+#### 创建 GitHub Token 密钥
 
 ```bash
 kubectl create secret generic hive-github-token \
   --from-literal=token='ghp_your_github_token_here'
 ```
 
-#### Create Claude API Key Secret
+#### 创建 Claude API 密钥密钥
 
 ```bash
 kubectl create secret generic hive-claude-api-key \
   --from-literal=apiKey='sk-ant-your_claude_key_here'
 ```
 
-#### Reference Secrets in Values
+#### 在 Values 中引用密钥
 
 ```yaml
 secrets:
@@ -123,9 +123,9 @@ secrets:
   claudeApiKey: 'hive-claude-api-key'
 ```
 
-### Running as a Telegram Bot
+### 作为 Telegram Bot 运行
 
-To run Hive Mind as a Telegram bot in Kubernetes:
+要在 Kubernetes 中将 Hive Mind 作为 Telegram bot 运行：
 
 ```yaml
 command:
@@ -152,9 +152,9 @@ env:
   TELEGRAM_BOT_TOKEN: 'your-telegram-bot-token'
 ```
 
-### Autoscaling
+### 自动扩缩容
 
-Enable horizontal pod autoscaling for multiple bot instances:
+为多个 bot 实例启用水平 Pod 自动扩缩容：
 
 ```yaml
 autoscaling:
@@ -165,11 +165,11 @@ autoscaling:
   targetMemoryUtilizationPercentage: 80
 ```
 
-### Node Selection and Affinity
+### 节点选择与亲和性
 
-#### Node Selector
+#### 节点选择器
 
-Deploy to specific nodes:
+部署到特定节点：
 
 ```yaml
 nodeSelector:
@@ -177,9 +177,9 @@ nodeSelector:
   workload: ai-intensive
 ```
 
-#### Tolerations
+#### 容忍度
 
-Allow scheduling on tainted nodes:
+允许在有污点的节点上调度：
 
 ```yaml
 tolerations:
@@ -189,9 +189,9 @@ tolerations:
     effect: 'NoSchedule'
 ```
 
-#### Affinity Rules
+#### 亲和性规则
 
-Co-locate or spread pods:
+共置或分散 Pod：
 
 ```yaml
 affinity:
@@ -208,11 +208,11 @@ affinity:
           topologyKey: kubernetes.io/hostname
 ```
 
-## Common Use Cases
+## 常见使用场景
 
-### Example 1: Single Bot Instance
+### 示例 1：单个 Bot 实例
 
-Simple deployment for testing or small-scale usage:
+用于测试或小规模使用的简单部署：
 
 ```yaml
 # values-simple.yaml
@@ -235,9 +235,9 @@ resources:
 helm install hive-mind link-assistant/hive-mind -f values-simple.yaml
 ```
 
-### Example 2: Production Telegram Bot
+### 示例 2：生产 Telegram Bot
 
-High-availability deployment with autoscaling:
+带自动扩缩容的高可用部署：
 
 ```yaml
 # values-production.yaml
@@ -288,9 +288,9 @@ podAntiAffinity:
 helm install hive-mind link-assistant/hive-mind -f values-production.yaml
 ```
 
-### Example 3: Development Environment
+### 示例 3：开发环境
 
-Minimal resources for development/testing:
+用于开发/测试的最小资源配置：
 
 ```yaml
 # values-dev.yaml
@@ -312,136 +312,136 @@ resources:
 helm install hive-mind-dev link-assistant/hive-mind -f values-dev.yaml
 ```
 
-## Upgrading
+## 升级
 
-### Update Repository
+### 更新仓库
 
 ```bash
 helm repo update
 ```
 
-### Upgrade Release
+### 升级发布版本
 
 ```bash
 helm upgrade hive-mind link-assistant/hive-mind
 ```
 
-### Upgrade with New Values
+### 使用新值升级
 
 ```bash
 helm upgrade hive-mind link-assistant/hive-mind -f new-values.yaml
 ```
 
-### Rollback
+### 回滚
 
 ```bash
-# List release history
+# 列出发布历史
 helm history hive-mind
 
-# Rollback to previous version
+# 回滚到上一个版本
 helm rollback hive-mind
 
-# Rollback to specific revision
+# 回滚到特定修订版
 helm rollback hive-mind 2
 ```
 
-## Uninstallation
+## 卸载
 
 ```bash
 helm uninstall hive-mind
 ```
 
-**Note:** By default, PersistentVolumeClaims are not deleted automatically. To delete them:
+**注意：** 默认情况下，PersistentVolumeClaim 不会自动删除。要删除它们：
 
 ```bash
 kubectl delete pvc -l app.kubernetes.io/name=hive-mind
 ```
 
-## Troubleshooting
+## 故障排除
 
-### Check Pod Status
+### 检查 Pod 状态
 
 ```bash
 kubectl get pods -l app.kubernetes.io/name=hive-mind
 ```
 
-### View Pod Logs
+### 查看 Pod 日志
 
 ```bash
 kubectl logs -l app.kubernetes.io/name=hive-mind --tail=100 -f
 ```
 
-### Access Pod Shell
+### 访问 Pod Shell
 
 ```bash
 kubectl exec -it deployment/hive-mind -- /bin/bash
 ```
 
-### Check PVC Status
+### 检查 PVC 状态
 
 ```bash
 kubectl get pvc
 kubectl describe pvc hive-mind
 ```
 
-### Common Issues
+### 常见问题
 
-#### Pod Not Starting
+#### Pod 无法启动
 
-**Symptom:** Pod stuck in `Pending` state
+**症状：** Pod 卡在 `Pending` 状态
 
-**Solutions:**
+**解决方案：**
 
-1. Check node resources: `kubectl describe node`
-2. Verify PVC is bound: `kubectl get pvc`
-3. Check storage class exists: `kubectl get storageclass`
+1. 检查节点资源：`kubectl describe node`
+2. 验证 PVC 是否已绑定：`kubectl get pvc`
+3. 检查存储类是否存在：`kubectl get storageclass`
 
-#### Authentication Issues
+#### 认证问题
 
-**Symptom:** GitHub/Claude commands fail
+**症状：** GitHub/Claude 命令失败
 
-**Solutions:**
+**解决方案：**
 
-1. Verify secrets exist: `kubectl get secrets`
-2. Check secret contents: `kubectl describe secret hive-github-token`
-3. Manually authenticate inside pod:
+1. 验证密钥是否存在：`kubectl get secrets`
+2. 检查密钥内容：`kubectl describe secret hive-github-token`
+3. 在 Pod 内手动认证：
    ```bash
    kubectl exec -it deployment/hive-mind -- /bin/bash
    gh auth login
    claude
    ```
 
-#### Out of Memory
+#### 内存不足
 
-**Symptom:** Pod crashes with OOMKilled
+**症状：** Pod 因 OOMKilled 崩溃
 
-**Solutions:**
+**解决方案：**
 
-1. Increase memory limits in values.yaml
-2. Monitor actual usage: `kubectl top pods`
-3. Consider using autoscaling
+1. 在 values.yaml 中增加内存限制
+2. 监控实际使用情况：`kubectl top pods`
+3. 考虑使用自动扩缩容
 
-## Advanced Configuration
+## 高级配置
 
-### Multiple Helm Releases
+### 多个 Helm 发布版本
 
-Run multiple isolated Hive Mind instances:
+运行多个隔离的 Hive Mind 实例：
 
 ```bash
-# Instance 1 - Team A
+# 实例 1 - 团队 A
 helm install hive-team-a link-assistant/hive-mind \
   -n team-a --create-namespace \
   -f team-a-values.yaml
 
-# Instance 2 - Team B
+# 实例 2 - 团队 B
 helm install hive-team-b link-assistant/hive-mind \
   -n team-b --create-namespace \
   -f team-b-values.yaml
 ```
 
-### Custom Image
+### 自定义镜像
 
-Use a custom Docker image:
+使用自定义 Docker 镜像：
 
 ```yaml
 image:
@@ -453,9 +453,9 @@ imagePullSecrets:
   - name: myregistrykey
 ```
 
-### Additional Volumes
+### 额外卷
 
-Mount additional volumes:
+挂载额外卷：
 
 ```yaml
 volumes:
@@ -469,21 +469,21 @@ volumeMounts:
     readOnly: true
 ```
 
-## Monitoring and Observability
+## 监控与可观测性
 
-### Resource Monitoring
+### 资源监控
 
 ```bash
-# Watch resource usage
+# 观察资源使用情况
 kubectl top pods -l app.kubernetes.io/name=hive-mind
 
-# Watch continuously
+# 持续观察
 watch kubectl top pods -l app.kubernetes.io/name=hive-mind
 ```
 
-### Logging
+### 日志记录
 
-Integrate with logging systems like ELK, Loki, or CloudWatch:
+与 ELK、Loki 或 CloudWatch 等日志系统集成：
 
 ```yaml
 podAnnotations:
@@ -491,11 +491,11 @@ podAnnotations:
   prometheus.io/port: '9090'
 ```
 
-## Security Best Practices
+## 安全最佳实践
 
-1. **Use Secrets Management:** Store GitHub tokens and API keys in Kubernetes secrets or external secret managers (HashiCorp Vault, AWS Secrets Manager)
+1. **使用密钥管理：** 将 GitHub token 和 API 密钥存储在 Kubernetes 密钥或外部密钥管理器（HashiCorp Vault、AWS Secrets Manager）中
 
-2. **Network Policies:** Restrict network access between pods:
+2. **网络策略：** 限制 Pod 之间的网络访问：
 
    ```yaml
    apiVersion: networking.k8s.io/v1
@@ -514,7 +514,7 @@ podAnnotations:
            - namespaceSelector: {}
    ```
 
-3. **Pod Security Standards:** Use restricted pod security standards:
+3. **Pod 安全标准：** 使用受限的 Pod 安全标准：
 
    ```yaml
    podSecurityContext:
@@ -525,17 +525,17 @@ podAnnotations:
        type: RuntimeDefault
    ```
 
-4. **RBAC:** Create minimal role permissions for the service account
+4. **RBAC：** 为服务账户创建最小角色权限
 
-5. **Regular Updates:** Keep the chart and container image updated
+5. **定期更新：** 保持 chart 和容器镜像更新
 
-## Support and Contributing
+## 支持与贡献
 
-- **GitHub Issues:** https://github.com/link-assistant/hive-mind/issues
-- **Documentation:** https://github.com/link-assistant/hive-mind
-- **Docker Hub:** https://hub.docker.com/r/konard/hive-mind
-- **ArtifactHub:** https://artifacthub.io/packages/helm/link-assistant/hive-mind
+- **GitHub Issues：** https://github.com/link-assistant/hive-mind/issues
+- **文档：** https://github.com/link-assistant/hive-mind
+- **Docker Hub：** https://hub.docker.com/r/konard/hive-mind
+- **ArtifactHub：** https://artifacthub.io/packages/helm/link-assistant/hive-mind
 
-## License
+## 许可证
 
-This Helm chart is released under the Unlicense. See the [LICENSE](https://github.com/link-assistant/hive-mind/blob/main/LICENSE) file for details.
+此 Helm chart 在 Unlicense 下发布。详情请参阅 [LICENSE](https://github.com/link-assistant/hive-mind/blob/main/LICENSE) 文件。

@@ -1,4 +1,4 @@
-# Free Models Support in Hive-Mind
+# Free Models Support in Hive-Mind (languages: en • [zh](FREE_MODELS.zh.md) • [hi](FREE_MODELS.hi.md) • [ru](FREE_MODELS.ru.md))
 
 This document provides comprehensive information about the free models supported by hive-mind when using the `--tool agent` option.
 

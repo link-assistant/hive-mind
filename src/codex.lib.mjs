@@ -492,12 +492,12 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
             if (commitResult.code === 0) {
               await log('✅ Changes committed successfully');
 
-              const pushResult = await $({ cwd: tempDir })`git push origin ${branchName}`;
+              const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
 
               if (pushResult.code === 0) {
                 await log('✅ Changes pushed successfully');
               } else {
-                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, {
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim() || pushResult.stdout?.toString().trim()}`, {
                   level: 'warning',
                 });
               }

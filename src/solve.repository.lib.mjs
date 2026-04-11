@@ -1113,12 +1113,12 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
 
               // Step 3: Push the updated default branch to fork to keep it in sync
               await log(`${formatAligned('🔄', 'Pushing to fork:', `${upstreamDefaultBranch} branch`)}`);
-              const pushResult = await $({ cwd: tempDir })`git push origin ${upstreamDefaultBranch}`;
+              const pushResult = await $({ cwd: tempDir })`git push origin ${upstreamDefaultBranch} 2>&1`;
               if (pushResult.code === 0) {
                 await log(`${formatAligned('✅', 'Fork updated:', 'Default branch pushed to fork')}`);
               } else {
                 // Check if it's a non-fast-forward error (fork has diverged from upstream)
-                const errorMsg = pushResult.stderr ? pushResult.stderr.toString().trim() : '';
+                const errorMsg = (pushResult.stderr ? pushResult.stderr.toString().trim() : '') || (pushResult.stdout ? pushResult.stdout.toString().trim() : '');
                 const isNonFastForward = errorMsg.includes('non-fast-forward') || errorMsg.includes('rejected') || errorMsg.includes('tip of your current branch is behind');
 
                 if (isNonFastForward) {

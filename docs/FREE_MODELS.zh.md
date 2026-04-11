@@ -77,13 +77,13 @@ Hive-mind 支持来自两个提供商的免费模型：
 
 以下模型之前是免费的，但现已不再可用：
 
-| 模型               | 原模型 ID                    | 状态                                                                                                                                      |
-| ------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Qwen 3.6 Plus Free | `opencode/qwen3.6-plus-free` | 免费推广已结束（2026 年 4 月）— 现需要 OpenCode Go 订阅。参见 [agent#242](https://github.com/link-assistant/agent/issues/242)             |
-| Kimi K2.5 Free     | `opencode/kimi-k2.5-free`    | 已从 OpenCode Zen 移除（2026 年 3 月）— 参见 [agent#208](https://github.com/link-assistant/agent/issues/208)                             |
-| Grok Code Fast 1   | `opencode/grok-code`         | 2026 年 1 月停用                                                                                                                          |
-| MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | 已被 `opencode/minimax-m2.5-free` 替代                                                                                                    |
-| GLM 4.7 Free       | `opencode/glm-4.7-free`      | 在 OpenCode Zen 上不再免费                                                                                                                |
+| 模型               | 原模型 ID                    | 状态                                                                                                                          |
+| ------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Qwen 3.6 Plus Free | `opencode/qwen3.6-plus-free` | 免费推广已结束（2026 年 4 月）— 现需要 OpenCode Go 订阅。参见 [agent#242](https://github.com/link-assistant/agent/issues/242) |
+| Kimi K2.5 Free     | `opencode/kimi-k2.5-free`    | 已从 OpenCode Zen 移除（2026 年 3 月）— 参见 [agent#208](https://github.com/link-assistant/agent/issues/208)                  |
+| Grok Code Fast 1   | `opencode/grok-code`         | 2026 年 1 月停用                                                                                                              |
+| MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | 已被 `opencode/minimax-m2.5-free` 替代                                                                                        |
+| GLM 4.7 Free       | `opencode/glm-4.7-free`      | 在 OpenCode Zen 上不再免费                                                                                                    |
 
 > **注意：** 请参阅 [OpenCode Zen 文档](https://opencode.ai/docs/zen/) 和 [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) 获取当前的免费模型列表。
 
@@ -170,11 +170,11 @@ Hive-mind 支持来自两个提供商的免费模型：
 
 以下 Kilo 模型之前是推荐的免费模型，但现已更新：
 
-| 模型         | 原模型 ID                | 状态                                   |
-| ------------ | ------------------------ | -------------------------------------- |
-| GLM 4.7      | `kilo/glm-4.7-free`      | 已被 `kilo/glm-4.5-air-free` 替代      |
-| Kimi K2.5    | `kilo/kimi-k2.5-free`    | 已被其他 Kilo 免费模型替代             |
-| MiniMax M2.1 | `kilo/minimax-m2.1-free` | 已被 `kilo/minimax-m2.5-free` 替代     |
+| 模型         | 原模型 ID                | 状态                               |
+| ------------ | ------------------------ | ---------------------------------- |
+| GLM 4.7      | `kilo/glm-4.7-free`      | 已被 `kilo/glm-4.5-air-free` 替代  |
+| Kimi K2.5    | `kilo/kimi-k2.5-free`    | 已被其他 Kilo 免费模型替代         |
+| MiniMax M2.1 | `kilo/minimax-m2.1-free` | 已被 `kilo/minimax-m2.5-free` 替代 |
 
 > **注意：** 请参阅 [Kilo 免费模型文档](https://kilo.ai/docs/advanced-usage/free-and-budget-models) 了解当前可用情况。
 
@@ -268,16 +268,16 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 ## 提供商比较
 
-| 功能         | OpenCode Zen                          | Kilo Gateway             |
-| ------------ | ------------------------------------- | ------------------------ |
-| 免费模型     | 4 个模型                              | 6 个模型                 |
-| 默认模型     | nemotron-3-super-free（约 262K 上下文）| glm-5-free（推荐）       |
-| API 格式     | 兼容 OpenAI                           | 兼容 OpenAI              |
-| 免费 API 密钥 | `public`                             | `public`                 |
-| 总模型数     | 50+                                   | 500+                     |
-| 旗舰免费模型 | Nemotron 3 Super（约 262K 上下文）    | GLM-5（限时）            |
-| BYOK 支持    | 是                                    | 是                       |
-| 新模型       | Nemotron 3 Super（Issue #1543、#1563）| DeepSeek R1、GLM 4.5 Air |
+| 功能          | OpenCode Zen                            | Kilo Gateway             |
+| ------------- | --------------------------------------- | ------------------------ |
+| 免费模型      | 4 个模型                                | 6 个模型                 |
+| 默认模型      | nemotron-3-super-free（约 262K 上下文） | glm-5-free（推荐）       |
+| API 格式      | 兼容 OpenAI                             | 兼容 OpenAI              |
+| 免费 API 密钥 | `public`                                | `public`                 |
+| 总模型数      | 50+                                     | 500+                     |
+| 旗舰免费模型  | Nemotron 3 Super（约 262K 上下文）      | GLM-5（限时）            |
+| BYOK 支持     | 是                                      | 是                       |
+| 新模型        | Nemotron 3 Super（Issue #1543、#1563）  | DeepSeek R1、GLM 4.5 Air |
 
 ---
 

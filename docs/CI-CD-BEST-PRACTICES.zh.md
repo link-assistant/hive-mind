@@ -138,14 +138,14 @@ done
 
 在代码到达审查之前捕获 bug 并强制执行模式：
 
-| 语言                  | 工具                                |
-| --------------------- | ----------------------------------- |
-| JavaScript/TypeScript | ESLint（严格规则）                  |
-| Rust                  | Clippy（pedantic + nursery）        |
-| Python                | Ruff + mypy                         |
-| Go                    | go vet + staticcheck                |
-| C#                    | .NET 分析器（警告视为错误）         |
-| Java                  | SpotBugs（最大力度）                |
+| 语言                  | 工具                         |
+| --------------------- | ---------------------------- |
+| JavaScript/TypeScript | ESLint（严格规则）           |
+| Rust                  | Clippy（pedantic + nursery） |
+| Python                | Ruff + mypy                  |
+| Go                    | go vet + staticcheck         |
+| C#                    | .NET 分析器（警告视为错误）  |
+| Java                  | SpotBugs（最大力度）         |
 
 ### 5. 快速失败任务排序
 
@@ -182,12 +182,12 @@ test-suites:
 - **生成变更日志** - 发布说明自动编译
 - **支持语义化版本** - patch/minor/major 升级是明确的
 
-| 语言                  | 工具                         |
-| --------------------- | ---------------------------- |
-| JavaScript/TypeScript | @changesets/cli              |
-| Rust                  | changelog.d + 自定义脚本     |
-| Python                | Scriv                        |
-| Go、C#、Java          | 自定义 changeset 工作流      |
+| 语言                  | 工具                     |
+| --------------------- | ------------------------ |
+| JavaScript/TypeScript | @changesets/cli          |
+| Rust                  | changelog.d + 自定义脚本 |
+| Python                | Scriv                    |
+| Go、C#、Java          | 自定义 changeset 工作流  |
 
 **免除仅文档 PR 的 changeset 要求：**
 

@@ -50,11 +50,11 @@ HTTP 403: You have exceeded a secondary rate limit. Please wait a few minutes be
 
 ### 3. 最大页面大小
 
-| API 类型       | 推荐最大值 | 测试最大值 | 备注                                          |
-| -------------- | ----------- | ---------- | --------------------------------------------- |
-| 搜索 API       | 100         | 200        | 较高的值会触发次要速率限制                    |
-| 仓库 API       | 1000        | 1000+      | 大页面大小时更可靠                            |
-| PR 列表        | 1000        | 1000+      | 与仓库 API 类似                               |
+| API 类型 | 推荐最大值 | 测试最大值 | 备注                       |
+| -------- | ---------- | ---------- | -------------------------- |
+| 搜索 API | 100        | 200        | 较高的值会触发次要速率限制 |
+| 仓库 API | 1000       | 1000+      | 大页面大小时更可靠         |
+| PR 列表  | 1000       | 1000+      | 与仓库 API 类似            |
 
 ### 4. 速率限制响应头
 
@@ -129,11 +129,11 @@ try {
 
 ### 示例命令转换
 
-| 原始命令（搜索 API）                        | 回退命令（仓库 API）                                       |
-| ------------------------------------------ | --------------------------------------------------------- |
-| `gh search issues org:microsoft is:open`   | 多次 `gh issue list --repo {repo} --state open` 调用      |
-| `gh search issues user:username is:open`   | 多次 `gh issue list --repo {repo} --state open` 调用      |
-| `gh search issues repo:owner/repo is:open` | `gh issue list --repo owner/repo --state open`            |
+| 原始命令（搜索 API）                       | 回退命令（仓库 API）                                 |
+| ------------------------------------------ | ---------------------------------------------------- |
+| `gh search issues org:microsoft is:open`   | 多次 `gh issue list --repo {repo} --state open` 调用 |
+| `gh search issues user:username is:open`   | 多次 `gh issue list --repo {repo} --state open` 调用 |
+| `gh search issues repo:owner/repo is:open` | `gh issue list --repo owner/repo --state open`       |
 
 ## 需要修改的文件
 

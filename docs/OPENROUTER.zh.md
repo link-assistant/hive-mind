@@ -131,11 +131,11 @@ agent auth list
 
 ### 通过 OpenRouter 的 Claude Code CLI 模型
 
-| 使用场景     | 环境变量                         | 示例值                      |
-| ------------ | -------------------------------- | --------------------------- |
-| 主模型       | `ANTHROPIC_DEFAULT_SONNET_MODEL` | `anthropic/claude-sonnet-4` |
-| 强大模型     | `ANTHROPIC_DEFAULT_OPUS_MODEL`   | `anthropic/claude-opus-4`   |
-| 快速/廉价模型 | `ANTHROPIC_SMALL_FAST_MODEL`    | `anthropic/claude-haiku`    |
+| 使用场景      | 环境变量                         | 示例值                      |
+| ------------- | -------------------------------- | --------------------------- |
+| 主模型        | `ANTHROPIC_DEFAULT_SONNET_MODEL` | `anthropic/claude-sonnet-4` |
+| 强大模型      | `ANTHROPIC_DEFAULT_OPUS_MODEL`   | `anthropic/claude-opus-4`   |
+| 快速/廉价模型 | `ANTHROPIC_SMALL_FAST_MODEL`     | `anthropic/claude-haiku`    |
 
 ### 通过 OpenRouter 的 Agent CLI 模型
 

@@ -50,11 +50,11 @@ HTTP 403: You have exceeded a secondary rate limit. Please wait a few minutes be
 
 ### 3. Максимальные размеры страниц
 
-| Тип API         | Рекомендуемый макс. | Проверенный макс. | Примечания                                                 |
-| --------------- | ------------------- | ----------------- | ---------------------------------------------------------- |
-| Search API      | 100                 | 200               | Значения выше вызывают вторичные ограничения               |
-| Repository API  | 1000                | 1000+             | Значительно надёжнее при большом размере страниц           |
-| PR Listing      | 1000                | 1000+             | Аналогично Repository API                                  |
+| Тип API        | Рекомендуемый макс. | Проверенный макс. | Примечания                                       |
+| -------------- | ------------------- | ----------------- | ------------------------------------------------ |
+| Search API     | 100                 | 200               | Значения выше вызывают вторичные ограничения     |
+| Repository API | 1000                | 1000+             | Значительно надёжнее при большом размере страниц |
+| PR Listing     | 1000                | 1000+             | Аналогично Repository API                        |
 
 ### 4. Заголовки ограничения частоты запросов
 
@@ -129,11 +129,11 @@ try {
 
 ### Пример преобразования команд
 
-| Оригинал (Search API)                      | Резервный вариант (Repository API)                            |
-| ------------------------------------------ | ------------------------------------------------------------- |
-| `gh search issues org:microsoft is:open`   | Несколько вызовов `gh issue list --repo {repo} --state open`  |
-| `gh search issues user:username is:open`   | Несколько вызовов `gh issue list --repo {repo} --state open`  |
-| `gh search issues repo:owner/repo is:open` | `gh issue list --repo owner/repo --state open`                |
+| Оригинал (Search API)                      | Резервный вариант (Repository API)                           |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| `gh search issues org:microsoft is:open`   | Несколько вызовов `gh issue list --repo {repo} --state open` |
+| `gh search issues user:username is:open`   | Несколько вызовов `gh issue list --repo {repo} --state open` |
+| `gh search issues repo:owner/repo is:open` | `gh issue list --repo owner/repo --state open`               |
 
 ## Файлы для изменения
 

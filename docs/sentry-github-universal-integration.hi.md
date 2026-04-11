@@ -112,14 +112,14 @@ GET {SENTRY_URL}/api/0/organizations/{organization_slug}/issues/
 
 ### Query Parameters
 
-| Parameter     | विवरण                | उदाहरण               |
-| ------------- | -------------------------- | --------------------- |
-| `query`       | Issues filter करें              | `is:unresolved`       |
-| `statsPeriod` | समय सीमा                 | `24h`, `7d`, `14d`    |
-| `project`     | Project ID से filter करें       | `12345`               |
-| `sort`        | Sort order                 | `date`, `freq`, `new` |
+| Parameter     | विवरण                       | उदाहरण                |
+| ------------- | --------------------------- | --------------------- |
+| `query`       | Issues filter करें          | `is:unresolved`       |
+| `statsPeriod` | समय सीमा                    | `24h`, `7d`, `14d`    |
+| `project`     | Project ID से filter करें   | `12345`               |
+| `sort`        | Sort order                  | `date`, `freq`, `new` |
 | `limit`       | प्रति page परिणाम (max 100) | `50`                  |
-| `cursor`      | Pagination cursor          | `Link` header से    |
+| `cursor`      | Pagination cursor           | `Link` header से      |
 
 ### उदाहरण: Unresolved Issues Fetch करें
 

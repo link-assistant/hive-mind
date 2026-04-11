@@ -131,7 +131,7 @@ agent auth list
 
 ### OpenRouter के माध्यम से Claude Code CLI Models
 
-| Use Case         | Environment Variable             | उदाहरण Value               |
+| Use Case         | Environment Variable             | उदाहरण Value                |
 | ---------------- | -------------------------------- | --------------------------- |
 | Main model       | `ANTHROPIC_DEFAULT_SONNET_MODEL` | `anthropic/claude-sonnet-4` |
 | Powerful model   | `ANTHROPIC_DEFAULT_OPUS_MODEL`   | `anthropic/claude-opus-4`   |

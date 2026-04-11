@@ -50,11 +50,11 @@ Rate limit errors detect करने के लिए, error messages में
 
 ### 3. अधिकतम Page Sizes
 
-| API Type       | अनुशंसित Max | Tested Max | नोट्स                                            |
-| -------------- | ------------ | ---------- | ------------------------------------------------- |
+| API Type       | अनुशंसित Max | Tested Max | नोट्स                                                |
+| -------------- | ------------ | ---------- | ---------------------------------------------------- |
 | Search API     | 100          | 200        | Higher values secondary rate limits trigger करते हैं |
-| Repository API | 1000         | 1000+      | Large page sizes के साथ बहुत अधिक reliable       |
-| PR Listing     | 1000         | 1000+      | Repository API के समान                           |
+| Repository API | 1000         | 1000+      | Large page sizes के साथ बहुत अधिक reliable           |
+| PR Listing     | 1000         | 1000+      | Repository API के समान                               |
 
 ### 4. Rate Limit Headers
 
@@ -129,11 +129,11 @@ try {
 
 ### उदाहरण Command Conversion
 
-| Original (Search API)                      | Fallback (Repository API)                                          |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| `gh search issues org:microsoft is:open`   | Multiple `gh issue list --repo {repo} --state open` calls          |
-| `gh search issues user:username is:open`   | Multiple `gh issue list --repo {repo} --state open` calls          |
-| `gh search issues repo:owner/repo is:open` | `gh issue list --repo owner/repo --state open`                     |
+| Original (Search API)                      | Fallback (Repository API)                                 |
+| ------------------------------------------ | --------------------------------------------------------- |
+| `gh search issues org:microsoft is:open`   | Multiple `gh issue list --repo {repo} --state open` calls |
+| `gh search issues user:username is:open`   | Multiple `gh issue list --repo {repo} --state open` calls |
+| `gh search issues repo:owner/repo is:open` | `gh issue list --repo owner/repo --state open`            |
 
 ## Modify की जाने वाली फ़ाइलें
 

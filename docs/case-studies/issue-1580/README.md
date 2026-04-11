@@ -23,9 +23,11 @@ The issue requests that all documentation in the hive-mind repository be transla
 ### Files Requiring Translation
 
 **Root level (1 file):**
+
 - `README.md` (876 lines) — Main project documentation
 
 **Docs directory (19 files):**
+
 - `docs/BEST-PRACTICES.md` (273 lines)
 - `docs/BRANCH_PROTECTION_POLICY.md` (233 lines)
 - `docs/CI-CD-BEST-PRACTICES.md` (327 lines)

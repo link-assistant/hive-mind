@@ -23,10 +23,10 @@ Hive Mind एक AI-powered सहयोगी विकास प्रणा�
 
 Hive Mind entry point और human interaction patterns के आधार पर दो प्राथमिक modes में संचालित होता है:
 
-| Mode              | Entry Point  | प्राथमिक Human Input              | द्वितीयक Input             | निर्णय बिंदु             |
-| ----------------- | ------------ | -------------------------------- | --------------------------- | --------------------------- |
+| Mode              | Entry Point  | प्राथमिक Human Input              | द्वितीयक Input             | निर्णय बिंदु                |
+| ----------------- | ------------ | --------------------------------- | -------------------------- | --------------------------- |
 | **Default Mode**  | GitHub Issue | Issue description और requirements | PR comments परिशोधन के लिए | Merge/Request Changes/Close |
-| **Continue Mode** | Existing PR  | PR comments और feedback        | अतिरिक्त PR comments      | Merge/Request Changes/Close |
+| **Continue Mode** | Existing PR  | PR comments और feedback           | अतिरिक्त PR comments       | Merge/Request Changes/Close |
 
 ## Data Flow Architecture
 
@@ -250,16 +250,16 @@ sequenceDiagram
 
 ### व्यापक Feedback Points Matrix
 
-| Feedback Point         | Mode    | Timing      | Input प्रकार                | System Response               | Impact Level                |
-| ---------------------- | ------- | ----------- | ------------------------- | ----------------------------- | --------------------------- |
-| **Issue निर्माण**     | Default | Initial     | Requirements, Description | Solution development trigger करता है | High - पूरा scope परिभाषित |
-| **Issue Comments**     | Default | Ongoing     | स्पष्टीकरण, Updates   | Requirements अपडेट करता है          | Medium - Scope परिशोधित      |
-| **PR Creation Review** | Both    | Draft के बाद | Initial assessment        | Continuation निर्धारित करता है       | High - Go/No-go decision    |
-| **PR Comments**        | Both    | Iterative   | Technical feedback        | Code updates trigger करता है         | High - Changes निर्देशित      |
-| **Code Review**        | Both    | Per commit  | Line-by-line feedback     | Precise modifications         | Medium - Specific fixes     |
-| **PR Approval**        | Both    | Final       | Acceptance decision       | Merge enable करता है                 | Critical - Final gate       |
-| **PR Rejection**       | Both    | Any time    | Stop signal               | Process रोकता है                 | Critical - Full stop        |
-| **Label Changes**      | Both    | Any time    | Priority/status updates   | Approach adjust करता है              | Low - Process hints         |
+| Feedback Point         | Mode    | Timing       | Input प्रकार              | System Response                      | Impact Level               |
+| ---------------------- | ------- | ------------ | ------------------------- | ------------------------------------ | -------------------------- |
+| **Issue निर्माण**      | Default | Initial      | Requirements, Description | Solution development trigger करता है | High - पूरा scope परिभाषित |
+| **Issue Comments**     | Default | Ongoing      | स्पष्टीकरण, Updates       | Requirements अपडेट करता है           | Medium - Scope परिशोधित    |
+| **PR Creation Review** | Both    | Draft के बाद | Initial assessment        | Continuation निर्धारित करता है       | High - Go/No-go decision   |
+| **PR Comments**        | Both    | Iterative    | Technical feedback        | Code updates trigger करता है         | High - Changes निर्देशित   |
+| **Code Review**        | Both    | Per commit   | Line-by-line feedback     | Precise modifications                | Medium - Specific fixes    |
+| **PR Approval**        | Both    | Final        | Acceptance decision       | Merge enable करता है                 | Critical - Final gate      |
+| **PR Rejection**       | Both    | Any time     | Stop signal               | Process रोकता है                     | Critical - Full stop       |
+| **Label Changes**      | Both    | Any time     | Priority/status updates   | Approach adjust करता है              | Low - Process hints        |
 
 ### 1. Issue निर्माण (Mode 1 Entry)
 
@@ -435,13 +435,13 @@ flowchart TD
 
 System निरंतरता सुनिश्चित करने के लिए sessions में state बनाए रखता है:
 
-| State Element   | Storage     | उद्देश्य                    | Persistence      |
-| --------------- | ----------- | -------------------------- | ---------------- |
-| Session ID      | File System | Conversation context track करें | Completion तक |
-| PR Number       | Memory/Args | Issue को PR से link करें           | Runtime          |
-| Comment History | GitHub API  | नए बनाम पुराने feedback track करें  | Permanent        |
-| Commit History  | Git         | Feedback timing निर्धारित करें  | Permanent        |
-| Configuration   | CLI Args    | Behavior नियंत्रित करें           | Per execution    |
+| State Element   | Storage     | उद्देश्य                           | Persistence   |
+| --------------- | ----------- | ---------------------------------- | ------------- |
+| Session ID      | File System | Conversation context track करें    | Completion तक |
+| PR Number       | Memory/Args | Issue को PR से link करें           | Runtime       |
+| Comment History | GitHub API  | नए बनाम पुराने feedback track करें | Permanent     |
+| Commit History  | Git         | Feedback timing निर्धारित करें     | Permanent     |
+| Configuration   | CLI Args    | Behavior नियंत्रित करें            | Per execution |
 
 ## सारांश
 
@@ -465,7 +465,7 @@ Hive Mind data flow architecture व्यापक human oversight सुनि
 
 ### Human Feedback Integration
 
-| Mode              | प्राथमिक Feedback   | द्वितीयक Feedback  | निर्णय Authority   |
+| Mode              | प्राथमिक Feedback  | द्वितीयक Feedback   | निर्णय Authority     |
 | ----------------- | ------------------ | ------------------- | -------------------- |
 | **Default Mode**  | Issue requirements | PR comments         | Human merge decision |
 | **Continue Mode** | PR comments        | Additional comments | Human merge decision |

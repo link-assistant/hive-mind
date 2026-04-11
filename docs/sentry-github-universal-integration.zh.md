@@ -112,14 +112,14 @@ GET {SENTRY_URL}/api/0/organizations/{organization_slug}/issues/
 
 ### 查询参数
 
-| 参数          | 描述                       | 示例                  |
-| ------------- | -------------------------- | --------------------- |
-| `query`       | 过滤 issues                | `is:unresolved`       |
-| `statsPeriod` | 时间范围                   | `24h`、`7d`、`14d`    |
-| `project`     | 按项目 ID 过滤             | `12345`               |
-| `sort`        | 排序顺序                   | `date`、`freq`、`new` |
-| `limit`       | 每页结果数（最多 100）     | `50`                  |
-| `cursor`      | 分页游标                   | 来自 `Link` header    |
+| 参数          | 描述                   | 示例                  |
+| ------------- | ---------------------- | --------------------- |
+| `query`       | 过滤 issues            | `is:unresolved`       |
+| `statsPeriod` | 时间范围               | `24h`、`7d`、`14d`    |
+| `project`     | 按项目 ID 过滤         | `12345`               |
+| `sort`        | 排序顺序               | `date`、`freq`、`new` |
+| `limit`       | 每页结果数（最多 100） | `50`                  |
+| `cursor`      | 分页游标               | 来自 `Link` header    |
 
 ### 示例：获取未解决的 Issues
 

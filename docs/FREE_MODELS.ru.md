@@ -77,13 +77,13 @@ Hive-mind поддерживает бесплатные модели от дву
 
 Следующие модели ранее были бесплатными, но больше недоступны:
 
-| Модель             | Бывший идентификатор         | Статус                                                                                                                                         |
-| ------------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Модель             | Бывший идентификатор         | Статус                                                                                                                                                  |
+| ------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Qwen 3.6 Plus Free | `opencode/qwen3.6-plus-free` | Бесплатная акция завершилась (апрель 2026) — теперь требуется подписка OpenCode Go. См. [agent#242](https://github.com/link-assistant/agent/issues/242) |
-| Kimi K2.5 Free     | `opencode/kimi-k2.5-free`    | Удалена из OpenCode Zen (март 2026) — см. [agent#208](https://github.com/link-assistant/agent/issues/208)                                       |
-| Grok Code Fast 1   | `opencode/grok-code`         | Снята с поддержки в январе 2026                                                                                                                |
-| MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | Заменена на `opencode/minimax-m2.5-free`                                                                                                       |
-| GLM 4.7 Free       | `opencode/glm-4.7-free`      | Больше не бесплатна в OpenCode Zen                                                                                                             |
+| Kimi K2.5 Free     | `opencode/kimi-k2.5-free`    | Удалена из OpenCode Zen (март 2026) — см. [agent#208](https://github.com/link-assistant/agent/issues/208)                                               |
+| Grok Code Fast 1   | `opencode/grok-code`         | Снята с поддержки в январе 2026                                                                                                                         |
+| MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | Заменена на `opencode/minimax-m2.5-free`                                                                                                                |
+| GLM 4.7 Free       | `opencode/glm-4.7-free`      | Больше не бесплатна в OpenCode Zen                                                                                                                      |
 
 > **Примечание:** Актуальный список бесплатных моделей см. в [документации OpenCode Zen](https://opencode.ai/docs/zen/) и [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md).
 
@@ -170,11 +170,11 @@ Hive-mind поддерживает бесплатные модели от дву
 
 Следующие модели Kilo ранее были рекомендованными бесплатными, но были обновлены:
 
-| Модель       | Бывший идентификатор     | Статус                                       |
-| ------------ | ------------------------ | -------------------------------------------- |
-| GLM 4.7      | `kilo/glm-4.7-free`      | Заменена на `kilo/glm-4.5-air-free`          |
-| Kimi K2.5    | `kilo/kimi-k2.5-free`    | Заменена другими бесплатными моделями Kilo   |
-| MiniMax M2.1 | `kilo/minimax-m2.1-free` | Заменена на `kilo/minimax-m2.5-free`         |
+| Модель       | Бывший идентификатор     | Статус                                     |
+| ------------ | ------------------------ | ------------------------------------------ |
+| GLM 4.7      | `kilo/glm-4.7-free`      | Заменена на `kilo/glm-4.5-air-free`        |
+| Kimi K2.5    | `kilo/kimi-k2.5-free`    | Заменена другими бесплатными моделями Kilo |
+| MiniMax M2.1 | `kilo/minimax-m2.1-free` | Заменена на `kilo/minimax-m2.5-free`       |
 
 > **Примечание:** Актуальную информацию о доступности см. в [документации по бесплатным моделям Kilo](https://kilo.ai/docs/advanced-usage/free-and-budget-models).
 
@@ -268,16 +268,16 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 ## Сравнение провайдеров
 
-| Характеристика   | OpenCode Zen                             | Kilo Gateway                |
-| ---------------- | ---------------------------------------- | --------------------------- |
-| Бесплатных моделей | 4 модели                               | 6 моделей                   |
-| Модель по умолчанию | nemotron-3-super-free (~262K контекст) | glm-5-free (рекомендуется)  |
-| Формат API       | Совместимый с OpenAI                     | Совместимый с OpenAI        |
-| Бесплатный API-ключ | `public`                              | `public`                    |
-| Всего моделей    | 50+                                      | 500+                        |
-| Флагман (бесплатно) | Nemotron 3 Super (~262K контекст)     | GLM-5 (ограниченный срок)   |
-| Поддержка BYOK   | Да                                       | Да                          |
-| Новые модели     | Nemotron 3 Super (Issue #1543, #1563)    | DeepSeek R1, GLM 4.5 Air    |
+| Характеристика      | OpenCode Zen                           | Kilo Gateway               |
+| ------------------- | -------------------------------------- | -------------------------- |
+| Бесплатных моделей  | 4 модели                               | 6 моделей                  |
+| Модель по умолчанию | nemotron-3-super-free (~262K контекст) | glm-5-free (рекомендуется) |
+| Формат API          | Совместимый с OpenAI                   | Совместимый с OpenAI       |
+| Бесплатный API-ключ | `public`                               | `public`                   |
+| Всего моделей       | 50+                                    | 500+                       |
+| Флагман (бесплатно) | Nemotron 3 Super (~262K контекст)      | GLM-5 (ограниченный срок)  |
+| Поддержка BYOK      | Да                                     | Да                         |
+| Новые модели        | Nemotron 3 Super (Issue #1543, #1563)  | DeepSeek R1, GLM 4.5 Air   |
 
 ---
 

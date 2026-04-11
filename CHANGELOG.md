@@ -1,5 +1,15 @@
 # @link-assistant/hive-mind
 
+## 1.50.1
+
+### Patch Changes
+
+- 494989e: Add paths filter to CI/CD workflow trigger to skip unnecessary runs for non-code file changes (#1582)
+- c4fadea: fix: prevent push failures in auto-restart and cleanup by syncing with remote (#1572)
+  - Add `git pull` before restart sessions and cleanup push to prevent stale local state
+  - Add `2>&1` to all `git push` commands so stderr is captured for proper error handling
+  - Fix multi-line log message formatting to include timestamps on each line
+
 ## 1.50.0
 
 ### Minor Changes

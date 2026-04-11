@@ -29,7 +29,7 @@ const exec = promisify(execCallback);
  * @returns {Promise<{success: boolean, status: string, runs: Array, failedRuns: Array, error: string|null}>}
  */
 export async function waitForCommitCI(owner, repo, sha, options = {}, verbose = false) {
-  const { timeout = 60 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null } = options;
+  const { timeout = 60 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null, isCancelled = null } = options;
 
   const startTime = Date.now();
   let noRunsIterations = 0;
@@ -40,6 +40,9 @@ export async function waitForCommitCI(owner, repo, sha, options = {}, verbose = 
   }
 
   while (Date.now() - startTime < timeout) {
+    // Issue #1588: Check for cancellation before each poll to allow early exit
+    if (isCancelled?.()) return { success: false, status: 'cancelled', runs: [], failedRuns: [], error: 'Operation was cancelled' };
+
     let runs;
     try {
       runs = await getWorkflowRunsForSha(owner, repo, sha, verbose);

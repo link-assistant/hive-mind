@@ -513,6 +513,8 @@ export class MergeQueueProcessor {
               await this.onProgress(this.getProgressUpdate());
             }
           },
+          // Issue #1588: Pass cancellation check so branch CI wait can abort early
+          isCancelled: () => this.isCancelled,
         },
         this.verbose
       );
@@ -617,6 +619,8 @@ export class MergeQueueProcessor {
               await this.onProgress(this.getProgressUpdate());
             }
           },
+          // Issue #1588: Pass cancellation check so post-merge CI wait can abort early
+          isCancelled: () => this.isCancelled,
         },
         this.verbose
       );

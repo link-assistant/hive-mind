@@ -123,11 +123,11 @@ console.log('\n--- Test: Auto-restart includes git pull before restart ---');
   // Find the RESTART TRIGGERED section and check that git pull appears before executeToolIteration
   const restartTriggeredIdx = autoMergeContent.indexOf('RESTART TRIGGERED');
   const executeToolIterationIdx = autoMergeContent.indexOf('executeToolIteration({', restartTriggeredIdx);
-  const gitPullIdx = autoMergeContent.indexOf('git pull --rebase origin', restartTriggeredIdx);
+  const gitPullIdx = autoMergeContent.indexOf('git pull origin', restartTriggeredIdx);
 
   assert(restartTriggeredIdx > 0, 'Found RESTART TRIGGERED in auto-merge code');
   assert(executeToolIterationIdx > 0, 'Found executeToolIteration call after restart trigger');
-  assert(gitPullIdx > 0, 'Found git pull --rebase in auto-merge restart path');
+  assert(gitPullIdx > 0, 'Found git pull in auto-merge restart path');
   assert(gitPullIdx < executeToolIterationIdx, 'git pull appears BEFORE executeToolIteration in restart path', `git pull at index ${gitPullIdx}, executeToolIteration at index ${executeToolIterationIdx}`);
 }
 
@@ -142,11 +142,11 @@ console.log('\n--- Test: Auto-ensure includes git pull before iterations ---');
 
   const forLoopIdx = autoEnsureContent.indexOf('for (let ensureIteration');
   const executeToolIterationIdx = autoEnsureContent.indexOf('executeToolIteration({', forLoopIdx);
-  const gitPullIdx = autoEnsureContent.indexOf('git pull --rebase origin', forLoopIdx);
+  const gitPullIdx = autoEnsureContent.indexOf('git pull origin', forLoopIdx);
 
   assert(forLoopIdx > 0, 'Found finalize loop in auto-ensure code');
   assert(executeToolIterationIdx > 0, 'Found executeToolIteration call in finalize loop');
-  assert(gitPullIdx > 0, 'Found git pull --rebase in auto-ensure path');
+  assert(gitPullIdx > 0, 'Found git pull in auto-ensure path');
   assert(gitPullIdx < executeToolIterationIdx, 'git pull appears BEFORE executeToolIteration in finalize path', `git pull at index ${gitPullIdx}, executeToolIteration at index ${executeToolIterationIdx}`);
 }
 
@@ -161,11 +161,11 @@ console.log('\n--- Test: Cleanup includes git pull before revert ---');
 
   const cleanupFnIdx = resultsContent.indexOf('export const cleanupClaudeFile');
   const gitRevertIdx = resultsContent.indexOf('git revert', cleanupFnIdx);
-  const gitPullIdx = resultsContent.indexOf('git pull --rebase origin', cleanupFnIdx);
+  const gitPullIdx = resultsContent.indexOf('git pull origin', cleanupFnIdx);
 
   assert(cleanupFnIdx > 0, 'Found cleanupClaudeFile function');
   assert(gitRevertIdx > 0, 'Found git revert in cleanup');
-  assert(gitPullIdx > 0, 'Found git pull --rebase in cleanup');
+  assert(gitPullIdx > 0, 'Found git pull in cleanup');
   assert(gitPullIdx < gitRevertIdx, 'git pull appears BEFORE git revert in cleanup', `git pull at index ${gitPullIdx}, git revert at index ${gitRevertIdx}`);
 }
 

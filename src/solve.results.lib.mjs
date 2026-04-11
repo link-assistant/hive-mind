@@ -271,15 +271,11 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
 
     // Issue #1572: Sync local branch with remote before cleanup to prevent push failures.
     // After auto-restart sessions, the local branch may be behind the remote.
-    try {
-      const pullResult = await $({ cwd: tempDir })`git pull --rebase origin ${branchName} 2>&1`;
-      if (pullResult.code === 0) {
-        await log(`   Synced local branch before cleanup`, { verbose: true });
-      } else {
-        await log(`   ⚠️  Pre-cleanup sync failed (code ${pullResult.code}), continuing anyway`, { verbose: true });
-      }
-    } catch (pullError) {
-      await log(`   ⚠️  Could not sync local branch before cleanup: ${pullError.message}`, { verbose: true });
+    const pullResult = await $({ cwd: tempDir })`git pull origin ${branchName} 2>&1`;
+    if (pullResult.code === 0) {
+      await log(`   Synced local branch before cleanup`, { verbose: true });
+    } else {
+      throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout || pullResult.stderr || 'no output'}`);
     }
 
     const commitToRevert = claudeCommitHash;

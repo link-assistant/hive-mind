@@ -49,7 +49,7 @@ Two bugs were identified from a failed solve run on `Jhon-Crow/godot-topdown-MVP
 - `src/solve.restart-shared.lib.mjs:174-290` — `executeToolIteration()`, no `git pull/fetch`
 - `src/solve.results.lib.mjs:324` — cleanup push that fails
 
-**Fix:** Add `git pull --rebase origin <branchName>` before launching the restarted AI session in the auto-merge restart flow. Also add it to the cleanup function before pushing the revert, as a defense-in-depth measure.
+**Fix:** Add `git pull origin <branchName>` before launching the restarted AI session in the auto-merge restart flow. Also add it to the cleanup function before pushing the revert, as a defense-in-depth measure. Use plain `git pull` (no rebase) since nobody else touches the solve-created branch, and fail if the pull is not possible.
 
 ### Issue 2: Log completeness — missing `2>&1` on push commands
 
@@ -92,12 +92,12 @@ In `src/solve.auto-merge.lib.mjs`, before calling `executeToolIteration()` after
 
 ```javascript
 // Sync local branch with remote before restart
-await $({ cwd: tempDir })`git pull --rebase origin ${branchName} 2>&1`;
+await $({ cwd: tempDir })`git pull origin ${branchName} 2>&1`;
 ```
 
 ### Solution 2: Add `git pull` in cleanup before push
 
-In `src/solve.results.lib.mjs`, before each `git push` in the cleanup function, add a `git pull --rebase` as defense-in-depth.
+In `src/solve.results.lib.mjs`, before each `git push` in the cleanup function, add a `git pull` as defense-in-depth.
 
 ### Solution 3: Add `2>&1` to all `git push` commands
 

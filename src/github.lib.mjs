@@ -491,11 +491,7 @@ The automated solution draft was interrupted because the ${toolName} usage limit
         const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
         const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
 
-        if (limitResetTime) {
-          logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
-        } else {
-          logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
-        }
+        logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
       } else {
         // Manual resume mode - show CLI commands
         if (limitResetTime) {
@@ -516,6 +512,8 @@ ${resumeCommand}
         }
       }
 
+      const footerNote = isAutoResumeEnabled ? (autoResumeMode === 'restart' ? '*This session was interrupted due to usage limits. The session will automatically restart when the limit resets.*' : '*This session was interrupted due to usage limits. The session will automatically resume when the limit resets.*') : '*This session was interrupted due to usage limits. You can resume once the limit resets.*';
+
       logComment += `${modelInfoString}
 
 <details>
@@ -528,7 +526,7 @@ ${logContent}
 </details>
 
 ---
-*This session was interrupted due to usage limits. You can resume once the limit resets.*`;
+${footerNote}`;
     } else if (errorMessage) {
       // Failure log format (non-usage-limit errors)
       logComment = `## 🚨 Solution Draft Failed
@@ -707,13 +705,15 @@ ${resumeCommand}
               }
             }
 
+            const uploadFooterNote = isAutoResumeEnabled ? (autoResumeMode === 'restart' ? '*This session was interrupted due to usage limits. The session will automatically restart when the limit resets.*' : '*This session was interrupted due to usage limits. The session will automatically resume when the limit resets.*') : '*This session was interrupted due to usage limits. You can resume once the limit resets.*';
+
             logUploadComment += `${modelInfoString}
 
 ### 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 - [View complete execution log](${logUrl})
 
 ---
-*This session was interrupted due to usage limits. You can resume once the limit resets.*`;
+${uploadFooterNote}`;
           } else if (errorMessage) {
             // Failure log format (non-usage-limit errors)
             logUploadComment = `## 🚨 Solution Draft Failed

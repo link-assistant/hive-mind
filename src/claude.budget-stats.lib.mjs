@@ -400,6 +400,23 @@ const getSubAgentCallCount = (modelId, callCounts) => {
   return 0;
 };
 
+/**
+ * Issue #1590: Get sub-agent calls matching a specific model ID.
+ * Filters the subAgentCalls array to return only calls whose short model name
+ * matches the given full model ID.
+ * @param {string} modelId - Full model ID (e.g., "claude-sonnet-4-6")
+ * @param {Array|null} subAgentCalls - Array of {id, description, model} from stream tracking
+ * @returns {Array} Matching sub-agent calls for this model
+ */
+const getSubAgentCallsForModel = (modelId, subAgentCalls) => {
+  if (!subAgentCalls || subAgentCalls.length === 0) return [];
+  const modelIdLower = modelId.toLowerCase();
+  return subAgentCalls.filter(call => {
+    const shortName = (call.model || 'default').toLowerCase();
+    return modelIdLower === shortName || modelIdLower.includes(shortName);
+  });
+};
+
 export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
   if (!tokenUsage) return '';
 
@@ -484,19 +501,25 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
 
       stats += `\n\nTotal: ${totalLine}`;
 
-      // Issue #1590: Show per-call average when multiple sub-agent calls exist
+      // Issue #1590: Show individual sub-agent call list when multiple calls exist
       if (callCount > 1) {
+        const matchingCalls = getSubAgentCallsForModel(modelId, validSubAgentCalls);
         const avgInput = Math.round((totalInputNonCached + cachedTokens) / callCount);
         const avgOutput = Math.round(usage.outputTokens / callCount);
-        let avgLine = `~${formatTokensCompact(avgInput)} input, ~${formatTokensCompact(avgOutput)} output`;
-        if (usage.costUSD !== null && usage.costUSD !== undefined) {
-          avgLine += `, ~$${(usage.costUSD / callCount).toFixed(6)}`;
+        const avgCost = usage.costUSD !== null && usage.costUSD !== undefined ? usage.costUSD / callCount : null;
+
+        stats += `\n\nSub-agent calls:`;
+        for (let i = 0; i < matchingCalls.length; i++) {
+          const call = matchingCalls[i];
+          const desc = call.description || 'unknown';
+          let callLine = `${i + 1}. "${desc}" — ~${formatTokensCompact(avgInput)} input, ~${formatTokensCompact(avgOutput)} output`;
+          if (avgCost !== null) {
+            callLine += `, ~$${avgCost.toFixed(6)}`;
+          }
+          stats += `\n${callLine}`;
         }
-        if (outputLimit) {
-          const avgOutPct = ((avgOutput / outputLimit) * 100).toFixed(0);
-          avgLine += ` (~${avgOutPct}% of ${formatTokensCompact(outputLimit)} output limit per call)`;
-        }
-        stats += `\nPer call avg: ${avgLine}`;
+        // Note about estimates
+        stats += `\n\n_Per-call values are estimates (total ÷ ${callCount}). Exact per-call breakdown requires [upstream support](https://github.com/anthropics/claude-code/issues/46520)._`;
       }
     }
   }

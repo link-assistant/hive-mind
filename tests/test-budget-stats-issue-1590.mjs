@@ -6,7 +6,7 @@
  * When a working session contains multiple sub-agent calls (Agent tool invocations),
  * the token usage stats should show:
  * 1. The number of sub-agent calls per model
- * 2. Per-call average alongside the total
+ * 2. A list of each individual sub-agent call with description and estimated usage
  * 3. Output percentage should not be misleading (e.g., 530% across 12 calls)
  */
 
@@ -98,7 +98,7 @@ runTest('buildBudgetStatsString without subAgentCalls (backward compat)', () => 
   assertContains(result, 'Claude Opus 4.6', 'Should show Opus model name');
   assertContains(result, 'Claude Sonnet 4.6', 'Should show Sonnet model name');
   assertNotContains(result, 'sub-agent calls', 'Should not show sub-agent call count without data');
-  assertNotContains(result, 'Per call avg', 'Should not show per-call average without data');
+  assertNotContains(result, 'Sub-agent calls:', 'Should not show sub-agent call list without data');
   // When no sub-agent calls info, output percentage is still shown (backward compat)
   assertContains(result, '530%', 'Should show output percentage without sub-agent info');
 });
@@ -112,11 +112,15 @@ runTest('buildBudgetStatsString with subAgentCalls shows call count', () => {
   assertContains(result, '12 sub-agent calls', 'Should show sub-agent call count');
 });
 
-runTest('buildBudgetStatsString with subAgentCalls shows per-call average', () => {
+runTest('buildBudgetStatsString with subAgentCalls shows individual call list', () => {
   const tokenUsage = makeIssueScenarioData();
   const subAgentCalls = makeSubAgentCalls(12);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
-  assertContains(result, 'Per call avg', 'Should show per-call average line');
+  assertContains(result, 'Sub-agent calls:', 'Should show sub-agent calls section header');
+  // Each call should be listed individually with its description
+  for (let i = 1; i <= 12; i++) {
+    assertContains(result, `"Sub-agent task ${i}"`, `Should list sub-agent call ${i} with its description`);
+  }
 });
 
 runTest('buildBudgetStatsString with subAgentCalls hides misleading output percentage on Total line', () => {
@@ -129,20 +133,20 @@ runTest('buildBudgetStatsString with subAgentCalls hides misleading output perce
   assertNotContains(sonnetSection.split('\n\n')[0], '530%', 'Sonnet Total line should not show misleading 530% percentage');
 });
 
-runTest('buildBudgetStatsString per-call average shows output limit percentage', () => {
+runTest('buildBudgetStatsString sub-agent call list shows estimate note with upstream link', () => {
   const tokenUsage = makeIssueScenarioData();
   const subAgentCalls = makeSubAgentCalls(12);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
-  // Per call avg should show per-call output percentage
-  assertContains(result, 'output limit per call', 'Should show per-call output percentage');
+  assertContains(result, 'Per-call values are estimates', 'Should show estimate disclaimer');
+  assertContains(result, 'upstream support', 'Should link to upstream issue');
 });
 
-runTest('buildBudgetStatsString per-call average shows cost per call', () => {
+runTest('buildBudgetStatsString sub-agent call list shows estimated cost per call', () => {
   const tokenUsage = makeIssueScenarioData();
   const subAgentCalls = makeSubAgentCalls(12);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
   // Cost per call: 8.806153 / 12 ≈ 0.733846
-  assertContains(result, '~$0.733846', 'Should show per-call cost average');
+  assertContains(result, '~$0.733846', 'Should show per-call cost estimate');
 });
 
 runTest('buildBudgetStatsString main model (Opus) not affected by sub-agent calls', () => {
@@ -152,7 +156,7 @@ runTest('buildBudgetStatsString main model (Opus) not affected by sub-agent call
   // Opus section should not mention sub-agent calls
   const opusSection = result.split('Claude Sonnet')[0];
   assertNotContains(opusSection, 'sub-agent calls', 'Opus should not show sub-agent call count');
-  assertNotContains(opusSection, 'Per call avg', 'Opus should not show per-call average');
+  assertNotContains(opusSection, 'Sub-agent calls:', 'Opus should not show sub-agent call list');
 });
 
 // ==== Test: Single sub-agent call (no per-call display needed) ====
@@ -162,7 +166,7 @@ runTest('buildBudgetStatsString with single subAgentCall does not show per-call 
   const subAgentCalls = makeSubAgentCalls(1);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
   assertNotContains(result, 'sub-agent calls', 'Should not show call count for single call');
-  assertNotContains(result, 'Per call avg', 'Should not show per-call average for single call');
+  assertNotContains(result, 'Sub-agent calls:', 'Should not show call list for single call');
 });
 
 // ==== Test: Multiple models as sub-agents ====
@@ -221,14 +225,14 @@ runTest('buildBudgetStatsString with null subAgentCalls', () => {
   const tokenUsage = makeIssueScenarioData();
   const result = buildBudgetStatsString(tokenUsage, null);
   assertNotContains(result, 'sub-agent calls', 'Should not show sub-agent info for null');
-  assertNotContains(result, 'Per call avg', 'Should not show per-call avg for null');
+  assertNotContains(result, 'Sub-agent calls:', 'Should not show call list for null');
 });
 
 runTest('buildBudgetStatsString with empty subAgentCalls array', () => {
   const tokenUsage = makeIssueScenarioData();
   const result = buildBudgetStatsString(tokenUsage, []);
   assertNotContains(result, 'sub-agent calls', 'Should not show sub-agent info for empty array');
-  assertNotContains(result, 'Per call avg', 'Should not show per-call avg for empty array');
+  assertNotContains(result, 'Sub-agent calls:', 'Should not show call list for empty array');
 });
 
 // ==== Test: subAgentCalls with default model ====

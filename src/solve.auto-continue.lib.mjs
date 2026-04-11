@@ -182,8 +182,16 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
       env: process.env,
     });
 
-    child.on('close', code => {
-      process.exit(code);
+    // Issue #1571: Await child process exit to prevent parent from continuing
+    // to post "Solution Draft Log" and "Ready to merge" comments before the
+    // resumed session starts. Without this await, the parent process would
+    // return from this function and continue executing verifyResults() and
+    // startAutoRestartUntilMergeable(), causing confusing comment ordering.
+    await new Promise(resolve => {
+      child.on('close', code => {
+        process.exit(code);
+        resolve(); // Won't be reached due to process.exit, but included for completeness
+      });
     });
   } catch (error) {
     reportError(error, {

@@ -1177,7 +1177,21 @@ try {
   // Issue #1516: cleanupClaudeFile() moved to after completion signals (before endWorkSession)
 
   // Show summary of session and log file
+  // Note: When limit is reached with auto-resume/auto-restart enabled,
+  // showSessionSummary() calls autoContinueWhenLimitResets() which spawns a child
+  // process and awaits its exit (then calls process.exit). So the code below
+  // should not be reached in that case. The guard below is defense-in-depth.
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
+
+  // Issue #1571: When limit was reached and auto-continue is enabled, the parent process
+  // should NOT post "Solution Draft Log" or "Ready to merge" comments. Those will be
+  // posted by the resumed/restarted child process after it completes its work.
+  // autoContinueWhenLimitResets() already awaits the child exit (and calls process.exit),
+  // so this code should not normally be reached. This guard is defense-in-depth.
+  if (limitReached && (argv.autoResumeOnLimitReset || argv.autoRestartOnLimitReset) && global.limitResetTime) {
+    await log('ℹ️  Auto-continue was invoked for limit reset - skipping post-processing in parent process');
+    await safeExit(0, 'Auto-continue child process will handle post-processing');
+  }
 
   // Issue #1263: Handle solution summary attachment
   // --attach-solution-summary: Always attach if result summary is available

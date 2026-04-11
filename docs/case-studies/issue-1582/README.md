@@ -38,35 +38,38 @@ The CI/CD workflow triggers for every push to a PR branch, even when only non-co
 
 ### CI Run Analysis for Commit 8134a2f
 
-| Job | Conclusion | Expected |
-|-----|-----------|----------|
-| detect-changes | success | success (always runs) |
-| test-suites | success | success (PR has code changes) |
-| test-compilation | success | success (PR has code changes) |
-| test-execution | success | success (PR has code changes) |
-| memory-check-linux | success | success (PR has code changes) |
-| lint | success | success (PR has code changes) |
-| changeset-check | success | success (PR has code changes) |
-| version-check | success | success (PR has code changes) |
-| validate-docs | success | success (PR has doc changes) |
-| check-file-line-limits | success | success (PR has mjs changes) |
-| Docker/Helm/Release jobs | skipped | skipped (PR event, no docker/helm changes) |
+| Job                      | Conclusion | Expected                                   |
+| ------------------------ | ---------- | ------------------------------------------ |
+| detect-changes           | success    | success (always runs)                      |
+| test-suites              | success    | success (PR has code changes)              |
+| test-compilation         | success    | success (PR has code changes)              |
+| test-execution           | success    | success (PR has code changes)              |
+| memory-check-linux       | success    | success (PR has code changes)              |
+| lint                     | success    | success (PR has code changes)              |
+| changeset-check          | success    | success (PR has code changes)              |
+| version-check            | success    | success (PR has code changes)              |
+| validate-docs            | success    | success (PR has doc changes)               |
+| check-file-line-limits   | success    | success (PR has mjs changes)               |
+| Docker/Helm/Release jobs | skipped    | skipped (PR event, no docker/helm changes) |
 
 ---
 
 ## Timeline Reconstruction
 
 ### 2026-03-18 — Issue #1436 Fix (PR #1441)
+
 - Added `detect-changes` job and conditional execution for jobs
 - Refactored to positive-matching approach for code change detection
 - `version-check` and `helm-pr-check` made conditional on detected changes
 
 ### 2026-04-04 — Issue #1528 Fix (PR #1529)
+
 - Fixed "Files considered as code changes" list to use consistent positive matching
 - Explicitly decided NOT to add `paths-ignore` to workflow trigger, considering ~8s overhead acceptable
 - Added unit tests for detection logic
 
 ### 2026-04-10 — Issue #1582 Reported
+
 - User observes CI/CD running tests for `.gitkeep`-only changes
 - Requests reducing computation load for non-code file changes
 - Notes this applies to any unrecognized file types, not just `.gitkeep`
@@ -91,6 +94,7 @@ on:
 Has no `paths` or `paths-ignore` filter on `pull_request`. GitHub Actions creates a workflow run for every push to a PR branch, regardless of which files changed.
 
 **Impact:** For `.gitkeep`-only pushes (common pattern: every PR starts with one), this wastes:
+
 - ~8s of GitHub Actions runner time for the `detect-changes` job
 - PR checks UI space showing a run where everything is skipped
 
@@ -149,6 +153,7 @@ on:
 ### Consistency with detect-code-changes.mjs
 
 The `paths` filter is intentionally broader than `codePattern` in `detect-code-changes.mjs`:
+
 - `codePattern` determines which jobs run (code vs docs vs helm)
 - `paths` filter determines whether the workflow starts at all
 - Including `.md` files in `paths` ensures `validate-docs` can run for docs-only PRs

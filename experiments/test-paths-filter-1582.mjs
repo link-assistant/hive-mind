@@ -12,24 +12,7 @@
  */
 
 // Paths filter from release.yml (must match exactly what's in the file)
-const pathsFilter = [
-  '**.mjs',
-  '**.js',
-  '**.sh',
-  '**.json',
-  '**.yml',
-  '**.yaml',
-  '**.md',
-  '.changeset/**',
-  '.github/**',
-  'Dockerfile',
-  'coolify/Dockerfile',
-  '.dockerignore',
-  'helm/**',
-  '.prettierrc',
-  '.prettierignore',
-  '.eslintrc*',
-];
+const pathsFilter = ['**.mjs', '**.js', '**.sh', '**.json', '**.yml', '**.yaml', '**.md', '.changeset/**', '.github/**', 'Dockerfile', 'coolify/Dockerfile', '.dockerignore', 'helm/**', '.prettierrc', '.prettierignore', '.eslintrc*'];
 
 /**
  * Simple glob matching that approximates GitHub Actions path matching.
@@ -39,11 +22,11 @@ const pathsFilter = [
 function globMatch(pattern, filePath) {
   // Convert glob pattern to regex
   let regex = pattern
-    .replace(/\./g, '\\.')         // Escape dots
-    .replace(/\*\*/g, '§§')       // Temp placeholder for **
-    .replace(/\*/g, '[^/]*')      // * = any chars except /
-    .replace(/§§/g, '.*')         // ** = any path
-    .replace(/\?/g, '[^/]');      // ? = single char
+    .replace(/\./g, '\\.') // Escape dots
+    .replace(/\*\*/g, '§§') // Temp placeholder for **
+    .replace(/\*/g, '[^/]*') // * = any chars except /
+    .replace(/§§/g, '.*') // ** = any path
+    .replace(/\?/g, '[^/]'); // ? = single char
   return new RegExp(`^${regex}$`).test(filePath);
 }
 
@@ -88,19 +71,7 @@ const shouldTrigger = [
 ];
 
 // === Files that should NOT trigger the workflow ===
-const shouldNotTrigger = [
-  '.gitkeep',
-  'some-image.png',
-  'some-image.jpg',
-  'some-file.txt',
-  'some-file.log',
-  'LICENSE',
-  'some-archive.tar.gz',
-  '.DS_Store',
-  'some-file.csv',
-  'some-binary.wasm',
-  'data.sqlite',
-];
+const shouldNotTrigger = ['.gitkeep', 'some-image.png', 'some-image.jpg', 'some-file.txt', 'some-file.log', 'LICENSE', 'some-archive.tar.gz', '.DS_Store', 'some-file.csv', 'some-binary.wasm', 'data.sqlite'];
 
 let passed = 0;
 let failed = 0;

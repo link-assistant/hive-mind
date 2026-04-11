@@ -144,25 +144,33 @@ runTest('buildBudgetStatsString with subAgentCalls (no usage) shows estimate not
   assertContains(result, '~', 'Should use ~ prefix for estimates');
 });
 
-runTest('buildBudgetStatsString with subAgentCalls (no usage) shows estimated cost per call', () => {
+runTest('buildBudgetStatsString with subAgentCalls (no usage) shows limits and percentages per call', () => {
   const tokenUsage = makeIssueScenarioData();
   const subAgentCalls = makeSubAgentCallsNoUsage(12);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
-  // Cost per call: 8.806153 / 12 ≈ 0.733846
-  assertContains(result, '~$0.733846', 'Should show per-call cost estimate');
+  // Each estimated call should show limits and percentages: ~381.8K / 1M (38%) input tokens, ~28.2K / 64K (44%) output tokens
+  assertContains(result, '/ 1M', 'Should show context limit for estimated calls');
+  assertContains(result, '/ 64K', 'Should show output limit for estimated calls');
+  assertContains(result, '%) input tokens', 'Should show input percentage');
+  assertContains(result, '%) output tokens', 'Should show output percentage');
 });
 
 // ==== Test: With sub-agent calls WITH actual usage data ====
 
-runTest('buildBudgetStatsString with actual per-call usage shows real data', () => {
+runTest('buildBudgetStatsString with actual per-call usage shows limits and percentages', () => {
   const tokenUsage = makeIssueScenarioData();
   const subAgentCalls = makeSubAgentCallsWithUsage(12);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
   assertContains(result, '12 sub-agent calls', 'Should show sub-agent call count');
   assertContains(result, 'Sub-agent calls:', 'Should show sub-agent calls section header');
-  // Each call should be listed individually with its description
+  // Each call should show limits and percentages (e.g., "306K / 1M (31%) input tokens, 25K / 64K (39%) output tokens")
+  assertContains(result, '/ 1M', 'Should show context limit for actual calls');
+  assertContains(result, '/ 64K', 'Should show output limit for actual calls');
+  assertContains(result, '%) input tokens', 'Should show input percentage');
+  assertContains(result, '%) output tokens', 'Should show output percentage');
+  // Each call should be numbered
   for (let i = 1; i <= 12; i++) {
-    assertContains(result, `"Sub-agent task ${i}"`, `Should list sub-agent call ${i} with its description`);
+    assertContains(result, `${i}. `, `Should list sub-agent call ${i} numbered`);
   }
 });
 
@@ -294,14 +302,17 @@ runTest('buildBudgetStatsString handles sub-agent calls without explicit model',
 
 // ==== Test: Individual call list with no usage data (backward compat for subAgentCalls format) ====
 
-runTest('buildBudgetStatsString lists each sub-agent call individually (no usage)', () => {
+runTest('buildBudgetStatsString lists each sub-agent call numbered (no usage)', () => {
   const tokenUsage = makeIssueScenarioData();
   const subAgentCalls = makeSubAgentCallsNoUsage(12);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
   assertContains(result, 'Sub-agent calls:', 'Should show sub-agent calls section header');
+  // Each call should be numbered with limits and percentages
   for (let i = 1; i <= 12; i++) {
-    assertContains(result, `"Sub-agent task ${i}"`, `Should list sub-agent call ${i} with its description`);
+    assertContains(result, `${i}. `, `Should list sub-agent call ${i} numbered`);
   }
+  assertContains(result, '/ 1M', 'Should show context limit');
+  assertContains(result, '/ 64K', 'Should show output limit');
 });
 
 // Summary

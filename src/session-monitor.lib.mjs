@@ -244,6 +244,39 @@ export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000)
 }
 
 /**
+ * Issue #1567: Check if there's an active session for a given URL.
+ * This prevents concurrent sessions on the same PR/issue, which causes
+ * iteration number jumps, duplicate "Ready to merge" comments, and other
+ * inconsistencies when two auto-restart-until-mergeable processes run
+ * simultaneously.
+ *
+ * @param {string} url - The GitHub URL to check (issue or PR URL)
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {{isActive: boolean, sessionName: string|null}} Whether an active session exists for this URL
+ */
+export function hasActiveSessionForUrl(url, verbose = false) {
+  if (!url) return { isActive: false, sessionName: null };
+
+  // Normalize the URL for comparison (remove trailing slashes, fragments, etc.)
+  const normalizeUrl = u => u.replace(/\/+$/, '').replace(/#.*$/, '').toLowerCase();
+  const normalizedUrl = normalizeUrl(url);
+
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    if (sessionInfo.url && normalizeUrl(sessionInfo.url) === normalizedUrl) {
+      if (verbose) {
+        console.log(`[VERBOSE] Found active session for URL ${url}: ${sessionName}`);
+      }
+      return { isActive: true, sessionName };
+    }
+  }
+
+  if (verbose) {
+    console.log(`[VERBOSE] No active session found for URL ${url}`);
+  }
+  return { isActive: false, sessionName: null };
+}
+
+/**
  * Get statistics about session tracking
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Object} Statistics object

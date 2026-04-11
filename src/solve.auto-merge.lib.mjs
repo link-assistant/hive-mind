@@ -510,9 +510,11 @@ export const watchUntilMergeable = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
   const rawWatchInterval = argv.watchInterval || 60; // seconds
-  // Issue #1503: Enforce minimum 5-minute (300s) CI check interval to conserve GitHub API rate limits.
-  // This prevents excessive API calls during long-running CI pipelines.
-  const MIN_CI_CHECK_INTERVAL_SECONDS = 300;
+  // Issue #1503: Enforce minimum CI check interval to conserve GitHub API rate limits.
+  // Issue #1567: Reduced from 5 minutes (300s) to 2 minutes (120s) to decrease wait times
+  // between working session finish and "Ready to merge" / next action detection.
+  // This also applies uniformly whether CI/CD is configured or not.
+  const MIN_CI_CHECK_INTERVAL_SECONDS = 120;
   const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
   // Issue #1503: --wait-for-all-actions-in-repository-before-mergable (default: true)
@@ -549,16 +551,32 @@ export const watchUntilMergeable = async params => {
   let consecutiveNoRunsChecks = 0;
   let lastKnownHeadSha = null;
 
+  // Issue #1567: Initial cooldown before first check.
+  // Wait at least MIN_CI_CHECK_INTERVAL_SECONDS after working session finishes before
+  // starting to check. This ensures:
+  // 1. Solution Draft Log is fully posted before any "Ready to merge" can appear
+  // 2. CI/CD checks have time to register with GitHub (avoids false "no CI" detection)
+  // 3. Consistent behavior whether CI/CD is configured or not
+  const INITIAL_COOLDOWN_SECONDS = MIN_CI_CHECK_INTERVAL_SECONDS;
+
   await log('');
   await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE', ''));
   await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
   await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergeable (will NOT auto-merge)', 2));
   await log(formatAligned('', 'Checking interval:', `${watchInterval} seconds (minimum: ${MIN_CI_CHECK_INTERVAL_SECONDS}s)`, 2));
+  await log(formatAligned('', 'Initial cooldown:', `${INITIAL_COOLDOWN_SECONDS} seconds`, 2));
   await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (absolute safety)' : 'No', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
   await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
   await log('');
   await log('Press Ctrl+C to stop watching manually');
+  await log('');
+
+  // Issue #1567: Wait for initial cooldown before first check.
+  // This gives CI/CD time to start and solution logs time to be posted.
+  await log(formatAligned('⏳', 'Initial cooldown:', `Waiting ${INITIAL_COOLDOWN_SECONDS}s before first check...`));
+  await new Promise(resolve => setTimeout(resolve, INITIAL_COOLDOWN_SECONDS * 1000));
+  await log(formatAligned('✅', 'Cooldown complete:', 'Starting monitoring loop'));
   await log('');
 
   let iteration = 0;
@@ -732,16 +750,28 @@ export const watchUntilMergeable = async params => {
           await log(formatAligned('', 'Exiting auto-restart-until-mergeable mode', '', 2));
 
           // Issue #1371: Post success comment only if not already posted in this session.
-          // Use in-memory flag instead of checking all PR comment history (issue #1323),
-          // since the historical check incorrectly suppressed notifications when a
-          // previous solve run had already posted a "Ready to merge" comment.
+          // Issue #1567: Also check PR comment history as a cross-process guard.
+          // Two layers of deduplication:
+          //   1. In-memory flag (readyToMergeCommentPosted) — prevents duplicates within this process
+          //   2. checkForExistingComment — prevents duplicates from concurrent processes
+          // The in-memory flag is reset when HEAD SHA changes (line 614), so a new commit
+          // will allow a fresh "Ready to merge" comment.
           try {
             if (!readyToMergeCommentPosted) {
-              // Issue #1345: Differentiate message when no CI is configured
-              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
-              const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
-              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
-              readyToMergeCommentPosted = true;
+              // Issue #1567: Cross-process deduplication — check if another process already
+              // posted a "Ready to merge" comment. This catches the case where two concurrent
+              // watchUntilMergeable processes both detect mergeability simultaneously.
+              const hasExistingReadyComment = await checkForExistingComment(owner, repo, prNumber, '## ✅ Ready to merge', argv.verbose);
+              if (hasExistingReadyComment) {
+                await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment (already posted by another process)', '', 2));
+                readyToMergeCommentPosted = true;
+              } else {
+                // Issue #1345: Differentiate message when no CI is configured
+                const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
+                const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+                await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+                readyToMergeCommentPosted = true;
+              }
             } else {
               await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment (already posted this session)', '', 2));
             }

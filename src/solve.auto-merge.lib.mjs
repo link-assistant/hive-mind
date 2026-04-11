@@ -1004,9 +1004,10 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
 
         if (!toolResult.success) {
           // Issue #1356: Check for usage limit errors FIRST (most specific)
-          // When usage limit is reached, silently wait for limitResetTime + buffer + jitter,
+          // When usage limit is reached, wait for limitResetTime + buffer + jitter,
           // then resume the session using --resume <sessionId> with a "Continue" prompt.
-          // No GitHub comment is posted — only log output.
+          // Issue #1570: Always post a GitHub comment to notify the user about the delay
+          // and when exactly execution will be resumed, so the user doesn't think the process is stuck.
           if (isUsageLimitReached(toolResult)) {
             const resumeSessionId = toolResult.sessionId;
             const resetTime = toolResult.limitResetTime;
@@ -1018,17 +1019,70 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             const jitterSeconds = Math.round(jitterMs / 1000);
             const waitMinutes = Math.round(waitMs / 60000);
 
+            // Issue #1570: Calculate the actual resume time for user display
+            const resumeDate = new Date(Date.now() + waitMs);
+            const resumeTimeUTC = resumeDate
+              .toISOString()
+              .replace('T', ' ')
+              .replace(/\.\d+Z$/, ' UTC');
+
             await log('');
             await log(formatAligned('⏳', 'USAGE LIMIT REACHED', ''));
             await log(formatAligned('', 'Reset time:', resetTime || 'Unknown', 2));
             await log(formatAligned('', 'Waiting:', `${waitMinutes} min (reset + ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)`, 2));
-            await log(formatAligned('', 'Action:', 'Silently waiting then resuming — no GitHub comment posted', 2));
+            await log(formatAligned('', 'Resume at:', resumeTimeUTC, 2));
+            await log(formatAligned('', 'Action:', 'Posting GitHub comment and waiting for limit reset', 2));
             if (resumeSessionId) {
               await log(formatAligned('', 'Session ID:', resumeSessionId, 2));
             }
             await log('');
 
-            // Wait silently until the limit resets (no GitHub comment)
+            // Issue #1570: Post a GitHub comment to notify the user about the usage limit delay.
+            // This follows the same pattern as solve.watch.lib.mjs to ensure consistent user experience.
+            const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
+            if (prNumber && shouldAttachLogs) {
+              try {
+                const logFile = getLogFile();
+                if (logFile) {
+                  await attachLogToGitHub({
+                    logFile,
+                    targetType: 'pr',
+                    targetNumber: prNumber,
+                    owner,
+                    repo,
+                    $,
+                    log,
+                    sanitizeLogContent,
+                    verbose: argv.verbose,
+                    sessionId: resumeSessionId || latestSessionId,
+                    tempDir,
+                    anthropicTotalCostUSD: toolResult.anthropicTotalCostUSD || latestAnthropicCost,
+                    isUsageLimit: true,
+                    limitResetTime: resetTime,
+                    toolName: `Anthropic ${(argv.tool || 'claude').charAt(0).toUpperCase() + (argv.tool || 'claude').slice(1)} Code`,
+                    isAutoResumeEnabled: true,
+                    autoResumeMode: 'restart',
+                    requestedModel: argv.model,
+                    tool: argv.tool || 'claude',
+                    publicPricingEstimate: toolResult.publicPricingEstimate,
+                    pricingInfo: toolResult.pricingInfo,
+                    resultModelUsage: toolResult.resultModelUsage || null,
+                  });
+                  await log(formatAligned('', '✅ Usage limit comment posted to PR', '', 2));
+                }
+              } catch (commentError) {
+                reportError(commentError, {
+                  context: 'attach_usage_limit_comment_auto_restart',
+                  prNumber,
+                  owner,
+                  repo,
+                  operation: 'usage_limit_comment',
+                });
+                await log(formatAligned('', `⚠️  Usage limit comment upload error: ${cleanErrorMessage(commentError)}`, '', 2));
+              }
+            }
+
+            // Wait until the limit resets
             await new Promise(resolve => setTimeout(resolve, waitMs));
 
             await log(formatAligned('✅', 'Usage limit wait complete', 'Resuming session...'));

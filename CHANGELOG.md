@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.50.4
+
+### Patch Changes
+
+- 15f25db: Make merge queue cancel immediate during CI waits so users don't have to wait for CI to finish before cancellation takes effect
+
 ## 1.50.3
 
 ### Patch Changes

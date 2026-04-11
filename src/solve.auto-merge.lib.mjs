@@ -50,9 +50,9 @@ const { calculateWaitTime } = validation;
 // Import configuration (used for limit reset buffer and jitter)
 import { limitReset } from './config.lib.mjs';
 
-// Import merge blocker detection helpers (extracted to keep this file under 1500 lines)
-const mergeBlockersLib = await import('./solve.merge-blockers.lib.mjs');
-const { checkForExistingComment, checkForNonBotComments, getMergeBlockers } = mergeBlockersLib;
+// Import helper functions extracted for file size management (Issue #1593)
+const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
+const { checkForExistingComment, checkForNonBotComments, getMergeBlockers } = autoMergeHelpers;
 
 /**
  * Main function: Watch and restart until PR becomes mergeable

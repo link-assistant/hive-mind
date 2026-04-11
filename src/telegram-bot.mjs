@@ -599,6 +599,10 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
     result = await executeStartScreen(commandName, args);
     const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
     session = match ? match[1] : 'unknown';
+    // Issue #1586: Track non-isolation sessions with timeout-based expiry.
+    // These sessions cannot reliably detect completion (screen stays alive via
+    // `exec bash`), so hasActiveSessionForUrl() auto-expires them after 10 min.
+    // This prevents accidental duplicate commands within the timeout window.
     if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName }, VERBOSE);
   }
   if (result.warning) return safeEdit(`⚠️  ${result.warning}`);

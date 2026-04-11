@@ -1,4 +1,4 @@
-# Branch Protection Policy
+# Branch Protection Policy (languages: en • [zh](BRANCH_PROTECTION_POLICY.zh.md) • [hi](BRANCH_PROTECTION_POLICY.hi.md) • [ru](BRANCH_PROTECTION_POLICY.ru.md))
 
 ## Overview
 

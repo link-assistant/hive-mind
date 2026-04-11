@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Merge blocker detection and comment deduplication helpers for auto-merge module.
+ * Helper functions for the auto-merge module.
+ * Extracted from solve.auto-merge.lib.mjs to keep file sizes under the 1500-line limit.
  *
- * Extracted from solve.auto-merge.lib.mjs to keep files under the 1500-line limit.
+ * Contains:
+ * - checkForExistingComment: Deduplication of PR status comments
+ * - checkForNonBotComments: Detection of human feedback on PRs
+ * - getMergeBlockers: Comprehensive CI/CD status analysis
  *
- * @see https://github.com/link-assistant/hive-mind/issues/1323
- * @see https://github.com/link-assistant/hive-mind/issues/1314
- * @see https://github.com/link-assistant/hive-mind/issues/1584
+ * @see https://github.com/link-assistant/hive-mind/issues/1190
+ * @see https://github.com/link-assistant/hive-mind/issues/1593
  */
 
 // Check if use is already defined globally (when imported from solve.mjs)
@@ -540,4 +543,10 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
   }
 
   return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false };
+};
+
+export default {
+  checkForExistingComment,
+  checkForNonBotComments,
+  getMergeBlockers,
 };

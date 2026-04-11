@@ -8,14 +8,14 @@ Failed run: https://github.com/link-assistant/hive-mind/actions/runs/24274201449
 
 ## Timeline of Events
 
-| Time (UTC)       | Event                                                                                  |
-| ---------------- | -------------------------------------------------------------------------------------- |
-| 03:32:59         | PR #1585 CI run starts (run 24273715376)                                               |
-| 03:38:05         | PR #1585 `simulate-fresh-merge` merges with main (main had 1 new commit, not PR #1577) |
-| 03:38:06         | PR #1585 `check-file-line-limits` passes (file was under 1500 after simulated merge)   |
-| 03:49:20         | **PR #1577 merges to main** — file goes from 1433 → 1487 lines                        |
-| 03:58:08         | **PR #1585 merges to main** — file goes from 1487 → 1545 lines                        |
-| 04:01:57         | Post-merge CI on main runs `check-file-line-limits` — **FAILS** (1545 > 1500)         |
+| Time (UTC) | Event                                                                                  |
+| ---------- | -------------------------------------------------------------------------------------- |
+| 03:32:59   | PR #1585 CI run starts (run 24273715376)                                               |
+| 03:38:05   | PR #1585 `simulate-fresh-merge` merges with main (main had 1 new commit, not PR #1577) |
+| 03:38:06   | PR #1585 `check-file-line-limits` passes (file was under 1500 after simulated merge)   |
+| 03:49:20   | **PR #1577 merges to main** — file goes from 1433 → 1487 lines                         |
+| 03:58:08   | **PR #1585 merges to main** — file goes from 1487 → 1545 lines                         |
+| 04:01:57   | Post-merge CI on main runs `check-file-line-limits` — **FAILS** (1545 > 1500)          |
 
 ## Root Cause Analysis
 
@@ -72,11 +72,11 @@ The race condition is inherent to concurrent development workflows. Rather than 
 
 ## Files Changed
 
-| File                                         | Change                             |
-| -------------------------------------------- | ---------------------------------- |
-| `src/solve.auto-merge.lib.mjs`               | Extracted 3 helper functions       |
-| `src/solve.auto-merge-helpers.lib.mjs`       | New file with extracted functions   |
-| `scripts/check-file-line-limits.sh`          | Added 1350-line warning threshold  |
+| File                                   | Change                            |
+| -------------------------------------- | --------------------------------- |
+| `src/solve.auto-merge.lib.mjs`         | Extracted 3 helper functions      |
+| `src/solve.auto-merge-helpers.lib.mjs` | New file with extracted functions |
+| `scripts/check-file-line-limits.sh`    | Added 1350-line warning threshold |
 
 ## Related Issues
 

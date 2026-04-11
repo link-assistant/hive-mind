@@ -50,30 +50,7 @@ const { calculateWaitTime } = validation;
 // Import configuration (used for limit reset buffer and jitter)
 import { limitReset } from './config.lib.mjs';
 
-/**
- * Issue #1323: Check if a comment with specific content already exists on the PR
- * This prevents duplicate status comments when multiple processes or restarts occur
- *
- * Issue #1584: Only search for duplicates AFTER the last session-ending comment.
- * Previously, this searched the entire PR comment history, which caused false positives
- * when a new working session was started after user feedback — the old "Ready to merge"
- * comment from a previous session would suppress the new one, even though a new session-ending
- * comment had been posted in between. By narrowing the search scope to only comments
- * after the most recent session-ending comment, each working session gets its own deduplication
- * window.
- *
- * Session-ending markers include:
- * - "Now working session is ended" — present in all log upload comments (Solution Draft Log,
- *   Auto-restart Log, Auto-restart-until-mergeable Log, Solution Draft Log (Resumed/Truncated))
- * - "AI Work Session Completed" — posted when logs are not attached to PR
- *
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {number} prNumber - Pull request number
- * @param {string} commentSignature - Unique signature to search for in comment body (e.g., "✅ Ready to merge")
- * @param {boolean} verbose - Enable verbose logging
- * @returns {Promise<boolean>} - True if a matching comment already exists
- */
+/** Issue #1323/#1584: Check if comment with signature exists on PR after last session-ending comment. */
 const checkForExistingComment = async (owner, repo, prNumber, commentSignature, verbose = false) => {
   try {
     // Fetch all PR comments as JSON to get individual comment bodies in order
@@ -95,15 +72,7 @@ const checkForExistingComment = async (owner, repo, prNumber, commentSignature, 
 
       if (!Array.isArray(commentBodies) || commentBodies.length === 0) return false;
 
-      // Issue #1584: Find the index of the last session-ending comment.
-      // Only search for the signature in comments AFTER that index.
-      // Session-ending markers indicate the end of a working session,
-      // so any "Ready to merge" before it belongs to a previous session.
-      //
-      // Session-ending markers:
-      // - "Now working session is ended" — in all log upload comments
-      //   (Solution Draft Log, Auto-restart Log, Auto-restart-until-mergeable Log, etc.)
-      // - "AI Work Session Completed" — posted when logs are not attached
+      // Issue #1584: Only search for signature after last session-ending comment
       const sessionEndingMarkers = ['Now working session is ended', 'AI Work Session Completed'];
       let searchStartIndex = 0;
       for (let i = commentBodies.length - 1; i >= 0; i--) {
@@ -252,43 +221,18 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
   const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
 
   if (ciStatus.status === 'no_checks') {
-    // No CI checks exist yet - this could be:
-    // 1. A race condition after push (checks haven't started yet) - wait
-    // 2. A repository with no CI/CD configured at all - should be mergeable immediately
-    // 3. CI workflows exist but were not triggered for this commit (fork PR, paths-ignore, etc.)
-    //
-    // Issue #1345: Distinguish by checking the PR's mergeability status.
-    // If GitHub says the PR is MERGEABLE (mergeStateStatus === 'CLEAN'),
-    // then no CI is required and we should not block indefinitely.
-    // Otherwise (e.g. mergeStateStatus === 'BLOCKED'), treat as pending race condition.
+    // Issue #1345: No CI checks yet — distinguish race condition vs no CI configured
+    // by checking PR mergeability status.
     const earlyMergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
     if (earlyMergeStatus.mergeable) {
-      // Issue #1363: Before concluding "no CI configured", verify the repo actually
-      // has no active GitHub Actions workflows. If workflows exist but no checks have
-      // started yet, this is a race condition (GitHub takes ~10-30s to register checks
-      // after a push), NOT a "no CI configured" situation.
-      //
-      // This fixes a false positive where a repo with CI workflows but WITHOUT branch
-      // protection (required status checks) would be declared "no CI configured" because:
-      // - mergeStateStatus=CLEAN (no required checks to block it)
-      // - check_runs=[] (CI hasn't started yet — race condition)
+      // Issue #1363: Verify repo has no active workflows before concluding "no CI configured"
       const repoWorkflows = await getActiveRepoWorkflows(owner, repo, verbose);
       if (repoWorkflows.hasWorkflows) {
-        // Repo HAS workflows — but were they triggered for this commit?
-        // Issue #1442: Use the GitHub Actions workflow runs API to definitively check
-        // if any workflow runs were triggered for this PR's HEAD SHA. This avoids
-        // the need for timeout-based detection:
-        //   - workflow_runs.length > 0 → genuine race condition (CI started, check-runs not yet registered)
-        //   - workflow_runs.length === 0 → CI was NOT triggered (fork PR, paths-ignore, etc.)
+        // Issue #1442: Check workflow runs API for this SHA to distinguish race condition vs not triggered
         const workflowRuns = await getWorkflowRunsForSha(owner, repo, ciStatus.sha, verbose);
         if (workflowRuns.length > 0) {
-          // Issue #1466: Check if ALL workflow runs are completed without producing check-runs.
-          // This happens when workflows require manual approval (first-time fork contributors,
-          // deployment approvals) — they complete with conclusion=action_required but never
-          // create check-runs. Waiting for check-runs in this case is an infinite loop.
-          //
-          // Also covers other non-executing conclusions: cancelled, stale workflows that
-          // completed without producing check-runs won't produce them in the future either.
+          // Issue #1466: Check if all workflow runs completed without producing check-runs
+          // (action_required, cancelled, stale, skipped — check-runs will never appear)
           const allRunsCompleted = workflowRuns.every(r => r.status === 'completed');
           const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
 
@@ -313,24 +257,14 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
             details: workflowRuns.map(r => r.name),
           });
         } else {
-          // No workflow runs for this SHA — but this could be a race condition!
-          // Issue #1480: GitHub Actions workflow runs take 30-120 seconds to appear in the
-          // API after a push. The previous fix (issue #1442) assumed 0 workflow runs meant
-          // "CI definitively NOT triggered", but this caused false positive "Ready to merge"
-          // when checked too soon after a push.
-          //
-          // Multi-layer defense (Issue #1480 enhanced):
-          // Layer 1: Grace period — check commit age
-          // Layer 2: Workflow file parsing — check .github/workflows for PR triggers
-          // Layer 3: Previous commit CI history — check if earlier PR commits had CI runs
+          // Issue #1480: No workflow runs yet — could be race condition (30-120s API delay).
+          // Multi-layer defense: grace period, workflow file parsing, previous commit CI history.
           const WORKFLOW_RUN_GRACE_PERIOD_SECONDS = 120; // 2 minutes — generous to cover slow GitHub API registration
           const commitInfo = await getCommitDate(owner, repo, ciStatus.sha, verbose);
 
-          // Issue #1480: Parse workflow files for PR triggers (used in both grace period and post-grace checks)
           const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose, prBranchRef);
 
-          // Issue #1480: If .github/workflows folder doesn't exist or has no workflow files,
-          // that's a definitive signal — no CI/CD will execute, skip grace period entirely
+          // No workflow files at all — CI definitively not configured at file level
           if (!prTriggers.hasWorkflowFiles) {
             if (verbose) {
               await log(`[VERBOSE] /merge: PR #${prNumber} repo has no workflow files in .github/workflows/ — CI definitively not configured at file level`);
@@ -339,23 +273,11 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
           }
 
           if (prTriggers.hasPRTriggers) {
-            // Issue #1480 (enhanced): Workflows have PR/push triggers but no runs yet.
-            // This is almost certainly a race condition — GitHub takes 30-120s to register
-            // workflow runs after a push. We MUST wait regardless of commit age, because
-            // commit date reflects authoring time, NOT push time.
-            //
-            // The commit may have been authored hours ago but pushed just now (rebased branches,
-            // amended commits, cherry-picks). Using commit age as a proxy for push age caused
-            // false positives in Case 1 of Issue #1480.
-            //
-            // Safety valve: after MAX_NO_RUNS_CHECKS consecutive checks (typically 5 × 60s = 5 min),
-            // conclude CI was not triggered. This handles cases like paths-ignore excluding all
-            // changed files, conditional workflows that don't match, etc.
+            // Issue #1480: PR/push triggers exist but no runs — likely race condition.
+            // Safety valve: after MAX_NO_RUNS_CHECKS checks, conclude CI was not triggered.
             const MAX_NO_RUNS_CHECKS = 5;
             if (checkCount >= MAX_NO_RUNS_CHECKS) {
-              // Issue #1503 (enhanced): Before concluding CI was not triggered, check if
-              // previous commits in this PR had CI runs. If they did, CI should be expected
-              // for the current commit too — extend waiting with a higher threshold.
+              // Issue #1503: Check if previous commits had CI — extend wait if so
               const MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY = 10;
               if (checkCount < MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY) {
                 const previousCI = await checkPreviousPRCommitsHadCI(owner, repo, prNumber, ciStatus.sha, verbose);
@@ -396,9 +318,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
               details: [],
             });
           } else {
-            // No PR triggers AND commit is old enough — CI was definitively NOT triggered
-            // Issue #1442: Fork PRs needing maintainer approval, paths-ignore filtering,
-            // workflow conditions not matching, etc. all result in zero workflow runs.
+            // No PR triggers AND commit is old enough — CI was definitively not triggered
             if (verbose) {
               await log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and no workflow runs for SHA ${ciStatus.sha.substring(0, 7)} (commit age: ${commitInfo.ageSeconds ?? 'unknown'}s, no PR/push triggers in workflow files) — CI was not triggered`);
             }
@@ -406,10 +326,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
           }
         }
       } else {
-        // Repo has NO workflows — this is truly "no CI configured"
-        // PR is already mergeable with no CI checks configured.
-        // Do NOT add a ci_pending blocker. The mergeability check below will also
-        // confirm this is mergeable, so blockers will be empty → PR IS MERGEABLE path.
+        // Repo has NO workflows — truly "no CI configured", no blocker needed
         if (verbose) {
           await log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and repo has no active workflows - no CI/CD configured`);
         }
@@ -425,10 +342,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
       });
     }
   } else if (ciStatus.status === 'success') {
-    // Issue #1480: Cross-validate "success" with workflow runs API.
-    // A fast external check (e.g., CodeFactor) can register and pass before the main CI
-    // pipeline starts, causing getDetailedCIStatus to return 'success' prematurely.
-    // We must verify that all expected workflow runs have actually completed.
+    // Issue #1480: Cross-validate "success" — fast external checks may pass before main CI starts
     const workflowRuns = await getWorkflowRunsForSha(owner, repo, ciStatus.sha, verbose);
 
     if (workflowRuns.length > 0) {
@@ -568,10 +482,7 @@ export const watchUntilMergeable = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
   const rawWatchInterval = argv.watchInterval || 60; // seconds
-  // Issue #1503: Enforce minimum CI check interval to conserve GitHub API rate limits.
-  // Issue #1567: Reduced from 5 minutes (300s) to 2 minutes (120s) to decrease wait times
-  // between working session finish and "Ready to merge" / next action detection.
-  // This also applies uniformly whether CI/CD is configured or not.
+  // Issue #1567: Minimum 120s interval to conserve API rate limits while keeping responsiveness
   const MIN_CI_CHECK_INTERVAL_SECONDS = 120;
   const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
@@ -582,39 +493,19 @@ export const watchUntilMergeable = async params => {
   let latestSessionId = null;
   let latestAnthropicCost = null;
 
-  // Issue #1323: Track actual restart count separately from check cycle iteration
-  // `iteration` counts check cycles (how many times we check for blockers)
-  // `restartCount` counts actual AI tool executions (when we actually restart the AI)
+  // Issue #1323: Track actual AI restarts separately from check cycle iterations
   let restartCount = 0;
 
-  // Issue #1371: Track whether a "Ready to merge" comment was posted in THIS session.
-  // This replaces the all-time history check (checkForExistingComment) which incorrectly
-  // suppressed new notifications when a previous solve run had already posted one.
-  // In-memory deduplication correctly handles the case where multiple check cycles in
-  // the same run detect mergeability simultaneously, without blocking fresh runs.
+  // Issue #1371: In-memory dedup for "Ready to merge" comment (per-session, not all-time)
   let readyToMergeCommentPosted = false;
 
   let currentBackoffSeconds = watchInterval;
 
-  // Issue #1503: Track consecutive "no workflow runs" checks per-SHA separately from iteration count.
-  // The `checkCount` parameter in getMergeBlockers is a safety valve that triggers after
-  // MAX_NO_RUNS_CHECKS (5) consecutive checks with zero workflow runs, concluding CI was
-  // genuinely not triggered (paths-ignore, fork PRs, etc.). Previously, `iteration` (total
-  // loop count) was passed as `checkCount`, which meant after 5 iterations (regardless of
-  // CI state), any new push would immediately trigger the safety valve because checkCount
-  // was already >= 5. This caused false positive "Ready to merge" when a new commit was
-  // pushed and CI hadn't registered yet.
-  //
-  // Fix: Track the HEAD SHA and reset the counter when it changes (new push detected).
+  // Issue #1503: Track consecutive "no workflow runs" checks per-SHA (reset on new push)
   let consecutiveNoRunsChecks = 0;
   let lastKnownHeadSha = null;
 
-  // Issue #1567: Initial cooldown before first check.
-  // Wait at least MIN_CI_CHECK_INTERVAL_SECONDS after working session finishes before
-  // starting to check. This ensures:
-  // 1. Solution Draft Log is fully posted before any "Ready to merge" can appear
-  // 2. CI/CD checks have time to register with GitHub (avoids false "no CI" detection)
-  // 3. Consistent behavior whether CI/CD is configured or not
+  // Issue #1567: Initial cooldown to let CI register and solution logs post
   const INITIAL_COOLDOWN_SECONDS = MIN_CI_CHECK_INTERVAL_SECONDS;
 
   await log('');
@@ -667,9 +558,7 @@ export const watchUntilMergeable = async params => {
     await log(formatAligned('🔍', `Check #${iteration}:`, currentTime.toLocaleTimeString()));
 
     try {
-      // Issue #1503: Get the current HEAD SHA to detect new pushes and reset the
-      // consecutive no-runs counter. This prevents false positives where the counter
-      // from a previous commit's checks carries over to a new commit.
+      // Issue #1503: Get current HEAD SHA to detect new pushes and reset no-runs counter
       let currentHeadSha = null;
       try {
         const shaResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid --jq .headRefOid`;
@@ -690,17 +579,13 @@ export const watchUntilMergeable = async params => {
         readyToMergeCommentPosted = false;
       }
 
-      // Issue #1503: Increment counter; getMergeBlockers will use it as a safety valve.
-      // If getMergeBlockers sees no workflow runs on this check, the counter stays incremented.
-      // If it sees workflow runs or checks, the counter is irrelevant (different code paths).
+      // Issue #1503: Increment counter; getMergeBlockers uses it as a safety valve
       consecutiveNoRunsChecks++;
 
       // Get merge blockers
       const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
 
-      // Issue #1503: Reset consecutive counter when CI checks or workflow runs were found.
-      // This ensures the safety valve only fires after truly consecutive "no runs" checks,
-      // not after interleaved pending/success/failure states that happened to reach the count.
+      // Issue #1503: Reset counter when CI checks exist (safety valve only for consecutive "no runs")
       if (ciStatus && ciStatus.status !== 'no_checks') {
         // CI checks exist (pending, success, failure, etc.) — the "no runs" counter is irrelevant
         consecutiveNoRunsChecks = 0;

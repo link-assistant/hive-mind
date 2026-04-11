@@ -728,7 +728,7 @@ export async function getActiveBranchRuns(owner, repo, branch = 'main', verbose 
  * @returns {Promise<{success: boolean, waitedForRuns: boolean, completedRuns: number, error: string|null}>}
  */
 export async function waitForBranchCI(owner, repo, branch = 'main', options = {}, verbose = false) {
-  const { timeout = 45 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null } = options;
+  const { timeout = 45 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null, isCancelled = null } = options;
 
   const startTime = Date.now();
   let totalWaitedRuns = 0;
@@ -738,6 +738,9 @@ export async function waitForBranchCI(owner, repo, branch = 'main', options = {}
   }
 
   while (Date.now() - startTime < timeout) {
+    // Issue #1588: Check for cancellation before each poll to allow early exit
+    if (isCancelled?.()) return { success: false, waitedForRuns: totalWaitedRuns > 0, completedRuns: totalWaitedRuns, error: 'Operation was cancelled' };
+
     let activeRuns;
     try {
       activeRuns = await getActiveBranchRuns(owner, repo, branch, verbose);

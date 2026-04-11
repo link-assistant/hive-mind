@@ -504,22 +504,38 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
       // Issue #1590: Show individual sub-agent call list when multiple calls exist
       if (callCount > 1) {
         const matchingCalls = getSubAgentCallsForModel(modelId, validSubAgentCalls);
-        const avgInput = Math.round((totalInputNonCached + cachedTokens) / callCount);
-        const avgOutput = Math.round(usage.outputTokens / callCount);
-        const avgCost = usage.costUSD !== null && usage.costUSD !== undefined ? usage.costUSD / callCount : null;
+        // Issue #1590: Check if actual per-call usage data is available from parent_tool_use_id tracking
+        const hasActualUsage = matchingCalls.some(c => c.usage && (c.usage.inputTokens > 0 || c.usage.outputTokens > 0 || c.usage.cacheReadTokens > 0 || c.usage.cacheCreationTokens > 0));
 
         stats += `\n\nSub-agent calls:`;
-        for (let i = 0; i < matchingCalls.length; i++) {
-          const call = matchingCalls[i];
-          const desc = call.description || 'unknown';
-          let callLine = `${i + 1}. "${desc}" — ~${formatTokensCompact(avgInput)} input, ~${formatTokensCompact(avgOutput)} output`;
-          if (avgCost !== null) {
-            callLine += `, ~$${avgCost.toFixed(6)}`;
+        if (hasActualUsage) {
+          // Show actual per-call usage from streaming events
+          for (let i = 0; i < matchingCalls.length; i++) {
+            const call = matchingCalls[i];
+            const desc = call.description || 'unknown';
+            const cu = call.usage || {};
+            const callInput = (cu.inputTokens || 0) + (cu.cacheCreationTokens || 0) + (cu.cacheReadTokens || 0);
+            const callOutput = cu.outputTokens || 0;
+            let callLine = `${i + 1}. "${desc}" — ${formatTokensCompact(callInput)} input, ${formatTokensCompact(callOutput)} output`;
+            stats += `\n${callLine}`;
           }
-          stats += `\n${callLine}`;
+        } else {
+          // Fallback: show estimates when actual per-call data is not available
+          const avgInput = Math.round((totalInputNonCached + cachedTokens) / callCount);
+          const avgOutput = Math.round(usage.outputTokens / callCount);
+          const avgCost = usage.costUSD !== null && usage.costUSD !== undefined ? usage.costUSD / callCount : null;
+          for (let i = 0; i < matchingCalls.length; i++) {
+            const call = matchingCalls[i];
+            const desc = call.description || 'unknown';
+            let callLine = `${i + 1}. "${desc}" — ~${formatTokensCompact(avgInput)} input, ~${formatTokensCompact(avgOutput)} output`;
+            if (avgCost !== null) {
+              callLine += `, ~$${avgCost.toFixed(6)}`;
+            }
+            stats += `\n${callLine}`;
+          }
+          // Note about estimates only when using fallback
+          stats += `\n\n_Per-call values are estimates (total ÷ ${callCount}). Exact per-call breakdown requires [upstream support](https://github.com/anthropics/claude-code/issues/46520)._`;
         }
-        // Note about estimates
-        stats += `\n\n_Per-call values are estimates (total ÷ ${callCount}). Exact per-call breakdown requires [upstream support](https://github.com/anthropics/claude-code/issues/46520)._`;
       }
     }
   }

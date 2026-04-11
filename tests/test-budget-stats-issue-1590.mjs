@@ -6,8 +6,10 @@
  * When a working session contains multiple sub-agent calls (Agent tool invocations),
  * the token usage stats should show:
  * 1. The number of sub-agent calls per model
- * 2. A list of each individual sub-agent call with description and estimated usage
+ * 2. A list of each individual sub-agent call with description and actual usage
  * 3. Output percentage should not be misleading (e.g., 530% across 12 calls)
+ * 4. When actual per-call usage is available (from parent_tool_use_id tracking),
+ *    show real data instead of estimates
  */
 
 import { buildBudgetStatsString } from '../src/claude.budget-stats.lib.mjs';
@@ -75,14 +77,34 @@ function makeIssueScenarioData() {
   };
 }
 
-// Helper: create sub-agent calls array (12 calls like in the issue scenario)
-function makeSubAgentCalls(count = 12) {
+// Helper: create sub-agent calls array WITHOUT usage data (legacy/fallback mode)
+function makeSubAgentCallsNoUsage(count = 12) {
   const calls = [];
   for (let i = 0; i < count; i++) {
     calls.push({
       id: `toolu_${i}`,
       description: `Sub-agent task ${i + 1}`,
       model: 'sonnet',
+    });
+  }
+  return calls;
+}
+
+// Helper: create sub-agent calls array WITH actual per-call usage data
+function makeSubAgentCallsWithUsage(count = 12) {
+  const calls = [];
+  for (let i = 0; i < count; i++) {
+    calls.push({
+      id: `toolu_${i}`,
+      description: `Sub-agent task ${i + 1}`,
+      model: 'sonnet',
+      usage: {
+        inputTokens: 5000 + i * 100,
+        cacheCreationTokens: 1000 + i * 50,
+        cacheReadTokens: 300000 + i * 5000,
+        outputTokens: 25000 + i * 500,
+        totalTokens: 79000 + i * 1000,
+      },
     });
   }
   return calls;
@@ -103,19 +125,40 @@ runTest('buildBudgetStatsString without subAgentCalls (backward compat)', () => 
   assertContains(result, '530%', 'Should show output percentage without sub-agent info');
 });
 
-// ==== Test: With sub-agent calls ====
+// ==== Test: With sub-agent calls (no usage data - fallback estimates) ====
 
-runTest('buildBudgetStatsString with subAgentCalls shows call count', () => {
+runTest('buildBudgetStatsString with subAgentCalls (no usage) shows call count', () => {
   const tokenUsage = makeIssueScenarioData();
-  const subAgentCalls = makeSubAgentCalls(12);
+  const subAgentCalls = makeSubAgentCallsNoUsage(12);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
   assertContains(result, '12 sub-agent calls', 'Should show sub-agent call count');
 });
 
-runTest('buildBudgetStatsString with subAgentCalls shows individual call list', () => {
+runTest('buildBudgetStatsString with subAgentCalls (no usage) shows estimate note', () => {
   const tokenUsage = makeIssueScenarioData();
-  const subAgentCalls = makeSubAgentCalls(12);
+  const subAgentCalls = makeSubAgentCallsNoUsage(12);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
+  assertContains(result, 'Per-call values are estimates', 'Should show estimate disclaimer');
+  assertContains(result, 'upstream support', 'Should link to upstream issue');
+  // Estimates use ~ prefix
+  assertContains(result, '~', 'Should use ~ prefix for estimates');
+});
+
+runTest('buildBudgetStatsString with subAgentCalls (no usage) shows estimated cost per call', () => {
+  const tokenUsage = makeIssueScenarioData();
+  const subAgentCalls = makeSubAgentCallsNoUsage(12);
+  const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
+  // Cost per call: 8.806153 / 12 ≈ 0.733846
+  assertContains(result, '~$0.733846', 'Should show per-call cost estimate');
+});
+
+// ==== Test: With sub-agent calls WITH actual usage data ====
+
+runTest('buildBudgetStatsString with actual per-call usage shows real data', () => {
+  const tokenUsage = makeIssueScenarioData();
+  const subAgentCalls = makeSubAgentCallsWithUsage(12);
+  const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
+  assertContains(result, '12 sub-agent calls', 'Should show sub-agent call count');
   assertContains(result, 'Sub-agent calls:', 'Should show sub-agent calls section header');
   // Each call should be listed individually with its description
   for (let i = 1; i <= 12; i++) {
@@ -123,35 +166,35 @@ runTest('buildBudgetStatsString with subAgentCalls shows individual call list', 
   }
 });
 
+runTest('buildBudgetStatsString with actual usage does NOT show estimate disclaimer', () => {
+  const tokenUsage = makeIssueScenarioData();
+  const subAgentCalls = makeSubAgentCallsWithUsage(12);
+  const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
+  assertNotContains(result, 'Per-call values are estimates', 'Should NOT show estimate disclaimer when actual data available');
+  assertNotContains(result, 'upstream support', 'Should NOT show upstream link when actual data available');
+});
+
+runTest('buildBudgetStatsString with actual usage shows real token counts without ~ prefix', () => {
+  const tokenUsage = makeIssueScenarioData();
+  const subAgentCalls = makeSubAgentCallsWithUsage(3);
+  const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
+  // With actual usage, values should NOT have ~ prefix (they are real, not estimates)
+  const subAgentSection = result.split('Sub-agent calls:')[1] || '';
+  assertNotContains(subAgentSection, '~', 'Should NOT use ~ prefix when showing actual usage');
+});
+
 runTest('buildBudgetStatsString with subAgentCalls hides misleading output percentage on Total line', () => {
   const tokenUsage = makeIssueScenarioData();
-  const subAgentCalls = makeSubAgentCalls(12);
+  const subAgentCalls = makeSubAgentCallsWithUsage(12);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
   // The Total line for Sonnet should NOT show 530% anymore
-  // Split by model sections
   const sonnetSection = result.split('Claude Sonnet')[1] || '';
   assertNotContains(sonnetSection.split('\n\n')[0], '530%', 'Sonnet Total line should not show misleading 530% percentage');
 });
 
-runTest('buildBudgetStatsString sub-agent call list shows estimate note with upstream link', () => {
-  const tokenUsage = makeIssueScenarioData();
-  const subAgentCalls = makeSubAgentCalls(12);
-  const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
-  assertContains(result, 'Per-call values are estimates', 'Should show estimate disclaimer');
-  assertContains(result, 'upstream support', 'Should link to upstream issue');
-});
-
-runTest('buildBudgetStatsString sub-agent call list shows estimated cost per call', () => {
-  const tokenUsage = makeIssueScenarioData();
-  const subAgentCalls = makeSubAgentCalls(12);
-  const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
-  // Cost per call: 8.806153 / 12 ≈ 0.733846
-  assertContains(result, '~$0.733846', 'Should show per-call cost estimate');
-});
-
 runTest('buildBudgetStatsString main model (Opus) not affected by sub-agent calls', () => {
   const tokenUsage = makeIssueScenarioData();
-  const subAgentCalls = makeSubAgentCalls(12);
+  const subAgentCalls = makeSubAgentCallsWithUsage(12);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
   // Opus section should not mention sub-agent calls
   const opusSection = result.split('Claude Sonnet')[0];
@@ -163,7 +206,7 @@ runTest('buildBudgetStatsString main model (Opus) not affected by sub-agent call
 
 runTest('buildBudgetStatsString with single subAgentCall does not show per-call info', () => {
   const tokenUsage = makeIssueScenarioData();
-  const subAgentCalls = makeSubAgentCalls(1);
+  const subAgentCalls = makeSubAgentCallsWithUsage(1);
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
   assertNotContains(result, 'sub-agent calls', 'Should not show call count for single call');
   assertNotContains(result, 'Sub-agent calls:', 'Should not show call list for single call');
@@ -208,11 +251,11 @@ runTest('buildBudgetStatsString with mixed model sub-agent calls', () => {
     subSessions: [],
   };
   const subAgentCalls = [
-    { id: 'a1', description: 'Task 1', model: 'sonnet' },
-    { id: 'a2', description: 'Task 2', model: 'sonnet' },
-    { id: 'a3', description: 'Task 3', model: 'sonnet' },
-    { id: 'a4', description: 'Task 4', model: 'haiku' },
-    { id: 'a5', description: 'Task 5', model: 'haiku' },
+    { id: 'a1', description: 'Task 1', model: 'sonnet', usage: { inputTokens: 1000, cacheCreationTokens: 0, cacheReadTokens: 150000, outputTokens: 30000 } },
+    { id: 'a2', description: 'Task 2', model: 'sonnet', usage: { inputTokens: 2000, cacheCreationTokens: 0, cacheReadTokens: 160000, outputTokens: 35000 } },
+    { id: 'a3', description: 'Task 3', model: 'sonnet', usage: { inputTokens: 3000, cacheCreationTokens: 0, cacheReadTokens: 170000, outputTokens: 40000 } },
+    { id: 'a4', description: 'Task 4', model: 'haiku', usage: { inputTokens: 500, cacheCreationTokens: 0, cacheReadTokens: 90000, outputTokens: 12000 } },
+    { id: 'a5', description: 'Task 5', model: 'haiku', usage: { inputTokens: 600, cacheCreationTokens: 0, cacheReadTokens: 100000, outputTokens: 15000 } },
   ];
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
   assertContains(result, '3 sub-agent calls', 'Should show 3 sonnet sub-agent calls');
@@ -247,6 +290,18 @@ runTest('buildBudgetStatsString handles sub-agent calls without explicit model',
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
   // These calls have model=null which maps to "default", so they shouldn't match any model ID
   assertNotContains(result, 'sub-agent calls', 'Should not match default model to any model ID');
+});
+
+// ==== Test: Individual call list with no usage data (backward compat for subAgentCalls format) ====
+
+runTest('buildBudgetStatsString lists each sub-agent call individually (no usage)', () => {
+  const tokenUsage = makeIssueScenarioData();
+  const subAgentCalls = makeSubAgentCallsNoUsage(12);
+  const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
+  assertContains(result, 'Sub-agent calls:', 'Should show sub-agent calls section header');
+  for (let i = 1; i <= 12; i++) {
+    assertContains(result, `"Sub-agent task ${i}"`, `Should list sub-agent call ${i} with its description`);
+  }
 });
 
 // Summary

@@ -744,6 +744,8 @@ export const executeClaudeCommand = async params => {
     let resultModelUsage = null;
     // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
     const subAgentCalls = [];
+    // Issue #1590: Map tool_use_id -> subAgentCalls index for accumulating per-call usage from parent_tool_use_id events
+    const subAgentCallsByToolUseId = new Map();
     // Issue #1491: Track token usage from stream JSON events for independent calculation
     const streamTokenUsage = {
       inputTokens: 0,
@@ -993,6 +995,22 @@ export const executeClaudeCommand = async params => {
                 if (u.cache_read_input_tokens) streamTokenUsage.cacheReadTokens += u.cache_read_input_tokens;
                 if (u.output_tokens) streamTokenUsage.outputTokens += u.output_tokens;
                 streamTokenUsage.eventCount++;
+                // Issue #1590: Accumulate per-sub-agent usage from parent_tool_use_id
+                if (data.parent_tool_use_id && subAgentCallsByToolUseId.has(data.parent_tool_use_id)) {
+                  const callEntry = subAgentCallsByToolUseId.get(data.parent_tool_use_id);
+                  if (u.input_tokens) callEntry.usage.inputTokens += u.input_tokens;
+                  if (u.cache_creation_input_tokens) callEntry.usage.cacheCreationTokens += u.cache_creation_input_tokens;
+                  if (u.cache_read_input_tokens) callEntry.usage.cacheReadTokens += u.cache_read_input_tokens;
+                  if (u.output_tokens) callEntry.usage.outputTokens += u.output_tokens;
+                }
+              }
+              // Issue #1590: Capture total_tokens from task_notification (completed sub-agent)
+              if (data.type === 'system' && data.subtype === 'task_notification' && data.status === 'completed' && data.tool_use_id) {
+                const callEntry = subAgentCallsByToolUseId.get(data.tool_use_id);
+                if (callEntry && data.usage && data.usage.total_tokens) {
+                  callEntry.usage.totalTokens = data.usage.total_tokens;
+                  await log(`🤖 Sub-agent "${callEntry.description || 'unknown'}" completed: ${data.usage.total_tokens} total tokens`, { verbose: true });
+                }
               }
               if (data.type === 'assistant' && data.message && data.message.content) {
                 const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
@@ -1024,11 +1042,21 @@ export const executeClaudeCommand = async params => {
                   // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
                   if (item.type === 'tool_use' && item.name === 'Agent') {
                     const agentInput = item.input || {};
-                    subAgentCalls.push({
+                    const callEntry = {
                       id: item.id || null,
                       description: agentInput.description || null,
                       model: agentInput.model || null,
-                    });
+                      // Issue #1590: Per-call usage tracking from parent_tool_use_id events
+                      usage: {
+                        inputTokens: 0,
+                        cacheCreationTokens: 0,
+                        cacheReadTokens: 0,
+                        outputTokens: 0,
+                        totalTokens: null, // from task_notification
+                      },
+                    };
+                    subAgentCalls.push(callEntry);
+                    if (item.id) subAgentCallsByToolUseId.set(item.id, callEntry);
                     await log(`🤖 Sub-agent call #${subAgentCalls.length}: "${agentInput.description || 'unknown'}" (model: ${agentInput.model || 'default'})`, { verbose: true });
                   }
                 }

@@ -18,6 +18,9 @@ The Telegram bot incorrectly reports "A working session is already running for t
 
 **Screenshot evidence**: `screen -ls` shows sessions for `hive-mind` issues (1580, 1582, 1584) but no `solve-linksplatform-Numbers-143` session. Yet the bot claims a session is running.
 
+![Screenshot 1](screenshot-1.png)
+![Screenshot 2](screenshot-2.png)
+
 ## Root Causes
 
 ### Root Cause 1: Screen sessions without `--auto-terminate` never signal completion

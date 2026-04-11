@@ -190,8 +190,13 @@ export async function monitorSessions(bot, verbose = false) {
         exitCode = await getIsolatedSessionExitCode(sessionInfo.sessionId, verbose);
       }
     } else {
-      // Screen mode: use screen -ls for detection
+      // Issue #1586: Non-isolation screen sessions cannot reliably detect
+      // completion because start-screen keeps the screen alive via `exec bash`.
+      // Use screen -ls as a best-effort check, but log a warning.
       stillRunning = await checkScreenSessionExists(sessionName);
+      if (verbose) {
+        console.log(`[VERBOSE] Non-isolation session ${sessionName}: screen -ls says ${stillRunning ? 'running' : 'not found'} (unreliable — screen stays alive by design)`);
+      }
     }
 
     if (!stillRunning) {
@@ -250,6 +255,12 @@ export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000)
  * inconsistencies when two auto-restart-until-mergeable processes run
  * simultaneously.
  *
+ * Issue #1586: Only considers isolation-backed sessions (those with an
+ * isolationBackend). Plain start-screen sessions without --isolation cannot
+ * reliably detect completion (screen stays alive via `exec bash`), so
+ * including them causes false positives that block users from starting
+ * new solve commands.
+ *
  * @param {string} url - The GitHub URL to check (issue or PR URL)
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {{isActive: boolean, sessionName: string|null}} Whether an active session exists for this URL
@@ -262,16 +273,24 @@ export function hasActiveSessionForUrl(url, verbose = false) {
   const normalizedUrl = normalizeUrl(url);
 
   for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    // Issue #1586: Skip non-isolation sessions — their completion cannot be
+    // reliably detected, so they cause false positives
+    if (!sessionInfo.isolationBackend) {
+      if (verbose) {
+        console.log(`[VERBOSE] Skipping non-isolation session ${sessionName} for URL check (no reliable completion detection)`);
+      }
+      continue;
+    }
     if (sessionInfo.url && normalizeUrl(sessionInfo.url) === normalizedUrl) {
       if (verbose) {
-        console.log(`[VERBOSE] Found active session for URL ${url}: ${sessionName}`);
+        console.log(`[VERBOSE] Found active isolation session for URL ${url}: ${sessionName}`);
       }
       return { isActive: true, sessionName };
     }
   }
 
   if (verbose) {
-    console.log(`[VERBOSE] No active session found for URL ${url}`);
+    console.log(`[VERBOSE] No active isolation session found for URL ${url}`);
   }
   return { isActive: false, sessionName: null };
 }

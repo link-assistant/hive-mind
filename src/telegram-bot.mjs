@@ -599,7 +599,11 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
     result = await executeStartScreen(commandName, args);
     const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
     session = match ? match[1] : 'unknown';
-    if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName }, VERBOSE);
+    // Issue #1586: Do NOT track non-isolation sessions. Plain start-screen
+    // sessions stay alive after command completion (via `exec bash`), so
+    // monitorSessions() can never detect completion and hasActiveSessionForUrl()
+    // would produce false positives blocking future commands for the same URL.
+    VERBOSE && session !== 'unknown' && console.log(`[VERBOSE] Non-isolation session ${session} not tracked (no reliable completion detection, see issue #1586)`);
   }
   if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
   if (result.success) await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`${extraInfo}\n\n${infoBlock}\n\n🔔 You will receive a notification when the session finishes.`);

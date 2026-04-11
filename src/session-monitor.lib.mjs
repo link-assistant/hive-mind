@@ -38,6 +38,19 @@ async function getQuerySessionStatus() {
 const activeSessions = new Map();
 
 /**
+ * Issue #1586: Timeout for non-isolation sessions.
+ * Non-isolation (plain start-screen) sessions cannot reliably detect completion
+ * because the screen stays alive via `exec bash`. To prevent false positives
+ * that permanently block users, non-isolation sessions are auto-expired after
+ * this timeout. This still prevents accidental duplicate commands within the
+ * timeout window (5-10 minutes).
+ *
+ * Once --isolation is fully tested and becomes the default, this timeout
+ * mechanism will no longer be needed.
+ */
+export const NON_ISOLATION_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
  * Check if a screen session exists
  * @param {string} sessionName - Name of the screen session to check
  * @returns {Promise<boolean>} True if session exists, false otherwise
@@ -192,10 +205,20 @@ export async function monitorSessions(bot, verbose = false) {
     } else {
       // Issue #1586: Non-isolation screen sessions cannot reliably detect
       // completion because start-screen keeps the screen alive via `exec bash`.
-      // Use screen -ls as a best-effort check, but log a warning.
-      stillRunning = await checkScreenSessionExists(sessionName);
-      if (verbose) {
-        console.log(`[VERBOSE] Non-isolation session ${sessionName}: screen -ls says ${stillRunning ? 'running' : 'not found'} (unreliable — screen stays alive by design)`);
+      // Auto-expire after timeout; within timeout, use screen -ls as best-effort.
+      const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
+      const elapsed = Date.now() - startTime.getTime();
+      if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+        stillRunning = false;
+        if (verbose) {
+          console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s)`);
+        }
+      } else {
+        stillRunning = await checkScreenSessionExists(sessionName);
+        if (verbose) {
+          const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
+          console.log(`[VERBOSE] Non-isolation session ${sessionName}: screen -ls says ${stillRunning ? 'running' : 'not found'} (timeout in ${remainingSec}s)`);
+        }
       }
     }
 
@@ -255,11 +278,13 @@ export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000)
  * inconsistencies when two auto-restart-until-mergeable processes run
  * simultaneously.
  *
- * Issue #1586: Only considers isolation-backed sessions (those with an
- * isolationBackend). Plain start-screen sessions without --isolation cannot
- * reliably detect completion (screen stays alive via `exec bash`), so
- * including them causes false positives that block users from starting
- * new solve commands.
+ * Issue #1586: Non-isolation sessions (plain start-screen) cannot reliably
+ * detect completion because the screen stays alive via `exec bash`. To avoid
+ * permanent false positives, non-isolation sessions are auto-expired after
+ * NON_ISOLATION_SESSION_TIMEOUT_MS (10 minutes). Within that window they
+ * still block duplicate commands for the same URL, which prevents accidental
+ * re-runs. Isolation-backed sessions have no timeout since their completion
+ * is reliably detected by monitorSessions().
  *
  * @param {string} url - The GitHub URL to check (issue or PR URL)
  * @param {boolean} verbose - Whether to log verbose output
@@ -273,24 +298,33 @@ export function hasActiveSessionForUrl(url, verbose = false) {
   const normalizedUrl = normalizeUrl(url);
 
   for (const [sessionName, sessionInfo] of activeSessions.entries()) {
-    // Issue #1586: Skip non-isolation sessions — their completion cannot be
-    // reliably detected, so they cause false positives
+    // Issue #1586: Auto-expire non-isolation sessions after timeout
     if (!sessionInfo.isolationBackend) {
-      if (verbose) {
-        console.log(`[VERBOSE] Skipping non-isolation session ${sessionName} for URL check (no reliable completion detection)`);
+      const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
+      const elapsed = Date.now() - startTime.getTime();
+      if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+        if (verbose) {
+          console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s), removing from tracking`);
+        }
+        activeSessions.delete(sessionName);
+        continue;
       }
-      continue;
+      if (verbose) {
+        const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
+        console.log(`[VERBOSE] Non-isolation session ${sessionName} still within timeout (${remainingSec}s remaining)`);
+      }
     }
     if (sessionInfo.url && normalizeUrl(sessionInfo.url) === normalizedUrl) {
       if (verbose) {
-        console.log(`[VERBOSE] Found active isolation session for URL ${url}: ${sessionName}`);
+        const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'non-isolation (timeout-based)';
+        console.log(`[VERBOSE] Found active session for URL ${url}: ${sessionName} (${mode})`);
       }
       return { isActive: true, sessionName };
     }
   }
 
   if (verbose) {
-    console.log(`[VERBOSE] No active isolation session found for URL ${url}`);
+    console.log(`[VERBOSE] No active session found for URL ${url}`);
   }
   return { isActive: false, sessionName: null };
 }

@@ -47,25 +47,33 @@ The `hasActiveSessionForUrl()` function (line 257) only checks the in-memory Map
 
 ## Requirements from Issue
 
-1. **Disable active session check when no `--isolation` option is enabled**: The `start-screen` command without isolation does not provide reliable session completion detection, so the duplicate-URL guard should only apply to isolation-backed sessions.
+1. **Prevent false positives for non-isolation sessions**: The `start-screen` command without isolation does not provide reliable session completion detection, so plain screen sessions should not permanently block future commands.
 2. **Keep the check enabled for `--isolation screen|tmux|docker` modes**: These modes have reliable session tracking via `$ --status` and/or `screen -ls` with `--auto-terminate` behavior.
+3. **Timeout-based expiry for non-isolation sessions**: Track non-isolation sessions with a 5-10 minute timeout to prevent accidental duplicate commands in quick succession, while auto-expiring to avoid permanent false positives. Once `--isolation` is fully tested, it can become the primary/only tracking method.
 
 ## Solution
 
-### Approach: Make `hasActiveSessionForUrl()` skip non-isolation sessions
+### Approach: Timeout-based expiry for non-isolation sessions
 
-Modify `hasActiveSessionForUrl()` to only consider sessions that have an `isolationBackend` set. Non-isolation (plain `start-screen`) sessions are excluded from the duplicate-URL check because their completion cannot be reliably detected.
+Non-isolation sessions are tracked in memory with a 10-minute timeout (`NON_ISOLATION_SESSION_TIMEOUT_MS`). Within the timeout window, `hasActiveSessionForUrl()` treats them as active (blocking duplicate commands). After the timeout, they are auto-expired and removed from tracking.
 
-Additionally, skip `trackSession()` for non-isolation sessions entirely in `telegram-bot.mjs`, since tracking without reliable completion detection causes more harm (false positives) than good.
+Isolation-backed sessions have no timeout — their completion is reliably detected by `monitorSessions()` via `$ --status` or `screen -ls`.
+
+This approach:
+
+- Prevents accidental duplicate `/solve` commands within 10 minutes
+- Avoids permanent false positives that block users indefinitely
+- Bridges the gap until `--isolation` becomes the default tracking method
 
 ### Files Changed
 
-| File                                         | Change                                                               |
-| -------------------------------------------- | -------------------------------------------------------------------- |
-| `src/session-monitor.lib.mjs`                | `hasActiveSessionForUrl()` skips sessions without `isolationBackend` |
-| `src/session-monitor.lib.mjs`                | `monitorSessions()` logs warning for non-isolation sessions          |
-| `src/telegram-bot.mjs`                       | Skip `trackSession()` call for non-isolation sessions                |
-| `tests/test-session-false-positive-1586.mjs` | Regression test                                                      |
+| File                                         | Change                                                                            |
+| -------------------------------------------- | --------------------------------------------------------------------------------- |
+| `src/session-monitor.lib.mjs`                | Add `NON_ISOLATION_SESSION_TIMEOUT_MS` constant (10 minutes)                      |
+| `src/session-monitor.lib.mjs`                | `hasActiveSessionForUrl()` auto-expires non-isolation sessions after timeout      |
+| `src/session-monitor.lib.mjs`                | `monitorSessions()` auto-expires non-isolation sessions after timeout             |
+| `src/telegram-bot.mjs`                       | Re-enable `trackSession()` for non-isolation sessions (with timeout-based expiry) |
+| `tests/test-session-false-positive-1586.mjs` | Regression tests covering timeout behavior (12 test cases)                        |
 
 ## References
 

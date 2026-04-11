@@ -238,11 +238,13 @@ export function registerMergeCommand(bot, options) {
           // Update message with progress and cancel button
           try {
             const message = processor.formatProgressMessage();
+            // Issue #1588: Do not show cancel button once cancellation has been requested.
+            // Without this check, progress updates from CI wait loops would re-add
+            // the cancel button after the cancel handler had already removed it.
+            const replyMarkup = processor.isCancelled ? undefined : { inline_keyboard: [[{ text: '🛑 Cancel', callback_data: `merge_cancel_${repoKey}` }]] };
             await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, message, {
               parse_mode: 'MarkdownV2',
-              reply_markup: {
-                inline_keyboard: [[{ text: '🛑 Cancel', callback_data: `merge_cancel_${repoKey}` }]],
-              },
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
             });
           } catch (err) {
             // Ignore message edit errors (e.g., message not modified)

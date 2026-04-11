@@ -16,7 +16,6 @@ import { exec as execCallback } from 'child_process';
 
 const exec = promisify(execCallback);
 
-// Import GitHub URL parser
 import { parseGitHubUrl } from './github.lib.mjs';
 
 // Issue #1413: Import ready tag sync, timeline, and label constant from separate module
@@ -728,7 +727,7 @@ export async function getActiveBranchRuns(owner, repo, branch = 'main', verbose 
  * @returns {Promise<{success: boolean, waitedForRuns: boolean, completedRuns: number, error: string|null}>}
  */
 export async function waitForBranchCI(owner, repo, branch = 'main', options = {}, verbose = false) {
-  const { timeout = 45 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null } = options;
+  const { timeout = 45 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null, isCancelled = null } = options;
 
   const startTime = Date.now();
   let totalWaitedRuns = 0;
@@ -738,6 +737,7 @@ export async function waitForBranchCI(owner, repo, branch = 'main', options = {}
   }
 
   while (Date.now() - startTime < timeout) {
+    if (isCancelled?.()) return { success: false, waitedForRuns: totalWaitedRuns > 0, completedRuns: totalWaitedRuns, error: 'Operation was cancelled' };
     let activeRuns;
     try {
       activeRuns = await getActiveBranchRuns(owner, repo, branch, verbose);

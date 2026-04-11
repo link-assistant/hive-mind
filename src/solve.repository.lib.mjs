@@ -1147,7 +1147,7 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                     await log(`${formatAligned('🔄', 'Force pushing:', 'Syncing fork with upstream (--force-with-lease)')}`);
                     const forcePushResult = await $({
                       cwd: tempDir,
-                    })`git push --force-with-lease origin ${upstreamDefaultBranch}`;
+                    })`git push --force-with-lease origin ${upstreamDefaultBranch} 2>&1`;
 
                     if (forcePushResult.code === 0) {
                       await log(`${formatAligned('✅', 'Fork synced:', 'Successfully force-pushed to align with upstream')}`);

@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
+const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');

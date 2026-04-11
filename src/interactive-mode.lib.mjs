@@ -143,9 +143,11 @@ const truncateMiddle = (content, options = {}) => {
 
   const startLines = lines.slice(0, keepStart);
   const endLines = lines.slice(-keepEnd);
-  const removedCount = lines.length - keepStart - keepEnd;
+  // Show the actual line number range that was omitted (1-based)
+  const omitStart = keepStart + 1;
+  const omitEnd = lines.length - keepEnd;
 
-  return sanitizeUnicode([...startLines, '', `... [${removedCount} lines truncated] ...`, '', ...endLines].join('\n'));
+  return sanitizeUnicode([...startLines, '', `... [${omitStart}-${omitEnd} lines are omitted] ...`, '', ...endLines].join('\n'));
 };
 
 /**
@@ -278,6 +280,7 @@ const getToolIcon = toolName => {
     WebFetch: '🌐',
     WebSearch: '🔍',
     TodoWrite: '📋',
+    ToolSearch: '🔍',
     Task: '🎯',
     Agent: '🤖',
     NotebookEdit: '📓',
@@ -339,10 +342,11 @@ export const createInteractiveHandler = options => {
    * Post a comment to the PR (with rate limiting)
    * @param {string} body - Comment body
    * @param {string} [toolId] - Optional tool ID for tracking pending tool calls
+   * @param {string} [taskId] - Optional task ID for tracking pending agent tasks
    * @returns {Promise<string|null>} Comment ID if successful, null if queued or failed
    * @private
    */
-  const postComment = async (body, toolId = null) => {
+  const postComment = async (body, toolId = null, taskId = null) => {
     if (!prNumber || !owner || !repo) {
       if (verbose) {
         await log('⚠️ Interactive mode: Cannot post comment - missing PR info', { verbose: true });
@@ -354,10 +358,10 @@ export const createInteractiveHandler = options => {
     const timeSinceLastComment = now - state.lastCommentTime;
 
     if (timeSinceLastComment < CONFIG.MIN_COMMENT_INTERVAL) {
-      // Queue the comment for later with toolId for tracking
-      state.commentQueue.push({ body, toolId });
+      // Queue the comment for later with toolId/taskId for tracking
+      state.commentQueue.push({ body, toolId, taskId });
       if (verbose) {
-        await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)${toolId ? ` [tool: ${toolId}]` : ''}`, { verbose: true });
+        await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)${toolId ? ` [tool: ${toolId}]` : ''}${taskId ? ` [task: ${taskId}]` : ''}`, { verbose: true });
       }
       return null;
     }
@@ -461,8 +465,8 @@ export const createInteractiveHandler = options => {
 
       const queueItem = state.commentQueue.shift();
       if (queueItem) {
-        const { body, toolId } = queueItem;
-        // Post the comment (don't pass toolId to avoid re-queueing)
+        const { body, toolId, taskId } = queueItem;
+        // Post the comment (don't pass toolId/taskId to avoid re-queueing)
         const commentId = await postComment(body);
 
         // If this was a tool use comment, update the pending call with the comment ID
@@ -476,6 +480,25 @@ export const createInteractiveHandler = options => {
             }
             if (verbose) {
               await log(`📋 Interactive mode: Updated pending tool call ${toolId} with comment ID ${commentId}`, {
+                verbose: true,
+              });
+            }
+          }
+        }
+
+        // If this was a task comment, update the pending task with the comment ID
+        // Fix: task comments previously lost their commentId when queued, causing
+        // task_notification edits to fail and leaving tasks stuck at "⏳ Running..."
+        // See: https://github.com/link-assistant/hive-mind/issues/1576
+        if (taskId && commentId) {
+          const pendingTask = state.pendingTasks.get(taskId);
+          if (pendingTask) {
+            pendingTask.commentId = commentId;
+            if (pendingTask.resolveCommentId) {
+              pendingTask.resolveCommentId(commentId);
+            }
+            if (verbose) {
+              await log(`📋 Interactive mode: Updated pending task ${taskId} with comment ID ${commentId}`, {
                 verbose: true,
               });
             }
@@ -613,26 +636,26 @@ ${createRawJsonSection(data)}`;
           keepStart: 12,
           keepEnd: 12,
         });
-        // Format content as diff with + prefix for added lines
+        // Format content as diff with + prefix and line numbers for added lines
         const diffContent = truncatedContent
           .split('\n')
-          .map(line => `+ ${line}`)
+          .map((line, i) => `+${String(i + 1).padStart(4)} | ${line}`)
           .join('\n');
-        inputDisplay += '\n\n' + createCollapsible('📄 Content', '```diff\n' + escapeMarkdown(diffContent) + '\n```');
+        inputDisplay += '\n\n' + createCollapsible('📄 Change', '```diff\n' + escapeMarkdown(diffContent) + '\n```', true);
       }
     } else if (toolName === 'Edit' && input.file_path) {
       inputDisplay = `**File:** \`${input.file_path}\``;
       if (input.old_string && input.new_string) {
         const truncatedOld = truncateMiddle(input.old_string, { maxLines: 15, keepStart: 6, keepEnd: 6 });
         const truncatedNew = truncateMiddle(input.new_string, { maxLines: 15, keepStart: 6, keepEnd: 6 });
-        // Format as unified diff with - for removed lines and + for added lines
+        // Format as unified diff with - for removed lines and + for added lines, with line numbers
         const diffOld = truncatedOld
           .split('\n')
-          .map(line => `- ${line}`)
+          .map((line, i) => `-${String(i + 1).padStart(4)} | ${line}`)
           .join('\n');
         const diffNew = truncatedNew
           .split('\n')
-          .map(line => `+ ${line}`)
+          .map((line, i) => `+${String(i + 1).padStart(4)} | ${line}`)
           .join('\n');
         inputDisplay += '\n\n' + createCollapsible('🔄 Change', '```diff\n' + escapeMarkdown(diffOld + '\n' + diffNew) + '\n```', true);
       }
@@ -665,13 +688,17 @@ ${createRawJsonSection(data)}`;
         todosPreview = [...startTodos, `- _...and ${skipped} more_`, ...endTodos].join('\n');
       }
 
-      inputDisplay = createCollapsible(`📋 Todos (${todos.length} items)`, todosPreview, true);
+      const completedCount = todos.filter(t => t.status === 'completed').length;
+      inputDisplay = createCollapsible(`📋 Todos (${completedCount}/${todos.length} items)`, todosPreview, true);
     } else if (toolName === 'Task') {
       inputDisplay = `**Description:** ${input.description || 'N/A'}`;
       if (input.prompt) {
         const truncatedPrompt = truncateMiddle(input.prompt, { maxLines: 20, keepStart: 8, keepEnd: 8 });
-        inputDisplay += '\n\n' + createCollapsible('📝 Prompt', truncatedPrompt);
+        inputDisplay += '\n\n' + createCollapsible('📝 Prompt', truncatedPrompt, true);
       }
+    } else if (toolName === 'ToolSearch') {
+      inputDisplay = `**Query:** \`${input.query || 'N/A'}\``;
+      if (input.max_results) inputDisplay += `\n**Max Results:** ${input.max_results}`;
     } else {
       // Generic input display
       const inputJson = truncateMiddle(safeJsonStringify(input, 2), {
@@ -885,7 +912,7 @@ ${createRawJsonSection(data)}`;
   const handleResult = async data => {
     const isError = data.is_error || false;
     const statusIcon = isError ? '❌' : '✅';
-    const statusText = isError ? 'Session Failed' : 'Session Complete';
+    const statusText = isError ? 'Interactive session failed' : 'Interactive session completed';
 
     // Format result text
     const resultText = data.result || '_No result message_';
@@ -913,9 +940,22 @@ ${createRawJsonSection(data)}`;
       statsTable += `| **Cost** | ${formatCost(data.total_cost_usd)} |\n`;
     }
 
-    // Usage breakdown if available
+    // Usage breakdown — prefer modelUsage (cumulative per-model totals including sub-agents)
+    // over usage (which only contains last-iteration tokens and is misleading).
+    // See: https://github.com/link-assistant/hive-mind/issues/1576
     let usageSection = '';
-    if (data.usage) {
+    if (data.modelUsage && Object.keys(data.modelUsage).length > 0) {
+      usageSection = '\n### 📊 Token Usage (by model)\n\n';
+      for (const [model, mu] of Object.entries(data.modelUsage)) {
+        usageSection += `**${model}:**\n\n| Type | Count |\n|------|-------|\n`;
+        if (mu.inputTokens) usageSection += `| Input | ${mu.inputTokens.toLocaleString()} |\n`;
+        if (mu.outputTokens) usageSection += `| Output | ${mu.outputTokens.toLocaleString()} |\n`;
+        if (mu.cacheCreationInputTokens) usageSection += `| Cache Creation | ${mu.cacheCreationInputTokens.toLocaleString()} |\n`;
+        if (mu.cacheReadInputTokens) usageSection += `| Cache Read | ${mu.cacheReadInputTokens.toLocaleString()} |\n`;
+        if (typeof mu.costUSD === 'number') usageSection += `| Cost | ${formatCost(mu.costUSD)} |\n`;
+        usageSection += '\n';
+      }
+    } else if (data.usage) {
       const u = data.usage;
       usageSection = '\n### 📊 Token Usage\n\n| Type | Count |\n|------|-------|\n';
       if (u.input_tokens) usageSection += `| Input | ${u.input_tokens.toLocaleString()} |\n`;
@@ -954,6 +994,7 @@ ${createRawJsonSection(data)}`;
     const toolUseId = data.tool_use_id || '';
     const description = data.description || 'Agent task';
     const taskType = data.task_type || 'unknown';
+    const agentId = data.agent_id || taskId;
 
     // Create a promise for the comment ID (handles queued comments)
     let resolveCommentId;
@@ -965,13 +1006,14 @@ ${createRawJsonSection(data)}`;
     let promptSection = '';
     if (data.prompt) {
       const truncatedPrompt = truncateMiddle(data.prompt, { maxLines: 15, keepStart: 6, keepEnd: 6 });
-      promptSection = '\n\n' + createCollapsible('📝 Task prompt', truncatedPrompt);
+      promptSection = '\n\n' + createCollapsible('📝 Task prompt', truncatedPrompt, true);
     }
 
-    const comment = `## 🤖 Agent task: ${escapeMarkdown(description)}
+    const comment = `## 🤖🔀 Agent task: ${escapeMarkdown(description)}
 
 | Property | Value |
 |----------|-------|
+| **Agent ID** | \`${agentId}\` |
 | **Task ID** | \`${taskId || 'unknown'}\` |
 | **Type** | \`${taskType}\` |
 | **Status** | ⏳ Running... |
@@ -988,12 +1030,13 @@ ${createRawJsonSection(data)}`;
       resolveCommentId,
       toolUseId,
       description,
+      agentId,
       lastProgressDescription: description,
       progressCount: 0,
       allEvents: [data],
     });
 
-    const commentId = await postComment(comment, null);
+    const commentId = await postComment(comment, null, taskId);
 
     if (commentId) {
       const pendingTask = state.pendingTasks.get(taskId);
@@ -1028,19 +1071,29 @@ ${createRawJsonSection(data)}`;
 
       let commentId = pendingTask.commentId;
 
-      // Wait for comment ID if not yet available
+      // Wait for comment ID if not yet available — flush queue first to avoid timeout
       if (!commentId && pendingTask.commentIdPromise) {
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 15000));
-        commentId = await Promise.race([pendingTask.commentIdPromise, timeoutPromise]);
+        if (state.commentQueue.length > 0) {
+          const wasProcessing = state.isProcessing;
+          state.isProcessing = false;
+          await processQueue();
+          state.isProcessing = wasProcessing;
+        }
+        commentId = pendingTask.commentId;
+        if (!commentId) {
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 15000));
+          commentId = await Promise.race([pendingTask.commentIdPromise, timeoutPromise]);
+        }
       }
 
       if (commentId) {
-        // Build progress steps list from accumulated events
+        // Build progress steps list from accumulated events, marking with agent ID
+        const agentTag = pendingTask.agentId ? `\`[${pendingTask.agentId}]\`` : '';
         const progressSteps = pendingTask.allEvents
           .filter(e => e.subtype === 'task_progress')
           .map(e => {
             const toolIcon = e.last_tool_name ? getToolIcon(e.last_tool_name) : '🔄';
-            return `- ${toolIcon} ${e.description || 'Working...'}`;
+            return `- 🔀 ${agentTag} ${toolIcon} ${e.description || 'Working...'}`;
           })
           .join('\n');
 
@@ -1048,10 +1101,11 @@ ${createRawJsonSection(data)}`;
         const toolUsesText = usage.tool_uses ? `${usage.tool_uses} tool calls` : '';
         const statsText = [durationText, toolUsesText].filter(Boolean).join(' | ');
 
-        const updatedComment = `## 🤖 Agent task: ${escapeMarkdown(pendingTask.description)}
+        const updatedComment = `## 🤖🔀 Agent task: ${escapeMarkdown(pendingTask.description)}
 
 | Property | Value |
 |----------|-------|
+| **Agent ID** | \`${pendingTask.agentId || taskId}\` |
 | **Task ID** | \`${taskId}\` |
 | **Status** | ⏳ Running... |
 | **Progress** | ${pendingTask.progressCount} updates |
@@ -1098,19 +1152,29 @@ ${createRawJsonSection(pendingTask.allEvents.slice(-3))}`;
 
       let commentId = pendingTask.commentId;
 
-      // Wait for comment ID if not yet available
+      // Wait for comment ID if not yet available — flush queue first to avoid timeout
       if (!commentId && pendingTask.commentIdPromise) {
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 15000));
-        commentId = await Promise.race([pendingTask.commentIdPromise, timeoutPromise]);
+        if (state.commentQueue.length > 0) {
+          const wasProcessing = state.isProcessing;
+          state.isProcessing = false;
+          await processQueue();
+          state.isProcessing = wasProcessing;
+        }
+        commentId = pendingTask.commentId;
+        if (!commentId) {
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 15000));
+          commentId = await Promise.race([pendingTask.commentIdPromise, timeoutPromise]);
+        }
       }
 
       if (commentId) {
-        // Build final progress steps list
+        // Build final progress steps list, marking with agent ID
+        const agentTag = pendingTask.agentId ? `\`[${pendingTask.agentId}]\`` : '';
         const progressSteps = pendingTask.allEvents
           .filter(e => e.subtype === 'task_progress')
           .map(e => {
             const toolIcon = e.last_tool_name ? getToolIcon(e.last_tool_name) : '🔄';
-            return `- ${toolIcon} ${e.description || 'Working...'}`;
+            return `- 🔀 ${agentTag} ${toolIcon} ${e.description || 'Working...'}`;
           })
           .join('\n');
 
@@ -1119,10 +1183,11 @@ ${createRawJsonSection(pendingTask.allEvents.slice(-3))}`;
         const tokensText = usage.total_tokens ? `${usage.total_tokens.toLocaleString()} tokens` : '';
         const statsText = [durationText, toolUsesText, tokensText].filter(Boolean).join(' | ');
 
-        const updatedComment = `## 🤖 Agent task: ${escapeMarkdown(pendingTask.description)}
+        const updatedComment = `## 🤖🔀 Agent task: ${escapeMarkdown(pendingTask.description)}
 
 | Property | Value |
 |----------|-------|
+| **Agent ID** | \`${pendingTask.agentId || taskId}\` |
 | **Task ID** | \`${taskId}\` |
 | **Status** | ${statusIcon} ${statusText} |
 | **Summary** | ${escapeMarkdown(summary)} |
@@ -1140,8 +1205,11 @@ ${createRawJsonSection([pendingTask.allEvents[0], data])}`;
       state.pendingTasks.delete(taskId);
     } else {
       // Post as standalone if no pending task
-      const comment = `## 🤖 Agent task ${statusIcon} ${statusText}
+      const agentId = data.agent_id || taskId;
+      const comment = `## 🤖🔀 Agent task ${statusIcon} ${statusText}
 
+| **Agent ID** | \`${agentId}\` |
+|---|---|
 **Summary:** ${escapeMarkdown(summary)}
 
 ---

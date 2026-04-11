@@ -1,4 +1,4 @@
-# Converting Sentry Issues to GitHub Issues - Research Report
+# Converting Sentry Issues to GitHub Issues - Research Report (languages: en • [zh](sentry-to-github-issues.zh.md) • [hi](sentry-to-github-issues.hi.md) • [ru](sentry-to-github-issues.ru.md))
 
 ## Overview
 

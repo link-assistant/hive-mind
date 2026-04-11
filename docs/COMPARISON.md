@@ -1,4 +1,4 @@
-# Hive Mind: Comparison with Alternatives
+# Hive Mind: Comparison with Alternatives (languages: en • [zh](COMPARISON.zh.md) • [hi](COMPARISON.hi.md) • [ru](COMPARISON.ru.md))
 
 This document compares Hive Mind with other approaches to software development automation, helping you understand where it fits and why it might be the right choice for your needs.
 

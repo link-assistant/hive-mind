@@ -1,4 +1,4 @@
-# Configuration Guide
+# Configuration Guide (languages: en • [zh](CONFIGURATION.zh.md) • [hi](CONFIGURATION.hi.md) • [ru](CONFIGURATION.ru.md))
 
 The Hive Mind application supports extensive configuration through environment variables and command-line options. This document provides a comprehensive reference for all available configuration options.
 

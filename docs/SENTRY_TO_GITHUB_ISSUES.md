@@ -1,4 +1,4 @@
-# Converting Sentry Issues to GitHub Issues: Comprehensive Analysis
+# Converting Sentry Issues to GitHub Issues: Comprehensive Analysis (languages: en • [zh](SENTRY_TO_GITHUB_ISSUES.zh.md) • [hi](SENTRY_TO_GITHUB_ISSUES.hi.md) • [ru](SENTRY_TO_GITHUB_ISSUES.ru.md))
 
 ## Overview
 

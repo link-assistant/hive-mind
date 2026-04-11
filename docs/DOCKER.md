@@ -1,4 +1,4 @@
-# Docker Support for Hive Mind
+# Docker Support for Hive Mind (languages: en • [zh](DOCKER.zh.md) • [hi](DOCKER.hi.md) • [ru](DOCKER.ru.md))
 
 This document explains how to run Hive Mind in Docker containers.
 

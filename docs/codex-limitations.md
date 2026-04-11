@@ -1,4 +1,4 @@
-# Codex Tool Limitations
+# Codex Tool Limitations (languages: en • [zh](codex-limitations.zh.md) • [hi](codex-limitations.hi.md) • [ru](codex-limitations.ru.md))
 
 ## Network Restrictions
 

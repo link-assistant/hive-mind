@@ -1,4 +1,4 @@
-# Universal Sentry to GitHub Issues Integration
+# Universal Sentry to GitHub Issues Integration (languages: en • [zh](sentry-github-universal-integration.zh.md) • [hi](sentry-github-universal-integration.hi.md) • [ru](sentry-github-universal-integration.ru.md))
 
 ## Purpose
 

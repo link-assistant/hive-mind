@@ -1,4 +1,4 @@
-# Solution Summary for Issue #94: Claude Command Was Killed
+# Solution Summary for Issue #94: Claude Command Was Killed (languages: en • [zh](issue-94-claude-command-kills-solution.zh.md) • [hi](issue-94-claude-command-kills-solution.hi.md) • [ru](issue-94-claude-command-kills-solution.ru.md))
 
 ## Changes Made
 

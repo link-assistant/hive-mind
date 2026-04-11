@@ -582,3 +582,36 @@ export const buildAgentBudgetStats = (tokenUsage, pricingInfo) => {
     totalTokens: tokenUsage.inputTokens + (tokenUsage.cacheWriteTokens || 0) + tokenUsage.outputTokens,
   };
 };
+
+/**
+ * Issue #1590: Creates a fresh sub-agent call entry for tracking per-call token usage
+ * @param {Object} item - The tool_use content item from the assistant message
+ * @returns {Object} Sub-agent call entry with id, description, model, and empty usage
+ */
+export const createSubAgentCallEntry = item => {
+  const agentInput = item.input || {};
+  return {
+    id: item.id || null,
+    description: agentInput.description || null,
+    model: agentInput.model || null,
+    usage: {
+      inputTokens: 0,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      totalTokens: null, // from task_notification
+    },
+  };
+};
+
+/**
+ * Issue #1590: Accumulates token usage from a stream event into a sub-agent call entry
+ * @param {Object} callEntry - The sub-agent call entry to accumulate into
+ * @param {Object} u - The usage object from the stream event
+ */
+export const accumulateSubAgentUsage = (callEntry, u) => {
+  if (u.input_tokens) callEntry.usage.inputTokens += u.input_tokens;
+  if (u.cache_creation_input_tokens) callEntry.usage.cacheCreationTokens += u.cache_creation_input_tokens;
+  if (u.cache_read_input_tokens) callEntry.usage.cacheReadTokens += u.cache_read_input_tokens;
+  if (u.output_tokens) callEntry.usage.outputTokens += u.output_tokens;
+};

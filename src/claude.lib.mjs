@@ -13,7 +13,7 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage } from './claude.budget-stats.lib.mjs';
+import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
@@ -997,11 +997,7 @@ export const executeClaudeCommand = async params => {
                 streamTokenUsage.eventCount++;
                 // Issue #1590: Accumulate per-sub-agent usage from parent_tool_use_id
                 if (data.parent_tool_use_id && subAgentCallsByToolUseId.has(data.parent_tool_use_id)) {
-                  const callEntry = subAgentCallsByToolUseId.get(data.parent_tool_use_id);
-                  if (u.input_tokens) callEntry.usage.inputTokens += u.input_tokens;
-                  if (u.cache_creation_input_tokens) callEntry.usage.cacheCreationTokens += u.cache_creation_input_tokens;
-                  if (u.cache_read_input_tokens) callEntry.usage.cacheReadTokens += u.cache_read_input_tokens;
-                  if (u.output_tokens) callEntry.usage.outputTokens += u.output_tokens;
+                  accumulateSubAgentUsage(subAgentCallsByToolUseId.get(data.parent_tool_use_id), u);
                 }
               }
               // Issue #1590: Capture total_tokens from task_notification (completed sub-agent)
@@ -1041,23 +1037,10 @@ export const executeClaudeCommand = async params => {
                   }
                   // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
                   if (item.type === 'tool_use' && item.name === 'Agent') {
-                    const agentInput = item.input || {};
-                    const callEntry = {
-                      id: item.id || null,
-                      description: agentInput.description || null,
-                      model: agentInput.model || null,
-                      // Issue #1590: Per-call usage tracking from parent_tool_use_id events
-                      usage: {
-                        inputTokens: 0,
-                        cacheCreationTokens: 0,
-                        cacheReadTokens: 0,
-                        outputTokens: 0,
-                        totalTokens: null, // from task_notification
-                      },
-                    };
+                    const callEntry = createSubAgentCallEntry(item);
                     subAgentCalls.push(callEntry);
                     if (item.id) subAgentCallsByToolUseId.set(item.id, callEntry);
-                    await log(`🤖 Sub-agent call #${subAgentCalls.length}: "${agentInput.description || 'unknown'}" (model: ${agentInput.model || 'default'})`, { verbose: true });
+                    await log(`🤖 Sub-agent call #${subAgentCalls.length}: "${callEntry.description || 'unknown'}" (model: ${callEntry.model || 'default'})`, { verbose: true });
                   }
                 }
               }

@@ -1174,9 +1174,8 @@ try {
   // Show summary of session and log file
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
 
-  // Issue #1571: Defense-in-depth guard. autoContinueWhenLimitResets() awaits child exit
-  // and calls process.exit(), so this should not be reached. Skip post-processing to
-  // prevent "Solution Draft Log" / "Ready to merge" comments before "Auto Resume".
+  // Issue #1571: Defense-in-depth guard — skip post-processing if auto-continue is handling it
+  // (prevents "Solution Draft Log" / "Ready to merge" comments before "Auto Resume")
   if (limitReached && (argv.autoResumeOnLimitReset || argv.autoRestartOnLimitReset) && global.limitResetTime) {
     await safeExit(0, 'Auto-continue child process will handle post-processing');
   }

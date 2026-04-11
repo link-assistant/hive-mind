@@ -83,8 +83,13 @@ export const log = async (message, options = {}) => {
   }
 
   // Write to file if log file is set
+  // Issue #1572: Handle multi-line messages by timestamping each line,
+  // so continuation lines don't appear without timestamps in the log file
   if (logFile) {
-    const logMessage = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}`;
+    const timestamp = new Date().toISOString();
+    const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
+    const lines = String(message).split('\n');
+    const logMessage = lines.map(line => `${prefix} ${line}`).join('\n');
     await fs.appendFile(logFile, logMessage + '\n').catch(error => {
       // Silent fail for file append errors to avoid infinite loop
       // but report to Sentry in verbose mode

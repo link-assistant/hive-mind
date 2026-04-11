@@ -6,6 +6,26 @@ on:
       - main
   pull_request:
     types: [opened, synchronize, reopened]
+    # Only trigger for files the CI pipeline cares about (Issue #1582)
+    # Uses positive matching (consistent with detect-code-changes.mjs from Issue #1528)
+    # so unknown file types (.gitkeep, .txt, .log, images, etc.) are naturally excluded
+    paths:
+      - '**.mjs'
+      - '**.js'
+      - '**.sh'
+      - '**.json'
+      - '**.yml'
+      - '**.yaml'
+      - '**.md'
+      - '.changeset/**'
+      - '.github/**'
+      - 'Dockerfile'
+      - 'coolify/Dockerfile'
+      - '.dockerignore'
+      - 'helm/**'
+      - '.prettierrc'
+      - '.prettierignore'
+      - '.eslintrc*'
   # Manual release support - consolidated here to work with npm trusted publishing
   # npm only allows ONE workflow file as trusted publisher, so all publishing
   # must go through this workflow (release.yml)

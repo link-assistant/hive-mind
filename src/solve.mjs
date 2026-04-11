@@ -573,12 +573,12 @@ try {
       const mergeResult = await $({ cwd: tempDir })`git merge ${defaultBranch} --no-edit`;
       if (mergeResult.code === 0) {
         await log(`${formatAligned('✅', 'Merge successful:', 'Pushing merged branch...')}`);
-        const pushResult = await $({ cwd: tempDir })`git push origin ${branchName}`;
+        const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
         if (pushResult.code === 0) {
           await log(`${formatAligned('✅', 'Push successful:', 'Branch updated with latest changes')}`);
         } else {
           await log(`${formatAligned('⚠️', 'Push failed:', 'Merge completed but push failed')}`, { level: 'warning' });
-          await log(`  Error: ${pushResult.stderr?.toString() || 'Unknown error'}`, { level: 'warning' });
+          await log(`  Error: ${pushResult.stderr?.toString() || pushResult.stdout?.toString() || 'Unknown error'}`, { level: 'warning' });
         }
       } else {
         // Merge failed - likely due to conflicts
@@ -1343,13 +1343,13 @@ try {
     await log('');
 
     try {
-      const pushResult = await $({ cwd: tempDir })`git push origin ${branchName}`;
+      const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
       if (pushResult.code === 0) {
         await log('✅ Changes pushed successfully to remote branch');
         await log(`   Branch: ${branchName}`);
         await log('');
       } else {
-        const errorMsg = pushResult.stderr?.toString() || 'Unknown error';
+        const errorMsg = pushResult.stderr?.toString() || pushResult.stdout?.toString() || 'Unknown error';
         await log('⚠️  Push failed:', { level: 'error' });
         await log(`   ${errorMsg.trim()}`, { level: 'error' });
         await log('   Please push manually:', { level: 'error' });

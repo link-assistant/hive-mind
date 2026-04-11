@@ -976,6 +976,21 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
         const mergeStateStatus = prStateResult.code === 0 ? prStateResult.stdout.toString().trim() : null;
 
+        // Issue #1572: Sync local branch with remote before restarting to avoid push failures.
+        // Without this, the restarted session works on stale local state and can't push.
+        const effectiveBranch = prBranch || branchName;
+        try {
+          const pullResult = await $({ cwd: tempDir })`git pull --rebase origin ${effectiveBranch} 2>&1`;
+          if (pullResult.code === 0) {
+            await log(formatAligned('🔄', 'Synced:', `Local branch ${effectiveBranch} updated from remote`));
+          } else {
+            await log(`   ⚠️  git pull --rebase failed (code ${pullResult.code}), continuing anyway`, { verbose: true });
+            await log(`   Output: ${pullResult.stdout || pullResult.stderr || 'no output'}`, { verbose: true });
+          }
+        } catch (pullError) {
+          await log(`   ⚠️  Could not sync local branch: ${pullError.message}`, { verbose: true });
+        }
+
         // Execute the AI tool using shared utility
         await log(formatAligned('🔄', 'Restarting:', `Running ${argv.tool.toUpperCase()} to address issues...`));
 

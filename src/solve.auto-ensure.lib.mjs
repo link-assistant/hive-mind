@@ -76,6 +76,18 @@ export const runAutoEnsureRequirements = async ({ issueUrl, owner, repo, issueNu
   for (let ensureIteration = 1; ensureIteration <= finalizeCount; ensureIteration++) {
     await log(`🔄 FINALIZE iteration ${ensureIteration}/${finalizeCount}: Restarting to verify requirements...`);
 
+    // Issue #1572: Sync local branch with remote before each finalize iteration
+    try {
+      const pullResult = await $({ cwd: tempDir })`git pull --rebase origin ${branchName} 2>&1`;
+      if (pullResult.code === 0) {
+        await log(`   Synced local branch ${branchName} from remote`, { verbose: true });
+      } else {
+        await log(`   ⚠️  git pull --rebase failed (code ${pullResult.code}), continuing anyway`, { verbose: true });
+      }
+    } catch (pullError) {
+      await log(`   ⚠️  Could not sync local branch: ${pullError.message}`, { verbose: true });
+    }
+
     const ensureFeedbackLines = ['', '='.repeat(60), '🔍 FINALIZE REQUIREMENTS CHECK:', '='.repeat(60), '', 'We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.', ''];
 
     const ensureResult = await executeToolIteration({

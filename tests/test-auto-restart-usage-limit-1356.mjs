@@ -7,7 +7,7 @@
  * 1. isUsageLimitReached correctly detects usage limit from tool results
  * 2. The auto-restart loop resumes the session (using --resume <sessionId>) when usage limit is reached
  * 3. Non-limit tool failures stop the loop (fail and stop, not retry)
- * 4. The loop never posts a GitHub comment on usage limit events
+ * 4. The loop posts a GitHub comment on usage limit events (Issue #1570)
  */
 
 import { isUsageLimitReached, isApiError } from '../src/solve.restart-shared.lib.mjs';
@@ -148,11 +148,12 @@ test('loop should wait, resume via --resume sessionId (not exit) when usage limi
     sessionId: 'session-abc-123',
   };
 
-  // Simulate the fixed logic: wait silently, then resume (no GitHub comment)
+  // Simulate the fixed logic: post GitHub comment, wait, then resume (Issue #1570)
   if (!toolResult.success) {
     if (isUsageLimitReached(toolResult)) {
       waitTriggered = true;
-      // No commentPosted = no GitHub comment posted
+      // Issue #1570: GitHub comment IS posted to notify user about the delay
+      commentPosted = true;
       resumeSessionId = toolResult.sessionId;
       if (resumeSessionId) {
         resumeTriggered = true; // would call executeToolIteration with argv.resume = resumeSessionId
@@ -166,7 +167,7 @@ test('loop should wait, resume via --resume sessionId (not exit) when usage limi
   assert(resumeTriggered === true, 'Should trigger a resume with --resume sessionId');
   assert(resumeSessionId === 'session-abc-123', 'Should use the session ID from tool result');
   assert(loopContinued === true, 'Loop should continue after resume');
-  assert(commentPosted === false, 'Should NOT post any GitHub comment');
+  assert(commentPosted === true, 'Should post a GitHub comment (Issue #1570)');
 });
 
 test('loop should stop (fail) on generic failure (NOT usage limit)', () => {

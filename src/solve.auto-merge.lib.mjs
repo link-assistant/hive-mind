@@ -1167,7 +1167,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
               const { calculateSessionTokens } = await import('./claude.lib.mjs');
               const tokenUsage = await calculateSessionTokens(latestSessionId, tempDir, toolResult.resultModelUsage);
               if (tokenUsage) {
-                autoMergeBudgetStatsData = { tokenUsage, streamTokenUsage: toolResult.streamTokenUsage || null };
+                autoMergeBudgetStatsData = { tokenUsage, streamTokenUsage: toolResult.streamTokenUsage || null, subAgentCalls: toolResult.subAgentCalls || null };
               }
             } catch (budgetError) {
               if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });

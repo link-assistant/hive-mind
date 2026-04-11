@@ -777,6 +777,8 @@ export const executeClaudeCommand = async params => {
     let errorDuringExecution = false;
     let resultSummary = null;
     let resultModelUsage = null;
+    // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
+    const subAgentCalls = [];
     // Issue #1491: Track token usage from stream JSON events for independent calculation
     const streamTokenUsage = {
       inputTokens: 0,
@@ -1053,6 +1055,16 @@ export const executeClaudeCommand = async params => {
                       lastMessage = item.text;
                       await log('⏱️ Detected request timeout in assistant message (will retry with --resume)', { verbose: true });
                     }
+                  }
+                  // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
+                  if (item.type === 'tool_use' && item.name === 'Agent') {
+                    const agentInput = item.input || {};
+                    subAgentCalls.push({
+                      id: item.id || null,
+                      description: agentInput.description || null,
+                      model: agentInput.model || null,
+                    });
+                    await log(`🤖 Sub-agent call #${subAgentCalls.length}: "${agentInput.description || 'unknown'}" (model: ${agentInput.model || 'default'})`, { verbose: true });
                   }
                 }
               }
@@ -1381,6 +1393,7 @@ export const executeClaudeCommand = async params => {
         resultSummary, // Issue #1263: Include result summary for --attach-solution-summary
         resultModelUsage, // Issue #1454
         streamTokenUsage: streamTokenUsage.eventCount > 0 ? streamTokenUsage : null, // Issue #1491
+        subAgentCalls: subAgentCalls.length > 0 ? subAgentCalls : null, // Issue #1590
       };
     } catch (error) {
       reportError(error, {

@@ -362,10 +362,53 @@ const formatContextOutputLine = (peakContext, contextLimit, outputTokens, output
  * @param {Object} tokenUsage - Token usage data from calculateSessionTokens or buildAgentBudgetStats
  * @returns {string} Formatted markdown string for PR comment
  */
-export const buildBudgetStatsString = tokenUsage => {
+/**
+ * Issue #1590: Build a map of model short name to sub-agent call count.
+ * Sub-agent calls use short model names (e.g., "sonnet", "haiku", "opus")
+ * while modelUsage uses full model IDs (e.g., "claude-sonnet-4-6").
+ * @param {Array|null} subAgentCalls - Array of {id, description, model} from stream tracking
+ * @returns {Object} Map of model short name to call count, e.g., {"sonnet": 12, "haiku": 3}
+ */
+const buildSubAgentCallCounts = subAgentCalls => {
+  if (!subAgentCalls || subAgentCalls.length === 0) return {};
+  const counts = {};
+  for (const call of subAgentCalls) {
+    const model = call.model || 'default';
+    counts[model] = (counts[model] || 0) + 1;
+  }
+  return counts;
+};
+
+/**
+ * Issue #1590: Match a full model ID to sub-agent call count.
+ * Maps full model IDs (e.g., "claude-sonnet-4-6") to short names used in Agent tool
+ * (e.g., "sonnet") and returns the call count.
+ * @param {string} modelId - Full model ID
+ * @param {Object} callCounts - Map from buildSubAgentCallCounts
+ * @returns {number} Number of sub-agent calls for this model, or 0 if none
+ */
+const getSubAgentCallCount = (modelId, callCounts) => {
+  if (!callCounts || Object.keys(callCounts).length === 0) return 0;
+  // Direct match first (e.g., model short name used as full ID)
+  if (callCounts[modelId]) return callCounts[modelId];
+  // Match short names to full model IDs:
+  // "claude-sonnet-4-6" contains "sonnet", "claude-haiku-4-5-20251001" contains "haiku", etc.
+  const modelIdLower = modelId.toLowerCase();
+  for (const [shortName, count] of Object.entries(callCounts)) {
+    if (modelIdLower.includes(shortName.toLowerCase())) return count;
+  }
+  return 0;
+};
+
+export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
   if (!tokenUsage) return '';
 
   let stats = '\n\n### 📊 **Context and tokens usage:**';
+
+  // Issue #1590: Build sub-agent call counts per model for per-call breakdown
+  // Guard: subAgentCalls must be an array (ignore legacy streamUsage objects passed as second arg)
+  const validSubAgentCalls = Array.isArray(subAgentCalls) ? subAgentCalls : null;
+  const subAgentCallCounts = buildSubAgentCallCounts(validSubAgentCalls);
 
   // Per-model breakdown
   if (tokenUsage.modelUsage) {
@@ -383,7 +426,17 @@ export const buildBudgetStatsString = tokenUsage => {
       const contextLimit = usage.modelInfo?.limit?.context;
       const outputLimit = usage.modelInfo?.limit?.output;
 
-      if (isMultiModel) stats += `\n\n**${modelName}:**`;
+      // Issue #1590: Check if this model was used as a sub-agent
+      const callCount = getSubAgentCallCount(modelId, subAgentCallCounts);
+
+      if (isMultiModel) {
+        // Issue #1590: Show sub-agent call count alongside model name
+        if (callCount > 1) {
+          stats += `\n\n**${modelName}:** (${callCount} sub-agent calls)`;
+        } else {
+          stats += `\n\n**${modelName}:**`;
+        }
+      }
 
       const peakContext = usage.peakContextUsage || 0;
 
@@ -410,9 +463,16 @@ export const buildBudgetStatsString = tokenUsage => {
       }
 
       // Issue #1547: Consistent output format — use X / Y (Z%) output tokens when limit known
+      // Issue #1590: When multiple sub-agent calls exist, show total output without misleading
+      // per-call percentage (e.g., 530% is sum across 12 calls, not a single call)
       if (peakContext === 0 && outputLimit) {
-        const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
-        totalLine += `, ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`;
+        if (callCount > 1) {
+          // Show total output without percentage (percentage is misleading for aggregated sub-agent calls)
+          totalLine += `, ${formatTokensCompact(usage.outputTokens)} output tokens`;
+        } else {
+          const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
+          totalLine += `, ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`;
+        }
       } else {
         totalLine += `, ${formatTokensCompact(usage.outputTokens)} output tokens`;
       }
@@ -423,6 +483,21 @@ export const buildBudgetStatsString = tokenUsage => {
       }
 
       stats += `\n\nTotal: ${totalLine}`;
+
+      // Issue #1590: Show per-call average when multiple sub-agent calls exist
+      if (callCount > 1) {
+        const avgInput = Math.round((totalInputNonCached + cachedTokens) / callCount);
+        const avgOutput = Math.round(usage.outputTokens / callCount);
+        let avgLine = `~${formatTokensCompact(avgInput)} input, ~${formatTokensCompact(avgOutput)} output`;
+        if (usage.costUSD !== null && usage.costUSD !== undefined) {
+          avgLine += `, ~$${(usage.costUSD / callCount).toFixed(6)}`;
+        }
+        if (outputLimit) {
+          const avgOutPct = ((avgOutput / outputLimit) * 100).toFixed(0);
+          avgLine += ` (~${avgOutPct}% of ${formatTokensCompact(outputLimit)} output limit per call)`;
+        }
+        stats += `\nPer call avg: ${avgLine}`;
+      }
     }
   }
 

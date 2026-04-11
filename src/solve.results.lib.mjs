@@ -503,7 +503,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null, streamTokenUsage = null) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null, streamTokenUsage = null, subAgentCalls = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   // Issue #1491, #1526: Build budget stats data for GitHub comment (computed once, used in both PR and issue paths)
@@ -513,7 +513,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
       const { calculateSessionTokens } = await import('./claude.lib.mjs');
       const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
       if (tokenUsage) {
-        budgetStatsData = { tokenUsage, streamTokenUsage };
+        budgetStatsData = { tokenUsage, streamTokenUsage, subAgentCalls };
       }
     } catch (budgetError) {
       if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });

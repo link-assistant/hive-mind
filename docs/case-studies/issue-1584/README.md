@@ -6,16 +6,16 @@ After a second working session completed on [linksplatform/Numbers PR #143](http
 
 ## Timeline of Events
 
-| Time (UTC) | Event | Comment ID |
-|---|---|---|
-| 01:48:56 | Session 1 starts (solve issue #142) | — |
-| 02:00:21 | Session 1 Solution Draft Log posted | [4227746421](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227746421) |
-| 02:02:43 | **"Ready to merge" posted** (Session 1) | [4227756327](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227756327) |
-| 02:26:52 | User feedback: "TODO cannot be just removed..." | [4227877387](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227877387) |
-| 02:30:18 | Session 2 starts (AI Work Session Started) | [4227891653](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227891653) |
-| 02:38:22 | Session 2 Solution Draft Log posted | [4227927318](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227927318) |
-| — | **Expected: "Ready to merge" for Session 2** | **MISSING** |
-| 02:40:16 | User posts more feedback (doc deploy) | [4227935040](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227935040) |
+| Time (UTC) | Event                                           | Comment ID                                                                              |
+| ---------- | ----------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 01:48:56   | Session 1 starts (solve issue #142)             | —                                                                                       |
+| 02:00:21   | Session 1 Solution Draft Log posted             | [4227746421](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227746421) |
+| 02:02:43   | **"Ready to merge" posted** (Session 1)         | [4227756327](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227756327) |
+| 02:26:52   | User feedback: "TODO cannot be just removed..." | [4227877387](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227877387) |
+| 02:30:18   | Session 2 starts (AI Work Session Started)      | [4227891653](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227891653) |
+| 02:38:22   | Session 2 Solution Draft Log posted             | [4227927318](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227927318) |
+| —          | **Expected: "Ready to merge" for Session 2**    | **MISSING**                                                                             |
+| 02:40:16   | User posts more feedback (doc deploy)           | [4227935040](https://github.com/linksplatform/Numbers/pull/143#issuecomment-4227935040) |
 
 ## Root Cause
 
@@ -33,6 +33,7 @@ The in-memory flag (layer 1) would have correctly allowed the new comment since 
 ### Why the in-memory flag wasn't sufficient
 
 The `--auto-restart-until-mergeable` mode can involve:
+
 - **Different processes** monitoring the same PR (concurrent sessions)
 - **Same process** with the in-memory flag reset on SHA change
 

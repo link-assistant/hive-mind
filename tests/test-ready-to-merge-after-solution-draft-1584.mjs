@@ -146,12 +146,7 @@ test('FIX VERIFIED: New logic does NOT find "Ready to merge" after Session 2 Sol
 test('BUG vs FIX: Old approach suppresses, new approach allows posting', () => {
   const signature = '## ✅ Ready to merge';
 
-  const commentBodies = [
-    '## 🤖 Solution Draft Log\nSession 1 log...',
-    '## ✅ Ready to merge\n\nSession 1 ready...',
-    'User feedback...',
-    '## 🤖 Solution Draft Log\nSession 2 log...',
-  ];
+  const commentBodies = ['## 🤖 Solution Draft Log\nSession 1 log...', '## ✅ Ready to merge\n\nSession 1 ready...', 'User feedback...', '## 🤖 Solution Draft Log\nSession 2 log...'];
 
   const oldResult = oldCheckForExistingComment(commentBodies, signature);
   const newResult = newCheckForExistingComment(commentBodies, signature);
@@ -186,10 +181,7 @@ test('Within-session: "Ready to merge" posted AFTER last Solution Draft Log IS d
 test('Duplicate detection works when "Ready to merge" is posted by another concurrent process', () => {
   const signature = '## ✅ Ready to merge';
 
-  const commentBodies = [
-    '## 🤖 Solution Draft Log\nCurrent session...',
-    '## ✅ Ready to merge\nPosted by concurrent process...',
-  ];
+  const commentBodies = ['## 🤖 Solution Draft Log\nCurrent session...', '## ✅ Ready to merge\nPosted by concurrent process...'];
 
   const newResult = newCheckForExistingComment(commentBodies, signature);
   assert(newResult === true, 'Should detect duplicate posted by concurrent process after Solution Draft Log');
@@ -201,11 +193,7 @@ console.log('\n📋 Backward Compatibility\n');
 test('When no Solution Draft Log exists, all comments are searched', () => {
   const signature = '## ✅ Ready to merge';
 
-  const commentBodies = [
-    'Some initial comment...',
-    '## ✅ Ready to merge\n\nPR is ready...',
-    'Another comment...',
-  ];
+  const commentBodies = ['Some initial comment...', '## ✅ Ready to merge\n\nPR is ready...', 'Another comment...'];
 
   const newResult = newCheckForExistingComment(commentBodies, signature);
   assert(newResult === true, 'Should find signature when no Solution Draft Log exists (searchStartIndex=0)');
@@ -214,10 +202,7 @@ test('When no Solution Draft Log exists, all comments are searched', () => {
 test('When no Solution Draft Log and no matching comment, returns false', () => {
   const signature = '## ✅ Ready to merge';
 
-  const commentBodies = [
-    'Some comment...',
-    'Another comment...',
-  ];
+  const commentBodies = ['Some comment...', 'Another comment...'];
 
   const newResult = newCheckForExistingComment(commentBodies, signature);
   assert(newResult === false, 'Should return false when no matching comment exists');
@@ -271,10 +256,7 @@ test('Solution Draft Log variants: "(Resumed)" and "(Truncated)" are also recogn
 test('Solution Draft Log as the very last comment: searches zero comments after it', () => {
   const signature = '## ✅ Ready to merge';
 
-  const commentBodies = [
-    '## ✅ Ready to merge\nOld...',
-    '## 🤖 Solution Draft Log\nLatest session...',
-  ];
+  const commentBodies = ['## ✅ Ready to merge\nOld...', '## 🤖 Solution Draft Log\nLatest session...'];
 
   const newResult = newCheckForExistingComment(commentBodies, signature);
   assert(newResult === false, 'No comments after Solution Draft Log → no duplicate found');
@@ -295,13 +277,7 @@ test('"Ready to merge" appears in user text but not as a heading', () => {
 test('Only Solution Draft Log comments in PR, no "Ready to merge" ever posted', () => {
   const signature = '## ✅ Ready to merge';
 
-  const commentBodies = [
-    '## 🤖 Solution Draft Log\nSession 1...',
-    'User feedback...',
-    '## 🤖 Solution Draft Log\nSession 2...',
-    'More feedback...',
-    '## 🤖 Solution Draft Log\nSession 3...',
-  ];
+  const commentBodies = ['## 🤖 Solution Draft Log\nSession 1...', 'User feedback...', '## 🤖 Solution Draft Log\nSession 2...', 'More feedback...', '## 🤖 Solution Draft Log\nSession 3...'];
 
   const newResult = newCheckForExistingComment(commentBodies, signature);
   assert(newResult === false, 'No "Ready to merge" has ever been posted → should return false');
@@ -315,12 +291,7 @@ test('Fork mode: old "Ready to merge" before new Solution Draft Log should not s
   // The fix should work uniformly for all paths
   const signature = '## ✅ Ready to merge';
 
-  const commentBodies = [
-    '## 🤖 Solution Draft Log\nSession 1...',
-    '## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested (`--auto-merge`) but cannot be performed because this PR was created from a fork',
-    'User feedback...',
-    '## 🤖 Solution Draft Log\nSession 2...',
-  ];
+  const commentBodies = ['## 🤖 Solution Draft Log\nSession 1...', '## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested (`--auto-merge`) but cannot be performed because this PR was created from a fork', 'User feedback...', '## 🤖 Solution Draft Log\nSession 2...'];
 
   const newResult = newCheckForExistingComment(commentBodies, signature);
   assert(newResult === false, 'Fork mode: old "Ready to merge" should not suppress new one after new Solution Draft Log');

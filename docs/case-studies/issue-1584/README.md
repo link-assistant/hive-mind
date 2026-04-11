@@ -41,11 +41,16 @@ The cross-process guard was added specifically to handle concurrent processes. H
 
 ## Solution
 
-Modified `checkForExistingComment` to only search for the signature **after the last "Solution Draft Log" comment** (`## 🤖 Solution Draft Log`). This effectively scopes the deduplication to the current working session:
+Modified `checkForExistingComment` to only search for the signature **after the last session-ending comment**. This effectively scopes the deduplication to the current working session:
 
-- A "Ready to merge" from a **previous session** (before a new Solution Draft Log) is correctly ignored
-- A "Ready to merge" from a **concurrent process** in the same session (after the same Solution Draft Log) is correctly detected as a duplicate
-- When **no Solution Draft Log exists**, all comments are searched (backward compatibility)
+- A "Ready to merge" from a **previous session** (before a session-ending comment) is correctly ignored
+- A "Ready to merge" from a **concurrent process** in the same session (after the same session-ending comment) is correctly detected as a duplicate
+- When **no session-ending comment exists**, all comments are searched (backward compatibility)
+
+Session-ending markers include:
+
+- `Now working session is ended` — present in all log upload comments (Solution Draft Log, Auto-restart Log, Auto-restart-until-mergeable Log, Solution Draft Log (Resumed/Truncated))
+- `AI Work Session Completed` — posted when logs are not attached to PR
 
 ### Key change
 
@@ -54,10 +59,11 @@ Modified `checkForExistingComment` to only search for the signature **after the 
 const bodies = result.stdout.toString();
 const hasMatch = bodies.includes(commentSignature);
 
-// After: only searches comments AFTER the last Solution Draft Log
+// After: only searches comments AFTER the last session-ending comment
+const sessionEndingMarkers = ['Now working session is ended', 'AI Work Session Completed'];
 let searchStartIndex = 0;
 for (let i = commentBodies.length - 1; i >= 0; i--) {
-  if (commentBodies[i].includes('## 🤖 Solution Draft Log')) {
+  if (sessionEndingMarkers.some(marker => commentBodies[i].includes(marker))) {
     searchStartIndex = i + 1;
     break;
   }

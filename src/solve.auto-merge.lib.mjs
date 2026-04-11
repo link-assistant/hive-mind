@@ -54,13 +54,18 @@ import { limitReset } from './config.lib.mjs';
  * Issue #1323: Check if a comment with specific content already exists on the PR
  * This prevents duplicate status comments when multiple processes or restarts occur
  *
- * Issue #1584: Only search for duplicates AFTER the last "Solution Draft Log" comment.
+ * Issue #1584: Only search for duplicates AFTER the last session-ending comment.
  * Previously, this searched the entire PR comment history, which caused false positives
  * when a new working session was started after user feedback — the old "Ready to merge"
- * comment from a previous session would suppress the new one, even though a new Solution
- * Draft Log had been posted in between. By narrowing the search scope to only comments
- * after the most recent Solution Draft Log, each working session gets its own deduplication
+ * comment from a previous session would suppress the new one, even though a new session-ending
+ * comment had been posted in between. By narrowing the search scope to only comments
+ * after the most recent session-ending comment, each working session gets its own deduplication
  * window.
+ *
+ * Session-ending markers include:
+ * - "Now working session is ended" — present in all log upload comments (Solution Draft Log,
+ *   Auto-restart Log, Auto-restart-until-mergeable Log, Solution Draft Log (Resumed/Truncated))
+ * - "AI Work Session Completed" — posted when logs are not attached to PR
  *
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
@@ -90,34 +95,39 @@ const checkForExistingComment = async (owner, repo, prNumber, commentSignature, 
 
       if (!Array.isArray(commentBodies) || commentBodies.length === 0) return false;
 
-      // Issue #1584: Find the index of the last "Solution Draft Log" comment.
+      // Issue #1584: Find the index of the last session-ending comment.
       // Only search for the signature in comments AFTER that index.
-      // The Solution Draft Log marker indicates the end of a working session,
+      // Session-ending markers indicate the end of a working session,
       // so any "Ready to merge" before it belongs to a previous session.
-      const solutionDraftLogSignature = '## 🤖 Solution Draft Log';
+      //
+      // Session-ending markers:
+      // - "Now working session is ended" — in all log upload comments
+      //   (Solution Draft Log, Auto-restart Log, Auto-restart-until-mergeable Log, etc.)
+      // - "AI Work Session Completed" — posted when logs are not attached
+      const sessionEndingMarkers = ['Now working session is ended', 'AI Work Session Completed'];
       let searchStartIndex = 0;
       for (let i = commentBodies.length - 1; i >= 0; i--) {
-        if (commentBodies[i] && commentBodies[i].includes(solutionDraftLogSignature)) {
+        if (commentBodies[i] && sessionEndingMarkers.some(marker => commentBodies[i].includes(marker))) {
           searchStartIndex = i + 1;
           if (verbose) {
-            console.log(`[VERBOSE] Found last Solution Draft Log at comment index ${i}, searching from index ${searchStartIndex}`);
+            console.log(`[VERBOSE] Found last session-ending comment at index ${i}, searching from index ${searchStartIndex}`);
           }
           break;
         }
       }
 
-      // Search only in comments after the last Solution Draft Log
+      // Search only in comments after the last session-ending comment
       for (let i = searchStartIndex; i < commentBodies.length; i++) {
         if (commentBodies[i] && commentBodies[i].includes(commentSignature)) {
           if (verbose) {
-            console.log(`[VERBOSE] Found existing comment with signature: "${commentSignature}" at index ${i} (after last Solution Draft Log)`);
+            console.log(`[VERBOSE] Found existing comment with signature: "${commentSignature}" at index ${i} (after last session-ending comment)`);
           }
           return true;
         }
       }
 
       if (verbose && searchStartIndex > 0) {
-        console.log(`[VERBOSE] No matching comment found after last Solution Draft Log (searched ${commentBodies.length - searchStartIndex} comments)`);
+        console.log(`[VERBOSE] No matching comment found after last session-ending comment (searched ${commentBodies.length - searchStartIndex} comments)`);
       }
     }
   } catch (error) {

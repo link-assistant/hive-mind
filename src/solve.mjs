@@ -1077,13 +1077,10 @@ try {
     }
   }
 
-  // Handle failure cases, but skip exit if limit reached with auto-resume enabled
-  // This allows the code to continue to showSessionSummary() where autoContinueWhenLimitResets() is called
+  // Skip failure exit if limit reached with auto-resume (continues to showSessionSummary/autoContinueWhenLimitResets)
   const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoResumeOnLimitReset;
-
   if (!success && !shouldSkipFailureExitForAutoLimitContinue) {
     // Show claude resume command only for --tool claude (or default) on failure
-    // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
     const toolForFailure = argv.tool || 'claude';
     if (sessionId && toolForFailure === 'claude') {
       const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
@@ -1094,9 +1091,7 @@ try {
       await log('');
     }
 
-    // If --attach-logs is enabled, attach failure logs before exiting
-    // Note: sessionId is not required - logs should be uploaded even if agent failed before establishing a session
-    // Issues #1212, #1462: Fall back to uploading logs to the issue if PR is not available
+    // Attach failure logs before exiting (Issues #1212, #1462: fall back to issue if no PR)
     const hasPR = global.createdPR && global.createdPR.number;
     const hasIssue = global.issueNumber;
     const logTargetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
@@ -1148,8 +1143,7 @@ try {
     await safeExit(1, `${argv.tool.toUpperCase()} execution failed`);
   }
 
-  // Clean up .playwright-mcp/ folder before checking for uncommitted changes
-  // This prevents browser automation artifacts from triggering auto-restart (Issue #1124)
+  // Clean up .playwright-mcp/ to prevent browser artifacts from triggering auto-restart (Issue #1124)
   if (argv.playwrightMcpAutoCleanup !== false) {
     const playwrightMcpDir = path.join(tempDir, '.playwright-mcp');
     try {
@@ -1177,19 +1171,12 @@ try {
   // Issue #1516: cleanupClaudeFile() moved to after completion signals (before endWorkSession)
 
   // Show summary of session and log file
-  // Note: When limit is reached with auto-resume/auto-restart enabled,
-  // showSessionSummary() calls autoContinueWhenLimitResets() which spawns a child
-  // process and awaits its exit (then calls process.exit). So the code below
-  // should not be reached in that case. The guard below is defense-in-depth.
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
 
-  // Issue #1571: When limit was reached and auto-continue is enabled, the parent process
-  // should NOT post "Solution Draft Log" or "Ready to merge" comments. Those will be
-  // posted by the resumed/restarted child process after it completes its work.
-  // autoContinueWhenLimitResets() already awaits the child exit (and calls process.exit),
-  // so this code should not normally be reached. This guard is defense-in-depth.
+  // Issue #1571: Defense-in-depth guard. autoContinueWhenLimitResets() awaits child exit
+  // and calls process.exit(), so this should not be reached. Skip post-processing to
+  // prevent "Solution Draft Log" / "Ready to merge" comments before "Auto Resume".
   if (limitReached && (argv.autoResumeOnLimitReset || argv.autoRestartOnLimitReset) && global.limitResetTime) {
-    await log('ℹ️  Auto-continue was invoked for limit reset - skipping post-processing in parent process');
     await safeExit(0, 'Auto-continue child process will handle post-processing');
   }
 

@@ -1,4 +1,4 @@
-# Hive Mind: Features & Benefits
+# Hive Mind: Features # Hive Mind: Features & Benefits Benefits (languages: en • [zh](FEATURES.zh.md) • [hi](FEATURES.hi.md) • [ru](FEATURES.ru.md))
 
 This document describes key features and unique benefits of Hive Mind, explaining why it stands out as an AI-powered autonomous issue solver.
 

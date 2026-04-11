@@ -1,4 +1,4 @@
-# Helm Chart Documentation (Experimental)
+# Helm Chart Documentation (Experimental) (languages: en • [zh](HELM.zh.md) • [hi](HELM.hi.md) • [ru](HELM.ru.md))
 
 > ⚠️ **EXPERIMENTAL:** The Helm/Kubernetes installation method is experimental and may not be fully stable.
 >

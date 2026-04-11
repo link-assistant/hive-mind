@@ -1,4 +1,4 @@
-# Contributing to Hive Mind
+# Contributing to Hive Mind (languages: en • [zh](CONTRIBUTING.zh.md) • [hi](CONTRIBUTING.hi.md) • [ru](CONTRIBUTING.ru.md))
 
 ## Human-AI Collaboration Guidelines
 

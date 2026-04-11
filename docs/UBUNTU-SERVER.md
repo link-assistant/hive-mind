@@ -1,4 +1,4 @@
-# Installation on Ubuntu 24.04 Server (Deprecated)
+# Installation on Ubuntu 24.04 Server (Deprecated) (languages: en • [zh](UBUNTU-SERVER.zh.md) • [hi](UBUNTU-SERVER.hi.md) • [ru](UBUNTU-SERVER.ru.md))
 
 > ⚠️ **DEPRECATED:** This installation method is no longer recommended.
 >

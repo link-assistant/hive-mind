@@ -1,4 +1,4 @@
-# Best Practices for AI-Driven Development
+# Best Practices for AI-Driven Development (languages: en • [zh](BEST-PRACTICES.zh.md) • [hi](BEST-PRACTICES.hi.md) • [ru](BEST-PRACTICES.ru.md))
 
 This document describes general best practices for working effectively with Hive Mind and AI-driven development workflows. It covers universal prompting strategies, issue writing guidelines, architecture principles, and links to CI/CD standards.
 

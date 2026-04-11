@@ -269,6 +269,15 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     await log(formatAligned('🔄', 'Cleanup:', `Reverting ${fileName} commit`));
     await log(`   Using saved commit hash: ${claudeCommitHash.substring(0, 7)}...`, { verbose: true });
 
+    // Issue #1572: Sync local branch with remote before cleanup to prevent push failures.
+    // After auto-restart sessions, the local branch may be behind the remote.
+    const pullResult = await $({ cwd: tempDir })`git pull origin ${branchName} 2>&1`;
+    if (pullResult.code === 0) {
+      await log(`   Synced local branch before cleanup`, { verbose: true });
+    } else {
+      throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout || pullResult.stderr || 'no output'}`);
+    }
+
     const commitToRevert = claudeCommitHash;
 
     // APPROACH 3: Check for modifications before reverting (proactive detection)

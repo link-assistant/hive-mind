@@ -1,5 +1,26 @@
 # @link-assistant/hive-mind
 
+## 1.50.3
+
+### Patch Changes
+
+- dce8218: fix: extract helper functions from solve.auto-merge.lib.mjs to fix 1500-line limit violation (#1593)
+  - Extract `checkForExistingComment`, `checkForNonBotComments`, and `getMergeBlockers` into new `solve.auto-merge-helpers.lib.mjs`
+  - Add warning threshold (1350 lines) to `check-file-line-limits.sh` to flag files approaching the 1500-line limit
+  - Add case study documenting the concurrent PR merge race condition root cause
+
+- 89ad776: fix: add timeout-based expiry for non-isolation active sessions to prevent false positives (#1586)
+  - Non-isolation (plain `start-screen`) sessions are now tracked with a 10-minute timeout
+  - Within the timeout window, duplicate `/solve` commands for the same URL are blocked (prevents accidental re-runs)
+  - After 10 minutes, non-isolation sessions auto-expire, preventing permanent false positives
+  - Isolation-backed sessions (`--isolation screen|tmux|docker`) have no timeout — their completion is reliably detected
+  - This prevents the bot from indefinitely blocking `/solve` commands with "A working session is already running for this URL"
+
+- 3bf9501: fix: narrow "Ready to merge" duplicate check to current session scope (#1584)
+  - Fix `checkForExistingComment` to only search for duplicate "Ready to merge" comments AFTER the last "Solution Draft Log" comment, not in the entire PR history
+  - Previously, a "Ready to merge" from a previous working session would suppress the notification for a new session after user feedback
+  - The fix scopes deduplication to the current working session while maintaining cross-process duplicate detection
+
 ## 1.50.2
 
 ### Patch Changes

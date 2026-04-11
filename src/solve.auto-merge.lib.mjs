@@ -53,6 +53,20 @@ import { limitReset } from './config.lib.mjs';
 /**
  * Issue #1323: Check if a comment with specific content already exists on the PR
  * This prevents duplicate status comments when multiple processes or restarts occur
+ *
+ * Issue #1584: Only search for duplicates AFTER the last session-ending comment.
+ * Previously, this searched the entire PR comment history, which caused false positives
+ * when a new working session was started after user feedback — the old "Ready to merge"
+ * comment from a previous session would suppress the new one, even though a new session-ending
+ * comment had been posted in between. By narrowing the search scope to only comments
+ * after the most recent session-ending comment, each working session gets its own deduplication
+ * window.
+ *
+ * Session-ending markers include:
+ * - "Now working session is ended" — present in all log upload comments (Solution Draft Log,
+ *   Auto-restart Log, Auto-restart-until-mergeable Log, Solution Draft Log (Resumed/Truncated))
+ * - "AI Work Session Completed" — posted when logs are not attached to PR
+ *
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
@@ -62,15 +76,59 @@ import { limitReset } from './config.lib.mjs';
  */
 const checkForExistingComment = async (owner, repo, prNumber, commentSignature, verbose = false) => {
   try {
-    // Fetch recent PR comments (last 20 to avoid fetching entire history)
-    const result = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq '.[].body' 2>/dev/null`;
+    // Fetch all PR comments as JSON to get individual comment bodies in order
+    const result = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq '[.[].body]' 2>/dev/null`;
     if (result.code === 0 && result.stdout) {
-      const bodies = result.stdout.toString();
-      const hasMatch = bodies.includes(commentSignature);
-      if (verbose && hasMatch) {
-        console.log(`[VERBOSE] Found existing comment with signature: "${commentSignature}"`);
+      const rawOutput = result.stdout.toString().trim();
+      if (!rawOutput) return false;
+
+      let commentBodies;
+      try {
+        commentBodies = JSON.parse(rawOutput);
+      } catch {
+        // Fallback: if JSON parsing fails, fall back to simple string search
+        if (verbose) {
+          console.log('[VERBOSE] Failed to parse comment bodies as JSON, falling back to full-history search');
+        }
+        return rawOutput.includes(commentSignature);
       }
-      return hasMatch;
+
+      if (!Array.isArray(commentBodies) || commentBodies.length === 0) return false;
+
+      // Issue #1584: Find the index of the last session-ending comment.
+      // Only search for the signature in comments AFTER that index.
+      // Session-ending markers indicate the end of a working session,
+      // so any "Ready to merge" before it belongs to a previous session.
+      //
+      // Session-ending markers:
+      // - "Now working session is ended" — in all log upload comments
+      //   (Solution Draft Log, Auto-restart Log, Auto-restart-until-mergeable Log, etc.)
+      // - "AI Work Session Completed" — posted when logs are not attached
+      const sessionEndingMarkers = ['Now working session is ended', 'AI Work Session Completed'];
+      let searchStartIndex = 0;
+      for (let i = commentBodies.length - 1; i >= 0; i--) {
+        if (commentBodies[i] && sessionEndingMarkers.some(marker => commentBodies[i].includes(marker))) {
+          searchStartIndex = i + 1;
+          if (verbose) {
+            console.log(`[VERBOSE] Found last session-ending comment at index ${i}, searching from index ${searchStartIndex}`);
+          }
+          break;
+        }
+      }
+
+      // Search only in comments after the last session-ending comment
+      for (let i = searchStartIndex; i < commentBodies.length; i++) {
+        if (commentBodies[i] && commentBodies[i].includes(commentSignature)) {
+          if (verbose) {
+            console.log(`[VERBOSE] Found existing comment with signature: "${commentSignature}" at index ${i} (after last session-ending comment)`);
+          }
+          return true;
+        }
+      }
+
+      if (verbose && searchStartIndex > 0) {
+        console.log(`[VERBOSE] No matching comment found after last session-ending comment (searched ${commentBodies.length - searchStartIndex} comments)`);
+      }
     }
   } catch (error) {
     // If check fails, allow posting to avoid silent failures

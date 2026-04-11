@@ -1,4 +1,4 @@
-# GitHub API Rate Limit Error Analysis (languages: en • [zh](RATE_LIMIT_ANALYSIS.zh.md) • [hi](RATE_LIMIT_ANALYSIS.hi.md) • [ru](RATE_LIMIT_ANALYSIS.ru.md))
+# GitHub API Rate Limit Error Analysis
 
 ## Issue Context
 

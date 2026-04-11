@@ -1,35 +1,35 @@
-# Универсальная интеграция Sentry с GitHub Issues (languages: [en](sentry-github-universal-integration.md) • [zh](sentry-github-universal-integration.zh.md) • [hi](sentry-github-universal-integration.hi.md) • ru)
+# Universal Sentry to GitHub Issues Integration
 
-## Назначение
+## Purpose
 
-Это руководство предоставляет **универсальное решение** для преобразования задач Sentry в задачи GitHub, которое работает с:
+This guide provides a **universal solution** for converting Sentry issues into GitHub Issues that works with:
 
-- ✅ **Self-hosted Sentry** (локальные развёртывания)
+- ✅ **Self-hosted Sentry** (on-premise deployments)
 - ✅ **Cloud-hosted Sentry** (sentry.io)
-- ✅ **Ограниченными средами** (брандмауэр, изолированные сети, ограниченный доступ к API)
-- ✅ **Всеми планами Sentry** (Developer, Team, Business, Enterprise)
+- ✅ **Restricted environments** (firewall, air-gapped, limited API access)
+- ✅ **All Sentry plans** (Developer, Team, Business, Enterprise)
 
-## Зачем это руководство?
+## Why This Guide?
 
-Многие варианты интеграции Sentry с GitHub имеют ограничения:
+Many Sentry-to-GitHub integration options have limitations:
 
-- Нативная интеграция Sentry с GitHub требует плана Business/Enterprise
-- Сторонние платформы (Zapier, Pipedream) работают только с облачным Sentry
-- Решения на основе webhook требуют публично доступных конечных точек
-- Платформо-специфичные решения не работают в ограниченных средах
+- Native Sentry GitHub integration requires Business/Enterprise plan
+- Third-party platforms (Zapier, Pipedream) only work with cloud Sentry
+- Webhook-based solutions require publicly accessible endpoints
+- Platform-specific solutions don't work in restricted environments
 
-Это руководство сосредоточено на **подходах на основе API**, которые работают универсально.
+This guide focuses on **API-based approaches** that work universally.
 
-## Основной подход: Sentry API + GitHub API
+## Core Approach: Sentry API + GitHub API
 
-Наиболее универсальный подход использует прямые вызовы API обеих платформ. Это работает независимо от:
+The most universal approach uses direct API calls to both platforms. This works regardless of:
 
-- Типа хостинга Sentry (self-hosted или cloud)
-- Сетевых ограничений
-- Плана подписки Sentry
-- Среды развёртывания
+- Your Sentry hosting type (self-hosted or cloud)
+- Your network restrictions
+- Your Sentry subscription plan
+- Your deployment environment
 
-### Архитектура
+### Architecture
 
 ```
 ┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
@@ -45,83 +45,83 @@
                             └──────────────────┘
 ```
 
-## Шаг 1: Аутентификация в Sentry API
+## Step 1: Sentry API Authentication
 
-### Для Cloud Sentry (sentry.io)
+### For Cloud Sentry (sentry.io)
 
-1. **Создайте токен аутентификации:**
-   - Перейдите по адресу: https://sentry.io/settings/account/api/auth-tokens/
-   - Нажмите «Create New Token»
-   - Выберите области: `event:read`, `org:read`, `project:read`
-   - Сохраните токен в безопасном месте
+1. **Create Auth Token:**
+   - Navigate to: https://sentry.io/settings/account/api/auth-tokens/
+   - Click "Create New Token"
+   - Select scopes: `event:read`, `org:read`, `project:read`
+   - Save token securely
 
-2. **Проверьте аутентификацию:**
+2. **Test Authentication:**
 
 ```bash
 curl -H "Authorization: Bearer YOUR_SENTRY_TOKEN" \
   https://sentry.io/api/0/organizations/YOUR_ORG/
 ```
 
-### Для Self-Hosted Sentry
+### For Self-Hosted Sentry
 
-1. **Создайте токен аутентификации:**
-   - Перейдите по адресу: `https://your-sentry-domain.com/settings/account/api/auth-tokens/`
-   - Нажмите «Create New Token»
-   - Выберите области: `event:read`, `org:read`, `project:read`
-   - Сохраните токен в безопасном месте
+1. **Create Auth Token:**
+   - Navigate to: `https://your-sentry-domain.com/settings/account/api/auth-tokens/`
+   - Click "Create New Token"
+   - Select scopes: `event:read`, `org:read`, `project:read`
+   - Save token securely
 
-2. **Проверьте аутентификацию:**
+2. **Test Authentication:**
 
 ```bash
 curl -H "Authorization: Bearer YOUR_SENTRY_TOKEN" \
   https://your-sentry-domain.com/api/0/organizations/YOUR_ORG/
 ```
 
-**Ключевой момент:** Структура API идентична для облачного и self-hosted Sentry.
+**Key Point:** The API structure is identical for both cloud and self-hosted Sentry.
 
-## Шаг 2: Аутентификация в GitHub API
+## Step 2: GitHub API Authentication
 
-### Создайте персональный токен доступа (Classic)
+### Create Personal Access Token (Classic)
 
-1. Перейдите по адресу: https://github.com/settings/tokens
-2. Нажмите «Generate new token (classic)»
-3. Выберите области:
-   - `repo` (полный контроль приватных репозиториев)
-   - `public_repo` (только для публичных репозиториев)
-4. Сгенерируйте и сохраните токен
+1. Navigate to: https://github.com/settings/tokens
+2. Click "Generate new token (classic)"
+3. Select scopes:
+   - `repo` (full control of private repositories)
+   - `public_repo` (for public repositories only)
+4. Generate and save token
 
-### Проверьте аутентификацию
+### Test Authentication
 
 ```bash
 curl -H "Authorization: Bearer YOUR_GITHUB_TOKEN" \
   https://api.github.com/user
 ```
 
-## Шаг 3: Получение задач Sentry
+## Step 3: Fetch Sentry Issues
 
-### Универсальная конечная точка API
+### Universal API Endpoint
 
 ```
 GET {SENTRY_URL}/api/0/organizations/{organization_slug}/issues/
 ```
 
-Где:
+Where:
 
-- `{SENTRY_URL}` = `https://sentry.io` для cloud, `https://your-domain.com` для self-hosted
-- `{organization_slug}` = идентификатор вашей организации
+- `{SENTRY_URL}` = `https://sentry.io` for cloud, `https://your-domain.com` for self-hosted
+- `{organization_slug}` = your organization identifier
 
-### Параметры запроса
+### Query Parameters
 
-| Параметр      | Описание                            | Пример                |
-| ------------- | ----------------------------------- | --------------------- |
-| `query`       | Фильтр задач                        | `is:unresolved`       |
-| `statsPeriod` | Временной диапазон                  | `24h`, `7d`, `14d`    |
-| `project`     | Фильтр по ID проекта                | `12345`               |
-| `sort`        | Порядок сортировки                  | `date`, `freq`, `new` |
-| `limit`       | Результатов на страницу (макс. 100) | `50`                  |
-| `cursor`      | Курсор пагинации                    | Из заголовка `Link`   |
+| Parameter     | Description                | Example               |
+| ------------- | -------------------------- | --------------------- |
+| `query`       | Filter issues              | `is:unresolved`       |
+| `statsPeriod` | Time range                 | `24h`, `7d`, `14d`    |
+| `project`     | Filter by project ID       | `12345`               |
+| `sort`        | Sort order                 | `date`, `freq`, `new` |
+| `limit`       | Results per page (max 100) | `50`                  |
+| `cursor`      | Pagination cursor          | From `Link` header    |
 
-### Пример: Получение неразрешённых задач
+### Example: Fetch Unresolved Issues
 
 ```bash
 # For Cloud Sentry
@@ -133,7 +133,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
   "https://your-sentry.com/api/0/organizations/YOUR_ORG/issues/?query=is:unresolved&limit=50"
 ```
 
-### Структура ответа
+### Response Structure
 
 ```json
 [
@@ -162,15 +162,15 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 ]
 ```
 
-## Шаг 4: Создание задач GitHub
+## Step 4: Create GitHub Issues
 
-### Конечная точка API
+### API Endpoint
 
 ```
 POST https://api.github.com/repos/{owner}/{repo}/issues
 ```
 
-### Пример запроса
+### Example Request
 
 ```bash
 curl -X POST \
@@ -185,7 +185,7 @@ curl -X POST \
   }'
 ```
 
-### Ответ
+### Response
 
 ```json
 {
@@ -196,9 +196,9 @@ curl -X POST \
 }
 ```
 
-## Шаг 5: Скрипт реализации
+## Step 5: Implementation Script
 
-### Реализация на Node.js
+### Node.js Implementation
 
 ```javascript
 #!/usr/bin/env node
@@ -339,7 +339,7 @@ sync().catch(error => {
 });
 ```
 
-### Использование
+### Usage
 
 ```bash
 # For Cloud Sentry
@@ -361,11 +361,11 @@ export GITHUB_REPO="owner/repo"
 node sentry-github-sync.mjs
 ```
 
-## Шаг 6: Автоматизация и планирование
+## Step 6: Automation & Scheduling
 
-### Вариант A: Cron Job (Linux/macOS)
+### Option A: Cron Job (Linux/macOS)
 
-Работает в любой среде с cron.
+Works in any environment with cron.
 
 ```bash
 # Edit crontab
@@ -378,9 +378,9 @@ crontab -e
 0 */6 * * * cd /path/to/script && /usr/bin/node sentry-github-sync.mjs >> /var/log/sentry-sync.log 2>&1
 ```
 
-### Вариант B: Таймер systemd (Linux)
+### Option B: systemd Timer (Linux)
 
-Создайте `/etc/systemd/system/sentry-sync.service`:
+Create `/etc/systemd/system/sentry-sync.service`:
 
 ```ini
 [Unit]
@@ -399,7 +399,7 @@ Environment="GITHUB_REPO=owner/repo"
 ExecStart=/usr/bin/node sentry-github-sync.mjs
 ```
 
-Создайте `/etc/systemd/system/sentry-sync.timer`:
+Create `/etc/systemd/system/sentry-sync.timer`:
 
 ```ini
 [Unit]
@@ -413,7 +413,7 @@ Persistent=true
 WantedBy=timers.target
 ```
 
-Включите и запустите:
+Enable and start:
 
 ```bash
 sudo systemctl enable sentry-sync.timer
@@ -421,9 +421,9 @@ sudo systemctl start sentry-sync.timer
 sudo systemctl status sentry-sync.timer
 ```
 
-### Вариант C: GitHub Actions (для облачных сред)
+### Option C: GitHub Actions (For Cloud Environments)
 
-Работает только если ваш экземпляр Sentry доступен с runner'ов GitHub Actions.
+Only works if your Sentry instance is accessible from GitHub Actions runners.
 
 `.github/workflows/sentry-sync.yml`:
 
@@ -458,9 +458,9 @@ jobs:
         run: node scripts/sentry-github-sync.mjs
 ```
 
-### Вариант D: Docker-контейнер
+### Option D: Docker Container
 
-Работает в любой среде с Docker.
+Works in any environment with Docker.
 
 `Dockerfile`:
 
@@ -477,7 +477,7 @@ RUN npm install
 CMD ["node", "sentry-github-sync.mjs"]
 ```
 
-Запустите с cron или планировщиком:
+Run with cron or scheduler:
 
 ```bash
 docker build -t sentry-sync .
@@ -496,9 +496,9 @@ docker run --rm \
 0 * * * * docker run --rm -e SENTRY_URL="..." sentry-sync
 ```
 
-## Расширенные возможности: Фильтрация и приоритизация
+## Advanced: Filtering & Prioritization
 
-### Фильтрация по приоритету задач
+### Filter by Issue Priority
 
 ```javascript
 // Fetch only high-priority issues
@@ -509,7 +509,7 @@ const params = new URLSearchParams({
 });
 ```
 
-### Фильтрация по проекту
+### Filter by Project
 
 ```javascript
 // Fetch issues from specific project
@@ -520,7 +520,7 @@ const params = new URLSearchParams({
 });
 ```
 
-### Фильтрация по тегам
+### Filter by Tags
 
 ```javascript
 // Fetch issues with specific tags
@@ -530,7 +530,7 @@ const params = new URLSearchParams({
 });
 ```
 
-### Кастомные метки приоритета
+### Custom Priority Labels
 
 ```javascript
 function getPriorityLabel(sentryIssue) {
@@ -547,11 +547,11 @@ function getPriorityLabel(sentryIssue) {
 labels: ['sentry', 'bug', 'automated', getPriorityLabel(sentryIssue)];
 ```
 
-## Лучшие практики безопасности
+## Security Best Practices
 
-### 1. Хранение токенов
+### 1. Token Storage
 
-**Никогда не коммитьте токены в git:**
+**Never commit tokens to git:**
 
 ```bash
 # .gitenv
@@ -564,7 +564,7 @@ GITHUB_TOKEN=your-token
 sentry-sync-state.json
 ```
 
-**Используйте переменные среды или управление секретами:**
+**Use environment variables or secret management:**
 
 ```bash
 # Load from .env file
@@ -574,20 +574,20 @@ export $(cat .env | xargs)
 export SENTRY_TOKEN=$(vault kv get -field=token secret/sentry)
 ```
 
-### 2. Разрешения токенов
+### 2. Token Permissions
 
-**Минимизируйте области:**
+**Minimize scopes:**
 
-- Sentry: `event:read`, `org:read`, `project:read` (без прав записи)
-- GitHub: только `repo` или `public_repo` (без прав администратора или удаления)
+- Sentry: `event:read`, `org:read`, `project:read` (no write permissions)
+- GitHub: `repo` or `public_repo` only (no admin or delete permissions)
 
-### 3. Сетевая безопасность
+### 3. Network Security
 
-**Для self-hosted Sentry:**
+**For self-hosted Sentry:**
 
-- Используйте HTTPS для всех вызовов API
-- Проверяйте SSL-сертификаты
-- Рассмотрите VPN или частную сеть для внутреннего Sentry
+- Use HTTPS for all API calls
+- Verify SSL certificates
+- Consider VPN or private network for internal Sentry
 
 ```javascript
 // Enable SSL verification
@@ -597,9 +597,9 @@ const response = await fetch(url, {
 });
 ```
 
-### 4. Ограничения частоты запросов
+### 4. Rate Limiting
 
-**Соблюдайте ограничения частоты API:**
+**Respect API rate limits:**
 
 ```javascript
 // Add delay between requests
@@ -609,7 +609,7 @@ await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second
 // GitHub rate limits: 5,000 requests per hour for authenticated requests
 ```
 
-### 5. Обработка ошибок
+### 5. Error Handling
 
 ```javascript
 async function fetchWithRetry(url, options, maxRetries = 3) {
@@ -639,17 +639,17 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
 }
 ```
 
-## Устранение неполадок
+## Troubleshooting
 
-### Проблема: Ошибка «Unauthorized» от Sentry
+### Issue: "Unauthorized" Error from Sentry
 
-**Причины:**
+**Causes:**
 
-- Недействительный или просроченный токен аутентификации
-- Недостаточные разрешения токена
-- Неверный slug организации
+- Invalid or expired auth token
+- Insufficient token permissions
+- Wrong organization slug
 
-**Решения:**
+**Solutions:**
 
 ```bash
 # Test token
@@ -660,15 +660,15 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 # Regenerate token if needed
 ```
 
-### Проблема: Ошибка «Not Found» от Sentry
+### Issue: "Not Found" Error from Sentry
 
-**Причины:**
+**Causes:**
 
-- Неверный slug организации
-- Неправильный URL Sentry (self-hosted)
-- Проект не существует
+- Wrong organization slug
+- Wrong Sentry URL (self-hosted)
+- Project doesn't exist
 
-**Решения:**
+**Solutions:**
 
 ```bash
 # List all organizations
@@ -680,14 +680,14 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
   ${SENTRY_URL}/api/0/organizations/${SENTRY_ORG}/projects/
 ```
 
-### Проблема: Превышение лимита частоты запросов GitHub API
+### Issue: GitHub API Rate Limit
 
-**Причины:**
+**Causes:**
 
-- Слишком много запросов за короткое время
-- Использование неаутентифицированных запросов
+- Too many requests in short time
+- Using unauthenticated requests
 
-**Решения:**
+**Solutions:**
 
 ```bash
 # Check rate limit status
@@ -698,15 +698,15 @@ curl -H "Authorization: Bearer YOUR_GITHUB_TOKEN" \
 # Use conditional requests with ETag
 ```
 
-### Проблема: Созданы дублирующиеся задачи
+### Issue: Duplicate Issues Created
 
-**Причины:**
+**Causes:**
 
-- Файл состояния не сохраняется
-- Повреждение файла состояния
-- Одновременное выполнение нескольких экземпляров
+- State file not persisting
+- State file corruption
+- Running multiple instances simultaneously
 
-**Решения:**
+**Solutions:**
 
 ```javascript
 // Ensure state file is writable
@@ -720,14 +720,14 @@ await lockfile.lock(CONFIG.STATE_FILE);
 // Search existing issues before creating
 ```
 
-### Проблема: Ошибка проверки SSL для Self-Hosted Sentry
+### Issue: Self-Hosted Sentry SSL Verification Failed
 
-**Причины:**
+**Causes:**
 
-- Самоподписанный SSL-сертификат
-- Сертификат не доверен системой
+- Self-signed SSL certificate
+- Certificate not trusted by system
 
-**Решения:**
+**Solutions:**
 
 ```javascript
 // Option 1: Add certificate to system trust store (recommended)
@@ -742,9 +742,9 @@ const agent = new https.Agent({
 fetch(url, { agent });
 ```
 
-## Оптимизация производительности
+## Performance Optimization
 
-### 1. Пагинация для больших наборов результатов
+### 1. Pagination for Large Result Sets
 
 ```javascript
 async function fetchAllSentryIssues() {
@@ -773,7 +773,7 @@ async function fetchAllSentryIssues() {
 }
 ```
 
-### 2. Пакетная обработка
+### 2. Batch Processing
 
 ```javascript
 // Process in batches to avoid memory issues
@@ -789,7 +789,7 @@ for (let i = 0; i < issues.length; i += BATCH_SIZE) {
 }
 ```
 
-### 3. Инкрементальная синхронизация
+### 3. Incremental Sync
 
 ```javascript
 // Only fetch issues since last sync
@@ -806,50 +806,50 @@ state.lastSync = new Date().toISOString();
 await saveState(state);
 ```
 
-## Итог
+## Summary
 
-### Что работает универсально
+### What Works Universally
 
-✅ **Доступ к Sentry API** — одинаковый API для cloud и self-hosted
-✅ **Доступ к GitHub API** — работает из любой среды с интернетом
-✅ **Скрипт синхронизации на основе API** — нет зависимостей от платформы
-✅ **Планирование через Cron/systemd** — работает на любой Linux/Unix-системе
-✅ **Развёртывание в Docker** — переносимость между средами
-✅ **Управление состоянием** — на основе файлов, без внешних зависимостей
+✅ **Sentry API access** - Same API for cloud and self-hosted
+✅ **GitHub API access** - Works from any environment with internet
+✅ **API-based sync script** - No platform dependencies
+✅ **Cron/systemd scheduling** - Works on any Linux/Unix system
+✅ **Docker deployment** - Portable across environments
+✅ **State management** - File-based, no external dependencies
 
-### Что имеет ограничения
+### What Has Restrictions
 
-⚠️ **Нативная интеграция Sentry** — требует плана Business/Enterprise
-⚠️ **Сторонние платформы** — работают только с облачным Sentry
-⚠️ **Webhooks** — требуют публично доступных конечных точек
-⚠️ **GitHub Actions** — требует экземпляра Sentry, доступного из GitHub
+⚠️ **Native Sentry integration** - Requires Business/Enterprise plan
+⚠️ **Third-party platforms** - Only work with cloud Sentry
+⚠️ **Webhooks** - Require publicly accessible endpoints
+⚠️ **GitHub Actions** - Requires GitHub-accessible Sentry instance
 
-### Рекомендуемая настройка
+### Recommended Setup
 
-**Для большинства сред:**
+**For most environments:**
 
-1. Используйте предоставленный выше скрипт Node.js
-2. Настройте расписание с cron или systemd
-3. Храните состояние в файле
-4. Отслеживайте журналы на предмет ошибок
+1. Use the Node.js script provided above
+2. Schedule with cron or systemd
+3. Store state in a file
+4. Monitor logs for errors
 
-**Для ограниченных сред:**
+**For restricted environments:**
 
-1. Разверните скрипт на внутреннем сервере с доступом к Sentry и GitHub
-2. Используйте переменные среды для конфигурации
-3. Запускайте по расписанию (ежечасно или ежедневно)
-4. Внешние зависимости не требуются
+1. Deploy script on internal server with access to both Sentry and GitHub
+2. Use environment variables for configuration
+3. Run on schedule (hourly or daily)
+4. No external dependencies required
 
-## Следующие шаги
+## Next Steps
 
-1. **Протестируйте скрипт** с вашими экземплярами Sentry и GitHub
-2. **Настройте фильтры** под свои нужды (приоритет, проект, теги)
-3. **Настройте расписание** в зависимости от вашей среды
-4. **Ведите мониторинг и итерируйте** формат задач и метки
-5. **Рассмотрите улучшения**, например двунаправленную синхронизацию, автоматическое закрытие решённых задач
+1. **Test the script** with your Sentry and GitHub instances
+2. **Adjust filters** to match your needs (priority, project, tags)
+3. **Set up scheduling** based on your environment
+4. **Monitor and iterate** on the issue format and labels
+5. **Consider enhancements** like bidirectional sync, auto-closing resolved issues
 
-## Ссылки
+## References
 
-- [Документация Sentry API](https://docs.sentry.io/api/)
-- [Документация GitHub REST API](https://docs.github.com/en/rest)
-- [Документация Sentry Self-Hosted](https://develop.sentry.dev/self-hosted/)
+- [Sentry API Documentation](https://docs.sentry.io/api/)
+- [GitHub REST API Documentation](https://docs.github.com/en/rest)
+- [Sentry Self-Hosted Documentation](https://develop.sentry.dev/self-hosted/)

@@ -108,13 +108,7 @@ console.log('\n--- Test: git push commands include 2>&1 ---');
   }
 
   assert(totalPushCommands > 0, `Found git push commands in source (${totalPushCommands} total)`);
-  assert(
-    pushCommandsMissing2and1.length === 0,
-    'All git push template commands include 2>&1',
-    pushCommandsMissing2and1.length > 0
-      ? `Missing 2>&1 in:\n${pushCommandsMissing2and1.map(l => `      ${l}`).join('\n')}`
-      : '',
-  );
+  assert(pushCommandsMissing2and1.length === 0, 'All git push template commands include 2>&1', pushCommandsMissing2and1.length > 0 ? `Missing 2>&1 in:\n${pushCommandsMissing2and1.map(l => `      ${l}`).join('\n')}` : '');
 }
 
 // ============================================================
@@ -134,11 +128,7 @@ console.log('\n--- Test: Auto-restart includes git pull before restart ---');
   assert(restartTriggeredIdx > 0, 'Found RESTART TRIGGERED in auto-merge code');
   assert(executeToolIterationIdx > 0, 'Found executeToolIteration call after restart trigger');
   assert(gitPullIdx > 0, 'Found git pull --rebase in auto-merge restart path');
-  assert(
-    gitPullIdx < executeToolIterationIdx,
-    'git pull appears BEFORE executeToolIteration in restart path',
-    `git pull at index ${gitPullIdx}, executeToolIteration at index ${executeToolIterationIdx}`,
-  );
+  assert(gitPullIdx < executeToolIterationIdx, 'git pull appears BEFORE executeToolIteration in restart path', `git pull at index ${gitPullIdx}, executeToolIteration at index ${executeToolIterationIdx}`);
 }
 
 // ============================================================
@@ -157,11 +147,7 @@ console.log('\n--- Test: Auto-ensure includes git pull before iterations ---');
   assert(forLoopIdx > 0, 'Found finalize loop in auto-ensure code');
   assert(executeToolIterationIdx > 0, 'Found executeToolIteration call in finalize loop');
   assert(gitPullIdx > 0, 'Found git pull --rebase in auto-ensure path');
-  assert(
-    gitPullIdx < executeToolIterationIdx,
-    'git pull appears BEFORE executeToolIteration in finalize path',
-    `git pull at index ${gitPullIdx}, executeToolIteration at index ${executeToolIterationIdx}`,
-  );
+  assert(gitPullIdx < executeToolIterationIdx, 'git pull appears BEFORE executeToolIteration in finalize path', `git pull at index ${gitPullIdx}, executeToolIteration at index ${executeToolIterationIdx}`);
 }
 
 // ============================================================
@@ -180,11 +166,7 @@ console.log('\n--- Test: Cleanup includes git pull before revert ---');
   assert(cleanupFnIdx > 0, 'Found cleanupClaudeFile function');
   assert(gitRevertIdx > 0, 'Found git revert in cleanup');
   assert(gitPullIdx > 0, 'Found git pull --rebase in cleanup');
-  assert(
-    gitPullIdx < gitRevertIdx,
-    'git pull appears BEFORE git revert in cleanup',
-    `git pull at index ${gitPullIdx}, git revert at index ${gitRevertIdx}`,
-  );
+  assert(gitPullIdx < gitRevertIdx, 'git pull appears BEFORE git revert in cleanup', `git pull at index ${gitPullIdx}, git revert at index ${gitRevertIdx}`);
 }
 
 // ============================================================

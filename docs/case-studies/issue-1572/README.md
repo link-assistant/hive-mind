@@ -9,24 +9,24 @@ Two bugs were identified from a failed solve run on `Jhon-Crow/godot-topdown-MVP
 
 ## Timeline of Events
 
-| Time (UTC) | Event | Session |
-|---|---|---|
-| 18:07:06 | Solve process starts for issue #1742 | — |
-| 18:07:32 | `.gitkeep` committed (`ff077c8b`) and pushed to `issue-1742-d13525cf93f4` | Session 1 (`27647682`) |
-| 18:07:39 | PR #1791 created | Session 1 |
-| 18:07:55 | Claude Session 1 starts (model: claude-sonnet-4-6) | Session 1 |
-| 18:12:59 | AI pushes commits (ff077c8b..b1b75c11) — **success** | Session 1 |
-| 18:13:41 | Session 1 completes, cost $1.28, 94K tokens | Session 1 |
-| 18:13:51 | Auto-restart-until-mergeable mode begins monitoring PR #1791 | �� |
-| 18:25:18 | Owner (Jhon-Crow) posts feedback comment on PR | — |
-| 18:26:01 | "AI Work Session Started" comment posted, PR converted to draft | — |
-| 18:29:50 | **RESTART TRIGGERED** — new comment detected from Jhon-Crow | — |
-| 18:29:54 | Claude Session 2 starts — **same working directory, NO `git pull`** | Session 2 (`990c6d46`) |
-| 18:37:19 | AI tries `git push` in Session 2 — **FAILS with "fetch first"** | Session 2 |
-| 18:38:15 | Session 2 ends with exit code 1 | Session 2 |
-| 18:38:22 | `.gitkeep` revert committed locally (1d008e66) | Cleanup |
-| 18:38:22 | `.gitkeep` revert push — **FAILS with "non-fast-forward"** | Cleanup |
-| 18:38:22 | Process ends | — |
+| Time (UTC) | Event                                                                     | Session                |
+| ---------- | ------------------------------------------------------------------------- | ---------------------- |
+| 18:07:06   | Solve process starts for issue #1742                                      | —                      |
+| 18:07:32   | `.gitkeep` committed (`ff077c8b`) and pushed to `issue-1742-d13525cf93f4` | Session 1 (`27647682`) |
+| 18:07:39   | PR #1791 created                                                          | Session 1              |
+| 18:07:55   | Claude Session 1 starts (model: claude-sonnet-4-6)                        | Session 1              |
+| 18:12:59   | AI pushes commits (ff077c8b..b1b75c11) — **success**                      | Session 1              |
+| 18:13:41   | Session 1 completes, cost $1.28, 94K tokens                               | Session 1              |
+| 18:13:51   | Auto-restart-until-mergeable mode begins monitoring PR #1791              | ��                     |
+| 18:25:18   | Owner (Jhon-Crow) posts feedback comment on PR                            | —                      |
+| 18:26:01   | "AI Work Session Started" comment posted, PR converted to draft           | —                      |
+| 18:29:50   | **RESTART TRIGGERED** — new comment detected from Jhon-Crow               | —                      |
+| 18:29:54   | Claude Session 2 starts — **same working directory, NO `git pull`**       | Session 2 (`990c6d46`) |
+| 18:37:19   | AI tries `git push` in Session 2 — **FAILS with "fetch first"**           | Session 2              |
+| 18:38:15   | Session 2 ends with exit code 1                                           | Session 2              |
+| 18:38:22   | `.gitkeep` revert committed locally (1d008e66)                            | Cleanup                |
+| 18:38:22   | `.gitkeep` revert push — **FAILS with "non-fast-forward"**                | Cleanup                |
+| 18:38:22   | Process ends                                                              | —                      |
 
 ## Root Cause Analysis
 
@@ -44,6 +44,7 @@ Two bugs were identified from a failed solve run on `Jhon-Crow/godot-topdown-MVP
 6. After Session 2 fails, the cleanup tries to push the `.gitkeep` revert — also fails because local is still behind remote
 
 **Code locations:**
+
 - `src/solve.auto-merge.lib.mjs:954-993` — restart trigger handler, no `git pull/fetch`
 - `src/solve.restart-shared.lib.mjs:174-290` — `executeToolIteration()`, no `git pull/fetch`
 - `src/solve.results.lib.mjs:324` — cleanup push that fails
@@ -55,14 +56,16 @@ Two bugs were identified from a failed solve run on `Jhon-Crow/godot-topdown-MVP
 **Root cause:** Several `git push` commands in the codebase lack `2>&1` redirection. While the stdio interceptor (`setupStdioLogInterceptor()` in `src/lib.mjs:186-228`) captures all terminal output including stderr in the log file, the absence of `2>&1` means `pushResult.stderr` is empty/undefined in the JavaScript code. This prevents proper error handling and logging of push failure reasons.
 
 **Affected locations (missing `2>&1`):**
+
 - `src/solve.mjs:576` — initial push
-- `src/solve.mjs:1346` — uncommitted changes push  
+- `src/solve.mjs:1346` — uncommitted changes push
 - `src/claude.lib.mjs:1452` — Claude post-push
 - `src/codex.lib.mjs:495` — Codex post-push
 - `src/opencode.lib.mjs:549` — OpenCode post-push
 - `src/agent.lib.mjs:1085` — Agent post-push
 
 **Already correct (have `2>&1`):**
+
 - `src/solve.auto-pr.lib.mjs:384` — initial PR push
 - `src/solve.results.lib.mjs:304,324,370,406` — cleanup pushes
 
@@ -73,8 +76,9 @@ Two bugs were identified from a failed solve run on `Jhon-Crow/godot-topdown-MVP
 **Root cause:** The `log()` function in `src/lib.mjs:77-121` prepends a timestamp only at the beginning of the message. When messages contain embedded `\n` (e.g., `\n📁 Keeping directory...`), the continuation lines appear in the log file without timestamps, breaking log parsing.
 
 **Example:**
+
 ```
-[2026-04-10T18:38:22.993Z] [INFO] 
+[2026-04-10T18:38:22.993Z] [INFO]
 📁 Keeping directory (--no-auto-cleanup): /tmp/gh-issue-solver-1775844437743
 ```
 

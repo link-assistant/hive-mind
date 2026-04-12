@@ -212,11 +212,13 @@ export const watchUntilMergeable = async params => {
             verbose: argv.verbose,
             getDetailedCIStatus,
             getWorkflowRunsForSha,
+            prBranch: prBranch || branchName,
           });
 
           if (!consensus.allAgree) {
             const m = consensus.mechanisms;
-            await log(formatAligned('🔄', 'CI mechanisms DISAGREE:', `CheckRuns=${m.checkRunsAPI.status}, WorkflowRuns=${m.workflowRunsAPI.inProgress} in-progress, RepoActions=${m.repoActions.skipped ? 'skipped' : m.repoActions.count + ' active'}`, 2));
+            const repoLabel = m.repoActions.skipped ? 'skipped' : `${m.repoActions.count} active${m.repoActions.filteredCount > 0 ? ` (${m.repoActions.filteredCount} unrelated skipped)` : ''}`;
+            await log(formatAligned('🔄', 'CI mechanisms DISAGREE:', `CheckRuns=${m.checkRunsAPI.status}, WorkflowRuns=${m.workflowRunsAPI.inProgress} in-progress, RepoActions=${repoLabel}`, 2));
             await log(formatAligned('⏳', 'Continuing to monitor...', 'Mechanisms must agree before declaring mergeable', 2));
             consecutiveNoRunsChecks = 0;
             lastCheckTime = currentTime;

@@ -35,17 +35,29 @@ const clampInterval = raw => Math.max(raw, 300);
 // Shared helper: compute flag from argv
 const getFlag = argv => argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? true;
 
-// Shared helper: simulate CI consensus
-function simulateConsensus({ checkRunsStatus, workflowRuns, activeRepoRuns, waitForAll }) {
+// Shared helper: simulate CI consensus (Issue #1573: branch-aware filtering)
+function simulateConsensus({ checkRunsStatus, workflowRuns, activeRepoRuns, waitForAll, prBranch }) {
   const crOK = checkRunsStatus === 'success' || checkRunsStatus === 'no_checks';
   const wrOK = workflowRuns.length === 0 || workflowRuns.every(r => r.status === 'completed');
-  const raOK = !waitForAll || activeRepoRuns.length === 0;
+  let raOK = true;
+  let filteredCount = 0;
+  let relevantCount = activeRepoRuns.length;
+  if (waitForAll) {
+    if (activeRepoRuns.length > 0 && crOK && wrOK && prBranch) {
+      const relevantRuns = activeRepoRuns.filter(r => r.head_branch === prBranch);
+      filteredCount = activeRepoRuns.length - relevantRuns.length;
+      relevantCount = relevantRuns.length;
+      raOK = relevantRuns.length === 0;
+    } else {
+      raOK = activeRepoRuns.length === 0;
+    }
+  }
   return {
     allAgree: crOK && wrOK && raOK,
     mechanisms: {
       checkRunsAPI: { complete: crOK, status: checkRunsStatus },
       workflowRunsAPI: { complete: wrOK, total: workflowRuns.length, inProgress: workflowRuns.filter(r => r.status !== 'completed').length },
-      repoActions: waitForAll ? { complete: raOK, count: activeRepoRuns.length } : { skipped: true },
+      repoActions: waitForAll ? { complete: raOK, count: relevantCount, filteredCount } : { skipped: true },
     },
   };
 }
@@ -176,6 +188,117 @@ test('Interacting pipelines block', () => {
     waitForAll: true,
   });
   assert(!r.allAgree && r.mechanisms.repoActions.count === 2);
+});
+
+// ===== Suite 7: Issue #1573 - Branch-aware repo-wide filtering =====
+console.log('\n📋 Issue #1573: Branch-Aware Repo-Wide Filtering\n');
+
+test('Unrelated branch run skipped when PR CI passes', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [{ id: 1, status: 'in_progress', head_branch: 'other-branch' }],
+    waitForAll: true,
+    prBranch: 'my-pr-branch',
+  });
+  assert(r.allAgree, 'Should agree when active run is on unrelated branch');
+  assert(r.mechanisms.repoActions.filteredCount === 1, `Expected 1 filtered, got ${r.mechanisms.repoActions.filteredCount}`);
+  assert(r.mechanisms.repoActions.count === 0, `Expected 0 relevant, got ${r.mechanisms.repoActions.count}`);
+});
+
+test('Same branch run still blocks', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [{ id: 1, status: 'in_progress', head_branch: 'my-pr-branch' }],
+    waitForAll: true,
+    prBranch: 'my-pr-branch',
+  });
+  assert(!r.allAgree, 'Should disagree when active run is on PR branch');
+  assert(r.mechanisms.repoActions.count === 1);
+  assert(r.mechanisms.repoActions.filteredCount === 0);
+});
+
+test('Mixed branches: only same-branch run blocks', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [
+      { id: 1, status: 'in_progress', head_branch: 'other-branch-1' },
+      { id: 2, status: 'in_progress', head_branch: 'my-pr-branch' },
+      { id: 3, status: 'queued', head_branch: 'other-branch-2' },
+    ],
+    waitForAll: true,
+    prBranch: 'my-pr-branch',
+  });
+  assert(!r.allAgree, 'Should disagree because of same-branch run');
+  assert(r.mechanisms.repoActions.count === 1, `Expected 1 relevant, got ${r.mechanisms.repoActions.count}`);
+  assert(r.mechanisms.repoActions.filteredCount === 2, `Expected 2 filtered, got ${r.mechanisms.repoActions.filteredCount}`);
+});
+
+test('No prBranch → no filtering (backward compat)', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [{ id: 1, status: 'in_progress', head_branch: 'other-branch' }],
+    waitForAll: true,
+  });
+  assert(!r.allAgree, 'Should disagree when no prBranch provided (no filtering)');
+});
+
+test('Branch filtering only when PR CI passes — pending CheckRuns blocks even unrelated', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'pending',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [{ id: 1, status: 'in_progress', head_branch: 'other-branch' }],
+    waitForAll: true,
+    prBranch: 'my-pr-branch',
+  });
+  assert(!r.allAgree, 'Should disagree because CheckRuns is pending');
+});
+
+test('Branch filtering only when PR CI passes — in-progress workflows block even unrelated', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'in_progress' }],
+    activeRepoRuns: [{ id: 1, status: 'in_progress', head_branch: 'other-branch' }],
+    waitForAll: true,
+    prBranch: 'my-pr-branch',
+  });
+  assert(!r.allAgree, 'Should disagree because WorkflowRuns in progress');
+});
+
+test('Real-world: Build Windows EXE on unrelated branch does not block (Issue #1573)', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [
+      { status: 'completed' }, { status: 'completed' }, { status: 'completed' },
+      { status: 'completed' }, { status: 'completed' }, { status: 'completed' },
+      { status: 'completed' }, { status: 'completed' },
+    ],
+    activeRepoRuns: [{ id: 24270051875, status: 'in_progress', head_branch: 'issue-1805-df6d19c3568b' }],
+    waitForAll: true,
+    prBranch: 'issue-991-abc123',
+  });
+  assert(r.allAgree, 'Should agree: unrelated branch Build Windows EXE should not block');
+  assert(r.mechanisms.repoActions.filteredCount === 1);
+});
+
+test('Multiple unrelated branches all filtered', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [
+      { id: 1, status: 'in_progress', head_branch: 'branch-a' },
+      { id: 2, status: 'queued', head_branch: 'branch-b' },
+      { id: 3, status: 'waiting', head_branch: 'branch-c' },
+    ],
+    waitForAll: true,
+    prBranch: 'my-pr-branch',
+  });
+  assert(r.allAgree, 'Should agree when all active runs are on unrelated branches');
+  assert(r.mechanisms.repoActions.filteredCount === 3);
+  assert(r.mechanisms.repoActions.count === 0);
 });
 
 // Final report

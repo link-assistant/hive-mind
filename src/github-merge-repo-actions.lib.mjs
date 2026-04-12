@@ -75,7 +75,7 @@ export async function waitForAllRepoActions(owner, repo, options = {}, verbose =
  * @param {Object} params
  * @returns {Promise<{allAgree: boolean, mechanisms: Object, ciStatus: Object, workflowRuns: Array}>}
  */
-export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllRepoActionsFlag, verbose, getDetailedCIStatus, getWorkflowRunsForSha }) {
+export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllRepoActionsFlag, verbose, getDetailedCIStatus, getWorkflowRunsForSha, prBranch }) {
   const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
   const checkRunsOK = ciStatus.status === 'success' || ciStatus.status === 'no_checks';
 
@@ -84,20 +84,35 @@ export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllR
 
   let repoOK = true;
   let repoInfo = null;
+  let filteredCount = 0;
   if (waitForAllRepoActionsFlag) {
     repoInfo = await getAllActiveRepoRuns(owner, repo, verbose);
-    repoOK = !repoInfo.hasActiveRuns;
+    if (repoInfo.hasActiveRuns && checkRunsOK && workflowsOK && prBranch) {
+      // Issue #1573: When the PR's own CI is fully passing, only block on runs
+      // from the PR's own branch — not unrelated branches in the same repo.
+      const relevantRuns = repoInfo.runs.filter(r => r.head_branch === prBranch);
+      filteredCount = repoInfo.count - relevantRuns.length;
+      if (verbose && filteredCount > 0) {
+        const skipped = repoInfo.runs.filter(r => r.head_branch !== prBranch);
+        for (const r of skipped) console.log(`[VERBOSE] consensus: skipping unrelated run "${r.name}" (${r.status}) on branch ${r.head_branch}`);
+      }
+      repoOK = relevantRuns.length === 0;
+    } else {
+      repoOK = !repoInfo.hasActiveRuns;
+    }
   }
 
   const allAgree = checkRunsOK && workflowsOK && repoOK;
+  const relevantCount = (repoInfo?.count ?? 0) - filteredCount;
   const mechanisms = {
     checkRunsAPI: { complete: checkRunsOK, status: ciStatus.status },
     workflowRunsAPI: { complete: workflowsOK, total: workflowRuns.length, inProgress: workflowRuns.filter(r => r.status !== 'completed').length },
-    repoActions: waitForAllRepoActionsFlag ? { complete: repoOK, count: repoInfo?.count ?? 0 } : { skipped: true },
+    repoActions: waitForAllRepoActionsFlag ? { complete: repoOK, count: relevantCount, filteredCount } : { skipped: true },
   };
 
   if (verbose) {
-    console.log(`[VERBOSE] consensus: CheckRuns=${checkRunsOK}(${ciStatus.status}), WorkflowRuns=${workflowsOK}(${workflowRuns.length}), RepoActions=${waitForAllRepoActionsFlag ? repoOK : 'skip'} → ${allAgree ? 'AGREE' : 'DISAGREE'}`);
+    const repoLabel = waitForAllRepoActionsFlag ? `${repoOK}(${relevantCount} relevant${filteredCount > 0 ? `, ${filteredCount} skipped` : ''})` : 'skip';
+    console.log(`[VERBOSE] consensus: CheckRuns=${checkRunsOK}(${ciStatus.status}), WorkflowRuns=${workflowsOK}(${workflowRuns.length}), RepoActions=${repoLabel} → ${allAgree ? 'AGREE' : 'DISAGREE'}`);
   }
   return { allAgree, mechanisms, ciStatus, workflowRuns };
 }

@@ -49,6 +49,9 @@ const { extractLinkedIssueNumber } = githubLinking;
 // Import configuration
 import { autoContinue, limitReset } from './config.lib.mjs';
 
+// Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
+const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+
 const { calculateWaitTime } = validation;
 
 /**
@@ -116,7 +119,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     }, countdownInterval);
 
     // Wait until reset time
-    await new Promise(resolve => setTimeout(resolve, waitMs));
+    await interruptibleSleep(waitMs);
     clearInterval(countdownTimer);
 
     const actionType = isRestart ? 'Restarting' : 'Resuming';

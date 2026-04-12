@@ -54,6 +54,9 @@ import { limitReset } from './config.lib.mjs';
 const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
 const { checkForExistingComment, checkForNonBotComments, getMergeBlockers } = autoMergeHelpers;
 
+// Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
+const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+
 /**
  * Main function: Watch and restart until PR becomes mergeable
  * This implements --auto-restart-until-mergeable functionality
@@ -104,7 +107,7 @@ export const watchUntilMergeable = async params => {
   // Issue #1567: Wait for initial cooldown before first check.
   // This gives CI/CD time to start and solution logs time to be posted.
   await log(formatAligned('⏳', 'Initial cooldown:', `Waiting ${INITIAL_COOLDOWN_SECONDS}s before first check...`));
-  await new Promise(resolve => setTimeout(resolve, INITIAL_COOLDOWN_SECONDS * 1000));
+  await interruptibleSleep(INITIAL_COOLDOWN_SECONDS * 1000);
   await log(formatAligned('✅', 'Cooldown complete:', 'Starting monitoring loop'));
   await log('');
 
@@ -200,7 +203,7 @@ export const watchUntilMergeable = async params => {
         if (!noCiConfigured) {
           const DOUBLE_CHECK_DELAY_MS = 10000; // 10 seconds
           await log(formatAligned('🔍', 'Multi-mechanism CI consensus check:', `Waiting ${DOUBLE_CHECK_DELAY_MS / 1000}s then verifying...`, 2));
-          await new Promise(resolve => setTimeout(resolve, DOUBLE_CHECK_DELAY_MS));
+          await interruptibleSleep(DOUBLE_CHECK_DELAY_MS);
 
           // Run multi-mechanism consensus: Check Runs API + Workflow Runs API + Repo-wide actions
           const consensus = await checkCIConsensus({
@@ -223,7 +226,7 @@ export const watchUntilMergeable = async params => {
             const actualWaitSeconds = currentBackoffSeconds;
             await log(formatAligned('⏱️', 'Next check in:', `${actualWaitSeconds} seconds...`, 2));
             await log('');
-            await new Promise(resolve => setTimeout(resolve, actualWaitSeconds * 1000));
+            await interruptibleSleep(actualWaitSeconds * 1000);
             continue;
           }
           await log(formatAligned('✅', 'All CI mechanisms agree:', `CheckRuns=${consensus.mechanisms.checkRunsAPI.status}, WorkflowRuns=complete(${consensus.mechanisms.workflowRunsAPI.total}), RepoActions=${consensus.mechanisms.repoActions.skipped ? 'skipped' : 'clear'}`, 2));
@@ -236,7 +239,7 @@ export const watchUntilMergeable = async params => {
             const actualWaitSeconds = currentBackoffSeconds;
             await log(formatAligned('⏱️', 'Next check in:', `${actualWaitSeconds} seconds...`, 2));
             await log('');
-            await new Promise(resolve => setTimeout(resolve, actualWaitSeconds * 1000));
+            await interruptibleSleep(actualWaitSeconds * 1000);
             continue;
           }
         }
@@ -606,7 +609,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             }
 
             // Wait until the limit resets
-            await new Promise(resolve => setTimeout(resolve, waitMs));
+            await interruptibleSleep(waitMs);
 
             await log(formatAligned('✅', 'Usage limit wait complete', 'Resuming session...'));
             await log('');
@@ -841,7 +844,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
     const actualWaitSeconds = currentBackoffSeconds;
     await log(formatAligned('⏱️', 'Next check in:', `${actualWaitSeconds} seconds...`, 2));
     await log('');
-    await new Promise(resolve => setTimeout(resolve, actualWaitSeconds * 1000));
+    await interruptibleSleep(actualWaitSeconds * 1000);
   }
 };
 

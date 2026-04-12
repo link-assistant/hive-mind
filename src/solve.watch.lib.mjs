@@ -347,7 +347,7 @@ export const watchForFeedback = async params => {
               const { calculateSessionTokens } = await import('./claude.lib.mjs');
               const tokenUsage = await calculateSessionTokens(latestSessionId, tempDir, toolResult.resultModelUsage);
               if (tokenUsage) {
-                autoRestartBudgetStatsData = { tokenUsage, streamTokenUsage: toolResult.streamTokenUsage || null };
+                autoRestartBudgetStatsData = { tokenUsage, streamTokenUsage: toolResult.streamTokenUsage || null, subAgentCalls: toolResult.subAgentCalls || null };
               }
             } catch (budgetError) {
               if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });

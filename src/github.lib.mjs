@@ -366,7 +366,7 @@ export async function attachLogToGitHub(options) {
     resultModelUsage = null, // Issue #1454
     budgetStatsData = null, // Issue #1491: budget stats for comment
   } = options;
-  const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage) : '';
+  const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
   try {

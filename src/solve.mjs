@@ -879,6 +879,7 @@ try {
   let resultSummary = toolResult.resultSummary || null;
   let resultModelUsage = toolResult.resultModelUsage || null;
   let streamTokenUsage = toolResult.streamTokenUsage || null;
+  let subAgentCalls = toolResult.subAgentCalls || null; // Issue #1590
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -1173,9 +1174,8 @@ try {
   // Show summary of session and log file
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
 
-  // Issue #1571: Defense-in-depth guard. autoContinueWhenLimitResets() awaits child exit
-  // and calls process.exit(), so this should not be reached. Skip post-processing to
-  // prevent "Solution Draft Log" / "Ready to merge" comments before "Auto Resume".
+  // Issue #1571: Defense-in-depth guard — skip post-processing if auto-continue is handling it
+  // (prevents "Solution Draft Log" / "Ready to merge" comments before "Auto Resume")
   if (limitReached && (argv.autoResumeOnLimitReset || argv.autoRestartOnLimitReset) && global.limitResetTime) {
     await safeExit(0, 'Auto-continue child process will handle post-processing');
   }
@@ -1216,7 +1216,7 @@ try {
   }
 
   // Search for newly created pull requests and comments
-  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage);
+  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage, subAgentCalls);
   const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
   // Issue #1162: Auto-restart when PR title/description still has placeholder content
@@ -1263,7 +1263,7 @@ try {
     await cleanupClaudeFile(tempDir, branchName, null, argv);
 
     // Re-verify results after restart (without auto-restart flag to prevent recursion)
-    const reVerifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, { ...argv, autoRestartOnNonUpdatedPullRequestDescription: false }, shouldAttachLogs, false, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage);
+    const reVerifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, { ...argv, autoRestartOnNonUpdatedPullRequestDescription: false }, shouldAttachLogs, false, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage, subAgentCalls);
 
     if (reVerifyResult?.prTitleHasPlaceholder || reVerifyResult?.prBodyHasPlaceholder) {
       await log('⚠️  PR title/description still not updated after restart');

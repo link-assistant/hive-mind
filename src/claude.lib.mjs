@@ -13,7 +13,7 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage } from './claude.budget-stats.lib.mjs';
+import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
@@ -653,44 +653,9 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
     throw new Error(`Failed to read session file: ${readError.message}`);
   }
 };
-/**
- * Determines whether a stderr message line should be treated as an error.
- *
- * Excludes:
- * - Emoji-prefixed warnings (Issue #477): lines starting with ⚠️ or ⚠
- * - JSON-structured log messages with non-error level (Issue #1337):
- *   e.g. {"level":"warn","message":"...failed..."} — the word "failed" is in
- *   the message text but the level is "warn", so it is NOT an error.
- *   Only JSON lines with level "error" or "fatal" are treated as real errors.
- *
- * @param {string} message - A single trimmed stderr line
- * @returns {boolean} true if the line should count as an error
- */
-export const isStderrError = message => {
-  const trimmed = message.trim();
-  if (!trimmed) return false;
-  // Detection 1: Emoji-prefixed warnings (Issue #477)
-  let isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
-  // Detection 2: JSON-structured log messages (Issue #1337)
-  if (!isWarning && trimmed.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (parsed && typeof parsed.level === 'string') {
-        const level = parsed.level.toLowerCase();
-        // Only "error" and "fatal" levels are real errors.
-        if (level !== 'error' && level !== 'fatal') {
-          isWarning = true;
-        }
-      }
-    } catch {
-      // Not valid JSON — fall through to keyword matching
-    }
-  }
-  if (!isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {
-    return true;
-  }
-  return false;
-};
+// Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
+import { isStderrError } from './claude.stderr.lib.mjs';
+export { isStderrError };
 export const executeClaudeCommand = async params => {
   const {
     tempDir,
@@ -777,6 +742,10 @@ export const executeClaudeCommand = async params => {
     let errorDuringExecution = false;
     let resultSummary = null;
     let resultModelUsage = null;
+    // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
+    const subAgentCalls = [];
+    // Issue #1590: Map tool_use_id -> subAgentCalls index for accumulating per-call usage from parent_tool_use_id events
+    const subAgentCallsByToolUseId = new Map();
     // Issue #1491: Track token usage from stream JSON events for independent calculation
     const streamTokenUsage = {
       inputTokens: 0,
@@ -1026,6 +995,18 @@ export const executeClaudeCommand = async params => {
                 if (u.cache_read_input_tokens) streamTokenUsage.cacheReadTokens += u.cache_read_input_tokens;
                 if (u.output_tokens) streamTokenUsage.outputTokens += u.output_tokens;
                 streamTokenUsage.eventCount++;
+                // Issue #1590: Accumulate per-sub-agent usage from parent_tool_use_id
+                if (data.parent_tool_use_id && subAgentCallsByToolUseId.has(data.parent_tool_use_id)) {
+                  accumulateSubAgentUsage(subAgentCallsByToolUseId.get(data.parent_tool_use_id), u);
+                }
+              }
+              // Issue #1590: Capture total_tokens from task_notification (completed sub-agent)
+              if (data.type === 'system' && data.subtype === 'task_notification' && data.status === 'completed' && data.tool_use_id) {
+                const callEntry = subAgentCallsByToolUseId.get(data.tool_use_id);
+                if (callEntry && data.usage && data.usage.total_tokens) {
+                  callEntry.usage.totalTokens = data.usage.total_tokens;
+                  await log(`🤖 Sub-agent "${callEntry.description || 'unknown'}" completed: ${data.usage.total_tokens} total tokens`, { verbose: true });
+                }
               }
               if (data.type === 'assistant' && data.message && data.message.content) {
                 const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
@@ -1053,6 +1034,13 @@ export const executeClaudeCommand = async params => {
                       lastMessage = item.text;
                       await log('⏱️ Detected request timeout in assistant message (will retry with --resume)', { verbose: true });
                     }
+                  }
+                  // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
+                  if (item.type === 'tool_use' && item.name === 'Agent') {
+                    const callEntry = createSubAgentCallEntry(item);
+                    subAgentCalls.push(callEntry);
+                    if (item.id) subAgentCallsByToolUseId.set(item.id, callEntry);
+                    await log(`🤖 Sub-agent call #${subAgentCalls.length}: "${callEntry.description || 'unknown'}" (model: ${callEntry.model || 'default'})`, { verbose: true });
                   }
                 }
               }
@@ -1381,6 +1369,7 @@ export const executeClaudeCommand = async params => {
         resultSummary, // Issue #1263: Include result summary for --attach-solution-summary
         resultModelUsage, // Issue #1454
         streamTokenUsage: streamTokenUsage.eventCount > 0 ? streamTokenUsage : null, // Issue #1491
+        subAgentCalls: subAgentCalls.length > 0 ? subAgentCalls : null, // Issue #1590
       };
     } catch (error) {
       reportError(error, {

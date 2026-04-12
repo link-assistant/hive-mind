@@ -1455,8 +1455,8 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false,
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
 export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
 
-import { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus } from './github-merge-repo-actions.lib.mjs'; // Issue #1503
-export { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus };
+import { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas } from './github-merge-repo-actions.lib.mjs'; // Issue #1503
+export { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas };
 
 export default {
   READY_LABEL,

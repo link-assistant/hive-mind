@@ -32,18 +32,27 @@ function assert(cond, msg) {
 // Shared helper: compute clamped watch interval
 const clampInterval = raw => Math.max(raw, 300);
 
-// Shared helper: compute flag from argv
-const getFlag = argv => argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? true;
+// Shared helper: compute flag from argv (Issue #1573: default changed to false)
+const getFlag = argv => argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? false;
 
-// Shared helper: simulate CI consensus (Issue #1573: branch-aware filtering)
-function simulateConsensus({ checkRunsStatus, workflowRuns, activeRepoRuns, waitForAll, prBranch }) {
+// Shared helper: simulate CI consensus (Issue #1573: branch-aware filtering + all-commits check)
+function simulateConsensus({ checkRunsStatus, workflowRuns, activeRepoRuns, waitForAll, prBranch, prCommitsCI }) {
   const crOK = checkRunsStatus === 'success' || checkRunsStatus === 'no_checks';
   const wrOK = workflowRuns.length === 0 || workflowRuns.every(r => r.status === 'completed');
+
+  // Issue #1573: All-commits CI check
+  let acOK = true;
+  let acInfo = null;
+  if (crOK && wrOK && prCommitsCI) {
+    acOK = prCommitsCI.allComplete;
+    acInfo = prCommitsCI;
+  }
+
   let raOK = true;
   let filteredCount = 0;
   let relevantCount = activeRepoRuns.length;
   if (waitForAll) {
-    if (activeRepoRuns.length > 0 && crOK && wrOK && prBranch) {
+    if (activeRepoRuns.length > 0 && crOK && wrOK && acOK && prBranch) {
       const relevantRuns = activeRepoRuns.filter(r => r.head_branch === prBranch);
       filteredCount = activeRepoRuns.length - relevantRuns.length;
       relevantCount = relevantRuns.length;
@@ -53,10 +62,11 @@ function simulateConsensus({ checkRunsStatus, workflowRuns, activeRepoRuns, wait
     }
   }
   return {
-    allAgree: crOK && wrOK && raOK,
+    allAgree: crOK && wrOK && acOK && raOK,
     mechanisms: {
       checkRunsAPI: { complete: crOK, status: checkRunsStatus },
       workflowRunsAPI: { complete: wrOK, total: workflowRuns.length, inProgress: workflowRuns.filter(r => r.status !== 'completed').length },
+      allCommitsCI: acInfo ? { complete: acOK, totalCommits: acInfo.totalCommits, pendingCommits: acInfo.pendingCommits } : { skipped: true },
       repoActions: waitForAll ? { complete: raOK, count: relevantCount, filteredCount } : { skipped: true },
     },
   };
@@ -85,9 +95,11 @@ test('Default 60 clamped', () => assert(clampInterval(undefined || 60) === 300, 
 // ===== Suite 2: Flag behavior =====
 console.log('\n📋 Wait-For-All-Actions Flag Behavior\n');
 
-test('Defaults to true', () => assert(getFlag({}) === true, 'Expected true'));
+test('Defaults to false (Issue #1573)', () => assert(getFlag({}) === false, 'Expected false'));
 test('Disabled via camelCase', () => assert(getFlag({ waitForAllActionsInRepositoryBeforeMergable: false }) === false, 'Expected false'));
 test('Disabled via kebab-case', () => assert(getFlag({ 'wait-for-all-actions-in-repository-before-mergable': false }) === false, 'Expected false'));
+test('Explicitly enabled via camelCase', () => assert(getFlag({ waitForAllActionsInRepositoryBeforeMergable: true }) === true, 'Expected true'));
+test('Explicitly enabled via kebab-case', () => assert(getFlag({ 'wait-for-all-actions-in-repository-before-mergable': true }) === true, 'Expected true'));
 test('CamelCase precedence', () => {
   assert(getFlag({ waitForAllActionsInRepositoryBeforeMergable: false, 'wait-for-all-actions-in-repository-before-mergable': true }) === false, 'camelCase should win');
 });
@@ -295,6 +307,82 @@ test('Multiple unrelated branches all filtered', () => {
   assert(r.allAgree, 'Should agree when all active runs are on unrelated branches');
   assert(r.mechanisms.repoActions.filteredCount === 3);
   assert(r.mechanisms.repoActions.count === 0);
+});
+
+// ===== Suite 8: Issue #1573 - All PR commits CI check =====
+console.log('\n📋 Issue #1573: All PR Commits CI Check\n');
+
+test('All commits complete → CONSENSUS', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [],
+    waitForAll: false,
+    prCommitsCI: { allComplete: true, totalCommits: 3, pendingCommits: [], details: [] },
+  });
+  assert(r.allAgree, 'Should agree when all commits CI is complete');
+  assert(r.mechanisms.allCommitsCI.complete === true);
+  assert(r.mechanisms.allCommitsCI.totalCommits === 3);
+});
+
+test('Some commits pending → DISAGREE', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [],
+    waitForAll: false,
+    prCommitsCI: { allComplete: false, totalCommits: 3, pendingCommits: ['abc1234'], details: [] },
+  });
+  assert(!r.allAgree, 'Should disagree when some commits have pending CI');
+  assert(r.mechanisms.allCommitsCI.complete === false);
+  assert(r.mechanisms.allCommitsCI.pendingCommits.length === 1);
+});
+
+test('All-commits check skipped when head CI not passing', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'pending',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [],
+    waitForAll: false,
+    prCommitsCI: { allComplete: false, totalCommits: 3, pendingCommits: ['abc1234'], details: [] },
+  });
+  assert(!r.allAgree, 'Should disagree due to pending CheckRuns');
+  assert(r.mechanisms.allCommitsCI.skipped === true, 'All-commits check should be skipped when head CI not passing');
+});
+
+test('No prCommitsCI provided → skipped (backward compat)', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [],
+    waitForAll: false,
+  });
+  assert(r.allAgree, 'Should agree when no prCommitsCI provided');
+  assert(r.mechanisms.allCommitsCI.skipped === true);
+});
+
+test('All commits + repo-wide flag: both must pass', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [{ id: 1, status: 'in_progress', head_branch: 'my-branch' }],
+    waitForAll: true,
+    prBranch: 'my-branch',
+    prCommitsCI: { allComplete: true, totalCommits: 2, pendingCommits: [], details: [] },
+  });
+  assert(!r.allAgree, 'Should disagree: repo actions on same branch still block');
+});
+
+test('Pending commits block even when repo-wide is clear', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: [{ status: 'completed' }],
+    activeRepoRuns: [],
+    waitForAll: true,
+    prBranch: 'my-branch',
+    prCommitsCI: { allComplete: false, totalCommits: 5, pendingCommits: ['aaa', 'bbb'], details: [] },
+  });
+  assert(!r.allAgree, 'Should disagree: pending commits block even when repo is clear');
 });
 
 // Final report

@@ -62,12 +62,20 @@ This means any active run on ANY branch in the repository blocks ALL PRs from be
 
 ## Fix
 
-### Approach: Branch-Aware Filtering
+### Approach 1: Default to PR-Branch-Only Checking
 
-In `checkCIConsensus()`, when the PR's own CI is fully passing (`checkRunsOK && workflowsOK`), filter the repo-wide active runs to only include runs on the **PR's own branch**.
+Changed `--wait-for-all-actions-in-repository-before-mergable` default from `true` to `false`. By default, the consensus check now only verifies CI on the PR branch itself (via CheckRuns API and WorkflowRuns API), not all repo-wide runs. The flag can still be explicitly enabled for the rare cases where repo-wide safety is needed.
+
+### Approach 2: All-Commits CI Check
+
+Added verification that CI has completed for **all commits** on the PR branch, not just the HEAD SHA. New functions `getPRCommitShas()` and `checkAllPRCommitsCI()` iterate over every commit in the PR and check their workflow run statuses. This ensures no commit's CI is still running before declaring the PR mergeable.
+
+### Approach 3: Branch-Aware Filtering (when repo-wide flag is enabled)
+
+When `--wait-for-all-actions-in-repository-before-mergable` is explicitly enabled, and the PR's own CI is fully passing, filter repo-wide active runs to only include runs on the **PR's own branch**.
 
 ```javascript
-if (repoInfo.hasActiveRuns && checkRunsOK && workflowsOK && prBranch) {
+if (repoInfo.hasActiveRuns && checkRunsOK && workflowsOK && allCommitsOK && prBranch) {
   const relevantRuns = repoInfo.runs.filter(r => r.head_branch === prBranch);
   filteredCount = repoInfo.count - relevantRuns.length;
   repoOK = relevantRuns.length === 0;
@@ -76,28 +84,37 @@ if (repoInfo.hasActiveRuns && checkRunsOK && workflowsOK && prBranch) {
 
 ### Safety Guarantees Preserved
 
-1. **When PR's CI is NOT fully passing** (CheckRuns pending/failed, WorkflowRuns in-progress): No filtering occurs — all repo-wide runs still block, maintaining the original safety behavior
-2. **When no `prBranch` is provided**: No filtering occurs (backward compatibility)
-3. **Same-branch runs still block**: If the PR's own branch has active runs that aren't yet reflected in CheckRuns/WorkflowRuns, they still block consensus
+1. **Default (flag off)**: Only PR branch CI is checked — CheckRuns API, WorkflowRuns for HEAD SHA, and all-commits CI check
+2. **When flag is on + PR CI not fully passing**: No branch filtering — all repo-wide runs block (original behavior)
+3. **When no `prBranch` is provided**: No filtering occurs (backward compatibility)
+4. **Same-branch runs still block**: When flag is on, active runs on the PR's own branch still block consensus
+5. **All commits must complete**: Even when HEAD is passing, pending CI on earlier commits blocks consensus
 
 ### Files Changed
 
-- `src/github-merge-repo-actions.lib.mjs` — Branch-aware filtering in `checkCIConsensus()`
-- `src/solve.auto-merge.lib.mjs` — Pass `prBranch` to consensus check, improved DISAGREE logging
-- `tests/test-repo-actions-consensus-1503.mjs` — 8 new tests for branch filtering behavior
+- `src/github-merge-repo-actions.lib.mjs` — Branch-aware filtering + `getPRCommitShas()` + `checkAllPRCommitsCI()` in `checkCIConsensus()`
+- `src/github-merge.lib.mjs` — Re-export new functions
+- `src/solve.auto-merge.lib.mjs` — Default flag change, AllCommits in DISAGREE/AGREE logging
+- `tests/test-repo-actions-consensus-1503.mjs` — 14 new tests (46 total, all passing)
 
 ### Test Coverage
 
-| Test                          | Scenario                                      |
-| ----------------------------- | --------------------------------------------- |
-| Unrelated branch run skipped  | Active run on other branch → AGREE            |
-| Same branch run blocks        | Active run on PR branch → DISAGREE            |
-| Mixed branches                | Only same-branch runs block                   |
-| No prBranch (backward compat) | All runs block (no filtering)                 |
-| Pending CheckRuns             | No filtering even with unrelated runs         |
-| In-progress WorkflowRuns      | No filtering even with unrelated runs         |
-| Real-world Issue #1573        | Build Windows EXE on unrelated branch → AGREE |
-| Multiple unrelated branches   | All filtered → AGREE                          |
+| Test                                       | Scenario                                            |
+| ------------------------------------------ | --------------------------------------------------- |
+| Default flag is false                      | Issue #1573: disabled by default                    |
+| Explicitly enabled via camelCase/kebab     | Can still opt-in to repo-wide checking              |
+| All commits complete → CONSENSUS           | All PR commits CI done                              |
+| Some commits pending → DISAGREE            | Blocks when earlier commits still running           |
+| All-commits skipped when head not passing  | Only checks all commits after head passes           |
+| No prCommitsCI → skipped (backward compat) | Graceful when not provided                          |
+| Both all-commits + repo-wide must pass     | Combined safety                                     |
+| Pending commits block even with clear repo | All-commits is independent of repo-wide             |
+| Unrelated branch run skipped               | Active run on other branch → AGREE                  |
+| Same branch run blocks                     | Active run on PR branch → DISAGREE                  |
+| Mixed branches                             | Only same-branch runs block                         |
+| No prBranch (backward compat)              | All runs block (no filtering)                       |
+| Real-world Issue #1573                     | Build Windows EXE on unrelated branch → AGREE       |
+| Multiple unrelated branches all filtered   | All filtered → AGREE                                |
 
 ## Data Sources
 

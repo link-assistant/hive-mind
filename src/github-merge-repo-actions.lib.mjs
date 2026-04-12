@@ -70,8 +70,60 @@ export async function waitForAllRepoActions(owner, repo, options = {}, verbose =
 }
 
 /**
+ * Get all commit SHAs for a pull request branch.
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<string[]>} Array of commit SHAs
+ */
+export async function getPRCommitShas(owner, repo, prNumber, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits?per_page=100" --jq '[.[].sha]'`);
+    const shas = JSON.parse(stdout.trim() || '[]');
+    if (verbose && shas.length > 1) {
+      console.log(`[VERBOSE] pr-commits: ${shas.length} commits on PR #${prNumber}`);
+    }
+    return shas;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Check that workflow runs for ALL commits on the PR branch have completed.
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {Function} getWorkflowRunsForSha - Function to get workflow runs for a SHA
+ * @returns {Promise<{allComplete: boolean, totalCommits: number, pendingCommits: string[], details: Object[]}>}
+ */
+export async function checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWorkflowRunsForSha) {
+  const shas = await getPRCommitShas(owner, repo, prNumber, verbose);
+  if (shas.length === 0) return { allComplete: true, totalCommits: 0, pendingCommits: [], details: [] };
+
+  const details = [];
+  const pendingCommits = [];
+  for (const sha of shas) {
+    const runs = await getWorkflowRunsForSha(owner, repo, sha, false);
+    const inProgress = runs.filter(r => r.status !== 'completed');
+    const complete = inProgress.length === 0;
+    details.push({ sha: sha.substring(0, 7), total: runs.length, inProgress: inProgress.length, complete });
+    if (!complete) pendingCommits.push(sha.substring(0, 7));
+  }
+
+  if (verbose && pendingCommits.length > 0) {
+    console.log(`[VERBOSE] pr-commits: ${pendingCommits.length}/${shas.length} commits have in-progress CI: ${pendingCommits.join(', ')}`);
+  }
+
+  return { allComplete: pendingCommits.length === 0, totalCommits: shas.length, pendingCommits, details };
+}
+
+/**
  * Multi-mechanism CI consensus check. Requires Check Runs API, Workflow Runs API,
  * and optionally repo-wide active runs to ALL agree before concluding CI is complete.
+ * Issue #1573: Also checks all PR commits' CI (not just head SHA) by default.
  * @param {Object} params
  * @returns {Promise<{allAgree: boolean, mechanisms: Object, ciStatus: Object, workflowRuns: Array}>}
  */
@@ -82,12 +134,20 @@ export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllR
   const workflowRuns = await getWorkflowRunsForSha(owner, repo, sha, verbose);
   const workflowsOK = workflowRuns.length === 0 || workflowRuns.every(r => r.status === 'completed');
 
+  // Issue #1573: Check all PR commits' CI, not just the head SHA
+  let allCommitsOK = true;
+  let allCommitsInfo = null;
+  if (checkRunsOK && workflowsOK && prNumber) {
+    allCommitsInfo = await checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWorkflowRunsForSha);
+    allCommitsOK = allCommitsInfo.allComplete;
+  }
+
   let repoOK = true;
   let repoInfo = null;
   let filteredCount = 0;
   if (waitForAllRepoActionsFlag) {
     repoInfo = await getAllActiveRepoRuns(owner, repo, verbose);
-    if (repoInfo.hasActiveRuns && checkRunsOK && workflowsOK && prBranch) {
+    if (repoInfo.hasActiveRuns && checkRunsOK && workflowsOK && allCommitsOK && prBranch) {
       // Issue #1573: When the PR's own CI is fully passing, only block on runs
       // from the PR's own branch — not unrelated branches in the same repo.
       const relevantRuns = repoInfo.runs.filter(r => r.head_branch === prBranch);
@@ -102,17 +162,19 @@ export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllR
     }
   }
 
-  const allAgree = checkRunsOK && workflowsOK && repoOK;
+  const allAgree = checkRunsOK && workflowsOK && allCommitsOK && repoOK;
   const relevantCount = (repoInfo?.count ?? 0) - filteredCount;
   const mechanisms = {
     checkRunsAPI: { complete: checkRunsOK, status: ciStatus.status },
     workflowRunsAPI: { complete: workflowsOK, total: workflowRuns.length, inProgress: workflowRuns.filter(r => r.status !== 'completed').length },
+    allCommitsCI: allCommitsInfo ? { complete: allCommitsOK, totalCommits: allCommitsInfo.totalCommits, pendingCommits: allCommitsInfo.pendingCommits } : { skipped: true },
     repoActions: waitForAllRepoActionsFlag ? { complete: repoOK, count: relevantCount, filteredCount } : { skipped: true },
   };
 
   if (verbose) {
     const repoLabel = waitForAllRepoActionsFlag ? `${repoOK}(${relevantCount} relevant${filteredCount > 0 ? `, ${filteredCount} skipped` : ''})` : 'skip';
-    console.log(`[VERBOSE] consensus: CheckRuns=${checkRunsOK}(${ciStatus.status}), WorkflowRuns=${workflowsOK}(${workflowRuns.length}), RepoActions=${repoLabel} → ${allAgree ? 'AGREE' : 'DISAGREE'}`);
+    const commitsLabel = allCommitsInfo ? `${allCommitsOK}(${allCommitsInfo.totalCommits} commits${allCommitsInfo.pendingCommits.length > 0 ? `, ${allCommitsInfo.pendingCommits.length} pending` : ''})` : 'skip';
+    console.log(`[VERBOSE] consensus: CheckRuns=${checkRunsOK}(${ciStatus.status}), WorkflowRuns=${workflowsOK}(${workflowRuns.length}), AllCommits=${commitsLabel}, RepoActions=${repoLabel} → ${allAgree ? 'AGREE' : 'DISAGREE'}`);
   }
   return { allAgree, mechanisms, ciStatus, workflowRuns };
 }

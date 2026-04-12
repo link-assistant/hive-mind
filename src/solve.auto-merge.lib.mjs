@@ -66,8 +66,9 @@ export const watchUntilMergeable = async params => {
   const MIN_CI_CHECK_INTERVAL_SECONDS = 120;
   const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
-  // Issue #1503: --wait-for-all-actions-in-repository-before-mergable (default: true)
-  const waitForAllRepoActionsFlag = argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? true;
+  // Issue #1503/#1573: --wait-for-all-actions-in-repository-before-mergable (default: false)
+  // By default, only check CI on the PR branch. Enable this flag to wait for ALL repo-wide actions.
+  const waitForAllRepoActionsFlag = argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? false;
 
   // Track latest session data across all iterations for accurate pricing
   let latestSessionId = null;
@@ -218,7 +219,8 @@ export const watchUntilMergeable = async params => {
           if (!consensus.allAgree) {
             const m = consensus.mechanisms;
             const repoLabel = m.repoActions.skipped ? 'skipped' : `${m.repoActions.count} active${m.repoActions.filteredCount > 0 ? ` (${m.repoActions.filteredCount} unrelated skipped)` : ''}`;
-            await log(formatAligned('🔄', 'CI mechanisms DISAGREE:', `CheckRuns=${m.checkRunsAPI.status}, WorkflowRuns=${m.workflowRunsAPI.inProgress} in-progress, RepoActions=${repoLabel}`, 2));
+            const commitsLabel = m.allCommitsCI.skipped ? 'skipped' : `${m.allCommitsCI.pendingCommits.length} pending of ${m.allCommitsCI.totalCommits}`;
+            await log(formatAligned('🔄', 'CI mechanisms DISAGREE:', `CheckRuns=${m.checkRunsAPI.status}, WorkflowRuns=${m.workflowRunsAPI.inProgress} in-progress, AllCommits=${commitsLabel}, RepoActions=${repoLabel}`, 2));
             await log(formatAligned('⏳', 'Continuing to monitor...', 'Mechanisms must agree before declaring mergeable', 2));
             consecutiveNoRunsChecks = 0;
             lastCheckTime = currentTime;
@@ -228,7 +230,8 @@ export const watchUntilMergeable = async params => {
             await new Promise(resolve => setTimeout(resolve, actualWaitSeconds * 1000));
             continue;
           }
-          await log(formatAligned('✅', 'All CI mechanisms agree:', `CheckRuns=${consensus.mechanisms.checkRunsAPI.status}, WorkflowRuns=complete(${consensus.mechanisms.workflowRunsAPI.total}), RepoActions=${consensus.mechanisms.repoActions.skipped ? 'skipped' : 'clear'}`, 2));
+          const acLabel = consensus.mechanisms.allCommitsCI.skipped ? '' : `, AllCommits=complete(${consensus.mechanisms.allCommitsCI.totalCommits})`;
+          await log(formatAligned('✅', 'All CI mechanisms agree:', `CheckRuns=${consensus.mechanisms.checkRunsAPI.status}, WorkflowRuns=complete(${consensus.mechanisms.workflowRunsAPI.total})${acLabel}, RepoActions=${consensus.mechanisms.repoActions.skipped ? 'skipped' : 'clear'}`, 2));
         } else if (waitForAllRepoActionsFlag) {
           // Even with no CI configured, check repo-wide actions for absolute safety
           const repoRuns = await getAllActiveRepoRuns(owner, repo, argv.verbose);

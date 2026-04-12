@@ -1,5 +1,14 @@
 # @link-assistant/hive-mind
 
+## 1.50.7
+
+### Patch Changes
+
+- 84b9853: fix: make all long sleeps interruptible so CTRL+C responds immediately (#1574)
+  - Replace raw `setTimeout` sleeps with an interruptible sleep utility that listens for SIGINT
+  - Ensure CTRL+C during CI polling, auto-merge waits, and auto-continue delays terminates the process immediately
+  - Add `interruptible-sleep.lib.mjs` with full test coverage
+
 ## 1.50.6
 
 ### Patch Changes

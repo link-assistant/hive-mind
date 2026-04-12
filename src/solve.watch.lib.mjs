@@ -37,6 +37,9 @@ const { detectAndCountFeedback } = feedbackLib;
 const restartShared = await import('./solve.restart-shared.lib.mjs');
 const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildUncommittedChangesFeedback, isApiError } = restartShared;
 
+// Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
+const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+
 /**
  * Monitor for feedback in a loop and trigger restart when detected
  */
@@ -446,7 +449,7 @@ export const watchForFeedback = async params => {
       const actualWaitMs = actualWaitSeconds * 1000;
       await log(formatAligned('⏱️', 'Next check in:', `${actualWaitSeconds} seconds...`, 2));
       await log(''); // Blank line for readability
-      await new Promise(resolve => setTimeout(resolve, actualWaitMs));
+      await interruptibleSleep(actualWaitMs);
     } else if (isTemporaryWatch && !firstIterationInTemporaryMode) {
       // In auto-restart mode, check immediately without waiting
       await log(formatAligned('', 'Checking immediately for uncommitted changes...', '', 2));

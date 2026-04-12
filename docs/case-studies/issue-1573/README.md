@@ -16,6 +16,7 @@ From the log (`86023b44-4ee9-4161-aa89-36045ba8ebb9`):
 ```
 
 PR #1735 (repo: `Jhon-Crow/godot-topdown-MVP`) had:
+
 - **CheckRuns**: All 9 passed (success)
 - **WorkflowRuns**: All 8 completed successfully
 - **RepoActions**: 1 active — `Build Windows Portable EXE` on branch `issue-1805-df6d19c3568b`
@@ -24,13 +25,13 @@ The consensus check kept reporting DISAGREE because the repo-wide check saw an a
 
 ## Timeline
 
-| Time | Event |
-|------|-------|
-| ~00:14 | Session starts, solving issue for PR #1735 |
-| ~00:24 | PR's own CI completes (all 8 workflow runs + 9 check runs pass) |
+| Time     | Event                                                                                     |
+| -------- | ----------------------------------------------------------------------------------------- |
+| ~00:14   | Session starts, solving issue for PR #1735                                                |
+| ~00:24   | PR's own CI completes (all 8 workflow runs + 9 check runs pass)                           |
 | 00:24:42 | First DISAGREE — `Build Windows Portable EXE` on `issue-1805-df6d19c3568b` is in_progress |
-| 00:25:36 | Second DISAGREE — same unrelated run still active |
-| ... | Would continue indefinitely until the unrelated run finishes |
+| 00:25:36 | Second DISAGREE — same unrelated run still active                                         |
+| ...      | Would continue indefinitely until the unrelated run finishes                              |
 
 ## Root Cause Analysis
 
@@ -45,6 +46,7 @@ The consensus system (introduced in Issue #1503) requires three independent CI d
 ### The Bug
 
 `getAllActiveRepoRuns()` fetches all active runs with **no branch filtering**:
+
 ```javascript
 const activeFilter = '.workflow_runs[] | select(.status=="in_progress" or .status=="queued" ...)';
 // Query: repos/{owner}/{repo}/actions/runs?per_page=100
@@ -86,16 +88,16 @@ if (repoInfo.hasActiveRuns && checkRunsOK && workflowsOK && prBranch) {
 
 ### Test Coverage
 
-| Test | Scenario |
-|------|----------|
-| Unrelated branch run skipped | Active run on other branch → AGREE |
-| Same branch run blocks | Active run on PR branch → DISAGREE |
-| Mixed branches | Only same-branch runs block |
-| No prBranch (backward compat) | All runs block (no filtering) |
-| Pending CheckRuns | No filtering even with unrelated runs |
-| In-progress WorkflowRuns | No filtering even with unrelated runs |
-| Real-world Issue #1573 | Build Windows EXE on unrelated branch → AGREE |
-| Multiple unrelated branches | All filtered → AGREE |
+| Test                          | Scenario                                      |
+| ----------------------------- | --------------------------------------------- |
+| Unrelated branch run skipped  | Active run on other branch → AGREE            |
+| Same branch run blocks        | Active run on PR branch → DISAGREE            |
+| Mixed branches                | Only same-branch runs block                   |
+| No prBranch (backward compat) | All runs block (no filtering)                 |
+| Pending CheckRuns             | No filtering even with unrelated runs         |
+| In-progress WorkflowRuns      | No filtering even with unrelated runs         |
+| Real-world Issue #1573        | Build Windows EXE on unrelated branch → AGREE |
+| Multiple unrelated branches   | All filtered → AGREE                          |
 
 ## Data Sources
 

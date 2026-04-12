@@ -271,11 +271,7 @@ test('Branch filtering only when PR CI passes — in-progress workflows block ev
 test('Real-world: Build Windows EXE on unrelated branch does not block (Issue #1573)', () => {
   const r = simulateConsensus({
     checkRunsStatus: 'success',
-    workflowRuns: [
-      { status: 'completed' }, { status: 'completed' }, { status: 'completed' },
-      { status: 'completed' }, { status: 'completed' }, { status: 'completed' },
-      { status: 'completed' }, { status: 'completed' },
-    ],
+    workflowRuns: [{ status: 'completed' }, { status: 'completed' }, { status: 'completed' }, { status: 'completed' }, { status: 'completed' }, { status: 'completed' }, { status: 'completed' }, { status: 'completed' }],
     activeRepoRuns: [{ id: 24270051875, status: 'in_progress', head_branch: 'issue-1805-df6d19c3568b' }],
     waitForAll: true,
     prBranch: 'issue-991-abc123',

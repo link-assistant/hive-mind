@@ -99,22 +99,22 @@ if (repoInfo.hasActiveRuns && checkRunsOK && workflowsOK && allCommitsOK && prBr
 
 ### Test Coverage
 
-| Test                                       | Scenario                                            |
-| ------------------------------------------ | --------------------------------------------------- |
-| Default flag is false                      | Issue #1573: disabled by default                    |
-| Explicitly enabled via camelCase/kebab     | Can still opt-in to repo-wide checking              |
-| All commits complete → CONSENSUS           | All PR commits CI done                              |
-| Some commits pending → DISAGREE            | Blocks when earlier commits still running           |
-| All-commits skipped when head not passing  | Only checks all commits after head passes           |
-| No prCommitsCI → skipped (backward compat) | Graceful when not provided                          |
-| Both all-commits + repo-wide must pass     | Combined safety                                     |
-| Pending commits block even with clear repo | All-commits is independent of repo-wide             |
-| Unrelated branch run skipped               | Active run on other branch → AGREE                  |
-| Same branch run blocks                     | Active run on PR branch → DISAGREE                  |
-| Mixed branches                             | Only same-branch runs block                         |
-| No prBranch (backward compat)              | All runs block (no filtering)                       |
-| Real-world Issue #1573                     | Build Windows EXE on unrelated branch → AGREE       |
-| Multiple unrelated branches all filtered   | All filtered → AGREE                                |
+| Test                                       | Scenario                                      |
+| ------------------------------------------ | --------------------------------------------- |
+| Default flag is false                      | Issue #1573: disabled by default              |
+| Explicitly enabled via camelCase/kebab     | Can still opt-in to repo-wide checking        |
+| All commits complete → CONSENSUS           | All PR commits CI done                        |
+| Some commits pending → DISAGREE            | Blocks when earlier commits still running     |
+| All-commits skipped when head not passing  | Only checks all commits after head passes     |
+| No prCommitsCI → skipped (backward compat) | Graceful when not provided                    |
+| Both all-commits + repo-wide must pass     | Combined safety                               |
+| Pending commits block even with clear repo | All-commits is independent of repo-wide       |
+| Unrelated branch run skipped               | Active run on other branch → AGREE            |
+| Same branch run blocks                     | Active run on PR branch → DISAGREE            |
+| Mixed branches                             | Only same-branch runs block                   |
+| No prBranch (backward compat)              | All runs block (no filtering)                 |
+| Real-world Issue #1573                     | Build Windows EXE on unrelated branch → AGREE |
+| Multiple unrelated branches all filtered   | All filtered → AGREE                          |
 
 ## Data Sources
 

@@ -499,9 +499,8 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
         totalLine += `, $${usage.costUSD.toFixed(6)} cost`;
       }
 
-      stats += `\n\nTotal: ${totalLine}`;
-
       // Issue #1590: Show individual sub-agent call list when multiple calls exist
+      // Total line appears AFTER the sub-agent calls list (not before)
       if (callCount > 1) {
         const matchingCalls = getSubAgentCallsForModel(modelId, validSubAgentCalls);
         // Issue #1590: Check if actual per-call usage data is available from parent_tool_use_id tracking
@@ -554,6 +553,8 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
           stats += `\n\n_Per-call values are estimates (total ÷ ${callCount}). Exact per-call breakdown requires [upstream support](https://github.com/anthropics/claude-code/issues/46520)._`;
         }
       }
+
+      stats += `\n\nTotal: ${totalLine}`;
     }
   }
 

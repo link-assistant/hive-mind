@@ -315,6 +315,34 @@ runTest('buildBudgetStatsString lists each sub-agent call numbered (no usage)', 
   assertContains(result, '/ 64K', 'Should show output limit');
 });
 
+// ==== Test: Total line appears AFTER sub-agent calls, not before ====
+
+runTest('buildBudgetStatsString Total line appears after Sub-agent calls section (actual usage)', () => {
+  const tokenUsage = makeIssueScenarioData();
+  const subAgentCalls = makeSubAgentCallsWithUsage(12);
+  const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
+  const subAgentCallsPos = result.indexOf('Sub-agent calls:');
+  const totalPos = result.lastIndexOf('Total:');
+  if (subAgentCallsPos === -1) throw new Error('Sub-agent calls: section not found');
+  if (totalPos === -1) throw new Error('Total: line not found');
+  if (totalPos <= subAgentCallsPos) {
+    throw new Error(`Total: (pos ${totalPos}) should appear AFTER Sub-agent calls: (pos ${subAgentCallsPos}), but it appears before`);
+  }
+});
+
+runTest('buildBudgetStatsString Total line appears after Sub-agent calls section (estimated usage)', () => {
+  const tokenUsage = makeIssueScenarioData();
+  const subAgentCalls = makeSubAgentCallsNoUsage(12);
+  const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
+  const subAgentCallsPos = result.indexOf('Sub-agent calls:');
+  const totalPos = result.lastIndexOf('Total:');
+  if (subAgentCallsPos === -1) throw new Error('Sub-agent calls: section not found');
+  if (totalPos === -1) throw new Error('Total: line not found');
+  if (totalPos <= subAgentCallsPos) {
+    throw new Error(`Total: (pos ${totalPos}) should appear AFTER Sub-agent calls: (pos ${subAgentCallsPos}), but it appears before`);
+  }
+});
+
 // Summary
 console.log(`\n📊 Results: ${testsPassed} passed, ${testsFailed} failed\n`);
 if (testsFailed > 0) process.exit(1);

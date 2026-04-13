@@ -98,24 +98,24 @@ if (waitForAllRepoActionsFlag) {
 
 ### Test Coverage
 
-| Test                                             | Scenario                                           |
-| ------------------------------------------------ | -------------------------------------------------- |
-| Default flag is false (no config)                | Defaults to off when not explicitly set             |
-| Corrected camelCase/kebab enabled/disabled       | New spelling works                                 |
-| Deprecated camelCase/kebab backward compat       | Old spelling still works                           |
-| Corrected takes precedence over deprecated       | Migration-safe: new spelling wins                  |
-| Unrelated branch BLOCKS when flag on             | Any active run blocks (no branch filtering)        |
-| Same branch run blocks                           | Active run on PR branch → DISAGREE                 |
-| Mixed branches: ALL runs block                   | No filtering regardless of branch                  |
-| Flag off → unrelated runs ignored                | Without flag, only PR CI matters                   |
-| Build Windows EXE blocks when flag ON            | Real-world: unrelated branch blocks (by design)    |
-| Build Windows EXE allowed when flag OFF          | Real-world: Issue #1573 fix                        |
-| All commits complete → CONSENSUS                 | All PR commits CI done                             |
-| Some commits pending → DISAGREE                  | Blocks when earlier commits still running          |
-| All-commits skipped when head not passing        | Only checks all commits after head passes          |
-| No prCommitsCI → skipped (backward compat)       | Graceful when not provided                         |
-| Both all-commits + repo-wide must pass           | Combined safety                                    |
-| Pending commits block even with clear repo       | All-commits is independent of repo-wide            |
+| Test                                       | Scenario                                        |
+| ------------------------------------------ | ----------------------------------------------- |
+| Default flag is false (no config)          | Defaults to off when not explicitly set         |
+| Corrected camelCase/kebab enabled/disabled | New spelling works                              |
+| Deprecated camelCase/kebab backward compat | Old spelling still works                        |
+| Corrected takes precedence over deprecated | Migration-safe: new spelling wins               |
+| Unrelated branch BLOCKS when flag on       | Any active run blocks (no branch filtering)     |
+| Same branch run blocks                     | Active run on PR branch → DISAGREE              |
+| Mixed branches: ALL runs block             | No filtering regardless of branch               |
+| Flag off → unrelated runs ignored          | Without flag, only PR CI matters                |
+| Build Windows EXE blocks when flag ON      | Real-world: unrelated branch blocks (by design) |
+| Build Windows EXE allowed when flag OFF    | Real-world: Issue #1573 fix                     |
+| All commits complete → CONSENSUS           | All PR commits CI done                          |
+| Some commits pending → DISAGREE            | Blocks when earlier commits still running       |
+| All-commits skipped when head not passing  | Only checks all commits after head passes       |
+| No prCommitsCI → skipped (backward compat) | Graceful when not provided                      |
+| Both all-commits + repo-wide must pass     | Combined safety                                 |
+| Pending commits block even with clear repo | All-commits is independent of repo-wide         |
 
 ## Data Sources
 

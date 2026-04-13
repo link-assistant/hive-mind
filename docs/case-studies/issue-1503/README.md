@@ -134,12 +134,13 @@ false positives from race conditions between different GitHub API endpoints.
 
 ### 9. Repository-wide action monitoring (enhanced, iteration 2)
 
-New `--wait-for-all-actions-in-repository-before-mergable` flag (default: `true`) checks
+New `--wait-for-all-actions-in-repository-before-mergeable` flag (default: `true`) checks
 ALL active workflow runs across the entire repository, not just PR-specific ones. This is
 the "absolute safety mechanism" that prevents interacting CI/CD pipelines from causing false
-positives (e.g., a deploy pipeline on `main` triggered by a previous merge).
+positives (e.g., a deploy pipeline on `main` triggered by a previous merge). When enabled,
+it blocks on ANY active run regardless of branch — no branch filtering is applied.
 
-Can be disabled with `--no-wait-for-all-actions-in-repository-before-mergable`.
+Can be disabled with `--no-wait-for-all-actions-in-repository-before-mergeable`.
 
 ### 10. Minimum 5-minute CI check interval (enhanced, iteration 2)
 
@@ -152,7 +153,7 @@ used by the `/merge` command in the Telegram bot.
 - `src/solve.auto-merge.lib.mjs` — Per-SHA counter, consensus check, min interval, repo-wide actions
 - `src/github-merge.lib.mjs` — Re-exports new repo-actions module
 - `src/github-merge-repo-actions.lib.mjs` — NEW: `getAllActiveRepoRuns`, `waitForAllRepoActions`, `checkCIConsensus`
-- `src/solve.config.lib.mjs` — `--wait-for-all-actions-in-repository-before-mergable` flag
+- `src/solve.config.lib.mjs` — `--wait-for-all-actions-in-repository-before-mergeable` flag
 - `tests/test-false-positive-iteration-count-1503.mjs` — 20 unit tests (11 original + 9 new)
 - `tests/test-repo-actions-consensus-1503.mjs` — NEW: 30 unit tests for consensus, repo-wide, intervals
 

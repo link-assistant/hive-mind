@@ -108,12 +108,7 @@ try {
 
   while (hasNextPage) {
     const afterArgs = endCursor ? ['-f', `after=${endCursor}`] : [];
-    const ghArgs = [
-      'api', 'graphql',
-      '-f', `login=${githubUser}`,
-      ...afterArgs,
-      '-f', `query=${query}`,
-    ];
+    const ghArgs = ['api', 'graphql', '-f', `login=${githubUser}`, ...afterArgs, '-f', `query=${query}`];
     const result = spawnSync('gh', ghArgs, {
       encoding: 'utf8',
       maxBuffer: 50 * 1024 * 1024,

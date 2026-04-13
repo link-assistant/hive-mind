@@ -1332,7 +1332,7 @@ export async function getCommitDate(owner, repo, sha, verbose = false) {
 export async function checkPreviousPRCommitsHadCI(owner, repo, prNumber, headSha, verbose = false) {
   try {
     // Get all commits in the PR
-    const { stdout: commitsJson } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits?per_page=100" --jq '[.[].sha]'`);
+    const { stdout: commitsJson } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits" --paginate --jq '[.[].sha]'`);
     const allShas = JSON.parse(commitsJson.trim() || '[]');
 
     // Exclude the current HEAD SHA
@@ -1455,8 +1455,8 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false,
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
 export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
 
-import { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus } from './github-merge-repo-actions.lib.mjs'; // Issue #1503
-export { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus };
+import { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas } from './github-merge-repo-actions.lib.mjs'; // Issue #1503
+export { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas };
 
 export default {
   READY_LABEL,

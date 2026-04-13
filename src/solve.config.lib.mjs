@@ -186,10 +186,15 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
     default: true,
   },
+  'wait-for-all-actions-in-repository-before-mergeable': {
+    type: 'boolean',
+    description: 'Wait for ALL active GitHub Actions workflow runs in the entire repository to complete before declaring PR mergeable. When enabled, blocks merge if ANY CI/CD run in the repository is active, regardless of branch — this ensures safety when CI/CD pipelines interact or depend on each other. Enabled by default.',
+    default: true,
+  },
   'wait-for-all-actions-in-repository-before-mergable': {
     type: 'boolean',
-    description: 'Wait for ALL active GitHub Actions workflow runs in the entire repository to complete before declaring PR mergeable. Provides absolute safety against interacting CI/CD pipelines. Enabled by default.',
-    default: true,
+    description: 'Deprecated alias for --wait-for-all-actions-in-repository-before-mergeable (fixes typo).',
+    hidden: true,
   },
   'auto-restart-on-non-updated-pull-request-description': {
     type: 'boolean',

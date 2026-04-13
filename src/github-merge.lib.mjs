@@ -1332,7 +1332,7 @@ export async function getCommitDate(owner, repo, sha, verbose = false) {
 export async function checkPreviousPRCommitsHadCI(owner, repo, prNumber, headSha, verbose = false) {
   try {
     // Get all commits in the PR
-    const { stdout: commitsJson } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits?per_page=100" --jq '[.[].sha]'`);
+    const { stdout: commitsJson } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits" --paginate --jq '[.[].sha]'`);
     const allShas = JSON.parse(commitsJson.trim() || '[]');
 
     // Exclude the current HEAD SHA

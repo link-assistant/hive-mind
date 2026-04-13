@@ -79,7 +79,7 @@ export async function waitForAllRepoActions(owner, repo, options = {}, verbose =
  */
 export async function getPRCommitShas(owner, repo, prNumber, verbose = false) {
   try {
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits?per_page=100" --jq '[.[].sha]'`);
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits" --paginate --jq '[.[].sha]'`);
     const shas = JSON.parse(stdout.trim() || '[]');
     if (verbose && shas.length > 1) {
       console.log(`[VERBOSE] pr-commits: ${shas.length} commits on PR #${prNumber}`);
@@ -127,14 +127,13 @@ export async function checkAllPRCommitsCI(owner, repo, prNumber, verbose, getWor
  * @param {Object} params
  * @returns {Promise<{allAgree: boolean, mechanisms: Object, ciStatus: Object, workflowRuns: Array}>}
  */
-export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllRepoActionsFlag, verbose, getDetailedCIStatus, getWorkflowRunsForSha, prBranch }) {
+export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllRepoActionsFlag, verbose, getDetailedCIStatus, getWorkflowRunsForSha }) {
   const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
   const checkRunsOK = ciStatus.status === 'success' || ciStatus.status === 'no_checks';
 
   const workflowRuns = await getWorkflowRunsForSha(owner, repo, sha, verbose);
   const workflowsOK = workflowRuns.length === 0 || workflowRuns.every(r => r.status === 'completed');
 
-  // Issue #1573: Check all PR commits' CI, not just the head SHA
   let allCommitsOK = true;
   let allCommitsInfo = null;
   if (checkRunsOK && workflowsOK && prNumber) {
@@ -142,37 +141,25 @@ export async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllR
     allCommitsOK = allCommitsInfo.allComplete;
   }
 
+  // When enabled, block on ANY active CI/CD run in the repository regardless of branch.
+  // This ensures safety when CI/CD pipelines interact or depend on each other.
   let repoOK = true;
   let repoInfo = null;
-  let filteredCount = 0;
   if (waitForAllRepoActionsFlag) {
     repoInfo = await getAllActiveRepoRuns(owner, repo, verbose);
-    if (repoInfo.hasActiveRuns && checkRunsOK && workflowsOK && allCommitsOK && prBranch) {
-      // Issue #1573: When the PR's own CI is fully passing, only block on runs
-      // from the PR's own branch — not unrelated branches in the same repo.
-      const relevantRuns = repoInfo.runs.filter(r => r.head_branch === prBranch);
-      filteredCount = repoInfo.count - relevantRuns.length;
-      if (verbose && filteredCount > 0) {
-        const skipped = repoInfo.runs.filter(r => r.head_branch !== prBranch);
-        for (const r of skipped) console.log(`[VERBOSE] consensus: skipping unrelated run "${r.name}" (${r.status}) on branch ${r.head_branch}`);
-      }
-      repoOK = relevantRuns.length === 0;
-    } else {
-      repoOK = !repoInfo.hasActiveRuns;
-    }
+    repoOK = !repoInfo.hasActiveRuns;
   }
 
   const allAgree = checkRunsOK && workflowsOK && allCommitsOK && repoOK;
-  const relevantCount = (repoInfo?.count ?? 0) - filteredCount;
   const mechanisms = {
     checkRunsAPI: { complete: checkRunsOK, status: ciStatus.status },
     workflowRunsAPI: { complete: workflowsOK, total: workflowRuns.length, inProgress: workflowRuns.filter(r => r.status !== 'completed').length },
     allCommitsCI: allCommitsInfo ? { complete: allCommitsOK, totalCommits: allCommitsInfo.totalCommits, pendingCommits: allCommitsInfo.pendingCommits } : { skipped: true },
-    repoActions: waitForAllRepoActionsFlag ? { complete: repoOK, count: relevantCount, filteredCount } : { skipped: true },
+    repoActions: waitForAllRepoActionsFlag ? { complete: repoOK, count: repoInfo?.count ?? 0 } : { skipped: true },
   };
 
   if (verbose) {
-    const repoLabel = waitForAllRepoActionsFlag ? `${repoOK}(${relevantCount} relevant${filteredCount > 0 ? `, ${filteredCount} skipped` : ''})` : 'skip';
+    const repoLabel = waitForAllRepoActionsFlag ? `${repoOK}(${repoInfo?.count ?? 0} active)` : 'skip';
     const commitsLabel = allCommitsInfo ? `${allCommitsOK}(${allCommitsInfo.totalCommits} commits${allCommitsInfo.pendingCommits.length > 0 ? `, ${allCommitsInfo.pendingCommits.length} pending` : ''})` : 'skip';
     console.log(`[VERBOSE] consensus: CheckRuns=${checkRunsOK}(${ciStatus.status}), WorkflowRuns=${workflowsOK}(${workflowRuns.length}), AllCommits=${commitsLabel}, RepoActions=${repoLabel} → ${allAgree ? 'AGREE' : 'DISAGREE'}`);
   }

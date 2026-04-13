@@ -353,7 +353,7 @@ solve <issue-url> [options]
 | `--auto-restart-max-iterations`                                  |      | number  | 3             | 最大自动重启迭代次数                                                                      |
 | `--auto-merge`                                                   |      | boolean | false         | 会话结束且 CI 通过时自动合并 PR                                                           |
 | `--auto-restart-until-mergeable`                                 |      | boolean | true          | 自动重启直到 PR 可合并（无迭代限制）。检测计费限额并在私有仓库中停止并发表评论。          |
-| `--wait-for-all-actions-in-repository-before-mergable`           |      | boolean | true          | 在宣布 PR 可合并之前，等待仓库中所有活跃的 GitHub Actions 运行完成                        |
+| `--wait-for-all-actions-in-repository-before-mergeable`          |      | boolean | true          | 在宣布 PR 可合并之前，等待仓库中所有活跃的 GitHub Actions 运行完成。无论分支如何，阻止任何活跃运行以确保 CI/CD 管道交互时的安全性。 |
 | `--auto-restart-on-non-updated-pull-request-description`         |      | boolean | false         | 如果 PR 描述包含占位符文本则自动重启                                                      |
 | `--auto-merge-default-branch-to-pull-request-branch`             |      | boolean | false         | 将默认分支合并到 PR 分支                                                                  |
 | `--allow-fork-divergence-resolution-using-force-push-with-lease` |      | boolean | false         | 允许在 Fork 分歧时使用 force-push                                                         |

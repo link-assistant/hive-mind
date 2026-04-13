@@ -69,9 +69,9 @@ export const watchUntilMergeable = async params => {
   const MIN_CI_CHECK_INTERVAL_SECONDS = 120;
   const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
-  // Issue #1503/#1573: --wait-for-all-actions-in-repository-before-mergable (default: false)
-  // By default, only check CI on the PR branch. Enable this flag to wait for ALL repo-wide actions.
-  const waitForAllRepoActionsFlag = argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? false;
+  // Issue #1503/#1573: --wait-for-all-actions-in-repository-before-mergeable
+  // When enabled (default: true), blocks merge if ANY CI/CD run in the repo is active — ensures safety when pipelines interact.
+  const waitForAllRepoActionsFlag = argv.waitForAllActionsInRepositoryBeforeMergeable ?? argv['wait-for-all-actions-in-repository-before-mergeable'] ?? argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? false;
 
   // Track latest session data across all iterations for accurate pricing
   let latestSessionId = null;
@@ -216,12 +216,11 @@ export const watchUntilMergeable = async params => {
             verbose: argv.verbose,
             getDetailedCIStatus,
             getWorkflowRunsForSha,
-            prBranch: prBranch || branchName,
           });
 
           if (!consensus.allAgree) {
             const m = consensus.mechanisms;
-            const repoLabel = m.repoActions.skipped ? 'skipped' : `${m.repoActions.count} active${m.repoActions.filteredCount > 0 ? ` (${m.repoActions.filteredCount} unrelated skipped)` : ''}`;
+            const repoLabel = m.repoActions.skipped ? 'skipped' : `${m.repoActions.count} active`;
             const commitsLabel = m.allCommitsCI.skipped ? 'skipped' : `${m.allCommitsCI.pendingCommits.length} pending of ${m.allCommitsCI.totalCommits}`;
             await log(formatAligned('🔄', 'CI mechanisms DISAGREE:', `CheckRuns=${m.checkRunsAPI.status}, WorkflowRuns=${m.workflowRunsAPI.inProgress} in-progress, AllCommits=${commitsLabel}, RepoActions=${repoLabel}`, 2));
             await log(formatAligned('⏳', 'Continuing to monitor...', 'Mechanisms must agree before declaring mergeable', 2));

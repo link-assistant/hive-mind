@@ -853,6 +853,12 @@ or
 ps axjf
 ```
 
+### Kill process and its children
+
+```bash
+pkill -P 476729
+```
+
 ### Kill all commands spawned by specific task
 
 ```bash

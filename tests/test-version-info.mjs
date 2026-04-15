@@ -200,10 +200,7 @@ test('formatVersionMessage shows mixed Playwright MCP connection state for Claud
     playwrightMcpCodexStatus: null,
   };
   const message = formatVersionMessage(versions);
-  assert.ok(
-    message.includes('Playwright MCP: `0.0.69 | Claude Code: connected | Codex: not connected`'),
-    `Expected mixed MCP status format but got: ${message}`,
-  );
+  assert.ok(message.includes('Playwright MCP: `0.0.69 | Claude Code: connected | Codex: not connected`'), `Expected mixed MCP status format but got: ${message}`);
 });
 
 test('formatVersionMessage groups C/C++ tools under C/C++ section', () => {

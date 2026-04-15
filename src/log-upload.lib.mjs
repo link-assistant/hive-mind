@@ -11,6 +11,7 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $ } = await use('command-stream');
+const $silent = $({ mirror: false, capture: true });
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
@@ -19,6 +20,12 @@ const { log } = lib;
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
+
+const summarizeCommandOutput = value => {
+  const text = value?.toString()?.trim() || '';
+  if (!text) return '';
+  return text.length > 500 ? `${text.slice(0, 500)}... [truncated ${text.length - 500} chars]` : text;
+};
 
 /**
  * Upload a log file using gh-upload-log command
@@ -92,18 +99,36 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
         // For gist: get raw URL from gist API
         const gistId = result.url.split('/').pop();
         try {
-          const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`;
+          if (verbose) {
+            await log(`  🔍 Fetching gist metadata for raw URL resolution (gistId=${gistId})`, { verbose: true });
+          }
+          const gistDetailsResult = await $silent`gh api gists/${gistId} --jq '{owner: .owner.login, history: .history, fileNames: (.files | keys)}'`;
+          if (verbose) {
+            await log(`  📥 Gist metadata fetch completed (code=${gistDetailsResult.code ?? 'unknown'})`, { verbose: true });
+          }
           if (gistDetailsResult.code === 0) {
             const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
             const gistOwner = gistDetails.owner;
             const commitSha = gistDetails.history?.[0]?.version;
-            const fileNames = gistDetails.files ? Object.keys(gistDetails.files) : [];
+            const fileNames = Array.isArray(gistDetails.fileNames) ? gistDetails.fileNames : [];
             const fileName = fileNames.length > 0 ? fileNames[0] : 'log.txt';
 
             if (commitSha) {
               result.rawUrl = `https://gist.githubusercontent.com/${gistOwner}/${gistId}/raw/${commitSha}/${fileName}`;
             } else {
               result.rawUrl = `https://gist.githubusercontent.com/${gistOwner}/${gistId}/raw/${fileName}`;
+            }
+            if (verbose) {
+              await log(`  🧩 Gist metadata resolved owner=${gistOwner}, commitSha=${commitSha || 'latest'}, fileName=${fileName}`, { verbose: true });
+            }
+          } else if (verbose) {
+            const stderrSummary = summarizeCommandOutput(gistDetailsResult.stderr);
+            const stdoutSummary = summarizeCommandOutput(gistDetailsResult.stdout);
+            if (stderrSummary) {
+              await log(`  ⚠️  Gist metadata stderr: ${stderrSummary}`, { verbose: true });
+            }
+            if (stdoutSummary) {
+              await log(`  ⚠️  Gist metadata stdout: ${stdoutSummary}`, { verbose: true });
             }
           }
         } catch (apiError) {
@@ -121,7 +146,13 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
           try {
             const repoUrl = result.url;
             const repoPath = repoUrl.replace('https://github.com/', '');
-            const contentsResult = await $`gh api repos/${repoPath}/contents --jq '.[].name'`;
+            if (verbose) {
+              await log(`  🔍 Fetching repository contents for raw URL resolution (repoPath=${repoPath})`, { verbose: true });
+            }
+            const contentsResult = await $silent`gh api repos/${repoPath}/contents --jq '.[].name'`;
+            if (verbose) {
+              await log(`  📥 Repository contents fetch completed (code=${contentsResult.code ?? 'unknown'})`, { verbose: true });
+            }
             if (contentsResult.code === 0) {
               const files = contentsResult.stdout
                 .toString()
@@ -131,6 +162,18 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
               if (files.length > 0) {
                 const fileName = files[0];
                 result.rawUrl = `${repoUrl}/raw/main/${fileName}`;
+                if (verbose) {
+                  await log(`  🧩 Repository contents resolved fileName=${fileName}`, { verbose: true });
+                }
+              }
+            } else if (verbose) {
+              const stderrSummary = summarizeCommandOutput(contentsResult.stderr);
+              const stdoutSummary = summarizeCommandOutput(contentsResult.stdout);
+              if (stderrSummary) {
+                await log(`  ⚠️  Repository contents stderr: ${stderrSummary}`, { verbose: true });
+              }
+              if (stdoutSummary) {
+                await log(`  ⚠️  Repository contents stdout: ${stdoutSummary}`, { verbose: true });
               }
             }
           } catch (apiError) {

@@ -195,25 +195,23 @@ docker attach hive-mind
 
 # --- Persisting auth data across restarts ---
 
-# Extract auth data from a running (or stopped) container to the host:
-mkdir -p ~/.hive-mind
-docker cp hive-mind:/workspace/.claude ~/.hive-mind/claude
-docker cp hive-mind:/workspace/.claude.json ~/.hive-mind/claude.json
-docker cp hive-mind:/workspace/.config/gh ~/.hive-mind/gh
+# On the host, create the directories used by the current Docker workflow:
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
 
-# Fix ownership to match the sandbox user inside the container:
-SANDBOX_UID=$(docker exec hive-mind id -u sandbox)
-chown -R $SANDBOX_UID:$SANDBOX_UID ~/.hive-mind/claude ~/.hive-mind/gh
-chown $SANDBOX_UID:$SANDBOX_UID ~/.hive-mind/claude.json
-
-# On subsequent runs, mount the auth data to keep it between restarts:
-docker run -dit \
-  --name hive-mind \
-  --restart unless-stopped \
+# In our Docker images HOME=/workspace, so Codex stores its data in /workspace/.codex.
+# Mount the full Codex directory so auth.json, config.toml, and sessions survive restarts.
+docker run -dit --user sandbox --name hive-mind --restart unless-stopped \
   -v /root/.hive-mind/claude:/workspace/.claude \
+  -v /root/.hive-mind/codex:/workspace/.codex \
   -v /root/.hive-mind/claude.json:/workspace/.claude.json \
   -v /root/.hive-mind/gh:/workspace/.config/gh \
-  konard/hive-mind:latest
+  konard/hive-mind:latest bash -l -c 'bash /workspace/start-bot.sh'
+
+# After the first start, fix ownership to match the sandbox user inside the container:
+SANDBOX_UID=$(docker exec hive-mind id -u sandbox)
+chown -R $SANDBOX_UID:$SANDBOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+chown $SANDBOX_UID:$SANDBOX_UID /root/.hive-mind/claude.json
 ```
 
 **Benefits of Docker:**

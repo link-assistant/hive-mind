@@ -120,12 +120,32 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
 ssh -L 1455:localhost:1455 root@123.123.123.123
 ```
 
-2. Start codex login oAuth server:
+2. Install or update Codex CLI:
 
 ```bash
-codex login
+bun install -g @openai/codex@latest
 ```
 
-The oAuth callback server on 1455 port will be started, and the link to oAuth will be printed, copy the link.
+3. Start the current Codex device auth flow:
 
-3. Use your browser on machine where you started the tunnel from, paste there the link from `codex login` command, and go there using your browser. Once redirected to localhost:1455 you will see successful login page, and in `codex login` you will see `Successfully logged in`. After that `codex login` command will complete, and you can use `codex` command as usual to verify. It should also be working with `--tool codex` in `solve` and `hive` commands.
+```bash
+codex login --device-auth
+```
+
+4. Finish login in your browser. The command should end with:
+
+```text
+Successfully logged in
+```
+
+5. Verify the Codex CLI with the same smoke test used in the Docker workflow:
+
+```bash
+codex exec --model gpt-5.4-mini "hi"
+```
+
+Codex stores its data in `~/.codex` on a regular server. The most important paths are:
+
+- `~/.codex/auth.json`
+- `~/.codex/config.toml`
+- `~/.codex/sessions/`

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.50.11
+
+### Patch Changes
+
+- bf9cf54: Fix prompt template builders crashing when literal `.png` appears in screenshot guidance.
+
 ## 1.50.10
 
 ### Patch Changes

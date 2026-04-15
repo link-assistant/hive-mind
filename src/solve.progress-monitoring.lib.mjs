@@ -358,8 +358,8 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
   };
 
   /**
- * Process a tool stream event, detecting Claude TodoWrite or Codex todo_list
- * updates and updating progress automatically.
+   * Process a tool stream event, detecting Claude TodoWrite or Codex todo_list
+   * updates and updating progress automatically.
    *
    * @param {Object} data - Parsed JSON event from Claude CLI stream
    * @param {boolean} force - Force update even if within rate limit interval

@@ -126,10 +126,11 @@ ${workspaceInstructions}General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
    - When running commands, avoid setting a timeout yourself. Let them run as long as needed. The default timeout of 2 minutes is usually enough, and once commands finish, review the logs in the file.
    - When running sudo commands, especially package installations like apt-get, yum, or npm install, run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.
-${argv && argv.promptIssueReporting
-  ? `
+${
+  argv && argv.promptIssueReporting
+    ? `
    - When you spot errors, bugs, or minor issues during the working session that are unrelated to the main task requirements, create issues to track them when they do not already exist. For issues in the current repository, use gh issue create --repo ${owner}/${repo} --title "Issue title" --body "Issue description". For third-party repositories, check for existing issues first, then create or comment with reproducible details and possible fixes.`
-  : ''
+    : ''
 }
    - When CI is failing or user reports failures, consider adding a detailed investigation protocol to your todo list with these steps:
       Step 1: List recent runs with timestamps using: gh run list --repo ${owner}/${repo} --branch ${branchName} --limit 5 --json databaseId,conclusion,createdAt,headSha

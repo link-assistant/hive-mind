@@ -1267,9 +1267,7 @@ ${createRawJsonSection(data)}`;
 
   const handleCodexTodoList = async data => {
     const items = Array.isArray(data.item?.items) ? data.item.items : [];
-    const todosPreview = items.length > 0
-      ? items.map(todo => `- [${todo?.completed ? 'x' : ' '}] ${todo?.text || ''}`).join('\n')
-      : '_No tasks_';
+    const todosPreview = items.length > 0 ? items.map(todo => `- [${todo?.completed ? 'x' : ' '}] ${todo?.text || ''}`).join('\n') : '_No tasks_';
     const completedCount = items.filter(todo => todo?.completed).length;
 
     const comment = `## 📋 Codex todo list

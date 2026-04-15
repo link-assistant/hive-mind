@@ -818,7 +818,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       };
     }
 
-    const resolvedBaseUrl = (baseUrl || await getCodexUsageBaseUrl(undefined, verbose)).replace(/\/+$/, '');
+    const resolvedBaseUrl = (baseUrl || (await getCodexUsageBaseUrl(undefined, verbose))).replace(/\/+$/, '');
     const usageEndpoint = `${resolvedBaseUrl}/wham/usage`;
     const tokenPayload = decodeJwtPayload(accessToken);
     const requestHeaders = {
@@ -833,11 +833,18 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       console.log('[VERBOSE] /limits Codex auth mode:', auth.auth_mode || 'unknown');
       console.log('[VERBOSE] /limits Codex account id:', auth?.tokens?.account_id || tokenPayload?.['https://api.openai.com/auth']?.chatgpt_account_id || 'unknown');
       console.log('[VERBOSE] /limits Codex plan type:', tokenPayload?.['https://api.openai.com/auth']?.chatgpt_plan_type || 'unknown');
-      console.log('[VERBOSE] /limits Codex API request headers:', JSON.stringify({
-        Accept: requestHeaders.Accept,
-        Authorization: `Bearer ...${accessToken.slice(-8)}`,
-        'User-Agent': requestHeaders['User-Agent'],
-      }, null, 2));
+      console.log(
+        '[VERBOSE] /limits Codex API request headers:',
+        JSON.stringify(
+          {
+            Accept: requestHeaders.Accept,
+            Authorization: `Bearer ...${accessToken.slice(-8)}`,
+            'User-Agent': requestHeaders['User-Agent'],
+          },
+          null,
+          2
+        )
+      );
     }
 
     const response = await fetch(usageEndpoint, {
@@ -1212,9 +1219,7 @@ export function formatCodexLimitsSection(codexLimits, codexError = null) {
     sessionSection += `${bar} ${pct}%${suffix}\n`;
     if (usage.currentSession.resetTime) {
       const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
-      sessionSection += relativeTime
-        ? `Resets in ${relativeTime} (${usage.currentSession.resetTime})\n`
-        : `Resets ${usage.currentSession.resetTime}\n`;
+      sessionSection += relativeTime ? `Resets in ${relativeTime} (${usage.currentSession.resetTime})\n` : `Resets ${usage.currentSession.resetTime}\n`;
     }
   } else {
     sessionSection += 'N/A\n';
@@ -1232,9 +1237,7 @@ export function formatCodexLimitsSection(codexLimits, codexError = null) {
     weeklySection += `${bar} ${pct}%${suffix}\n`;
     if (usage.allModels.resetTime) {
       const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
-      weeklySection += relativeTime
-        ? `Resets in ${relativeTime} (${usage.allModels.resetTime})\n`
-        : `Resets ${usage.allModels.resetTime}\n`;
+      weeklySection += relativeTime ? `Resets in ${relativeTime} (${usage.allModels.resetTime})\n` : `Resets ${usage.allModels.resetTime}\n`;
     }
   } else {
     weeklySection += 'N/A\n';

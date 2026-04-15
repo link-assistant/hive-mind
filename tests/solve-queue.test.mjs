@@ -1283,21 +1283,28 @@ test('checkApiLimits with tool codex applies Codex limits', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
-  getLimitCache().set('codex', {
-    success: true,
-    usage: {
-      currentSession: { percentage: 95, resetTime: null, resetsAt: null },
-      allModels: { percentage: 10, resetTime: null, resetsAt: null },
+  getLimitCache().set(
+    'codex',
+    {
+      success: true,
+      usage: {
+        currentSession: { percentage: 95, resetTime: null, resetsAt: null },
+        allModels: { percentage: 10, resetTime: null, resetsAt: null },
+      },
+      planType: 'pro',
+      additionalRateLimits: [],
+      credits: null,
     },
-    planType: 'pro',
-    additionalRateLimits: [],
-    credits: null,
-  }, CACHE_TTL.USAGE_API);
+    CACHE_TTL.USAGE_API
+  );
 
   const result = await queue.checkApiLimits(false, 1, 'codex');
 
   assert.ok(result.oneAtATime, 'Codex high session usage should trigger one-at-a-time mode');
-  assert.ok(result.reasons.some(r => r.includes('Codex 5 hour session limit')), 'Should mention Codex 5 hour session limit');
+  assert.ok(
+    result.reasons.some(r => r.includes('Codex 5 hour session limit')),
+    'Should mention Codex 5 hour session limit'
+  );
 
   queue.stop();
 });

@@ -71,7 +71,7 @@ const upsertCodexSubAgentCall = (subAgentCalls, item, requestedModelId = null) =
     receiverThreadIds: Array.isArray(item.receiver_thread_ids) ? item.receiver_thread_ids : [],
     agentsStates: item.agents_states || {},
     status: item.status || null,
-    usage: (subAgentCalls.find(call => call.id === item.id)?.usage) || createEmptyCodexItemUsage(),
+    usage: subAgentCalls.find(call => call.id === item.id)?.usage || createEmptyCodexItemUsage(),
   };
 
   upsertById(subAgentCalls, nextCall);
@@ -669,11 +669,15 @@ export const executeCodexCommand = async params => {
       }
 
       if (Object.keys(codexJsonState.eventCounts).length > 0) {
-        const eventSummary = Object.entries(codexJsonState.eventCounts).map(([eventType, count]) => `${eventType}=${count}`).join(', ');
+        const eventSummary = Object.entries(codexJsonState.eventCounts)
+          .map(([eventType, count]) => `${eventType}=${count}`)
+          .join(', ');
         await log(`📊 Codex JSON events: ${eventSummary}`, { verbose: true });
       }
       if (Object.keys(codexJsonState.itemTypeCounts).length > 0) {
-        const itemSummary = Object.entries(codexJsonState.itemTypeCounts).map(([itemType, count]) => `${itemType}=${count}`).join(', ');
+        const itemSummary = Object.entries(codexJsonState.itemTypeCounts)
+          .map(([itemType, count]) => `${itemType}=${count}`)
+          .join(', ');
         await log(`📦 Codex item types: ${itemSummary}`, { verbose: true });
       }
       if (codexJsonState.tokenUsage.stepCount > 0) {

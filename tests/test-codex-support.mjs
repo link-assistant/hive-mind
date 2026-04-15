@@ -59,14 +59,7 @@ test('Codex defaults to none reasoning when no thinking flags are set', () => {
 });
 
 test('Codex exec JSON parser extracts session, result text, usage, and collab calls from authoritative event types', () => {
-  const jsonl = [
-    '{"type":"thread.started","thread_id":"thread_123"}',
-    '{"type":"turn.started"}',
-    '{"type":"item.completed","item":{"id":"item_1","type":"reasoning","text":"Need to inspect files."}}',
-    '{"type":"item.completed","item":{"id":"item_2","type":"collab_tool_call","tool":"spawn_agent","sender_thread_id":"thread_123","receiver_thread_ids":["thread_child"],"prompt":"Check tests","agents_states":{},"status":"completed"}}',
-    '{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"Hi."}}',
-    '{"type":"turn.completed","usage":{"input_tokens":1200,"cached_input_tokens":200,"output_tokens":50}}',
-  ].join('\n');
+  const jsonl = ['{"type":"thread.started","thread_id":"thread_123"}', '{"type":"turn.started"}', '{"type":"item.completed","item":{"id":"item_1","type":"reasoning","text":"Need to inspect files."}}', '{"type":"item.completed","item":{"id":"item_2","type":"collab_tool_call","tool":"spawn_agent","sender_thread_id":"thread_123","receiver_thread_ids":["thread_child"],"prompt":"Check tests","agents_states":{},"status":"completed"}}', '{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"Hi."}}', '{"type":"turn.completed","usage":{"input_tokens":1200,"cached_input_tokens":200,"output_tokens":50}}'].join('\n');
 
   const parsed = parseCodexExecJsonOutput(jsonl, {}, 'gpt-5.4');
 

@@ -160,6 +160,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     resumeArgs.push('--session-type', sessionType);
 
     // Preserve other flags from original invocation
+    if (argv.tool && argv.tool !== 'claude') resumeArgs.push('--tool', argv.tool);
     if (argv.model !== 'sonnet') resumeArgs.push('--model', argv.model);
     if (argv.verbose) resumeArgs.push('--verbose');
     if (argv.fork) resumeArgs.push('--fork');

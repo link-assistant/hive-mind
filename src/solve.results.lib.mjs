@@ -37,6 +37,41 @@ const { autoContinueWhenLimitResets } = autoContinue;
 const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
 export const { buildClaudeResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
 
+/**
+ * Build a solve.mjs resume command for tools that do not have a first-party interactive
+ * resume CLI flow like Claude Code. This keeps the invocation within hive-mind so the
+ * original tool selection and working directory can be preserved.
+ *
+ * @param {Object} options
+ * @param {string} options.issueUrl - The issue URL passed to solve.mjs
+ * @param {string} options.sessionId - The session ID to resume
+ * @param {string|null} [options.tool] - Tool name (codex, opencode, agent)
+ * @param {string|null} [options.model] - Model name to preserve
+ * @param {string|null} [options.tempDir] - Working directory to preserve
+ * @param {string} [options.nodePath] - Node binary path
+ * @param {string} [options.scriptPath] - solve.mjs path
+ * @returns {string}
+ */
+export const buildSolveResumeCommand = ({ issueUrl, sessionId, tool = null, model = null, tempDir = null, nodePath = process.argv[0], scriptPath = process.argv[1] }) => {
+  const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
+
+  const args = [shellQuote(scriptPath), shellQuote(issueUrl), '--resume', shellQuote(sessionId)];
+
+  if (tool && tool !== 'claude') {
+    args.push('--tool', shellQuote(tool));
+  }
+
+  if (model) {
+    args.push('--model', shellQuote(model));
+  }
+
+  if (tempDir) {
+    args.push('--working-directory', shellQuote(tempDir));
+  }
+
+  return `${shellQuote(nodePath)} ${args.join(' ')}`;
+};
+
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
 // Import Sentry integration
@@ -444,18 +479,21 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
-    // Show claude resume command only for --tool claude (or default)
-    // This allows users to investigate, resume, see context, and more
-    // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
     const tool = argv.tool || 'claude';
     if (tool === 'claude') {
-      // Build the Claude CLI resume command using the command builder
       const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
 
       await log('');
       await log('💡 To continue this session in Claude Code interactive mode:');
       await log('');
       await log(`   ${claudeResumeCmd}`);
+      await log('');
+    } else if (issueUrl) {
+      const solveResumeCmd = buildSolveResumeCommand({ issueUrl, sessionId, tool, model: argv.model, tempDir });
+      await log('');
+      await log(`💡 To continue this ${tool} session with solve:`);
+      await log('');
+      await log(`   ${solveResumeCmd}`);
       await log('');
     }
 
@@ -472,7 +510,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
           await log(`\n⏰ Limit resets at: ${global.limitResetTime}`);
         }
 
-        await log('\n💡 After the limit resets, resume using the Claude command above.');
+        await log('\n💡 After the limit resets, resume using the command above.');
 
         if (argv.autoCleanup !== false) {
           await log('');

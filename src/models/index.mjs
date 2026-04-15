@@ -282,7 +282,7 @@ export const isModelCompatibleWithTool = (tool, model) => {
     case 'opencode':
       return mappedModel.includes('/') || Object.keys(opencodeModels).includes(model);
     case 'codex':
-      return Object.keys(codexModels).includes(model) || mappedModel.startsWith('gpt-') || mappedModel.startsWith('o3') || mappedModel.startsWith('claude-');
+      return Object.keys(codexModels).includes(model) || mappedModel.startsWith('gpt-');
     default:
       return true;
   }

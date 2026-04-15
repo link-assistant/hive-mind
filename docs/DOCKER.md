@@ -40,6 +40,10 @@ codex login --device-auth
 # Verify Codex after login succeeds with "Successfully logged in"
 codex exec --model gpt-5.4-mini "hi"
 
+# Verify Playwright MCP registration in both CLIs
+claude mcp list | grep playwright
+codex mcp list | grep playwright
+
 # Exit the shell when setup is complete
 exit
 ```
@@ -133,6 +137,38 @@ This approach allows:
 - ✅ Each container has its own isolated authentication
 - ✅ Successful Docker builds without interactive authentication
 
+## Playwright MCP State in Docker
+
+The image build now registers Playwright MCP for both Claude and Codex:
+
+- `claude mcp add playwright -s user -- ...`
+- `codex mcp add playwright -- ...`
+
+The CI workflow also builds the Docker image and verifies that both `claude mcp list` and `codex mcp list` contain `playwright`.
+
+If you still reproduce `codex mcp list` showing `No MCP servers configured yet` in a running container, the most likely root cause is a mounted `/workspace/.codex` directory from the host. In this image `HOME=/workspace`, so mounting `/workspace/.codex` replaces the image-baked Codex config, including any preconfigured MCP entries.
+
+That means:
+
+- the published image can be correct,
+- the runtime container can still show Codex as unconfigured,
+- and the difference is caused by persisted host state overriding the container defaults.
+
+To confirm that quickly, compare these two cases:
+
+```bash
+# Fresh container without host-mounted Codex state
+docker run --rm -it konard/hive-mind:latest bash -lc 'codex mcp list'
+
+# Container with persisted Codex state from host
+docker run --rm -it \
+  -v /root/.hive-mind/codex:/workspace/.codex \
+  konard/hive-mind:latest \
+  bash -lc 'codex mcp list'
+```
+
+If the first command shows `playwright` and the second does not, the host-mounted Codex directory is the source of the mismatch.
+
 ## Prerequisites
 
 1. **Docker:** Install Docker Desktop or Docker Engine (version 20.10 or higher)
@@ -182,6 +218,12 @@ The mounted Codex directory keeps the files we rely on:
 - `/workspace/.codex/auth.json`
 - `/workspace/.codex/config.toml`
 - `/workspace/.codex/sessions/`
+
+Because this mount fully overrides the image's `/workspace/.codex` directory, it can also preserve an older `config.toml` that does not include the Playwright MCP registration added by newer images. After starting a container with an older persisted Codex directory, re-run:
+
+```bash
+codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
+```
 
 ### Running in Detached Mode
 

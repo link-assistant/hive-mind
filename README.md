@@ -174,6 +174,10 @@ claude
 # Optionally test Claude connection
 claude -p hi --model haiku
 
+# Verify Playwright MCP is registered for both CLIs in this container image
+claude mcp list | grep playwright
+codex mcp list | grep playwright
+
 # You might need to update hive-mind and agent to latest versions:
 bun install -g @link-assistant/hive-mind
 bun install -g @link-assistant/agent
@@ -212,6 +216,11 @@ docker run -dit --user sandbox --name hive-mind --restart unless-stopped \
 SANDBOX_UID=$(docker exec hive-mind id -u sandbox)
 chown -R $SANDBOX_UID:$SANDBOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
 chown $SANDBOX_UID:$SANDBOX_UID /root/.hive-mind/claude.json
+
+# Important: mounted ~/.codex data overrides the image-baked Codex config.
+# If the host directory was created before Playwright MCP was added to the image,
+# re-register it once inside the running container:
+docker exec -it hive-mind bash -lc 'codex mcp list && codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080'
 ```
 
 **Benefits of Docker:**
@@ -221,6 +230,8 @@ chown $SANDBOX_UID:$SANDBOX_UID /root/.hive-mind/claude.json
 - ✅ Isolated from your host system
 - ✅ Easy to run multiple instances with different GitHub accounts
 - ✅ Consistent environment across different machines
+
+The Docker image itself now registers Playwright MCP for both Claude and Codex during build, and CI verifies those registrations in the built container. If `codex mcp list` is still empty in a running container, the usual cause is not the published image itself but a mounted `/workspace/.codex` directory from the host that replaces the image's default Codex configuration.
 
 See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
 

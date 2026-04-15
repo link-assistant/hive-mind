@@ -188,16 +188,107 @@ export const setupVerboseLogInterceptor = () => {
  */
 let stdioInterceptorInstalled = false;
 let _writingFromLog = false; // Guard flag to prevent double-logging from log()
+let stdoutBroken = false;
+let stderrBroken = false;
+let brokenPipeDiagnosticsWritten = false;
+
+const isBrokenPipeError = error => {
+  return error?.code === 'EPIPE' || error?.code === 'ERR_STREAM_DESTROYED';
+};
+
+const invokeWriteCallback = (callback, error = null) => {
+  if (typeof callback === 'function') {
+    callback(error);
+  }
+};
+
+const appendInternalDiagnostic = async message => {
+  if (!logFile) return;
+  const prefix = `[${new Date().toISOString()}] [INTERNAL]`;
+  await fs.appendFile(logFile, `${prefix} ${message}\n`).catch(() => {
+    // Silent fail to avoid recursive logging errors
+  });
+};
+
+const formatStreamDiagnostic = stream => {
+  return JSON.stringify({
+    isTTY: Boolean(stream?.isTTY),
+    destroyed: Boolean(stream?.destroyed),
+    writable: stream?.writable,
+    writableEnded: Boolean(stream?.writableEnded),
+    writableFinished: Boolean(stream?.writableFinished),
+    errored: stream?.errored?.code || stream?.errored?.message || null,
+    fd: typeof stream?.fd === 'number' ? stream.fd : null,
+  });
+};
+
+const normalizeWriteCallback = (encoding, callback) => {
+  return typeof encoding === 'function' ? encoding : callback;
+};
+
+const safeTerminalWrite = ({ originalWrite, chunk, encoding, callback, streamName }) => {
+  const isStdout = streamName === 'stdout';
+  const normalizedCallback = normalizeWriteCallback(encoding, callback);
+  if ((isStdout && stdoutBroken) || (!isStdout && stderrBroken)) {
+    invokeWriteCallback(normalizedCallback);
+    return false;
+  }
+
+  try {
+    return originalWrite(chunk, encoding, callback);
+  } catch (error) {
+    if (!isBrokenPipeError(error)) {
+      throw error;
+    }
+
+    if (isStdout) {
+      stdoutBroken = true;
+    } else {
+      stderrBroken = true;
+    }
+
+    invokeWriteCallback(normalizedCallback, error);
+    return false;
+  }
+};
+
+const installBrokenPipeGuard = (stream, streamName) => {
+  stream.on('error', error => {
+    if (isBrokenPipeError(error)) {
+      if (streamName === 'stdout') {
+        stdoutBroken = true;
+      } else {
+        stderrBroken = true;
+      }
+      if (!brokenPipeDiagnosticsWritten) {
+        brokenPipeDiagnosticsWritten = true;
+        void appendInternalDiagnostic(`Detected broken ${streamName} stream (${error.code || 'unknown'}). Stream state=${formatStreamDiagnostic(stream)}. Further terminal writes will be skipped when possible.`);
+      }
+      return;
+    }
+
+    throw error;
+  });
+};
+
 export const setupStdioLogInterceptor = () => {
   if (stdioInterceptorInstalled) return;
   stdioInterceptorInstalled = true;
 
   const originalStdoutWrite = process.stdout.write.bind(process.stdout);
   const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  installBrokenPipeGuard(process.stdout, 'stdout');
+  installBrokenPipeGuard(process.stderr, 'stderr');
 
   process.stdout.write = (chunk, encoding, callback) => {
-    // Always write to terminal first
-    const result = originalStdoutWrite(chunk, encoding, callback);
+    // Always write to terminal first, unless the output pipe is already broken.
+    const result = safeTerminalWrite({
+      originalWrite: originalStdoutWrite,
+      chunk,
+      encoding,
+      callback,
+      streamName: 'stdout',
+    });
 
     // Also append to log file if set, but skip if this write originated from log()
     if (logFile && !_writingFromLog) {
@@ -214,8 +305,14 @@ export const setupStdioLogInterceptor = () => {
   };
 
   process.stderr.write = (chunk, encoding, callback) => {
-    // Always write to terminal first
-    const result = originalStderrWrite(chunk, encoding, callback);
+    // Always write to terminal first, unless the output pipe is already broken.
+    const result = safeTerminalWrite({
+      originalWrite: originalStderrWrite,
+      chunk,
+      encoding,
+      callback,
+      streamName: 'stderr',
+    });
 
     // Also append to log file if set, but skip if this write originated from log()
     if (logFile && !_writingFromLog) {

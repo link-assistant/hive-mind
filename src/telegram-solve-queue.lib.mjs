@@ -899,12 +899,12 @@ export class SolveQueue {
    * - All thresholds now support configurable strategies (reject, enqueue, dequeue-one-at-a-time)
    * - Configuration via HIVE_MIND_QUEUE_CONFIG or individual env vars
    *
-   * @param {boolean} hasRunningClaude - Whether claude processes are running (from pgrep)
-   * @param {number} claudeProcessingCount - Count of 'claude' tool items being processed in queue
+   * @param {boolean} hasRunningToolProcess - Whether matching tool processes are running (from pgrep)
+   * @param {number} toolProcessingCount - Count of matching tool items being processed in queue
    * @param {string} tool - The tool being used ('claude', 'agent', etc.)
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean, rejected: boolean, rejectReason: string|null}>}
    */
-  async checkApiLimits(hasRunningClaude = false, claudeProcessingCount = 0, tool = 'claude') {
+  async checkApiLimits(hasRunningToolProcess = false, toolProcessingCount = 0, tool = 'claude') {
     const reasons = [];
     let oneAtATime = false;
     let rejected = false;
@@ -917,7 +917,7 @@ export class SolveQueue {
     const applyClaudeLimits = tool === 'claude';
     const applyCodexLimits = tool === 'codex';
 
-    const totalToolProcessing = claudeProcessingCount + (hasRunningClaude ? 1 : 0);
+    const totalToolProcessing = toolProcessingCount + (hasRunningToolProcess ? 1 : 0);
 
     // Check Claude limits (using cached value)
     // Only applied when tool is 'claude'
@@ -1029,9 +1029,10 @@ export class SolveQueue {
       this.log(`Claude limits not applied for --tool ${tool}`);
     }
 
-    // Check GitHub limits (only relevant if claude processes running)
+    // Check GitHub limits when the active tool already has a running process.
+    // This keeps the queue behavior aligned with the existing one-at-a-time throttling model.
     // Configurable strategy via HIVE_MIND_QUEUE_CONFIG or HIVE_MIND_GITHUB_API_STRATEGY
-    if (hasRunningClaude) {
+    if (hasRunningToolProcess) {
       const githubResult = await getCachedGitHubLimits(this.verbose);
       if (githubResult.success) {
         const usedPercent = githubResult.githubRateLimit.usedPercentage;
@@ -1046,7 +1047,7 @@ export class SolveQueue {
             rejectReason = reason;
           } else if (strategy === 'dequeue-one-at-a-time') {
             oneAtATime = true;
-            if (totalClaudeProcessing > 0) {
+            if (totalToolProcessing > 0) {
               reasons.push(reason + ' (waiting for current command)');
             }
           } else {

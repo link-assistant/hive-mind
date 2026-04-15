@@ -818,7 +818,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       };
     }
 
-    const resolvedBaseUrl = (baseUrl || await getCodexUsageBaseUrl(DEFAULT_CODEX_CONFIG_PATH, verbose)).replace(/\/+$/, '');
+    const resolvedBaseUrl = (baseUrl || await getCodexUsageBaseUrl(undefined, verbose)).replace(/\/+$/, '');
     const usageEndpoint = `${resolvedBaseUrl}/wham/usage`;
     const tokenPayload = decodeJwtPayload(accessToken);
     const requestHeaders = {

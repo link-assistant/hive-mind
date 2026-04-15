@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.50.10
+
+### Patch Changes
+
+- 0dc1613: Fix log upload raw URL resolution so gist metadata lookups do not mirror full gist contents to stdout, and harden stdio handling when the terminal pipe is already broken.
+
 ## 1.50.9
 
 ### Patch Changes

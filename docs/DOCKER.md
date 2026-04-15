@@ -10,12 +10,20 @@ This document explains how to run Hive Mind in Docker containers.
 # Pull the latest image
 docker pull konard/hive-mind:latest
 
-# Run an interactive session
-docker run -it konard/hive-mind:latest
+# Create persistent host directories used by the current Docker workflow
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
 
-# IMPORTANT: Authentication is done AFTER the Docker image is installed
-# The installation script does NOT run gh auth login to avoid build timeouts
-# This allows the Docker build to complete successfully without interactive prompts
+# Run the container in detached mode with the same mounts we use locally
+docker run -dit --user sandbox --name hive-mind --restart unless-stopped \
+  -v /root/.hive-mind/claude:/workspace/.claude \
+  -v /root/.hive-mind/codex:/workspace/.codex \
+  -v /root/.hive-mind/claude.json:/workspace/.claude.json \
+  -v /root/.hive-mind/gh:/workspace/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /workspace/start-bot.sh'
+
+# Open a shell in the running container
+docker exec -it hive-mind bash
 
 # Inside the container, authenticate with GitHub
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
@@ -23,8 +31,17 @@ gh auth login -h github.com -s repo,workflow,user,read:org,gist
 # Authenticate with Claude
 claude
 
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
+# Install or update Codex CLI
+bun install -g @openai/codex@latest
+
+# Log in to Codex using the current device auth flow
+codex login --device-auth
+
+# Verify Codex after login succeeds with "Successfully logged in"
+codex exec --model gpt-5.4-mini "hi"
+
+# Exit the shell when setup is complete
+exit
 ```
 
 ### Option 2: Building Locally
@@ -81,10 +98,37 @@ gh auth login -h github.com -s repo,workflow,user,read:org,gist
 claude
 ```
 
+### Codex Authentication
+
+Install or update Codex CLI inside the running container:
+
+```bash
+bun install -g @openai/codex@latest
+```
+
+Log in with the device auth flow we currently use:
+
+```bash
+codex login --device-auth
+```
+
+The command should finish with:
+
+```text
+Successfully logged in
+```
+
+Then run the current smoke test:
+
+```bash
+codex exec --model gpt-5.4-mini "hi"
+```
+
 This approach allows:
 
 - ✅ Multiple Docker instances with different GitHub accounts
 - ✅ Multiple Docker instances with different Claude subscriptions
+- ✅ Persistent Codex authentication and session data when `/workspace/.codex` is mounted
 - ✅ No credential leakage between containers
 - ✅ Each container has its own isolated authentication
 - ✅ Successful Docker builds without interactive authentication
@@ -112,26 +156,49 @@ This approach allows:
 
 ### Running with Persistent Storage
 
-To persist authentication and work between container restarts:
+To persist authentication and work between container restarts, mount the actual per-tool directories instead of a generic `/workspace` volume. In our Docker images `HOME=/workspace`, so Codex stores its data in `/workspace/.codex`.
 
 ```bash
-# Create a volume for the sandbox user's home directory
-docker volume create sandbox-home
+# Host directories used by the current local Docker workflow
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
 
-# Run with the volume mounted
-docker run -it -v sandbox-home:/workspace konard/hive-mind:latest
+# Run with persistent mounts
+docker run -dit --user sandbox --name hive-mind --restart unless-stopped \
+  -v /root/.hive-mind/claude:/workspace/.claude \
+  -v /root/.hive-mind/codex:/workspace/.codex \
+  -v /root/.hive-mind/claude.json:/workspace/.claude.json \
+  -v /root/.hive-mind/gh:/workspace/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /workspace/start-bot.sh'
+
+# Fix ownership after the container starts
+SANDBOX_UID=$(docker exec hive-mind id -u sandbox)
+chown -R $SANDBOX_UID:$SANDBOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+chown $SANDBOX_UID:$SANDBOX_UID /root/.hive-mind/claude.json
 ```
+
+The mounted Codex directory keeps the files we rely on:
+
+- `/workspace/.codex/auth.json`
+- `/workspace/.codex/config.toml`
+- `/workspace/.codex/sessions/`
 
 ### Running in Detached Mode
 
 ```bash
-# Start a detached container
-docker run -d --name hive-worker -v sandbox-home:/workspace konard/hive-mind:latest sleep infinity
+# Start a detached container with persistent auth mounts
+docker run -dit --user sandbox --name hive-worker --restart unless-stopped \
+  -v /root/.hive-mind/claude:/workspace/.claude \
+  -v /root/.hive-mind/codex:/workspace/.codex \
+  -v /root/.hive-mind/claude.json:/workspace/.claude.json \
+  -v /root/.hive-mind/gh:/workspace/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /workspace/start-bot.sh'
 
 # Execute commands in the running container
 docker exec -it hive-worker bash
 
 # Inside the container, run your commands
+codex exec --model gpt-5.4-mini "hi"
 solve https://github.com/owner/repo/issues/123
 ```
 

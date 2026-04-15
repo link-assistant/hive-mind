@@ -180,6 +180,7 @@ The docker-compose.yml configures several persistent volumes that Coolify will m
 | Volume            | Container Path          | Purpose                            |
 | ----------------- | ----------------------- | ---------------------------------- |
 | `./claude-config` | `/workspace/.claude`    | Claude authentication & settings   |
+| `./codex-config`  | `/workspace/.codex`     | Codex auth, config, and sessions   |
 | `./config`        | `/workspace/.config`    | General config (Claude Code, etc.) |
 | `./gh-config`     | `/workspace/.config/gh` | GitHub CLI config                  |
 | `./output`        | `/app/output`           | Generated PRs and code             |
@@ -187,6 +188,20 @@ The docker-compose.yml configures several persistent volumes that Coolify will m
 | `./sessions`      | `/app/claude-sessions`  | Session data                       |
 
 **Note**: These volumes are automatically created by Coolify and will persist across container updates and restarts.
+
+In our Docker-based deployments `HOME=/workspace`, so Codex stores its data in `/workspace/.codex`. Mount the full directory instead of individual files so these paths persist together:
+
+- `/workspace/.codex/auth.json`
+- `/workspace/.codex/config.toml`
+- `/workspace/.codex/sessions/`
+
+If you install or update Codex in the running container, use:
+
+```bash
+bun install -g @openai/codex@latest
+codex login --device-auth
+codex exec --model gpt-5.4-mini "hi"
+```
 
 ## Monitoring & Logs
 

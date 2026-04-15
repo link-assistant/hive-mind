@@ -1,39 +1,10 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
-// Early exit paths - handle these before loading all modules to speed up testing
 const earlyArgs = process.argv.slice(2);
-if (earlyArgs.includes('--version')) {
-  const { getVersion } = await import('./version.lib.mjs');
-  try {
-    const version = await getVersion();
-    console.log(version);
-  } catch {
-    console.error('Error: Unable to determine version');
-    process.exit(1);
-  }
-  process.exit(0);
-}
-if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
-  // Load minimal modules needed for help
-  const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
-  globalThis.use = use;
-  const config = await import('./solve.config.lib.mjs');
-  const { initializeConfig, createYargsConfig } = config;
-  const { yargs, hideBin } = await initializeConfig(use);
-  const rawArgs = hideBin(process.argv);
-  // Filter out help flags to avoid duplicate display
-  const argsWithoutHelp = rawArgs.filter(arg => arg !== '--help' && arg !== '-h');
-  createYargsConfig(yargs(argsWithoutHelp)).showHelp();
-  process.exit(0);
-}
-if (earlyArgs.length === 0) {
-  console.error('Usage: solve.mjs <issue-url> [options]');
-  console.error('\nError: Missing required github issue or pull request URL');
-  console.error('\nRun "solve.mjs --help" for more information');
-  process.exit(1);
-}
-// Now load all modules for normal operation
+const { handleSolveEarlyExit } = await import('./solve.bootstrap.lib.mjs');
+await handleSolveEarlyExit(earlyArgs);
+
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 globalThis.use = use;
 const { $ } = await use('command-stream');
@@ -60,7 +31,7 @@ const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
 const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, checkForAiCreatedComments, attachSolutionSummary } = results;
 const claudeLib = await import('./claude.lib.mjs');
-const { executeClaude } = claudeLib;
+const { executeClaude, checkPlaywrightMcpAvailability } = claudeLib;
 
 const githubLinking = await import('./github-linking.lib.mjs');
 const { extractLinkedIssueNumber } = githubLinking;

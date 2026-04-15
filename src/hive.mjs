@@ -39,29 +39,13 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   }
 }
 export { createYargsConfig } from './hive.config.lib.mjs';
-// Only execute main logic if this module is being run directly (not imported)
-// This prevents heavy module loading when hive.mjs is imported by other modules
-// Check if we're being executed (not imported) by looking at various indicators:
-// 1. process.argv[1] is the executed file path
-// 2. import.meta.url is this file's URL
-// 3. For global installs, argv[1] might be a symlink, so we check if it contains 'hive'
-import { fileURLToPath } from 'url';
-const isDirectExecution = process.argv[1] === fileURLToPath(import.meta.url) || (process.argv[1] && (process.argv[1].includes('/hive') || process.argv[1].endsWith('hive')));
-if (isDirectExecution) {
+import { isDirectExecution, withTimeout } from './hive.bootstrap.lib.mjs';
+const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
+if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
   console.log('   Initializing...');
   try {
     console.log('   Loading dependencies (this may take a moment)...');
-    // Helper function to add timeout to async operations
-    const withTimeout = (promise, timeoutMs, operation) => {
-      let timeoutId;
-      return Promise.race([
-        promise,
-        new Promise((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs);
-        }),
-      ]).finally(() => clearTimeout(timeoutId));
-    };
     // Use use-m to dynamically import modules for cross-runtime compatibility
     if (typeof use === 'undefined') {
       try {

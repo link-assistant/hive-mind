@@ -246,6 +246,8 @@ export const QUEUE_CONFIG = {
     disk: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.9, 'reject'),
     claude5Hour: getThresholdConfig('claude5Hour', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time'),
     claudeWeekly: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time'),
+    codex5Hour: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time'),
+    codexWeekly: getThresholdConfig('codexWeekly', 'HIVE_MIND_CODEX_WEEKLY_THRESHOLD', 'HIVE_MIND_CODEX_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time'),
     githubApi: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 0.75, 'enqueue'),
   },
 
@@ -256,6 +258,8 @@ export const QUEUE_CONFIG = {
   DISK_THRESHOLD: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.9, 'reject').value,
   CLAUDE_5_HOUR_SESSION_THRESHOLD: getThresholdConfig('claude5Hour', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time').value,
   CLAUDE_WEEKLY_THRESHOLD: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time').value,
+  CODEX_5_HOUR_SESSION_THRESHOLD: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time').value,
+  CODEX_WEEKLY_THRESHOLD: getThresholdConfig('codexWeekly', 'HIVE_MIND_CODEX_WEEKLY_THRESHOLD', 'HIVE_MIND_CODEX_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time').value,
   GITHUB_API_THRESHOLD: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 0.75, 'enqueue').value,
 
   // Timing
@@ -290,6 +294,8 @@ export const DISPLAY_THRESHOLDS = {
   DISK: thresholdToPercent(QUEUE_CONFIG.DISK_THRESHOLD),
   CLAUDE_5_HOUR_SESSION: thresholdToPercent(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD),
   CLAUDE_WEEKLY: thresholdToPercent(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD),
+  CODEX_5_HOUR_SESSION: thresholdToPercent(QUEUE_CONFIG.CODEX_5_HOUR_SESSION_THRESHOLD),
+  CODEX_WEEKLY: thresholdToPercent(QUEUE_CONFIG.CODEX_WEEKLY_THRESHOLD),
   GITHUB_API: thresholdToPercent(QUEUE_CONFIG.GITHUB_API_THRESHOLD),
 };
 

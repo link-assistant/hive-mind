@@ -1214,8 +1214,8 @@ export function formatCodexLimitsSection(codexLimits, codexError = null) {
       sessionSection += `${getProgressBar(timePassed)} ${timePassed}% passed\n`;
     }
     const pct = Math.floor(usage.currentSession.percentage);
-    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : ' used';
+    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION);
+    const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION ? ' ⚠️' : ' used';
     sessionSection += `${bar} ${pct}%${suffix}\n`;
     if (usage.currentSession.resetTime) {
       const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
@@ -1232,8 +1232,8 @@ export function formatCodexLimitsSection(codexLimits, codexError = null) {
       weeklySection += `${getProgressBar(timePassed)} ${timePassed}% passed\n`;
     }
     const pct = Math.floor(usage.allModels.percentage);
-    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
+    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CODEX_WEEKLY);
+    const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_WEEKLY ? ' ⚠️' : ' used';
     weeklySection += `${bar} ${pct}%${suffix}\n`;
     if (usage.allModels.resetTime) {
       const relativeTime = formatRelativeTime(usage.allModels.resetsAt);

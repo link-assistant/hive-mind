@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 1.50.12
+
+### Patch Changes
+
+- 065deae: ## Summary
+
+  Fix Playwright MCP setup guidance and verification for Codex environments.
+
 ## 1.50.11
 
 ### Patch Changes

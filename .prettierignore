@@ -22,5 +22,12 @@ CLAUDE.md
 
 # Case study logs (some .json files are actually log files)
 docs/case-studies/**/working-session-logs/**/*.json
+docs/case-studies/**/logs/**/*.md
 docs/case-studies/issue-731-unable-to-solve-space-compiler/commits-response.json
 docs/case-studies/issue-789-unrecognized-model-error/full-log.json
+
+# Changesets use YAML frontmatter that generic markdown formatting breaks
+.changeset/*.md
+
+# Local CI investigation artifacts
+ci-logs/

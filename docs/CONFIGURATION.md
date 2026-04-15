@@ -235,16 +235,18 @@ These settings control the merge queue behavior for automated PR merging.
 
 ### 17. Playwright MCP
 
-Playwright MCP (Model Context Protocol) provides browser automation capabilities for Claude Code, enabling web scraping, UI testing, and interaction with dynamic web pages.
+Playwright MCP (Model Context Protocol) provides browser automation capabilities for Claude Code and Codex, enabling web scraping, UI testing, and interaction with dynamic web pages.
 
 #### Installation
 
 ```bash
 # Recommended: Install with memory-safe settings (for servers and Docker)
 claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
+codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
 
 # Minimal installation (for local development)
 claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless
+codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless
 ```
 
 #### Command-Line Arguments
@@ -261,6 +263,8 @@ claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --
 
 #### Scope Options
 
+Claude Code and Codex do not share MCP registration automatically. Register Playwright MCP in each CLI you expect to use. A working Claude configuration does not make `codex mcp list` show the same server.
+
 | Scope     | Description                     | Config Location                     |
 | --------- | ------------------------------- | ----------------------------------- |
 | `local`   | Current directory only          | `~/.claude.json` (project-specific) |
@@ -269,7 +273,7 @@ claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --
 
 #### JSON Configuration
 
-Direct configuration in `~/.claude.json`:
+Claude Code example (`~/.claude.json`):
 
 ```json
 {
@@ -285,17 +289,32 @@ Direct configuration in `~/.claude.json`:
 }
 ```
 
+Codex stores MCP configuration separately. Use the Codex CLI to inspect or register its own Playwright entry:
+
+```bash
+# List configured MCP servers
+codex mcp list
+
+# Add server
+codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
+
+# Remove server
+codex mcp remove playwright
+```
+
 #### MCP Commands
 
 ```bash
 # List configured MCP servers
 claude mcp list
+codex mcp list
 
 # Get server details
 claude mcp get playwright
 
 # Remove server
 claude mcp remove playwright
+codex mcp remove playwright
 ```
 
 #### Best Practices

@@ -324,4 +324,38 @@ else
 fi
 
 echo ""
+echo "Checking Playwright MCP registration in Claude and Codex..."
+
+if command -v claude &>/dev/null; then
+  CLAUDE_MCP_OUTPUT=$(claude mcp list 2>&1 || true)
+  if grep -qi 'playwright' <<< "$CLAUDE_MCP_OUTPUT"; then
+    echo "Claude Playwright MCP registration: OK"
+  else
+    echo "ERROR: Claude Playwright MCP registration missing"
+    echo "$CLAUDE_MCP_OUTPUT"
+    echo "This image is expected to preconfigure Playwright MCP for Claude during build."
+    exit 1
+  fi
+else
+  echo "ERROR: Claude CLI command not found while verifying Playwright MCP registration"
+  exit 1
+fi
+
+if command -v codex &>/dev/null; then
+  CODEX_MCP_OUTPUT=$(codex mcp list 2>&1 || true)
+  if grep -qi 'playwright' <<< "$CODEX_MCP_OUTPUT"; then
+    echo "Codex Playwright MCP registration: OK"
+  else
+    echo "ERROR: Codex Playwright MCP registration missing"
+    echo "$CODEX_MCP_OUTPUT"
+    echo "This image is expected to preconfigure Playwright MCP for Codex during build."
+    echo "If this happens only in a runtime container with mounted /workspace/.codex, the mount may be overriding the image-baked Codex config."
+    exit 1
+  fi
+else
+  echo "ERROR: Codex CLI command not found while verifying Playwright MCP registration"
+  exit 1
+fi
+
+echo ""
 echo "=== All hive-mind Docker image verification checks PASSED ==="

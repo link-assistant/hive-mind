@@ -103,14 +103,19 @@ export const opencodeModels = {
 // Codex models (OpenAI API)
 export const codexModels = {
   gpt5: 'gpt-5',
-  'gpt5-codex': 'gpt-5-codex',
-  o3: 'o3',
+  'gpt-5': 'gpt-5',
+  'gpt-5.4': 'gpt-5.4',
+  'gpt-5.4-mini': 'gpt-5.4-mini',
+  'gpt-5.4-nano': 'gpt-5.4-nano',
+  'gpt-5.2-codex': 'gpt-5.2-codex',
+  'gpt-5.3-codex': 'gpt-5.3-codex',
+  'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
+  'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
   'o3-mini': 'o3-mini',
   gpt4: 'gpt-4',
+  'gpt-4': 'gpt-4',
   gpt4o: 'gpt-4o',
-  claude: 'claude-3-5-sonnet',
-  sonnet: 'claude-3-5-sonnet',
-  opus: 'claude-3-opus',
+  'gpt-4o': 'gpt-4o',
 };
 
 // Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
@@ -118,7 +123,7 @@ export const defaultModels = {
   claude: 'sonnet',
   agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'grok-code-fast-1',
-  codex: 'gpt-5',
+  codex: 'gpt-5.4',
 };
 
 // Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329)
@@ -180,11 +185,15 @@ export const OPENCODE_MODELS = {
 export const CODEX_MODELS = {
   ...codexModels,
   'gpt-5': 'gpt-5',
-  'gpt-5-codex': 'gpt-5-codex',
+  'gpt-5.4': 'gpt-5.4',
+  'gpt-5.4-mini': 'gpt-5.4-mini',
+  'gpt-5.4-nano': 'gpt-5.4-nano',
+  'gpt-5.2-codex': 'gpt-5.2-codex',
+  'gpt-5.3-codex': 'gpt-5.3-codex',
+  'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
+  'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
   'gpt-4': 'gpt-4',
   'gpt-4o': 'gpt-4o',
-  'claude-3-5-sonnet': 'claude-3-5-sonnet',
-  'claude-3-opus': 'claude-3-opus',
 };
 
 export const AGENT_MODELS = {
@@ -304,7 +313,7 @@ export const getValidModelsForTool = tool => {
 export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan'],
   opencode: ['grok', 'gpt4o'],
-  codex: ['gpt5', 'gpt5-codex', 'o3'],
+  codex: ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2-codex'],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
 };
 
@@ -375,7 +384,7 @@ export const getAvailableModelNames = tool => {
     // - Full model IDs with slashes (e.g., 'openai/gpt-4')
     // - Long claude-prefixed model IDs (e.g., 'claude-sonnet-4-5-20250929')
     // - Full gpt- prefixed IDs that are ONLY version numbers (e.g., 'gpt-4', 'gpt-4o', 'gpt-5')
-    // But keep descriptive aliases like 'gpt-5-nano', 'gpt-5-codex', 'o3', 'o3-mini', 'gpt5', etc.
+    // But keep descriptive aliases like 'gpt-5-nano', 'gpt-5.3-codex', 'o3-mini', 'gpt5', etc.
     // Issue #1185: Updated regex to not filter out gpt-5-nano (a valid short alias)
     if (key.includes('/')) return false;
     if (key.match(/^claude-.*-\d{8}$/)) return false; // Full claude model IDs with date

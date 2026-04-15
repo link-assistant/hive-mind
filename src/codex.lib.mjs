@@ -18,27 +18,271 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
+import { createInteractiveHandler } from './interactive-mode.lib.mjs';
+import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 
-// Model mapping to translate aliases to full model IDs for Codex
-export const mapModelToId = model => {
-  const modelMap = {
-    gpt5: 'gpt-5',
-    'gpt5-codex': 'gpt-5-codex',
-    o3: 'o3',
-    'o3-mini': 'o3-mini',
-    gpt4: 'gpt-4',
-    gpt4o: 'gpt-4o',
-    claude: 'claude-3-5-sonnet',
-    sonnet: 'claude-3-5-sonnet',
-    opus: 'claude-3-opus',
+const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens'];
+const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
+const CODEX_MODEL_DIAGNOSTIC_PATHS = [
+  ['model', data => data?.model],
+  ['model_name', data => data?.model_name],
+  ['from_model', data => data?.from_model],
+  ['to_model', data => data?.to_model],
+  ['message.model', data => data?.message?.model],
+];
+
+export const createCodexTokenUsage = requestedModelId => ({
+  inputTokens: 0,
+  outputTokens: 0,
+  reasoningTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  totalTokens: 0,
+  stepCount: 0,
+  requestedModelId: requestedModelId || null,
+  respondedModelId: requestedModelId || null,
+});
+
+const createEmptyCodexItemUsage = () => ({
+  inputTokens: 0,
+  cacheCreationTokens: 0,
+  cacheReadTokens: 0,
+  outputTokens: 0,
+  totalTokens: null,
+});
+
+const upsertById = (items, nextItem) => {
+  const existingIndex = items.findIndex(item => item.id === nextItem.id);
+  if (existingIndex >= 0) {
+    items[existingIndex] = { ...items[existingIndex], ...nextItem };
+  } else {
+    items.push(nextItem);
+  }
+};
+
+const upsertCodexSubAgentCall = (subAgentCalls, item, requestedModelId = null) => {
+  const nextCall = {
+    id: item.id || null,
+    description: item.prompt || `${item.tool || 'collab_tool_call'} via codex`,
+    model: requestedModelId || null,
+    tool: item.tool || null,
+    senderThreadId: item.sender_thread_id || null,
+    receiverThreadIds: Array.isArray(item.receiver_thread_ids) ? item.receiver_thread_ids : [],
+    agentsStates: item.agents_states || {},
+    status: item.status || null,
+    usage: (subAgentCalls.find(call => call.id === item.id)?.usage) || createEmptyCodexItemUsage(),
   };
 
-  // Return mapped model ID if it's an alias, otherwise return as-is
-  return modelMap[model] || model;
+  upsertById(subAgentCalls, nextCall);
+};
+
+const upsertCodexCommandExecution = (commandExecutions, item) => {
+  upsertById(commandExecutions, {
+    id: item.id || null,
+    command: item.command || null,
+    aggregatedOutput: item.aggregated_output || '',
+    exitCode: item.exit_code ?? null,
+    status: item.status || null,
+  });
+};
+
+const upsertCodexFileChange = (fileChanges, item) => {
+  upsertById(fileChanges, {
+    id: item.id || null,
+    status: item.status || null,
+    changes: Array.isArray(item.changes)
+      ? item.changes.map(change => ({
+          path: change?.path || null,
+          kind: change?.kind || null,
+        }))
+      : [],
+  });
+};
+
+const upsertCodexMcpToolCall = (mcpToolCalls, item) => {
+  upsertById(mcpToolCalls, {
+    id: item.id || null,
+    server: item.server || null,
+    tool: item.tool || null,
+    arguments: item.arguments ?? null,
+    result: item.result ?? null,
+    error: item.error ?? null,
+    status: item.status || null,
+  });
+};
+
+const upsertCodexWebSearch = (webSearches, item) => {
+  upsertById(webSearches, {
+    id: item.id || null,
+    searchId: item.id || null,
+    query: item.query || null,
+    action: item.action || null,
+  });
+};
+
+const upsertCodexTodoList = (todoLists, item) => {
+  upsertById(todoLists, {
+    id: item.id || null,
+    items: Array.isArray(item.items)
+      ? item.items.map(todo => ({
+          text: todo?.text || '',
+          completed: !!todo?.completed,
+        }))
+      : [],
+  });
+};
+
+const upsertCodexItemError = (itemErrors, item) => {
+  upsertById(itemErrors, {
+    id: item.id || null,
+    message: item.message || '',
+  });
+};
+
+export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = null) => {
+  const nextState = {
+    sessionId: state.sessionId || null,
+    authError: state.authError || false,
+    resultSummary: state.resultSummary || '',
+    tokenUsage: state.tokenUsage || createCodexTokenUsage(requestedModelId),
+    eventCounts: state.eventCounts || {},
+    itemTypeCounts: state.itemTypeCounts || {},
+    subAgentCalls: state.subAgentCalls || [],
+    reasoningSummaries: state.reasoningSummaries || [],
+    commandExecutions: state.commandExecutions || [],
+    fileChanges: state.fileChanges || [],
+    mcpToolCalls: state.mcpToolCalls || [],
+    webSearches: state.webSearches || [],
+    todoLists: state.todoLists || [],
+    itemErrors: state.itemErrors || [],
+    turnFailures: state.turnFailures || [],
+    streamErrors: state.streamErrors || [],
+    observedUsageFieldSets: state.observedUsageFieldSets || [],
+    observedModelDiagnosticPaths: state.observedModelDiagnosticPaths || [],
+  };
+
+  const observedModelPaths = new Set(nextState.observedModelDiagnosticPaths);
+
+  for (const rawLine of output.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    let data;
+    try {
+      data = sanitizeObjectStrings(JSON.parse(line));
+    } catch {
+      continue;
+    }
+
+    const eventType = typeof data.type === 'string' ? data.type : 'unknown';
+    nextState.eventCounts[eventType] = (nextState.eventCounts[eventType] || 0) + 1;
+
+    if (eventType === 'thread.started' && typeof data.thread_id === 'string' && !nextState.sessionId) {
+      nextState.sessionId = data.thread_id;
+    } else if (!nextState.sessionId && typeof data.session_id === 'string') {
+      nextState.sessionId = data.session_id;
+    }
+
+    for (const [pathName, getter] of CODEX_MODEL_DIAGNOSTIC_PATHS) {
+      if (typeof getter(data) === 'string') observedModelPaths.add(pathName);
+    }
+
+    if (eventType === 'error' && typeof data.message === 'string' && (data.message.includes('401 Unauthorized') || data.message.includes('401') || data.message.includes('Unauthorized'))) {
+      nextState.authError = true;
+    }
+
+    if (eventType === 'error' && typeof data.message === 'string') {
+      nextState.streamErrors.push({ message: data.message });
+    }
+
+    if (eventType === 'turn.failed' && typeof data.error?.message === 'string' && (data.error.message.includes('401 Unauthorized') || data.error.message.includes('401') || data.error.message.includes('Unauthorized'))) {
+      nextState.authError = true;
+    }
+
+    if (eventType === 'turn.failed' && typeof data.error?.message === 'string') {
+      nextState.turnFailures.push({ message: data.error.message });
+    }
+
+    if (eventType === 'turn.completed' && data.usage && typeof data.usage === 'object') {
+      const inputTokens = Number.isFinite(data.usage.input_tokens) ? data.usage.input_tokens : 0;
+      const cachedInputTokens = Number.isFinite(data.usage.cached_input_tokens) ? data.usage.cached_input_tokens : 0;
+      const outputTokens = Number.isFinite(data.usage.output_tokens) ? data.usage.output_tokens : 0;
+      const nonCachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
+      nextState.tokenUsage.inputTokens += nonCachedInputTokens;
+      nextState.tokenUsage.cacheReadTokens += cachedInputTokens;
+      nextState.tokenUsage.outputTokens += outputTokens;
+      nextState.tokenUsage.totalTokens = nextState.tokenUsage.inputTokens + nextState.tokenUsage.cacheReadTokens + nextState.tokenUsage.outputTokens + nextState.tokenUsage.cacheWriteTokens;
+      nextState.tokenUsage.stepCount += 1;
+
+      const usageFieldSet = CODEX_USAGE_FIELD_NAMES.filter(fieldName => Object.hasOwn(data.usage, fieldName));
+      if (usageFieldSet.length > 0) nextState.observedUsageFieldSets.push(usageFieldSet);
+    }
+
+    const item = data.item;
+    const itemType = typeof item?.type === 'string' ? item.type : null;
+    if (itemType) nextState.itemTypeCounts[itemType] = (nextState.itemTypeCounts[itemType] || 0) + 1;
+
+    if ((eventType === 'item.completed' || eventType === 'item.updated') && itemType === 'agent_message' && typeof item.text === 'string' && item.text.trim()) {
+      nextState.resultSummary = item.text;
+    }
+
+    if ((eventType === 'item.completed' || eventType === 'item.updated') && itemType === 'reasoning' && typeof item.text === 'string' && item.text.trim()) {
+      nextState.reasoningSummaries.push(item.text);
+    }
+
+    if ((eventType === 'item.completed' || eventType === 'item.updated') && itemType === 'collab_tool_call' && item && typeof item === 'object') {
+      upsertCodexSubAgentCall(nextState.subAgentCalls, item, requestedModelId);
+    }
+
+    if ((eventType === 'item.started' || eventType === 'item.updated' || eventType === 'item.completed') && itemType === 'command_execution' && item && typeof item === 'object') {
+      upsertCodexCommandExecution(nextState.commandExecutions, item);
+    }
+
+    if ((eventType === 'item.started' || eventType === 'item.updated' || eventType === 'item.completed') && itemType === 'file_change' && item && typeof item === 'object') {
+      upsertCodexFileChange(nextState.fileChanges, item);
+    }
+
+    if ((eventType === 'item.started' || eventType === 'item.updated' || eventType === 'item.completed') && itemType === 'mcp_tool_call' && item && typeof item === 'object') {
+      upsertCodexMcpToolCall(nextState.mcpToolCalls, item);
+    }
+
+    if ((eventType === 'item.started' || eventType === 'item.updated' || eventType === 'item.completed') && itemType === 'web_search' && item && typeof item === 'object') {
+      upsertCodexWebSearch(nextState.webSearches, item);
+    }
+
+    if ((eventType === 'item.started' || eventType === 'item.updated' || eventType === 'item.completed') && itemType === 'todo_list' && item && typeof item === 'object') {
+      upsertCodexTodoList(nextState.todoLists, item);
+    }
+
+    if ((eventType === 'item.started' || eventType === 'item.updated' || eventType === 'item.completed') && itemType === 'error' && item && typeof item === 'object') {
+      upsertCodexItemError(nextState.itemErrors, item);
+    }
+  }
+
+  nextState.observedModelDiagnosticPaths = [...observedModelPaths];
+  return nextState;
+};
+
+export const buildCodexResultModelUsage = (modelId, tokenUsage, pricingInfo = null) => {
+  if (!modelId || !tokenUsage) return null;
+
+  return {
+    [modelId]: {
+      inputTokens: tokenUsage.inputTokens || 0,
+      cacheCreationTokens: tokenUsage.cacheWriteTokens || 0,
+      cacheReadTokens: tokenUsage.cacheReadTokens || 0,
+      outputTokens: tokenUsage.outputTokens || 0,
+      modelName: pricingInfo?.modelName || modelId,
+      modelInfo: pricingInfo?.modelInfo || null,
+      peakContextUsage: 0,
+      costUSD: pricingInfo?.totalCostUSD ?? null,
+    },
+  };
 };
 
 // Function to validate Codex CLI connection
-export const validateCodexConnection = async (model = 'gpt-5') => {
+export const validateCodexConnection = async (model = 'gpt-5.4', verbose = false) => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
 
@@ -71,7 +315,7 @@ export const validateCodexConnection = async (model = 'gpt-5') => {
 
       // Test basic Codex functionality with a simple "echo hi" command
       // Using exec mode with JSON output for validation
-      const testResult = await $`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
+      const testResult = await $({ env: getCodexExecEnv(verbose) })`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check -c model_reasoning_effort="none" --dangerously-bypass-approvals-and-sandbox`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -114,12 +358,41 @@ export const handleCodexRuntimeSwitch = async () => {
   await log('ℹ️  Codex runtime handling not required for this operation');
 };
 
+/** Check if Playwright MCP is available and connected to Codex @returns {Promise<boolean>} */
+export const checkPlaywrightMcpAvailability = async () => {
+  try {
+    const result = await $`timeout 5 codex mcp list 2>&1`.catch(() => null);
+    if (!result || result.code !== 0) return false;
+    const output = `${result.stdout?.toString() || ''}${result.stderr?.toString() || ''}`;
+    return output.toLowerCase().includes('playwright');
+  } catch {
+    return false;
+  }
+};
+
 // Main function to execute Codex with prompts and settings
 export const executeCodex = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, codexPath = 'codex', $ } = params;
 
+  if (argv.promptSubagentsViaAgentCommander) {
+    try {
+      await $`which start-agent`;
+      argv.agentCommanderInstalled = true;
+    } catch {
+      argv.agentCommanderInstalled = false;
+      await log('⚠️  agent-commander not installed; prompt guidance will be skipped (npm i -g @link-assistant/agent-commander)');
+    }
+  }
+
   // Import prompt building functions from codex.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./codex.prompts.lib.mjs');
+  const { checkModelVisionCapability } = await import('./claude.lib.mjs');
+  const mappedModel = mapModelToId(argv.model);
+  const modelSupportsVision = await checkModelVisionCapability(mappedModel);
+
+  if (argv.verbose) {
+    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
+  }
 
   // Build the user prompt
   const prompt = buildUserPrompt({
@@ -152,6 +425,7 @@ export const executeCodex = async params => {
     isContinueMode,
     forkedRepo,
     argv,
+    modelSupportsVision,
   });
 
   // Log prompt details in verbose mode
@@ -189,11 +463,16 @@ export const executeCodex = async params => {
     feedbackLines,
     codexPath,
     $,
+    owner,
+    repo,
+    prNumber,
   });
 };
 
 export const executeCodexCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $ } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber } = params;
+
+  const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
   // Retry configuration
   const maxRetries = 3;
@@ -226,23 +505,11 @@ export const executeCodexCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
-    // Build Codex command
     let execCommand;
-
-    // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
-
-    // Build codex command arguments
-    // Codex uses exec mode for non-interactive execution
-    // --json provides structured output
-    // --full-auto enables automatic execution with workspace-write sandbox
-    let codexArgs = `exec --model ${mappedModel} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
-
-    if (argv.resume) {
-      // Codex supports resuming sessions
-      await log(`🔄 Resuming from session: ${argv.resume}`);
-      codexArgs = `exec resume ${argv.resume} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
-    }
+    const { reasoningEffort, source: reasoningEffortSource } = resolveCodexReasoningEffort(argv);
+    const isResumeMode = !!argv.resume;
+    const codexEnv = getCodexExecEnv(argv.verbose);
 
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
@@ -251,33 +518,54 @@ export const executeCodexCommand = async params => {
     // Write the combined prompt to a file for piping
     // Use OS temporary directory instead of repository workspace to avoid polluting the repo
     const promptFile = path.join(os.tmpdir(), `codex_prompt_${Date.now()}_${process.pid}.txt`);
+    const lastMessageFile = path.join(os.tmpdir(), `codex_last_message_${Date.now()}_${process.pid}.txt`);
     await fs.writeFile(promptFile, combinedPrompt);
 
-    // Build the full command - pipe the prompt file to codex
-    const fullCommand = `(cd "${tempDir}" && cat "${promptFile}" | ${codexPath} ${codexArgs})`;
+    await log(`   Resolved model ID: ${mappedModel}`, { verbose: true });
+    await log(`   Execution mode: ${isResumeMode ? 'resume' : 'new exec'}`, { verbose: true });
+    await log(`   Prompt file: ${promptFile}`, { verbose: true });
+    await log(`   Last message file: ${lastMessageFile}`, { verbose: true });
+    if (argv.verbose && codexEnv.RUST_LOG) {
+      await log(`   Codex debug env: RUST_LOG=${codexEnv.RUST_LOG}`, { verbose: true });
+    }
+
+    // Build codex command arguments once so the logged command matches the executed command.
+    let codexArgs = 'exec';
+    if (isResumeMode) {
+      await log(`🔄 Resuming from session: ${argv.resume}`);
+      codexArgs += ` resume ${shellQuote(argv.resume)}`;
+    } else {
+      codexArgs += ` --model ${shellQuote(mappedModel)}`;
+    }
+    codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')} --dangerously-bypass-approvals-and-sandbox`;
+
+    const fullCommand = `(cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${codexPath} ${codexArgs})`;
 
     await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
     await log(`${fullCommand}`);
     await log('');
 
     try {
-      // Pipe the prompt file to codex via stdin
-      if (argv.resume) {
-        execCommand = $({
-          cwd: tempDir,
-          mirror: false,
-        })`cat ${promptFile} | ${codexPath} exec resume ${argv.resume} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
-      } else {
-        execCommand = $({
-          cwd: tempDir,
-          mirror: false,
-        })`cat ${promptFile} | ${codexPath} exec --model ${mappedModel} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
+      let interactiveHandler = null;
+      if (argv.interactiveMode && owner && repo && prNumber) {
+        await log('🔌 Interactive mode: Creating handler for real-time PR comments', { verbose: true });
+        interactiveHandler = createInteractiveHandler({ owner, repo, prNumber, $, log, verbose: argv.verbose });
+      } else if (argv.interactiveMode) {
+        await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
       }
+      const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log });
+
+      execCommand = $({
+        cwd: tempDir,
+        mirror: false,
+        env: codexEnv,
+      })`sh -lc ${fullCommand}`;
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
       await log(formatAligned('🤖', 'Model:', `Codex ${argv.model.toUpperCase()}`, 2));
+      await log(formatAligned('🧠', 'Reasoning effort:', `${reasoningEffort} (${reasoningEffortSource})`, 2));
       if (argv.fork && forkedRepo) {
         await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
       }
@@ -291,82 +579,153 @@ export const executeCodexCommand = async params => {
       let lastMessage = '';
       let lastTextContent = ''; // Issue #1263: Track last text content for result summary
       let authError = false;
+      let codexJsonState = {
+        sessionId: null,
+        authError: false,
+        resultSummary: '',
+        tokenUsage: createCodexTokenUsage(mappedModel),
+        eventCounts: {},
+        itemTypeCounts: {},
+        subAgentCalls: [],
+        reasoningSummaries: [],
+        commandExecutions: [],
+        fileChanges: [],
+        mcpToolCalls: [],
+        webSearches: [],
+        todoLists: [],
+        itemErrors: [],
+        turnFailures: [],
+        streamErrors: [],
+        observedUsageFieldSets: [],
+        observedModelDiagnosticPaths: [],
+      };
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
-          await log(output);
+          if (argv.verbose) {
+            await log(output);
+          }
           lastMessage = output;
 
-          // Try to parse JSON output to extract session info
-          // Codex CLI uses thread_id instead of session_id
-          try {
-            const lines = output.split('\n');
-            for (const line of lines) {
-              if (!line.trim()) continue;
-              const data = sanitizeObjectStrings(JSON.parse(line));
-              // Check for both thread_id (codex) and session_id (legacy)
-              if ((data.thread_id || data.session_id) && !sessionId) {
-                sessionId = data.thread_id || data.session_id;
-                await log(`📌 Session ID: ${sessionId}`);
-              }
+          codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel);
 
-              // Check for authentication errors (401 Unauthorized)
-              // These should never be retried as they indicate missing/invalid credentials
-              if (data.type === 'error' && data.message && (data.message.includes('401 Unauthorized') || data.message.includes('401') || data.message.includes('Unauthorized'))) {
-                authError = true;
-                await log('\n❌ Authentication error detected: 401 Unauthorized', { level: 'error' });
-                await log('   This error cannot be resolved by retrying.', { level: 'error' });
-                await log('   💡 Please run: codex login', { level: 'error' });
-              }
-
-              // Also check turn.failed events for auth errors
-              if (data.type === 'turn.failed' && data.error && data.error.message && (data.error.message.includes('401 Unauthorized') || data.error.message.includes('401') || data.error.message.includes('Unauthorized'))) {
-                authError = true;
-                await log('\n❌ Authentication error detected in turn.failed event', { level: 'error' });
-                await log('   This error cannot be resolved by retrying.', { level: 'error' });
-                await log('   💡 Please run: codex login', { level: 'error' });
-              }
-
-              // Issue #1263: Track text content for result summary
-              // Codex outputs text via 'text', 'assistant', 'message', or 'result' type events
-              if (data.type === 'text' && data.text) {
-                lastTextContent = data.text;
-              } else if (data.type === 'assistant' && data.message?.content) {
-                const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
-                for (const item of content) {
-                  if (item.type === 'text' && item.text) {
-                    lastTextContent = item.text;
-                  }
-                }
-              } else if (data.type === 'message' && data.content) {
-                if (typeof data.content === 'string') {
-                  lastTextContent = data.content;
-                } else if (Array.isArray(data.content)) {
-                  for (const item of data.content) {
-                    if (item.type === 'text' && item.text) {
-                      lastTextContent = item.text;
-                    }
-                  }
-                }
-              } else if (data.type === 'result' && data.result) {
-                lastTextContent = data.result;
+          if (interactiveHandler || progressMonitor) {
+            for (const rawLine of output.split('\n')) {
+              const line = rawLine.trim();
+              if (!line) continue;
+              try {
+                const data = sanitizeObjectStrings(JSON.parse(line));
+                if (interactiveHandler) await interactiveHandler.processEvent(data);
+                if (progressMonitor) await progressMonitor.processStreamEvent(data);
+              } catch {
+                // Ignore non-JSON lines
               }
             }
-          } catch {
-            // Not JSON, continue
+          }
+
+          if (codexJsonState.sessionId && codexJsonState.sessionId !== sessionId) {
+            sessionId = codexJsonState.sessionId;
+            await log(`📌 Session ID: ${sessionId}`);
+          }
+
+          if (codexJsonState.resultSummary) {
+            lastTextContent = codexJsonState.resultSummary;
+          }
+
+          if (codexJsonState.authError && !authError) {
+            authError = true;
+            await log('\n❌ Authentication error detected in Codex JSON stream', { level: 'error' });
+            await log('   This error cannot be resolved by retrying.', { level: 'error' });
+            await log('   💡 Please run: codex login', { level: 'error' });
           }
         }
 
         if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
-          if (errorOutput) {
+          if (errorOutput && argv.verbose) {
             await log(errorOutput, { stream: 'stderr' });
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
         }
       }
+
+      if (interactiveHandler) {
+        await interactiveHandler.flush();
+      }
+
+      try {
+        const lastMessageFromFile = (await fs.readFile(lastMessageFile, 'utf8')).trim();
+        if (lastMessageFromFile) {
+          await log(`📝 Final Codex message captured in ${lastMessageFile}`, { verbose: true });
+          await log(lastMessageFromFile, { verbose: true });
+          lastTextContent = lastTextContent || lastMessageFromFile;
+        } else {
+          await log(`⚠️ Final Codex message file was empty: ${lastMessageFile}`, { level: 'warning', verbose: true });
+        }
+      } catch (readError) {
+        await log(`⚠️ Could not read Codex final message file: ${readError.message}`, { level: 'warning', verbose: true });
+      }
+
+      if (Object.keys(codexJsonState.eventCounts).length > 0) {
+        const eventSummary = Object.entries(codexJsonState.eventCounts).map(([eventType, count]) => `${eventType}=${count}`).join(', ');
+        await log(`📊 Codex JSON events: ${eventSummary}`, { verbose: true });
+      }
+      if (Object.keys(codexJsonState.itemTypeCounts).length > 0) {
+        const itemSummary = Object.entries(codexJsonState.itemTypeCounts).map(([itemType, count]) => `${itemType}=${count}`).join(', ');
+        await log(`📦 Codex item types: ${itemSummary}`, { verbose: true });
+      }
+      if (codexJsonState.tokenUsage.stepCount > 0) {
+        await log(`📈 Codex usage from turn.completed: ${codexJsonState.tokenUsage.inputTokens.toLocaleString()} input, ${codexJsonState.tokenUsage.cacheReadTokens.toLocaleString()} cache read, ${codexJsonState.tokenUsage.outputTokens.toLocaleString()} output across ${codexJsonState.tokenUsage.stepCount} turn(s)`, { verbose: true });
+      } else {
+        await log('📈 No Codex usage found in turn.completed events', { level: 'warning', verbose: true });
+      }
+      if (codexJsonState.subAgentCalls.length > 0) {
+        await log(`🤝 Codex collab/sub-agent calls observed: ${codexJsonState.subAgentCalls.length}`, { verbose: true });
+      }
+      if (codexJsonState.reasoningSummaries.length > 0) {
+        await log(`🧠 Codex reasoning summaries observed: ${codexJsonState.reasoningSummaries.length}`, { verbose: true });
+      }
+      if (codexJsonState.commandExecutions.length > 0) {
+        await log(`💻 Codex command executions observed: ${codexJsonState.commandExecutions.length}`, { verbose: true });
+      }
+      if (codexJsonState.fileChanges.length > 0) {
+        await log(`📝 Codex file change items observed: ${codexJsonState.fileChanges.length}`, { verbose: true });
+      }
+      if (codexJsonState.mcpToolCalls.length > 0) {
+        await log(`🔌 Codex MCP tool calls observed: ${codexJsonState.mcpToolCalls.length}`, { verbose: true });
+      }
+      if (codexJsonState.webSearches.length > 0) {
+        await log(`🌐 Codex web searches observed: ${codexJsonState.webSearches.length}`, { verbose: true });
+      }
+      if (codexJsonState.todoLists.length > 0) {
+        const latestTodoCount = codexJsonState.todoLists.at(-1)?.items?.length || 0;
+        await log(`📋 Codex todo list updates observed: ${codexJsonState.todoLists.length} (latest: ${latestTodoCount} items)`, { verbose: true });
+      }
+      if (codexJsonState.itemErrors.length > 0 || codexJsonState.turnFailures.length > 0 || codexJsonState.streamErrors.length > 0) {
+        await log(`⚠️ Codex error events observed: item=${codexJsonState.itemErrors.length}, turn=${codexJsonState.turnFailures.length}, stream=${codexJsonState.streamErrors.length}`, { verbose: true });
+      }
+      if (codexJsonState.observedUsageFieldSets.length > 0) {
+        const lastUsageFieldSet = codexJsonState.observedUsageFieldSets.at(-1);
+        await log(`📐 Codex usage fields observed: ${lastUsageFieldSet.join(', ')}`, { verbose: true });
+      }
+      if (codexJsonState.observedModelDiagnosticPaths.length > 0) {
+        await log(`🔎 Undocumented model-related JSON fields observed but ignored for accounting: ${codexJsonState.observedModelDiagnosticPaths.join(', ')}`, { verbose: true });
+      } else {
+        await log(`🤖 Codex exec JSON did not expose model IDs; using requested model for reporting: ${mappedModel}`, { verbose: true });
+      }
+
+      const firstActualModelId = mappedModel;
+      const pricingInfo = firstActualModelId
+        ? {
+            modelId: firstActualModelId,
+            modelName: firstActualModelId,
+            provider: 'OpenAI',
+            tokenUsage: codexJsonState.tokenUsage.stepCount > 0 ? codexJsonState.tokenUsage : null,
+          }
+        : null;
+      const resultModelUsage = pricingInfo?.tokenUsage ? buildCodexResultModelUsage(firstActualModelId, pricingInfo.tokenUsage, pricingInfo) : null;
 
       // Check for authentication errors first - these should never be retried
       if (authError) {
@@ -415,6 +774,10 @@ export const executeCodexCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
+          pricingInfo,
+          resultModelUsage,
+          subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
+          codexJsonDetails: codexJsonState,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
         };
       }
@@ -424,6 +787,8 @@ export const executeCodexCommand = async params => {
       // Issue #1263: Log if result summary was captured
       if (lastTextContent) {
         await log('📝 Captured result summary from Codex output', { verbose: true });
+      } else {
+        await log('⚠️ No result summary captured from Codex output or last-message file', { level: 'warning', verbose: true });
       }
 
       return {
@@ -431,6 +796,10 @@ export const executeCodexCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime,
+        pricingInfo,
+        resultModelUsage,
+        subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
+        codexJsonDetails: codexJsonState,
         resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
@@ -456,8 +825,14 @@ export const executeCodexCommand = async params => {
         sessionId: null,
         limitReached: false,
         limitResetTime: null,
+        pricingInfo: null,
         resultSummary: null, // Issue #1263: No result summary available on error
       };
+    } finally {
+      await log(`🧹 Removing temporary Codex prompt file: ${promptFile}`, { verbose: true });
+      await fs.rm(promptFile, { force: true }).catch(() => {});
+      await log(`🧹 Removing temporary Codex last-message file: ${lastMessageFile}`, { verbose: true });
+      await fs.rm(lastMessageFile, { force: true }).catch(() => {});
     }
   };
 
@@ -553,7 +928,9 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 export default {
   validateCodexConnection,
   handleCodexRuntimeSwitch,
+  checkPlaywrightMcpAvailability,
   executeCodex,
   executeCodexCommand,
+  resolveCodexReasoningEffort,
   checkForUncommittedChanges,
 };

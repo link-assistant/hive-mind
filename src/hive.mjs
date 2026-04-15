@@ -102,7 +102,7 @@ if (isDirectExecution) {
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
     const modelValidation = await import('./models/index.mjs');
-    const { validateAndExitOnInvalidModel } = modelValidation;
+    const { validateAndExitOnInvalidModel, defaultModels } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
     // Import YouTrack-related functions
@@ -472,6 +472,11 @@ if (isDirectExecution) {
       if (!rawArgs.includes('--model') && !rawArgs.includes('-m') && !rawArgs.includes('--worker-model')) argv.model = 'sonnet';
     }
 
+    const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
+    if (argv.tool && !modelExplicitlyProvided && defaultModels[argv.tool]) {
+      argv.model = defaultModels[argv.tool];
+    }
+
     // Validate model names EARLY (simple string check, always runs)
     const tool = argv.tool || 'claude';
     await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
@@ -799,6 +804,10 @@ if (isDirectExecution) {
                   args.push(value ? `--${optionName}` : `--no-${optionName}`);
                 } else if (value) {
                   args.push(`--${optionName}`); // Default false: only forward when truthy
+                }
+              } else if (def.type === 'array' && Array.isArray(value) && value.length > 0) {
+                for (const entry of value) {
+                  args.push(`--${optionName}`, String(entry));
                 }
               } else if ((def.type === 'string' || def.type === 'number') && value !== undefined) {
                 args.push(`--${optionName}`, String(value));

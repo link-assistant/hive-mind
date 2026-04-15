@@ -306,7 +306,7 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
     } else if (argv.tool === 'codex') {
       // Validate Codex connection
       const codexLib = await import('./codex.lib.mjs');
-      isToolConnected = await codexLib.validateCodexConnection(model);
+      isToolConnected = await codexLib.validateCodexConnection(model, argv.verbose);
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Codex connection', { level: 'error' });
         return false;

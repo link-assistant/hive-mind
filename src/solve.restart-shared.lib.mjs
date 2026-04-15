@@ -208,8 +208,20 @@ export const executeToolIteration = async params => {
   } else if (argv.tool === 'codex') {
     // Use Codex
     const codexExecLib = await import('./codex.lib.mjs');
-    const { executeCodex } = codexExecLib;
+    const { executeCodex, checkPlaywrightMcpAvailability } = codexExecLib;
     const codexPath = argv.codexPath || 'codex';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
 
     toolResult = await executeCodex({
       issueUrl,

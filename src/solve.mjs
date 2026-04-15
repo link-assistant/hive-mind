@@ -769,8 +769,20 @@ try {
     });
   } else if (argv.tool === 'codex') {
     const codexLib = await import('./codex.lib.mjs');
-    const { executeCodex } = codexLib;
+    const { executeCodex, checkPlaywrightMcpAvailability } = codexLib;
     const codexPath = process.env.CODEX_PATH || 'codex';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
 
     toolResult = await executeCodex({
       issueUrl,
@@ -831,7 +843,6 @@ try {
     if (argv.tool === 'claude' || !argv.tool) {
       // If flag is true (default), check if Playwright MCP is actually available
       if (argv.promptPlaywrightMcp) {
-        const { checkPlaywrightMcpAvailability } = claudeLib;
         const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
         if (playwrightMcpAvailable) {
           await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });

@@ -1279,6 +1279,29 @@ test('checkApiLimits with tool agent should not block on Claude limits', async (
   queue.stop();
 });
 
+test('checkApiLimits with tool codex applies Codex limits', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  getLimitCache().set('codex', {
+    success: true,
+    usage: {
+      currentSession: { percentage: 95, resetTime: null, resetsAt: null },
+      allModels: { percentage: 10, resetTime: null, resetsAt: null },
+    },
+    planType: 'pro',
+    additionalRateLimits: [],
+    credits: null,
+  }, CACHE_TTL.USAGE_API);
+
+  const result = await queue.checkApiLimits(false, 1, 'codex');
+
+  assert.ok(result.oneAtATime, 'Codex high session usage should trigger one-at-a-time mode');
+  assert.ok(result.reasons.some(r => r.includes('Codex 5 hour session limit')), 'Should mention Codex 5 hour session limit');
+
+  queue.stop();
+});
+
 await asyncTest('checkApiLimits default tool is claude', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -1427,6 +1450,15 @@ await asyncTest('getStats and getQueueSummary show per-tool breakdown', async ()
   assert.ok(status.includes('claude') && status.includes('pending: 2'), 'Should show claude queue with 2 pending');
   assert.ok(status.includes('agent') && status.includes('pending: 1'), 'Should show agent queue with 1 pending');
   assert.ok(status.includes('processing:'), 'Should include processing counts from pgrep');
+  queue.stop();
+});
+
+await asyncTest('formatStatus includes codex queue', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
+  const status = await queue.formatStatus();
+  assert.ok(status.includes('codex') && status.includes('pending: 1'), 'Should show codex queue with 1 pending');
   queue.stop();
 });
 

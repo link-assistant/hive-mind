@@ -4,7 +4,7 @@
 // This module has no heavy dependencies to allow fast loading for --help
 
 import { SOLVE_OPTION_DEFINITIONS } from './solve.config.lib.mjs';
-import { buildModelOptionDescription } from './models/index.mjs';
+import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
 
 // Hive-only options that are NOT solve options (hive-specific functionality).
 // These are excluded when auto-registering solve-passthrough options.
@@ -22,7 +22,7 @@ const HIVE_CUSTOM_SOLVE_OPTIONS = {
     type: 'string',
     description: `${buildModelOptionDescription()}, or any model ID supported by the tool`,
     alias: ['m', 'worker-model'],
-    default: 'sonnet',
+    default: currentParsedArgs => defaultModels[currentParsedArgs?.tool] || defaultModels.claude,
   },
   'dry-run': {
     type: 'boolean',
@@ -47,7 +47,7 @@ const HIVE_CUSTOM_SOLVE_OPTIONS = {
   tool: {
     type: 'string',
     description: 'AI tool to use for solving issues',
-    choices: ['claude', 'opencode', 'agent'],
+    choices: ['claude', 'opencode', 'codex', 'agent'],
     default: 'claude',
   },
 };

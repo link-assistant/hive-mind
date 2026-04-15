@@ -21,7 +21,7 @@ import { promisify } from 'node:util';
 const execAsync = promisify(exec);
 
 // Import centralized limits and caching
-import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
+import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 
 // Import centralized queue configuration
 // This ensures thresholds are consistent between queue logic and display formatting
@@ -104,6 +104,15 @@ export async function getRunningAgentProcesses(verbose = false) {
 }
 
 /**
+ * Count running codex processes
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, processes: string[]}>}
+ */
+export async function getRunningCodexProcesses(verbose = false) {
+  return getRunningProcesses('codex', verbose);
+}
+
+/**
  * Format a threshold as percentage for display
  * @param {number} ratio - Ratio (0.0 - 1.0)
  * @returns {string} Formatted percentage
@@ -161,12 +170,18 @@ function formatWaitingReason(metric, currentValue, threshold) {
       return `Claude 5 hour session limit is ${currentPercent}% (threshold: ${thresholdPercent})`;
     case 'claude_weekly':
       return `Claude weekly limit is ${currentPercent}% (threshold: ${thresholdPercent})`;
+    case 'codex_5_hour_session':
+      return `Codex 5 hour session limit is ${currentPercent}% (threshold: ${thresholdPercent})`;
+    case 'codex_weekly':
+      return `Codex weekly limit is ${currentPercent}% (threshold: ${thresholdPercent})`;
     case 'github':
       return `GitHub API usage is ${currentPercent}% (threshold: ${thresholdPercent})`;
     case 'min_interval':
       return `Minimum interval between commands not reached`;
     case 'claude_running':
       return `Claude process is already running`;
+    case 'codex_running':
+      return `Codex process is already running`;
     default:
       return `${metric} threshold exceeded`;
   }
@@ -281,6 +296,7 @@ export class SolveQueue {
     this.queues = {
       claude: [],
       agent: [],
+      codex: [],
     };
     this.processing = new Map();
     this.completed = [];
@@ -291,6 +307,7 @@ export class SolveQueue {
     this.lastStartTimeByTool = {
       claude: null,
       agent: null,
+      codex: null,
     };
     // Legacy: keep for compatibility with existing code that uses lastStartTime
     this.lastStartTime = null;
@@ -647,21 +664,28 @@ export class SolveQueue {
 
     // Check running claude processes (this is a metric, not a blocking reason by itself)
     const claudeProcs = await getRunningClaudeProcesses(this.verbose);
+    const codexProcs = await getRunningCodexProcesses(this.verbose);
+    const agentProcs = await getRunningAgentProcesses(this.verbose);
     const hasRunningClaude = claudeProcs.count > 0;
+    const hasRunningCodex = codexProcs.count > 0;
 
     // Calculate total processing count for system resources (all tools)
     // System resources (RAM, CPU, disk) apply to all tools
-    const totalProcessing = this.processing.size + claudeProcs.count;
+    const totalProcessing = this.processing.size + claudeProcs.count + codexProcs.count + agentProcs.count;
 
     // Calculate Claude-specific processing count for Claude API limits
     // Only counts Claude items in queue + external claude processes
     // Agent items don't count against Claude's one-at-a-time limit
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     const claudeProcessingCount = this.getProcessingCountByTool('claude');
+    const codexProcessingCount = this.getProcessingCountByTool('codex');
 
     // Track claude_running as a metric (but don't add to reasons yet)
     if (hasRunningClaude) {
       this.recordThrottle('claude_running');
+    }
+    if (hasRunningCodex) {
+      this.recordThrottle('codex_running');
     }
 
     // Check system resources with strategy support
@@ -685,7 +709,9 @@ export class SolveQueue {
     // This allows agent tasks to proceed when Claude limits are reached
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
-    const limitCheck = await this.checkApiLimits(hasRunningClaude, claudeProcessingCount, tool);
+    const hasRunningToolProcess = tool === 'codex' ? hasRunningCodex : hasRunningClaude;
+    const toolProcessingCount = tool === 'codex' ? codexProcessingCount : claudeProcessingCount;
+    const limitCheck = await this.checkApiLimits(hasRunningToolProcess, toolProcessingCount, tool);
     if (limitCheck.rejected) {
       rejected = true;
       rejectReason = limitCheck.rejectReason;
@@ -704,6 +730,9 @@ export class SolveQueue {
       // Since it's supplementary info, not the primary blocking reason
       // See: https://github.com/link-assistant/hive-mind/issues/1078
       reasons.push(formatWaitingReason('claude_running', claudeProcs.count, 0) + ` (${claudeProcs.count} processes)`);
+    }
+    if (tool === 'codex' && hasRunningCodex && reasons.length > 0) {
+      reasons.push(formatWaitingReason('codex_running', codexProcs.count, 0) + ` (${codexProcs.count} processes)`);
     }
 
     const canStart = reasons.length === 0 && !rejected;
@@ -724,8 +753,10 @@ export class SolveQueue {
       reasons,
       oneAtATime,
       claudeProcesses: claudeProcs.count,
+      codexProcesses: codexProcs.count,
       totalProcessing,
       claudeProcessingCount,
+      codexProcessingCount,
     };
   }
 
@@ -884,12 +915,9 @@ export class SolveQueue {
     // affected by Claude API limits (5-hour session, weekly limits)
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     const applyClaudeLimits = tool === 'claude';
+    const applyCodexLimits = tool === 'codex';
 
-    // Calculate total Claude processing: queue-internal claude items + external claude processes
-    // This is used for Claude limits one-at-a-time mode - only counts Claude-related processing
-    // Agent items in the queue don't count against Claude's one-at-a-time limit
-    // See: https://github.com/link-assistant/hive-mind/issues/1159
-    const totalClaudeProcessing = claudeProcessingCount + (hasRunningClaude ? 1 : 0);
+    const totalToolProcessing = claudeProcessingCount + (hasRunningClaude ? 1 : 0);
 
     // Check Claude limits (using cached value)
     // Only applied when tool is 'claude'
@@ -914,7 +942,7 @@ export class SolveQueue {
               rejectReason = reason;
             } else if (strategy === 'dequeue-one-at-a-time') {
               oneAtATime = true;
-              if (totalClaudeProcessing > 0) {
+              if (totalToolProcessing > 0) {
                 reasons.push(reason + ' (waiting for current command)');
               }
             } else {
@@ -939,11 +967,59 @@ export class SolveQueue {
               rejectReason = reason;
             } else if (strategy === 'dequeue-one-at-a-time') {
               oneAtATime = true;
-              if (totalClaudeProcessing > 0) {
+              if (totalToolProcessing > 0) {
                 reasons.push(reason + ' (waiting for current command)');
               }
             } else {
               // 'enqueue' - block unconditionally
+              reasons.push(reason);
+            }
+          }
+        }
+      }
+    } else if (applyCodexLimits) {
+      const codexResult = await getCachedCodexLimits(this.verbose);
+      if (codexResult.success) {
+        const sessionPercent = codexResult.usage.currentSession.percentage;
+        const weeklyPercent = codexResult.usage.allModels.percentage;
+
+        if (sessionPercent !== null) {
+          const sessionRatio = sessionPercent / 100;
+          if (sessionRatio >= QUEUE_CONFIG.thresholds.claude5Hour.value) {
+            const reason = formatWaitingReason('codex_5_hour_session', sessionPercent, QUEUE_CONFIG.thresholds.claude5Hour.value);
+            const strategy = QUEUE_CONFIG.thresholds.claude5Hour.strategy;
+            this.recordThrottle(sessionRatio >= 1.0 ? 'codex_5_hour_session_100' : `codex_5_hour_session_${strategy}`);
+
+            if (strategy === 'reject') {
+              rejected = true;
+              rejectReason = reason;
+            } else if (strategy === 'dequeue-one-at-a-time') {
+              oneAtATime = true;
+              if (totalToolProcessing > 0) {
+                reasons.push(reason + ' (waiting for current command)');
+              }
+            } else {
+              reasons.push(reason);
+            }
+          }
+        }
+
+        if (weeklyPercent !== null) {
+          const weeklyRatio = weeklyPercent / 100;
+          if (weeklyRatio >= QUEUE_CONFIG.thresholds.claudeWeekly.value) {
+            const reason = formatWaitingReason('codex_weekly', weeklyPercent, QUEUE_CONFIG.thresholds.claudeWeekly.value);
+            const strategy = QUEUE_CONFIG.thresholds.claudeWeekly.strategy;
+            this.recordThrottle(weeklyRatio >= 1.0 ? 'codex_weekly_100' : `codex_weekly_${strategy}`);
+
+            if (strategy === 'reject') {
+              rejected = true;
+              rejectReason = reason;
+            } else if (strategy === 'dequeue-one-at-a-time') {
+              oneAtATime = true;
+              if (totalToolProcessing > 0) {
+                reasons.push(reason + ' (waiting for current command)');
+              }
+            } else {
               reasons.push(reason);
             }
           }
@@ -1273,22 +1349,11 @@ export class SolveQueue {
    * @see https://github.com/link-assistant/hive-mind/issues/1267
    */
   async formatStatus() {
-    // Get actual process counts for each tool queue
-    // The "processing" count is the number of running system processes, not queue internal state
-    // This ensures users see accurate counts of what's actually running
-    const claudeProcs = await getRunningClaudeProcesses(this.verbose);
-    const agentProcs = await getRunningAgentProcesses(this.verbose);
-
-    const processCounts = {
-      claude: claudeProcs.count,
-      agent: agentProcs.count,
-    };
-
     // Always show per-tool breakdown for all known queues
     let message = 'Queues\n';
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
-      const processing = processCounts[tool] || 0;
+      const processing = (await getRunningProcesses(tool, this.verbose)).count;
       message += `${tool} (pending: ${pending}, processing: ${processing})\n`;
     }
 
@@ -1326,20 +1391,12 @@ export class SolveQueue {
     // Get actual process counts for each tool queue
     // The "processing" count is the number of running system processes, not queue internal state
     // This ensures users see accurate counts of what's actually running
-    const claudeProcs = await getRunningClaudeProcesses(this.verbose);
-    const agentProcs = await getRunningAgentProcesses(this.verbose);
-
-    const processCounts = {
-      claude: claudeProcs.count,
-      agent: agentProcs.count,
-    };
-
     let message = '📋 *Solve Queue Status*\n\n';
 
     // Show per-tool queue breakdown with items grouped by queue
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
-      const processing = processCounts[tool] || 0;
+      const processing = (await getRunningProcesses(tool, this.verbose)).count;
       message += `*${tool}* (pending: ${pending}, processing: ${processing})\n`;
 
       // Show first 5 queued items for this tool

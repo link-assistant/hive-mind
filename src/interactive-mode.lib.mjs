@@ -2,10 +2,10 @@
 /**
  * Interactive Mode Library
  *
- * [EXPERIMENTAL] This module provides real-time PR comment updates during Claude execution.
- * It parses Claude CLI's NDJSON output and posts relevant events as GitHub PR comments.
+ * [EXPERIMENTAL] This module provides real-time PR comment updates during tool execution.
+ * It parses Claude or Codex JSON output and posts relevant events as GitHub PR comments.
  *
- * Supported JSON event types:
+ * Supported Claude JSON event types:
  * - system.init: Session initialization
  * - system.task_started: Agent subtask started (Issue #1450)
  * - system.task_progress: Agent subtask progress update (Issue #1450)
@@ -290,7 +290,7 @@ const getToolIcon = toolName => {
 };
 
 /**
- * Creates an interactive mode handler for processing Claude CLI events
+ * Creates an interactive mode handler for processing Claude/Codex CLI events
  *
  * @param {Object} options - Handler configuration
  * @param {string} options.owner - Repository owner
@@ -1238,6 +1238,153 @@ ${createRawJsonSection(data)}`;
     }
   };
 
+  const handleCodexThreadStarted = async data => {
+    if (state.sessionId) return;
+
+    state.sessionId = data.thread_id || data.session_id || null;
+    state.startTime = Date.now();
+
+    const comment = `## 🚀 Interactive session started
+
+| Property | Value |
+|----------|-------|
+| **Session ID** | \`${state.sessionId || 'unknown'}\` |
+| **Model** | \`${data.model || 'unknown'}\` |
+| **Tool** | \`codex\` |
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
+  };
+
+  const handleCodexAgentMessage = async data => {
+    const text = data.item?.text;
+    if (typeof text !== 'string' || !text.trim()) return;
+    await handleAssistantText(data, text);
+  };
+
+  const handleCodexTodoList = async data => {
+    const items = Array.isArray(data.item?.items) ? data.item.items : [];
+    const todosPreview = items.length > 0
+      ? items.map(todo => `- [${todo?.completed ? 'x' : ' '}] ${todo?.text || ''}`).join('\n')
+      : '_No tasks_';
+    const completedCount = items.filter(todo => todo?.completed).length;
+
+    const comment = `## 📋 Codex todo list
+
+${createCollapsible(`📋 Todos (${completedCount}/${items.length} items)`, todosPreview, true)}
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
+  };
+
+  const handleCodexCommandExecution = async data => {
+    const item = data.item || {};
+    const command = item.command || '';
+    const output = item.aggregated_output || '';
+    const status = item.status || (data.type === 'item.completed' ? 'completed' : data.type === 'item.updated' ? 'updated' : 'started');
+    const body = `## 💻 Codex command execution
+
+**Status:** \`${status}\`
+${command ? '\n' + createCollapsible('📋 Executed command', '```bash\n' + escapeMarkdown(command) + '\n```', true) : ''}
+${output ? '\n\n' + createCollapsible('📤 Output', '```\n' + escapeMarkdown(truncateMiddle(output, { maxLines: 60, keepStart: 25, keepEnd: 25 })) + '\n```', true) : ''}
+
+---
+
+${createRawJsonSection(data)}`;
+    await postComment(body);
+  };
+
+  const handleCodexMcpToolCall = async data => {
+    const item = data.item || {};
+    const summary = [`**Server:** \`${item.server || 'unknown'}\``, `**Tool:** \`${item.tool || 'unknown'}\``, `**Status:** \`${item.status || 'unknown'}\``].join('\n');
+    const details = item.arguments != null ? createCollapsible('📥 Arguments', '```json\n' + safeJsonStringify(item.arguments, 2) + '\n```', true) : '';
+    const resultSection = item.result != null ? '\n\n' + createCollapsible('📤 Result', '```json\n' + safeJsonStringify(item.result, 2) + '\n```', false) : '';
+    const errorSection = item.error != null ? '\n\n' + createCollapsible('❌ Error', '```json\n' + safeJsonStringify(item.error, 2) + '\n```', true) : '';
+
+    await postComment(`## 🔌 Codex MCP tool call
+
+${summary}
+${details}${resultSection}${errorSection}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexWebSearch = async data => {
+    const item = data.item || {};
+    await postComment(`## 🌐 Codex web search
+
+**Query:** ${escapeMarkdown(item.query || 'unknown')}
+${item.action ? `\n**Action:** \`${item.action}\`` : ''}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexFileChange = async data => {
+    const item = data.item || {};
+    const changes = Array.isArray(item.changes) ? item.changes.map(change => `- \`${change?.kind || 'change'}\` ${change?.path || ''}`).join('\n') : '_No changes listed_';
+    await postComment(`## 📝 Codex file changes
+
+**Status:** \`${item.status || 'unknown'}\`
+${createCollapsible('📄 Files', changes, true)}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexCollabToolCall = async data => {
+    const item = data.item || {};
+    const prompt = item.prompt || item.description || `${item.tool || 'collab_tool_call'} via codex`;
+    await postComment(`## 🤝 Codex collab/sub-agent call
+
+**Tool:** \`${item.tool || 'unknown'}\`
+**Status:** \`${item.status || 'unknown'}\`
+${createCollapsible('📝 Prompt', escapeMarkdown(truncateMiddle(prompt, { maxLines: 30, keepStart: 12, keepEnd: 12 })), true)}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexTurnCompleted = async data => {
+    const usage = data.usage || {};
+    let usageSection = '| Type | Count |\n|------|-------|\n';
+    usageSection += `| Input | ${(usage.input_tokens || 0).toLocaleString()} |\n`;
+    usageSection += `| Cache Read | ${(usage.cached_input_tokens || 0).toLocaleString()} |\n`;
+    usageSection += `| Output | ${(usage.output_tokens || 0).toLocaleString()} |\n`;
+
+    await postComment(`## ✅ Codex turn completed
+
+### 📊 Token Usage
+
+${usageSection}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexError = async data => {
+    const message = data.message || data.error?.message || 'Unknown Codex error';
+    await postComment(`## ❌ Codex error
+
+${createCollapsible('View error', escapeMarkdown(message), true)}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
   /**
    * Handle unrecognized event types
    * @param {Object} data - Event data
@@ -1260,7 +1407,7 @@ ${createRawJsonSection(data)}`;
   };
 
   /**
-   * Process a single JSON event from Claude CLI
+   * Process a single JSON event from Claude or Codex CLI
    *
    * @param {Object} data - Parsed JSON object from Claude CLI output
    * @returns {Promise<void>}
@@ -1327,6 +1474,42 @@ ${createRawJsonSection(data)}`;
         await handleResult(data);
         break;
 
+      case 'thread.started':
+        await handleCodexThreadStarted(data);
+        break;
+
+      case 'turn.completed':
+        await handleCodexTurnCompleted(data);
+        break;
+
+      case 'error':
+        await handleCodexError(data);
+        break;
+
+      case 'item.started':
+      case 'item.updated':
+      case 'item.completed': {
+        const itemType = data.item?.type;
+        if (itemType === 'agent_message') {
+          await handleCodexAgentMessage(data);
+        } else if (itemType === 'todo_list') {
+          await handleCodexTodoList(data);
+        } else if (itemType === 'command_execution') {
+          await handleCodexCommandExecution(data);
+        } else if (itemType === 'mcp_tool_call') {
+          await handleCodexMcpToolCall(data);
+        } else if (itemType === 'web_search') {
+          await handleCodexWebSearch(data);
+        } else if (itemType === 'file_change') {
+          await handleCodexFileChange(data);
+        } else if (itemType === 'collab_tool_call') {
+          await handleCodexCollabToolCall(data);
+        } else if (itemType === 'error') {
+          await handleCodexError(data.item);
+        }
+        break;
+      }
+
       default:
         await handleUnrecognized(data);
     }
@@ -1368,6 +1551,16 @@ ${createRawJsonSection(data)}`;
       handleTaskNotification,
       handleRateLimitEvent,
       handleUnrecognized,
+      handleCodexThreadStarted,
+      handleCodexAgentMessage,
+      handleCodexTodoList,
+      handleCodexCommandExecution,
+      handleCodexMcpToolCall,
+      handleCodexWebSearch,
+      handleCodexFileChange,
+      handleCodexCollabToolCall,
+      handleCodexTurnCompleted,
+      handleCodexError,
     },
   };
 };
@@ -1379,8 +1572,7 @@ ${createRawJsonSection(data)}`;
  * @returns {boolean} Whether interactive mode is supported
  */
 export const isInteractiveModeSupported = tool => {
-  // Currently only supported for Claude
-  return tool === 'claude';
+  return tool === 'claude' || tool === 'codex';
 };
 
 /**
@@ -1397,7 +1589,7 @@ export const validateInteractiveModeConfig = async (argv, log) => {
 
   // Check tool support
   if (!isInteractiveModeSupported(argv.tool)) {
-    await log(`⚠️ --interactive-mode is only supported for --tool claude (current: ${argv.tool})`, {
+    await log(`⚠️ --interactive-mode is only supported for --tool claude and --tool codex (current: ${argv.tool})`, {
       level: 'warning',
     });
     await log('   Interactive mode will be disabled for this session.', { level: 'warning' });
@@ -1409,7 +1601,7 @@ export const validateInteractiveModeConfig = async (argv, log) => {
   // The actual PR number check happens during execution
 
   await log('🔌 Interactive mode: ENABLED (experimental)', { level: 'info' });
-  await log('   Claude output will be posted as PR comments in real-time.', { level: 'info' });
+  await log(`   ${argv.tool || 'claude'} output will be posted as PR comments in real-time.`, { level: 'info' });
 
   return true;
 };

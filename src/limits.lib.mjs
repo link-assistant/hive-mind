@@ -30,11 +30,87 @@ const execAsync = promisify(exec);
  * Default path to Claude credentials file
  */
 const DEFAULT_CREDENTIALS_PATH = join(homedir(), '.claude', '.credentials.json');
+const DEFAULT_CODEX_AUTH_PATH = join(homedir(), '.codex', 'auth.json');
+const DEFAULT_CODEX_CONFIG_PATH = join(homedir(), '.codex', 'config.toml');
 
 /**
  * Anthropic OAuth usage API endpoint
  */
 const USAGE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
+const CODEX_USAGE_API_DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api';
+
+function decodeJwtPayload(token) {
+  if (!token || typeof token !== 'string') return null;
+
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    return JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function unixSecondsToIsoDate(seconds) {
+  if (seconds === null || seconds === undefined) return null;
+  const numeric = Number(seconds);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return new Date(numeric * 1000).toISOString();
+}
+
+function mapCodexWindow(window) {
+  const resetsAt = unixSecondsToIsoDate(window?.reset_at);
+  return {
+    percentage: window?.used_percent ?? null,
+    resetTime: formatResetTime(resetsAt),
+    resetsAt,
+    windowSeconds: window?.limit_window_seconds ?? null,
+    resetAfterSeconds: window?.reset_after_seconds ?? null,
+  };
+}
+
+async function readCodexAuth(authPath = DEFAULT_CODEX_AUTH_PATH, verbose = false) {
+  try {
+    const content = await readFile(authPath, 'utf-8');
+    const auth = JSON.parse(content);
+
+    if (verbose) {
+      console.log('[VERBOSE] /limits Codex auth loaded from:', authPath);
+    }
+
+    return auth;
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits failed to read Codex auth:', error.message);
+    }
+    return null;
+  }
+}
+
+async function getCodexUsageBaseUrl(configPath = DEFAULT_CODEX_CONFIG_PATH, verbose = false) {
+  try {
+    const content = await readFile(configPath, 'utf-8');
+    const match = content.match(/^\s*chatgpt_base_url\s*=\s*["']([^"']+)["']/m);
+    if (!match?.[1]) return CODEX_USAGE_API_DEFAULT_BASE_URL;
+
+    const baseUrl = match[1].trim().replace(/\/+$/, '');
+    const normalized = baseUrl.endsWith('/backend-api') ? baseUrl : `${baseUrl}/backend-api`;
+
+    if (verbose) {
+      console.log('[VERBOSE] /limits Codex base URL loaded from config:', normalized);
+    }
+
+    return normalized;
+  } catch (error) {
+    if (verbose) {
+      console.log('[VERBOSE] /limits using default Codex base URL:', CODEX_USAGE_API_DEFAULT_BASE_URL);
+      console.log('[VERBOSE] /limits failed to read Codex config:', error.message);
+    }
+    return CODEX_USAGE_API_DEFAULT_BASE_URL;
+  }
+}
 
 /**
  * Read Claude credentials from the credentials file
@@ -703,6 +779,155 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
 }
 
 /**
+ * Get Codex usage limits through the ChatGPT-authenticated usage endpoint.
+ * Mirrors the supported upstream Codex account/rate-limits path.
+ *
+ * Returns usage data for:
+ * - Current session (5-hour) usage percentage and reset time
+ * - Current week usage percentage and reset date
+ * - Additional metered Codex limits when available
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {string} authPath - Optional path to Codex auth.json
+ * @param {string|null} baseUrl - Optional backend base URL override
+ * @returns {Object} Object with success boolean, and either usage data or error message
+ */
+export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CODEX_AUTH_PATH, baseUrl = null) {
+  try {
+    const auth = await readCodexAuth(authPath, verbose);
+
+    if (!auth) {
+      return {
+        success: false,
+        error: 'Could not read Codex authentication. Make sure Codex is properly installed and authenticated.',
+      };
+    }
+
+    if (auth.auth_mode && auth.auth_mode !== 'chatgpt') {
+      return {
+        success: false,
+        error: 'Codex rate limits require ChatGPT authentication. API key auth does not expose account usage windows.',
+      };
+    }
+
+    const accessToken = auth?.tokens?.access_token;
+    if (!accessToken) {
+      return {
+        success: false,
+        error: 'No Codex access token found. Please authenticate Codex with your ChatGPT account.',
+      };
+    }
+
+    const resolvedBaseUrl = (baseUrl || await getCodexUsageBaseUrl(DEFAULT_CODEX_CONFIG_PATH, verbose)).replace(/\/+$/, '');
+    const usageEndpoint = `${resolvedBaseUrl}/wham/usage`;
+    const tokenPayload = decodeJwtPayload(accessToken);
+    const requestHeaders = {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      'User-Agent': 'hive-mind-codex-limits/1.0',
+    };
+
+    if (verbose) {
+      console.log('[VERBOSE] /limits fetching Codex usage from API...');
+      console.log(`[VERBOSE] /limits Codex API request: GET ${usageEndpoint}`);
+      console.log('[VERBOSE] /limits Codex auth mode:', auth.auth_mode || 'unknown');
+      console.log('[VERBOSE] /limits Codex account id:', auth?.tokens?.account_id || tokenPayload?.['https://api.openai.com/auth']?.chatgpt_account_id || 'unknown');
+      console.log('[VERBOSE] /limits Codex plan type:', tokenPayload?.['https://api.openai.com/auth']?.chatgpt_plan_type || 'unknown');
+      console.log('[VERBOSE] /limits Codex API request headers:', JSON.stringify({
+        Accept: requestHeaders.Accept,
+        Authorization: `Bearer ...${accessToken.slice(-8)}`,
+        'User-Agent': requestHeaders['User-Agent'],
+      }, null, 2));
+    }
+
+    const response = await fetch(usageEndpoint, {
+      method: 'GET',
+      headers: requestHeaders,
+    });
+
+    if (verbose) {
+      console.log(`[VERBOSE] /limits Codex API HTTP status: ${response.status} ${response.statusText}`);
+      const responseHeaders = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+      console.log('[VERBOSE] /limits Codex API response headers:', JSON.stringify(responseHeaders, null, 2));
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (verbose) {
+        console.error('[VERBOSE] /limits Codex API error body:', errorText);
+      }
+
+      if (response.status === 401) {
+        return {
+          success: false,
+          error: 'Codex authentication expired. Please re-authenticate Codex with your ChatGPT account.',
+        };
+      }
+
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        return {
+          success: false,
+          error: `Codex usage API access has reached rate limit.${formatRetryAfterMessage(retryAfter)}`,
+        };
+      }
+
+      return {
+        success: false,
+        error: `Failed to fetch Codex usage from API: ${response.status} ${response.statusText}`,
+      };
+    }
+
+    const data = await response.json();
+
+    if (verbose) {
+      console.log('[VERBOSE] /limits Codex API response body:', JSON.stringify(data, null, 2));
+    }
+
+    const usage = {
+      currentSession: mapCodexWindow(data?.rate_limit?.primary_window),
+      allModels: mapCodexWindow(data?.rate_limit?.secondary_window),
+      sonnetOnly: {
+        percentage: null,
+        resetTime: null,
+        resetsAt: null,
+      },
+    };
+
+    const additionalRateLimits = Array.isArray(data?.additional_rate_limits)
+      ? data.additional_rate_limits.map(limit => ({
+          limitId: limit?.metered_feature || null,
+          limitName: limit?.limit_name || limit?.metered_feature || 'additional',
+          currentSession: mapCodexWindow(limit?.rate_limit?.primary_window),
+          allModels: mapCodexWindow(limit?.rate_limit?.secondary_window),
+          allowed: limit?.rate_limit?.allowed ?? null,
+          limitReached: limit?.rate_limit?.limit_reached ?? null,
+        }))
+      : [];
+
+    return {
+      success: true,
+      usage,
+      planType: data?.plan_type || tokenPayload?.['https://api.openai.com/auth']?.chatgpt_plan_type || null,
+      credits: data?.credits || null,
+      additionalRateLimits,
+      raw: data,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits Codex error:', error);
+    }
+    return {
+      success: false,
+      error: `Failed to get Codex usage limits: ${error.message}`,
+    };
+  }
+}
+
+/**
  * Generate a text-based progress bar for usage percentage
  * @param {number} percentage - Usage percentage (0-100)
  * @param {number|null} thresholdPercentage - Optional threshold position to show in the bar (0-100)
@@ -953,6 +1178,89 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   return '```\n' + sections.join('\n') + '```';
 }
 
+/**
+ * Format Codex usage data into a section suitable for appending to /limits output.
+ *
+ * @param {Object|null} codexLimits - Result object from getCodexUsageLimits, or null
+ * @param {string|null} codexError - Optional error message
+ * @returns {string} Formatted section text
+ */
+export function formatCodexLimitsSection(codexLimits, codexError = null) {
+  if (codexError) {
+    return `Codex limits\n${codexError}\n`;
+  }
+
+  const usage = codexLimits?.usage || null;
+  const additionalRateLimits = codexLimits?.additionalRateLimits || [];
+  const credits = codexLimits?.credits || null;
+  const planType = codexLimits?.planType || null;
+
+  let section = 'Codex limits\n';
+  if (planType) {
+    section += `Plan: ${planType}\n`;
+  }
+
+  let sessionSection = 'Codex 5 hour session\n';
+  if (usage?.currentSession?.percentage !== null) {
+    const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
+    if (timePassed !== null) {
+      sessionSection += `${getProgressBar(timePassed)} ${timePassed}% passed\n`;
+    }
+    const pct = Math.floor(usage.currentSession.percentage);
+    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION);
+    const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : ' used';
+    sessionSection += `${bar} ${pct}%${suffix}\n`;
+    if (usage.currentSession.resetTime) {
+      const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
+      sessionSection += relativeTime
+        ? `Resets in ${relativeTime} (${usage.currentSession.resetTime})\n`
+        : `Resets ${usage.currentSession.resetTime}\n`;
+    }
+  } else {
+    sessionSection += 'N/A\n';
+  }
+
+  let weeklySection = 'Current week (all models)\n';
+  if (usage?.allModels?.percentage !== null) {
+    const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
+    if (timePassed !== null) {
+      weeklySection += `${getProgressBar(timePassed)} ${timePassed}% passed\n`;
+    }
+    const pct = Math.floor(usage.allModels.percentage);
+    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
+    const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
+    weeklySection += `${bar} ${pct}%${suffix}\n`;
+    if (usage.allModels.resetTime) {
+      const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
+      weeklySection += relativeTime
+        ? `Resets in ${relativeTime} (${usage.allModels.resetTime})\n`
+        : `Resets ${usage.allModels.resetTime}\n`;
+    }
+  } else {
+    weeklySection += 'N/A\n';
+  }
+
+  section += `${sessionSection}\n${weeklySection}`;
+
+  if (additionalRateLimits.length > 0) {
+    section += '\nAdditional Codex limits\n';
+    for (const limit of additionalRateLimits) {
+      const sessionPct = limit.currentSession?.percentage;
+      const weeklyPct = limit.allModels?.percentage;
+      const sessionText = sessionPct === null ? 'session N/A' : `session ${Math.floor(sessionPct)}%`;
+      const weeklyText = weeklyPct === null ? 'week N/A' : `week ${Math.floor(weeklyPct)}%`;
+      section += `${limit.limitName}: ${sessionText}, ${weeklyText}\n`;
+    }
+  }
+
+  if (credits) {
+    const creditSummary = credits.unlimited ? 'unlimited' : `${credits.balance ?? '0'} balance`;
+    section += `\nCodex credits\n${creditSummary}\n`;
+  }
+
+  return section;
+}
+
 // ============================================================================
 // Caching Layer
 // ============================================================================
@@ -1064,6 +1372,29 @@ export async function getCachedClaudeLimits(verbose = false) {
   return result;
 }
 
+export async function getCachedCodexLimits(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('codex', CACHE_TTL.USAGE_API);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Codex limits (TTL: ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes)');
+    return cached;
+  }
+  const cachedError = cache.get('codex-rate-limited', CACHE_TTL.USAGE_API);
+  if (cachedError) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Codex rate-limit error');
+    return cachedError;
+  }
+  if (verbose) console.log('[VERBOSE] /limits-cache: Cache miss for Codex limits, fetching from API...');
+  const result = await getCodexUsageLimits(verbose);
+  if (result.success) {
+    cache.set('codex', result, CACHE_TTL.USAGE_API);
+  } else if (result.error && result.error.includes('rate limit')) {
+    cache.set('codex-rate-limited', result, CACHE_TTL.USAGE_API);
+    if (verbose) console.log('[VERBOSE] /limits-cache: Cached Codex rate-limit error for ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes');
+  }
+  return result;
+}
+
 export async function getCachedGitHubLimits(verbose = false) {
   const cache = getLimitCache();
   const cached = cache.get('github', CACHE_TTL.API);
@@ -1113,13 +1444,14 @@ export async function getCachedDiskInfo(verbose = false) {
 }
 
 export async function getAllCachedLimits(verbose = false) {
-  const [claude, github, memory, cpu, disk] = await Promise.all([getCachedClaudeLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose)]);
-  return { claude, github, memory, cpu, disk };
+  const [claude, codex, github, memory, cpu, disk] = await Promise.all([getCachedClaudeLimits(verbose), getCachedCodexLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose)]);
+  return { claude, codex, github, memory, cpu, disk };
 }
 
 export default {
   // Raw functions (no caching)
   getClaudeUsageLimits,
+  getCodexUsageLimits,
   getCpuLoadInfo,
   getMemoryInfo,
   getDiskSpaceInfo,
@@ -1127,6 +1459,7 @@ export default {
   getProgressBar,
   calculateTimePassedPercentage,
   formatUsageMessage,
+  formatCodexLimitsSection,
   formatRetryAfterMessage,
   // Threshold constants for progress bar visualization
   DISPLAY_THRESHOLDS,
@@ -1136,6 +1469,7 @@ export default {
   resetLimitCache,
   // Cached functions
   getCachedClaudeLimits,
+  getCachedCodexLimits,
   getCachedGitHubLimits,
   getCachedMemoryInfo,
   getCachedCpuInfo,

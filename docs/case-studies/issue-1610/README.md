@@ -29,19 +29,19 @@ From the issue description and linked artifacts, the solver should:
 
 All timestamps below are UTC.
 
-| Time | Event |
-| --- | --- |
-| 2026-04-15T16:31:23Z | `solve` started for `link-assistant/web-capture#68` with `--tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats`. |
-| 2026-04-15T16:31:35Z | Solver created branch `issue-68-f537a341d162`, appended a timestamp to existing `.gitkeep`, committed `0daae18` (`Initial commit with task details`), and pushed it. |
-| 2026-04-15T16:31:41Z | Draft PR [web-capture#69](https://github.com/link-assistant/web-capture/pull/69) was created from that branch. |
-| 2026-04-15T16:31:54Z | Codex session started. |
-| 2026-04-15T16:31:58Z | Codex ended with the final message `I’m sorry, but I can’t help with that.` |
-| 2026-04-15T16:31:58Z | Solver checked the worktree and logged `✅ No uncommitted changes found`. |
-| 2026-04-15T16:32:03Z | Solver updated the PR title/body and marked the PR ready for review despite no repository changes from Codex. |
-| 2026-04-15T16:32:04Z+ | Solver uploaded the session log to the PR. |
-| 2026-04-15T16:34:35Z | A second commit, `5b5a0ab`, reverted the bootstrap commit. |
-| later | The branch head still contained two commits, but their combined file diff was empty, so the PR showed `0 additions, 0 deletions`. |
-| later | The PR received a `Ready to merge` comment even though no actual issue fix existed. |
+| Time                  | Event                                                                                                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-04-15T16:31:23Z  | `solve` started for `link-assistant/web-capture#68` with `--tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats`.          |
+| 2026-04-15T16:31:35Z  | Solver created branch `issue-68-f537a341d162`, appended a timestamp to existing `.gitkeep`, committed `0daae18` (`Initial commit with task details`), and pushed it. |
+| 2026-04-15T16:31:41Z  | Draft PR [web-capture#69](https://github.com/link-assistant/web-capture/pull/69) was created from that branch.                                                       |
+| 2026-04-15T16:31:54Z  | Codex session started.                                                                                                                                               |
+| 2026-04-15T16:31:58Z  | Codex ended with the final message `I’m sorry, but I can’t help with that.`                                                                                          |
+| 2026-04-15T16:31:58Z  | Solver checked the worktree and logged `✅ No uncommitted changes found`.                                                                                            |
+| 2026-04-15T16:32:03Z  | Solver updated the PR title/body and marked the PR ready for review despite no repository changes from Codex.                                                        |
+| 2026-04-15T16:32:04Z+ | Solver uploaded the session log to the PR.                                                                                                                           |
+| 2026-04-15T16:34:35Z  | A second commit, `5b5a0ab`, reverted the bootstrap commit.                                                                                                           |
+| later                 | The branch head still contained two commits, but their combined file diff was empty, so the PR showed `0 additions, 0 deletions`.                                    |
+| later                 | The PR received a `Ready to merge` comment even though no actual issue fix existed.                                                                                  |
 
 ## Evidence
 
@@ -218,16 +218,16 @@ This will make the next similar failure immediately diagnosable from the log alo
 Recommended automated tests:
 
 1. Codex returns a refusal/no-op message and no file changes.
-Expected: run is marked failed/incomplete; no ready-for-review; no ready-to-merge comment.
+   Expected: run is marked failed/incomplete; no ready-for-review; no ready-to-merge comment.
 
 2. Only bootstrap `.gitkeep` commit exists.
-Expected: cleanup does not convert the PR into an empty "successful" PR.
+   Expected: cleanup does not convert the PR into an empty "successful" PR.
 
 3. Branch has bootstrap commit plus real code commit.
-Expected: cleanup removes only bootstrap residue and leaves the real diff intact.
+   Expected: cleanup removes only bootstrap residue and leaves the real diff intact.
 
 4. Empty-diff PR after cleanup.
-Expected: finalization path rejects it explicitly.
+   Expected: finalization path rejects it explicitly.
 
 ## Related external issue
 

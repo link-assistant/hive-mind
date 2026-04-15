@@ -1,1 +1,14 @@
-{"name":".gitkeep","path":".gitkeep","sha":"5c6275d2935e7f2c2414d500606bbd18fd20ae3f","size":208,"url":"https://api.github.com/repos/link-assistant/web-capture/contents/.gitkeep?ref=issue-68-f537a341d162","html_url":"https://github.com/link-assistant/web-capture/blob/issue-68-f537a341d162/.gitkeep","git_url":"https://api.github.com/repos/link-assistant/web-capture/git/blobs/5c6275d2935e7f2c2414d500606bbd18fd20ae3f","download_url":"https://raw.githubusercontent.com/link-assistant/web-capture/issue-68-f537a341d162/.gitkeep","type":"file","content":"IyAuZ2l0a2VlcCBmaWxlIGF1dG8tZ2VuZXJhdGVkIGF0IDIwMjYtMDQtMDZU\nMjI6NTU6MDcuNTA5WiBmb3IgUFIgY3JlYXRpb24gYXQgYnJhbmNoIGlzc3Vl\nLTMxLWUzOGUzOGI5MTc3NyBmb3IgaXNzdWUgaHR0cHM6Ly9naXRodWIuY29t\nL2xpbmstYXNzaXN0YW50L3dlYi1jYXB0dXJlL2lzc3Vlcy8zMQojIFVwZGF0\nZWQ6IDIwMjYtMDQtMTRUMTU6Mzg6NDUuOTY5Wg==\n","encoding":"base64","_links":{"self":"https://api.github.com/repos/link-assistant/web-capture/contents/.gitkeep?ref=issue-68-f537a341d162","git":"https://api.github.com/repos/link-assistant/web-capture/git/blobs/5c6275d2935e7f2c2414d500606bbd18fd20ae3f","html":"https://github.com/link-assistant/web-capture/blob/issue-68-f537a341d162/.gitkeep"}}
+{
+  "name": ".gitkeep",
+  "path": ".gitkeep",
+  "sha": "5c6275d2935e7f2c2414d500606bbd18fd20ae3f",
+  "size": 208,
+  "url": "https://api.github.com/repos/link-assistant/web-capture/contents/.gitkeep?ref=issue-68-f537a341d162",
+  "html_url": "https://github.com/link-assistant/web-capture/blob/issue-68-f537a341d162/.gitkeep",
+  "git_url": "https://api.github.com/repos/link-assistant/web-capture/git/blobs/5c6275d2935e7f2c2414d500606bbd18fd20ae3f",
+  "download_url": "https://raw.githubusercontent.com/link-assistant/web-capture/issue-68-f537a341d162/.gitkeep",
+  "type": "file",
+  "content": "IyAuZ2l0a2VlcCBmaWxlIGF1dG8tZ2VuZXJhdGVkIGF0IDIwMjYtMDQtMDZU\nMjI6NTU6MDcuNTA5WiBmb3IgUFIgY3JlYXRpb24gYXQgYnJhbmNoIGlzc3Vl\nLTMxLWUzOGUzOGI5MTc3NyBmb3IgaXNzdWUgaHR0cHM6Ly9naXRodWIuY29t\nL2xpbmstYXNzaXN0YW50L3dlYi1jYXB0dXJlL2lzc3Vlcy8zMQojIFVwZGF0\nZWQ6IDIwMjYtMDQtMTRUMTU6Mzg6NDUuOTY5Wg==\n",
+  "encoding": "base64",
+  "_links": { "self": "https://api.github.com/repos/link-assistant/web-capture/contents/.gitkeep?ref=issue-68-f537a341d162", "git": "https://api.github.com/repos/link-assistant/web-capture/git/blobs/5c6275d2935e7f2c2414d500606bbd18fd20ae3f", "html": "https://github.com/link-assistant/web-capture/blob/issue-68-f537a341d162/.gitkeep" }
+}

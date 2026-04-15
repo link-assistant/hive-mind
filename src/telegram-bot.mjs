@@ -41,7 +41,7 @@ const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github
 const { validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
 const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
 const { extractIsolationFromArgs, isValidPerCommandIsolation, resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
-const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
+const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
@@ -758,9 +758,11 @@ bot.command('limits', async ctx => {
 
   // Format message with usage limits and queue status (issues #1343, #1267)
   const claudeError = limits.claude.success ? null : limits.claude.error;
+  const codexError = limits.codex.success ? null : limits.codex.error;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
   const queueStatus = await solveQueue.formatStatus();
-  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [queueStatus]);
+  const codexSection = formatCodexLimitsSection(limits.codex.success ? limits.codex : null, codexError);
+  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus]);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
 });
 bot.command('version', async ctx => {

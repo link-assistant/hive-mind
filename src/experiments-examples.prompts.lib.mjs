@@ -25,19 +25,19 @@ export const getExperimentsExamplesSubPrompt = argv => {
 
   // Both folders are enabled (with their respective paths)
   if (experimentsFolder && examplesFolder) {
-    lines.push(`   - When you create debug, test, or example/experiment scripts for fixing, always keep them in an ${examplesFolder} and/or ${experimentsFolder} folders so you can reuse them later.`);
-    lines.push(`   - When testing your assumptions, use the experiment scripts, and add it to ${experimentsFolder} folder.`);
-    lines.push(`   - When your experiments can show real world use case of the software, add it to ${examplesFolder} folder.`);
+    lines.push(`   - When you create debug, test, or example scripts while fixing an issue, keep them in ${examplesFolder} and/or ${experimentsFolder} so you can reuse them later.`);
+    lines.push(`   - When you test assumptions, keep experiment scripts in ${experimentsFolder}.`);
+    lines.push(`   - When an experiment demonstrates a real-world use case of the software, add it to ${examplesFolder}.`);
   }
   // Only experiments folder is enabled
   else if (experimentsFolder) {
-    lines.push(`   - When you create debug or test scripts for fixing, always keep them in ${experimentsFolder} folder so you can reuse them later.`);
-    lines.push(`   - When testing your assumptions, use the experiment scripts, and add it to ${experimentsFolder} folder.`);
+    lines.push(`   - When you create debug or test scripts while fixing an issue, keep them in ${experimentsFolder} so you can reuse them later.`);
+    lines.push(`   - When you test assumptions, keep experiment scripts in ${experimentsFolder}.`);
   }
   // Only examples folder is enabled
   else if (examplesFolder) {
-    lines.push(`   - When you create example scripts that show real world use cases, keep them in ${examplesFolder} folder.`);
-    lines.push(`   - When your experiments can show real world use case of the software, add it to ${examplesFolder} folder.`);
+    lines.push(`   - When you create example scripts that show real-world use cases, keep them in ${examplesFolder}.`);
+    lines.push(`   - When an experiment demonstrates a real-world use case of the software, add it to ${examplesFolder}.`);
   }
 
   return lines.join('\n');

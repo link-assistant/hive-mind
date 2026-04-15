@@ -229,13 +229,13 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   think: {
     type: 'string',
-    description: 'Thinking level for Claude. Translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, max=31999). For older versions, uses thinking keywords.',
+    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, max=31999). For Codex, mapped to reasoning effort (off=none, low=low, medium=medium, high=high, max=xhigh).',
     choices: ['off', 'low', 'medium', 'high', 'max'],
     default: undefined,
   },
   'thinking-budget': {
     type: 'number',
-    description: 'Thinking token budget for Claude Code (0-31999). Controls MAX_THINKING_TOKENS. Default: 0 (thinking disabled). For older Claude Code versions, translated back to --think level.',
+    description: 'Thinking token budget. For Claude Code, controls MAX_THINKING_TOKENS (0-31999 by default). For Codex, enables finer reasoning-effort mapping including minimal/low/medium/high/xhigh.',
     default: undefined,
   },
   'thinking-budget-claude-minimum-version': {
@@ -250,7 +250,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'prompt-plan-sub-agent': {
     type: 'boolean',
-    description: 'Encourage AI to use Plan sub-agent for initial planning (only works with --tool claude)',
+    description: 'Encourage AI to use a planning sub-agent or planning workflow for initial planning. Supported for --tool claude and --tool codex.',
     default: false,
   },
   'base-branch': {
@@ -326,27 +326,27 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'interactive-mode': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
+    description: '[EXPERIMENTAL] Post tool output as PR comments in real-time. Supported for --tool claude and --tool codex.',
     default: false,
   },
   'prompt-explore-sub-agent': {
     type: 'boolean',
-    description: 'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
+    description: 'Encourage AI to use Explore-style sub-agent workflow for codebase exploration. Supported for --tool claude and --tool codex.',
     default: false,
   },
   'prompt-general-purpose-sub-agent': {
     type: 'boolean',
-    description: 'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Only supported for --tool claude.',
+    description: 'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Supported for --tool claude and --tool codex.',
     default: false,
   },
   'tokens-budget-stats': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Show detailed token budget statistics including context window usage and ratios. Only supported for --tool claude.',
+    description: '[EXPERIMENTAL] Show detailed token budget statistics including context window usage and ratios. Supported for --tool claude, --tool codex, and any tool that returns detailed token usage.',
     default: false,
   },
   'prompt-issue-reporting': {
     type: 'boolean',
-    description: 'Enable automatic issue creation for spotted bugs/errors not related to main task. Issues will include reproducible examples, workarounds, and fix suggestions. Works for both current and third-party repositories. Only supported for --tool claude.',
+    description: 'Enable automatic issue creation for spotted bugs/errors not related to main task. Issues will include reproducible examples, workarounds, and fix suggestions. Works for both current and third-party repositories. Supported for --tool claude and --tool codex.',
     default: false,
   },
   'prompt-architecture-care': {
@@ -356,12 +356,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'prompt-case-studies': {
     type: 'boolean',
-    description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Only supported for --tool claude.',
+    description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Supported for --tool claude and --tool codex.',
     default: false,
   },
   'prompt-playwright-mcp': {
     type: 'boolean',
-    description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Only supported for --tool claude.',
+    description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Supported for --tool claude and --tool codex.',
     default: true,
   },
   'prompt-check-sibling-pull-requests': {
@@ -391,7 +391,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'prompt-subagents-via-agent-commander': {
     type: 'boolean',
-    description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only works with --tool claude and requires agent-commander to be installed.',
+    description: 'Guide AI to use agent-commander CLI (start-agent) instead of native tool-specific delegation for subagent work. Allows using any supported agent type (claude, opencode, codex, agent) with a unified API. Supported for --tool claude and --tool codex and requires agent-commander to be installed.',
     default: false,
   },
   'auto-init-repository': {

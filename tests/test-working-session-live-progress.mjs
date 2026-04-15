@@ -796,6 +796,34 @@ await asyncTest('processStreamEvent detects TodoWrite with all statuses', async 
   assert.equal(stats.percentage, 33, 'Percentage should be 33%');
 });
 
+await asyncTest('processStreamEvent detects Codex todo_list updates', async () => {
+  const monitor = progressModule.createProgressMonitor({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: async () => ({ stdout: '{"body":""}' }),
+    log: async () => {},
+    displayMode: 'comment',
+  });
+
+  const updated = await monitor.processStreamEvent({
+    type: 'item.updated',
+    item: {
+      type: 'todo_list',
+      items: [
+        { text: 'First', completed: true },
+        { text: 'Second', completed: false },
+      ],
+    },
+  });
+
+  assert.equal(updated, true);
+  assert.deepEqual(monitor.currentTodos, [
+    { status: 'completed', content: 'First' },
+    { status: 'pending', content: 'Second' },
+  ]);
+});
+
 section('\nTesting processStreamEvent with Comment Mode');
 
 await asyncTest('processStreamEvent works in comment display mode', async () => {

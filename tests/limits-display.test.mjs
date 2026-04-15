@@ -15,7 +15,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, formatRetryAfterMessage, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
+import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, formatCodexLimitsSection, formatRetryAfterMessage, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
 
 // Test utilities
 let testsPassed = 0;
@@ -135,7 +135,51 @@ test('DISPLAY_THRESHOLDS constants are defined', () => {
   assert.equal(DISPLAY_THRESHOLDS.DISK, 90, 'DISK threshold should be 90');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, 65, 'CLAUDE_5_HOUR_SESSION threshold should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY threshold should be 97');
+  assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, 65, 'CODEX_5_HOUR_SESSION threshold should be 65');
+  assert.equal(DISPLAY_THRESHOLDS.CODEX_WEEKLY, 97, 'CODEX_WEEKLY threshold should be 97');
   assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 75, 'GITHUB_API threshold should be 75');
+});
+
+test('formatCodexLimitsSection renders 5 hour and weekly sections', () => {
+  const now = Date.now();
+  const section = formatCodexLimitsSection({
+    usage: {
+      currentSession: {
+        percentage: 12,
+        resetTime: 'Jan 18, 5:00pm UTC',
+        resetsAt: new Date(now + 3600000).toISOString(),
+      },
+      allModels: {
+        percentage: 34,
+        resetTime: 'Jan 20, 12:00pm UTC',
+        resetsAt: new Date(now + 86400000).toISOString(),
+      },
+    },
+    planType: 'pro',
+    additionalRateLimits: [
+      {
+        limitName: 'GPT-5.3-Codex-Spark',
+        currentSession: { percentage: 1 },
+        allModels: { percentage: 2 },
+      },
+    ],
+    credits: {
+      unlimited: false,
+      balance: '0',
+    },
+  });
+
+  assert.ok(section.includes('Codex limits'), 'Should include Codex limits header');
+  assert.ok(section.includes('Codex 5 hour session'), 'Should include Codex 5 hour session header');
+  assert.ok(section.includes('Current week (all models)'), 'Should include weekly header');
+  assert.ok(section.includes('Additional Codex limits'), 'Should include additional limits section');
+  assert.ok(section.includes('Codex credits'), 'Should include credits section');
+});
+
+test('formatCodexLimitsSection renders error state', () => {
+  const section = formatCodexLimitsSection(null, 'Codex auth expired');
+  assert.ok(section.includes('Codex limits'), 'Should include Codex limits header');
+  assert.ok(section.includes('Codex auth expired'), 'Should include the error message');
 });
 
 // ============================================================================

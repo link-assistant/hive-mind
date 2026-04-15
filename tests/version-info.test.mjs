@@ -81,19 +81,21 @@ test('formatVersionMessage shows Browser Automation section with all tools', () 
 test('formatVersionMessage shows Playwright MCP status when connected', () => {
   const versions = {
     playwrightMcp: '@playwright/mcp@0.0.32',
-    playwrightMcpStatus: 'playwright: connected',
+    playwrightMcpClaudeStatus: 'playwright: connected',
+    playwrightMcpCodexStatus: 'playwright: connected',
   };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('Playwright MCP: `0.0.32 | Claude Code: connected`'), `Expected MCP connected format but got: ${result}`);
+  assert.ok(result.includes('Playwright MCP: `0.0.32 | Claude Code: connected | Codex: connected`'), `Expected MCP connected format but got: ${result}`);
 });
 
 test('formatVersionMessage shows not connected when MCP installed but not in Claude', () => {
   const versions = {
     playwrightMcp: '@playwright/mcp@0.0.32',
-    playwrightMcpStatus: null,
+    playwrightMcpClaudeStatus: null,
+    playwrightMcpCodexStatus: null,
   };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('Playwright MCP: `0.0.32 | Claude Code: not connected`'), `Expected MCP not connected format but got: ${result}`);
+  assert.ok(result.includes('Playwright MCP: `0.0.32 | Claude Code: not connected | Codex: not connected`'), `Expected MCP not connected format but got: ${result}`);
 });
 
 test('formatVersionMessage separates Playwright from Development Tools', () => {
@@ -230,7 +232,8 @@ test('formatVersionMessage renders all sections in correct order', () => {
     webkit: 'webkit-2248',
     playwright: '1.52.0',
     playwrightMcp: '@playwright/mcp@0.0.32',
-    playwrightMcpStatus: 'playwright: connected',
+    playwrightMcpClaudeStatus: 'playwright: connected',
+    playwrightMcpCodexStatus: 'playwright: connected',
     git: 'git version 2.43.0',
     gh: 'gh version 2.65.0',
     glab: 'glab version 1.48.0',
@@ -274,7 +277,8 @@ await asyncTest('getVersionInfo returns expected browser automation keys', async
   const result = await getVersionInfo(false);
   const v = result.versions;
   assert.ok('playwrightTest' in v, 'Expected playwrightTest key in versions');
-  assert.ok('playwrightMcpStatus' in v, 'Expected playwrightMcpStatus key in versions');
+  assert.ok('playwrightMcpClaudeStatus' in v, 'Expected playwrightMcpClaudeStatus key in versions');
+  assert.ok('playwrightMcpCodexStatus' in v, 'Expected playwrightMcpCodexStatus key in versions');
   assert.ok('puppeteerBrowsers' in v, 'Expected puppeteerBrowsers key in versions');
 });
 

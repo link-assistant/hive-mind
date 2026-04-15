@@ -206,7 +206,7 @@ await runTest('isInteractiveModeSupported opencode', () => {
 });
 
 await runTest('isInteractiveModeSupported other tools', () => {
-  if (isInteractiveModeSupported('codex')) throw new Error('Expected false for codex');
+  if (!isInteractiveModeSupported('codex')) throw new Error('Expected true for codex');
   if (isInteractiveModeSupported('unknown')) throw new Error('Expected false for unknown');
 });
 
@@ -246,6 +246,19 @@ await runTest('validateInteractiveModeConfig enabled with opencode', async () =>
   const result = await validateInteractiveModeConfig({ interactiveMode: true, tool: 'opencode' }, mockLog);
   if (result) throw new Error('Expected false when interactive mode is enabled with unsupported tool');
   if (!logs.some(l => l.includes('only supported for --tool claude'))) throw new Error('Expected warning log message');
+});
+
+await runTest('validateInteractiveModeConfig enabled with codex', async () => {
+  const logs = [];
+  const mockLog = (msg, opts) => {
+    logs.push({ msg, opts });
+    return Promise.resolve();
+  };
+  const result = await validateInteractiveModeConfig({ interactiveMode: true, tool: 'codex' }, mockLog);
+  if (result !== true) throw new Error('Expected true for codex');
+  if (!logs.some(l => String(l.msg).includes('codex output will be posted'))) {
+    throw new Error('Expected codex interactive mode enable log');
+  }
 });
 
 // ============================================
@@ -317,6 +330,15 @@ await runTest('processEvent handles result', async () => {
     session_id: 'test-session',
   });
   // Just verifies no errors are thrown
+});
+
+await runTest('processEvent handles codex thread.started and agent_message', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({ type: 'thread.started', thread_id: 'thread_codex_123', model: 'gpt-5.4' });
+  await handler.processEvent({ type: 'item.completed', item: { type: 'agent_message', text: 'Codex says hi.' } });
+  if (comments.length < 2) throw new Error(`Expected at least 2 comments, got ${comments.length}`);
+  if (!comments.some(c => c.body.includes('thread_codex_123'))) throw new Error('Expected Codex session comment');
+  if (!comments.some(c => c.body.includes('Codex says hi.'))) throw new Error('Expected Codex agent message comment');
 });
 
 await runTest('processEvent handles unrecognized events', async () => {

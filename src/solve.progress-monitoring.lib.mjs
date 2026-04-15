@@ -358,8 +358,8 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
   };
 
   /**
-   * Process a Claude CLI stream event, detecting TodoWrite tool calls
-   * and updating progress automatically. Call this for each parsed NDJSON event.
+   * Process a tool stream event, detecting Claude TodoWrite or Codex todo_list
+   * updates and updating progress automatically.
    *
    * @param {Object} data - Parsed JSON event from Claude CLI stream
    * @param {boolean} force - Force update even if within rate limit interval
@@ -380,6 +380,14 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
     // Pattern 2: user event with tool_use_result containing newTodos (confirmation)
     if (data.type === 'user' && data.tool_use_result?.newTodos) {
       updated = await updateProgress(data.tool_use_result.newTodos, force);
+    }
+    // Pattern 3: Codex item event with todo_list payload
+    if ((data.type === 'item.started' || data.type === 'item.updated' || data.type === 'item.completed') && data.item?.type === 'todo_list' && Array.isArray(data.item.items)) {
+      const todos = data.item.items.map(todo => ({
+        status: todo?.completed ? 'completed' : 'pending',
+        content: todo?.text || '',
+      }));
+      updated = await updateProgress(todos, force);
     }
     return updated;
   };

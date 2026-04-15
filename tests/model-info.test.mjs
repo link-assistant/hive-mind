@@ -273,9 +273,9 @@ test('resolveModelId resolves "grok" for opencode tool', () => {
   assert.equal(result, 'opencode/grok-code');
 });
 
-test('resolveModelId resolves "o3" for codex tool', () => {
-  const result = resolveModelId('o3', 'codex');
-  assert.equal(result, 'o3');
+test('resolveModelId resolves "gpt-5.3-codex" for codex tool', () => {
+  const result = resolveModelId('gpt-5.3-codex', 'codex');
+  assert.equal(result, 'gpt-5.3-codex');
 });
 
 test('resolveModelId resolves "gpt4o" for codex tool', () => {

@@ -1,39 +1,10 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
-// Early exit paths - handle these before loading all modules to speed up testing
 const earlyArgs = process.argv.slice(2);
-if (earlyArgs.includes('--version')) {
-  const { getVersion } = await import('./version.lib.mjs');
-  try {
-    const version = await getVersion();
-    console.log(version);
-  } catch {
-    console.error('Error: Unable to determine version');
-    process.exit(1);
-  }
-  process.exit(0);
-}
-if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
-  // Load minimal modules needed for help
-  const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
-  globalThis.use = use;
-  const config = await import('./solve.config.lib.mjs');
-  const { initializeConfig, createYargsConfig } = config;
-  const { yargs, hideBin } = await initializeConfig(use);
-  const rawArgs = hideBin(process.argv);
-  // Filter out help flags to avoid duplicate display
-  const argsWithoutHelp = rawArgs.filter(arg => arg !== '--help' && arg !== '-h');
-  createYargsConfig(yargs(argsWithoutHelp)).showHelp();
-  process.exit(0);
-}
-if (earlyArgs.length === 0) {
-  console.error('Usage: solve.mjs <issue-url> [options]');
-  console.error('\nError: Missing required github issue or pull request URL');
-  console.error('\nRun "solve.mjs --help" for more information');
-  process.exit(1);
-}
-// Now load all modules for normal operation
+const { handleSolveEarlyExit } = await import('./solve.bootstrap.lib.mjs');
+await handleSolveEarlyExit(earlyArgs);
+
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 globalThis.use = use;
 const { $ } = await use('command-stream');
@@ -58,9 +29,9 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, checkForAiCreatedComments, attachSolutionSummary } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildSolveResumeCommand, checkForAiCreatedComments, attachSolutionSummary } = results;
 const claudeLib = await import('./claude.lib.mjs');
-const { executeClaude } = claudeLib;
+const { executeClaude, checkPlaywrightMcpAvailability } = claudeLib;
 
 const githubLinking = await import('./github-linking.lib.mjs');
 const { extractLinkedIssueNumber } = githubLinking;
@@ -769,8 +740,20 @@ try {
     });
   } else if (argv.tool === 'codex') {
     const codexLib = await import('./codex.lib.mjs');
-    const { executeCodex } = codexLib;
+    const { executeCodex, checkPlaywrightMcpAvailability } = codexLib;
     const codexPath = process.env.CODEX_PATH || 'codex';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
 
     toolResult = await executeCodex({
       issueUrl,
@@ -831,7 +814,6 @@ try {
     if (argv.tool === 'claude' || !argv.tool) {
       // If flag is true (default), check if Playwright MCP is actually available
       if (argv.promptPlaywrightMcp) {
-        const { checkPlaywrightMcpAvailability } = claudeLib;
         const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
         if (playwrightMcpAvailable) {
           await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
@@ -927,6 +909,12 @@ try {
           await log('');
           await log(`   ${claudeResumeCmd}`);
           await log('');
+        } else if (argv.url) {
+          const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForResume, model: argv.model, tempDir });
+          await log(`💡 To continue this ${toolForResume} session with solve:`);
+          await log('');
+          await log(`   ${solveResumeCmd}`);
+          await log('');
         }
       }
 
@@ -936,7 +924,7 @@ try {
         try {
           // Build Claude CLI resume command
           const tool = argv.tool || 'claude';
-          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
+          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, tempDir }) : null;
           const logUploadSuccess = await attachLogToGitHub({
             logFile: getLogFile(),
             targetType: 'pr',
@@ -974,7 +962,7 @@ try {
           const resetTime = global.limitResetTime;
           // Build Claude CLI resume command
           const tool = argv.tool || 'claude';
-          const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
+          const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, tempDir }) : null;
           const resumeSection = resumeCmd ? `To resume after the limit resets, use:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : `Session ID: \`${sessionId}\``;
           // Format the reset time with relative time and UTC conversion if available
           const timezone = global.limitTimezone || null;
@@ -1002,7 +990,7 @@ try {
           try {
             // Build Claude CLI resume command (only for logging, not shown to users when auto-resume is enabled)
             const tool = argv.tool || 'claude';
-            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
+            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, tempDir }) : null;
             const logUploadSuccess = await attachLogToGitHub({
               logFile: getLogFile(),
               targetType: 'pr',
@@ -1090,6 +1078,13 @@ try {
       await log('');
       await log(`   ${claudeResumeCmd}`);
       await log('');
+    } else if (sessionId && argv.url) {
+      const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, tempDir });
+      await log('');
+      await log(`💡 To continue this ${toolForFailure} session with solve:`);
+      await log('');
+      await log(`   ${solveResumeCmd}`);
+      await log('');
     }
 
     // Attach failure logs before exiting (Issues #1212, #1462: fall back to issue if no PR)
@@ -1104,7 +1099,7 @@ try {
       try {
         // Build Claude CLI resume command
         const tool = argv.tool || 'claude';
-        const resumeCommand = sessionId && tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
+        const resumeCommand = sessionId ? (tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, tempDir })) : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: logTargetType,

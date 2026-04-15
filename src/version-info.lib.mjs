@@ -562,7 +562,8 @@ const VERSION_COMMANDS = [
   { key: 'playwright', command: 'playwright --version 2>&1' },
   { key: 'playwrightTest', command: "npm list -g @playwright/test --depth=0 2>&1 | grep @playwright/test | awk '{print $2}'" },
   { key: 'playwrightMcp', command: "npm list -g @playwright/mcp --depth=0 2>&1 | grep @playwright/mcp | awk '{print $2}'" },
-  { key: 'playwrightMcpStatus', command: 'timeout 5 claude mcp list 2>&1 | grep -i playwright | head -1' },
+  { key: 'playwrightMcpClaudeStatus', command: 'timeout 5 claude mcp list 2>&1 | grep -i playwright | head -1' },
+  { key: 'playwrightMcpCodexStatus', command: 'timeout 5 codex mcp list 2>&1 | grep -i playwright | head -1' },
   { key: 'puppeteerBrowsers', command: "npm list -g @puppeteer/browsers --depth=0 2>&1 | grep @puppeteer/browsers | awk '{print $2}'" },
 
   // Browsers (installed via Playwright)
@@ -840,7 +841,8 @@ export async function getVersionInfo(verbose = false, processVersion = null) {
         playwright: versions.playwright,
         playwrightTest: versions.playwrightTest,
         playwrightMcp: versions.playwrightMcp,
-        playwrightMcpStatus: versions.playwrightMcpStatus,
+        playwrightMcpClaudeStatus: versions.playwrightMcpClaudeStatus,
+        playwrightMcpCodexStatus: versions.playwrightMcpCodexStatus,
         puppeteerBrowsers: versions.puppeteerBrowsers,
 
         // Browsers
@@ -1179,11 +1181,12 @@ export function formatVersionMessage(versions) {
   const browserAutoLines = [];
   addVersionLine(browserAutoLines, 'Playwright', versions.playwright, 'playwright');
   addVersionLine(browserAutoLines, 'Playwright Test', versions.playwrightTest, 'playwrightTest');
-  // Playwright MCP: show version with Claude Code connection status inline
+  // Playwright MCP: show version with Claude Code and Codex connection status inline
   if (versions.playwrightMcp) {
     const mcpVersion = parseVersion('playwrightMcp', versions.playwrightMcp);
-    const claudeStatus = versions.playwrightMcpStatus ? 'connected' : 'not connected';
-    browserAutoLines.push(`• Playwright MCP: \`${mcpVersion} | Claude Code: ${claudeStatus}\``);
+    const claudeStatus = versions.playwrightMcpClaudeStatus ? 'connected' : 'not connected';
+    const codexStatus = versions.playwrightMcpCodexStatus ? 'connected' : 'not connected';
+    browserAutoLines.push(`• Playwright MCP: \`${mcpVersion} | Claude Code: ${claudeStatus} | Codex: ${codexStatus}\``);
   }
   addVersionLine(browserAutoLines, 'Puppeteer Browsers', versions.puppeteerBrowsers, 'puppeteerBrowsers');
 

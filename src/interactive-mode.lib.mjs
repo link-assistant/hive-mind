@@ -2,10 +2,10 @@
 /**
  * Interactive Mode Library
  *
- * [EXPERIMENTAL] This module provides real-time PR comment updates during Claude execution.
- * It parses Claude CLI's NDJSON output and posts relevant events as GitHub PR comments.
+ * [EXPERIMENTAL] This module provides real-time PR comment updates during tool execution.
+ * It parses Claude or Codex JSON output and posts relevant events as GitHub PR comments.
  *
- * Supported JSON event types:
+ * Supported Claude JSON event types:
  * - system.init: Session initialization
  * - system.task_started: Agent subtask started (Issue #1450)
  * - system.task_progress: Agent subtask progress update (Issue #1450)
@@ -32,265 +32,10 @@
  * @experimental
  */
 
-// Configuration constants
-const CONFIG = {
-  // Minimum time between comments to avoid rate limiting (in ms)
-  MIN_COMMENT_INTERVAL: 5000,
-  // Maximum lines to show before truncation kicks in
-  MAX_LINES_BEFORE_TRUNCATION: 50,
-  // Lines to keep at start when truncating
-  LINES_TO_KEEP_START: 20,
-  // Lines to keep at end when truncating
-  LINES_TO_KEEP_END: 20,
-  // Maximum JSON depth for raw JSON display
-  MAX_JSON_DEPTH: 10,
-};
-
-// Import sanitizeUnicode from the shared module so that the same logic is used
-// everywhere: in the interactive-mode PR-comment path and in the regular
-// Claude output parsing path (claude.lib.mjs).
-// See: https://github.com/link-assistant/hive-mind/issues/1324
-import { sanitizeUnicode } from './unicode-sanitization.lib.mjs';
-
-// Use child_process.spawn for stdin-based API calls to avoid shell quoting
-// issues with large/complex comment bodies containing backticks, quotes, etc.
-// IMPORTANT: We use spawn (not execFile) because promisify(execFile) silently
-// ignores the `input` option — only the sync variants (execFileSync, execSync,
-// spawnSync) support `input`. Using execFile with `input` causes `gh api --input -`
-// to hang forever waiting for stdin, which blocks the stream processing loop and
-// prevents interactive mode from working at all.
-// See: https://github.com/link-assistant/hive-mind/issues/1458
-// See: https://github.com/link-assistant/hive-mind/issues/1532
-import { spawn } from 'node:child_process';
+import { CONFIG, createCollapsible, createRawJsonSection, escapeMarkdown, execFileAsync, formatCost, formatDuration, getToolIcon, safeJsonStringify, sanitizeUnicode, truncateMiddle } from './interactive-mode.shared.lib.mjs';
 
 /**
- * Spawn a child process with stdin piping support.
- * Unlike promisify(execFile), this correctly writes `input` to the child's
- * stdin before closing it, so commands like `gh api --input -` work.
- *
- * @param {string} command - The command to run
- * @param {string[]} args - Command arguments
- * @param {Object} [options] - Options
- * @param {string} [options.input] - Data to write to stdin
- * @param {number} [options.maxBuffer=1048576] - Max stdout/stderr buffer size
- * @returns {Promise<{stdout: string, stderr: string}>}
- */
-const execFileAsync = (command, args, options = {}) => {
-  return new Promise((resolve, reject) => {
-    const { input, maxBuffer = 1024 * 1024, ...spawnOpts } = options;
-    const child = spawn(command, args, { ...spawnOpts, stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    let stdoutLen = 0;
-    let stderrLen = 0;
-    child.stdout.on('data', chunk => {
-      const str = chunk.toString();
-      stdoutLen += str.length;
-      if (stdoutLen <= maxBuffer) stdout += str;
-    });
-    child.stderr.on('data', chunk => {
-      const str = chunk.toString();
-      stderrLen += str.length;
-      if (stderrLen <= maxBuffer) stderr += str;
-    });
-    child.on('error', reject);
-    child.on('close', code => {
-      if (code !== 0) {
-        const err = new Error(`Command failed: ${command} ${args.join(' ')}\n${stderr}`);
-        err.code = code;
-        err.stdout = stdout;
-        err.stderr = stderr;
-        reject(err);
-      } else {
-        resolve({ stdout, stderr });
-      }
-    });
-    if (input != null) {
-      child.stdin.write(input);
-      child.stdin.end();
-    } else {
-      child.stdin.end();
-    }
-  });
-};
-
-/**
- * Truncate content in the middle, keeping start and end
- * This helps show context while reducing size for large outputs
- *
- * The result is always passed through sanitizeUnicode() so that a truncation
- * point that falls inside a UTF-16 surrogate pair never produces invalid JSON.
- * See: https://github.com/link-assistant/hive-mind/issues/1324
- *
- * @param {string} content - Content to potentially truncate
- * @param {Object} options - Truncation options
- * @param {number} [options.maxLines=50] - Maximum lines before truncation
- * @param {number} [options.keepStart=20] - Lines to keep at start
- * @param {number} [options.keepEnd=20] - Lines to keep at end
- * @returns {string} Truncated, Unicode-sanitized content with ellipsis indicator
- */
-const truncateMiddle = (content, options = {}) => {
-  const { maxLines = CONFIG.MAX_LINES_BEFORE_TRUNCATION, keepStart = CONFIG.LINES_TO_KEEP_START, keepEnd = CONFIG.LINES_TO_KEEP_END } = options;
-
-  if (!content || typeof content !== 'string') {
-    return content || '';
-  }
-
-  const lines = content.split('\n');
-  if (lines.length <= maxLines) {
-    return sanitizeUnicode(content);
-  }
-
-  const startLines = lines.slice(0, keepStart);
-  const endLines = lines.slice(-keepEnd);
-  // Show the actual line number range that was omitted (1-based)
-  const omitStart = keepStart + 1;
-  const omitEnd = lines.length - keepEnd;
-
-  return sanitizeUnicode([...startLines, '', `... [${omitStart}-${omitEnd} lines are omitted] ...`, '', ...endLines].join('\n'));
-};
-
-/**
- * Safely stringify JSON with depth limit and circular reference handling.
- * String values are passed through sanitizeUnicode() so that orphaned UTF-16
- * surrogates (which can appear after persisted-output truncation) never reach
- * JSON.stringify() and cause a 400 API error.
- *
- * @see https://github.com/link-assistant/hive-mind/issues/1324
- *
- * @param {any} obj - Object to stringify
- * @param {number} [indent=2] - Indentation spaces
- * @returns {string} Formatted JSON string with sanitized Unicode
- */
-const safeJsonStringify = (obj, indent = 2) => {
-  const seen = new WeakSet();
-  return JSON.stringify(
-    obj,
-    (key, value) => {
-      if (typeof value === 'object' && value !== null) {
-        if (seen.has(value)) {
-          return '[Circular]';
-        }
-        seen.add(value);
-      }
-      if (typeof value === 'string') {
-        return sanitizeUnicode(value);
-      }
-      return value;
-    },
-    indent
-  );
-};
-
-/**
- * Create a collapsible section in GitHub markdown
- *
- * @param {string} summary - Summary text shown when collapsed
- * @param {string} content - Content shown when expanded
- * @param {boolean} [startOpen=false] - Whether to start expanded
- * @returns {string} GitHub markdown details block
- */
-const createCollapsible = (summary, content, startOpen = false) => {
-  const openAttr = startOpen ? ' open' : '';
-  return `<details${openAttr}>
-<summary>${summary}</summary>
-
-${content}
-
-</details>`;
-};
-
-/**
- * Create a collapsible raw JSON section
- * Always wraps data in an array for consistent merging
- *
- * @param {Object|Array} data - JSON data to display (will be wrapped in array if not already)
- * @returns {string} Collapsible JSON block
- */
-const createRawJsonSection = data => {
-  // Ensure data is always an array at root level for easier merging
-  const dataArray = Array.isArray(data) ? data : [data];
-  const jsonContent = truncateMiddle(safeJsonStringify(dataArray, 2), {
-    maxLines: 100,
-    keepStart: 40,
-    keepEnd: 40,
-  });
-  return createCollapsible('📄 Raw JSON', '```json\n' + jsonContent + '\n```');
-};
-
-/**
- * Format duration from milliseconds to human-readable string
- *
- * @param {number} ms - Duration in milliseconds
- * @returns {string} Formatted duration (e.g., "12m 7s")
- */
-const formatDuration = ms => {
-  if (!ms || ms < 0) return 'unknown';
-
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
-  }
-};
-
-/**
- * Format cost to USD string
- *
- * @param {number} cost - Cost in USD
- * @returns {string} Formatted cost (e.g., "$1.60")
- */
-const formatCost = cost => {
-  if (typeof cost !== 'number' || isNaN(cost)) return 'unknown';
-  return `$${cost.toFixed(2)}`;
-};
-
-/**
- * Escape special markdown characters in text
- *
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
- */
-const escapeMarkdown = text => {
-  if (!text || typeof text !== 'string') return '';
-  // Escape backticks that would break code blocks
-  return text.replace(/```/g, '\\`\\`\\`');
-};
-
-/**
- * Get tool icon based on tool name
- *
- * @param {string} toolName - Name of the tool
- * @returns {string} Emoji icon
- */
-const getToolIcon = toolName => {
-  const icons = {
-    Bash: '💻',
-    Read: '📖',
-    Write: '✏️',
-    Edit: '📝',
-    Glob: '🔍',
-    Grep: '🔎',
-    WebFetch: '🌐',
-    WebSearch: '🔍',
-    TodoWrite: '📋',
-    ToolSearch: '🔍',
-    Task: '🎯',
-    Agent: '🤖',
-    NotebookEdit: '📓',
-    default: '🔧',
-  };
-  return icons[toolName] || icons.default;
-};
-
-/**
- * Creates an interactive mode handler for processing Claude CLI events
+ * Creates an interactive mode handler for processing Claude/Codex CLI events
  *
  * @param {Object} options - Handler configuration
  * @param {string} options.owner - Repository owner
@@ -1238,6 +983,151 @@ ${createRawJsonSection(data)}`;
     }
   };
 
+  const handleCodexThreadStarted = async data => {
+    if (state.sessionId) return;
+
+    state.sessionId = data.thread_id || data.session_id || null;
+    state.startTime = Date.now();
+
+    const comment = `## 🚀 Interactive session started
+
+| Property | Value |
+|----------|-------|
+| **Session ID** | \`${state.sessionId || 'unknown'}\` |
+| **Model** | \`${data.model || 'unknown'}\` |
+| **Tool** | \`codex\` |
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
+  };
+
+  const handleCodexAgentMessage = async data => {
+    const text = data.item?.text;
+    if (typeof text !== 'string' || !text.trim()) return;
+    await handleAssistantText(data, text);
+  };
+
+  const handleCodexTodoList = async data => {
+    const items = Array.isArray(data.item?.items) ? data.item.items : [];
+    const todosPreview = items.length > 0 ? items.map(todo => `- [${todo?.completed ? 'x' : ' '}] ${todo?.text || ''}`).join('\n') : '_No tasks_';
+    const completedCount = items.filter(todo => todo?.completed).length;
+
+    const comment = `## 📋 Codex todo list
+
+${createCollapsible(`📋 Todos (${completedCount}/${items.length} items)`, todosPreview, true)}
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
+  };
+
+  const handleCodexCommandExecution = async data => {
+    const item = data.item || {};
+    const command = item.command || '';
+    const output = item.aggregated_output || '';
+    const status = item.status || (data.type === 'item.completed' ? 'completed' : data.type === 'item.updated' ? 'updated' : 'started');
+    const body = `## 💻 Codex command execution
+
+**Status:** \`${status}\`
+${command ? '\n' + createCollapsible('📋 Executed command', '```bash\n' + escapeMarkdown(command) + '\n```', true) : ''}
+${output ? '\n\n' + createCollapsible('📤 Output', '```\n' + escapeMarkdown(truncateMiddle(output, { maxLines: 60, keepStart: 25, keepEnd: 25 })) + '\n```', true) : ''}
+
+---
+
+${createRawJsonSection(data)}`;
+    await postComment(body);
+  };
+
+  const handleCodexMcpToolCall = async data => {
+    const item = data.item || {};
+    const summary = [`**Server:** \`${item.server || 'unknown'}\``, `**Tool:** \`${item.tool || 'unknown'}\``, `**Status:** \`${item.status || 'unknown'}\``].join('\n');
+    const details = item.arguments != null ? createCollapsible('📥 Arguments', '```json\n' + safeJsonStringify(item.arguments, 2) + '\n```', true) : '';
+    const resultSection = item.result != null ? '\n\n' + createCollapsible('📤 Result', '```json\n' + safeJsonStringify(item.result, 2) + '\n```', false) : '';
+    const errorSection = item.error != null ? '\n\n' + createCollapsible('❌ Error', '```json\n' + safeJsonStringify(item.error, 2) + '\n```', true) : '';
+
+    await postComment(`## 🔌 Codex MCP tool call
+
+${summary}
+${details}${resultSection}${errorSection}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexWebSearch = async data => {
+    const item = data.item || {};
+    await postComment(`## 🌐 Codex web search
+
+**Query:** ${escapeMarkdown(item.query || 'unknown')}
+${item.action ? `\n**Action:** \`${item.action}\`` : ''}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexFileChange = async data => {
+    const item = data.item || {};
+    const changes = Array.isArray(item.changes) ? item.changes.map(change => `- \`${change?.kind || 'change'}\` ${change?.path || ''}`).join('\n') : '_No changes listed_';
+    await postComment(`## 📝 Codex file changes
+
+**Status:** \`${item.status || 'unknown'}\`
+${createCollapsible('📄 Files', changes, true)}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexCollabToolCall = async data => {
+    const item = data.item || {};
+    const prompt = item.prompt || item.description || `${item.tool || 'collab_tool_call'} via codex`;
+    await postComment(`## 🤝 Codex collab/sub-agent call
+
+**Tool:** \`${item.tool || 'unknown'}\`
+**Status:** \`${item.status || 'unknown'}\`
+${createCollapsible('📝 Prompt', escapeMarkdown(truncateMiddle(prompt, { maxLines: 30, keepStart: 12, keepEnd: 12 })), true)}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexTurnCompleted = async data => {
+    const usage = data.usage || {};
+    let usageSection = '| Type | Count |\n|------|-------|\n';
+    usageSection += `| Input | ${(usage.input_tokens || 0).toLocaleString()} |\n`;
+    usageSection += `| Cache Read | ${(usage.cached_input_tokens || 0).toLocaleString()} |\n`;
+    usageSection += `| Output | ${(usage.output_tokens || 0).toLocaleString()} |\n`;
+
+    await postComment(`## ✅ Codex turn completed
+
+### 📊 Token Usage
+
+${usageSection}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexError = async data => {
+    const message = data.message || data.error?.message || 'Unknown Codex error';
+    await postComment(`## ❌ Codex error
+
+${createCollapsible('View error', escapeMarkdown(message), true)}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
   /**
    * Handle unrecognized event types
    * @param {Object} data - Event data
@@ -1260,7 +1150,7 @@ ${createRawJsonSection(data)}`;
   };
 
   /**
-   * Process a single JSON event from Claude CLI
+   * Process a single JSON event from Claude or Codex CLI
    *
    * @param {Object} data - Parsed JSON object from Claude CLI output
    * @returns {Promise<void>}
@@ -1327,6 +1217,42 @@ ${createRawJsonSection(data)}`;
         await handleResult(data);
         break;
 
+      case 'thread.started':
+        await handleCodexThreadStarted(data);
+        break;
+
+      case 'turn.completed':
+        await handleCodexTurnCompleted(data);
+        break;
+
+      case 'error':
+        await handleCodexError(data);
+        break;
+
+      case 'item.started':
+      case 'item.updated':
+      case 'item.completed': {
+        const itemType = data.item?.type;
+        if (itemType === 'agent_message') {
+          await handleCodexAgentMessage(data);
+        } else if (itemType === 'todo_list') {
+          await handleCodexTodoList(data);
+        } else if (itemType === 'command_execution') {
+          await handleCodexCommandExecution(data);
+        } else if (itemType === 'mcp_tool_call') {
+          await handleCodexMcpToolCall(data);
+        } else if (itemType === 'web_search') {
+          await handleCodexWebSearch(data);
+        } else if (itemType === 'file_change') {
+          await handleCodexFileChange(data);
+        } else if (itemType === 'collab_tool_call') {
+          await handleCodexCollabToolCall(data);
+        } else if (itemType === 'error') {
+          await handleCodexError(data.item);
+        }
+        break;
+      }
+
       default:
         await handleUnrecognized(data);
     }
@@ -1368,6 +1294,16 @@ ${createRawJsonSection(data)}`;
       handleTaskNotification,
       handleRateLimitEvent,
       handleUnrecognized,
+      handleCodexThreadStarted,
+      handleCodexAgentMessage,
+      handleCodexTodoList,
+      handleCodexCommandExecution,
+      handleCodexMcpToolCall,
+      handleCodexWebSearch,
+      handleCodexFileChange,
+      handleCodexCollabToolCall,
+      handleCodexTurnCompleted,
+      handleCodexError,
     },
   };
 };
@@ -1379,8 +1315,7 @@ ${createRawJsonSection(data)}`;
  * @returns {boolean} Whether interactive mode is supported
  */
 export const isInteractiveModeSupported = tool => {
-  // Currently only supported for Claude
-  return tool === 'claude';
+  return tool === 'claude' || tool === 'codex';
 };
 
 /**
@@ -1397,7 +1332,7 @@ export const validateInteractiveModeConfig = async (argv, log) => {
 
   // Check tool support
   if (!isInteractiveModeSupported(argv.tool)) {
-    await log(`⚠️ --interactive-mode is only supported for --tool claude (current: ${argv.tool})`, {
+    await log(`⚠️ --interactive-mode is only supported for --tool claude and --tool codex (current: ${argv.tool})`, {
       level: 'warning',
     });
     await log('   Interactive mode will be disabled for this session.', { level: 'warning' });
@@ -1409,7 +1344,7 @@ export const validateInteractiveModeConfig = async (argv, log) => {
   // The actual PR number check happens during execution
 
   await log('🔌 Interactive mode: ENABLED (experimental)', { level: 'info' });
-  await log('   Claude output will be posted as PR comments in real-time.', { level: 'info' });
+  await log(`   ${argv.tool || 'claude'} output will be posted as PR comments in real-time.`, { level: 'info' });
 
   return true;
 };

@@ -377,25 +377,28 @@ console.log('\n📋 formatVersionMessage - Playwright MCP format (Issue #1514)\n
 test('formatVersionMessage shows Playwright MCP with connected status', () => {
   const versions = {
     playwrightMcp: '@playwright/mcp@0.0.69',
-    playwrightMcpStatus: 'playwright: npx ... - ✓ Connected',
+    playwrightMcpClaudeStatus: 'playwright: npx ... - ✓ Connected',
+    playwrightMcpCodexStatus: 'playwright enabled',
   };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('Playwright MCP: `0.0.69 | Claude Code: connected`'), `Expected new MCP format but got: ${result}`);
+  assert.ok(result.includes('Playwright MCP: `0.0.69 | Claude Code: connected | Codex: connected`'), `Expected new MCP format but got: ${result}`);
 });
 
 test('formatVersionMessage shows Playwright MCP with not connected status', () => {
   const versions = {
     playwrightMcp: '@playwright/mcp@0.0.69',
-    playwrightMcpStatus: null,
+    playwrightMcpClaudeStatus: null,
+    playwrightMcpCodexStatus: null,
   };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('Playwright MCP: `0.0.69 | Claude Code: not connected`'), `Expected not connected format but got: ${result}`);
+  assert.ok(result.includes('Playwright MCP: `0.0.69 | Claude Code: not connected | Codex: not connected`'), `Expected not connected format but got: ${result}`);
 });
 
 test('formatVersionMessage does not show Playwright MCP when not installed', () => {
   const versions = {
     playwrightMcp: null,
-    playwrightMcpStatus: null,
+    playwrightMcpClaudeStatus: null,
+    playwrightMcpCodexStatus: null,
   };
   const result = formatVersionMessage(versions);
   assert.ok(!result.includes('Playwright MCP'), `Should not show Playwright MCP when not installed: ${result}`);

@@ -89,7 +89,25 @@ test_installation() {
         echo "Claude CLI not available, skipping configuration"
     fi
 
-    # 6. Final verification
+    # 6. Configure with Codex CLI (if available)
+    echo ""
+    if command -v codex >/dev/null 2>&1; then
+        echo "Configuring Playwright MCP with Codex CLI..."
+
+        if codex mcp list 2>/dev/null | grep -q "playwright"; then
+            echo "  Already configured"
+        else
+            if codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 2>/dev/null; then
+                echo "  Successfully configured"
+            else
+                echo "  WARNING: Could not configure with Codex CLI"
+            fi
+        fi
+    else
+        echo "Codex CLI not available, skipping configuration"
+    fi
+
+    # 7. Final verification
     echo ""
     echo "=== Final Verification ==="
 
@@ -121,6 +139,16 @@ test_installation() {
     if command -v claude >/dev/null 2>&1; then
         echo -n "  Claude MCP configuration: "
         if claude mcp list 2>/dev/null | grep -q playwright; then
+            echo "✓"
+        else
+            echo "✗"
+            all_good=false
+        fi
+    fi
+
+    if command -v codex >/dev/null 2>&1; then
+        echo -n "  Codex MCP configuration: "
+        if codex mcp list 2>/dev/null | grep -q playwright; then
             echo "✓"
         else
             echo "✗"

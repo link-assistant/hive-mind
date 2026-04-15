@@ -192,6 +192,20 @@ test('formatVersionMessage groups AI agents under AI Agents section', () => {
   assert.ok(message.includes('Codex'), 'Should include Codex');
 });
 
+test('formatVersionMessage shows mixed Playwright MCP connection state for Claude and Codex', () => {
+  const versions = {
+    hiveMind: '1.23.12',
+    playwrightMcp: '@playwright/mcp@0.0.69',
+    playwrightMcpClaudeStatus: 'playwright: connected',
+    playwrightMcpCodexStatus: null,
+  };
+  const message = formatVersionMessage(versions);
+  assert.ok(
+    message.includes('Playwright MCP: `0.0.69 | Claude Code: connected | Codex: not connected`'),
+    `Expected mixed MCP status format but got: ${message}`,
+  );
+});
+
 test('formatVersionMessage groups C/C++ tools under C/C++ section', () => {
   const versions = {
     hiveMind: '1.23.12',

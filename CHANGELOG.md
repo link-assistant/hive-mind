@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.50.9
+
+### Patch Changes
+
+- cfe4e36: Improve Codex support across solve, limits, queue, version reporting, and Playwright MCP integration.
+
 ## 1.50.8
 
 ### Patch Changes

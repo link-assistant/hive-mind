@@ -371,10 +371,12 @@ export const parseUrlComponents = issueUrl => {
 export const parseResetTime = timeStr => {
   // Normalize and parse time formats like:
   // "5:30am", "11:45pm", "12:16 PM", "07:05 Am", "5am", "5 AM"
+  // Also accepts date+time forms like "Apr 17, 4:00 AM" and ignores the date portion.
   const normalized = (timeStr || '').toString().trim();
+  const timePortion = normalized.replace(/^(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2},\s+/i, '');
 
   // Accept both HH:MM am/pm and HH am/pm
-  let match = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
+  let match = timePortion.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
   if (!match) {
     throw new Error(`Invalid time format: ${timeStr}`);
   }

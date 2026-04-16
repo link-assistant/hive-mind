@@ -854,27 +854,29 @@ fi
 # --- scan sessions ---
 while read -r sess; do
   tmp=$(mktemp)
+  clean=$(mktemp)
 
-  # 🔥 increase scrollback BEFORE capture
-  screen -S "$sess" -X scrollback 100000 2>/dev/null
-  sleep 0.05
-  screen -S "$sess" -X hardcopy "$tmp" 2>/dev/null
+  # FIX: better capture
+  screen -S "$sess" -X scrollback 200000 2>/dev/null
+  sleep 0.15
+  screen -S "$sess" -X hardcopy -h "$tmp" 2>/dev/null
 
-  if grep -q 'Process completed' "$tmp" &&
-     grep -qE 'PR IS MERGEABLE!|PR MERGED!' "$tmp"; then
+  # strip garbage / non-printable chars
+  tr -cd '\11\12\15\40-\176' < "$tmp" > "$clean"
 
-    log_path=$(grep 'Full log file:' "$tmp" \
-      | sed 's/.*Full log file:[[:space:]]*//' \
-      | tail -n1)
+  if grep -qi 'process completed' "$clean" &&
+     grep -qiE 'pr is mergeable!|pr merged!' "$clean"; then
 
-    issue=$(grep -Eo 'Issue:[[:space:]]*https://github\.com/[^ ]+' "$tmp" \
-      | sed 's/Issue:[[:space:]]*//' \
-      | tail -n1)
+    log_path=$(tac "$clean" | grep -m1 -i 'full log file:' \
+      | sed 's/.*Full log file:[[:space:]]*//')
+
+    issue=$(tac "$clean" | grep -m1 -i 'Issue:[[:space:]]*https://github\.com/' \
+      | sed 's/Issue:[[:space:]]*//')
 
     matches+=("$sess|$log_path|$issue")
   fi
 
-  rm -f "$tmp"
+  rm -f "$tmp" "$clean"
 done < <(screen -ls | awk '/Detached/ {print $1}' | $sorter)
 
 # --- no matches ---
@@ -890,17 +892,18 @@ process_one() {
 
   if $enter; then
     echo "Entering $sess"
-    screen -r "$sess" || echo "[WARN] screen already closed"
+    screen -r "$sess"
     echo "Left $sess"
   fi
 
-  if $close && ! $enter; then
+  [ -n "$log" ] && echo "Log: $log" || echo "Log: (not found)"
+  [ -n "$issue" ] && echo "Issue: $issue" || echo "Issue: (not found)"
+
+  if $close; then
     echo "Closing $sess"
     screen -S "$sess" -X stuff $'exit\n'
   fi
 
-  echo "Log: ${log:-'(not found)'}"
-  echo "Issue: ${issue:-'(not found)'}"
   echo "-----------------------------------"
 }
 
@@ -915,9 +918,10 @@ elif $newest; then
   last_index=$((${#matches[@]} - 1))
   process_one "${matches[$last_index]}"
 fi
+
 EOF
 
-chmod +x hive-screens.sh;
+chmod +x hive-screens.sh
 ```
 
 ### Reboot server.

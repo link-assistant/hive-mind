@@ -469,6 +469,12 @@ hive-telegram-bot [options]
 | `--verbose`         | `-v`      | boolean | false         | Включить подробное журналирование                   |
 | `--dry-run`         |           | boolean | false         | Проверить без запуска бота                          |
 
+Когда `/solve` включена, Telegram-бот также принимает `/do` и `/continue`
+как обычные псевдонимы `/solve`. Команды `/claude`, `/codex`, `/opencode` и
+`/agent` являются псевдонимами для конкретных инструментов и эквивалентны
+`/solve --tool claude`, `/solve --tool codex`, `/solve --tool opencode` и
+`/solve --tool agent`.
+
 ---
 
 ## Примеры использования

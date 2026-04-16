@@ -444,6 +444,18 @@ Examples:
 /solve https://github.com/owner/repo/issues/123 --model sonnet
 /solve https://github.com/owner/repo/issues/123 --model opus --think max
 
+Aliases:
+/do और /continue /solve के बराबर हैं
+/claude /solve --tool claude के बराबर है
+/codex /solve --tool codex के बराबर है
+/opencode /solve --tool opencode के बराबर है
+/agent /solve --tool agent के बराबर है
+
+Tool alias examples:
+/codex https://github.com/owner/repo/issues/123 --model gpt-5.4
+/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free

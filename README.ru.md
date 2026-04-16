@@ -444,6 +444,18 @@ Examples:
 /solve https://github.com/owner/repo/issues/123 --model sonnet
 /solve https://github.com/owner/repo/issues/123 --model opus --think max
 
+Aliases:
+/do и /continue эквивалентны /solve
+/claude эквивалентна /solve --tool claude
+/codex эквивалентна /solve --tool codex
+/opencode эквивалентна /solve --tool opencode
+/agent эквивалентна /solve --tool agent
+
+Tool alias examples:
+/codex https://github.com/owner/repo/issues/123 --model gpt-5.4
+/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free

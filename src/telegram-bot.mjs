@@ -45,6 +45,7 @@ const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = awa
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { applySolveToolAlias, getSolveCommandNameFromText, getSolveToolAliasFromText, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
@@ -447,49 +448,6 @@ function validateModelInArgs(args, tool = 'claude') {
   return null;
 }
 
-function parseCommandArgs(text) {
-  // Use only first line and trim it
-  const firstLine = text.split('\n')[0].trim();
-  const argsText = firstLine.replace(/^\/\w+\s*/, '');
-
-  if (!argsText.trim()) {
-    return [];
-  }
-
-  // Replace em-dash (—) with double-dash (--) to fix Telegram auto-replacement
-  const normalizedArgsText = argsText.replace(/—/g, '--');
-
-  const args = [];
-  let currentArg = '';
-  let inQuotes = false;
-  let quoteChar = null;
-
-  for (let i = 0; i < normalizedArgsText.length; i++) {
-    const char = normalizedArgsText[i];
-
-    if ((char === '"' || char === "'") && !inQuotes) {
-      inQuotes = true;
-      quoteChar = char;
-    } else if (char === quoteChar && inQuotes) {
-      inQuotes = false;
-      quoteChar = null;
-    } else if (char === ' ' && !inQuotes) {
-      if (currentArg) {
-        args.push(currentArg);
-        currentArg = '';
-      }
-    } else {
-      currentArg += char;
-    }
-  }
-
-  if (currentArg) {
-    args.push(currentArg);
-  }
-
-  return args;
-}
-
 function mergeArgsWithOverrides(userArgs, overrides) {
   if (!overrides || overrides.length === 0) {
     return userArgs;
@@ -651,16 +609,17 @@ bot.command('help', async ctx => {
   message += '📝 *Available Commands:*\n\n';
 
   if (solveEnabled) {
-    message += '*/solve* (aliases: */do*, */continue*) - Solve a GitHub issue\n';
+    message += '*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*) - Solve a GitHub issue\n';
     message += 'Usage: `/solve <github-url> [options]`\n';
     message += 'Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`\n';
+    message += 'Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`\n';
     message += 'Or reply to a message with a GitHub link: `/solve`\n';
     if (solveOverrides.length > 0) {
       message += `🔒 Locked options: \`${solveOverrides.join(' ')}\`\n`;
     }
     message += '\n';
   } else {
-    message += '*/solve* (aliases: */do*, */continue*) - ❌ Disabled\n\n';
+    message += '*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*) - ❌ Disabled\n\n';
   }
 
   if (hiveEnabled) {
@@ -688,7 +647,7 @@ bot.command('help', async ctx => {
   message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete.\n';
   if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
   message += '\n';
-  message += '⚠️ *Note:* /solve, /do, /continue, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -795,12 +754,14 @@ const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCo
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
 async function handleSolveCommand(ctx) {
-  VERBOSE && console.log('[VERBOSE] /solve command received');
+  const solveCommandName = getSolveCommandNameFromText(ctx.message?.text) || 'solve';
+  const solveCommandDisplay = `/${solveCommandName}`;
+  VERBOSE && console.log(`[VERBOSE] ${solveCommandDisplay} command received`);
 
   // Add breadcrumb for error tracking
   await addBreadcrumb({
     category: 'telegram.command',
-    message: '/solve command received',
+    message: `${solveCommandDisplay} command received`,
     level: 'info',
     data: {
       chatId: ctx.chat?.id,
@@ -812,16 +773,16 @@ async function handleSolveCommand(ctx) {
 
   if (!solveEnabled) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /solve ignored: command disabled');
+      console.log(`[VERBOSE] ${solveCommandDisplay} ignored: command disabled`);
     }
-    await ctx.reply('❌ The /solve command is disabled on this bot instance.');
+    await ctx.reply('❌ The solve command is disabled on this bot instance.');
     return;
   }
 
   // Ignore messages sent before bot started
   if (isOldMessage(ctx)) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /solve ignored: old message');
+      console.log(`[VERBOSE] ${solveCommandDisplay} ignored: old message`);
     }
     return;
   }
@@ -834,22 +795,22 @@ async function handleSolveCommand(ctx) {
 
   if (isForwarded || isOldApiForwarded) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /solve ignored: forwarded message');
+      console.log(`[VERBOSE] ${solveCommandDisplay} ignored: forwarded message`);
     }
     return;
   }
 
   if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /solve ignored: not a group chat');
+      console.log(`[VERBOSE] ${solveCommandDisplay} ignored: not a group chat`);
     }
-    await ctx.reply('❌ The /solve command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(`❌ The ${solveCommandDisplay} command only works in group chats. Please add this bot to a group and make it an admin.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
   if (!isTopicAuthorized(ctx)) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /solve ignored: not authorized');
+      console.log(`[VERBOSE] ${solveCommandDisplay} ignored: not authorized`);
     }
     await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
     return;
@@ -863,8 +824,9 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  VERBOSE && console.log('[VERBOSE] /solve passed all checks, executing...');
+  VERBOSE && console.log(`[VERBOSE] ${solveCommandDisplay} passed all checks, executing...`);
 
+  const solveToolAlias = getSolveToolAliasFromText(ctx.message.text);
   let userArgs = parseCommandArgs(ctx.message.text);
 
   // Check if this is a reply to a message and user didn't provide URL as first argument
@@ -910,6 +872,8 @@ async function handleSolveCommand(ctx) {
       return;
     }
   }
+
+  userArgs = applySolveToolAlias(userArgs, solveToolAlias);
 
   const validation = validateGitHubUrl(userArgs);
   if (!validation.valid) {
@@ -1040,7 +1004,10 @@ async function handleSolveCommand(ctx) {
   }
 }
 
-bot.command([/^solve$/i, /^do$/i, /^continue$/i], handleSolveCommand); // /do and /continue are aliases (issue #525)
+bot.command(
+  SOLVE_COMMAND_NAMES.map(command => new RegExp(`^${command}$`, 'i')),
+  handleSolveCommand
+);
 
 // Named handler for /hive command - extracted for reuse by text-based fallback (issue #1207)
 async function handleHiveCommand(ctx) {
@@ -1267,8 +1234,8 @@ bot.on('message', async (ctx, next) => {
   }
 
   // Check if this is a command we handle
-  // /do and /continue are aliases for /solve (issue #525)
-  const handlers = { solve: handleSolveCommand, do: handleSolveCommand, continue: handleSolveCommand, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
+  const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
+  const handlers = { ...solveHandlers, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();

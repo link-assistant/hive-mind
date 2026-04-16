@@ -469,6 +469,11 @@ hive-telegram-bot [options]
 | `--verbose`         | `-v` | boolean | false    | 启用详细日志                             |
 | `--dry-run`         |      | boolean | false    | 验证而不启动 bot                         |
 
+启用 `/solve` 时，Telegram bot 也接受 `/do` 和 `/continue` 作为普通
+`/solve` 别名。`/claude`、`/codex`、`/opencode` 和 `/agent` 是按工具划分的别名，
+分别等同于 `/solve --tool claude`、`/solve --tool codex`、
+`/solve --tool opencode` 和 `/solve --tool agent`。
+
 ---
 
 ## 使用示例

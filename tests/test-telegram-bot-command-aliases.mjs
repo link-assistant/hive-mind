@@ -1,138 +1,134 @@
 #!/usr/bin/env node
 
 /**
- * Test for /solve command aliases: /do and /continue
- * This test verifies that /do and /continue work exactly like /solve
+ * Tests for Telegram /solve aliases.
+ *
+ * /do and /continue are plain /solve aliases.
+ * /claude, /codex, /opencode, and /agent are per-tool aliases equivalent to
+ * /solve --tool <tool>.
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/525
+ * @see https://github.com/link-assistant/hive-mind/issues/1618
  */
 
-// Mock parseCommandArgs function (same as in telegram-bot.mjs)
-function parseCommandArgs(text) {
-  // Use only first line and trim it
-  const firstLine = text.split('\n')[0].trim();
-  const argsText = firstLine.replace(/^\/\w+\s*/, '');
+import { applySolveToolAlias, getSolveToolAliasFromText, parseCommandArgs, SOLVE_COMMAND_NAMES, TOOL_SOLVE_COMMAND_ALIASES } from '../src/telegram-solve-command.lib.mjs';
 
-  if (!argsText.trim()) {
-    return [];
-  }
-
-  // Replace em-dash (—) with double-dash (--) to fix Telegram auto-replacement
-  const normalizedArgsText = argsText.replace(/—/g, '--');
-
-  const args = [];
-  let currentArg = '';
-  let inQuotes = false;
-  let quoteChar = null;
-
-  for (let i = 0; i < normalizedArgsText.length; i++) {
-    const char = normalizedArgsText[i];
-
-    if ((char === '"' || char === "'") && !inQuotes) {
-      inQuotes = true;
-      quoteChar = char;
-    } else if (char === quoteChar && inQuotes) {
-      inQuotes = false;
-      quoteChar = null;
-    } else if (char === ' ' && !inQuotes) {
-      if (currentArg) {
-        args.push(currentArg);
-        currentArg = '';
-      }
-    } else {
-      currentArg += char;
-    }
-  }
-
-  if (currentArg) {
-    args.push(currentArg);
-  }
-
-  return args;
-}
-
-// Test cases
 const tests = [
   {
     name: '/do command with basic URL',
     input: '/do https://github.com/test/repo/issues/1',
-    expected: ['https://github.com/test/repo/issues/1'],
-  },
-  {
-    name: '/do command with options',
-    input: '/do https://github.com/test/repo/issues/1 --fork --auto-continue',
-    expected: ['https://github.com/test/repo/issues/1', '--fork', '--auto-continue'],
-  },
-  {
-    name: '/continue command with basic URL',
-    input: '/continue https://github.com/test/repo/issues/2',
-    expected: ['https://github.com/test/repo/issues/2'],
+    expectedArgs: ['https://github.com/test/repo/issues/1'],
+    expectedToolAlias: null,
   },
   {
     name: '/continue command with options',
     input: '/continue https://github.com/test/repo/issues/2 --verbose --attach-logs',
-    expected: ['https://github.com/test/repo/issues/2', '--verbose', '--attach-logs'],
+    expectedArgs: ['https://github.com/test/repo/issues/2', '--verbose', '--attach-logs'],
+    expectedToolAlias: null,
   },
   {
     name: '/solve command still works',
     input: '/solve https://github.com/test/repo/issues/3 --fork',
-    expected: ['https://github.com/test/repo/issues/3', '--fork'],
+    expectedArgs: ['https://github.com/test/repo/issues/3', '--fork'],
+    expectedToolAlias: null,
   },
   {
-    name: '/do with model option',
-    input: '/do https://github.com/test/repo/issues/4 --model sonnet',
-    expected: ['https://github.com/test/repo/issues/4', '--model', 'sonnet'],
+    name: '/claude injects --tool claude',
+    input: '/claude https://github.com/test/repo/issues/4',
+    expectedArgs: ['https://github.com/test/repo/issues/4', '--tool', 'claude'],
+    expectedToolAlias: 'claude',
   },
   {
-    name: '/continue with think option',
-    input: '/continue https://github.com/test/repo/issues/5 --think high',
-    expected: ['https://github.com/test/repo/issues/5', '--think', 'high'],
+    name: '/codex without arguments stays empty before reply URL resolution',
+    input: '/codex',
+    expectedArgs: [],
+    expectedToolAlias: 'codex',
   },
   {
-    name: '/do with em-dash',
-    input: '/do https://github.com/test/repo/issues/6 —fork',
-    expected: ['https://github.com/test/repo/issues/6', '--fork'],
+    name: '/codex injects --tool codex while preserving options',
+    input: '/codex https://github.com/test/repo/issues/5 --model gpt-5.4 --think high',
+    expectedArgs: ['https://github.com/test/repo/issues/5', '--model', 'gpt-5.4', '--think', 'high', '--tool', 'codex'],
+    expectedToolAlias: 'codex',
   },
   {
-    name: '/continue with em-dash',
-    input: '/continue https://github.com/test/repo/issues/7 —verbose',
-    expected: ['https://github.com/test/repo/issues/7', '--verbose'],
+    name: '/opencode injects --tool opencode',
+    input: '/opencode https://github.com/test/repo/issues/6 --model grok-code-fast-1',
+    expectedArgs: ['https://github.com/test/repo/issues/6', '--model', 'grok-code-fast-1', '--tool', 'opencode'],
+    expectedToolAlias: 'opencode',
   },
   {
-    name: '/do with multiple options',
-    input: '/do https://github.com/test/repo/issues/8 --fork --auto-continue --attach-logs --verbose',
-    expected: ['https://github.com/test/repo/issues/8', '--fork', '--auto-continue', '--attach-logs', '--verbose'],
+    name: '/agent injects --tool agent and handles bot mention',
+    input: '/agent@SwarmMindBot https://github.com/test/repo/issues/7 --model nemotron-3-super-free',
+    expectedArgs: ['https://github.com/test/repo/issues/7', '--model', 'nemotron-3-super-free', '--tool', 'agent'],
+    expectedToolAlias: 'agent',
+  },
+  {
+    name: '/agent handles Telegram em-dash replacement',
+    input: '/agent https://github.com/test/repo/issues/8 —verbose',
+    expectedArgs: ['https://github.com/test/repo/issues/8', '--verbose', '--tool', 'agent'],
+    expectedToolAlias: 'agent',
+  },
+  {
+    name: '/codex command wins over explicit --tool value',
+    input: '/codex https://github.com/test/repo/issues/9 --tool claude --model gpt-5.4',
+    expectedArgs: ['https://github.com/test/repo/issues/9', '--model', 'gpt-5.4', '--tool', 'codex'],
+    expectedToolAlias: 'codex',
+  },
+  {
+    name: '/opencode command wins over explicit --tool=value syntax',
+    input: '/opencode https://github.com/test/repo/issues/10 --tool=agent --model grok-code-fast-1',
+    expectedArgs: ['https://github.com/test/repo/issues/10', '--model', 'grok-code-fast-1', '--tool', 'opencode'],
+    expectedToolAlias: 'opencode',
   },
 ];
 
 let passed = 0;
 let failed = 0;
 
+function assertDeepEqual(actual, expected, label) {
+  if (JSON.stringify(actual) === JSON.stringify(expected)) {
+    return;
+  }
+  throw new Error(`${label}\n  Expected: ${JSON.stringify(expected)}\n  Got:      ${JSON.stringify(actual)}`);
+}
+
 console.log('Running telegram bot command aliases tests...\n');
 
 for (const test of tests) {
-  const result = parseCommandArgs(test.input);
-  const success = JSON.stringify(result) === JSON.stringify(test.expected);
+  try {
+    const toolAlias = getSolveToolAliasFromText(test.input);
+    const result = applySolveToolAlias(parseCommandArgs(test.input), toolAlias);
 
-  if (success) {
-    console.log(`✅ PASS: ${test.name}`);
+    assertDeepEqual(toolAlias, test.expectedToolAlias, 'tool alias mismatch');
+    assertDeepEqual(result, test.expectedArgs, 'args mismatch');
+
+    console.log(`PASS: ${test.name}`);
     passed++;
-  } else {
-    console.log(`❌ FAIL: ${test.name}`);
-    console.log(`  Input:    ${test.input}`);
-    console.log(`  Expected: ${JSON.stringify(test.expected)}`);
-    console.log(`  Got:      ${JSON.stringify(result)}`);
+  } catch (error) {
+    console.log(`FAIL: ${test.name}`);
+    console.log(`  Input: ${test.input}`);
+    console.log(`  ${error.message}`);
     failed++;
   }
 }
 
+for (const [command, tool] of Object.entries(TOOL_SOLVE_COMMAND_ALIASES)) {
+  if (!SOLVE_COMMAND_NAMES.includes(command)) {
+    console.log(`FAIL: /${command} is missing from SOLVE_COMMAND_NAMES`);
+    failed++;
+  } else if (tool !== command) {
+    console.log(`FAIL: /${command} should map to --tool ${command}, got ${tool}`);
+    failed++;
+  } else {
+    console.log(`PASS: /${command} is registered as a per-tool solve alias`);
+    passed++;
+  }
+}
+
 console.log(`\n${'='.repeat(50)}`);
-console.log(`Total: ${tests.length} tests`);
+console.log(`Total: ${passed + failed} tests`);
 console.log(`Passed: ${passed}`);
 console.log(`Failed: ${failed}`);
 console.log(`${'='.repeat(50)}`);
-
-if (passed === tests.length) {
-  console.log('\n✅ All tests passed!');
-  console.log('Command aliases /do and /continue are working correctly.');
-}
 
 process.exit(failed > 0 ? 1 : 0);

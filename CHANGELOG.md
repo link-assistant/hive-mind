@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.50.15
+
+### Patch Changes
+
+- 7cecf09: Fix auto-resume reset time parsing when usage-limit output includes a month/day prefix such as `Apr 17, 4:00 AM`.
+
 ## 1.50.14
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.50.14
+
+### Patch Changes
+
+- f013f53: Fix PR mergeability consensus to ignore unrelated repo actions by default
+
 ## 1.50.13
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.50.13
+
+### Patch Changes
+
+- 3eb1428: Preserve GitHub issue-closing links after temporary auto-restart sessions edit pull request descriptions.
+
 ## 1.50.12
 
 ### Patch Changes

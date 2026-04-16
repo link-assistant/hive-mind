@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.51.0
+
+### Minor Changes
+
+- fd3c76c: Add per-tool Telegram solve aliases: /claude, /codex, /opencode, and /agent.
+
 ## 1.50.15
 
 ### Patch Changes

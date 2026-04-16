@@ -188,8 +188,8 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'wait-for-all-actions-in-repository-before-mergeable': {
     type: 'boolean',
-    description: 'Wait for ALL active GitHub Actions workflow runs in the entire repository to complete before declaring PR mergeable. When enabled, blocks merge if ANY CI/CD run in the repository is active, regardless of branch — this ensures safety when CI/CD pipelines interact or depend on each other. Enabled by default.',
-    default: true,
+    description: 'Wait for ALL active GitHub Actions workflow runs in the entire repository to complete before declaring PR mergeable. When enabled, blocks merge if ANY CI/CD run in the repository is active, regardless of branch — this is a strict safety mode for repositories with cross-branch CI/CD coupling. Disabled by default.',
+    default: false,
   },
   'wait-for-all-actions-in-repository-before-mergable': {
     type: 'boolean',

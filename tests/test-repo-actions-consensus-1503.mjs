@@ -8,6 +8,7 @@
  *   2. checkCIConsensus — multi-mechanism consensus check
  *   3. Minimum 5-minute CI check interval enforcement
  *   4. --wait-for-all-actions-in-repository-before-mergeable flag
+ *   5. Issue #1612: default behavior must NOT block on unrelated repo-wide runs
  *
  * Run with: node tests/test-repo-actions-consensus-1503.mjs
  * @see https://github.com/link-assistant/hive-mind/issues/1503
@@ -97,6 +98,34 @@ test('Corrected camelCase takes precedence over deprecated', () => {
 });
 test('Deprecated camelCase still works (backward compat)', () => assert(getFlag({ waitForAllActionsInRepositoryBeforeMergable: true }) === true, 'Expected true'));
 test('Deprecated kebab-case still works (backward compat)', () => assert(getFlag({ 'wait-for-all-actions-in-repository-before-mergable': true }) === true, 'Expected true'));
+test('Issue #1612: unrelated repo activity does not block by default', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: Array.from({ length: 8 }, () => ({ status: 'completed' })),
+    activeRepoRuns: [
+      { id: 1, status: 'in_progress', head_branch: 'issue-1818-8c84382063a9' },
+      { id: 2, status: 'in_progress', head_branch: 'issue-1825-fefc5291893b' },
+    ],
+    waitForAll: getFlag({}),
+    prCommitsCI: { allComplete: true, totalCommits: 2, pendingCommits: [] },
+  });
+  assert(r.allAgree, 'Default mode should trust PR-scoped CI when unrelated repo runs are active');
+  assert(r.mechanisms.repoActions.skipped === true, 'Repo-wide gating should be skipped by default');
+});
+test('Issue #1612: strict repo-wide mode still blocks when explicitly enabled', () => {
+  const r = simulateConsensus({
+    checkRunsStatus: 'success',
+    workflowRuns: Array.from({ length: 8 }, () => ({ status: 'completed' })),
+    activeRepoRuns: [
+      { id: 1, status: 'in_progress', head_branch: 'issue-1818-8c84382063a9' },
+      { id: 2, status: 'in_progress', head_branch: 'issue-1825-fefc5291893b' },
+    ],
+    waitForAll: getFlag({ 'wait-for-all-actions-in-repository-before-mergeable': true }),
+    prCommitsCI: { allComplete: true, totalCommits: 2, pendingCommits: [] },
+  });
+  assert(!r.allAgree, 'Strict mode should continue blocking on unrelated repo runs');
+  assert(r.mechanisms.repoActions.count === 2, `Expected 2 active repo runs, got ${r.mechanisms.repoActions.count}`);
+});
 
 // ===== Suite 3: Multi-mechanism consensus =====
 console.log('\n📋 Multi-Mechanism CI Consensus\n');

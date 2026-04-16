@@ -208,6 +208,7 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 # OpenCode Zen models (short aliases)
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
+/agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 
 # Kilo Gateway models (full model IDs)
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
@@ -219,6 +220,7 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 
 # Default model (nemotron-3-super-free via OpenCode Zen):
 /solve https://github.com/owner/repo/issues/123 --tool agent
+/agent https://github.com/owner/repo/issues/123
 ```
 
 ### Direct Agent CLI Usage

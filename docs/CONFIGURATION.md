@@ -488,6 +488,11 @@ hive-telegram-bot [options]
 | `--verbose`         | `-v`  | boolean | false      | Enable verbose logging                        |
 | `--dry-run`         |       | boolean | false      | Validate without starting bot                 |
 
+When `/solve` is enabled, the Telegram bot also accepts `/do` and `/continue`
+as plain `/solve` aliases. The `/claude`, `/codex`, `/opencode`, and `/agent`
+commands are per-tool aliases equivalent to `/solve --tool claude`,
+`/solve --tool codex`, `/solve --tool opencode`, and `/solve --tool agent`.
+
 ---
 
 ## Usage Examples

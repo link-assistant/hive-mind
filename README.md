@@ -453,6 +453,18 @@ Examples:
 /solve https://github.com/owner/repo/issues/123 --model sonnet
 /solve https://github.com/owner/repo/issues/123 --model opus --think max
 
+Aliases:
+/do and /continue are equivalent to /solve
+/claude is equivalent to /solve --tool claude
+/codex is equivalent to /solve --tool codex
+/opencode is equivalent to /solve --tool opencode
+/agent is equivalent to /solve --tool agent
+
+Tool alias examples:
+/codex https://github.com/owner/repo/issues/123 --model gpt-5.4
+/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free

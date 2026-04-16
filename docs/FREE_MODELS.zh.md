@@ -208,6 +208,7 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 # OpenCode Zen 模型（短别名）
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
+/agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 
 # Kilo Gateway 模型（完整模型 ID）
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
@@ -219,6 +220,7 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 
 # 默认模型（通过 OpenCode Zen 的 nemotron-3-super-free）：
 /solve https://github.com/owner/repo/issues/123 --tool agent
+/agent https://github.com/owner/repo/issues/123
 ```
 
 ### 直接使用 Agent CLI

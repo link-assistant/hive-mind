@@ -804,6 +804,113 @@ s=$(screen -ls | awk '/Detached/ {print $1; exit}'); echo "Entering $s"; screen 
 s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
 ```
 
+### Script for managing screens
+
+Recommended name: `hive-screens.sh`
+
+```bash
+#!/usr/bin/env bash
+
+enter=false
+close=false
+oldest=false
+newest=false
+all=false
+
+# --- parse args ---
+for arg in "$@"; do
+  case "$arg" in
+    --enter) enter=true ;;
+    --close) close=true ;;
+    --oldest) oldest=true ;;
+    --newest) newest=true ;;
+    --all) all=true ;;
+    *)
+      echo "Unknown option: $arg"
+      exit 1
+      ;;
+  esac
+done
+
+# --- validate action ---
+if ! $enter && ! $close; then
+  echo "Must specify --enter or --close"
+  exit 1
+fi
+
+# --- default behavior ---
+if ! $oldest && ! $newest && ! $all; then
+  oldest=true
+fi
+
+matches=()
+
+# --- sorting ---
+if $newest; then
+  sorter="sort -nr"
+else
+  sorter="sort -n"
+fi
+
+# --- scan sessions ---
+while read sess; do
+  tmp=$(mktemp)
+
+  screen -S "$sess" -X hardcopy -h "$tmp" 2>/dev/null
+
+  if grep -q 'Process completed' "$tmp" &&
+     grep -qE 'PR IS MERGEABLE!|PR MERGED!' "$tmp"; then
+
+    log_path=$(grep -oP 'Full log file:\s*\K.*' "$tmp" | tail -n1)
+    issue=$(grep -oP 'Issue:\s*\Khttps://github\.com/[^ ]+' "$tmp" | tail -n1)
+
+    matches+=("$sess|$log_path|$issue")
+  fi
+
+  rm -f "$tmp"
+done < <(screen -ls | awk '/Detached/ {print $1}' | $sorter)
+
+# --- no matches ---
+if [ ${#matches[@]} -eq 0 ]; then
+  echo "No matching sessions"
+  exit 0
+fi
+
+# --- handler ---
+process_one() {
+  IFS="|" read -r sess log issue <<< "$1"
+
+  echo "Session: $sess"
+  [ -n "$log" ] && echo "Log: $log" || echo "Log: (not found)"
+  [ -n "$issue" ] && echo "Issue: $issue" || echo "Issue: (not found)"
+
+  if $enter; then
+    echo "Entering $sess"
+    screen -r "$sess"
+    echo "Left $sess"
+  fi
+
+  if $close; then
+    echo "Closing $sess"
+    screen -S "$sess" -X stuff $'exit\n'
+  fi
+
+  echo "-----------------------------------"
+}
+
+# --- execution ---
+if $all; then
+  for m in "${matches[@]}"; do
+    process_one "$m"
+  done
+elif $oldest; then
+  process_one "${matches[0]}"
+elif $newest; then
+  last_index=$((${#matches[@]} - 1))
+  process_one "${matches[$last_index]}"
+fi
+```
+
 ### Reboot server.
 
 ```bash

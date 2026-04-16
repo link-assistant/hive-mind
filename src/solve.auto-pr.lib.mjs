@@ -3,6 +3,8 @@
  * Handles automatic creation of draft pull requests with initial commits
  */
 
+import { closingIssueNumbersContain, parseClosingIssueNumbers } from './pr-issue-linking.lib.mjs';
+
 export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
   // Skip auto-PR creation if:
   // 1. Auto-PR creation is disabled AND we're not in continue mode with no PR
@@ -1329,12 +1331,8 @@ ${prBody}`,
                 const linkCheckResult = await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${localPrNumber}) { closingIssuesReferences(first: 10) { nodes { number } } } } }' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'`;
 
                 if (linkCheckResult.code === 0) {
-                  const linkedIssues = linkCheckResult.stdout
-                    .toString()
-                    .trim()
-                    .split('\n')
-                    .filter(n => n);
-                  if (linkedIssues.includes(issueNumber)) {
+                  const linkedIssues = parseClosingIssueNumbers(linkCheckResult.stdout);
+                  if (closingIssueNumbersContain(linkedIssues, issueNumber)) {
                     await log(formatAligned('✅', 'Link verified:', `Issue #${issueNumber} → PR #${localPrNumber}`));
                   } else {
                     // This is a problem - the link wasn't created

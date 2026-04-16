@@ -78,9 +78,9 @@ export const buildSolveResumeCommand = ({ issueUrl, sessionId, tool = null, mode
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
-// Import GitHub linking detection library
-const githubLinking = await import('./github-linking.lib.mjs');
-const { hasGitHubLinkingKeyword } = githubLinking;
+// Import pull request issue-link preservation helpers
+const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
+const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking;
 
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
@@ -125,6 +125,83 @@ export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) =>
     lines.push('Pull request description was not updated.');
   }
   return lines;
+};
+
+/**
+ * Ensure an existing pull request body contains a GitHub closing keyword for the issue.
+ *
+ * @param {Object} options
+ * @param {string|number} options.prNumber - Pull request number
+ * @param {string|number} options.issueNumber - Issue number to link
+ * @param {string} options.owner - Repository owner
+ * @param {string} options.repo - Repository name
+ * @param {Object} [options.argv] - Parsed CLI arguments
+ * @param {Function} [options.command] - command-stream tagged template
+ * @param {Function} [options.logger] - Logger function
+ * @returns {Promise<{checked: boolean, updated: boolean, body: string, issueRef: string, error?: string}>}
+ */
+export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner, repo, argv = {}, command = $, logger = log }) => {
+  if (!prNumber || !issueNumber || !owner || !repo) {
+    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error: 'missing required pull request or issue data' };
+  }
+
+  let prBody = '';
+  const prBodyResult = await command`gh pr view ${prNumber} --repo ${owner}/${repo} --json body --jq .body`;
+  if (prBodyResult.code !== 0) {
+    const error = prBodyResult.stderr ? prBodyResult.stderr.toString().trim() : 'Unknown error';
+    await logger(`  ⚠️  Could not read PR body for issue link check: ${error}`);
+    return { checked: false, updated: false, body: prBody, issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error };
+  }
+
+  prBody = prBodyResult.stdout.toString();
+  const linkResult = ensureIssueLinkInPullRequestBody(prBody, {
+    issueNumber,
+    owner,
+    repo,
+    fork: argv.fork,
+  });
+
+  if (!linkResult.updated) {
+    await logger('  ✅ PR body already contains issue reference');
+    return { checked: true, updated: false, body: linkResult.body, issueRef: linkResult.issueRef };
+  }
+
+  await logger(`  📝 Updating PR body to link issue #${issueNumber}...`);
+
+  const fs = (await use('fs')).promises;
+  const tempBodyFile = `/tmp/pr-body-update-${prNumber}-${Date.now()}.md`;
+  await fs.writeFile(tempBodyFile, linkResult.body);
+
+  try {
+    const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+    await fs.unlink(tempBodyFile).catch(() => {});
+
+    if (updateResult.code === 0) {
+      await logger(`  ✅ Updated PR body to include "Fixes ${linkResult.issueRef}"`);
+      return { checked: true, updated: true, body: linkResult.body, issueRef: linkResult.issueRef };
+    }
+
+    const error = updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error';
+    await logger(`  ⚠️  Could not update PR body: ${error}`);
+    return { checked: true, updated: false, body: prBody, issueRef: linkResult.issueRef, error };
+  } catch (updateError) {
+    await fs.unlink(tempBodyFile).catch(() => {});
+    throw updateError;
+  }
+};
+
+export const verifyPullRequestIssueLinkAfterAutoRestart = async ({ prNumber, issueNumber, owner, repo, argv = {}, cleanErrorMessage = error => error.message }) => {
+  if (!prNumber) {
+    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }) };
+  }
+
+  await log('🔗 Verifying PR issue link after auto-restart...');
+  try {
+    return await ensurePullRequestIssueLink({ prNumber, issueNumber, owner, repo, argv });
+  } catch (issueLinkError) {
+    await log(`⚠️  Could not verify PR issue link after auto-restart: ${cleanErrorMessage(issueLinkError)}`, { level: 'warning' });
+    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error: issueLinkError.message };
+  }
 };
 
 /**
@@ -622,52 +699,16 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
-          // Check if PR body has proper issue linking keywords
-          let prBody = '';
-          const prBodyResult = await $`gh pr view ${pr.number} --repo ${owner}/${repo} --json body --jq .body`;
-          if (prBodyResult.code === 0) {
-            prBody = prBodyResult.stdout.toString();
-            const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
-
-            // Use the new GitHub linking detection library to check for valid keywords
-            // This ensures we only detect actual GitHub-recognized linking keywords
-            // (fixes, closes, resolves and their variants) in proper format
-            // See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
-            const hasLinkingKeyword = hasGitHubLinkingKeyword(prBody, issueNumber, argv.fork ? owner : null, argv.fork ? repo : null);
-
-            if (!hasLinkingKeyword) {
-              await log(`  📝 Updating PR body to link issue #${issueNumber}...`);
-
-              // Add proper issue reference to the PR body
-              const linkingText = `\n\nFixes ${issueRef}`;
-              const updatedBody = prBody + linkingText;
-
-              // Use --body-file instead of --body to avoid command-line length limits
-              // and special character escaping issues that can cause hangs/timeouts
-              const fs = (await use('fs')).promises;
-              const tempBodyFile = `/tmp/pr-body-update-${pr.number}-${Date.now()}.md`;
-              await fs.writeFile(tempBodyFile, updatedBody);
-
-              try {
-                const updateResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
-
-                // Clean up temp file
-                await fs.unlink(tempBodyFile).catch(() => {});
-
-                if (updateResult.code === 0) {
-                  await log(`  ✅ Updated PR body to include "Fixes ${issueRef}"`);
-                } else {
-                  await log(`  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`);
-                }
-              } catch (updateError) {
-                // Clean up temp file on error
-                await fs.unlink(tempBodyFile).catch(() => {});
-                throw updateError;
-              }
-            } else {
-              await log('  ✅ PR body already contains issue reference');
-            }
-          }
+          const issueLinkResult = await ensurePullRequestIssueLink({
+            prNumber: pr.number,
+            issueNumber,
+            owner,
+            repo,
+            argv,
+            command: $,
+            logger: log,
+          });
+          const prBody = issueLinkResult.body || '';
 
           // Issue #1162: Detect if PR title/description still have auto-generated placeholder content
           // Track this before cleanup for --auto-restart-on-non-updated-pull-request-description
@@ -709,7 +750,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
             // Build new description
             const fs = (await use('fs')).promises;
-            const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
+            const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
             const newDescription = `## Summary
 
 This pull request implements a solution for ${issueRef}: ${issueTitle}

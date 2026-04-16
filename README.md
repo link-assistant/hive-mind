@@ -806,9 +806,8 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### Script for managing screens
 
-Recommended name: `hive-screens.sh`
-
 ```bash
+cat <<'EOF' > hive-screens.sh
 #!/usr/bin/env bash
 
 enter=false
@@ -832,13 +831,13 @@ for arg in "$@"; do
   esac
 done
 
-# --- validate action ---
+# --- validate ---
 if ! $enter && ! $close; then
   echo "Must specify --enter or --close"
   exit 1
 fi
 
-# --- default behavior ---
+# --- default ---
 if ! $oldest && ! $newest && ! $all; then
   oldest=true
 fi
@@ -853,16 +852,24 @@ else
 fi
 
 # --- scan sessions ---
-while read sess; do
+while read -r sess; do
   tmp=$(mktemp)
 
-  screen -S "$sess" -X hardcopy -h "$tmp" 2>/dev/null
+  # 🔥 increase scrollback BEFORE capture
+  screen -S "$sess" -X scrollback 100000 2>/dev/null
+  sleep 0.05
+  screen -S "$sess" -X hardcopy "$tmp" 2>/dev/null
 
   if grep -q 'Process completed' "$tmp" &&
      grep -qE 'PR IS MERGEABLE!|PR MERGED!' "$tmp"; then
 
-    log_path=$(grep -oP 'Full log file:\s*\K.*' "$tmp" | tail -n1)
-    issue=$(grep -oP 'Issue:\s*\Khttps://github\.com/[^ ]+' "$tmp" | tail -n1)
+    log_path=$(grep 'Full log file:' "$tmp" \
+      | sed 's/.*Full log file:[[:space:]]*//' \
+      | tail -n1)
+
+    issue=$(grep -Eo 'Issue:[[:space:]]*https://github\.com/[^ ]+' "$tmp" \
+      | sed 's/Issue:[[:space:]]*//' \
+      | tail -n1)
 
     matches+=("$sess|$log_path|$issue")
   fi
@@ -876,25 +883,24 @@ if [ ${#matches[@]} -eq 0 ]; then
   exit 0
 fi
 
-# --- handler ---
 process_one() {
   IFS="|" read -r sess log issue <<< "$1"
 
   echo "Session: $sess"
-  [ -n "$log" ] && echo "Log: $log" || echo "Log: (not found)"
-  [ -n "$issue" ] && echo "Issue: $issue" || echo "Issue: (not found)"
 
   if $enter; then
     echo "Entering $sess"
-    screen -r "$sess"
+    screen -r "$sess" || echo "[WARN] screen already closed"
     echo "Left $sess"
   fi
 
-  if $close; then
+  if $close && ! $enter; then
     echo "Closing $sess"
     screen -S "$sess" -X stuff $'exit\n'
   fi
 
+  echo "Log: ${log:-'(not found)'}"
+  echo "Issue: ${issue:-'(not found)'}"
   echo "-----------------------------------"
 }
 
@@ -909,6 +915,9 @@ elif $newest; then
   last_index=$((${#matches[@]} - 1))
   process_one "${matches[$last_index]}"
 fi
+EOF
+
+chmod +x hive-screens.sh;
 ```
 
 ### Reboot server.

@@ -29,7 +29,7 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildSolveResumeCommand, checkForAiCreatedComments, attachSolutionSummary } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildSolveResumeCommand, checkForAiCreatedComments, attachSolutionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude, checkPlaywrightMcpAvailability } = claudeLib;
 
@@ -1357,6 +1357,8 @@ try {
       await log('   Please push manually:', { level: 'error' });
       await log(`   cd ${tempDir} && git push origin ${branchName}`, { level: 'error' });
     }
+
+    await verifyPullRequestIssueLinkAfterAutoRestart({ prNumber, issueNumber, owner, repo, argv, cleanErrorMessage });
 
     // Attach updated logs to PR after auto-restart completes
     // Issue #1154: Skip if logs were already uploaded by verifyResults() to prevent duplicates

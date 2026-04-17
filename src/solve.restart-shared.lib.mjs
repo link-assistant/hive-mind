@@ -178,6 +178,9 @@ export const executeToolIteration = async params => {
   const memoryCheck = await import('./memory-check.mjs');
   const { getResourceSnapshot } = memoryCheck;
 
+  const { cascadePlaywrightMcpDisable } = await import('./playwright-mcp.lib.mjs');
+  await cascadePlaywrightMcpDisable(argv, log);
+
   let toolResult;
   if (argv.tool === 'opencode') {
     // Use OpenCode

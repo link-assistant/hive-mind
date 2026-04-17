@@ -379,6 +379,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Path to examples folder used in system prompt. Set to empty string to disable examples folder prompt. Default: ./examples',
     default: './examples',
   },
+  'playwright-mcp': {
+    type: 'boolean',
+    description: 'Enable Playwright MCP server connection for this session (enabled by default). Use --no-playwright-mcp to physically disable the Playwright MCP server without affecting the global MCP registration. When disabled, also disables --prompt-playwright-mcp and --playwright-mcp-auto-cleanup. Supported for --tool claude and --tool codex (opencode and agent do not connect to MCP servers directly).',
+    default: true,
+  },
   'playwright-mcp-auto-cleanup': {
     type: 'boolean',
     description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',

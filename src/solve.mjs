@@ -707,7 +707,11 @@ try {
     $,
   });
 
+  const { cascadePlaywrightMcpDisable } = await import('./playwright-mcp.lib.mjs');
+  await cascadePlaywrightMcpDisable(argv, log);
+
   async function resolvePlaywrightMcp(checkFn) {
+    if (argv.playwrightMcp === false) return;
     if (argv.promptPlaywrightMcp) {
       const available = await checkFn();
       if (available) {

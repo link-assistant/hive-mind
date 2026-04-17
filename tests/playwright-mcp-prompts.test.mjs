@@ -140,6 +140,62 @@ async function runTests() {
   });
 
   // ============================================================================
+  // Verify --playwright-mcp (physical disable) flag
+  // ============================================================================
+
+  console.log('\n📋 --playwright-mcp Physical Disable Flag Tests\n');
+
+  await asyncTest('config has playwright-mcp option for physical disable', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'solve.config.lib.mjs'), 'utf-8');
+    assert.ok(content.includes("'playwright-mcp'"), 'Config should have playwright-mcp option');
+    const mcpIndex = content.indexOf("'playwright-mcp'");
+    const section = content.substring(mcpIndex, mcpIndex + 600);
+    assert.ok(section.includes('physically disable'), 'Description should mention physical disabling');
+    assert.ok(section.includes('--no-playwright-mcp'), 'Description should mention --no-playwright-mcp');
+    assert.ok(section.includes('default: true'), 'Default should be true (enabled)');
+  });
+
+  await asyncTest('playwright-mcp.lib.mjs exports buildMcpConfigWithoutPlaywright', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'playwright-mcp.lib.mjs'), 'utf-8');
+    assert.ok(content.includes('export const buildMcpConfigWithoutPlaywright'), 'playwright-mcp.lib.mjs should export buildMcpConfigWithoutPlaywright');
+  });
+
+  await asyncTest('claude.lib.mjs uses --strict-mcp-config when playwrightMcp is false', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'claude.lib.mjs'), 'utf-8');
+    assert.ok(content.includes('strict-mcp-config'), 'claude.lib.mjs should use --strict-mcp-config');
+    assert.ok(content.includes('argv.playwrightMcp === false'), 'claude.lib.mjs should check playwrightMcp flag');
+  });
+
+  await asyncTest('playwright-mcp.lib.mjs exports Codex disable/restore functions', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'playwright-mcp.lib.mjs'), 'utf-8');
+    assert.ok(content.includes('export const disableCodexPlaywrightMcpForSession'), 'should export disableCodexPlaywrightMcpForSession');
+    assert.ok(content.includes('export const restoreCodexPlaywrightMcpForSession'), 'should export restoreCodexPlaywrightMcpForSession');
+  });
+
+  await asyncTest('codex.lib.mjs disables and restores Playwright MCP per session', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'codex.lib.mjs'), 'utf-8');
+    assert.ok(content.includes('codexPlaywrightMcpDisabled'), 'codex.lib.mjs should track disable state');
+    assert.ok(content.includes('restoreCodexPlaywrightMcpForSession'), 'codex.lib.mjs should restore MCP after session');
+  });
+
+  await asyncTest('playwright-mcp.lib.mjs exports cascadePlaywrightMcpDisable', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'playwright-mcp.lib.mjs'), 'utf-8');
+    assert.ok(content.includes('export const cascadePlaywrightMcpDisable'), 'should export cascadePlaywrightMcpDisable');
+    assert.ok(content.includes('argv.promptPlaywrightMcp = false'), 'should disable promptPlaywrightMcp');
+    assert.ok(content.includes('argv.playwrightMcpAutoCleanup = false'), 'should disable playwrightMcpAutoCleanup');
+  });
+
+  await asyncTest('solve.mjs uses cascadePlaywrightMcpDisable', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'solve.mjs'), 'utf-8');
+    assert.ok(content.includes('cascadePlaywrightMcpDisable'), 'solve.mjs should use cascadePlaywrightMcpDisable');
+  });
+
+  await asyncTest('solve.restart-shared.lib.mjs uses cascadePlaywrightMcpDisable', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'solve.restart-shared.lib.mjs'), 'utf-8');
+    assert.ok(content.includes('cascadePlaywrightMcpDisable'), 'restart-shared should use cascadePlaywrightMcpDisable');
+  });
+
+  // ============================================================================
   // Verify prompt builders produce correct output
   // ============================================================================
 

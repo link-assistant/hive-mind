@@ -32,6 +32,14 @@ const CODEX_MODEL_DIAGNOSTIC_PATHS = [
   ['message.model', data => data?.message?.model],
 ];
 
+const createCodexTokenFieldAvailability = () => ({
+  inputTokens: false,
+  outputTokens: false,
+  reasoningTokens: false,
+  cacheReadTokens: false,
+  cacheWriteTokens: false,
+});
+
 export const createCodexTokenUsage = requestedModelId => ({
   inputTokens: 0,
   outputTokens: 0,
@@ -42,6 +50,7 @@ export const createCodexTokenUsage = requestedModelId => ({
   stepCount: 0,
   requestedModelId: requestedModelId || null,
   respondedModelId: requestedModelId || null,
+  tokenFieldAvailability: createCodexTokenFieldAvailability(),
 });
 
 const createEmptyCodexItemUsage = () => ({
@@ -162,6 +171,7 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     observedModelDiagnosticPaths: state.observedModelDiagnosticPaths || [],
   };
 
+  nextState.tokenUsage.tokenFieldAvailability ||= createCodexTokenFieldAvailability();
   const observedModelPaths = new Set(nextState.observedModelDiagnosticPaths);
 
   for (const rawLine of output.split('\n')) {
@@ -208,6 +218,9 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
       const inputTokens = Number.isFinite(data.usage.input_tokens) ? data.usage.input_tokens : 0;
       const cachedInputTokens = Number.isFinite(data.usage.cached_input_tokens) ? data.usage.cached_input_tokens : 0;
       const outputTokens = Number.isFinite(data.usage.output_tokens) ? data.usage.output_tokens : 0;
+      if (Object.hasOwn(data.usage, 'input_tokens')) nextState.tokenUsage.tokenFieldAvailability.inputTokens = true;
+      if (Object.hasOwn(data.usage, 'cached_input_tokens')) nextState.tokenUsage.tokenFieldAvailability.cacheReadTokens = true;
+      if (Object.hasOwn(data.usage, 'output_tokens')) nextState.tokenUsage.tokenFieldAvailability.outputTokens = true;
       const nonCachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
       nextState.tokenUsage.inputTokens += nonCachedInputTokens;
       nextState.tokenUsage.cacheReadTokens += cachedInputTokens;

@@ -14,63 +14,7 @@
  * - Handles free model special case
  */
 
-import Decimal from 'decimal.js-light';
-
-// Copy of the buildCostInfoString function from src/github.lib.mjs for testing
-// Issue #1600: Updated to use Decimal for precision
-const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
-  const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
-  const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
-  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
-  const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
-  if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
-  const publicDec = hasPublic ? new Decimal(totalCostUSD) : null;
-  const anthropicDec = hasAnthropic ? new Decimal(anthropicTotalCostUSD) : null;
-  if (publicDec && anthropicDec && publicDec.toFixed(6) === anthropicDec.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicDec.toFixed(6)}**`;
-  let costInfo = '\n\n### 💰 **Cost estimation:**';
-  if (pricingInfo?.modelName) {
-    costInfo += `\n- Model: ${pricingInfo.modelName}`;
-    if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
-  }
-  if (hasPublic) {
-    if (pricingInfo?.isFreeModel && totalCostUSD === 0 && !pricingInfo?.baseModelName) {
-      costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
-    } else {
-      let pricingRef = '';
-      if (pricingInfo?.baseModelName && pricingInfo?.originalProvider) {
-        pricingRef = ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)`;
-      } else if (pricingInfo?.originalProvider) {
-        pricingRef = ` (based on ${pricingInfo.originalProvider} prices)`;
-      }
-      costInfo += `\n- Public pricing estimate: $${publicDec.toFixed(6)}${pricingRef}`;
-    }
-  } else if (hasPricing) {
-    costInfo += '\n- Public pricing estimate: unknown';
-  }
-  if (hasOpencodeCost) {
-    if (pricingInfo.isOpencodeFreeModel) {
-      costInfo += '\n- Calculated by OpenCode Zen: $0.00 (Free model)';
-    } else {
-      costInfo += `\n- Calculated by OpenCode Zen: $${new Decimal(pricingInfo.opencodeCost).toFixed(6)}`;
-    }
-  }
-  if (pricingInfo?.tokenUsage) {
-    const u = pricingInfo.tokenUsage;
-    let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
-    if (u.reasoningTokens > 0) tokenInfo += `, ${u.reasoningTokens.toLocaleString()} reasoning`;
-    if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0) tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
-    costInfo += tokenInfo;
-  }
-  if (hasAnthropic) {
-    costInfo += `\n- Calculated by Anthropic: $${anthropicDec.toFixed(6)}`;
-    if (hasPublic) {
-      const diff = anthropicDec.minus(publicDec);
-      const pct = publicDec.gt(0) ? diff.div(publicDec).mul(100) : new Decimal(0);
-      costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct.gt(0) ? '+' : ''}${pct.toFixed(2)}%)`;
-    }
-  }
-  return costInfo;
-};
+import { buildCostInfoString } from '../src/github-cost-info.lib.mjs';
 
 // Test framework
 let testsPassed = 0;
@@ -296,6 +240,39 @@ runTest('does not show cache tokens when both are zero', () => {
   assertNotContains(result, 'cache', 'Should not show zero cache tokens');
 });
 
+runTest('shows only cache read when cache write value is unavailable', () => {
+  const result = buildCostInfoString(null, null, {
+    modelName: 'gpt-5.4',
+    provider: 'OpenAI',
+    tokenUsage: {
+      inputTokens: 44823,
+      outputTokens: 3031,
+      cacheReadTokens: 388480,
+      cacheWriteTokens: 0,
+    },
+  });
+  assertContains(result, '388,480 cache read', 'Should show observed cached input tokens');
+  assertNotContains(result, '0 cache write', 'Should not invent unavailable cache write data');
+});
+
+runTest('shows observed zero cache write when field availability says it exists', () => {
+  const result = buildCostInfoString(null, null, {
+    modelName: 'agent-model',
+    provider: 'OpenCode Zen',
+    tokenUsage: {
+      inputTokens: 1000,
+      outputTokens: 500,
+      cacheReadTokens: 300,
+      cacheWriteTokens: 0,
+      tokenFieldAvailability: {
+        cacheReadTokens: true,
+        cacheWriteTokens: true,
+      },
+    },
+  });
+  assertContains(result, '300 cache read, 0 cache write', 'Should show zero cache write when upstream emitted it');
+});
+
 // ==== Comprehensive format tests ====
 console.log('\n📋 Test Group: Comprehensive format\n');
 
@@ -462,6 +439,29 @@ runTest('shows output with only OpenCode Zen cost present', () => {
   assertContains(result, 'Provider: OpenCode Zen', 'Should show provider');
   assertContains(result, 'Public pricing estimate: unknown', 'Should show unknown public estimate');
   assertContains(result, 'Calculated by OpenCode Zen: $0.00 (Free model)', 'Should show free cost');
+});
+
+runTest('Codex comments with unknown public pricing omit unavailable cache write tokens', () => {
+  const result = buildCostInfoString(null, null, {
+    modelName: 'gpt-5.4',
+    provider: 'OpenAI',
+    tokenUsage: {
+      inputTokens: 44823,
+      outputTokens: 3031,
+      reasoningTokens: 0,
+      cacheReadTokens: 388480,
+      cacheWriteTokens: 0,
+      tokenFieldAvailability: {
+        inputTokens: true,
+        outputTokens: true,
+        cacheReadTokens: true,
+        cacheWriteTokens: false,
+      },
+    },
+  });
+  assertContains(result, 'Public pricing estimate: unknown', 'Should preserve unknown public pricing for Codex');
+  assertContains(result, 'Token usage: 44,823 input, 3,031 output, 388,480 cache read', 'Should show known Codex usage fields');
+  assertNotContains(result, 'cache write', 'Should not show Codex cache write when the field was never observed');
 });
 
 runTest('isOpencodeFreeModel triggers hasPricing check', () => {

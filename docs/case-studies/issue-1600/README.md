@@ -7,6 +7,7 @@ Multiple bugs in token/cost calculation display and formatting, identified acros
 1. [doublets-rs #48](https://github.com/linksplatform/doublets-rs/pull/48#issuecomment-4242565890)
 2. [web-capture #55](https://github.com/link-assistant/web-capture/pull/55#issuecomment-4243452453)
 3. [hive-mind #1621](https://github.com/link-assistant/hive-mind/pull/1621#issuecomment-4265646700)
+4. [hive-mind #1615 Codex review example](https://github.com/link-assistant/hive-mind/pull/1615#issuecomment-4254674907)
 
 ## Requirements Extracted
 
@@ -46,6 +47,18 @@ Multiple bugs in token/cost calculation display and formatting, identified acros
 - **Source**: hive-mind #1621 (Public: $4.145262, Anthropic: $4.145261, Difference: $-0.000000)
 - **Problem**: Difference between $4.145262 and $4.145261 shows as $-0.000000 due to floating-point subtraction
 - **Solution**: Use Decimal arithmetic for difference calculation so $0.000001 differences are visible
+
+### R7: Do not print unavailable token fields as zero
+
+- **Source**: PR #1622 review comment citing hive-mind #1615 Codex logs
+- **Problem**: Codex exposes `input_tokens`, `cached_input_tokens`, and `output_tokens`; it does not expose cache write tokens, so `0 cache write` was misleading
+- **Solution**: Track token field availability from parser events and only print optional fields when they were observed or are non-zero
+
+### R8: Keep cost/token output unified across supported tools
+
+- **Source**: PR #1622 review request for Claude, Codex, and OpenCode/Agent consistency
+- **Problem**: Similar cost/token formatting lived in separate copies and could drift across tools
+- **Solution**: Extract shared GitHub cost comment formatting and feed it precise token availability from Codex and Agent parsers
 
 ## Data from Referenced Comments
 
@@ -109,6 +122,25 @@ Total: (108.0K + 790.1K cached) input tokens, 5.6K / 64K (9%) output tokens, $0.
 1. Difference shows `$-0.000000` when actual difference is `$-0.000001`
 2. Haiku shows no per-session detalization line
 
+### hive-mind #1615 Codex sample
+
+Raw Codex verbose logs showed usage events with `input_tokens`, `cached_input_tokens`, and `output_tokens` only. No cache write field was observed. The fixed token line keeps the known fields and omits unavailable cache write data:
+
+```
+Token usage: 44,823 input, 3,031 output, 388,480 cache read
+```
+
+## Downloaded Raw Logs
+
+The referenced log artifacts were downloaded locally under `docs/case-studies/issue-1600/logs/` for offline verification. The raw files are ignored because they total about 54 MB; the source manifest is tracked in `logs/README.md`.
+
+- `doublets-rs-pr-48-claude-code.log` - 14,321,843 bytes
+- `web-capture-pr-55-claude-code.log` - 1,941,786 bytes
+- `hive-mind-pr-1621-claude-code.log` - 2,828,019 bytes
+- `hive-mind-pr-1615-codex-initial.log` - 7,185,779 bytes
+- `hive-mind-pr-1615-codex-auto-restart-1.log` - 11,870,428 bytes
+- `hive-mind-pr-1615-codex-auto-merge-1.log` - 15,938,506 bytes
+
 ## Solution Approach
 
 ### Library: decimal.js-light
@@ -121,9 +153,15 @@ Total: (108.0K + 790.1K cached) input tokens, 5.6K / 64K (9%) output tokens, $0.
 
 - `src/claude.budget-stats.lib.mjs` - Display formatting, cost comparison, budget stats
 - `src/claude.lib.mjs` - Core cost calculation with Decimal
-- `src/github.lib.mjs` - PR comment cost string builder
-- `src/agent.lib.mjs` - Agent pricing calculation
-- `tests/test-build-cost-info-string.mjs` - Updated test copy
+- `src/github-cost-info.lib.mjs` - Shared PR comment cost string builder
+- `src/github.lib.mjs` - Uses the shared cost string builder
+- `src/codex.lib.mjs` - Codex token field availability tracking
+- `src/agent.lib.mjs` - Agent pricing calculation and token field availability tracking
+- `tests/test-build-cost-info-string.mjs` - Production cost string formatter tests
+- `tests/test-codex-support.mjs` - Codex parser token field availability tests
+- `tests/test-agent-budget-stats-1526.mjs` - Agent parser zero cache write availability tests
+- `tests/test-agent-token-usage.mjs` - Uses production parser and cost formatter in display pipeline tests
+- `tests/test-issue-1600-comprehensive.mjs` - Comprehensive format and cost precision tests
 - `tests/test-issue-1600-budget-stats.mjs` - New test file
 - `package.json` - Added decimal.js-light dependency
 

@@ -1,0 +1,2 @@
+# Raw logs are downloaded locally for analysis but are too large/noisy for git review.
+*.log

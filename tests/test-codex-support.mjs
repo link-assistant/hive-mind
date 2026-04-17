@@ -69,10 +69,26 @@ test('Codex exec JSON parser extracts session, result text, usage, and collab ca
   assert.equal(parsed.tokenUsage.cacheReadTokens, 200);
   assert.equal(parsed.tokenUsage.outputTokens, 50);
   assert.equal(parsed.tokenUsage.stepCount, 1);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.inputTokens, true);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheReadTokens, true);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.outputTokens, true);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheWriteTokens, false);
   assert.equal(parsed.reasoningSummaries.length, 1);
   assert.equal(parsed.subAgentCalls.length, 1);
   assert.equal(parsed.subAgentCalls[0].description, 'Check tests');
   assert.equal(parsed.subAgentCalls[0].model, 'gpt-5.4');
+});
+
+test('Codex exec JSON parser does not mark cache write as available when CLI does not emit it', () => {
+  const jsonl = '{"type":"turn.completed","usage":{"input_tokens":433303,"cached_input_tokens":388480,"output_tokens":3031}}';
+  const parsed = parseCodexExecJsonOutput(jsonl, {}, 'gpt-5.4');
+
+  assert.equal(parsed.tokenUsage.inputTokens, 44823);
+  assert.equal(parsed.tokenUsage.cacheReadTokens, 388480);
+  assert.equal(parsed.tokenUsage.outputTokens, 3031);
+  assert.deepEqual(parsed.observedUsageFieldSets, [['input_tokens', 'cached_input_tokens', 'output_tokens']]);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheReadTokens, true);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheWriteTokens, false);
 });
 
 test('Codex exec JSON parser captures remaining supported item payloads', () => {

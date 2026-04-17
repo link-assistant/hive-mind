@@ -26,6 +26,23 @@ import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.m
 const claudeLib = await import('./claude.lib.mjs');
 const { fetchModelInfo, checkModelVisionCapability } = claudeLib;
 
+const createTokenFieldAvailability = () => ({
+  inputTokens: false,
+  outputTokens: false,
+  reasoningTokens: false,
+  cacheReadTokens: false,
+  cacheWriteTokens: false,
+});
+
+const addObservedTokenValue = (usage, source, sourceFieldName, targetFieldName) => {
+  if (!source || !Object.hasOwn(source, sourceFieldName)) return;
+  usage.tokenFieldAvailability[targetFieldName] = true;
+  const value = source[sourceFieldName];
+  if (Number.isFinite(value)) usage[targetFieldName] += value;
+};
+
+const getTokenCount = value => (Number.isFinite(value) ? value : 0);
+
 /**
  * Parse agent JSON output to extract token usage from step_finish events
  * Agent outputs NDJSON (newline-delimited JSON) with step_finish events containing token data
@@ -47,6 +64,7 @@ export const parseAgentTokenUsage = output => {
     contextLimit: null,
     outputLimit: null,
     peakContextUsage: 0, // Track peak context usage across steps
+    tokenFieldAvailability: createTokenFieldAvailability(),
   };
 
   // Try to parse each line as JSON (agent outputs NDJSON format)
@@ -64,14 +82,14 @@ export const parseAgentTokenUsage = output => {
         usage.stepCount++;
 
         // Add token counts
-        if (tokens.input) usage.inputTokens += tokens.input;
-        if (tokens.output) usage.outputTokens += tokens.output;
-        if (tokens.reasoning) usage.reasoningTokens += tokens.reasoning;
+        addObservedTokenValue(usage, tokens, 'input', 'inputTokens');
+        addObservedTokenValue(usage, tokens, 'output', 'outputTokens');
+        addObservedTokenValue(usage, tokens, 'reasoning', 'reasoningTokens');
 
         // Handle cache tokens (can be in different formats)
         if (tokens.cache) {
-          if (tokens.cache.read) usage.cacheReadTokens += tokens.cache.read;
-          if (tokens.cache.write) usage.cacheWriteTokens += tokens.cache.write;
+          addObservedTokenValue(usage, tokens.cache, 'read', 'cacheReadTokens');
+          addObservedTokenValue(usage, tokens.cache, 'write', 'cacheWriteTokens');
         }
 
         // Add cost from step_finish (usually 0 for free models like grok-code)
@@ -91,7 +109,7 @@ export const parseAgentTokenUsage = output => {
           if (parsed.part.context.outputLimit) usage.outputLimit = parsed.part.context.outputLimit;
           // Track peak context usage: input_tokens (current request) is the context usage for this step
           // The actual context used per request = input tokens + cache_read tokens for that request
-          const stepContextUsage = (tokens.input || 0) + (tokens.cache?.read || 0);
+          const stepContextUsage = getTokenCount(tokens.input) + getTokenCount(tokens.cache?.read);
           if (stepContextUsage > usage.peakContextUsage) {
             usage.peakContextUsage = stepContextUsage;
           }
@@ -607,18 +625,19 @@ export const executeAgentCommand = async params => {
         contextLimit: null,
         outputLimit: null,
         peakContextUsage: 0,
+        tokenFieldAvailability: createTokenFieldAvailability(),
       };
       // Helper to accumulate tokens from step_finish events during streaming
       const accumulateTokenUsage = data => {
         if (data.type === 'step_finish' && data.part?.tokens) {
           const tokens = data.part.tokens;
           streamingTokenUsage.stepCount++;
-          if (tokens.input) streamingTokenUsage.inputTokens += tokens.input;
-          if (tokens.output) streamingTokenUsage.outputTokens += tokens.output;
-          if (tokens.reasoning) streamingTokenUsage.reasoningTokens += tokens.reasoning;
+          addObservedTokenValue(streamingTokenUsage, tokens, 'input', 'inputTokens');
+          addObservedTokenValue(streamingTokenUsage, tokens, 'output', 'outputTokens');
+          addObservedTokenValue(streamingTokenUsage, tokens, 'reasoning', 'reasoningTokens');
           if (tokens.cache) {
-            if (tokens.cache.read) streamingTokenUsage.cacheReadTokens += tokens.cache.read;
-            if (tokens.cache.write) streamingTokenUsage.cacheWriteTokens += tokens.cache.write;
+            addObservedTokenValue(streamingTokenUsage, tokens.cache, 'read', 'cacheReadTokens');
+            addObservedTokenValue(streamingTokenUsage, tokens.cache, 'write', 'cacheWriteTokens');
           }
           if (data.part.cost !== undefined) {
             streamingTokenUsage.totalCost += data.part.cost;
@@ -632,7 +651,7 @@ export const executeAgentCommand = async params => {
           if (data.part.context) {
             if (data.part.context.contextLimit) streamingTokenUsage.contextLimit = data.part.context.contextLimit;
             if (data.part.context.outputLimit) streamingTokenUsage.outputLimit = data.part.context.outputLimit;
-            const stepContextUsage = (tokens.input || 0) + (tokens.cache?.read || 0);
+            const stepContextUsage = getTokenCount(tokens.input) + getTokenCount(tokens.cache?.read);
             if (stepContextUsage > streamingTokenUsage.peakContextUsage) {
               streamingTokenUsage.peakContextUsage = stepContextUsage;
             }
@@ -997,8 +1016,10 @@ export const executeAgentCommand = async params => {
         if (tokenUsage.reasoningTokens > 0) {
           await log(`      Reasoning tokens: ${tokenUsage.reasoningTokens.toLocaleString()}`);
         }
-        if (tokenUsage.cacheReadTokens > 0 || tokenUsage.cacheWriteTokens > 0) {
+        if (tokenUsage.cacheReadTokens > 0 || tokenUsage.tokenFieldAvailability?.cacheReadTokens) {
           await log(`      Cache read:       ${tokenUsage.cacheReadTokens.toLocaleString()}`);
+        }
+        if (tokenUsage.cacheWriteTokens > 0 || tokenUsage.tokenFieldAvailability?.cacheWriteTokens) {
           await log(`      Cache write:      ${tokenUsage.cacheWriteTokens.toLocaleString()}`);
         }
 

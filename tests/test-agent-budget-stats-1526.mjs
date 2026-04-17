@@ -70,6 +70,21 @@ runTest('extracts model info from step_finish events', () => {
   assertEqual(usage.outputLimit, 32000, 'Should extract outputLimit');
 });
 
+runTest('marks observed zero cache write fields from agent step_finish events', () => {
+  const output = JSON.stringify({
+    type: 'step_finish',
+    part: {
+      tokens: { input: 100, output: 50, cache: { read: 200, write: 0 } },
+      cost: 0,
+    },
+  });
+  const usage = parseAgentTokenUsage(output);
+  assertEqual(usage.cacheReadTokens, 200, 'Should parse cache read tokens');
+  assertEqual(usage.cacheWriteTokens, 0, 'Should preserve zero cache write value');
+  assertEqual(usage.tokenFieldAvailability.cacheReadTokens, true, 'Should mark cache read as observed');
+  assertEqual(usage.tokenFieldAvailability.cacheWriteTokens, true, 'Should mark cache write as observed even when zero');
+});
+
 runTest('tracks peak context usage across steps', () => {
   const step1 = JSON.stringify({
     type: 'step_finish',

@@ -394,6 +394,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',
     default: true,
   },
+  'useless-tools-disabled': {
+    type: 'boolean',
+    description: 'Disable Claude Code built-in tools and MCP servers that have no value (and may be harmful) in autonomous headless runs: AskUserQuestion, CronCreate/Delete/List, EnterPlanMode/ExitPlanMode, EnterWorktree/ExitWorktree, Monitor, NotebookEdit, PushNotification, RemoteTrigger, ScheduleWakeup, and the claude.ai Gmail/Drive/Calendar OAuth connectors. Default: true. Use --no-useless-tools-disabled to keep them enabled. Supported for --tool claude (issue #1627).',
+    default: true,
+  },
   'auto-gh-configuration-repair': {
     type: 'boolean',
     description: 'Automatically repair git configuration using gh-setup-git-identity --repair when git identity is not configured. Requires gh-setup-git-identity to be installed.',

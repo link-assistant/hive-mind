@@ -115,5 +115,35 @@ RUN if command -v codex &>/dev/null; then \
       codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
     fi
 
+# --- Disable useless Claude Code built-in tools (issue #1627) ---
+# Autonomous headless hive-mind runs never benefit from tools that wait for
+# human interaction (AskUserQuestion, EnterPlanMode) or that register local
+# session cron jobs (CronCreate/List/Delete) or create worktrees
+# (EnterWorktree/ExitWorktree) or fire mobile notifications
+# (PushNotification) or kick off remote agent triggers (RemoteTrigger)
+# or create notebook cells (NotebookEdit) or monitor processes (Monitor) or
+# self-schedule wakeups (ScheduleWakeup). Pre-seed the user-scope
+# ~/.claude/settings.json disallowedTools list so that even interactive
+# claude sessions in this image do not surface them.
+# The three claude.ai OAuth connectors (Gmail/Google Drive/Google Calendar)
+# cannot be removed via `claude mcp remove` because they are not registered
+# under user/local/project scope; solve.mjs filters them at run time using
+# --strict-mcp-config --mcp-config <temp-file>.
+RUN mkdir -p /workspace/.claude && \
+    node -e " \
+const fs = require('fs'); \
+const p = '/workspace/.claude/settings.json'; \
+const blocked = ['AskUserQuestion','CronCreate','CronDelete','CronList','EnterPlanMode','EnterWorktree','ExitPlanMode','ExitWorktree','Monitor','NotebookEdit','PushNotification','RemoteTrigger','ScheduleWakeup','mcp__claude_ai_Gmail__*','mcp__claude_ai_Google_Drive__*','mcp__claude_ai_Google_Calendar__*']; \
+let s = {}; \
+try { s = JSON.parse(fs.readFileSync(p, 'utf-8')); } catch (e) {} \
+if (!s || typeof s !== 'object' || Array.isArray(s)) s = {}; \
+const existing = Array.isArray(s.disallowedTools) ? s.disallowedTools : []; \
+const merged = [...existing]; \
+for (const t of blocked) if (!merged.includes(t)) merged.push(t); \
+s.disallowedTools = merged; \
+fs.writeFileSync(p, JSON.stringify(s, null, 2)); \
+console.log('Configured', merged.length, 'disallowedTools in', p); \
+"
+
 SHELL ["/bin/bash", "-c"]
 CMD ["/bin/bash"]

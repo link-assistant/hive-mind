@@ -28,17 +28,17 @@ The WebSearch fallback was not included in any tool because the original focus w
 
 ### Changes Made
 
-| File | Change |
-|------|--------|
-| `src/opencode.prompts.lib.mjs` | Added full Playwright MCP usage section with WebFetch and WebSearch fallback notes |
-| `src/agent.prompts.lib.mjs` | Added full Playwright MCP usage section with WebFetch and WebSearch fallback notes |
-| `src/claude.prompts.lib.mjs` | Added WebSearch fallback note (WebFetch was already present) |
-| `src/codex.prompts.lib.mjs` | Added WebSearch fallback note (WebFetch was already present) |
-| `src/opencode.lib.mjs` | Added `checkPlaywrightMcpAvailability()` function |
-| `src/agent.lib.mjs` | Added `checkPlaywrightMcpAvailability()` function |
-| `src/solve.mjs` | Added Playwright MCP availability checks for opencode and agent tool paths |
-| `src/solve.restart-shared.lib.mjs` | Added Playwright MCP availability checks for opencode and agent restart paths |
-| `src/solve.config.lib.mjs` | Updated config description to list all four supported tools |
+| File                               | Change                                                                             |
+| ---------------------------------- | ---------------------------------------------------------------------------------- |
+| `src/opencode.prompts.lib.mjs`     | Added full Playwright MCP usage section with WebFetch and WebSearch fallback notes |
+| `src/agent.prompts.lib.mjs`        | Added full Playwright MCP usage section with WebFetch and WebSearch fallback notes |
+| `src/claude.prompts.lib.mjs`       | Added WebSearch fallback note (WebFetch was already present)                       |
+| `src/codex.prompts.lib.mjs`        | Added WebSearch fallback note (WebFetch was already present)                       |
+| `src/opencode.lib.mjs`             | Added `checkPlaywrightMcpAvailability()` function                                  |
+| `src/agent.lib.mjs`                | Added `checkPlaywrightMcpAvailability()` function                                  |
+| `src/solve.mjs`                    | Added Playwright MCP availability checks for opencode and agent tool paths         |
+| `src/solve.restart-shared.lib.mjs` | Added Playwright MCP availability checks for opencode and agent restart paths      |
+| `src/solve.config.lib.mjs`         | Updated config description to list all four supported tools                        |
 
 ### Availability Detection Strategy
 
@@ -52,11 +52,13 @@ The WebSearch fallback was not included in any tool because the original focus w
 Test file: `tests/playwright-mcp-prompts.test.mjs`
 
 Run with:
+
 ```bash
 node tests/playwright-mcp-prompts.test.mjs
 ```
 
 Tests verify:
+
 - All four prompt files contain Playwright MCP sections
 - All four prompt files include WebFetch and WebSearch fallback notes
 - All four lib files export `checkPlaywrightMcpAvailability`

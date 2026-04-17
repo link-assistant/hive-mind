@@ -54,10 +54,7 @@ async function runTests() {
 
     await asyncTest(`${tool} prompts include WebFetch fallback note`, async () => {
       const content = await fs.readFile(path.join(srcDir, file), 'utf-8');
-      assert.ok(
-        content.includes('WebFetch') || content.includes('fetch-based browsing'),
-        `${file} should mention WebFetch fallback to Playwright MCP`,
-      );
+      assert.ok(content.includes('WebFetch') || content.includes('fetch-based browsing'), `${file} should mention WebFetch fallback to Playwright MCP`);
     });
 
     await asyncTest(`${tool} prompts include WebSearch fallback note`, async () => {
@@ -94,12 +91,12 @@ async function runTests() {
 
   await asyncTest('solve.mjs checks Playwright MCP for opencode tool', async () => {
     const content = await fs.readFile(path.join(srcDir, 'solve.mjs'), 'utf-8');
-    assert.ok(content.includes("checkOpenCodePlaywrightMcp") || content.includes("checkPlaywrightMcpAvailability: checkOpenCodePlaywrightMcp"), 'solve.mjs should import Playwright MCP check for opencode');
+    assert.ok(content.includes('checkOpenCodePlaywrightMcp') || content.includes('checkPlaywrightMcpAvailability: checkOpenCodePlaywrightMcp'), 'solve.mjs should import Playwright MCP check for opencode');
   });
 
   await asyncTest('solve.mjs checks Playwright MCP for agent tool', async () => {
     const content = await fs.readFile(path.join(srcDir, 'solve.mjs'), 'utf-8');
-    assert.ok(content.includes("checkAgentPlaywrightMcp") || content.includes("checkPlaywrightMcpAvailability: checkAgentPlaywrightMcp"), 'solve.mjs should import Playwright MCP check for agent');
+    assert.ok(content.includes('checkAgentPlaywrightMcp') || content.includes('checkPlaywrightMcpAvailability: checkAgentPlaywrightMcp'), 'solve.mjs should import Playwright MCP check for agent');
   });
 
   // ============================================================================
@@ -214,7 +211,10 @@ async function runTests() {
 
   await asyncTest('case study documentation exists for issue 1623', async () => {
     const caseStudyPath = path.join(process.cwd(), 'docs/case-studies/issue-1623/README.md');
-    const exists = await fs.stat(caseStudyPath).then(() => true).catch(() => false);
+    const exists = await fs
+      .stat(caseStudyPath)
+      .then(() => true)
+      .catch(() => false);
     assert.ok(exists, 'Case study README.md should exist for issue 1623');
 
     if (exists) {

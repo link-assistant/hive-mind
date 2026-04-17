@@ -301,6 +301,7 @@ export const executeClaude = async params => {
     owner,
     repo,
     argv,
+    claudeVersion: getClaudeVersion(),
   });
   // Build the system prompt
   const systemPrompt = buildSystemPrompt({

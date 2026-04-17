@@ -5,8 +5,8 @@
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
-import { primaryModelNames, CLAUDE_MODELS } from './models/index.mjs';
-import { supportsEffortLevel } from './config.lib.mjs';
+import { primaryModelNames } from './models/index.mjs';
+import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 
 /**
  * Build the user prompt for Claude
@@ -14,7 +14,7 @@ import { supportsEffortLevel } from './config.lib.mjs';
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines, claudeVersion } = params;
 
   const promptLines = [];
 
@@ -66,22 +66,9 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
-  // Only add thinking prompt instructions for models that do NOT support effort levels or token budget settings.
-  // Models with effort support (Opus 4.7, Opus 4.6, Sonnet 4.6, Opus 4.5, Mythos) use CLAUDE_CODE_EFFORT_LEVEL instead.
-  if (argv && argv.think) {
-    const resolvedModel = argv.model ? CLAUDE_MODELS[argv.model] || argv.model : null;
-    if (!resolvedModel || !supportsEffortLevel(resolvedModel)) {
-      const thinkMessages = {
-        low: 'Think.',
-        medium: 'Think hard.',
-        high: 'Think harder.',
-        xhigh: 'Ultrathink.',
-        max: 'Ultrathink.',
-      };
-      if (thinkMessages[argv.think]) {
-        promptLines.push(thinkMessages[argv.think]);
-      }
-    }
+  const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'claude', argv, claudeVersion });
+  if (thinkingPromptInstruction) {
+    promptLines.push(thinkingPromptInstruction);
   }
 
   // Final instruction

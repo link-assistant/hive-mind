@@ -5,6 +5,7 @@
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
+import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 
 /**
  * Build the user prompt for OpenCode
@@ -58,18 +59,9 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
-  // Add thinking instruction based on --think level
-  if (argv && argv.think) {
-    const thinkMessages = {
-      low: 'Think.',
-      medium: 'Think hard.',
-      high: 'Think harder.',
-      xhigh: 'Ultrathink.',
-      max: 'Ultrathink.',
-    };
-    if (thinkMessages[argv.think]) {
-      promptLines.push(thinkMessages[argv.think]);
-    }
+  const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'opencode', argv });
+  if (thinkingPromptInstruction) {
+    promptLines.push(thinkingPromptInstruction);
   }
 
   // Final instruction

@@ -92,6 +92,7 @@ Opus 4.7 **always uses adaptive thinking** — `MAX_THINKING_TOKENS` and `CLAUDE
 - **`max` effort preserved**: `--think max` and full `--thinking-budget` map to `CLAUDE_CODE_EFFORT_LEVEL=max` on models that support `max`
 - **Effort-capable model detection** covers Claude Mythos Preview, Opus 4.7, Opus 4.6, Sonnet 4.6, and Opus 4.5
 - **`--show-thinking-content` option** added (disabled by default), sets `CLAUDE_CODE_SHOW_THINKING=1` env var
+- **Thinking prompt keywords gated across agentic tools**: `Think.`, `Think hard.`, `Think harder.`, and `Ultrathink.` are only injected for legacy Claude models when neither model effort nor tool token-budget support is available. Modern Claude Code uses effort or `MAX_THINKING_TOKENS`; Codex uses `model_reasoning_effort`; non-Claude Agent/OpenCode models do not receive Claude prompt keywords.
 
 #### Effort Level Mapping (hive-mind `--think` → Claude Code `CLAUDE_CODE_EFFORT_LEVEL`)
 
@@ -107,6 +108,16 @@ Opus 4.7 **always uses adaptive thinking** — `MAX_THINKING_TOKENS` and `CLAUDE
 For models without effort support, such as Haiku 4.5, `--think` still controls `MAX_THINKING_TOKENS` and no `CLAUDE_CODE_EFFORT_LEVEL` is set.
 
 Full `--thinking-budget` values map to `max` on Opus 4.7, Opus 4.6, Sonnet 4.6, and Mythos. Opus 4.5 receives `high` effort plus the requested `MAX_THINKING_TOKENS`, because Anthropic's effort table lists Opus 4.5 as effort-capable but does not list `max` for it.
+
+#### Thinking Prompt Keyword Fallback
+
+Hive Mind historically appended prompt text for `--think`, for example `Ultrathink.`. That fallback is now intentionally narrow:
+
+- Do not append prompt keywords when the selected Claude model supports effort levels.
+- Do not append prompt keywords when Claude Code supports token budgets through `MAX_THINKING_TOKENS`.
+- Do not append prompt keywords for Codex, because `--think` and `--thinking-budget` map to Codex reasoning effort.
+- Do not append Claude prompt keywords for non-Claude Agent/OpenCode models.
+- Keep prompt keywords for legacy Claude models routed through Agent/OpenCode, and for legacy Claude Code versions using old Claude models without token-budget support.
 
 #### Claude Code Environment Variables for Opus 4.7
 
@@ -168,3 +179,9 @@ The `isOpus46OrLater` function handles `opus-4-7` pattern matching, so max outpu
   - `getClaudeEnv` for Opus 4.7: no MAX_THINKING_TOKENS, correct effort levels
   - Opus 4.6 / Sonnet 4.6 / Opus 4.5 cross-model effort mapping
   - `--show-thinking-content` option: CLAUDE_CODE_SHOW_THINKING env var (3 tests)
+- `tests/test-claude-think-prompt-gating.mjs` - prompt keyword fallback tests covering:
+  - Effort-capable Claude models do not receive `Think.` / `Ultrathink.` prompt text
+  - Claude models without effort support do not receive prompt text when Claude Code token-budget support is available
+  - Legacy Claude Code plus old Claude models still receive the fallback prompt text
+  - Agent/OpenCode non-Claude defaults and Codex do not receive Claude prompt keywords
+  - Agent/OpenCode legacy Claude models still receive fallback prompt text

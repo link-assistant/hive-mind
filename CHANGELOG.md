@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.52.1
+
+### Patch Changes
+
+- d5d3762: Fix calculation bugs and format unification for budget stats using decimal.js-light for precision.
+
 ## 1.52.0
 
 ### Minor Changes

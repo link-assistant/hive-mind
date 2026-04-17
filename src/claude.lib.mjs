@@ -373,9 +373,11 @@ export const executeClaude = async params => {
 /**
  * Fetches model information from pricing API
  * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
+ * @param {Object} [options]
+ * @param {string[]} [options.preferredProviderIds] Provider IDs to check before the default search order.
  * @returns {Promise<Object|null>} Model information or null if not found
  */
-export const fetchModelInfo = async modelId => {
+export const fetchModelInfo = async (modelId, options = {}) => {
   try {
     const https = (await use('https')).default;
     return new Promise((resolve, reject) => {
@@ -388,22 +390,36 @@ export const fetchModelInfo = async modelId => {
           res.on('end', () => {
             try {
               const apiData = JSON.parse(data);
-              // For public pricing calculation, prefer Anthropic provider for Claude models
-              // Check Anthropic provider first
-              if (apiData.anthropic?.models?.[modelId]) {
-                const modelInfo = apiData.anthropic.models[modelId];
-                modelInfo.provider = apiData.anthropic.name || 'Anthropic';
-                resolve(modelInfo);
-                return;
+              const lookupIds = modelId?.includes('/') ? [modelId.split('/').pop(), modelId] : [modelId];
+              const preferredProviderIds = Array.isArray(options.preferredProviderIds) ? options.preferredProviderIds : [];
+              const inferredProviderIds = [];
+              if (modelId?.startsWith('claude-')) inferredProviderIds.push('anthropic');
+              if (modelId?.startsWith('gpt-') || modelId?.startsWith('chatgpt-')) inferredProviderIds.push('openai');
+              const providerIds = [...new Set([...preferredProviderIds, ...inferredProviderIds])];
+              const withProvider = (providerId, modelInfo) => ({
+                ...modelInfo,
+                provider: apiData[providerId]?.name || providerId,
+              });
+
+              for (const providerId of providerIds) {
+                const provider = apiData[providerId];
+                if (!provider?.models) continue;
+                for (const lookupId of lookupIds) {
+                  if (provider.models[lookupId]) {
+                    resolve(withProvider(providerId, provider.models[lookupId]));
+                    return;
+                  }
+                }
               }
+
               // Search for the model across all other providers
-              for (const provider of Object.values(apiData)) {
-                if (provider.models && provider.models[modelId]) {
-                  const modelInfo = provider.models[modelId];
-                  // Add provider info
-                  modelInfo.provider = provider.name || provider.id;
-                  resolve(modelInfo);
-                  return;
+              for (const [providerId, provider] of Object.entries(apiData)) {
+                if (!provider.models) continue;
+                for (const lookupId of lookupIds) {
+                  if (provider.models[lookupId]) {
+                    resolve(withProvider(providerId, provider.models[lookupId]));
+                    return;
+                  }
                 }
               }
               // Model not found

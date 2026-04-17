@@ -1041,12 +1041,22 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
   await safeExit(1, 'Execution error');
 };
 
+// Issue #1625: Markers and in-memory comment-ID tracking are centralized in
+// src/tool-comments.lib.mjs so that every place that *posts* a tool-generated
+// comment and the filter that *detects* them share the exact same constants.
+// Re-exported here for backwards compatibility with imports that expect them
+// from solve.results.lib.mjs.
+const toolComments = await import('./tool-comments.lib.mjs');
+export const { TOOL_GENERATED_COMMENT_MARKERS, isToolGeneratedComment, trackToolCommentId, isToolTrackedCommentId, getTrackedToolCommentIds, postTrackedComment } = toolComments;
+
 /**
  * Check if new comments were created by the AI during the session.
  * This is used by --auto-attach-solution-summary to determine if the AI
  * already provided feedback.
  *
  * Issue #1263: Support for --attach-solution-summary and --auto-attach-solution-summary
+ * Issue #1625: Filter out comments produced by solve.mjs itself (session start,
+ * log upload, auto-restart, etc.) so they do not falsely count as AI-authored.
  *
  * @param {Date} referenceTime - The timestamp before tool execution
  * @param {string} owner - Repository owner
@@ -1067,13 +1077,62 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       return false;
     }
 
+    await log(`🔎 Checking comments by '${currentUser}' after ${referenceTime.toISOString()} (PR #${prNumber ?? 'none'}, issue #${issueNumber ?? 'none'})`, { verbose: true });
+
+    // Issue #1625: A comment counts as an "AI comment" only if it was posted
+    // by the current user AFTER referenceTime AND solve.mjs did NOT post it
+    // itself. We identify tool-posted comments in two ways, in order:
+    //   1. Primary: comment ID is in the in-memory tracked set populated by
+    //      every solve.mjs posting site (postTrackedComment / trackToolCommentId).
+    //      This is robust to comment-body changes.
+    //   2. Fallback: comment body matches a known TOOL_GENERATED_COMMENT_MARKERS
+    //      marker. This catches comments whose IDs weren't captured — for
+    //      example, on resumed sessions where the posting happened in an
+    //      earlier process, or legacy code paths that predate tracking.
+    // Review-type inline comments cannot be posted by solve.mjs, so they are
+    // treated as AI-authored by default.
+    const filterNewAiComments = (comments, kind) => {
+      const filtered = [];
+      const skippedCounts = {};
+      const skippedByIdCount = { n: 0 };
+      for (const comment of comments) {
+        if (!comment || !comment.user || comment.user.login !== currentUser) continue;
+        if (!(new Date(comment.created_at) > referenceTime)) continue;
+
+        const isReview = kind === 'review';
+        if (!isReview) {
+          if (isToolTrackedCommentId(comment.id)) {
+            skippedByIdCount.n += 1;
+            continue;
+          }
+          if (isToolGeneratedComment(comment.body)) {
+            const markerMatch = TOOL_GENERATED_COMMENT_MARKERS.find(m => (comment.body || '').includes(m)) || 'unknown';
+            skippedCounts[markerMatch] = (skippedCounts[markerMatch] || 0) + 1;
+            continue;
+          }
+        }
+        filtered.push(comment);
+      }
+      if (skippedByIdCount.n > 0) {
+        log(`   ⏭️  Skipped ${kind} tool-tracked comment IDs: ${skippedByIdCount.n}`, { verbose: true }).catch(() => {});
+      }
+      if (Object.keys(skippedCounts).length > 0) {
+        const summary = Object.entries(skippedCounts)
+          .map(([m, c]) => `${m}=${c}`)
+          .join(', ');
+        log(`   ⏭️  Skipped ${kind} tool-generated comments (marker fallback): ${summary}`, { verbose: true }).catch(() => {});
+      }
+      return filtered;
+    };
+
     // Check comments on the PR first (if we have a PR)
     if (prNumber) {
       // Check PR conversation comments
       const prCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
       if (prCommentsResult.code === 0) {
         const prComments = JSON.parse(prCommentsResult.stdout.toString().trim() || '[]');
-        const newPrComments = prComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        const newPrComments = filterNewAiComments(prComments, 'pr');
+        await log(`   📨 PR conversation comments after referenceTime by '${currentUser}' (excluding tool-generated): ${newPrComments.length}`, { verbose: true });
         if (newPrComments.length > 0) {
           return true;
         }
@@ -1083,7 +1142,8 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       const reviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
       if (reviewCommentsResult.code === 0) {
         const reviewComments = JSON.parse(reviewCommentsResult.stdout.toString().trim() || '[]');
-        const newReviewComments = reviewComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        const newReviewComments = filterNewAiComments(reviewComments, 'review');
+        await log(`   📝 PR review (inline) comments after referenceTime by '${currentUser}': ${newReviewComments.length}`, { verbose: true });
         if (newReviewComments.length > 0) {
           return true;
         }
@@ -1095,7 +1155,8 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
       if (issueCommentsResult.code === 0) {
         const issueComments = JSON.parse(issueCommentsResult.stdout.toString().trim() || '[]');
-        const newIssueComments = issueComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        const newIssueComments = filterNewAiComments(issueComments, 'issue');
+        await log(`   📨 Issue comments after referenceTime by '${currentUser}' (excluding tool-generated): ${newIssueComments.length}`, { verbose: true });
         if (newIssueComments.length > 0) {
           return true;
         }

@@ -3,6 +3,11 @@
  * Handles starting and ending work sessions, PR status changes, and session comments
  */
 
+// Issue #1625: Use the single source of truth for session-comment marker
+// strings. Building comment bodies via these constants guarantees the filter
+// in checkForAiCreatedComments() always matches what we actually posted.
+import { AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
+
 /**
  * Session type definitions for different work session contexts
  * See: https://github.com/link-assistant/hive-mind/issues/1152
@@ -27,26 +32,26 @@ function getSessionCommentContent(sessionType, timestamp) {
     case SESSION_TYPES.RESUME:
       return {
         emoji: '🔄',
-        header: 'AI Work Session Resumed',
+        header: AI_WORK_SESSION_RESUMED_MARKER,
         description: `Resuming automated work session at ${isoTime}\n\nThis session continues from a previous session using the \`--resume\` flag.\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the resumption of an AI work session. Please wait for the session to finish, and provide your feedback._`,
       };
     case SESSION_TYPES.AUTO_RESUME:
       return {
         emoji: '⏰',
-        header: 'Auto Resume (on limit reset)',
+        header: AUTO_RESUME_ON_LIMIT_RESET_MARKER,
         description: `Auto-resuming automated work session at ${isoTime}\n\nThis session automatically resumed after the usage limit reset, continuing with the previous context preserved.\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This is an auto-resumed session. Please wait for the session to finish, and provide your feedback._`,
       };
     case SESSION_TYPES.AUTO_RESTART:
       return {
         emoji: '🔄',
-        header: 'Auto Restart (on limit reset)',
+        header: AUTO_RESTART_ON_LIMIT_RESET_MARKER,
         description: `Auto-restarting automated work session at ${isoTime}\n\nThis session automatically restarted after the usage limit reset (fresh start without previous context).\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This is a fresh restart after limit reset. Please wait for the session to finish, and provide your feedback._`,
       };
     case SESSION_TYPES.NEW:
     default:
       return {
         emoji: '🤖',
-        header: 'AI Work Session Started',
+        header: AI_WORK_SESSION_STARTED_MARKER,
         description: `Starting automated work session at ${isoTime}\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._`,
       };
   }
@@ -97,13 +102,17 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
       await log('Warning: Could not check/convert PR draft status', { level: 'warning' });
     }
 
-    // Post a comment marking the start of work session with appropriate header based on session type
+    // Post a comment marking the start of work session with appropriate header based on session type.
+    // Issue #1625: Use postTrackedComment so the comment ID is registered in-memory and can be
+    // excluded from the "did the AI post anything?" check in checkForAiCreatedComments().
     try {
       const { emoji, header, description } = getSessionCommentContent(sessionType, workStartTime);
       const startComment = `${emoji} **${header}**\n\n${description}`;
-      const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${startComment}`;
-      if (commentResult.code === 0) {
-        await log(formatAligned('💬', 'Posted:', `${header} comment`, 2));
+      const { ok, commentId, stderr } = await postTrackedComment({ $, owner: global.owner, repo: global.repo, targetNumber: prNumber, body: startComment });
+      if (ok) {
+        await log(formatAligned('💬', 'Posted:', `${header} comment${commentId ? ` (id=${commentId})` : ''}`, 2));
+      } else {
+        await log(`Warning: Could not post work start comment: ${stderr || 'unknown error'}`, { level: 'warning' });
       }
     } catch (error) {
       const sentryLib = await import('./sentry.lib.mjs');
@@ -129,12 +138,15 @@ export async function endWorkSession({ isContinueMode, prNumber, argv, log, form
     // Only post end comment if logs were NOT already attached
     // The attachLogToGitHub comment already serves as finishing status with "Now working session is ended" text
     if (!logsAttached) {
-      // Post a comment marking the end of work session
+      // Post a comment marking the end of work session.
+      // Issue #1625: Track the comment ID so it won't be mistaken for AI-authored content.
       try {
-        const endComment = `🤖 **AI Work Session Completed**\n\nWork session ended at ${workEndTime.toISOString()}\n\nThe PR will be converted back to ready for review.\n\n_This comment marks the end of an AI work session. New comments after this time will be considered as feedback._`;
-        const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${endComment}`;
-        if (commentResult.code === 0) {
-          await log(formatAligned('💬', 'Posted:', 'Work session end comment', 2));
+        const endComment = `🤖 **${AI_WORK_SESSION_COMPLETED_MARKER}**\n\nWork session ended at ${workEndTime.toISOString()}\n\nThe PR will be converted back to ready for review.\n\n_This comment marks the end of an AI work session. New comments after this time will be considered as feedback._`;
+        const { ok, commentId, stderr } = await postTrackedComment({ $, owner: global.owner, repo: global.repo, targetNumber: prNumber, body: endComment });
+        if (ok) {
+          await log(formatAligned('💬', 'Posted:', `Work session end comment${commentId ? ` (id=${commentId})` : ''}`, 2));
+        } else {
+          await log(`Warning: Could not post work end comment: ${stderr || 'unknown error'}`, { level: 'warning' });
         }
       } catch (error) {
         const sentryLib = await import('./sentry.lib.mjs');

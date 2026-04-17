@@ -138,6 +138,231 @@ runTest('solve.mjs handles --auto-attach-solution-summary flag', async () => {
   assertTrue(solveMjs.includes('argv.autoAttachSolutionSummary'), 'autoAttachSolutionSummary flag should be checked');
 });
 
+// Issue #1625: Tool-generated comments should not count as AI-created comments
+console.log('\n📋 Tool-Generated Comment Filter Tests (Issue #1625)\n');
+
+runTest('solve.results.lib.mjs exports isToolGeneratedComment helper', async () => {
+  const resultsLib = await import('../src/solve.results.lib.mjs');
+  assertTrue(typeof resultsLib.isToolGeneratedComment === 'function', 'isToolGeneratedComment should be exported');
+});
+
+runTest('solve.results.lib.mjs exports TOOL_GENERATED_COMMENT_MARKERS constant', async () => {
+  const resultsLib = await import('../src/solve.results.lib.mjs');
+  assertTrue(Array.isArray(resultsLib.TOOL_GENERATED_COMMENT_MARKERS), 'TOOL_GENERATED_COMMENT_MARKERS should be an array');
+  assertTrue(resultsLib.TOOL_GENERATED_COMMENT_MARKERS.length > 0, 'TOOL_GENERATED_COMMENT_MARKERS should not be empty');
+});
+
+runTest('isToolGeneratedComment detects "AI Work Session Started" (Issue #1625)', async () => {
+  const { isToolGeneratedComment } = await import('../src/solve.results.lib.mjs');
+  const sessionStarted = '🤖 **AI Work Session Started**\n\nStarting automated work session at 2026-04-17T17:38:40.995Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._';
+  assertTrue(isToolGeneratedComment(sessionStarted), 'Session start comment should be recognized as tool-generated');
+});
+
+runTest('isToolGeneratedComment detects "Solution Draft Log" (Issue #1625)', async () => {
+  const { isToolGeneratedComment } = await import('../src/solve.results.lib.mjs');
+  const solutionDraftLog = '## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.';
+  assertTrue(isToolGeneratedComment(solutionDraftLog), 'Solution Draft Log comment should be recognized as tool-generated');
+});
+
+runTest('isToolGeneratedComment detects "Auto-restart" (Issue #1625)', async () => {
+  const { isToolGeneratedComment } = await import('../src/solve.results.lib.mjs');
+  const autoRestart = '## 🔄 Auto-restart 1/3\n\nDetected uncommitted changes from previous run.';
+  assertTrue(isToolGeneratedComment(autoRestart), 'Auto-restart comment should be recognized as tool-generated');
+});
+
+runTest('isToolGeneratedComment detects "Ready to merge" (Issue #1625)', async () => {
+  const { isToolGeneratedComment } = await import('../src/solve.results.lib.mjs');
+  const readyToMerge = '## ✅ Ready to merge\n\nThis pull request is now ready to be merged.';
+  assertTrue(isToolGeneratedComment(readyToMerge), 'Ready to merge comment should be recognized as tool-generated');
+});
+
+runTest('isToolGeneratedComment returns false for real AI comments (Issue #1625)', async () => {
+  const { isToolGeneratedComment } = await import('../src/solve.results.lib.mjs');
+  const aiComment = 'Follow-up pushed in commit 4c3c6016 after the latest owner feedback. The remaining issue was that the floor was a ColorRect.';
+  assertFalse(isToolGeneratedComment(aiComment), 'Real AI comment should NOT be recognized as tool-generated');
+});
+
+runTest('isToolGeneratedComment returns false for human comments (Issue #1625)', async () => {
+  const { isToolGeneratedComment } = await import('../src/solve.results.lib.mjs');
+  const humanComment = 'please fix the floor flash, it is still not working';
+  assertFalse(isToolGeneratedComment(humanComment), 'Human comment should NOT be recognized as tool-generated');
+});
+
+runTest('isToolGeneratedComment returns false for empty/null/non-string input (Issue #1625)', async () => {
+  const { isToolGeneratedComment } = await import('../src/solve.results.lib.mjs');
+  assertFalse(isToolGeneratedComment(''), 'Empty string should return false');
+  assertFalse(isToolGeneratedComment(null), 'Null should return false');
+  assertFalse(isToolGeneratedComment(undefined), 'Undefined should return false');
+  assertFalse(isToolGeneratedComment(42), 'Number should return false');
+  assertFalse(isToolGeneratedComment({}), 'Object should return false');
+});
+
+runTest('TOOL_GENERATED_COMMENT_MARKERS covers all known session-related markers (Issue #1625)', async () => {
+  const { TOOL_GENERATED_COMMENT_MARKERS } = await import('../src/solve.results.lib.mjs');
+  const expectedMarkers = ['AI Work Session Started', 'AI Work Session Completed', 'AI Work Session Resumed', 'Solution Draft Log', 'Auto-restart', 'Ready to merge'];
+  for (const marker of expectedMarkers) {
+    assertTrue(TOOL_GENERATED_COMMENT_MARKERS.includes(marker), `TOOL_GENERATED_COMMENT_MARKERS should include "${marker}"`);
+  }
+});
+
+// Issue #1625: Centralized marker module + in-memory tracking — the architectural
+// refactor that ensures every comment solve.mjs posts is excluded from the
+// AI-comment check, independent of whether the marker text happens to match.
+console.log('\n📋 Centralized Marker Module Tests (Issue #1625)\n');
+
+runTest('tool-comments.lib.mjs exports every named marker constant', async () => {
+  const toolComments = await import('../src/tool-comments.lib.mjs');
+  const expectedNames = ['AI_WORK_SESSION_STARTED_MARKER', 'AI_WORK_SESSION_COMPLETED_MARKER', 'AI_WORK_SESSION_RESUMED_MARKER', 'AUTO_RESUME_ON_LIMIT_RESET_MARKER', 'AUTO_RESTART_ON_LIMIT_RESET_MARKER', 'SOLUTION_DRAFT_LOG_MARKER', 'AUTO_RESTART_MARKER', 'AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER', 'READY_TO_MERGE_MARKER', 'AUTO_MERGED_MARKER', 'BILLING_LIMIT_MARKER', 'MAINTAINER_ACCESS_REQUEST_MARKER', 'LIVE_PROGRESS_SECTION_START_MARKER', 'LIVE_PROGRESS_SECTION_END_MARKER', 'SESSION_FORCE_KILLED_MARKER', 'REPOSITORY_INITIALIZATION_REQUIRED_MARKER', 'INTERACTIVE_SESSION_STARTED_MARKER', 'INTERACTIVE_SESSION_ENDED_MARKER', 'NOW_WORKING_SESSION_IS_ENDED_MARKER', 'SOLUTION_DRAFT_FAILED_MARKER', 'SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER', 'USAGE_LIMIT_REACHED_MARKER'];
+  for (const name of expectedNames) {
+    assertTrue(typeof toolComments[name] === 'string' && toolComments[name].length > 0, `${name} should be a non-empty string export`);
+  }
+});
+
+runTest('TOOL_GENERATED_COMMENT_MARKERS is derived from named constants (no orphaned literals)', async () => {
+  const toolComments = await import('../src/tool-comments.lib.mjs');
+  const expectedInList = [toolComments.AI_WORK_SESSION_STARTED_MARKER, toolComments.AI_WORK_SESSION_COMPLETED_MARKER, toolComments.AI_WORK_SESSION_RESUMED_MARKER, toolComments.AUTO_RESUME_ON_LIMIT_RESET_MARKER, toolComments.AUTO_RESTART_ON_LIMIT_RESET_MARKER, toolComments.SOLUTION_DRAFT_LOG_MARKER, toolComments.AUTO_RESTART_MARKER, toolComments.READY_TO_MERGE_MARKER, toolComments.AUTO_MERGED_MARKER, toolComments.BILLING_LIMIT_MARKER, toolComments.MAINTAINER_ACCESS_REQUEST_MARKER, toolComments.LIVE_PROGRESS_SECTION_START_MARKER, toolComments.SESSION_FORCE_KILLED_MARKER, toolComments.REPOSITORY_INITIALIZATION_REQUIRED_MARKER, toolComments.INTERACTIVE_SESSION_STARTED_MARKER, toolComments.NOW_WORKING_SESSION_IS_ENDED_MARKER, toolComments.SOLUTION_DRAFT_FAILED_MARKER, toolComments.SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, toolComments.USAGE_LIMIT_REACHED_MARKER];
+  for (const m of expectedInList) {
+    assertTrue(toolComments.TOOL_GENERATED_COMMENT_MARKERS.includes(m), `TOOL_GENERATED_COMMENT_MARKERS should include "${m}" (via named constant)`);
+  }
+});
+
+runTest('SESSION_ENDING_MARKERS contains the two session-end markers', async () => {
+  const toolComments = await import('../src/tool-comments.lib.mjs');
+  assertTrue(Array.isArray(toolComments.SESSION_ENDING_MARKERS), 'SESSION_ENDING_MARKERS should be an array');
+  assertTrue(toolComments.SESSION_ENDING_MARKERS.includes(toolComments.NOW_WORKING_SESSION_IS_ENDED_MARKER), 'should include NOW_WORKING_SESSION_IS_ENDED_MARKER');
+  assertTrue(toolComments.SESSION_ENDING_MARKERS.includes(toolComments.AI_WORK_SESSION_COMPLETED_MARKER), 'should include AI_WORK_SESSION_COMPLETED_MARKER');
+});
+
+runTest('solve.results.lib.mjs re-exports markers from tool-comments.lib.mjs (single source of truth)', async () => {
+  const resultsLib = await import('../src/solve.results.lib.mjs');
+  const toolComments = await import('../src/tool-comments.lib.mjs');
+  // The re-export should be reference-identical, not a copy.
+  assertTrue(resultsLib.TOOL_GENERATED_COMMENT_MARKERS === toolComments.TOOL_GENERATED_COMMENT_MARKERS, 'TOOL_GENERATED_COMMENT_MARKERS should be the same array instance');
+  assertTrue(resultsLib.isToolGeneratedComment === toolComments.isToolGeneratedComment, 'isToolGeneratedComment should be the same function');
+});
+
+console.log('\n📋 In-Memory Comment ID Tracking Tests (Issue #1625)\n');
+
+runTest('trackToolCommentId registers an ID and isToolTrackedCommentId finds it', async () => {
+  const { trackToolCommentId, isToolTrackedCommentId, resetTrackedToolCommentIds } = await import('../src/tool-comments.lib.mjs');
+  resetTrackedToolCommentIds();
+  assertFalse(isToolTrackedCommentId(12345), 'ID should not be tracked before calling trackToolCommentId');
+  trackToolCommentId(12345);
+  assertTrue(isToolTrackedCommentId(12345), 'ID should be tracked after calling trackToolCommentId');
+  assertTrue(isToolTrackedCommentId('12345'), 'string form of the same ID should also match');
+});
+
+runTest('trackToolCommentId is a no-op for null/undefined', async () => {
+  const { trackToolCommentId, isToolTrackedCommentId, resetTrackedToolCommentIds } = await import('../src/tool-comments.lib.mjs');
+  resetTrackedToolCommentIds();
+  trackToolCommentId(null);
+  trackToolCommentId(undefined);
+  assertFalse(isToolTrackedCommentId(null), 'null should not be tracked');
+  assertFalse(isToolTrackedCommentId(undefined), 'undefined should not be tracked');
+});
+
+runTest('getTrackedToolCommentIds returns an isolated snapshot', async () => {
+  const { trackToolCommentId, getTrackedToolCommentIds, resetTrackedToolCommentIds } = await import('../src/tool-comments.lib.mjs');
+  resetTrackedToolCommentIds();
+  trackToolCommentId(111);
+  trackToolCommentId(222);
+  const snap = getTrackedToolCommentIds();
+  assertTrue(snap instanceof Set, 'snapshot should be a Set');
+  assertEqual(snap.size, 2, 'snapshot should have 2 entries');
+  snap.add('999'); // mutate the snapshot
+  assertFalse((await import('../src/tool-comments.lib.mjs')).isToolTrackedCommentId(999), 'mutating the snapshot must not affect the real tracking set');
+});
+
+runTest('resetTrackedToolCommentIds clears the set', async () => {
+  const { trackToolCommentId, isToolTrackedCommentId, resetTrackedToolCommentIds } = await import('../src/tool-comments.lib.mjs');
+  trackToolCommentId(77);
+  resetTrackedToolCommentIds();
+  assertFalse(isToolTrackedCommentId(77), 'ID should not be tracked after reset');
+});
+
+runTest('postTrackedComment parses comment ID from gh api JSON response', async () => {
+  const { postTrackedComment, isToolTrackedCommentId, resetTrackedToolCommentIds } = await import('../src/tool-comments.lib.mjs');
+  resetTrackedToolCommentIds();
+  // Build a minimal mock $ that records the command and returns a canned JSON body.
+  const fakeResult = { code: 0, stdout: JSON.stringify({ id: 4270296598, body: 'hi' }), stderr: '' };
+  const mock$ = (...args) => {
+    // Support both $`...` and $({ input })`...` usage. We don't need to
+    // inspect args; we just return the canned result.
+    void args;
+    const tagged = () => Promise.resolve(fakeResult);
+    // When called as $({ input })`...`, the caller invokes the template
+    // function it returns. When called as $`...` directly, tagged is the
+    // template function itself. Handle both shapes.
+    return Object.assign(tagged, Promise.resolve(fakeResult));
+  };
+  const { ok, commentId } = await postTrackedComment({ $: mock$, owner: 'o', repo: 'r', targetNumber: 1, body: 'test' });
+  assertTrue(ok, 'postTrackedComment should succeed');
+  assertEqual(commentId, '4270296598', 'comment ID should be extracted from JSON');
+  assertTrue(isToolTrackedCommentId('4270296598'), 'posted comment ID should be in the tracking set');
+});
+
+runTest('postTrackedComment reports failure when gh api returns non-zero exit', async () => {
+  const { postTrackedComment, resetTrackedToolCommentIds } = await import('../src/tool-comments.lib.mjs');
+  resetTrackedToolCommentIds();
+  const fakeResult = { code: 1, stdout: '', stderr: 'boom' };
+  const mock$ = (...args) => {
+    void args;
+    const tagged = () => Promise.resolve(fakeResult);
+    return Object.assign(tagged, Promise.resolve(fakeResult));
+  };
+  const { ok, commentId, stderr } = await postTrackedComment({ $: mock$, owner: 'o', repo: 'r', targetNumber: 1, body: 'x' });
+  assertFalse(ok, 'postTrackedComment should report failure');
+  assertEqual(commentId, null, 'commentId should be null on failure');
+  assertTrue(stderr.includes('boom'), 'stderr should be surfaced');
+});
+
+runTest('postTrackedComment throws if $ helper is missing', async () => {
+  const { postTrackedComment } = await import('../src/tool-comments.lib.mjs');
+  let threw = false;
+  try {
+    await postTrackedComment({ owner: 'o', repo: 'r', targetNumber: 1, body: 'x' });
+  } catch (e) {
+    threw = /requires a command-stream/.test(e.message);
+  }
+  assertTrue(threw, 'missing $ must throw a clear error');
+});
+
+runTest('Cross-module: comment bodies posted at each site embed the centralized marker', async () => {
+  // Spot-check by substring that each known posting site's literal body text
+  // references the corresponding marker constant (not an ad-hoc string copy).
+  const fs = await import('fs');
+  const { SOLUTION_DRAFT_LOG_MARKER, USAGE_LIMIT_REACHED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, READY_TO_MERGE_MARKER, AUTO_MERGED_MARKER, AUTO_RESTART_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER } = await import('../src/tool-comments.lib.mjs');
+  const githubLib = fs.readFileSync('./src/github.lib.mjs', 'utf-8');
+  assertTrue(githubLib.includes('SOLUTION_DRAFT_LOG_MARKER'), 'github.lib.mjs should reference SOLUTION_DRAFT_LOG_MARKER');
+  assertTrue(githubLib.includes('USAGE_LIMIT_REACHED_MARKER'), 'github.lib.mjs should reference USAGE_LIMIT_REACHED_MARKER');
+  assertTrue(githubLib.includes('SOLUTION_DRAFT_FAILED_MARKER'), 'github.lib.mjs should reference SOLUTION_DRAFT_FAILED_MARKER');
+  assertTrue(githubLib.includes('NOW_WORKING_SESSION_IS_ENDED_MARKER'), 'github.lib.mjs should reference NOW_WORKING_SESSION_IS_ENDED_MARKER');
+  const autoMerge = fs.readFileSync('./src/solve.auto-merge.lib.mjs', 'utf-8');
+  assertTrue(autoMerge.includes('READY_TO_MERGE_MARKER'), 'solve.auto-merge.lib.mjs should reference READY_TO_MERGE_MARKER');
+  assertTrue(autoMerge.includes('AUTO_MERGED_MARKER'), 'solve.auto-merge.lib.mjs should reference AUTO_MERGED_MARKER');
+  const watch = fs.readFileSync('./src/solve.watch.lib.mjs', 'utf-8');
+  assertTrue(watch.includes('AUTO_RESTART_MARKER'), 'solve.watch.lib.mjs should reference AUTO_RESTART_MARKER');
+  const claudeLib = fs.readFileSync('./src/claude.lib.mjs', 'utf-8');
+  assertTrue(claudeLib.includes('SESSION_FORCE_KILLED_MARKER'), 'claude.lib.mjs should reference SESSION_FORCE_KILLED_MARKER');
+  const repoSetup = fs.readFileSync('./src/solve.repo-setup.lib.mjs', 'utf-8');
+  assertTrue(repoSetup.includes('REPOSITORY_INITIALIZATION_REQUIRED_MARKER'), 'solve.repo-setup.lib.mjs should reference REPOSITORY_INITIALIZATION_REQUIRED_MARKER');
+  const interactive = fs.readFileSync('./src/interactive-mode.lib.mjs', 'utf-8');
+  assertTrue(interactive.includes('INTERACTIVE_SESSION_STARTED_MARKER'), 'interactive-mode.lib.mjs should reference INTERACTIVE_SESSION_STARTED_MARKER');
+  const githubLibContent = githubLib;
+  assertTrue(githubLibContent.includes('MAINTAINER_ACCESS_REQUEST_MARKER') || githubLibContent.includes('Allow edits by maintainers'), 'github.lib.mjs should reference Allow edits by maintainers (direct or via marker)');
+  // Ensure markers are non-empty strings (catches a silent typo that removes a constant)
+  for (const m of [SOLUTION_DRAFT_LOG_MARKER, USAGE_LIMIT_REACHED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, READY_TO_MERGE_MARKER, AUTO_MERGED_MARKER, AUTO_RESTART_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER]) {
+    assertTrue(typeof m === 'string' && m.length > 0, `marker constant should be non-empty string, got ${JSON.stringify(m)}`);
+  }
+});
+
+runTest('isToolGeneratedComment matches every newly added marker', async () => {
+  const { isToolGeneratedComment, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, LIVE_PROGRESS_SECTION_START_MARKER } = await import('../src/tool-comments.lib.mjs');
+  for (const marker of [AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, LIVE_PROGRESS_SECTION_START_MARKER]) {
+    assertTrue(isToolGeneratedComment(`## 🤖 ${marker}\n\nsome content`), `isToolGeneratedComment should match "${marker}"`);
+  }
+});
+
 // Print summary
 console.log('\n================================================================================');
 console.log(`Test Results for Solution Summary Attachment:`);

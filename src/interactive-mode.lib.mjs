@@ -33,6 +33,11 @@
  */
 
 import { CONFIG, createCollapsible, createRawJsonSection, escapeMarkdown, execFileAsync, formatCost, formatDuration, getToolIcon, safeJsonStringify, sanitizeUnicode, truncateMiddle } from './interactive-mode.shared.lib.mjs';
+// Issue #1625: track interactive-mode comment IDs so they're excluded from
+// the "did the AI post anything?" check in checkForAiCreatedComments().
+// Use the session-started marker as the single source of truth for the
+// header string, keeping posting and filtering in lock-step.
+import { INTERACTIVE_SESSION_STARTED_MARKER, trackToolCommentId } from './tool-comments.lib.mjs';
 
 /**
  * Creates an interactive mode handler for processing Claude/Codex CLI events
@@ -135,6 +140,11 @@ export const createInteractiveHandler = options => {
         const match = stdout.match(/issuecomment-(\d+)|"id":\s*(\d+)/);
         commentId = match ? match[1] || match[2] : null;
       }
+
+      // Issue #1625: register this comment ID in the shared in-memory tracking
+      // set so --auto-attach-solution-summary correctly excludes it from the
+      // AI-authored-comment check. Tracking is a no-op when commentId is null.
+      trackToolCommentId(commentId);
 
       if (verbose) {
         await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''} (body: ${body.length} chars)`, { verbose: true });
@@ -288,7 +298,7 @@ export const createInteractiveHandler = options => {
     const agents = data.agents || [];
     const agentsList = agents.length > 0 ? agents.map(a => `\`${a}\``).join(', ') : '_None_';
 
-    const comment = `## 🚀 Interactive session started
+    const comment = `## 🚀 ${INTERACTIVE_SESSION_STARTED_MARKER}
 
 | Property | Value |
 |----------|-------|
@@ -989,7 +999,7 @@ ${createRawJsonSection(data)}`;
     state.sessionId = data.thread_id || data.session_id || null;
     state.startTime = Date.now();
 
-    const comment = `## 🚀 Interactive session started
+    const comment = `## 🚀 ${INTERACTIVE_SESSION_STARTED_MARKER}
 
 | Property | Value |
 |----------|-------|

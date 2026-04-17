@@ -54,6 +54,10 @@ const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
 const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('./solve.repo-setup.lib.mjs');
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
+// Issue #1625: centralized markers + tracked comment posting for solve.mjs's
+// own usage-limit notifications (so they're excluded from the
+// "did the AI post anything?" check in --auto-attach-solution-summary).
+const { postTrackedComment, USAGE_LIMIT_REACHED_MARKER } = await import('./tool-comments.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
 const { validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
@@ -964,11 +968,11 @@ try {
           // Format the reset time with relative time and UTC conversion if available
           const timezone = global.limitTimezone || null;
           const formattedResetTime = resetTime ? formatResetTimeWithRelative(resetTime, timezone) : null;
-          const failureComment = formattedResetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${formattedResetTime}**\n\n${resumeSection}` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
+          const failureComment = formattedResetTime ? `❌ **${USAGE_LIMIT_REACHED_MARKER}**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${formattedResetTime}**\n\n${resumeSection}` : `❌ **${USAGE_LIMIT_REACHED_MARKER}**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
 
-          const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failureComment}`;
-          if (commentResult.code === 0) {
-            await log('   Posted failure comment to PR');
+          const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: failureComment });
+          if (posted.ok) {
+            await log(`   Posted failure comment to PR${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
           }
         } catch (error) {
           await log(`   Warning: Could not post failure comment: ${cleanErrorMessage(error)}`, { verbose: true });
@@ -1049,11 +1053,11 @@ try {
             // Format reset time with relative time and UTC for better user understanding
             // See: https://github.com/link-assistant/hive-mind/issues/1236
             const waitingResetTimeFormatted = formatResetTimeWithRelative(global.limitResetTime, global.limitTimezone || null) || global.limitResetTime;
-            const waitingComment = `⏳ **Usage Limit Reached - Waiting to ${limitContinueMode === 'restart' ? 'Restart' : 'Continue'}**\n\nThe AI tool has reached its usage limit. ${continueModeName} is enabled.\n\n**Reset time:** ${waitingResetTimeFormatted}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\n${continueDescription}\n\nSession ID: \`${sessionId}\``;
+            const waitingComment = `⏳ **${USAGE_LIMIT_REACHED_MARKER} - Waiting to ${limitContinueMode === 'restart' ? 'Restart' : 'Continue'}**\n\nThe AI tool has reached its usage limit. ${continueModeName} is enabled.\n\n**Reset time:** ${waitingResetTimeFormatted}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\n${continueDescription}\n\nSession ID: \`${sessionId}\``;
 
-            const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
-            if (commentResult.code === 0) {
-              await log('   Posted waiting comment to PR');
+            const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: waitingComment });
+            if (posted.ok) {
+              await log(`   Posted waiting comment to PR${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
             }
           } catch (error) {
             await log(`   Warning: Could not post waiting comment: ${cleanErrorMessage(error)}`, { verbose: true });

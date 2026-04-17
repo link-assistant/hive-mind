@@ -35,6 +35,12 @@ const { reportError } = sentryLib;
 const githubMergeLib = await import('./github-merge.lib.mjs');
 const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI } = githubMergeLib;
 
+// Issue #1625: Import centralized session-ending markers so the duplicate-
+// search scope for checkForExistingComment() stays in lock-step with the
+// markers actually embedded in tool-posted comments.
+const toolComments = await import('./tool-comments.lib.mjs');
+const { SESSION_ENDING_MARKERS } = toolComments;
+
 /**
  * Issue #1323: Check if a comment with specific content already exists on the PR
  * This prevents duplicate status comments when multiple processes or restarts occur
@@ -85,14 +91,11 @@ export const checkForExistingComment = async (owner, repo, prNumber, commentSign
       // Session-ending markers indicate the end of a working session,
       // so any "Ready to merge" before it belongs to a previous session.
       //
-      // Session-ending markers:
-      // - "Now working session is ended" — in all log upload comments
-      //   (Solution Draft Log, Auto-restart Log, Auto-restart-until-mergeable Log, etc.)
-      // - "AI Work Session Completed" — posted when logs are not attached
-      const sessionEndingMarkers = ['Now working session is ended', 'AI Work Session Completed'];
+      // Issue #1625: Session-ending markers are now imported from
+      // tool-comments.lib.mjs (single source of truth for all markers).
       let searchStartIndex = 0;
       for (let i = commentBodies.length - 1; i >= 0; i--) {
-        if (commentBodies[i] && sessionEndingMarkers.some(marker => commentBodies[i].includes(marker))) {
+        if (commentBodies[i] && SESSION_ENDING_MARKERS.some(marker => commentBodies[i].includes(marker))) {
           searchStartIndex = i + 1;
           if (verbose) {
             console.log(`[VERBOSE] Found last session-ending comment at index ${i}, searching from index ${searchStartIndex}`);

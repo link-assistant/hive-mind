@@ -3,6 +3,10 @@
  * Handles repository cloning, forking, and remote setup
  */
 
+// Issue #1625: centralized markers + tracked posting for the "empty repo"
+// issue comment so it's excluded from --auto-attach-solution-summary's check.
+import { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
+
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
   // Set up repository and handle forking
   const { repoToClone, forkedRepo, upstreamRemote, prForkOwner } = await setupRepository(argv, owner, repo, forkOwner, issueUrl, forkRepoName);
@@ -223,7 +227,7 @@ async function tryCommentOnIssueAboutEmptyRepo({ issueUrl, owner, repo, log, for
     const issueNumber = issueMatch[1];
     await log(`${formatAligned('💬', 'Creating comment:', 'Informing about empty repository...')}`);
 
-    const commentBody = `## ⚠️ Repository Initialization Required
+    const commentBody = `## ⚠️ ${REPOSITORY_INITIALIZATION_REQUIRED_MARKER}
 
 Hello! I attempted to work on this issue, but encountered a problem:
 
@@ -245,9 +249,9 @@ Once the repository contains at least one commit with any file, I'll be able to 
 
 Thank you!`;
 
-    const commentResult = await $`gh issue comment ${issueNumber} --repo ${owner}/${repo} --body ${commentBody}`;
-    if (commentResult.code === 0) {
-      await log(`${formatAligned('✅', 'Comment created:', `Posted to issue #${issueNumber}`)}`);
+    const posted = await postTrackedComment({ $, owner, repo, targetNumber: issueNumber, body: commentBody });
+    if (posted.ok) {
+      await log(`${formatAligned('✅', 'Comment created:', `Posted to issue #${issueNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}`)}`);
     } else {
       await log(`${formatAligned('⚠️', 'Note:', 'Could not post comment to issue (this is not critical)')}`);
     }

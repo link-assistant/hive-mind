@@ -61,20 +61,60 @@ Flow of events that reproduces the bug:
 
 ## Fix
 
-Introduced two new exports in `src/solve.results.lib.mjs`:
+Per PR #1626 feedback, the fix is an architectural refactor around a new
+single-source-of-truth module, `src/tool-comments.lib.mjs`:
 
-- **`TOOL_GENERATED_COMMENT_MARKERS`** — a list of text fragments that
-  uniquely identify comments posted by solve.mjs itself: session start/end,
-  resume/restart, log uploads, ready-to-merge, interactive session markers.
-- **`isToolGeneratedComment(body)`** — returns `true` if a comment body
-  contains any of those markers.
+### 1. Centralized marker constants
+
+Every string that solve.mjs embeds in a GitHub comment is now a named
+`const` exported from `tool-comments.lib.mjs`
+(e.g. `AI_WORK_SESSION_STARTED_MARKER`, `SOLUTION_DRAFT_LOG_MARKER`,
+`READY_TO_MERGE_MARKER`, `AUTO_MERGED_MARKER`, `BILLING_LIMIT_MARKER`,
+`MAINTAINER_ACCESS_REQUEST_MARKER`, `LIVE_PROGRESS_SECTION_START_MARKER`,
+`SESSION_FORCE_KILLED_MARKER`, `REPOSITORY_INITIALIZATION_REQUIRED_MARKER`,
+`INTERACTIVE_SESSION_STARTED_MARKER`, etc.).
+`TOOL_GENERATED_COMMENT_MARKERS` is derived from those constants, so a
+change to any marker's text is picked up everywhere — both at the
+post-side and at the filter-side — without a second edit.
+
+### 2. In-memory comment-ID tracking
+
+`trackedToolCommentIds` (a module-scoped `Set`) records the GitHub
+comment `id` of every comment solve.mjs posts during the current
+session. Two tracking helpers are available:
+
+- `postTrackedComment({$, owner, repo, targetNumber, body})` — posts
+  via `gh api repos/$owner/$repo/issues/$n/comments -X POST --input -`,
+  parses the returned JSON, and calls `trackToolCommentId(id)`.
+- `postTrackedCommentFromFile({$, owner, repo, targetNumber, bodyFile})`
+  — same thing for long payloads (e.g., upload-log comments).
+
+Every tool-posting site in the codebase was migrated to one of these
+helpers so tracking is uniform across AI tools (**claude, codex, agent,
+opencode**):
+`solve.session.lib.mjs`, `solve.auto-merge.lib.mjs`,
+`solve.watch.lib.mjs`, `github.lib.mjs`
+(`attachLogToGitHub`/`attachTruncatedLog`/`attachRegularComment`),
+`claude.lib.mjs` (force-kill), `interactive-mode.lib.mjs`,
+`solve.progress-monitoring.lib.mjs`, `solve.repo-setup.lib.mjs`,
+`solve.repository.lib.mjs`, and `solve.mjs`
+(usage-limit notifications). The interactive-mode module also registers
+each comment it posts (one per tool call).
+
+### 3. Two-layer filter in `checkForAiCreatedComments`
 
 `checkForAiCreatedComments()` now:
 
-- Rejects PR conversation / issue comments whose body matches any marker.
-- Preserves the existing behavior for PR **review** (inline code) comments,
-  because solve.mjs never posts those; the AI's only way to reach that surface
-  is via explicit tool calls, so any such comment is genuinely AI-authored.
+- Excludes any PR conversation / issue comment whose `id` is in
+  `trackedToolCommentIds` (the **primary** filter — perfect by
+  construction, never yields false positives from text matching).
+- As a **fallback** for comments whose IDs were not captured (e.g. a
+  legacy post from a previous version), also excludes comments whose
+  body matches any marker via `isToolGeneratedComment(body)`.
+- Preserves the existing behavior for PR **review** (inline code)
+  comments, because solve.mjs never posts those; the AI's only way to
+  reach that surface is via explicit tool calls, so any such comment is
+  genuinely AI-authored.
 - Emits verbose diagnostics so the same class of bug can be debugged by
   inspecting the log:
 
@@ -87,12 +127,19 @@ Introduced two new exports in `src/solve.results.lib.mjs`:
 
 ## Verification
 
-- New unit tests in `tests/test-solution-summary.mjs` cover:
-  - Export surface for `isToolGeneratedComment` and `TOOL_GENERATED_COMMENT_MARKERS`.
-  - Recognition of each session marker (`AI Work Session Started`,
-    `Solution Draft Log`, `Auto-restart`, `Ready to merge`).
-  - Negative cases: real AI comments, human feedback, empty/null/non-string input.
-- Existing tests still pass (22 total, 0 failures).
+- Unit tests in `tests/test-solution-summary.mjs` cover:
+  - Export surface for `isToolGeneratedComment`,
+    `TOOL_GENERATED_COMMENT_MARKERS`, `SESSION_ENDING_MARKERS`, and every
+    named marker.
+  - Markers module is the single source of truth (no orphaned literals).
+  - `trackToolCommentId` / `isToolTrackedCommentId` /
+    `getTrackedToolCommentIds` / `resetTrackedToolCommentIds` behavior.
+  - `postTrackedComment` parses IDs, handles failures, validates
+    required args.
+  - Cross-module check: every posting site embeds a centralized marker
+    in the comment body.
+- All 35 tests pass (22 existing + 13 new).
+- `npm run lint` passes clean.
 
 ## Data
 

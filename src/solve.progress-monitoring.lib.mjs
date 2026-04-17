@@ -24,6 +24,10 @@
  * @experimental
  */
 
+// Issue #1625: centralized markers + tracking helpers so the live-progress
+// comment is excluded from --auto-attach-solution-summary's AI-comment check.
+import { LIVE_PROGRESS_SECTION_START_MARKER, LIVE_PROGRESS_SECTION_END_MARKER, postTrackedCommentFromFile, trackToolCommentId } from './tool-comments.lib.mjs';
+
 /**
  * Configuration constants for progress monitoring
  */
@@ -33,9 +37,10 @@ const CONFIG = {
   // Progress bar characters
   PROGRESS_CHAR_FILLED: '█',
   PROGRESS_CHAR_EMPTY: '░',
-  // Marker comments for identifying the progress section
-  PROGRESS_SECTION_START: '<!-- LIVE-PROGRESS-START -->',
-  PROGRESS_SECTION_END: '<!-- LIVE-PROGRESS-END -->',
+  // Marker comments for identifying the progress section (imported from
+  // tool-comments.lib.mjs — single source of truth).
+  PROGRESS_SECTION_START: LIVE_PROGRESS_SECTION_START_MARKER,
+  PROGRESS_SECTION_END: LIVE_PROGRESS_SECTION_END_MARKER,
   // Minimum interval between PR description updates (in ms)
   MIN_UPDATE_INTERVAL: 10000, // 10 seconds to avoid rate limiting
   // Valid display modes
@@ -223,25 +228,25 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
         await $`gh api repos/${owner}/${repo}/issues/comments/${state.commentId} --method PATCH --field body=@${tempFile}`;
         await fs.unlink(tempFile).catch(() => {});
       } else {
-        // Create new comment
+        // Create new comment. Issue #1625: post via postTrackedCommentFromFile
+        // so the comment ID is captured directly from the GitHub API response
+        // (and registered in the in-memory tracking set that excludes tool-
+        // posted comments from the "did the AI post anything?" check).
         const fs = (await import('fs')).promises;
         const tempFile = `/tmp/pr-progress-comment-${prNumber}-${Date.now()}.md`;
         await fs.writeFile(tempFile, progressSection);
-        const result = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body-file ${tempFile}`;
+        const posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber: prNumber, bodyFile: tempFile });
         await fs.unlink(tempFile).catch(() => {});
 
-        // Extract comment ID from the created comment URL for future edits
-        // gh pr comment outputs the URL of the created comment
-        const output = result.stdout?.toString?.() || '';
-        const urlMatch = output.match(/\/comments\/(\d+)/);
-        if (urlMatch) {
-          state.commentId = urlMatch[1];
+        if (posted.ok && posted.commentId) {
+          state.commentId = posted.commentId;
         } else {
           // Fallback: find the comment we just created by looking for our marker
           const commentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq ${`[.[] | select(.body | contains("${CONFIG.PROGRESS_SECTION_START}")) | .id] | last`}`;
           const commentId = commentsResult.stdout?.toString?.().trim();
           if (commentId && commentId !== 'null') {
             state.commentId = commentId;
+            trackToolCommentId(commentId);
           }
         }
       }

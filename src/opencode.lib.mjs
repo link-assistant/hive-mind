@@ -19,6 +19,7 @@ import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { opencodeModels, defaultModels } from './models/index.mjs';
+import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
 import { calculateAgentPricing } from './agent.lib.mjs';
 
@@ -100,6 +101,9 @@ export const handleOpenCodeRuntimeSwitch = async () => {
   // This function can be used for any runtime-specific configurations if needed
   await log('ℹ️  OpenCode runtime handling not required for this operation');
 };
+
+/** Check if Playwright MCP is available for OpenCode @returns {Promise<boolean>} */
+export const checkPlaywrightMcpAvailability = checkPlaywrightMcpPackageAvailability;
 
 // Main function to execute OpenCode with prompts and settings
 export const executeOpenCode = async params => {
@@ -241,6 +245,14 @@ export const executeOpenCodeCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
+    const opencodeEnv = { ...process.env };
+
+    // Apply Playwright MCP session state before launching OpenCode.
+    if (argv.playwrightMcp === false) {
+      Object.assign(opencodeEnv, await getOpenCodePlaywrightMcpDisableEnv({ env: opencodeEnv, cwd: tempDir, log }));
+      await log('🎭 Playwright MCP physically disabled for this OpenCode session via --no-playwright-mcp', { verbose: true });
+    }
+
     // Build OpenCode command
     let execCommand;
 
@@ -288,11 +300,13 @@ export const executeOpenCodeCommand = async params => {
         execCommand = $({
           cwd: tempDir,
           mirror: false,
+          env: opencodeEnv,
         })`cat ${promptFile} | ${opencodePath} run --format json --resume ${argv.resume} --model ${mappedModel}`;
       } else {
         execCommand = $({
           cwd: tempDir,
           mirror: false,
+          env: opencodeEnv,
         })`cat ${promptFile} | ${opencodePath} run --format json --model ${mappedModel}`;
       }
 
@@ -653,6 +667,7 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 export default {
   validateOpenCodeConnection,
   handleOpenCodeRuntimeSwitch,
+  checkPlaywrightMcpAvailability,
   executeOpenCode,
   executeOpenCodeCommand,
   checkForUncommittedChanges,

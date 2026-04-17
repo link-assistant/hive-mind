@@ -20,6 +20,7 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
+import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
@@ -320,6 +321,9 @@ export const handleAgentRuntimeSwitch = async () => {
   await log('ℹ️  Agent runtime handling not required for this operation');
 };
 
+/** Check if Playwright MCP is available for Agent @returns {Promise<boolean>} */
+export const checkPlaywrightMcpAvailability = checkPlaywrightMcpPackageAvailability;
+
 // Main function to execute Agent with prompts and settings
 export const executeAgent = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, agentPath = 'agent', $ } = params;
@@ -439,6 +443,19 @@ export const executeAgentCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
+    // Issue #1521: Build environment for agent process.
+    // Pass LINK_ASSISTANT_AGENT_VERBOSE env var when --verbose is enabled so verbose logging is initialized at module load time.
+    const agentEnv = { ...process.env };
+    if (argv.verbose) {
+      agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
+    }
+
+    // Apply Playwright MCP session state before launching Agent.
+    if (argv.playwrightMcp === false) {
+      Object.assign(agentEnv, await getAgentPlaywrightMcpDisableEnv({ env: agentEnv, cwd: tempDir, log }));
+      await log('🎭 Playwright MCP physically disabled for this Agent session via --no-playwright-mcp', { verbose: true });
+    }
+
     // Build Agent command
     let execCommand;
 
@@ -472,17 +489,6 @@ export const executeAgentCommand = async params => {
     try {
       // Pipe the prompt file to agent via stdin
       // Use agentArgs which includes --model and optionally --verbose
-
-      // Issue #1521: Build environment for agent process
-      // Pass LINK_ASSISTANT_AGENT_VERBOSE env var when --verbose is enabled
-      // This ensures Flag.LINK_ASSISTANT_AGENT_VERBOSE is true at module load time inside the agent,
-      // which is required for HTTP request/response logging to work.
-      // The --verbose CLI flag alone is not sufficient because the agent's Flag module
-      // reads the env var at initialization, before yargs middleware calls Flag.setVerbose().
-      const agentEnv = { ...process.env };
-      if (argv.verbose) {
-        agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
-      }
 
       execCommand = $({
         cwd: tempDir,
@@ -1041,6 +1047,7 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 export default {
   validateAgentConnection,
   handleAgentRuntimeSwitch,
+  checkPlaywrightMcpAvailability,
   executeAgent,
   executeAgentCommand,
   checkForUncommittedChanges,

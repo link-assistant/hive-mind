@@ -268,6 +268,7 @@ GitHub CLI command patterns.
 Playwright MCP usage (browser automation via mcp__playwright__* tools).
    - When you develop frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, etc.), use Playwright MCP tools to test the UI in a real browser.
    - When WebFetch tool fails to retrieve expected content (e.g., returns empty content, JavaScript-rendered pages, or login-protected pages), use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for web browsing.
+   - When WebSearch tool fails or returns insufficient results, use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for internet search.
    - When you need to interact with dynamic web pages that require JavaScript execution, use Playwright MCP tools.
    - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.
    - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).

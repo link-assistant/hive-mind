@@ -21,6 +21,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
+import { getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
 const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
@@ -583,6 +584,10 @@ export const executeCodexCommand = async params => {
       codexArgs += ` resume ${shellQuote(argv.resume)}`;
     } else {
       codexArgs += ` --model ${shellQuote(mappedModel)}`;
+    }
+    const codexPlaywrightMcpDisableConfigArgs = argv.playwrightMcp === false ? await getCodexPlaywrightMcpDisableConfigArgs(log) : [];
+    for (const arg of codexPlaywrightMcpDisableConfigArgs) {
+      codexArgs += ` ${shellQuote(arg)}`;
     }
     codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')} --dangerously-bypass-approvals-and-sandbox`;
 

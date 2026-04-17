@@ -366,7 +366,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'prompt-playwright-mcp': {
     type: 'boolean',
-    description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Supported for --tool claude and --tool codex.',
+    description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Supported for --tool claude, --tool codex, --tool opencode, and --tool agent.',
     default: true,
   },
   'prompt-check-sibling-pull-requests': {
@@ -383,6 +383,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     type: 'string',
     description: 'Path to examples folder used in system prompt. Set to empty string to disable examples folder prompt. Default: ./examples',
     default: './examples',
+  },
+  'playwright-mcp': {
+    type: 'boolean',
+    description: 'Enable Playwright MCP server connection for this session (enabled by default). Use --no-playwright-mcp to physically disable the Playwright MCP server without affecting the global MCP registration. When disabled, also disables --prompt-playwright-mcp and --playwright-mcp-auto-cleanup. Supported for --tool claude, --tool codex, --tool opencode, and --tool agent.',
+    default: true,
   },
   'playwright-mcp-auto-cleanup': {
     type: 'boolean',

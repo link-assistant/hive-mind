@@ -9,6 +9,7 @@ const THINK_LEVEL_TO_CODEX_REASONING = {
   low: 'low',
   medium: 'medium',
   high: 'high',
+  xhigh: 'xhigh',
   max: 'xhigh',
 };
 

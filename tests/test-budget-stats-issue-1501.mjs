@@ -82,8 +82,8 @@ runTest('context window percentage with large cache reads stays reasonable', () 
   const result = buildBudgetStatsString(tokenUsage, null);
   // Should NOT show 7516.89% — that was the old bug
   assertNotContains(result, '7516', 'Context should NOT show 7516% (cumulative sum)');
-  // Issue #1526: Single-line format with Context window prefix
-  assertContains(result, 'Context window:', 'Should show context window');
+  // Issue #1600: Unified format without "Context window:" prefix
+  assertNotContains(result, 'Context window:', 'Should NOT show "Context window:" prefix (removed in #1600)');
   assertContains(result, '850K', 'Should show 850K peak context');
 });
 
@@ -219,8 +219,8 @@ runTest('single sub-session shows simplified format', () => {
     modelUsage: { 'claude-opus-4-6': { inputTokens: 645, cacheCreationTokens: 2101865, cacheReadTokens: 73066385, outputTokens: 82449, modelName: 'Claude Opus 4.6', modelInfo: OPUS_MODEL_INFO, peakContextUsage: 850000 } },
   };
   const result = buildBudgetStatsString(tokenUsage, null);
-  // Issue #1526: Single-line format with context + output on one line
-  assertContains(result, 'Context window:', 'Should show Context window');
+  // Issue #1600: Unified format without "Context window:" prefix
+  assertNotContains(result, 'Context window:', 'Should NOT show "Context window:" prefix (removed in #1600)');
   assertContains(result, '850K / 1M (85%) input tokens', 'Should show peak context');
   assertContains(result, '82.4K / 128K (64%) output tokens', 'Should show output tokens');
   assertNotContains(result, 'Sub sessions', 'Single sub-session should NOT show sub-sessions list');
@@ -243,9 +243,10 @@ runTest('multiple sub-sessions shows numbered list', () => {
     },
   };
   const result = buildBudgetStatsString(tokenUsage, null);
-  // Issue #1526: Numbered sub-sessions with Context window prefix
-  assertContains(result, '1. Context window:', 'Should number first sub-session');
-  assertContains(result, '2. Context window:', 'Should number second sub-session');
+  // Issue #1600: Numbered sub-sessions without "Context window:" prefix
+  assertNotContains(result, 'Context window:', 'Should NOT show "Context window:" prefix (removed in #1600)');
+  assertContains(result, '1. 80K / 1M (8%) input tokens', 'Should number first sub-session with content');
+  assertContains(result, '2. 45K / 1M (5%) input tokens', 'Should number second sub-session with content');
 });
 
 runTest('createEmptySubSessionUsage has peak tracking fields', () => {

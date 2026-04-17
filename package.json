@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "1.51.0",
+  "version": "1.52.1",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -70,6 +70,7 @@
     "@sentry/node": "^10.15.0",
     "@sentry/profiling-node": "^10.15.0",
     "dayjs": "^1.11.19",
+    "decimal.js-light": "^2.5.1",
     "secretlint": "^11.2.5",
     "semver": "^7.7.3"
   },

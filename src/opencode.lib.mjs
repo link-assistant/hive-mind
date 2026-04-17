@@ -20,6 +20,10 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { opencodeModels, defaultModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
+import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
+import { calculateAgentPricing } from './agent.lib.mjs';
+
+export { parseOpenCodeTokenUsage };
 
 // Model mapping to translate aliases to full model IDs for OpenCode
 // Issue #1473: Uses centralized opencodeModels from models/index.mjs (single source of truth)
@@ -254,6 +258,7 @@ export const executeOpenCodeCommand = async params => {
 
     // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
+    const streamingTokenUsage = createAgentTokenUsage();
 
     // Build opencode command arguments
     let opencodeArgs = `run --format json --model ${mappedModel}`;
@@ -279,6 +284,15 @@ export const executeOpenCodeCommand = async params => {
     await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
     await log(`${fullCommand}`);
     await log('');
+
+    const buildPricingInfo = async () => {
+      const tokenUsage = streamingTokenUsage;
+      if (tokenUsage.stepCount === 0) {
+        return { tokenUsage, pricingInfo: null, publicPricingEstimate: null };
+      }
+      const pricingInfo = await calculateAgentPricing(mappedModel, tokenUsage);
+      return { tokenUsage, pricingInfo, publicPricingEstimate: pricingInfo?.totalCostUSD ?? null };
+    };
 
     try {
       // Pipe the prompt file to opencode via stdin
@@ -327,6 +341,7 @@ export const executeOpenCodeCommand = async params => {
             for (const line of lines) {
               if (!line.trim()) continue;
               const data = sanitizeObjectStrings(JSON.parse(line));
+              accumulateAgentStepFinishUsage(streamingTokenUsage, data);
               // Track text content for result summary
               // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
               if (data.type === 'text' && data.text) {
@@ -369,6 +384,7 @@ export const executeOpenCodeCommand = async params => {
               for (const line of lines) {
                 if (!line.trim()) continue;
                 const data = sanitizeObjectStrings(JSON.parse(line));
+                accumulateAgentStepFinishUsage(streamingTokenUsage, data);
                 if (data.type === 'text' && data.text) {
                   lastTextContent = data.text;
                 } else if (data.type === 'assistant' && data.message?.content) {
@@ -441,12 +457,14 @@ export const executeOpenCodeCommand = async params => {
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 
+        const pricingResult = await buildPricingInfo();
         return {
           success: false,
           sessionId,
           limitReached: false,
           limitResetTime: null,
           permissionPromptDetected: true,
+          ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
         };
       }
@@ -480,16 +498,40 @@ export const executeOpenCodeCommand = async params => {
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 
+        const pricingResult = await buildPricingInfo();
         return {
           success: false,
           sessionId,
           limitReached,
           limitResetTime,
+          ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
         };
       }
 
       await log('\n\n✅ OpenCode command completed');
+
+      const pricingResult = await buildPricingInfo();
+      if (pricingResult.tokenUsage.stepCount > 0) {
+        await log('\n💰 Token Usage Summary:');
+        await log(`   📊 ${pricingResult.pricingInfo?.modelName || mappedModel} (${pricingResult.tokenUsage.stepCount} steps):`);
+        await log(`      Input tokens:     ${pricingResult.tokenUsage.inputTokens.toLocaleString()}`);
+        await log(`      Output tokens:    ${pricingResult.tokenUsage.outputTokens.toLocaleString()}`);
+        if (pricingResult.tokenUsage.reasoningTokens > 0 || pricingResult.tokenUsage.tokenFieldAvailability?.reasoningTokens) {
+          await log(`      Reasoning tokens: ${pricingResult.tokenUsage.reasoningTokens.toLocaleString()}`);
+        }
+        if (pricingResult.tokenUsage.cacheReadTokens > 0 || pricingResult.tokenUsage.tokenFieldAvailability?.cacheReadTokens) {
+          await log(`      Cache read:       ${pricingResult.tokenUsage.cacheReadTokens.toLocaleString()}`);
+        }
+        if (pricingResult.tokenUsage.cacheWriteTokens > 0 || pricingResult.tokenUsage.tokenFieldAvailability?.cacheWriteTokens) {
+          await log(`      Cache write:      ${pricingResult.tokenUsage.cacheWriteTokens.toLocaleString()}`);
+        }
+        if (pricingResult.pricingInfo?.totalCostUSD !== null && pricingResult.pricingInfo?.totalCostUSD !== undefined) {
+          await log(`      Public pricing estimate: $${pricingResult.pricingInfo.totalCostUSD.toFixed(6)}`);
+        } else {
+          await log('      Cost: Not available (could not fetch pricing)');
+        }
+      }
 
       // Issue #1263: Log if result summary was captured
       if (lastTextContent) {
@@ -501,6 +543,7 @@ export const executeOpenCodeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime,
+        ...pricingResult,
         resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
@@ -524,6 +567,9 @@ export const executeOpenCodeCommand = async params => {
         sessionId: null,
         limitReached: false,
         limitResetTime: null,
+        tokenUsage: streamingTokenUsage.stepCount > 0 ? streamingTokenUsage : null,
+        pricingInfo: null,
+        publicPricingEstimate: null,
         resultSummary: null, // Issue #1263: No result summary available on error
       };
     }
@@ -625,4 +671,5 @@ export default {
   executeOpenCode,
   executeOpenCodeCommand,
   checkForUncommittedChanges,
+  parseOpenCodeTokenUsage,
 };

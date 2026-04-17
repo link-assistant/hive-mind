@@ -13,6 +13,7 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import Decimal from 'decimal.js-light';
 import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
@@ -302,6 +303,7 @@ export const executeClaude = async params => {
     owner,
     repo,
     argv,
+    claudeVersion: getClaudeVersion(),
   });
   // Build the system prompt
   const systemPrompt = buildSystemPrompt({
@@ -429,51 +431,48 @@ export const checkModelVisionCapability = async modelId => {
     return false;
   }
 };
-/** Calculate USD cost for a model's usage with detailed breakdown */
+/** Calculate USD cost for a model's usage with detailed breakdown (Issue #1600: uses Decimal for precision) */
 export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) => {
   if (!modelInfo || !modelInfo.cost) {
     return includeBreakdown ? { total: 0, breakdown: null } : 0;
   }
   const cost = modelInfo.cost;
+  const million = new Decimal(1000000);
   const breakdown = {
     input: { tokens: 0, costPerMillion: 0, cost: 0 },
     cacheWrite: { tokens: 0, costPerMillion: 0, cost: 0 },
     cacheRead: { tokens: 0, costPerMillion: 0, cost: 0 },
     output: { tokens: 0, costPerMillion: 0, cost: 0 },
   };
-  // Input tokens cost (per million tokens)
   if (usage.inputTokens && cost.input) {
     breakdown.input = {
       tokens: usage.inputTokens,
       costPerMillion: cost.input,
-      cost: (usage.inputTokens / 1000000) * cost.input,
+      cost: new Decimal(usage.inputTokens).div(million).mul(new Decimal(cost.input)).toNumber(),
     };
   }
-  // Cache creation tokens cost
   if (usage.cacheCreationTokens && cost.cache_write) {
     breakdown.cacheWrite = {
       tokens: usage.cacheCreationTokens,
       costPerMillion: cost.cache_write,
-      cost: (usage.cacheCreationTokens / 1000000) * cost.cache_write,
+      cost: new Decimal(usage.cacheCreationTokens).div(million).mul(new Decimal(cost.cache_write)).toNumber(),
     };
   }
-  // Cache read tokens cost
   if (usage.cacheReadTokens && cost.cache_read) {
     breakdown.cacheRead = {
       tokens: usage.cacheReadTokens,
       costPerMillion: cost.cache_read,
-      cost: (usage.cacheReadTokens / 1000000) * cost.cache_read,
+      cost: new Decimal(usage.cacheReadTokens).div(million).mul(new Decimal(cost.cache_read)).toNumber(),
     };
   }
-  // Output tokens cost
   if (usage.outputTokens && cost.output) {
     breakdown.output = {
       tokens: usage.outputTokens,
       costPerMillion: cost.output,
-      cost: (usage.outputTokens / 1000000) * cost.output,
+      cost: new Decimal(usage.outputTokens).div(million).mul(new Decimal(cost.output)).toNumber(),
     };
   }
-  const totalCost = breakdown.input.cost + breakdown.cacheWrite.cost + breakdown.cacheRead.cost + breakdown.output.cost;
+  const totalCost = new Decimal(breakdown.input.cost).plus(breakdown.cacheWrite.cost).plus(breakdown.cacheRead.cost).plus(breakdown.output.cost).toNumber();
   if (includeBreakdown) {
     return {
       total: totalCost,
@@ -619,7 +618,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
     let totalCacheCreationTokens = 0;
     let totalCacheReadTokens = 0;
     let totalOutputTokens = 0;
-    let totalCostUSD = 0;
+    let totalCostDecimal = new Decimal(0);
     let hasCostData = false;
     for (const usage of Object.values(modelUsage)) {
       totalInputTokens += usage.inputTokens;
@@ -627,7 +626,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
       totalCacheReadTokens += usage.cacheReadTokens;
       totalOutputTokens += usage.outputTokens;
       if (usage.costUSD !== null) {
-        totalCostUSD += usage.costUSD;
+        totalCostDecimal = totalCostDecimal.plus(new Decimal(usage.costUSD));
         hasCostData = true;
       }
     }
@@ -642,7 +641,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
       cacheReadTokens: totalCacheReadTokens,
       outputTokens: totalOutputTokens,
       totalTokens,
-      totalCostUSD: hasCostData ? totalCostUSD : null,
+      totalCostUSD: hasCostData ? totalCostDecimal.toNumber() : null,
       // Issue #1501: Peak context usage (max single-request fill) and dedup stats
       peakContextUsage: globalPeakContext,
       duplicateEntriesSkipped: duplicateCount,
@@ -793,7 +792,7 @@ export const executeClaudeCommand = async params => {
     }
     try {
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel });
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, showThinkingContent: argv.showThinkingContent });
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
@@ -801,6 +800,7 @@ export const executeClaudeCommand = async params => {
         if (resolvedPlanModel) await log(`📊 opusplan: plan=${resolvedPlanModel}, exec=${resolvedExecutionModel}`, { verbose: true });
         if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
+        if (claudeEnv.CLAUDE_CODE_SHOW_THINKING) await log(`📊 CLAUDE_CODE_SHOW_THINKING: ${claudeEnv.CLAUDE_CODE_SHOW_THINKING}`, { verbose: true });
         if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }
       const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');

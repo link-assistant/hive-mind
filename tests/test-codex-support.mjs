@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 const { defaultModels, primaryModelNames, resolveModelId } = await import('../src/models/index.mjs');
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
 const { parseCodexExecJsonOutput, buildCodexResultModelUsage } = await import('../src/codex.lib.mjs');
+const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
 
 let passed = 0;
 let failed = 0;
@@ -35,6 +36,11 @@ test('Codex primary model names include gpt-5.3-codex and exclude removed legacy
 
 test('Codex --think max maps to xhigh reasoning', () => {
   const result = resolveCodexReasoningEffort({ think: 'max' });
+  assert.equal(result.reasoningEffort, 'xhigh');
+});
+
+test('Codex --think xhigh maps to xhigh reasoning', () => {
+  const result = resolveCodexReasoningEffort({ think: 'xhigh' });
   assert.equal(result.reasoningEffort, 'xhigh');
 });
 
@@ -69,10 +75,48 @@ test('Codex exec JSON parser extracts session, result text, usage, and collab ca
   assert.equal(parsed.tokenUsage.cacheReadTokens, 200);
   assert.equal(parsed.tokenUsage.outputTokens, 50);
   assert.equal(parsed.tokenUsage.stepCount, 1);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.inputTokens, true);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheReadTokens, true);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.outputTokens, true);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheWriteTokens, false);
   assert.equal(parsed.reasoningSummaries.length, 1);
   assert.equal(parsed.subAgentCalls.length, 1);
   assert.equal(parsed.subAgentCalls[0].description, 'Check tests');
   assert.equal(parsed.subAgentCalls[0].model, 'gpt-5.4');
+});
+
+test('Codex exec JSON parser does not mark cache write as available when CLI does not emit it', () => {
+  const jsonl = '{"type":"turn.completed","usage":{"input_tokens":433303,"cached_input_tokens":388480,"output_tokens":3031}}';
+  const parsed = parseCodexExecJsonOutput(jsonl, {}, 'gpt-5.4');
+
+  assert.equal(parsed.tokenUsage.inputTokens, 44823);
+  assert.equal(parsed.tokenUsage.cacheReadTokens, 388480);
+  assert.equal(parsed.tokenUsage.outputTokens, 3031);
+  assert.deepEqual(parsed.observedUsageFieldSets, [['input_tokens', 'cached_input_tokens', 'output_tokens']]);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheReadTokens, true);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheWriteTokens, false);
+});
+
+test('Codex exec JSON parser captures optional nested cache write and reasoning fields when emitted', () => {
+  const jsonl = '{"type":"turn.completed","usage":{"input_tokens":1200,"cached_input_tokens":200,"cache_write_tokens":0,"output_tokens":50,"output_tokens_details":{"reasoning_tokens":10}}}';
+  const parsed = parseCodexExecJsonOutput(jsonl, {}, 'gpt-5.4');
+
+  assert.equal(parsed.tokenUsage.inputTokens, 1000);
+  assert.equal(parsed.tokenUsage.cacheReadTokens, 200);
+  assert.equal(parsed.tokenUsage.cacheWriteTokens, 0);
+  assert.equal(parsed.tokenUsage.outputTokens, 50);
+  assert.equal(parsed.tokenUsage.reasoningTokens, 10);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheWriteTokens, true);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.reasoningTokens, true);
+  assert.deepEqual(parsed.observedUsageFieldSets, [['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'output_tokens_details.reasoning_tokens']]);
+
+  const costInfo = buildCostInfoString(null, null, {
+    modelName: 'gpt-5.4',
+    provider: 'OpenAI',
+    tokenUsage: parsed.tokenUsage,
+  });
+  assert.match(costInfo, /10 reasoning/);
+  assert.match(costInfo, /0 cache write/);
 });
 
 test('Codex exec JSON parser captures remaining supported item payloads', () => {

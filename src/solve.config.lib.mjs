@@ -229,8 +229,8 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   think: {
     type: 'string',
-    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, max=31999). For Codex, mapped to reasoning effort (off=none, low=low, medium=medium, high=high, max=xhigh).',
-    choices: ['off', 'low', 'medium', 'high', 'max'],
+    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, xhigh/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported. Opus 4.7 supports xhigh and max; Opus 4.6/Sonnet 4.6/Mythos support max; Opus 4.5 uses high for xhigh/max. For Codex, mapped to reasoning effort (off=none, low=low, medium=medium, high=high, xhigh/max=xhigh).',
+    choices: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],
     default: undefined,
   },
   'thinking-budget': {
@@ -247,6 +247,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     type: 'number',
     description: 'Maximum thinking budget for calculating --think level mappings (default: 31999 for Claude Code). Values: off=0, low=max/4, medium=max/2, high=max*3/4, max=max.',
     default: 31999,
+  },
+  'show-thinking-content': {
+    type: 'boolean',
+    description: 'Show thinking content in Claude responses. Opus 4.7 omits thinking content by default; this option opts in to receive summarized thinking blocks. Disabled by default. Only affects --tool claude.',
+    default: false,
   },
   'prompt-plan-sub-agent': {
     type: 'boolean',

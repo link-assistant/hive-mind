@@ -82,9 +82,46 @@ Add Opus 4.7 to `MODELS_SUPPORTING_1M_CONTEXT` to enable `[1m]` suffix support. 
 
 Change `opus` alias mapping from `claude-opus-4-6` to `claude-opus-4-7`.
 
-### 5. Config Compatibility
+### 5. Adaptive Thinking and Effort Levels (Issue #1620 Comment Feedback)
 
-The `isOpus46OrLater` function already handles `opus-4-7` pattern matching, so max output tokens (128K) and thinking budget settings apply automatically.
+Opus 4.7 **always uses adaptive thinking** — `MAX_THINKING_TOKENS` and `CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING` have no effect. Key changes implemented:
+
+- **`isOpus47OrLater()`** helper function added to `config.lib.mjs` to distinguish Opus 4.7+ from Opus 4.6
+- **`MAX_THINKING_TOKENS` removed from env** for Opus 4.7 (deleted from env to prevent interference)
+- **`xhigh` effort level** supported: `--think max` maps to `CLAUDE_CODE_EFFORT_LEVEL=xhigh` for Opus 4.7
+- **`--show-thinking-content` option** added (disabled by default), sets `CLAUDE_CODE_SHOW_THINKING=1` env var
+
+#### Effort Level Mapping (hive-mind `--think` → Claude Code `CLAUDE_CODE_EFFORT_LEVEL`)
+
+| `--think` | Opus 4.7 Effort | Opus 4.6 / Sonnet 4.6 Effort |
+| --------- | --------------- | ---------------------------- |
+| `off`     | (none)          | (none)                       |
+| `low`     | `low`           | `low`                        |
+| `medium`  | `medium`        | `medium`                     |
+| `high`    | `high`          | `high`                       |
+| `max`     | `xhigh`         | `high`                       |
+
+#### Claude Code Environment Variables for Opus 4.7
+
+| Variable                                | Opus 4.7 Behavior                                    |
+| --------------------------------------- | ---------------------------------------------------- |
+| `MAX_THINKING_TOKENS`                   | Not set (removed from env; Opus 4.7 ignores it)      |
+| `CLAUDE_CODE_EFFORT_LEVEL`              | Set to effort level (low/medium/high/xhigh)          |
+| `CLAUDE_CODE_SHOW_THINKING`             | Set to `1` when `--show-thinking-content` is enabled |
+| `CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING` | Has no effect on Opus 4.7 (always adaptive)          |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS`         | 128000 (same as Opus 4.6)                            |
+
+#### Claude Code CLI Flags Reference
+
+| Flag        | Description                                                     |
+| ----------- | --------------------------------------------------------------- |
+| `--effort`  | Set effort level: `low`, `medium`, `high`, `xhigh` (4.7), `max` |
+| `--model`   | Set model: `opus` (→ Opus 4.7), `opus-4-6`, `sonnet`, etc.      |
+| `--verbose` | Enable verbose logging with full turn-by-turn output            |
+
+### 6. Config Compatibility
+
+The `isOpus46OrLater` function handles `opus-4-7` pattern matching, so max output tokens (128K) and thinking budget settings apply automatically. The new `isOpus47OrLater` function provides finer-grained control for Opus 4.7-specific behavior.
 
 ## Sources
 
@@ -94,6 +131,9 @@ The `isOpus46OrLater` function already handles `opus-4-7` pattern matching, so m
 - [What's New in Claude Opus 4.7](https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-7)
 - [Claude Models Overview](https://platform.claude.com/docs/en/about-claude/models/overview)
 - [Migration Guide](https://platform.claude.com/docs/en/about-claude/models/migration-guide#migrating-to-claude-opus-4-7)
+- [Claude Code CLI Reference](https://code.claude.com/docs/en/cli-reference) — `--effort` flag for effort levels
+- [Claude Code Environment Variables](https://code.claude.com/docs/en/env-vars) — `MAX_THINKING_TOKENS`, `CLAUDE_CODE_EFFORT_LEVEL`, `CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING`
+- [Claude Code Model Configuration](https://code.claude.com/docs/en/model-config) — Effort level details, adaptive reasoning per model
 
 ### Related Issues
 
@@ -104,7 +144,7 @@ The `isOpus46OrLater` function already handles `opus-4-7` pattern matching, so m
 
 ## Test Coverage
 
-- `tests/test-opus-47-model-support.mjs` - 41 tests covering:
+- `tests/test-opus-47-model-support.mjs` - 70 tests covering:
   - Default alias mapping (opus -> claude-opus-4-7)
   - Direct model ID validation
   - Version aliases (opus-4-7, claude-opus-4-7)
@@ -115,3 +155,7 @@ The `isOpus46OrLater` function already handles `opus-4-7` pattern matching, so m
   - Thinking budget (31999)
   - Case insensitivity
   - Available model names listing
+  - `isOpus47OrLater` detection (9 tests: opus, opusplan, opus-4-7, claude-opus-4-7, opus-5, negatives)
+  - Opus 4.7 effort levels with `xhigh` support (10 tests)
+  - `getClaudeEnv` for Opus 4.7: no MAX_THINKING_TOKENS, correct effort levels (7 tests)
+  - `--show-thinking-content` option: CLAUDE_CODE_SHOW_THINKING env var (3 tests)

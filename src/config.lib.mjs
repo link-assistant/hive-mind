@@ -184,6 +184,20 @@ export const isOpus46OrLater = model => {
 };
 
 /**
+ * Check if a model is Opus 4.7 or later (Issue #1620)
+ * These models always use adaptive thinking and support the 'xhigh' effort level
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model is Opus 4.7 or later
+ */
+export const isOpus47OrLater = model => {
+  if (!model) return false;
+  const normalizedModel = model.toLowerCase();
+  // 'opus' alias now maps to Opus 4.7 (Issue #1620)
+  // opusplan uses Opus for planning, so it gets Opus-level settings
+  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
+};
+
+/**
  * Get the max output tokens for a specific model (Issue #1221)
  * @param {string} model - The model name or ID
  * @returns {number} The max output tokens for the model
@@ -250,56 +264,66 @@ export const getTokensToThinkingLevel = (maxBudget = DEFAULT_MAX_THINKING_BUDGET
 export const tokensToThinkingLevel = getTokensToThinkingLevel(DEFAULT_MAX_THINKING_BUDGET);
 
 /**
- * Valid effort levels for Opus 4.6 (Issue #1238)
- * Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL for thinking depth control
+ * Valid effort levels for Opus 4.6 and Sonnet 4.6 (Issue #1238)
+ * These models use CLAUDE_CODE_EFFORT_LEVEL for thinking depth control
  * @type {string[]}
  */
 export const OPUS_46_EFFORT_LEVELS = ['low', 'medium', 'high'];
 
 /**
- * Convert thinking level to Opus 4.6 effort level (Issue #1238)
- * Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL (low/medium/high) instead of MAX_THINKING_TOKENS
- * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/max)
- * @returns {string|undefined} The effort level (low/medium/high) or undefined if thinking is off
+ * Valid effort levels for Opus 4.7 (Issue #1620)
+ * Opus 4.7 supports the additional 'xhigh' level which is the recommended default
+ * See: https://code.claude.com/docs/en/model-config#adjust-effort-level
+ * @type {string[]}
  */
-export const thinkLevelToEffortLevel = thinkLevel => {
+export const OPUS_47_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh'];
+
+/**
+ * Convert thinking level to effort level (Issue #1238, Issue #1620)
+ * Opus 4.6/Sonnet 4.6 use CLAUDE_CODE_EFFORT_LEVEL (low/medium/high)
+ * Opus 4.7 also supports 'xhigh' (Issue #1620)
+ * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/max)
+ * @param {Object} [options] - Options
+ * @param {boolean} [options.isOpus47] - Whether the model is Opus 4.7+
+ * @returns {string|undefined} The effort level or undefined if thinking is off
+ */
+export const thinkLevelToEffortLevel = (thinkLevel, options = {}) => {
   if (!thinkLevel || thinkLevel === 'off') {
-    // No effort level when thinking is disabled
     return undefined;
   }
 
-  // Map hive-mind thinking levels to Opus 4.6 effort levels
-  // Note: Opus 4.6 only supports low/medium/high, not 'max'
-  // We map 'max' to 'high' as it's the highest available level
   switch (thinkLevel) {
     case 'low':
       return 'low';
     case 'medium':
       return 'medium';
     case 'high':
-    case 'max':
       return 'high';
+    case 'max':
+      // Opus 4.7+: 'max' maps to 'xhigh' (highest non-session-only level)
+      // Opus 4.6/Sonnet 4.6: 'max' maps to 'high' (highest available)
+      return options.isOpus47 ? 'xhigh' : 'high';
     default:
       return undefined;
   }
 };
 
 /**
- * Convert thinking budget (tokens) to Opus 4.6 effort level (Issue #1238)
+ * Convert thinking budget (tokens) to effort level (Issue #1238, Issue #1620)
  * Uses token thresholds to determine the appropriate effort level
  * @param {number|undefined} thinkingBudget - The thinking budget in tokens
  * @param {number} maxBudget - Maximum thinking budget (default: 31999)
- * @returns {string|undefined} The effort level (low/medium/high) or undefined if thinking is off
+ * @param {Object} [options] - Options
+ * @param {boolean} [options.isOpus47] - Whether the model is Opus 4.7+
+ * @returns {string|undefined} The effort level or undefined if thinking is off
  */
-export const thinkingBudgetToEffortLevel = (thinkingBudget, maxBudget = DEFAULT_MAX_THINKING_BUDGET) => {
+export const thinkingBudgetToEffortLevel = (thinkingBudget, maxBudget = DEFAULT_MAX_THINKING_BUDGET, options = {}) => {
   if (thinkingBudget === undefined || thinkingBudget === 0) {
-    // No effort level when thinking is disabled
     return undefined;
   }
 
-  // Convert tokens to thinking level, then to effort level
   const thinkLevel = getTokensToThinkingLevel(maxBudget)(thinkingBudget);
-  return thinkLevelToEffortLevel(thinkLevel);
+  return thinkLevelToEffortLevel(thinkLevel, options);
 };
 
 // Check if a version supports thinking budget (>= minimum version)
@@ -339,26 +363,38 @@ export const getClaudeEnv = (options = {}) => {
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
   };
 
-  // Set MAX_THINKING_TOKENS to control Claude Code's extended thinking feature (Claude Code >= 2.1.12)
-  // Default is 0 (thinking disabled) per Issue #1238. Set to 0 to disable thinking.
-  // Users can explicitly enable thinking via --think or --thinking-budget options.
-  env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
+  // Opus 4.7+ always uses adaptive thinking — MAX_THINKING_TOKENS has no effect (Issue #1620)
+  // For Opus 4.6 and earlier, MAX_THINKING_TOKENS controls extended thinking (Claude Code >= 2.1.12)
+  // Default is 0 (thinking disabled) per Issue #1238.
+  const opus47 = options.model && isOpus47OrLater(options.model);
+  if (opus47) {
+    // Remove any inherited MAX_THINKING_TOKENS from process.env — Opus 4.7 ignores it
+    delete env.MAX_THINKING_TOKENS;
+  } else {
+    env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
+  }
 
-  // For Opus 4.6+, also set CLAUDE_CODE_EFFORT_LEVEL to control thinking depth (Issue #1238)
-  // Opus 4.6 uses effort level (low/medium/high) instead of MAX_THINKING_TOKENS for thinking depth.
-  // MAX_THINKING_TOKENS is only used to disable thinking (when set to 0).
+  // For Opus 4.6+, set CLAUDE_CODE_EFFORT_LEVEL to control thinking depth (Issue #1238, Issue #1620)
+  // Opus 4.7 supports: low/medium/high/xhigh (plus 'max' which is session-only in Claude Code)
+  // Opus 4.6/Sonnet 4.6 supports: low/medium/high
   if (options.model && isOpus46OrLater(options.model)) {
-    // Convert thinkLevel or thinkingBudget to effort level
+    const effortOptions = { isOpus47: opus47 };
     let effortLevel;
     if (options.thinkLevel) {
-      effortLevel = thinkLevelToEffortLevel(options.thinkLevel);
+      effortLevel = thinkLevelToEffortLevel(options.thinkLevel, effortOptions);
     } else if (options.thinkingBudget !== undefined && options.thinkingBudget > 0) {
-      effortLevel = thinkingBudgetToEffortLevel(options.thinkingBudget, options.maxBudget);
+      effortLevel = thinkingBudgetToEffortLevel(options.thinkingBudget, options.maxBudget, effortOptions);
     }
 
     if (effortLevel) {
       env.CLAUDE_CODE_EFFORT_LEVEL = effortLevel;
     }
+  }
+
+  // Opus 4.7 omits thinking content by default; opt in with --show-thinking-content (Issue #1620)
+  // Sets CLAUDE_CODE_SHOW_THINKING=1 which Claude Code uses to request display: "summarized"
+  if (options.showThinkingContent) {
+    env.CLAUDE_CODE_SHOW_THINKING = '1';
   }
   // Set ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is specified (Issue #1223)
   // This tells Claude Code which model to use during plan mode in opusplan

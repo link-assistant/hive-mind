@@ -248,6 +248,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Maximum thinking budget for calculating --think level mappings (default: 31999 for Claude Code). Values: off=0, low=max/4, medium=max/2, high=max*3/4, max=max.',
     default: 31999,
   },
+  'show-thinking-content': {
+    type: 'boolean',
+    description: 'Show thinking content in Claude responses. Opus 4.7 omits thinking content by default; this option opts in to receive summarized thinking blocks. Disabled by default. Only affects --tool claude.',
+    default: false,
+  },
   'prompt-plan-sub-agent': {
     type: 'boolean',
     description: 'Encourage AI to use a planning sub-agent or planning workflow for initial planning. Supported for --tool claude and --tool codex.',

@@ -6,7 +6,7 @@ import assert from 'assert';
 
 const { CLAUDE_MODELS, MODELS_SUPPORTING_1M_CONTEXT, validateModelName, parseModelWith1mSuffix, supports1mContext, getAvailableModelNames, claudeModels } = await import('../src/models/index.mjs');
 const { mapModelToId, availableModels } = await import('../src/claude.lib.mjs');
-const { isOpus46OrLater, getMaxOutputTokensForModel, getDefaultMaxThinkingBudgetForModel, claudeCode, DEFAULT_MAX_THINKING_BUDGET_OPUS_46 } = await import('../src/config.lib.mjs');
+const { isOpus46OrLater, isOpus47OrLater, getMaxOutputTokensForModel, getDefaultMaxThinkingBudgetForModel, claudeCode, DEFAULT_MAX_THINKING_BUDGET_OPUS_46, getClaudeEnv, thinkLevelToEffortLevel, thinkingBudgetToEffortLevel, OPUS_47_EFFORT_LEVELS } = await import('../src/config.lib.mjs');
 
 console.log('Testing Claude Opus 4.7 Model Support (Issue #1620)\n');
 
@@ -274,6 +274,152 @@ test('MODELS_SUPPORTING_1M_CONTEXT includes opus-4-7', () => {
 
 test('MODELS_SUPPORTING_1M_CONTEXT still includes claude-opus-4-6', () => {
   assert(MODELS_SUPPORTING_1M_CONTEXT.includes('claude-opus-4-6'), 'claude-opus-4-6 should still be in MODELS_SUPPORTING_1M_CONTEXT');
+});
+
+// ============================================================
+// Section 11: isOpus47OrLater Tests (Issue #1620)
+// ============================================================
+console.log('\n=== 11. isOpus47OrLater Tests ===');
+
+test('isOpus47OrLater returns true for opus', () => {
+  assert.strictEqual(isOpus47OrLater('opus'), true, 'opus alias should be Opus 4.7+');
+});
+
+test('isOpus47OrLater returns true for opusplan', () => {
+  assert.strictEqual(isOpus47OrLater('opusplan'), true, 'opusplan should be Opus 4.7+');
+});
+
+test('isOpus47OrLater returns true for claude-opus-4-7', () => {
+  assert.strictEqual(isOpus47OrLater('claude-opus-4-7'), true, 'claude-opus-4-7 should be Opus 4.7+');
+});
+
+test('isOpus47OrLater returns true for opus-4-7', () => {
+  assert.strictEqual(isOpus47OrLater('opus-4-7'), true, 'opus-4-7 should be Opus 4.7+');
+});
+
+test('isOpus47OrLater returns false for claude-opus-4-6', () => {
+  assert.strictEqual(isOpus47OrLater('claude-opus-4-6'), false, 'Opus 4.6 should not be Opus 4.7+');
+});
+
+test('isOpus47OrLater returns false for opus-4-6', () => {
+  assert.strictEqual(isOpus47OrLater('opus-4-6'), false, 'opus-4-6 should not be Opus 4.7+');
+});
+
+test('isOpus47OrLater returns false for sonnet', () => {
+  assert.strictEqual(isOpus47OrLater('sonnet'), false, 'sonnet should not be Opus 4.7+');
+});
+
+test('isOpus47OrLater returns false for haiku', () => {
+  assert.strictEqual(isOpus47OrLater('haiku'), false, 'haiku should not be Opus 4.7+');
+});
+
+test('isOpus47OrLater returns true for future opus-5', () => {
+  assert.strictEqual(isOpus47OrLater('claude-opus-5'), true, 'opus-5 should be Opus 4.7+');
+});
+
+// ============================================================
+// Section 12: Effort Level for Opus 4.7 (xhigh support)
+// ============================================================
+console.log('\n=== 12. Effort Level Tests for Opus 4.7 ===');
+
+test('OPUS_47_EFFORT_LEVELS includes xhigh', () => {
+  assert(OPUS_47_EFFORT_LEVELS.includes('xhigh'), 'Opus 4.7 effort levels should include xhigh');
+});
+
+test('OPUS_47_EFFORT_LEVELS has correct levels', () => {
+  assert.deepStrictEqual(OPUS_47_EFFORT_LEVELS, ['low', 'medium', 'high', 'xhigh'], 'Opus 4.7 effort levels should be low/medium/high/xhigh');
+});
+
+test('thinkLevelToEffortLevel maps max to xhigh for Opus 4.7', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('max', { isOpus47: true }), 'xhigh', 'max should map to xhigh for Opus 4.7');
+});
+
+test('thinkLevelToEffortLevel maps max to high for Opus 4.6', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('max', { isOpus47: false }), 'high', 'max should map to high for Opus 4.6');
+});
+
+test('thinkLevelToEffortLevel maps max to high without options (backward compat)', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('max'), 'high', 'max should map to high by default');
+});
+
+test('thinkLevelToEffortLevel maps high to high for Opus 4.7', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('high', { isOpus47: true }), 'high', 'high should remain high for Opus 4.7');
+});
+
+test('thinkLevelToEffortLevel maps low to low for Opus 4.7', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('low', { isOpus47: true }), 'low', 'low should remain low for Opus 4.7');
+});
+
+test('thinkLevelToEffortLevel returns undefined for off', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('off', { isOpus47: true }), undefined, 'off should return undefined');
+});
+
+test('thinkingBudgetToEffortLevel maps max budget to xhigh for Opus 4.7', () => {
+  assert.strictEqual(thinkingBudgetToEffortLevel(31999, 31999, { isOpus47: true }), 'xhigh', 'max budget should map to xhigh for Opus 4.7');
+});
+
+test('thinkingBudgetToEffortLevel maps max budget to high for Opus 4.6', () => {
+  assert.strictEqual(thinkingBudgetToEffortLevel(31999, 31999, { isOpus47: false }), 'high', 'max budget should map to high for Opus 4.6');
+});
+
+// ============================================================
+// Section 13: getClaudeEnv for Opus 4.7 (adaptive thinking)
+// ============================================================
+console.log('\n=== 13. getClaudeEnv Tests for Opus 4.7 ===');
+
+test('getClaudeEnv does NOT set MAX_THINKING_TOKENS for Opus 4.7', () => {
+  const env = getClaudeEnv({ model: 'opus', thinkLevel: 'high' });
+  assert.strictEqual(env.MAX_THINKING_TOKENS, undefined, 'MAX_THINKING_TOKENS should not be set for Opus 4.7');
+});
+
+test('getClaudeEnv DOES set MAX_THINKING_TOKENS for Opus 4.6', () => {
+  const env = getClaudeEnv({ model: 'opus-4-6', thinkingBudget: 16000 });
+  assert.strictEqual(env.MAX_THINKING_TOKENS, '16000', 'MAX_THINKING_TOKENS should be set for Opus 4.6');
+});
+
+test('getClaudeEnv DOES set MAX_THINKING_TOKENS for Sonnet', () => {
+  const env = getClaudeEnv({ model: 'sonnet', thinkingBudget: 8000 });
+  assert.strictEqual(env.MAX_THINKING_TOKENS, '8000', 'MAX_THINKING_TOKENS should be set for Sonnet');
+});
+
+test('getClaudeEnv sets CLAUDE_CODE_EFFORT_LEVEL=xhigh for Opus 4.7 with max think', () => {
+  const env = getClaudeEnv({ model: 'opus', thinkLevel: 'max' });
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'xhigh', 'Opus 4.7 with max should get xhigh effort');
+});
+
+test('getClaudeEnv sets CLAUDE_CODE_EFFORT_LEVEL=high for Opus 4.6 with max think', () => {
+  const env = getClaudeEnv({ model: 'opus-4-6', thinkLevel: 'max' });
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'high', 'Opus 4.6 with max should get high effort');
+});
+
+test('getClaudeEnv sets CLAUDE_CODE_EFFORT_LEVEL=high for Opus 4.7 with high think', () => {
+  const env = getClaudeEnv({ model: 'opus', thinkLevel: 'high' });
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'high', 'Opus 4.7 with high should get high effort');
+});
+
+test('getClaudeEnv does not set effort level for Opus 4.7 with off think', () => {
+  const env = getClaudeEnv({ model: 'opus', thinkLevel: 'off' });
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, undefined, 'No effort level when thinking is off');
+});
+
+// ============================================================
+// Section 14: --show-thinking-content Tests
+// ============================================================
+console.log('\n=== 14. --show-thinking-content Tests ===');
+
+test('getClaudeEnv sets CLAUDE_CODE_SHOW_THINKING when showThinkingContent is true', () => {
+  const env = getClaudeEnv({ model: 'opus', showThinkingContent: true });
+  assert.strictEqual(env.CLAUDE_CODE_SHOW_THINKING, '1', 'CLAUDE_CODE_SHOW_THINKING should be 1');
+});
+
+test('getClaudeEnv does not set CLAUDE_CODE_SHOW_THINKING when showThinkingContent is false', () => {
+  const env = getClaudeEnv({ model: 'opus', showThinkingContent: false });
+  assert.strictEqual(env.CLAUDE_CODE_SHOW_THINKING, undefined, 'CLAUDE_CODE_SHOW_THINKING should not be set');
+});
+
+test('getClaudeEnv does not set CLAUDE_CODE_SHOW_THINKING by default', () => {
+  const env = getClaudeEnv({ model: 'opus' });
+  assert.strictEqual(env.CLAUDE_CODE_SHOW_THINKING, undefined, 'CLAUDE_CODE_SHOW_THINKING should not be set by default');
 });
 
 // ============================================================

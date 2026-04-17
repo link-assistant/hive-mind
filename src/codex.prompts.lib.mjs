@@ -265,6 +265,7 @@ GitHub CLI command patterns.
 Playwright MCP usage (browser automation via MCP tools).
    - When you develop frontend web applications or debug UI issues, use Playwright MCP tools to test the UI in a real browser.
    - When simple fetch-based browsing is insufficient for dynamic pages, use Playwright MCP browser automation as a fallback.
+   - When WebSearch tool fails or returns insufficient results, use Playwright MCP browser automation as a fallback for internet search.
    - When reproducing or verifying UI bugs, take before/after screenshots and close the browser when finished.`
        : ''
    }${

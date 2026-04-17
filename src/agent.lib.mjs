@@ -380,6 +380,22 @@ export const handleAgentRuntimeSwitch = async () => {
   await log('ℹ️  Agent runtime handling not required for this operation');
 };
 
+/** Check if Playwright MCP is available for Agent @returns {Promise<boolean>} */
+export const checkPlaywrightMcpAvailability = async () => {
+  try {
+    const result = await $`timeout 5 npx --no-install @playwright/mcp --help 2>&1`.catch(() => null);
+    if (result && result.exitCode === 0) return true;
+    const npmResult = await $`timeout 5 npm ls -g @playwright/mcp 2>&1`.catch(() => null);
+    if (npmResult) {
+      const output = npmResult.stdout?.toString() || '';
+      if (output.includes('@playwright/mcp')) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
+
 // Main function to execute Agent with prompts and settings
 export const executeAgent = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, agentPath = 'agent', $ } = params;
@@ -1143,6 +1159,7 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 export default {
   validateAgentConnection,
   handleAgentRuntimeSwitch,
+  checkPlaywrightMcpAvailability,
   executeAgent,
   executeAgentCommand,
   checkForUncommittedChanges,

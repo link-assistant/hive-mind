@@ -361,7 +361,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'prompt-playwright-mcp': {
     type: 'boolean',
-    description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Supported for --tool claude and --tool codex.',
+    description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Supported for --tool claude, --tool codex, --tool opencode, and --tool agent.',
     default: true,
   },
   'prompt-check-sibling-pull-requests': {

@@ -97,6 +97,22 @@ export const handleOpenCodeRuntimeSwitch = async () => {
   await log('ℹ️  OpenCode runtime handling not required for this operation');
 };
 
+/** Check if Playwright MCP is available for OpenCode @returns {Promise<boolean>} */
+export const checkPlaywrightMcpAvailability = async () => {
+  try {
+    const result = await $`timeout 5 npx --no-install @playwright/mcp --help 2>&1`.catch(() => null);
+    if (result && result.exitCode === 0) return true;
+    const npmResult = await $`timeout 5 npm ls -g @playwright/mcp 2>&1`.catch(() => null);
+    if (npmResult) {
+      const output = npmResult.stdout?.toString() || '';
+      if (output.includes('@playwright/mcp')) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
+
 // Main function to execute OpenCode with prompts and settings
 export const executeOpenCode = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, opencodePath = 'opencode', $ } = params;
@@ -607,6 +623,7 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 export default {
   validateOpenCodeConnection,
   handleOpenCodeRuntimeSwitch,
+  checkPlaywrightMcpAvailability,
   executeOpenCode,
   executeOpenCodeCommand,
   checkForUncommittedChanges,

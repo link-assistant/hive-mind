@@ -182,8 +182,20 @@ export const executeToolIteration = async params => {
   if (argv.tool === 'opencode') {
     // Use OpenCode
     const opencodeExecLib = await import('./opencode.lib.mjs');
-    const { executeOpenCode } = opencodeExecLib;
+    const { executeOpenCode, checkPlaywrightMcpAvailability } = opencodeExecLib;
     const opencodePath = argv.opencodePath || 'opencode';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
 
     toolResult = await executeOpenCode({
       issueUrl,
@@ -249,8 +261,20 @@ export const executeToolIteration = async params => {
   } else if (argv.tool === 'agent') {
     // Use Agent
     const agentExecLib = await import('./agent.lib.mjs');
-    const { executeAgent } = agentExecLib;
+    const { executeAgent, checkPlaywrightMcpAvailability } = agentExecLib;
     const agentPath = argv.agentPath || 'agent';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
 
     toolResult = await executeAgent({
       issueUrl,

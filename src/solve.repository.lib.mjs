@@ -32,6 +32,8 @@ import { safeExit } from './exit-handler.lib.mjs';
 // Import GitHub utilities for permission checks
 const githubLib = await import('./github.lib.mjs');
 const { checkRepositoryWritePermission } = githubLib;
+// Issue #1625: centralized markers + tracked posting.
+const { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } = await import('./tool-comments.lib.mjs');
 
 // Get root repository (fork source or self), or null if inaccessible
 export const getRootRepository = async (owner, repo) => {
@@ -698,7 +700,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
                     const issueNumber = issueMatch[1];
                     await log(`${formatAligned('💬', 'Creating comment:', 'Requesting maintainer to initialize repository...')}`);
 
-                    const commentBody = `## ⚠️ Repository Initialization Required
+                    const commentBody = `## ⚠️ ${REPOSITORY_INITIALIZATION_REQUIRED_MARKER}
 
 Hello! I attempted to work on this issue, but encountered a problem:
 
@@ -717,9 +719,9 @@ Once the repository contains at least one commit with any file, I'll be able to 
 
 Thank you!`;
 
-                    const commentResult = await $`gh issue comment ${issueNumber} --repo ${owner}/${repo} --body ${commentBody}`;
-                    if (commentResult.code === 0) {
-                      await log(`${formatAligned('✅', 'Comment created:', `Posted to issue #${issueNumber}`)}`);
+                    const posted = await postTrackedComment({ $, owner, repo, targetNumber: issueNumber, body: commentBody });
+                    if (posted.ok) {
+                      await log(`${formatAligned('✅', 'Comment created:', `Posted to issue #${issueNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}`)}`);
                     } else {
                       await log(`${formatAligned('⚠️', 'Note:', 'Could not post comment to issue (this is not critical)')}`);
                     }

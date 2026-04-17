@@ -40,6 +40,10 @@ const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails,
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 
+// Issue #1625: Central marker constants + tracked comment posting
+const toolComments = await import('./tool-comments.lib.mjs');
+const { AUTO_RESTART_MARKER, postTrackedComment } = toolComments;
+
 /**
  * Monitor for feedback in a loop and trigger restart when detected
  */
@@ -192,8 +196,9 @@ export const watchForFeedback = async params => {
                 uncommittedFilesList = '\n\n**Uncommitted files:**\n```\n' + changes.join('\n') + '\n```';
               }
 
-              const commentBody = `## 🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*Auto-restart will stop after changes are committed or discarded, or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}. Please wait until working session will end and give your feedback.*`;
-              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+              const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${autoRestartCount}/${maxAutoRestartIterations}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*Auto-restart will stop after changes are committed or discarded, or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}. Please wait until working session will end and give your feedback.*`;
+              // Issue #1625: Track so this doesn't falsely count as AI-authored.
+              await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
               await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
             } catch (commentError) {
               reportError(commentError, {

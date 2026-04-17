@@ -16,6 +16,9 @@ export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 import { buildCostInfoString } from './github-cost-info.lib.mjs';
 export { buildCostInfoString };
+// Issue #1625: Named marker constants (single source of truth) + in-memory
+// tracking for tool-posted comments. See tool-comments.lib.mjs for design.
+import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
 export const maskGitHubToken = maskToken; // Alias for backward compatibility
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
@@ -260,13 +263,16 @@ Could you please enable the **"Allow edits by maintainers"** checkbox? This will
 3. Check the box ✅
 Alternatively, you can enable it when creating/editing the PR. See: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/allowing-changes-to-a-pull-request-branch-created-from-a-fork
 Thank you! 🙏`;
-    const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
-    if (commentResult.code === 0) {
-      await log('✅ Comment posted successfully', { verbose: true });
+    // Issue #1625: track this comment so it's not counted as AI-authored by
+    // --auto-attach-solution-summary. The "Allow edits by maintainers"
+    // phrase embedded above matches MAINTAINER_ACCESS_REQUEST_MARKER as a
+    // fallback if the ID capture fails.
+    const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
+    if (posted.ok) {
+      await log(`✅ Comment posted successfully${posted.commentId ? ` (id=${posted.commentId})` : ''}`, { verbose: true });
       return true;
     } else {
-      const errorOutput = (commentResult.stderr ? commentResult.stderr.toString() : '') + (commentResult.stdout ? commentResult.stdout.toString() : '');
-      await log(`⚠️  Warning: Failed to post comment: ${cleanErrorMessage(errorOutput)}`, { level: 'warning' });
+      await log(`⚠️  Warning: Failed to post comment: ${cleanErrorMessage(posted.stderr || 'unknown error')}`, { level: 'warning' });
       return false;
     }
   } catch (error) {
@@ -295,7 +301,7 @@ export async function attachLogToGitHub(options) {
     sanitizeLogContent,
     verbose = false,
     errorMessage,
-    customTitle = '🤖 Solution Draft Log',
+    customTitle = `🤖 ${SOLUTION_DRAFT_LOG_MARKER}`,
     sessionId = null,
     tempDir = null,
     anthropicTotalCostUSD = null,
@@ -316,7 +322,6 @@ export async function attachLogToGitHub(options) {
   } = options;
   const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
-  const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
   try {
     // Issue #1212: Check disk space before attempting log upload (100MB minimum)
     try {
@@ -411,7 +416,7 @@ export async function attachLogToGitHub(options) {
     // regardless of whether a generic errorMessage is provided.
     if (isUsageLimit) {
       // Usage limit error format - separate from general failures
-      logComment = `## ⏳ Usage Limit Reached
+      logComment = `## ⏳ ${USAGE_LIMIT_REACHED_MARKER}
 
 The automated solution draft was interrupted because the ${toolName} usage limit was reached.
 
@@ -477,7 +482,7 @@ ${logContent}
 ${footerNote}`;
     } else if (errorMessage) {
       // Failure log format (non-usage-limit errors)
-      logComment = `## 🚨 Solution Draft Failed
+      logComment = `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
@@ -493,11 +498,11 @@ ${logContent}
 </details>
 
 ---
-*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
     } else if (errorDuringExecution) {
       // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-      logComment = `## ⚠️ Solution Draft Finished with Errors
+      logComment = `## ⚠️ ${SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 
 > **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
@@ -512,20 +517,23 @@ ${logContent}
 </details>
 
 ---
-*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
     } else {
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
       // Determine title based on session type (Issue #1152)
+      // Issue #1625: Every title variant embeds SOLUTION_DRAFT_LOG_MARKER so
+      // the filter in checkForAiCreatedComments matches every variant with a
+      // single substring check against the centralized marker constant.
       let title = customTitle;
       let sessionNote = '';
       if (sessionType === 'auto-resume') {
-        title = '🔄 Draft log of auto resume (on limit reset)';
+        title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (auto resume on limit reset)`;
         sessionNote = '\n\n**Note**: This session was automatically resumed after a usage limit reset, with the previous context preserved.';
       } else if (sessionType === 'auto-restart') {
-        title = '🔄 Draft log of auto restart (on limit reset)';
+        title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (auto restart on limit reset)`;
         sessionNote = '\n\n**Note**: This session was automatically restarted after a usage limit reset (fresh start).';
       } else if (sessionType === 'resume') {
-        title = '🔄 Solution Draft Log (Resumed)';
+        title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (Resumed)`;
         sessionNote = '\n\n**Note**: This session was manually resumed using the --resume flag.';
       }
       logComment = `## ${title}
@@ -541,11 +549,10 @@ ${logContent}
 </details>
 
 ---
-*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
     }
     // Check GitHub comment size limit or large file mode
     // Issue #1173: Also use gh-upload-log for large files, not just long comments
-    let commentResult;
     if (useLargeFileMode || logComment.length > githubLimits.commentMaxSize) {
       if (useLargeFileMode) {
         await log(`  📁 Log file too large for inline comment (${Math.round(logStats.size / 1024 / 1024)}MB), using gh-upload-log`);
@@ -604,7 +611,7 @@ ${logContent}
           // For usage limit cases, always use the dedicated format regardless of errorMessage
           if (isUsageLimit) {
             // Usage limit error format
-            logUploadComment = `## ⏳ Usage Limit Reached
+            logUploadComment = `## ⏳ ${USAGE_LIMIT_REACHED_MARKER}
 
 The automated solution draft was interrupted because the ${toolName} usage limit was reached.
 
@@ -664,7 +671,7 @@ ${resumeCommand}
 ${uploadFooterNote}`;
           } else if (errorMessage) {
             // Failure log format (non-usage-limit errors)
-            logUploadComment = `## 🚨 Solution Draft Failed
+            logUploadComment = `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
@@ -674,11 +681,11 @@ ${errorMessage}
 - [View complete failure log](${logUrl})
 
 ---
-*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
           } else if (errorDuringExecution) {
             // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-            logUploadComment = `## ⚠️ Solution Draft Finished with Errors
+            logUploadComment = `## ⚠️ ${SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 
 > **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
@@ -687,22 +694,23 @@ This log file contains the complete execution trace of the AI ${targetType === '
 - [View complete solution draft log](${logUrl})
 
 ---
-*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
           } else {
             // Success log format - use helper function for cost info
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
             // Determine title based on session type
             // See: https://github.com/link-assistant/hive-mind/issues/1152
+            // Issue #1625: titles embed SOLUTION_DRAFT_LOG_MARKER (single source).
             let title = customTitle;
             let sessionNote = '';
             if (sessionType === 'auto-resume') {
-              title = '🔄 Draft log of auto resume (on limit reset)';
+              title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (auto resume on limit reset)`;
               sessionNote = '\n**Note**: This session was automatically resumed after a usage limit reset, with the previous context preserved.\n';
             } else if (sessionType === 'auto-restart') {
-              title = '🔄 Draft log of auto restart (on limit reset)';
+              title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (auto restart on limit reset)`;
               sessionNote = '\n**Note**: This session was automatically restarted after a usage limit reset (fresh start).\n';
             } else if (sessionType === 'resume') {
-              title = '🔄 Solution Draft Log (Resumed)';
+              title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (Resumed)`;
               sessionNote = '\n**Note**: This session was manually resumed using the --resume flag.\n';
             }
             logUploadComment = `## ${title}
@@ -712,19 +720,22 @@ ${sessionNote}
 - [View complete solution draft log](${logUrl})
 
 ---
-*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
           }
           const tempCommentFile = `/tmp/log-upload-comment-${targetType}-${Date.now()}.md`;
           await fs.writeFile(tempCommentFile, logUploadComment);
-          commentResult = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempCommentFile}"`;
+          // Issue #1625: post via postTrackedCommentFromFile so the returned
+          // comment ID is registered in-memory and excluded from the
+          // "did the AI post anything?" check.
+          const posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempCommentFile });
           await fs.unlink(tempCommentFile).catch(() => {});
-          if (commentResult.code === 0) {
-            await log(`  ✅ Solution draft log uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}`);
+          if (posted.ok) {
+            await log(`  ✅ Solution draft log uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
             await log(`  🔗 Log URL: ${logUrl}`);
             await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
             return true;
           } else {
-            await log(`  ❌ Failed to post comment with log link: ${commentResult.stderr ? commentResult.stderr.toString().trim() : 'unknown error'}`);
+            await log(`  ❌ Failed to post comment with log link: ${posted.stderr || 'unknown error'}`);
             return false;
           }
         } else {
@@ -774,7 +785,7 @@ async function attachTruncatedLog(options) {
   const maxContentLength = GITHUB_COMMENT_LIMIT - 500;
   const truncatedContent = logContent.substring(0, maxContentLength) + '\n\n[... Log truncated due to length ...]';
 
-  const truncatedComment = `## 🤖 Solution Draft Log (Truncated)
+  const truncatedComment = `## 🤖 ${SOLUTION_DRAFT_LOG_MARKER} (Truncated)
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.
 ⚠️ **Log was truncated** due to GitHub comment size limits.
 
@@ -788,20 +799,23 @@ ${truncatedContent}
 </details>
 
 ---
-*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
   const tempFile = `/tmp/log-truncated-comment-${targetType}-${Date.now()}.md`;
   await fs.writeFile(tempFile, truncatedComment);
 
-  const result = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempFile}"`;
-
+  // Issue #1625: track the posted comment ID so it's excluded from the
+  // AI-authored-comment check in --auto-attach-solution-summary.
+  const posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempFile });
   await fs.unlink(tempFile).catch(() => {});
-
-  if (result.code === 0) {
-    await log(`  ✅ Truncated solution draft log uploaded to ${targetName}`);
+  // ghCommand and targetName are retained in signature for symmetry with
+  // attachLogToGitHub's logging vocabulary.
+  void ghCommand;
+  if (posted.ok) {
+    await log(`  ✅ Truncated solution draft log uploaded to ${targetName}${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
     await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB (truncated)`);
     return true;
   } else {
-    await log(`  ❌ Failed to upload truncated log: ${result.stderr ? result.stderr.toString().trim() : 'unknown error'}`);
+    await log(`  ❌ Failed to upload truncated log: ${posted.stderr || 'unknown error'}`);
     return false;
   }
 }
@@ -814,21 +828,23 @@ async function attachRegularComment(options, logComment) {
 
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
+  void ghCommand;
   const logStats = await fs.stat(logFile);
 
   const tempFile = `/tmp/log-comment-${targetType}-${Date.now()}.md`;
   await fs.writeFile(tempFile, logComment);
 
-  const result = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempFile}"`;
-
+  // Issue #1625: track the posted comment ID so it's excluded from the
+  // AI-authored-comment check in --auto-attach-solution-summary.
+  const posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempFile });
   await fs.unlink(tempFile).catch(() => {});
 
-  if (result.code === 0) {
-    await log(`  ✅ Solution draft log uploaded to ${targetName} as comment`);
+  if (posted.ok) {
+    await log(`  ✅ Solution draft log uploaded to ${targetName} as comment${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
     await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
     return true;
   } else {
-    await log(`  ❌ Failed to upload log to ${targetName}: ${result.stderr ? result.stderr.toString().trim() : 'unknown error'}`);
+    await log(`  ❌ Failed to upload log to ${targetName}: ${posted.stderr || 'unknown error'}`);
     return false;
   }
 }

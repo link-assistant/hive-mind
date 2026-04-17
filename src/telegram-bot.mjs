@@ -651,7 +651,7 @@ bot.command('help', async ctx => {
   message += '🔧 *Common Options:*\n';
   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
-  message += '• `--think <level>` - Thinking level (off/low/medium/high/max) | `--thinking-budget <num>` - Token budget (0-63999)\n';
+  message += '• `--think <level>` - Thinking level (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - Token budget (0-63999)\n';
   message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';
   message += '\n💡 *Tip:* Many more options available. See full documentation for complete list.\n';
 

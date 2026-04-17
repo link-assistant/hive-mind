@@ -6,6 +6,7 @@
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { primaryModelNames } from './models/index.mjs';
+import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 
 /**
  * Build the user prompt for Claude
@@ -13,7 +14,7 @@ import { primaryModelNames } from './models/index.mjs';
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines, claudeVersion } = params;
 
   const promptLines = [];
 
@@ -65,18 +66,9 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
-  // Note: --think keywords are deprecated for Claude Code >= 2.1.12
-  // Thinking is now enabled by default with 31,999 token budget
-  // Use --thinking-budget to control MAX_THINKING_TOKENS instead
-  // Keeping keywords for backward compatibility with older Claude Code versions
-  if (argv && argv.think) {
-    const thinkMessages = {
-      low: 'Think.',
-      medium: 'Think hard.',
-      high: 'Think harder.',
-      max: 'Ultrathink.',
-    };
-    promptLines.push(thinkMessages[argv.think]);
+  const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'claude', argv, claudeVersion });
+  if (thinkingPromptInstruction) {
+    promptLines.push(thinkingPromptInstruction);
   }
 
   // Final instruction

@@ -168,12 +168,12 @@ test('buildModelInfoString shows model in bold when matches requested (single mo
     tool: 'claude',
     modelsUsed: [
       {
-        modelId: 'claude-opus-4-6',
-        modelInfo: { name: 'Claude Opus 4.6', provider: 'Anthropic', knowledge: '2025-05' },
+        modelId: 'claude-opus-4-7',
+        modelInfo: { name: 'Claude Opus 4.7', provider: 'Anthropic', knowledge: '2025-05' },
       },
     ],
   });
-  assert.ok(result.includes('**Model: Claude Opus 4.6**'), `Expected bold model but got: ${result}`);
+  assert.ok(result.includes('**Model: Claude Opus 4.7**'), `Expected bold model but got: ${result}`);
   assert.ok(!result.includes('⚠️'), `Should not have warning when model matches but got: ${result}`);
 });
 
@@ -394,19 +394,20 @@ console.log('\n📋 Issue #1454: Multi-model display Tests\n');
 test('buildModelInfoString shows "Main model" + "Additional models" for opus+haiku (Issue #1454)', () => {
   // This is the exact scenario from Issue #1454: Claude Code used both opus and haiku,
   // but only opus was displayed because session JSONL didn't contain haiku entries
+  // Updated for Issue #1620: opus now maps to claude-opus-4-7
   const result = buildModelInfoString({
     requestedModel: 'opus',
     tool: 'claude',
     modelsUsed: [
-      { modelId: 'claude-opus-4-6', modelInfo: { name: 'Claude Opus 4.6', provider: 'Anthropic' } },
+      { modelId: 'claude-opus-4-7', modelInfo: { name: 'Claude Opus 4.7', provider: 'Anthropic' } },
       { modelId: 'claude-haiku-4-5-20251001', modelInfo: { name: 'Claude Haiku 4.5', provider: 'Anthropic' } },
     ],
   });
   assert.ok(result.includes('### 🤖 **Models used:**'), `Expected header but got: ${result}`);
   assert.ok(result.includes('Tool: Anthropic Claude Code'), `Expected tool name but got: ${result}`);
   assert.ok(result.includes('Requested: `opus`'), `Expected requested model but got: ${result}`);
-  assert.ok(result.includes('**Main model: Claude Opus 4.6**'), `Expected "Main model" label but got: ${result}`);
-  assert.ok(result.includes('(`claude-opus-4-6`)'), `Expected opus ID but got: ${result}`);
+  assert.ok(result.includes('**Main model: Claude Opus 4.7**'), `Expected "Main model" label but got: ${result}`);
+  assert.ok(result.includes('(`claude-opus-4-7`)'), `Expected opus ID but got: ${result}`);
   assert.ok(result.includes('**Additional models:**'), `Expected "Additional models:" but got: ${result}`);
   assert.ok(result.includes('**Claude Haiku 4.5**'), `Expected haiku in additional models but got: ${result}`);
   assert.ok(result.includes('(`claude-haiku-4-5-20251001`)'), `Expected haiku ID but got: ${result}`);
@@ -414,12 +415,13 @@ test('buildModelInfoString shows "Main model" + "Additional models" for opus+hai
 
 test('buildModelInfoString shows "Model" (not "Main model") for single model (Issue #1454)', () => {
   // When only one model is used, the label should be "Model" not "Main model"
+  // Updated for Issue #1620: opus now maps to claude-opus-4-7
   const result = buildModelInfoString({
     requestedModel: 'opus',
     tool: 'claude',
-    modelsUsed: [{ modelId: 'claude-opus-4-6', modelInfo: { name: 'Claude Opus 4.6', provider: 'Anthropic' } }],
+    modelsUsed: [{ modelId: 'claude-opus-4-7', modelInfo: { name: 'Claude Opus 4.7', provider: 'Anthropic' } }],
   });
-  assert.ok(result.includes('**Model: Claude Opus 4.6**'), `Expected "Model" label but got: ${result}`);
+  assert.ok(result.includes('**Model: Claude Opus 4.7**'), `Expected "Model" label but got: ${result}`);
   assert.ok(!result.includes('Main model'), `Should NOT have "Main model" for single model but got: ${result}`);
   assert.ok(!result.includes('Additional models'), `Should NOT have "Additional models" for single model but got: ${result}`);
 });
@@ -429,12 +431,12 @@ test('buildModelInfoString handles three models correctly (Issue #1454)', () => 
     requestedModel: 'opus',
     tool: 'claude',
     modelsUsed: [
-      { modelId: 'claude-opus-4-6', modelInfo: { name: 'Claude Opus 4.6', provider: 'Anthropic' } },
+      { modelId: 'claude-opus-4-7', modelInfo: { name: 'Claude Opus 4.7', provider: 'Anthropic' } },
       { modelId: 'claude-haiku-4-5-20251001', modelInfo: { name: 'Claude Haiku 4.5', provider: 'Anthropic' } },
       { modelId: 'claude-sonnet-4-6', modelInfo: { name: 'Claude Sonnet 4.6', provider: 'Anthropic' } },
     ],
   });
-  assert.ok(result.includes('**Main model: Claude Opus 4.6**'), `Expected main model but got: ${result}`);
+  assert.ok(result.includes('**Main model: Claude Opus 4.7**'), `Expected main model but got: ${result}`);
   assert.ok(result.includes('**Additional models:**'), `Expected additional models section but got: ${result}`);
   assert.ok(result.includes('**Claude Haiku 4.5**'), `Expected haiku but got: ${result}`);
   assert.ok(result.includes('**Claude Sonnet 4.6**'), `Expected sonnet but got: ${result}`);

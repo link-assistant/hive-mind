@@ -173,7 +173,7 @@ runTest('renders Agent CLI budget stats with context window', () => {
   const budgetData = buildAgentBudgetStats(tokenUsage, pricingInfo);
   const result = buildBudgetStatsString(budgetData);
   assertContains(result, '📊 **Context and tokens usage:**', 'Should have header');
-  assertContains(result, 'Context window:', 'Should show context window');
+  assertNotContains(result, 'Context window:', 'Should NOT show "Context window:" prefix (removed in #1600)');
   assertContains(result, '14K / 204.8K (7%) input tokens', 'Should show peak context vs limit');
   assertContains(result, '1K / 32K (3%) output tokens', 'Should show output vs limit');
   assertContains(result, 'Total:', 'Should show Total line');

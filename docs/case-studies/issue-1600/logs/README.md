@@ -1,6 +1,6 @@
 # Logs Archive
 
-Raw logs for issue #1600 were downloaded locally into this directory and used for verification. They are not tracked in git because the six files total about 54 MB and are mostly verbose session output.
+Raw logs for issue #1600 are committed to this directory so calculation logic can be verified against them.
 
 ## Sources
 

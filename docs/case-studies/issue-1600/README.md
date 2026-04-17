@@ -132,7 +132,7 @@ Token usage: 44,823 input, 3,031 output, 388,480 cache read
 
 ## Downloaded Raw Logs
 
-The referenced log artifacts were downloaded locally under `docs/case-studies/issue-1600/logs/` for offline verification. The raw files are ignored because they total about 54 MB; the source manifest is tracked in `logs/README.md`.
+The referenced log artifacts are committed under `docs/case-studies/issue-1600/logs/` for offline verification and fixture-backed regression tests. The source manifest is tracked in `logs/README.md`.
 
 - `doublets-rs-pr-48-claude-code.log` - 14,321,843 bytes
 - `web-capture-pr-55-claude-code.log` - 1,941,786 bytes
@@ -147,7 +147,7 @@ The referenced log artifacts were downloaded locally under `docs/case-studies/is
 
 - **Package**: [decimal.js-light](https://www.npmjs.com/package/decimal.js-light) (lightweight version of decimal.js)
 - **Purpose**: Arbitrary-precision decimal arithmetic to avoid IEEE 754 floating-point rounding
-- **Usage**: All cost calculations (`calculateModelCost`, `calculateAgentPricing`, `buildCostInfoString`, `displayCostComparison`, `buildBudgetStatsString`)
+- **Usage**: All cost calculations (`calculateModelCost`, `calculateAgentPricing`, `parseAgentTokenUsage`, `buildCostInfoString`, `displayCostComparison`, `buildBudgetStatsString`)
 
 ### Files Modified
 
@@ -155,14 +155,17 @@ The referenced log artifacts were downloaded locally under `docs/case-studies/is
 - `src/claude.lib.mjs` - Core cost calculation with Decimal
 - `src/github-cost-info.lib.mjs` - Shared PR comment cost string builder
 - `src/github.lib.mjs` - Uses the shared cost string builder
-- `src/codex.lib.mjs` - Codex token field availability tracking
+- `src/codex.lib.mjs` - Codex token field availability tracking, including optional nested reasoning/cache fields
+- `src/agent-token-usage.lib.mjs` - Shared Agent/OpenCode `step_finish` token parsing and Decimal cost accumulation
 - `src/agent.lib.mjs` - Agent pricing calculation and token field availability tracking
+- `src/opencode.lib.mjs` - OpenCode streaming token/pricing extraction via the shared Agent/OpenCode parser
 - `tests/test-build-cost-info-string.mjs` - Production cost string formatter tests
 - `tests/test-codex-support.mjs` - Codex parser token field availability tests
 - `tests/test-agent-budget-stats-1526.mjs` - Agent parser zero cache write availability tests
 - `tests/test-agent-token-usage.mjs` - Uses production parser and cost formatter in display pipeline tests
 - `tests/test-issue-1600-comprehensive.mjs` - Comprehensive format and cost precision tests
 - `tests/test-issue-1600-budget-stats.mjs` - New test file
+- `tests/test-issue-1600-log-fixtures.mjs` - Regression tests backed by committed Claude, Codex, and Agent/OpenCode-style logs
 - `package.json` - Added decimal.js-light dependency
 
 ## Expected Output After Fix

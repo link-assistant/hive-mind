@@ -11,7 +11,7 @@
  * - Issue #1250 fix: streaming accumulation handles concatenated JSON
  */
 
-import { parseAgentTokenUsage } from '../src/agent.lib.mjs';
+import { parseAgentTokenUsage, createAgentTokenUsage, accumulateAgentStepFinishUsage } from '../src/agent.lib.mjs';
 import { buildCostInfoString } from '../src/github-cost-info.lib.mjs';
 
 // Test framework
@@ -168,32 +168,8 @@ runTest('Issue #1250: properly newline-delimited JSON parses correctly', () => {
 runTest('Issue #1250: simulates streaming accumulation (the fix)', () => {
   // This simulates the fix: accumulating tokens during streaming
   // instead of re-parsing the full output afterward
-  const streamingTokenUsage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalCost: 0,
-    stepCount: 0,
-  };
-
-  const accumulateTokenUsage = data => {
-    if (data.type === 'step_finish' && data.part?.tokens) {
-      const tokens = data.part.tokens;
-      streamingTokenUsage.stepCount++;
-      if (tokens.input) streamingTokenUsage.inputTokens += tokens.input;
-      if (tokens.output) streamingTokenUsage.outputTokens += tokens.output;
-      if (tokens.reasoning) streamingTokenUsage.reasoningTokens += tokens.reasoning;
-      if (tokens.cache) {
-        if (tokens.cache.read) streamingTokenUsage.cacheReadTokens += tokens.cache.read;
-        if (tokens.cache.write) streamingTokenUsage.cacheWriteTokens += tokens.cache.write;
-      }
-      if (data.part.cost !== undefined) {
-        streamingTokenUsage.totalCost += data.part.cost;
-      }
-    }
-  };
+  const streamingTokenUsage = createAgentTokenUsage();
+  const accumulateTokenUsage = data => accumulateAgentStepFinishUsage(streamingTokenUsage, data);
 
   // Simulate parsing and accumulating during streaming
   const events = [
@@ -223,6 +199,15 @@ runTest('sums cost from multiple steps', () => {
   const result = parseAgentTokenUsage(output);
 
   assertEqual(result.totalCost, 0.003, 'Should sum costs');
+});
+
+runTest('sums decimal costs without binary floating-point drift', () => {
+  const output = `{"type":"step_finish","part":{"type":"step-finish","cost":0.1,"tokens":{"input":100,"output":50}}}
+{"type":"step_finish","part":{"type":"step-finish","cost":0.2,"tokens":{"input":200,"output":100}}}
+`;
+  const result = parseAgentTokenUsage(output);
+
+  assertEqual(result.totalCost, 0.3, 'Should sum 0.1 + 0.2 exactly at display precision');
 });
 
 runTest('handles zero cost (free models)', () => {
@@ -270,32 +255,8 @@ runTest('Issue #1313: parses exact token values from the bug report log', () => 
 
 runTest('Issue #1313: streaming accumulation correctly sums tokens like in the bug report', () => {
   // Simulates the streaming accumulation fix that should prevent Issue #1313 regression
-  const streamingTokenUsage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalCost: 0,
-    stepCount: 0,
-  };
-
-  const accumulateTokenUsage = data => {
-    if (data.type === 'step_finish' && data.part?.tokens) {
-      const tokens = data.part.tokens;
-      streamingTokenUsage.stepCount++;
-      if (tokens.input) streamingTokenUsage.inputTokens += tokens.input;
-      if (tokens.output) streamingTokenUsage.outputTokens += tokens.output;
-      if (tokens.reasoning) streamingTokenUsage.reasoningTokens += tokens.reasoning;
-      if (tokens.cache) {
-        if (tokens.cache.read) streamingTokenUsage.cacheReadTokens += tokens.cache.read;
-        if (tokens.cache.write) streamingTokenUsage.cacheWriteTokens += tokens.cache.write;
-      }
-      if (data.part.cost !== undefined) {
-        streamingTokenUsage.totalCost += data.part.cost;
-      }
-    }
-  };
+  const streamingTokenUsage = createAgentTokenUsage();
+  const accumulateTokenUsage = data => accumulateAgentStepFinishUsage(streamingTokenUsage, data);
 
   // Use the exact token data from Issue #1313 bug report
   const event1313 = {
@@ -328,32 +289,8 @@ console.log('\n📋 Test Group: accumulateTokenUsage - Streaming accumulation fu
 
 // Create a fresh accumulator for these tests
 const createAccumulator = () => {
-  const usage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalCost: 0,
-    stepCount: 0,
-  };
-
-  const accumulate = data => {
-    if (data.type === 'step_finish' && data.part?.tokens) {
-      const tokens = data.part.tokens;
-      usage.stepCount++;
-      if (tokens.input) usage.inputTokens += tokens.input;
-      if (tokens.output) usage.outputTokens += tokens.output;
-      if (tokens.reasoning) usage.reasoningTokens += tokens.reasoning;
-      if (tokens.cache) {
-        if (tokens.cache.read) usage.cacheReadTokens += tokens.cache.read;
-        if (tokens.cache.write) usage.cacheWriteTokens += tokens.cache.write;
-      }
-      if (data.part.cost !== undefined) {
-        usage.totalCost += data.part.cost;
-      }
-    }
-  };
+  const usage = createAgentTokenUsage();
+  const accumulate = data => accumulateAgentStepFinishUsage(usage, data);
 
   return { usage, accumulate };
 };

@@ -20,109 +20,14 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
+import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
+
+export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
 
 // Import pricing functions from claude.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
 const claudeLib = await import('./claude.lib.mjs');
 const { fetchModelInfo, checkModelVisionCapability } = claudeLib;
-
-const createTokenFieldAvailability = () => ({
-  inputTokens: false,
-  outputTokens: false,
-  reasoningTokens: false,
-  cacheReadTokens: false,
-  cacheWriteTokens: false,
-});
-
-const addObservedTokenValue = (usage, source, sourceFieldName, targetFieldName) => {
-  if (!source || !Object.hasOwn(source, sourceFieldName)) return;
-  usage.tokenFieldAvailability[targetFieldName] = true;
-  const value = source[sourceFieldName];
-  if (Number.isFinite(value)) usage[targetFieldName] += value;
-};
-
-const getTokenCount = value => (Number.isFinite(value) ? value : 0);
-
-/**
- * Parse agent JSON output to extract token usage from step_finish events
- * Agent outputs NDJSON (newline-delimited JSON) with step_finish events containing token data
- * @param {string} output - Raw stdout output from agent command
- * @returns {Object} Aggregated token usage and cost data
- */
-export const parseAgentTokenUsage = output => {
-  const usage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalCost: 0,
-    stepCount: 0,
-    // Issue #1526: Track model and context info from step_finish events
-    requestedModelId: null,
-    respondedModelId: null,
-    contextLimit: null,
-    outputLimit: null,
-    peakContextUsage: 0, // Track peak context usage across steps
-    tokenFieldAvailability: createTokenFieldAvailability(),
-  };
-
-  // Try to parse each line as JSON (agent outputs NDJSON format)
-  const lines = output.split('\n');
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine || !trimmedLine.startsWith('{')) continue;
-
-    try {
-      const parsed = sanitizeObjectStrings(JSON.parse(trimmedLine));
-
-      // Look for step_finish events which contain token usage
-      if (parsed.type === 'step_finish' && parsed.part?.tokens) {
-        const tokens = parsed.part.tokens;
-        usage.stepCount++;
-
-        // Add token counts
-        addObservedTokenValue(usage, tokens, 'input', 'inputTokens');
-        addObservedTokenValue(usage, tokens, 'output', 'outputTokens');
-        addObservedTokenValue(usage, tokens, 'reasoning', 'reasoningTokens');
-
-        // Handle cache tokens (can be in different formats)
-        if (tokens.cache) {
-          addObservedTokenValue(usage, tokens.cache, 'read', 'cacheReadTokens');
-          addObservedTokenValue(usage, tokens.cache, 'write', 'cacheWriteTokens');
-        }
-
-        // Add cost from step_finish (usually 0 for free models like grok-code)
-        if (parsed.part.cost !== undefined) {
-          usage.totalCost += parsed.part.cost;
-        }
-
-        // Issue #1526: Extract model info from step_finish events
-        if (parsed.part.model) {
-          if (parsed.part.model.requestedModelID) usage.requestedModelId = parsed.part.model.requestedModelID;
-          if (parsed.part.model.respondedModelID) usage.respondedModelId = parsed.part.model.respondedModelID;
-        }
-
-        // Issue #1526: Extract context limits and track peak context usage
-        if (parsed.part.context) {
-          if (parsed.part.context.contextLimit) usage.contextLimit = parsed.part.context.contextLimit;
-          if (parsed.part.context.outputLimit) usage.outputLimit = parsed.part.context.outputLimit;
-          // Track peak context usage: input_tokens (current request) is the context usage for this step
-          // The actual context used per request = input tokens + cache_read tokens for that request
-          const stepContextUsage = getTokenCount(tokens.input) + getTokenCount(tokens.cache?.read);
-          if (stepContextUsage > usage.peakContextUsage) {
-            usage.peakContextUsage = stepContextUsage;
-          }
-        }
-      }
-    } catch {
-      // Skip lines that aren't valid JSON
-      continue;
-    }
-  }
-
-  return usage;
-};
 
 /**
  * Helper function to get original provider name from provider identifier
@@ -611,53 +516,8 @@ export const executeAgentCommand = async params => {
       let agentCompletedSuccessfully = false;
       // Issue #1250: Accumulate token usage during streaming instead of parsing fullOutput later
       // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
-      const streamingTokenUsage = {
-        inputTokens: 0,
-        outputTokens: 0,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalCost: 0,
-        stepCount: 0,
-        // Issue #1526: Track model and context info from step_finish events
-        requestedModelId: null,
-        respondedModelId: null,
-        contextLimit: null,
-        outputLimit: null,
-        peakContextUsage: 0,
-        tokenFieldAvailability: createTokenFieldAvailability(),
-      };
-      // Helper to accumulate tokens from step_finish events during streaming
-      const accumulateTokenUsage = data => {
-        if (data.type === 'step_finish' && data.part?.tokens) {
-          const tokens = data.part.tokens;
-          streamingTokenUsage.stepCount++;
-          addObservedTokenValue(streamingTokenUsage, tokens, 'input', 'inputTokens');
-          addObservedTokenValue(streamingTokenUsage, tokens, 'output', 'outputTokens');
-          addObservedTokenValue(streamingTokenUsage, tokens, 'reasoning', 'reasoningTokens');
-          if (tokens.cache) {
-            addObservedTokenValue(streamingTokenUsage, tokens.cache, 'read', 'cacheReadTokens');
-            addObservedTokenValue(streamingTokenUsage, tokens.cache, 'write', 'cacheWriteTokens');
-          }
-          if (data.part.cost !== undefined) {
-            streamingTokenUsage.totalCost += data.part.cost;
-          }
-          // Issue #1526: Extract model info from step_finish events
-          if (data.part.model) {
-            if (data.part.model.requestedModelID) streamingTokenUsage.requestedModelId = data.part.model.requestedModelID;
-            if (data.part.model.respondedModelID) streamingTokenUsage.respondedModelId = data.part.model.respondedModelID;
-          }
-          // Issue #1526: Extract context limits and track peak context usage
-          if (data.part.context) {
-            if (data.part.context.contextLimit) streamingTokenUsage.contextLimit = data.part.context.contextLimit;
-            if (data.part.context.outputLimit) streamingTokenUsage.outputLimit = data.part.context.outputLimit;
-            const stepContextUsage = getTokenCount(tokens.input) + getTokenCount(tokens.cache?.read);
-            if (stepContextUsage > streamingTokenUsage.peakContextUsage) {
-              streamingTokenUsage.peakContextUsage = stepContextUsage;
-            }
-          }
-        }
-      };
+      const streamingTokenUsage = createAgentTokenUsage();
+      const accumulateTokenUsage = data => accumulateAgentStepFinishUsage(streamingTokenUsage, data);
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {

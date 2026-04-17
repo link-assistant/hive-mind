@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 const { defaultModels, primaryModelNames, resolveModelId } = await import('../src/models/index.mjs');
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
 const { parseCodexExecJsonOutput, buildCodexResultModelUsage } = await import('../src/codex.lib.mjs');
+const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
 
 let passed = 0;
 let failed = 0;
@@ -89,6 +90,28 @@ test('Codex exec JSON parser does not mark cache write as available when CLI doe
   assert.deepEqual(parsed.observedUsageFieldSets, [['input_tokens', 'cached_input_tokens', 'output_tokens']]);
   assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheReadTokens, true);
   assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheWriteTokens, false);
+});
+
+test('Codex exec JSON parser captures optional nested cache write and reasoning fields when emitted', () => {
+  const jsonl = '{"type":"turn.completed","usage":{"input_tokens":1200,"cached_input_tokens":200,"cache_write_tokens":0,"output_tokens":50,"output_tokens_details":{"reasoning_tokens":10}}}';
+  const parsed = parseCodexExecJsonOutput(jsonl, {}, 'gpt-5.4');
+
+  assert.equal(parsed.tokenUsage.inputTokens, 1000);
+  assert.equal(parsed.tokenUsage.cacheReadTokens, 200);
+  assert.equal(parsed.tokenUsage.cacheWriteTokens, 0);
+  assert.equal(parsed.tokenUsage.outputTokens, 50);
+  assert.equal(parsed.tokenUsage.reasoningTokens, 10);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheWriteTokens, true);
+  assert.equal(parsed.tokenUsage.tokenFieldAvailability.reasoningTokens, true);
+  assert.deepEqual(parsed.observedUsageFieldSets, [['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'output_tokens_details.reasoning_tokens']]);
+
+  const costInfo = buildCostInfoString(null, null, {
+    modelName: 'gpt-5.4',
+    provider: 'OpenAI',
+    tokenUsage: parsed.tokenUsage,
+  });
+  assert.match(costInfo, /10 reasoning/);
+  assert.match(costInfo, /0 cache write/);
 });
 
 test('Codex exec JSON parser captures remaining supported item payloads', () => {

@@ -14,16 +14,18 @@ import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: htt
 import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
 export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
+import Decimal from 'decimal.js-light';
 
-/** Build cost estimation string for log comments (Issue #1250, Issue #1557) */
+/** Build cost estimation string for log comments (Issue #1250, Issue #1557, Issue #1600: Decimal precision) */
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
   const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
   const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
-  // Issue #1557: Simplified display when public and Anthropic costs match
-  if (hasPublic && hasAnthropic && totalCostUSD.toFixed(6) === anthropicTotalCostUSD.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicTotalCostUSD.toFixed(6)}**`;
+  const publicDec = hasPublic ? new Decimal(totalCostUSD) : null;
+  const anthropicDec = hasAnthropic ? new Decimal(anthropicTotalCostUSD) : null;
+  if (publicDec && anthropicDec && publicDec.toFixed(6) === anthropicDec.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicDec.toFixed(6)}**`;
   let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
@@ -39,7 +41,7 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
       } else if (pricingInfo?.originalProvider) {
         pricingRef = ` (based on ${pricingInfo.originalProvider} prices)`;
       }
-      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${pricingRef}`;
+      costInfo += `\n- Public pricing estimate: $${publicDec.toFixed(6)}${pricingRef}`;
     }
   } else if (hasPricing) {
     costInfo += '\n- Public pricing estimate: unknown';
@@ -48,7 +50,7 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     if (pricingInfo.isOpencodeFreeModel) {
       costInfo += '\n- Calculated by OpenCode Zen: $0.00 (Free model)';
     } else {
-      costInfo += `\n- Calculated by OpenCode Zen: $${pricingInfo.opencodeCost.toFixed(6)}`;
+      costInfo += `\n- Calculated by OpenCode Zen: $${new Decimal(pricingInfo.opencodeCost).toFixed(6)}`;
     }
   }
   if (pricingInfo?.tokenUsage) {
@@ -59,11 +61,11 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     costInfo += tokenInfo;
   }
   if (hasAnthropic) {
-    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)}`;
+    costInfo += `\n- Calculated by Anthropic: $${anthropicDec.toFixed(6)}`;
     if (hasPublic) {
-      const diff = anthropicTotalCostUSD - totalCostUSD;
-      const pct = totalCostUSD > 0 ? (diff / totalCostUSD) * 100 : 0;
-      costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct > 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+      const diff = anthropicDec.minus(publicDec);
+      const pct = publicDec.gt(0) ? diff.div(publicDec).mul(100) : new Decimal(0);
+      costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct.gt(0) ? '+' : ''}${pct.toFixed(2)}%)`;
     }
   }
   return costInfo;

@@ -14,51 +14,44 @@
  * - Handles free model special case
  */
 
+import Decimal from 'decimal.js-light';
+
 // Copy of the buildCostInfoString function from src/github.lib.mjs for testing
-// This allows us to test the function in isolation without requiring the full module dependencies
-// Issue #1250: Enhanced to support OpenCode Zen cost, original provider reference, and base model pricing
-// Issue #1557: Simplified display when costs match, removed USD suffix
+// Issue #1600: Updated to use Decimal for precision
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
-  // Issue #1015: Don't show cost section when all values are unknown (clutters output)
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
   const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
   const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
-  // Issue #1250: Check for OpenCode Zen actual cost
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
-  // Issue #1557: Simplified display when public and Anthropic costs match
-  if (hasPublic && hasAnthropic && totalCostUSD.toFixed(6) === anthropicTotalCostUSD.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicTotalCostUSD.toFixed(6)}**`;
+  const publicDec = hasPublic ? new Decimal(totalCostUSD) : null;
+  const anthropicDec = hasAnthropic ? new Decimal(anthropicTotalCostUSD) : null;
+  if (publicDec && anthropicDec && publicDec.toFixed(6) === anthropicDec.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicDec.toFixed(6)}**`;
   let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
   }
-  // Issue #1250: Show public pricing estimate based on original provider prices
   if (hasPublic) {
-    // Issue #1250: For free models accessed via OpenCode Zen, show pricing based on base model
-    // Only show as completely free if the base model also has no pricing
     if (pricingInfo?.isFreeModel && totalCostUSD === 0 && !pricingInfo?.baseModelName) {
       costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
     } else {
-      // Show actual public pricing estimate with original provider reference
-      // Issue #1250: Include base model reference when pricing comes from base model
       let pricingRef = '';
       if (pricingInfo?.baseModelName && pricingInfo?.originalProvider) {
         pricingRef = ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)`;
       } else if (pricingInfo?.originalProvider) {
         pricingRef = ` (based on ${pricingInfo.originalProvider} prices)`;
       }
-      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${pricingRef}`;
+      costInfo += `\n- Public pricing estimate: $${publicDec.toFixed(6)}${pricingRef}`;
     }
   } else if (hasPricing) {
     costInfo += '\n- Public pricing estimate: unknown';
   }
-  // Issue #1250: Show actual cost from OpenCode Zen for agent tool
   if (hasOpencodeCost) {
     if (pricingInfo.isOpencodeFreeModel) {
       costInfo += '\n- Calculated by OpenCode Zen: $0.00 (Free model)';
     } else {
-      costInfo += `\n- Calculated by OpenCode Zen: $${pricingInfo.opencodeCost.toFixed(6)}`;
+      costInfo += `\n- Calculated by OpenCode Zen: $${new Decimal(pricingInfo.opencodeCost).toFixed(6)}`;
     }
   }
   if (pricingInfo?.tokenUsage) {
@@ -69,11 +62,11 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     costInfo += tokenInfo;
   }
   if (hasAnthropic) {
-    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)}`;
+    costInfo += `\n- Calculated by Anthropic: $${anthropicDec.toFixed(6)}`;
     if (hasPublic) {
-      const diff = anthropicTotalCostUSD - totalCostUSD;
-      const pct = totalCostUSD > 0 ? (diff / totalCostUSD) * 100 : 0;
-      costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct > 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+      const diff = anthropicDec.minus(publicDec);
+      const pct = publicDec.gt(0) ? diff.div(publicDec).mul(100) : new Decimal(0);
+      costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct.gt(0) ? '+' : ''}${pct.toFixed(2)}%)`;
     }
   }
   return costInfo;

@@ -18,6 +18,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import Decimal from 'decimal.js-light';
 import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
 
 // Import pricing functions from claude.lib.mjs
@@ -221,13 +222,29 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
       // Calculate public pricing estimate based on original provider prices
       // Prices are per 1M tokens, so divide by 1,000,000
       // All priced components from models.dev: input, output, cache_read, cache_write, reasoning
-      const inputCost = (tokenUsage.inputTokens * (cost.input || 0)) / 1_000_000;
-      const outputCost = (tokenUsage.outputTokens * (cost.output || 0)) / 1_000_000;
-      const cacheReadCost = (tokenUsage.cacheReadTokens * (cost.cache_read || 0)) / 1_000_000;
-      const cacheWriteCost = (tokenUsage.cacheWriteTokens * (cost.cache_write || 0)) / 1_000_000;
-      const reasoningCost = (tokenUsage.reasoningTokens * (cost.reasoning || 0)) / 1_000_000;
+      const million = new Decimal(1_000_000);
+      const inputCost = new Decimal(tokenUsage.inputTokens)
+        .mul(cost.input || 0)
+        .div(million)
+        .toNumber();
+      const outputCost = new Decimal(tokenUsage.outputTokens)
+        .mul(cost.output || 0)
+        .div(million)
+        .toNumber();
+      const cacheReadCost = new Decimal(tokenUsage.cacheReadTokens)
+        .mul(cost.cache_read || 0)
+        .div(million)
+        .toNumber();
+      const cacheWriteCost = new Decimal(tokenUsage.cacheWriteTokens)
+        .mul(cost.cache_write || 0)
+        .div(million)
+        .toNumber();
+      const reasoningCost = new Decimal(tokenUsage.reasoningTokens)
+        .mul(cost.reasoning || 0)
+        .div(million)
+        .toNumber();
 
-      const totalCost = inputCost + outputCost + cacheReadCost + cacheWriteCost + reasoningCost;
+      const totalCost = new Decimal(inputCost).plus(outputCost).plus(cacheReadCost).plus(cacheWriteCost).plus(reasoningCost).toNumber();
 
       // Determine if this is a free model from OpenCode Zen or Kilo Gateway
       // Models accessed via OpenCode Zen or Kilo Gateway are free, regardless of original provider pricing

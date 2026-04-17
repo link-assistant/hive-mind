@@ -19,7 +19,7 @@ import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
-import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
+import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 
 // Import pricing functions from claude.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
@@ -503,8 +503,16 @@ export const executeAgentCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
-    // Log Playwright MCP session state
+    // Issue #1521: Build environment for agent process.
+    // Pass LINK_ASSISTANT_AGENT_VERBOSE env var when --verbose is enabled so verbose logging is initialized at module load time.
+    const agentEnv = { ...process.env };
+    if (argv.verbose) {
+      agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
+    }
+
+    // Apply Playwright MCP session state before launching Agent.
     if (argv.playwrightMcp === false) {
+      Object.assign(agentEnv, await getAgentPlaywrightMcpDisableEnv({ env: agentEnv, cwd: tempDir, log }));
       await log('🎭 Playwright MCP physically disabled for this Agent session via --no-playwright-mcp', { verbose: true });
     }
 
@@ -541,17 +549,6 @@ export const executeAgentCommand = async params => {
     try {
       // Pipe the prompt file to agent via stdin
       // Use agentArgs which includes --model and optionally --verbose
-
-      // Issue #1521: Build environment for agent process
-      // Pass LINK_ASSISTANT_AGENT_VERBOSE env var when --verbose is enabled
-      // This ensures Flag.LINK_ASSISTANT_AGENT_VERBOSE is true at module load time inside the agent,
-      // which is required for HTTP request/response logging to work.
-      // The --verbose CLI flag alone is not sufficient because the agent's Flag module
-      // reads the env var at initialization, before yargs middleware calls Flag.setVerbose().
-      const agentEnv = { ...process.env };
-      if (argv.verbose) {
-        agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
-      }
 
       execCommand = $({
         cwd: tempDir,

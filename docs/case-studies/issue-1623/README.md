@@ -36,6 +36,8 @@ The WebSearch fallback was not included in any tool because the original focus w
 - The OpenAI developers documentation confirms Codex MCP servers are shared between the CLI and IDE extension and can be verified with `codex mcp list`: https://developers.openai.com/learn/docs-mcp.
 - Local Codex CLI help confirmed that per-invocation config overrides are supported with `-c key=value`, and local verification confirmed `codex mcp list -c mcp_servers.playwright.enabled=false` marks the server disabled without editing `~/.codex/config.toml`.
 - Claude Code help confirms `--mcp-config` and `--strict-mcp-config` are available for session-specific MCP configuration.
+- OpenCode documentation confirms config files are merged, `OPENCODE_CONFIG_CONTENT` is a runtime override, MCP servers are configured under `mcp`, MCP servers support `enabled: false`, and MCP tools can be disabled with `tools` glob patterns: https://opencode.ai/docs/config/ and https://opencode.ai/docs/mcp-servers.
+- Local Agent CLI source confirms compatible MCP config under `mcp`, disabled MCP server handling with `enabled: false`, and `LINK_ASSISTANT_AGENT_CONFIG_CONTENT` support for runtime config injection.
 
 ### Changes Made
 
@@ -63,7 +65,8 @@ The WebSearch fallback was not included in any tool because the original focus w
 
 - **Claude**: `--no-playwright-mcp` builds a temporary MCP config without Playwright and launches Claude with `--strict-mcp-config --mcp-config <temp-file>`.
 - **Codex**: `--no-playwright-mcp` passes `-c mcp_servers.<playwright-name>.enabled=false` to the current `codex exec` command. This disables Playwright only for that invocation and does not run `codex mcp remove`.
-- **OpenCode / Agent**: These paths do not directly attach MCP servers in this codebase, so `--no-playwright-mcp` cascades to `--no-prompt-playwright-mcp`.
+- **OpenCode**: `--no-playwright-mcp` injects session-scoped `OPENCODE_CONFIG_CONTENT` that marks detected Playwright MCP servers as `enabled: false` and disables matching MCP tool globs. This does not edit global OpenCode config.
+- **Agent**: `--no-playwright-mcp` injects session-scoped `LINK_ASSISTANT_AGENT_CONFIG_CONTENT` with the same disabled MCP server and tool-glob overrides. Compatibility `OPENCODE_CONFIG_CONTENT` is also set for Agent's OpenCode-compatible paths.
 - **All tools**: `--no-playwright-mcp` also disables Playwright MCP artifact cleanup because no Playwright MCP artifacts should be created by that session.
 
 ## Testing

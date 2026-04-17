@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { cascadePlaywrightMcpDisable, getCommandResultCode, isCommandResultSuccess, parseCodexMcpServerNames } from '../src/playwright-mcp.lib.mjs';
+import { buildPlaywrightMcpDisableConfig, cascadePlaywrightMcpDisable, collectPlaywrightMcpServerNames, getAgentPlaywrightMcpDisableEnv, getCommandResultCode, getOpenCodePlaywrightMcpDisableEnv, isCommandResultSuccess, mergePlaywrightMcpDisableConfigContent, parseCodexMcpServerNames } from '../src/playwright-mcp.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -197,15 +197,100 @@ github           docker   run        -    -    enabled   Unsupported`;
     assert.deepEqual(parseCodexMcpServerNames(output), ['playwright', 'playwright_alt', 'github']);
   });
 
-  await asyncTest('opencode.lib.mjs logs Playwright MCP disable when playwrightMcp is false', async () => {
+  await asyncTest('shared helper collects Playwright MCP servers by name and command', async () => {
+    const names = collectPlaywrightMcpServerNames({
+      mcp: {
+        playwright: { type: 'local', command: ['npx', '@playwright/mcp@latest'] },
+        browser_tools: { type: 'local', command: ['npx', '-y', '@playwright/mcp'] },
+        github: { type: 'remote', url: 'https://example.com/mcp' },
+      },
+    });
+    assert.deepEqual(names.sort(), ['browser_tools', 'playwright']);
+  });
+
+  await asyncTest('shared helper builds session-scoped OpenCode/Agent disable config', async () => {
+    const config = buildPlaywrightMcpDisableConfig(['browser_tools']);
+    assert.equal(config.mcp.playwright.enabled, false, 'default playwright server should be disabled');
+    assert.equal(config.mcp.browser_tools.enabled, false, 'detected Playwright server should be disabled');
+    assert.equal(config.tools['playwright_*'], false, 'default Playwright tool glob should be disabled');
+    assert.equal(config.tools['browser_tools_*'], false, 'detected server tool glob should be disabled');
+  });
+
+  await asyncTest('shared helper merges Playwright disable config with existing inline config', async () => {
+    const merged = JSON.parse(
+      mergePlaywrightMcpDisableConfigContent(
+        JSON.stringify({
+          model: 'opencode/nemotron-3-super-free',
+          mcp: {
+            browser_tools: {
+              type: 'local',
+              command: ['npx', '@playwright/mcp@latest'],
+              enabled: true,
+            },
+          },
+        })
+      )
+    );
+    assert.equal(merged.model, 'opencode/nemotron-3-super-free', 'existing inline config should be preserved');
+    assert.equal(merged.mcp.browser_tools.enabled, false, 'existing Playwright server should be disabled');
+    assert.equal(merged.tools['browser_tools_*'], false, 'existing Playwright server tools should be disabled');
+  });
+
+  await asyncTest('OpenCode disable env uses OPENCODE_CONFIG_CONTENT without global mutation', async () => {
+    const env = await getOpenCodePlaywrightMcpDisableEnv({
+      env: {
+        OPENCODE_CONFIG_CONTENT: JSON.stringify({
+          mcp: {
+            browser_tools: {
+              type: 'local',
+              command: ['npx', '@playwright/mcp@latest'],
+              enabled: true,
+            },
+          },
+        }),
+      },
+      includeConfigFiles: false,
+    });
+    assert.ok(env.OPENCODE_CONFIG_CONTENT, 'OpenCode disable env should include OPENCODE_CONFIG_CONTENT');
+    const config = JSON.parse(env.OPENCODE_CONFIG_CONTENT);
+    assert.equal(config.mcp.browser_tools.enabled, false, 'OpenCode env should disable detected Playwright server');
+    assert.equal(config.tools['browser_tools_*'], false, 'OpenCode env should disable detected server tools');
+  });
+
+  await asyncTest('Agent disable env uses LINK_ASSISTANT_AGENT_CONFIG_CONTENT without global mutation', async () => {
+    const env = await getAgentPlaywrightMcpDisableEnv({
+      env: {
+        LINK_ASSISTANT_AGENT_CONFIG_CONTENT: JSON.stringify({
+          mcp: {
+            playwright: {
+              type: 'local',
+              command: ['npx', '@playwright/mcp@latest'],
+              enabled: true,
+            },
+          },
+        }),
+      },
+      includeConfigFiles: false,
+    });
+    assert.ok(env.LINK_ASSISTANT_AGENT_CONFIG_CONTENT, 'Agent disable env should include LINK_ASSISTANT_AGENT_CONFIG_CONTENT');
+    const config = JSON.parse(env.LINK_ASSISTANT_AGENT_CONFIG_CONTENT);
+    assert.equal(config.mcp.playwright.enabled, false, 'Agent env should disable Playwright server');
+    assert.equal(config.tools['playwright_*'], false, 'Agent env should disable Playwright tools');
+  });
+
+  await asyncTest('opencode.lib.mjs applies Playwright MCP disable env when playwrightMcp is false', async () => {
     const content = await fs.readFile(path.join(srcDir, 'opencode.lib.mjs'), 'utf-8');
     assert.ok(content.includes('argv.playwrightMcp === false'), 'opencode.lib.mjs should check playwrightMcp flag');
+    assert.ok(content.includes('getOpenCodePlaywrightMcpDisableEnv'), 'opencode.lib.mjs should build a session-scoped disable env');
+    assert.ok(content.includes('env: opencodeEnv'), 'opencode.lib.mjs should pass the disable env to the subprocess');
     assert.ok(content.includes('Playwright MCP physically disabled for this OpenCode session'), 'opencode.lib.mjs should log Playwright MCP disable');
   });
 
-  await asyncTest('agent.lib.mjs logs Playwright MCP disable when playwrightMcp is false', async () => {
+  await asyncTest('agent.lib.mjs applies Playwright MCP disable env when playwrightMcp is false', async () => {
     const content = await fs.readFile(path.join(srcDir, 'agent.lib.mjs'), 'utf-8');
     assert.ok(content.includes('argv.playwrightMcp === false'), 'agent.lib.mjs should check playwrightMcp flag');
+    assert.ok(content.includes('getAgentPlaywrightMcpDisableEnv'), 'agent.lib.mjs should build a session-scoped disable env');
+    assert.ok(content.includes('env: agentEnv'), 'agent.lib.mjs should pass the disable env to the subprocess');
     assert.ok(content.includes('Playwright MCP physically disabled for this Agent session'), 'agent.lib.mjs should log Playwright MCP disable');
   });
 

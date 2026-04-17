@@ -199,13 +199,14 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body })
   const apiPath = `repos/${owner}/${repo}/issues/${targetNumber}/comments`;
   const payload = JSON.stringify({ body });
 
-  // `gh api --input -` reads from stdin. command-stream supports .stdin(...)
-  // on the returned process handle (same API used in interactive-mode.lib.mjs
-  // via execFileAsync). We build the invocation through $ so callers can
-  // inject a mock.
+  // command-stream's options key is `stdin`, not `input` — unknown keys are
+  // silently ignored, which previously left stdin inherited from the parent
+  // and caused `gh api --input -` to POST an empty body. GitHub's edge
+  // replied with HTTP 400 "Whoa there!" *before* the API layer ran. See
+  // issue #1631.
   let result;
   try {
-    result = await $({ input: payload })`gh api ${apiPath} -X POST --input -`;
+    result = await $({ stdin: payload })`gh api ${apiPath} -X POST --input -`;
   } catch (err) {
     return { ok: false, commentId: null, stderr: err && err.message ? err.message : String(err) };
   }

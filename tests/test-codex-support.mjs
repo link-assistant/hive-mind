@@ -38,6 +38,11 @@ test('Codex --think max maps to xhigh reasoning', () => {
   assert.equal(result.reasoningEffort, 'xhigh');
 });
 
+test('Codex --think xhigh maps to xhigh reasoning', () => {
+  const result = resolveCodexReasoningEffort({ think: 'xhigh' });
+  assert.equal(result.reasoningEffort, 'xhigh');
+});
+
 test('Codex --think off maps to none reasoning', () => {
   const result = resolveCodexReasoningEffort({ think: 'off' });
   assert.equal(result.reasoningEffort, 'none');

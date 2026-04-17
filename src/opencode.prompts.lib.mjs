@@ -64,9 +64,12 @@ export const buildUserPrompt = params => {
       low: 'Think.',
       medium: 'Think hard.',
       high: 'Think harder.',
+      xhigh: 'Ultrathink.',
       max: 'Ultrathink.',
     };
-    promptLines.push(thinkMessages[argv.think]);
+    if (thinkMessages[argv.think]) {
+      promptLines.push(thinkMessages[argv.think]);
+    }
   }
 
   // Final instruction

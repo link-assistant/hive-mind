@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.53.0
+
+### Minor Changes
+
+- 906f61e: Add Playwright MCP browser automation fallback hints to all tools (opencode, agent), WebSearch fallback guidance to all tools (claude, codex, opencode, agent), and --no-playwright-mcp flag to physically disable Playwright MCP server connection per session without affecting global registration.
+
 ## 1.52.1
 
 ### Patch Changes

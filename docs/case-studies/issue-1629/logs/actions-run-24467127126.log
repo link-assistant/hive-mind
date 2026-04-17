@@ -1,0 +1,435 @@
+Check Architecture Best Practices	UNKNOWN STEP	﻿2026-04-15T16:54:34.9250772Z Current runner version: '2.333.1'
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9288188Z ##[group]Runner Image Provisioner
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9289527Z Hosted Compute Agent
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9290508Z Version: 20260213.493
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9291479Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9293137Z Build Date: 2026-02-13T00:28:41Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9294304Z Worker ID: {9fd7837e-cee5-4e27-a0bd-7c35d4666a47}
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9295596Z Azure Region: eastus2
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9296459Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9298792Z ##[group]Operating System
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9299809Z Ubuntu
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9300563Z 24.04.4
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9301497Z LTS
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9302276Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9303456Z ##[group]Runner Image
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9304542Z Image: ubuntu-24.04
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9305515Z Version: 20260406.80.1
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9307730Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260406.80/images/ubuntu/Ubuntu2404-Readme.md
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9310366Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260406.80
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9311989Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9314385Z ##[group]GITHUB_TOKEN Permissions
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9317251Z Contents: read
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9318168Z Metadata: read
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9319073Z Packages: read
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9319953Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9323102Z Secret source: Actions
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9324693Z Prepare workflow directory
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9790058Z Prepare all required actions
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:34.9845592Z Getting action download info
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.2517947Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5088683Z Complete job name: Check Architecture Best Practices
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5837358Z ##[group]Run actions/checkout@v4
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5838215Z with:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5838647Z   ref: ea966c531d62c3267848507ad43a2ad90d6c6881
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5839242Z   repository: Jhon-Crow/godot-topdown-MVP
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5839960Z   token: ***
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5840344Z   ssh-strict: true
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5840724Z   ssh-user: git
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5841114Z   persist-credentials: true
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5841549Z   clean: true
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5841942Z   sparse-checkout-cone-mode: true
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5842637Z   fetch-depth: 1
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5843034Z   fetch-tags: false
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5843427Z   show-progress: true
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5843834Z   lfs: false
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5844184Z   submodules: false
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5844584Z   set-safe-directory: true
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.5845287Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.6967726Z Syncing repository: Jhon-Crow/godot-topdown-MVP
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.6969817Z ##[group]Getting Git version info
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.6970683Z Working directory is '/home/runner/work/godot-topdown-MVP/godot-topdown-MVP'
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.6971723Z [command]/usr/bin/git version
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7015699Z git version 2.53.0
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7042263Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7056905Z Temporarily overriding HOME='/home/runner/work/_temp/12d1faa9-cead-4d89-b1e6-0a2e2ce32e98' before making global git config changes
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7059125Z Adding repository directory to the temporary git global config as a safe directory
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7062516Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7095764Z Deleting the contents of '/home/runner/work/godot-topdown-MVP/godot-topdown-MVP'
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7099329Z ##[group]Initializing the repository
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7103602Z [command]/usr/bin/git init /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7183134Z hint: Using 'master' as the name for the initial branch. This default branch name
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7184894Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7185980Z hint: to use in all of your new repositories, which will suppress this warning,
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7186991Z hint: call:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7187356Z hint:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7187836Z hint: 	git config --global init.defaultBranch <name>
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7188406Z hint:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7188947Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7190091Z hint: 'development'. The just-created branch can be renamed via this command:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7191011Z hint:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7191387Z hint: 	git branch -m <name>
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7191820Z hint:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7192714Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7194009Z Initialized empty Git repository in /home/runner/work/godot-topdown-MVP/godot-topdown-MVP/.git/
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7196160Z [command]/usr/bin/git remote add origin https://github.com/Jhon-Crow/godot-topdown-MVP
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7226033Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7226757Z ##[group]Disabling automatic garbage collection
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7230147Z [command]/usr/bin/git config --local gc.auto 0
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7258666Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7259335Z ##[group]Setting up auth
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7265408Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7295275Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7576952Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7606835Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7830141Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.7859869Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.8159642Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.8193234Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.8194110Z ##[group]Fetching the repository
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:35.8201602Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin ea966c531d62c3267848507ad43a2ad90d6c6881
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:41.8989927Z From https://github.com/Jhon-Crow/godot-topdown-MVP
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:41.8991595Z  * branch            ea966c531d62c3267848507ad43a2ad90d6c6881 -> FETCH_HEAD
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:41.9012725Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:41.9013920Z ##[group]Determining the checkout info
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:41.9015719Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:41.9020099Z [command]/usr/bin/git sparse-checkout disable
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:41.9055713Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:41.9080669Z ##[group]Checking out the ref
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:41.9084289Z [command]/usr/bin/git checkout --progress --force ea966c531d62c3267848507ad43a2ad90d6c6881
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:42.9357940Z Updating files:  57% (1805/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:42.9762853Z Updating files:  58% (1833/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:42.9959217Z Updating files:  59% (1864/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.0079864Z Updating files:  60% (1896/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.0201839Z Updating files:  61% (1927/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.0404809Z Updating files:  62% (1959/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.0591938Z Updating files:  63% (1991/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.0791206Z Updating files:  64% (2022/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.1344240Z Updating files:  65% (2054/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.1569351Z Updating files:  66% (2085/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.1656247Z Updating files:  67% (2117/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.1808711Z Updating files:  68% (2149/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.2124463Z Updating files:  69% (2180/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.2354186Z Updating files:  70% (2212/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.2686984Z Updating files:  71% (2243/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.3035755Z Updating files:  72% (2275/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.3905605Z Updating files:  73% (2307/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4296059Z Updating files:  74% (2338/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4428320Z Updating files:  75% (2370/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4454630Z Updating files:  76% (2401/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4483263Z Updating files:  77% (2433/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4594045Z Updating files:  78% (2465/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4638110Z Updating files:  79% (2496/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4664174Z Updating files:  80% (2528/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4688332Z Updating files:  81% (2559/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4719563Z Updating files:  82% (2591/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4750330Z Updating files:  83% (2622/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4852186Z Updating files:  84% (2654/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4881602Z Updating files:  85% (2686/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4916420Z Updating files:  86% (2717/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4940851Z Updating files:  87% (2749/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.4967642Z Updating files:  88% (2780/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5018483Z Updating files:  89% (2812/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5043045Z Updating files:  90% (2844/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5069449Z Updating files:  91% (2875/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5094586Z Updating files:  92% (2907/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5123759Z Updating files:  93% (2938/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5147314Z Updating files:  94% (2970/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5172449Z Updating files:  95% (3002/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5200224Z Updating files:  96% (3033/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5228784Z Updating files:  97% (3065/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5255350Z Updating files:  98% (3096/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5283633Z Updating files:  99% (3128/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5284206Z Updating files: 100% (3159/3159)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5284553Z Updating files: 100% (3159/3159), done.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5331441Z Note: switching to 'ea966c531d62c3267848507ad43a2ad90d6c6881'.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5332158Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5332742Z You are in 'detached HEAD' state. You can look around, make experimental
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5333559Z changes and commit them, and you can discard any commits you make in this
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5334432Z state without impacting any branches by switching back to a branch.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5334980Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5335350Z If you want to create a new branch to retain commits you create, you may
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5336246Z do so (now or later) by using -c with the switch command. Example:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5336835Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5337050Z   git switch -c <new-branch-name>
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5337460Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5337664Z Or undo this operation with:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5338012Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5338192Z   git switch -
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5338426Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5338819Z Turn off this advice by setting config variable advice.detachedHead to false
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5339453Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5339720Z HEAD is now at ea966c5 Initial commit with task details
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5445644Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5487895Z [command]/usr/bin/git log -1 --format=%H
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5511809Z ea966c531d62c3267848507ad43a2ad90d6c6881
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5696692Z ##[group]Run echo "Checking GDScript file sizes..."
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5697165Z [36;1mecho "Checking GDScript file sizes..."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5697607Z [36;1m# Current limits - these will be reduced as refactoring progresses[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5698003Z [36;1m# Target: MAX_LINES=800, WARN_LINES=500[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5698460Z [36;1m# Current: Higher limits to allow existing large scripts while encouraging refactoring[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5698995Z [36;1mMAX_LINES=5000  # Will be reduced to 800 as refactoring progresses[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5699469Z [36;1mWARN_LINES=800  # Warns for scripts that should be considered for refactoring[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5699987Z [36;1mCRITICAL_THRESHOLD=4500  # 90% of MAX_LINES - pre-emptive warning (Issue #328)[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5700636Z [36;1merrors=0[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5700823Z [36;1mwarnings=0[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5701015Z [36;1mcritical_warnings=0[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5701300Z [36;1mlarge_scripts=0[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5701499Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5701744Z [36;1m# Find all GDScript files (excluding addons and tests)[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5702068Z [36;1mwhile IFS= read -r file; do[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5702620Z [36;1m  lines=$(wc -l < "$file")[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5702913Z [36;1m  if [ "$lines" -gt "$MAX_LINES" ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5703387Z [36;1m    echo "::error file=$file::Script exceeds $MAX_LINES lines ($lines lines). Refactoring required."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5703868Z [36;1m    errors=$((errors + 1))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5704162Z [36;1m  elif [ "$lines" -gt "$CRITICAL_THRESHOLD" ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5704552Z [36;1m    # Pre-emptive warning at 90% of MAX_LINES (Issue #328)[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5704911Z [36;1m    remaining=$((MAX_LINES - lines))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5705545Z [36;1m    echo "::warning file=$file::CRITICAL: Script has $lines lines (only $remaining lines remaining before limit). Immediate refactoring recommended!"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5706228Z [36;1m    critical_warnings=$((critical_warnings + 1))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5706570Z [36;1m    warnings=$((warnings + 1))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5706844Z [36;1m  elif [ "$lines" -gt "$WARN_LINES" ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5707546Z [36;1m    echo "::warning file=$file::Script has $lines lines (warning threshold: $WARN_LINES). Consider splitting into components using the patterns in scripts/components/."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5708239Z [36;1m    warnings=$((warnings + 1))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5708465Z [36;1m  fi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5708653Z [36;1m  if [ "$lines" -gt 500 ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5708918Z [36;1m    large_scripts=$((large_scripts + 1))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5709186Z [36;1m  fi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5709440Z [36;1mdone < <(find scripts -name "*.gd" -type f 2>/dev/null)[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5709739Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5709930Z [36;1mecho "errors=$errors" >> $GITHUB_OUTPUT[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5710242Z [36;1mecho "warnings=$warnings" >> $GITHUB_OUTPUT[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5710611Z [36;1mecho "critical_warnings=$critical_warnings" >> $GITHUB_OUTPUT[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5711009Z [36;1mecho "large_scripts=$large_scripts" >> $GITHUB_OUTPUT[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5711316Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5711485Z [36;1mif [ "$errors" -gt 0 ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5711785Z [36;1m  echo "Found $errors script(s) exceeding line limit."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5712076Z [36;1m  exit 1[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5712249Z [36;1mfi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5712638Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5713123Z [36;1mecho "All scripts within size limits. ($warnings warnings, $critical_warnings critical, $large_scripts scripts over 500 lines)"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5713693Z [36;1mecho ""[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5713903Z [36;1mif [ "$critical_warnings" -gt 0 ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5714355Z [36;1m  echo "⚠️  ATTENTION: $critical_warnings script(s) are approaching the line limit!"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5715137Z [36;1m  echo "   These scripts should be prioritized for refactoring to avoid CI failures."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5715690Z [36;1m  echo "   See PR #323 for an example of CI failure due to exceeding line limit."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5716053Z [36;1mfi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5716214Z [36;1mecho ""[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5716652Z [36;1mecho "Note: Gradual refactoring is encouraged. See scripts/components/ for reusable component patterns."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5741340Z shell: /usr/bin/bash -e {0}
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5741586Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5803871Z Checking GDScript file sizes...
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.5862281Z ##[warning]CRITICAL: Script has 4993 lines (only 7 lines remaining before limit). Immediate refactoring recommended!
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.6024472Z ##[warning]Script has 2500 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.6059675Z ##[warning]Script has 850 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.6182938Z ##[warning]Script has 962 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.6286573Z ##[warning]CRITICAL: Script has 4714 lines (only 286 lines remaining before limit). Immediate refactoring recommended!
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.6683647Z ##[warning]Script has 1095 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.6717815Z ##[warning]Script has 804 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7078433Z ##[warning]Script has 1678 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7096076Z ##[warning]Script has 1440 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7113922Z ##[warning]Script has 1976 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7131639Z ##[warning]Script has 1464 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7149680Z ##[warning]Script has 1134 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7167878Z ##[warning]Script has 1138 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7186118Z ##[warning]Script has 1216 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7204064Z ##[warning]Script has 1374 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7222206Z ##[warning]Script has 1261 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7240457Z ##[warning]Script has 1087 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7258683Z ##[warning]Script has 1427 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7277406Z ##[warning]Script has 1503 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7294798Z ##[warning]Script has 3000 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7313178Z ##[warning]Script has 1401 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7338056Z ##[warning]Script has 2141 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7356142Z ##[warning]Script has 1557 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7374708Z ##[warning]Script has 3470 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7633856Z ##[warning]Script has 2240 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7857846Z ##[warning]Script has 897 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.7893426Z ##[warning]Script has 1459 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8120699Z ##[warning]Script has 1647 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8188628Z ##[warning]Script has 1365 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8264061Z ##[warning]Script has 1076 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8385166Z ##[warning]Script has 1403 lines (warning threshold: 800). Consider splitting into components using the patterns in scripts/components/.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8981371Z All scripts within size limits. (31 warnings, 2 critical, 49 scripts over 500 lines)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8982053Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8983127Z ⚠️  ATTENTION: 2 script(s) are approaching the line limit!
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8983850Z    These scripts should be prioritized for refactoring to avoid CI failures.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8984553Z    See PR #323 for an example of CI failure due to exceeding line limit.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8984866Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.8985175Z Note: Gradual refactoring is encouraged. See scripts/components/ for reusable component patterns.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9123539Z ##[group]Run echo "Checking component files have class_name..."
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9124030Z [36;1mecho "Checking component files have class_name..."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9124343Z [36;1merrors=0[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9124519Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9124699Z [36;1m# Check components folder[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9124972Z [36;1mif [ -d "scripts/components" ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9125270Z [36;1m  for file in scripts/components/*.gd; do[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9125552Z [36;1m    if [ -f "$file" ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9125837Z [36;1m      if ! grep -q "^class_name" "$file"; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9126250Z [36;1m        echo "::error file=$file::Component script missing class_name declaration"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9126642Z [36;1m        errors=$((errors + 1))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9126880Z [36;1m      fi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9127054Z [36;1m    fi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9127219Z [36;1m  done[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9127413Z [36;1mfi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9127575Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9127742Z [36;1m# Check AI states folder[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9127997Z [36;1mif [ -d "scripts/ai/states" ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9128287Z [36;1m  for file in scripts/ai/states/*.gd; do[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9128554Z [36;1m    if [ -f "$file" ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9128826Z [36;1m      if ! grep -q "^class_name" "$file"; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9129218Z [36;1m        echo "::error file=$file::AI state script missing class_name declaration"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9129616Z [36;1m        errors=$((errors + 1))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9129842Z [36;1m      fi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9130014Z [36;1m    fi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9130182Z [36;1m  done[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9130339Z [36;1mfi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9130498Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9130664Z [36;1mif [ "$errors" -gt 0 ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9130997Z [36;1m  echo "Found $errors files missing class_name declarations."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9131323Z [36;1m  exit 1[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9131496Z [36;1mfi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9131647Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9131904Z [36;1mecho "All component/state files have class_name declarations."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9153964Z shell: /usr/bin/bash -e {0}
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9154206Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9195838Z Checking component files have class_name...
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9770633Z All component/state files have class_name declarations.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9803828Z ##[group]Run echo "Checking project folder structure..."
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9804458Z [36;1mecho "Checking project folder structure..."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9804759Z [36;1mrequired_dirs=([0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9804974Z [36;1m  "scripts/autoload"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9805194Z [36;1m  "scripts/ai"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9805400Z [36;1m  "scripts/characters"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9805631Z [36;1m  "scripts/objects"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9805841Z [36;1m  "scripts/ui"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9806051Z [36;1m  "scenes/characters"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9806265Z [36;1m  "scenes/levels"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9806476Z [36;1m  "scenes/objects"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9806682Z [36;1m  "scenes/ui"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9806871Z [36;1m)[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9807038Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9807194Z [36;1merrors=0[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9807409Z [36;1mfor dir in "${required_dirs[@]}"; do[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9807711Z [36;1m  if [ ! -d "$dir" ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9808005Z [36;1m    echo "::error::Required directory '$dir' not found"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9808326Z [36;1m    errors=$((errors + 1))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9808542Z [36;1m  fi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9808710Z [36;1mdone[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9808873Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9809038Z [36;1mif [ "$errors" -gt 0 ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9809338Z [36;1m  echo "Found $errors missing required directories."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9809626Z [36;1m  exit 1[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9809798Z [36;1mfi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9809952Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9810153Z [36;1mecho "All required directories present."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9831763Z shell: /usr/bin/bash -e {0}
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9831993Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9871588Z Checking project folder structure...
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9873349Z All required directories present.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9902032Z ##[group]Run echo "Checking snake_case naming convention for GDScript files..."
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9902868Z [36;1mecho "Checking snake_case naming convention for GDScript files..."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9903258Z [36;1merrors=0[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9903436Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9903716Z [36;1m# Check GDScript files use snake_case (lowercase with underscores)[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9904086Z [36;1mwhile IFS= read -r file; do[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9904353Z [36;1m  basename=$(basename "$file" .gd)[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9904657Z [36;1m  # Check if filename contains uppercase letters[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9904995Z [36;1m  if [[ "$basename" =~ [A-Z] ]]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9905468Z [36;1m    echo "::error file=$file::GDScript filename should be snake_case (lowercase with underscores)"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9905923Z [36;1m    errors=$((errors + 1))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9906151Z [36;1m  fi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9906428Z [36;1mdone < <(find scripts -name "*.gd" -type f 2>/dev/null)[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9906730Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9906903Z [36;1mif [ "$errors" -gt 0 ]; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9907195Z [36;1m  echo "Found $errors files with incorrect naming."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9907498Z [36;1m  exit 1[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9907673Z [36;1mfi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9907828Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9908048Z [36;1mecho "All GDScript files use snake_case naming."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9928403Z shell: /usr/bin/bash -e {0}
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9928652Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:43.9966995Z Checking snake_case naming convention for GDScript files...
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2045463Z All GDScript files use snake_case naming.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2081615Z ##[group]Run echo "Checking for potential tight coupling with autoloads..."
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2082628Z [36;1mecho "Checking for potential tight coupling with autoloads..."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2082992Z [36;1mwarnings=0[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2083174Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2083462Z [36;1m# Look for potential issues (direct global access without null check)[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2083838Z [36;1mwhile IFS= read -r file; do[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2084353Z [36;1m  # Check for patterns that might indicate tight coupling[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2084697Z [36;1m  # This is a soft warning, not an error[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2085121Z [36;1m  if grep -qE "^[^#]*\b(GameManager|AudioManager|InputSettings)\.[a-z]" "$file"; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2085556Z [36;1m    # Check if the same file has null checks[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2085995Z [36;1m    if ! grep -qE "get_node_or_null.*/(GameManager|AudioManager|InputSettings)" "$file"; then[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2086712Z [36;1m      echo "::warning file=$file::Consider using get_node_or_null for autoload access to improve robustness"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2087191Z [36;1m      warnings=$((warnings + 1))[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2087435Z [36;1m    fi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2087601Z [36;1m  fi[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2087852Z [36;1mdone < <(find scripts -name "*.gd" -type f 2>/dev/null)[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2088147Z [36;1m[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2088427Z [36;1mecho "Found $warnings potential coupling warnings (non-blocking)."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2109834Z shell: /usr/bin/bash -e {0}
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2110072Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2150982Z Checking for potential tight coupling with autoloads...
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.2559934Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3296954Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3327216Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3357572Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3386933Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3415695Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3472211Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3502177Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3534524Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3590966Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3650491Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3679680Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3709968Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3739569Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.3770130Z ##[warning]Consider using get_node_or_null for autoload access to improve robustness
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5043738Z Found 15 potential coupling warnings (non-blocking).
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5084183Z ##[group]Run echo "=== Architecture Check Complete ==="
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5084616Z [36;1mecho "=== Architecture Check Complete ==="[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5084891Z [36;1mecho ""[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5085094Z [36;1mecho "Checks performed:"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5085450Z [36;1mecho "  ✓ Script line counts (max 5000, critical at 4500, warn at 800)"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5085871Z [36;1mecho "  ✓ class_name declarations for components"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5086196Z [36;1mecho "  ✓ Required folder structure"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5086489Z [36;1mecho "  ✓ snake_case naming convention"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5086803Z [36;1mecho "  ✓ Autoload coupling patterns"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5087060Z [36;1mecho ""[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5087422Z [36;1mecho "Note: Scripts approaching the line limit (>4500 lines) trigger critical warnings."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5087987Z [36;1mecho "This helps prevent CI failures like those seen in PR #323 (Issue #328)."[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5088400Z [36;1mecho ""[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5088770Z [36;1mecho "All critical checks passed!"[0m
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5110562Z shell: /usr/bin/bash -e {0}
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5110810Z ##[endgroup]
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5150896Z === Architecture Check Complete ===
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5151225Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5151367Z Checks performed:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5152159Z   ✓ Script line counts (max 5000, critical at 4500, warn at 800)
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5153079Z   ✓ class_name declarations for components
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5153610Z   ✓ Required folder structure
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5154250Z   ✓ snake_case naming convention
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5154730Z   ✓ Autoload coupling patterns
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5154986Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5155342Z Note: Scripts approaching the line limit (>4500 lines) trigger critical warnings.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5156180Z This helps prevent CI failures like those seen in PR #323 (Issue #328).
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5156639Z
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5156806Z All critical checks passed!
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.5242229Z Post job cleanup.
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6200862Z [command]/usr/bin/git version
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6248646Z git version 2.53.0
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6291660Z Temporarily overriding HOME='/home/runner/work/_temp/2a54e1db-bb6f-431a-87f2-9c9aa2c131da' before making global git config changes
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6292746Z Adding repository directory to the temporary git global config as a safe directory
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6298813Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6334819Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6368640Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6600195Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6621714Z http.https://github.com/.extraheader
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6634749Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6666411Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6895671Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.6926558Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.7293235Z Cleaning up orphan processes
+Check Architecture Best Practices	UNKNOWN STEP	2026-04-15T16:54:44.7612089Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

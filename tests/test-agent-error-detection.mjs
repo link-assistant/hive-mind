@@ -374,19 +374,20 @@ console.log('Test 21: Fallback pattern match skipped when agent completed succes
     test21StreamingError = false;
   }
 
-  // Step 3: Issue #1290 fix - fallback should be skipped
-  // The condition is: !outputError.detected && !streamingErrorDetected && !(exitCode === 0 && agentCompletedSuccessfully)
-  const shouldRunFallback = !postHocResult.detected && !test21StreamingError && !(test21ExitCode === 0 && test21AgentCompleted);
-  assert.strictEqual(shouldRunFallback, false, 'Fallback should NOT run when agent completed successfully');
+  // Step 3: Recovered post-hoc errors should be cleared too.
+  const outputError = { ...postHocResult };
+  if (test21ExitCode === 0 && test21AgentCompleted && outputError.detected) {
+    outputError.detected = false;
+    outputError.type = null;
+    outputError.match = null;
+  }
 
-  // Step 4: Since post-hoc DID detect the error, but exitCode is 0, the overall condition
-  // (exitCode !== 0 || outputError.detected) IS true via outputError.detected.
-  // BUT the Issue #1276 fix at line 766 should have cleared this too since streaming was used as primary.
-  // Actually, re-reading the code: post-hoc runs first, then Issue #1276 clears streaming.
-  // The post-hoc result is NOT cleared by Issue #1276 fix.
-  // This means we also need to verify the overall flow handles this correctly.
-  // With exitCode=0, the error path enters, but the key question is:
-  // Does detectUsageLimit falsely match? With the Issue #1290 regex fix, it should NOT.
+  assert.strictEqual(outputError.detected, false, 'Recovered post-hoc error should be cleared');
+
+  // Step 4: Issue #1290 fix - fallback should be skipped
+  // The condition is: !outputError.detected && !streamingErrorDetected && !(exitCode === 0 && agentCompletedSuccessfully)
+  const shouldRunFallback = !outputError.detected && !test21StreamingError && !(test21ExitCode === 0 && test21AgentCompleted);
+  assert.strictEqual(shouldRunFallback, false, 'Fallback should NOT run when agent completed successfully');
   console.log('  ✅ PASSED: Fallback pattern matching correctly skipped for recovered agent\n');
 }
 
@@ -593,6 +594,84 @@ console.log('Test 26: Full Issue #1296 scenario - timeout then successful comple
   console.log('  ✅ PASSED: Issue #1296 scenario correctly handled - no false positive error\n');
 }
 
+// ====================================================================
+// Issue #1629 Tests: Agent exiting with hasError=false should be success
+// Agent can emit an internal error event and then exit cleanly with
+// {"type":"log","message":"Agent exiting","hasError":false}.
+// ====================================================================
+console.log('--- Issue #1629 Tests ---\n');
+
+// Test 27: Agent exiting with hasError=false should mark successful completion
+console.log('Test 27: Agent exiting with hasError=false marks success');
+{
+  let test27AgentCompleted = false;
+  let test27StreamingError = false;
+  let test27StreamingErrorMessage = null;
+  const test27ExitCode = 0;
+
+  const issue1629Sequence = [
+    JSON.stringify({
+      type: 'error',
+      exitCode: 0,
+      error: "TypeError: undefined is not an object (evaluating 'usage.inputTokens.total')",
+    }),
+    JSON.stringify({
+      type: 'log',
+      level: 'info',
+      service: 'default',
+      hasError: false,
+      uptimeSeconds: 132,
+      message: 'Agent exiting',
+    }),
+  ];
+
+  for (const chunk of issue1629Sequence) {
+    const lines = chunk.split('\n');
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const data = JSON.parse(line);
+        if (data.type === 'error' || data.type === 'step_error') {
+          test27StreamingError = true;
+          test27StreamingErrorMessage = data.message || data.error || line.substring(0, 100);
+        }
+        if (data.type === 'log' && data.message === 'Agent exiting' && data.hasError === false) {
+          test27AgentCompleted = true;
+        }
+      } catch {
+        // Not JSON
+      }
+    }
+  }
+
+  assert.strictEqual(test27StreamingError, true, 'Internal error should be detected during streaming');
+  assert.strictEqual(test27StreamingErrorMessage, "TypeError: undefined is not an object (evaluating 'usage.inputTokens.total')", 'Should capture the internal usage error');
+  assert.strictEqual(test27AgentCompleted, true, 'Agent exiting with hasError=false should mark successful completion');
+
+  if (test27ExitCode === 0 && (test27AgentCompleted || !test27StreamingError)) {
+    test27StreamingError = false;
+    test27StreamingErrorMessage = null;
+  }
+
+  assert.strictEqual(test27StreamingError, false, 'Recovered internal error should be cleared after clean agent exit');
+
+  const fullOutput = issue1629Sequence.join('\n');
+  const outputError = detectAgentErrors(fullOutput);
+  assert.strictEqual(outputError.detected, true, 'Post-hoc detection initially sees the internal error event');
+
+  if (test27ExitCode === 0 && test27AgentCompleted && outputError.detected) {
+    outputError.detected = false;
+    outputError.type = null;
+    outputError.match = null;
+  }
+
+  assert.strictEqual(outputError.detected, false, 'Recovered post-hoc error should be cleared after clean agent exit');
+
+  const shouldRunFallback = !outputError.detected && !test27StreamingError && !(test27ExitCode === 0 && test27AgentCompleted);
+  assert.strictEqual(shouldRunFallback, false, 'Fallback should not run after clean agent exit');
+  console.log('  ✅ PASSED: Clean Agent exiting event prevents false AGENT execution failed\n');
+}
+
 console.log('========================================');
 console.log('All tests passed! ✅');
 console.log('========================================');
@@ -611,3 +690,6 @@ console.log('  - "resets" pattern uses regex to avoid false positives in code ou
 console.log('\nIssue #1296 fix adds:');
 console.log('  - step_finish with reason "stop" now marks agent as completed successfully');
 console.log('  - This prevents false positive errors when timeout errors are recovered from');
+console.log('\nIssue #1629 fix adds:');
+console.log('  - Agent exiting with hasError=false marks the run as completed successfully');
+console.log('  - This prevents false AGENT execution failed after recovered internal usage errors');

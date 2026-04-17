@@ -1,0 +1,300 @@
+docs/BRANCH_PROTECTION_POLICY.ru.md:136:detect-changes:
+docs/BRANCH_PROTECTION_POLICY.ru.md:153:    (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+docs/CONFIGURATION.ru.md:348:| `--auto-restart-on-limit-reset`                                  |           | boolean | false          | Автоперезапуск при сбросе лимита (свежий старт без --resume)                                                                                                                                                                    |
+docs/CONFIGURATION.ru.md:352:| `--auto-restart-on-uncommitted-changes`                          |           | boolean | true           | Автоперезапуск при незафиксированных изменениях                                                                                                                                                                                 |
+docs/CONFIGURATION.ru.md:353:| `--auto-restart-max-iterations`                                  |           | number  | 3              | Максимальное количество итераций автоперезапуска                                                                                                                                                                                |
+docs/CONFIGURATION.ru.md:355:| `--auto-restart-until-mergeable`                                 |           | boolean | true           | Автоперезапуск до тех пор, пока PR не станет пригодным для слияния (без ограничения итераций). Определяет биллинговые лимиты и останавливается с комментарием для приватных репозиториев.                                       |
+docs/CONFIGURATION.ru.md:357:| `--auto-restart-on-non-updated-pull-request-description`         |           | boolean | false          | Автоперезапуск, если описание PR содержит текст-заполнитель                                                                                                                                                                     |
+docs/CONFIGURATION.ru.md:373:| `--claude-file`                                                  |           | boolean | false          | Создать CLAUDE.md с деталями задачи (взаимоисключает с --gitkeep-file)                                                                                                                                                          |
+docs/CONFIGURATION.ru.md:374:| `--gitkeep-file`                                                 |           | boolean | true           | Создать .gitkeep вместо CLAUDE.md (по умолчанию для всех значений --tool, взаимоисключает с --claude-file)                                                                                                                      |
+docs/CONFIGURATION.ru.md:375:| `--auto-gitkeep-file`                                            |           | boolean | true           | Автоматически использовать .gitkeep, если CLAUDE.md добавлен в .gitignore                                                                                                                                                       |
+docs/CONFIGURATION.zh.md:348:| `--auto-restart-on-limit-reset`                                  |      | boolean | false         | 限额重置时自动重启（无 --resume 的新开始）                                                                                          |
+docs/CONFIGURATION.zh.md:352:| `--auto-restart-on-uncommitted-changes`                          |      | boolean | true          | 有未提交更改时自动重启                                                                                                              |
+docs/CONFIGURATION.zh.md:353:| `--auto-restart-max-iterations`                                  |      | number  | 3             | 最大自动重启迭代次数                                                                                                                |
+docs/CONFIGURATION.zh.md:355:| `--auto-restart-until-mergeable`                                 |      | boolean | true          | 自动重启直到 PR 可合并（无迭代限制）。检测计费限额并在私有仓库中停止并发表评论。                                                    |
+docs/CONFIGURATION.zh.md:357:| `--auto-restart-on-non-updated-pull-request-description`         |      | boolean | false         | 如果 PR 描述包含占位符文本则自动重启                                                                                                |
+docs/CONFIGURATION.zh.md:373:| `--claude-file`                                                  |      | boolean | false         | 为任务详情创建 CLAUDE.md（与 --gitkeep-file 互斥）                                                                                  |
+docs/CONFIGURATION.zh.md:374:| `--gitkeep-file`                                                 |      | boolean | true          | 创建 .gitkeep 而非 CLAUDE.md（所有 --tool 值的默认设置，与 --claude-file 互斥）                                                     |
+docs/CONFIGURATION.zh.md:375:| `--auto-gitkeep-file`                                            |      | boolean | true          | 如果 CLAUDE.md 在 .gitignore 中则自动使用 .gitkeep                                                                                  |
+docs/CONFIGURATION.zh.md:566:| `--gitkeep-file` | `true`          | `true`                                     |
+docs/CONFIGURATION.zh.md:568:**`--gitkeep-file` 默认值的原因：**
+docs/CONFIGURATION.zh.md:570:- `.gitkeep` 是所有工具的默认设置：CLAUDE.md 和 AGENT.md 文件通常对 AI 工具没有帮助，应避免使用（参见[说明](https://youtu.be/GcNu6wrLTJc)）
+docs/BRANCH_PROTECTION_POLICY.zh.md:136:detect-changes:
+docs/BRANCH_PROTECTION_POLICY.zh.md:153:    (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+src/solve.mjs:638:    // Session type was explicitly set (e.g., by auto-resume/auto-restart spawning a new process)
+src/solve.mjs:690:  // Check for uncommitted changes and merge with feedback
+src/solve.mjs:879:    // Check for both auto-resume (maintains context) and auto-restart (fresh start)
+src/solve.mjs:885:    // If limit was reached but neither auto-resume nor auto-restart is enabled, fail immediately
+src/solve.mjs:982:      await safeExit(1, 'Usage limit reached - use --auto-resume-on-limit-reset or --auto-restart-on-limit-reset to wait for reset');
+src/solve.mjs:984:      // auto-resume-on-limit-reset or auto-restart-on-limit-reset is enabled - attach logs and/or post waiting comment
+src/solve.mjs:1051:            const continueModeName = limitContinueMode === 'restart' ? 'auto-restart' : 'auto-resume';
+src/solve.mjs:1143:  // Clean up .playwright-mcp/ to prevent browser artifacts from triggering auto-restart (Issue #1124)
+src/solve.mjs:1163:  // When limit is reached, force auto-commit of any uncommitted changes to preserve work
+src/solve.mjs:1245:        // Disable auto-restart for this iteration to prevent infinite loops
+src/solve.mjs:1258:    // Clean up CLAUDE.md/.gitkeep again after restart
+src/solve.mjs:1261:    // Re-verify results after restart (without auto-restart flag to prevent recursion)
+src/solve.mjs:1278:  // Start watch mode if enabled OR if we need to handle uncommitted changes
+src/solve.mjs:1291:  // If uncommitted changes detected and auto-commit is disabled, enter temporary watch mode
+src/solve.mjs:1313:      watch: argv.watch || shouldRestart, // Enable watch if uncommitted changes
+src/solve.mjs:1364:    // Attach updated logs to PR after auto-restart completes
+src/solve.mjs:1366:    // Issue #1290: Always upload if auto-restart ran but last iteration's logs weren't uploaded
+src/solve.mjs:1406:  // Start auto-restart-until-mergeable mode if enabled
+src/solve.mjs:1408:  // --auto-merge implies --auto-restart-until-mergeable
+src/solve.mjs:1428:        await log('📊 Updated session data from auto-restart-until-mergeable mode:', { verbose: true });
+src/tool-comments.lib.mjs:5: * (session bookkeeping, log uploads, auto-restart notices, etc.) — as
+src/tool-comments.lib.mjs:38:// solve.session.lib.mjs — auto-resume / auto-restart on limit reset
+src/tool-comments.lib.mjs:45:// solve.watch.lib.mjs / solve.auto-merge.lib.mjs — auto-restart notifications
+docs/CI-CD-BEST-PRACTICES.ru.md:35:Используйте задание `detect-changes` в начале рабочего процесса для определения изменённых категорий файлов:
+docs/CI-CD-BEST-PRACTICES.ru.md:39:  detect-changes:
+docs/CI-CD-BEST-PRACTICES.ru.md:52:        run: node scripts/detect-code-changes.mjs
+docs/CI-CD-BEST-PRACTICES.ru.md:59:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.ru.md:60:  if: needs.detect-changes.outputs.code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.ru.md:64:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.ru.md:65:  if: needs.detect-changes.outputs.docs-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.ru.md:69:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.ru.md:70:  if: needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.ru.md:79:- Файлы `.gitkeep` — файлы-заглушки без функционального воздействия
+docs/CI-CD-BEST-PRACTICES.ru.md:196:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.ru.md:197:  if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.ru.md:288:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.ru.md:289:  if: needs.detect-changes.outputs.docs-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.ru.md:300:├── Pre-commit хуки       ├── detect-changes       ├── Все проверки пройдены
+docs/CONFIGURATION.md:368:| `--auto-restart-on-limit-reset`                                  |       | boolean | false         | Auto-restart when limit resets (fresh start without --resume)                                                                                                                                                                                         |
+docs/CONFIGURATION.md:372:| `--auto-restart-on-uncommitted-changes`                          |       | boolean | true          | Auto-restart on uncommitted changes                                                                                                                                                                                                                   |
+docs/CONFIGURATION.md:373:| `--auto-restart-max-iterations`                                  |       | number  | 3             | Max auto-restart iterations                                                                                                                                                                                                                           |
+docs/CONFIGURATION.md:375:| `--auto-restart-until-mergeable`                                 |       | boolean | true          | Auto-restart until PR becomes mergeable (no iteration limit). Detects billing limits and stops with a comment for private repos.                                                                                                                      |
+docs/CONFIGURATION.md:377:| `--auto-restart-on-non-updated-pull-request-description`         |       | boolean | false         | Auto-restart if PR description has placeholder text                                                                                                                                                                                                   |
+docs/CONFIGURATION.md:384:| `--watch`                                                        | `-w`  | boolean | false         | Monitor for feedback and auto-restart                                                                                                                                                                                                                 |
+docs/CONFIGURATION.md:393:| `--claude-file`                                                  |       | boolean | false         | Create CLAUDE.md for task details (mutually exclusive with --gitkeep-file)                                                                                                                                                                            |
+docs/CONFIGURATION.md:394:| `--gitkeep-file`                                                 |       | boolean | true          | Create .gitkeep instead of CLAUDE.md (default for all --tool values, mutually exclusive with --claude-file)                                                                                                                                           |
+docs/CONFIGURATION.md:395:| `--auto-gitkeep-file`                                            |       | boolean | true          | Auto use .gitkeep if CLAUDE.md is in .gitignore                                                                                                                                                                                                       |
+docs/CONFIGURATION.md:464:| `--watch`                              | `-w`  | boolean | false         | Monitor for feedback and auto-restart                                                  |
+docs/CONFIGURATION.md:589:| `--gitkeep-file` | `true`          | `true`                                     |
+docs/CONFIGURATION.md:591:**Rationale for `--gitkeep-file` default:**
+docs/CONFIGURATION.md:593:- `.gitkeep` is the default for all tools: CLAUDE.md and AGENT.md files generally do not help AI tools and should be avoided (see [explanation](https://youtu.be/GcNu6wrLTJc))
+docs/CI-CD-BEST-PRACTICES.md:35:Use a `detect-changes` job at the start of your workflow to determine which file categories changed:
+docs/CI-CD-BEST-PRACTICES.md:39:  detect-changes:
+docs/CI-CD-BEST-PRACTICES.md:52:        run: node scripts/detect-code-changes.mjs
+docs/CI-CD-BEST-PRACTICES.md:59:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.md:60:  if: needs.detect-changes.outputs.code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.md:64:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.md:65:  if: needs.detect-changes.outputs.docs-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.md:69:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.md:70:  if: needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.md:79:- `.gitkeep` files — placeholder files with no functional impact
+docs/CI-CD-BEST-PRACTICES.md:196:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.md:197:  if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.md:288:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.md:289:  if: needs.detect-changes.outputs.docs-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.md:300:├── Pre-commit hooks      ├── detect-changes      ├── All checks pass
+docs/CI-CD-BEST-PRACTICES.zh.md:35:在工作流开始时使用 `detect-changes` 任务来确定哪些文件类别发生了变更：
+docs/CI-CD-BEST-PRACTICES.zh.md:39:  detect-changes:
+docs/CI-CD-BEST-PRACTICES.zh.md:52:        run: node scripts/detect-code-changes.mjs
+docs/CI-CD-BEST-PRACTICES.zh.md:59:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.zh.md:60:  if: needs.detect-changes.outputs.code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.zh.md:64:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.zh.md:65:  if: needs.detect-changes.outputs.docs-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.zh.md:69:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.zh.md:70:  if: needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.zh.md:79:- `.gitkeep` 文件 — 无功能影响的占位符文件
+docs/CI-CD-BEST-PRACTICES.zh.md:196:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.zh.md:197:  if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.zh.md:288:  needs: [detect-changes]
+docs/CI-CD-BEST-PRACTICES.zh.md:289:  if: needs.detect-changes.outputs.docs-changed == 'true'
+docs/CI-CD-BEST-PRACTICES.zh.md:300:├── Pre-commit 钩子    ├── detect-changes      ├── 所有检查通过
+tests/test-solution-summary.mjs:169:  const autoRestart = '## 🔄 Auto-restart 1/3\n\nDetected uncommitted changes from previous run.';
+src/solve.restart-shared.lib.mjs:4: * Shared utilities for watch mode and auto-restart-until-mergeable mode
+src/solve.restart-shared.lib.mjs:7: * - solve.watch.lib.mjs (--watch mode and temporary auto-restart)
+src/solve.restart-shared.lib.mjs:8: * - solve.auto-merge.lib.mjs (--auto-merge and --auto-restart-until-mergeable)
+src/solve.restart-shared.lib.mjs:93: * from triggering auto-restart (Issue #1124)
+src/solve.restart-shared.lib.mjs:117: * Check if there are uncommitted changes in the repository
+src/solve.restart-shared.lib.mjs:127:    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+src/solve.restart-shared.lib.mjs:138:    // If we can't check, assume no uncommitted changes
+src/solve.restart-shared.lib.mjs:144: * Get uncommitted changes details for display
+src/solve.restart-shared.lib.mjs:151:    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+src/solve.restart-shared.lib.mjs:170: * This is the shared tool execution logic used by both watch mode and auto-restart-until-mergeable mode
+src/solve.restart-shared.lib.mjs:350: * Build standard instructions for auto-restart modes
+src/solve.restart-shared.lib.mjs:359: * Build feedback lines for uncommitted changes
+src/solve.restart-shared.lib.mjs:360: * @param {string[]} changes - Array of uncommitted change lines from git status
+src/solve.restart-shared.lib.mjs:371:  feedbackLines.push('The following uncommitted changes were found in the repository:');
+src/solve.restart-shared.lib.mjs:379:  feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
+src/solve.restart-shared.lib.mjs:383:  feedbackLines.push('DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.');
+tests/test-hive-solve-option-parity.mjs:71:runTest('--gitkeep-file is passthrough', () => {
+tests/test-hive-solve-option-parity.mjs:72:  if (!passthroughNames.has('gitkeep-file')) {
+tests/test-hive-solve-option-parity.mjs:73:    throw new Error('gitkeep-file not in passthrough options');
+tests/test-hive-solve-option-parity.mjs:83:runTest('--auto-gitkeep-file is passthrough', () => {
+tests/test-hive-solve-option-parity.mjs:84:  if (!passthroughNames.has('auto-gitkeep-file')) {
+tests/test-hive-solve-option-parity.mjs:85:    throw new Error('auto-gitkeep-file not in passthrough options');
+tests/test-usage-limit-comment-auto-restart-1570.mjs:7: * 1. When usage limit is reached in auto-restart mode, a GitHub comment is posted
+tests/test-usage-limit-comment-auto-restart-1570.mjs:49:test('should post a GitHub comment when usage limit is reached in auto-restart mode', () => {
+tests/test-usage-limit-comment-auto-restart-1570.mjs:50:  // Simulate the auto-restart loop behavior per Issue #1570 fix
+src/solve.auto-merge.lib.mjs:4: * Auto-merge and auto-restart-until-mergeable module for solve.mjs
+src/solve.auto-merge.lib.mjs:28:// appropriate for auto-restart-until-mergeable mode
+src/solve.auto-merge.lib.mjs:66: * This implements --auto-restart-until-mergeable functionality
+src/solve.auto-merge.lib.mjs:130:      await log(formatAligned('🎉', 'PR MERGED!', 'Stopping auto-restart-until-mergeable mode'));
+src/solve.auto-merge.lib.mjs:140:      await log(formatAligned('🚫', 'PR CLOSED!', 'Stopping auto-restart-until-mergeable mode'));
+src/solve.auto-merge.lib.mjs:188:      // Check for uncommitted changes using shared utility
+src/solve.auto-merge.lib.mjs:202:      // If PR is mergeable, no blockers, no new comments, and no uncommitted changes
+src/solve.auto-merge.lib.mjs:284:          await log(formatAligned('', 'Exiting auto-restart-until-mergeable mode', '', 2));
+src/solve.auto-merge.lib.mjs:305:                const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+src/solve.auto-merge.lib.mjs:377:*Detected by hive-mind with --auto-restart-until-mergeable flag. This is NOT a code issue - human intervention is required.*`;
+src/solve.auto-merge.lib.mjs:470:        // Get uncommitted changes for display using shared utility
+src/solve.auto-merge.lib.mjs:477:        feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
+src/solve.auto-merge.lib.mjs:486:        // Add standard instructions for auto-restart-until-mergeable mode using shared utility
+src/solve.auto-merge.lib.mjs:499:          await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
+src/solve.auto-merge.lib.mjs:659:                await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed after limit reset', 2));
+src/solve.auto-merge.lib.mjs:705:          // Any other failure (not usage limit): stop the auto-restart loop
+src/solve.auto-merge.lib.mjs:709:          await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed', 2));
+src/solve.auto-merge.lib.mjs:753:          // Issue #1508: Compute budget stats for auto-restart-until-mergeable log comment
+src/solve.auto-merge.lib.mjs:796:                  // Issue #1508: Include budget stats (context/token/cost) for auto-restart log
+src/solve.auto-merge.lib.mjs:933: * Start auto-restart-until-mergeable mode
+src/solve.auto-merge.lib.mjs:1011:  // If --auto-merge implies --auto-restart-until-mergeable
+src/solve.session.lib.mjs:19:  AUTO_RESTART: 'auto-restart', // Auto restart on limit reset (fresh start)
+docs/case-studies/issue-1356/README.md:5:When running `solve` with `--auto-restart-until-mergeable`, the bot posts repeated "Auto-restart triggered" comments to the PR even after the AI tool's API usage limit is reached. Each restart cycle detects the same CI failures (since the AI couldn't fix them due to the limit), posts a new comment, attempts another tool execution that immediately fails, and loops — flooding the PR with noise while no useful progress is made.
+docs/case-studies/issue-1356/README.md:13:| `src/solve.auto-merge.lib.mjs`     | 587-660   | Main auto-restart loop — posts comment BEFORE tool execution, does NOT check `limitReached` |
+docs/case-studies/issue-1356/README.md:48:1. **User starts solve** with `--auto-restart-until-mergeable --model=opus --think=high`
+docs/case-studies/issue-1356/README.md:88:### Root Cause 3: No deduplication for auto-restart comments
+docs/case-studies/issue-1356/README.md:129:### Solution 3: Add deduplication for auto-restart comments (Defense in Depth)
+docs/case-studies/issue-1356/README.md:154:3. `tests/test-auto-restart-usage-limit-1356.mjs` — Unit tests for the new behavior
+docs/dependencies-research/claude-code-issues/README.md:75:✅ No uncommitted changes found
+tests/test-detect-code-changes-1528.mjs:4: * Test suite for detect-code-changes.mjs
+tests/test-detect-code-changes-1528.mjs:5: * Issue #1528: CI/CD triggers on .gitkeep file
+tests/test-detect-code-changes-1528.mjs:9: * types like .gitkeep are naturally excluded without explicit rules.
+tests/test-detect-code-changes-1528.mjs:12:import { isExcludedFromCodeChanges, matchesPattern } from '../scripts/detect-code-changes.mjs';
+tests/test-detect-code-changes-1528.mjs:35:// The code pattern used in detect-code-changes.mjs for positive matching
+tests/test-detect-code-changes-1528.mjs:85:runTest('.gitkeep is NOT excluded by isExcludedFromCodeChanges (handled by positive matching)', () => {
+tests/test-detect-code-changes-1528.mjs:86:  assertEqual(isExcludedFromCodeChanges('.gitkeep'), false);
+tests/test-detect-code-changes-1528.mjs:89:runTest('.gitkeep in subdirectory is NOT excluded by isExcludedFromCodeChanges', () => {
+tests/test-detect-code-changes-1528.mjs:90:  assertEqual(isExcludedFromCodeChanges('some/path/.gitkeep'), false);
+tests/test-detect-code-changes-1528.mjs:98:  assertEqual(isExcludedFromCodeChanges('tests/test-detect-code-changes-1528.mjs'), false);
+tests/test-detect-code-changes-1528.mjs:117:runTest('scripts/detect-code-changes.mjs is NOT excluded', () => {
+tests/test-detect-code-changes-1528.mjs:118:  assertEqual(isExcludedFromCodeChanges('scripts/detect-code-changes.mjs'), false);
+tests/test-detect-code-changes-1528.mjs:150:runTest('.gitkeep does NOT match code pattern', () => {
+tests/test-detect-code-changes-1528.mjs:151:  assertEqual(matchesPattern('.gitkeep', codePattern), false);
+tests/test-detect-code-changes-1528.mjs:154:runTest('.gitkeep in subdirectory does NOT match code pattern', () => {
+tests/test-detect-code-changes-1528.mjs:155:  assertEqual(matchesPattern('some/path/.gitkeep', codePattern), false);
+tests/test-detect-code-changes-1528.mjs:178:runTest('.gitkeep-only change produces no code files (issue #1528)', () => {
+tests/test-detect-code-changes-1528.mjs:179:  const codeFiles = getCodeChangedFiles(['.gitkeep']);
+tests/test-detect-code-changes-1528.mjs:183:runTest('.gitkeep in subdirectory produces no code files', () => {
+tests/test-detect-code-changes-1528.mjs:184:  const codeFiles = getCodeChangedFiles(['some/dir/.gitkeep']);
+tests/test-detect-code-changes-1528.mjs:188:runTest('mixed .gitkeep + code change correctly detects code files', () => {
+tests/test-detect-code-changes-1528.mjs:189:  const codeFiles = getCodeChangedFiles(['.gitkeep', 'src/solve.mjs', 'README.md']);
+tests/test-detect-code-changes-1528.mjs:237:  const changedFiles = ['.gitkeep', 'src/solve.mjs', 'package.json', 'README.md', 'docs/guide.md', '.changeset/fix.md', 'data/records.json', 'experiments/spike.mjs', '.github/workflows/release.yml'];
+tests/test-premature-finish-signaling-1516.mjs:8: * 2. .gitkeep cleanup runs AFTER completion signals (verifyResults, auto-merge)
+tests/test-premature-finish-signaling-1516.mjs:61:// Test Suite 2: .gitkeep cleanup ordering in solve.mjs
+tests/test-premature-finish-signaling-1516.mjs:63:console.log('\n\ud83e\uddea Test Suite 2: .gitkeep cleanup ordering (Issue #1516)');
+tests/test-issue-1600-log-fixtures.mjs:103:      file: 'docs/case-studies/issue-1600/logs/hive-mind-pr-1615-codex-auto-restart-1.log',
+tests/test-no-ci-checks-timeout-1442.mjs:4: * Unit Tests: Issue #1442 - `--auto-restart-until-mergeable` stuck on no CI checks
+tests/test-tool-specific-defaults.mjs:5: * Issue #1158: --tool agent should default to --gitkeep-file instead of --claude-file
+tests/test-tool-specific-defaults.mjs:6: * Issue #1385: --gitkeep-file enabled by default for all --tools (including --tool claude)
+tests/test-tool-specific-defaults.mjs:49:// Test 2: Verify --help shows updated descriptions for gitkeep-file
+tests/test-tool-specific-defaults.mjs:50:runTest('--gitkeep-file description mentions it is default for all tools', () => {
+tests/test-tool-specific-defaults.mjs:54:    throw new Error('--gitkeep-file description should mention it is default for all --tool values');
+tests/test-tool-specific-defaults.mjs:58:// Test 3: Verify --tool claude with --dry-run defaults to .gitkeep (not CLAUDE.md)
+tests/test-tool-specific-defaults.mjs:59:runTest('--tool claude defaults to .gitkeep', () => {
+tests/test-tool-specific-defaults.mjs:62:  if (output.includes('Creating:') && output.includes('CLAUDE.md') && !output.includes('.gitkeep')) {
+tests/test-tool-specific-defaults.mjs:63:    throw new Error('--tool claude should default to .gitkeep, not CLAUDE.md');
+tests/test-tool-specific-defaults.mjs:67:// Test 4: Verify --tool agent with --dry-run shows .gitkeep creation
+tests/test-tool-specific-defaults.mjs:68:runTest('--tool agent defaults to .gitkeep', () => {
+tests/test-tool-specific-defaults.mjs:70:  // In dry-run mode with --tool agent, should use .gitkeep by default
+tests/test-tool-specific-defaults.mjs:73:  if (output.includes('Creating:') && output.includes('CLAUDE.md') && !output.includes('.gitkeep')) {
+tests/test-tool-specific-defaults.mjs:74:    throw new Error('--tool agent should default to .gitkeep, not CLAUDE.md');
+tests/test-tool-specific-defaults.mjs:78:// Test 5: Verify --tool opencode with --dry-run shows .gitkeep creation
+tests/test-tool-specific-defaults.mjs:79:runTest('--tool opencode defaults to .gitkeep', () => {
+tests/test-tool-specific-defaults.mjs:81:  if (output.includes('Creating:') && output.includes('CLAUDE.md') && !output.includes('.gitkeep')) {
+tests/test-tool-specific-defaults.mjs:82:    throw new Error('--tool opencode should default to .gitkeep, not CLAUDE.md');
+tests/test-tool-specific-defaults.mjs:86:// Test 6: Verify --tool codex with --dry-run shows .gitkeep creation
+tests/test-tool-specific-defaults.mjs:87:runTest('--tool codex defaults to .gitkeep', () => {
+tests/test-tool-specific-defaults.mjs:89:  if (output.includes('Creating:') && output.includes('CLAUDE.md') && !output.includes('.gitkeep')) {
+tests/test-tool-specific-defaults.mjs:90:    throw new Error('--tool codex should default to .gitkeep, not CLAUDE.md');
+tests/test-tool-specific-defaults.mjs:104:// Test 8: Verify explicit --gitkeep-file overrides default for --tool claude
+tests/test-tool-specific-defaults.mjs:105:runTest('explicit --gitkeep-file overrides --tool claude default', () => {
+tests/test-tool-specific-defaults.mjs:106:  const output = execCommand(`${solvePath} https://github.com/test/test/issues/1 --tool claude --gitkeep-file --dry-run --skip-tool-connection-check 2>&1`);
+tests/test-tool-specific-defaults.mjs:107:  // When --gitkeep-file is explicitly provided, it should be used even with --tool claude
+tests/test-tool-specific-defaults.mjs:109:    throw new Error('explicit --gitkeep-file should work with --tool claude');
+tests/test-tool-specific-defaults.mjs:115:  const output = execCommand(`${solvePath} https://github.com/test/test/issues/1 --claude-file --gitkeep-file --dry-run --skip-tool-connection-check 2>&1`);
+tests/test-tool-specific-defaults.mjs:117:  if (!output.includes('--claude-file and --gitkeep-file are mutually exclusive')) {
+tests/test-tool-specific-defaults.mjs:118:    throw new Error('should reject when both --claude-file and --gitkeep-file are explicitly set');
+tests/test-tool-specific-defaults.mjs:123:runTest('cannot disable both claude-file and gitkeep-file', () => {
+tests/test-tool-specific-defaults.mjs:124:  const output = execCommand(`${solvePath} https://github.com/test/test/issues/1 --no-claude-file --no-gitkeep-file --dry-run --skip-tool-connection-check 2>&1`);
+tests/test-tool-specific-defaults.mjs:126:  if (!output.includes('Cannot disable both --claude-file and --gitkeep-file')) {
+tests/test-issue-1600-comprehensive.mjs:349:test('cost comparison with 1-digit difference is detected', () => {
+tests/playwright-mcp-cleanup.test.mjs:7: * triggering the auto-restart mechanism.
+tests/playwright-mcp-cleanup.test.mjs:233:      assert.ok(content.includes('auto-restart'), 'Case study should mention auto-restart issue');
+tests/test-token-sanitization.mjs:168:runTest('git diff context is safe', () => {
+tests/test-token-sanitization.mjs:169:  const context = `git diff ${testHex40}`;
+tests/test-token-sanitization.mjs:170:  assertEqual(isHexInSafeContext(context, testHex40, context.indexOf(testHex40)), true, 'git diff context should be safe');
+tests/test-token-sanitization.mjs:369:git diff 1234567890abcdef1234567890abcdef12345678
+tests/test-auto-restart-consistency-1567.mjs:4: * Unit Tests: Issue #1567 - Non-consistent auto-restart logic on comments
+tests/test-auto-restart-consistency-1567.mjs:12: * Run with: node tests/test-auto-restart-consistency-1567.mjs
+tests/test-auto-restart-consistency-1567.mjs:44:console.log('Unit Tests: Issue #1567 - Non-consistent auto-restart logic');
+tests/test-claude-revert-conflict.mjs:103:    const statusResult = await $({ cwd: tempDir })`git status --short`;
+tests/test-claude-revert-conflict.mjs:151:    const statusResult = await $({ cwd: tempDir })`git status --short`;
+tests/test-claude-revert-conflict.mjs:194:    const statusResult = await $({ cwd: tempDir })`git status --short`;
+tests/test-no-ci-checks-1345.mjs:4: * Unit Tests: Issue #1345 - --auto-restart-until-mergeable stuck on no CI/CD checks
+tests/test-no-ci-checks-1345.mjs:44:console.log('Unit Tests: Issue #1345 - --auto-restart-until-mergeable stuck on no CI checks');
+tests/test-no-ci-checks-1345.mjs:237:test('With noCiConfigured=true but uncommitted changes, should NOT be immediately mergeable', () => {
+tests/test-no-ci-checks-1345.mjs:244:  assert(isMergeable === false, 'Should not be mergeable when there are uncommitted changes');
+tests/test-ready-to-merge-cross-session-1389.mjs:4: * Unit Tests: Issue #1389 - No `ready to merge` comment when `--auto-restart-until-mergeable` is enabled
+docs/case-studies/issue-667-pricing-calculation-failures/TECHNICAL_SUMMARY.md:9:**Root Cause**: Session variable scope mismatch between main execution and auto-restart iterations
+docs/case-studies/issue-667-pricing-calculation-failures/TECHNICAL_SUMMARY.md:13:When solve command runs and triggers auto-restart (due to uncommitted changes):
+docs/case-studies/issue-667-pricing-calculation-failures/TECHNICAL_SUMMARY.md:204:1. **Captures Latest Data**: Each auto-restart iteration updates `latestSessionId` and `latestAnthropicCost`
+docs/case-studies/issue-667-pricing-calculation-failures/TECHNICAL_SUMMARY.md:214:# Run solve with auto-restart scenario
+docs/case-studies/issue-667-pricing-calculation-failures/TECHNICAL_SUMMARY.md:229:- [ ] Tested with no auto-restart (should still work)
+docs/case-studies/issue-667-pricing-calculation-failures/TECHNICAL_SUMMARY.md:230:- [ ] Tested with single auto-restart
+docs/case-studies/issue-667-pricing-calculation-failures/TECHNICAL_SUMMARY.md:231:- [ ] Tested with multiple auto-restarts
+tests/test-merge-changesets-1452.mjs:118:// Test 4: Single changeset - no changes
+tests/test-merge-changesets-1452.mjs:119:console.log('\nTest 4: Single changeset - no changes needed');
+tests/test-auto-resume-comment-ordering-1571.mjs:69:runTest('Issue #1571: skip post-processing when limit reached with auto-restart', () => {
+tests/test-auto-resume-comment-ordering-1571.mjs:71:  assertTrue(result, 'Should skip post-processing when limit reached with auto-restart');
+tests/test-auto-merge-permissions.mjs:108:test('Fork mode guard should not block auto-restart-until-mergeable (only auto-merge)', () => {
+tests/test-auto-merge-permissions.mjs:113:  assert.equal(shouldBlockForFork, false, 'Should not block auto-restart-until-mergeable even in fork mode');
+tests/test-auto-restart-usage-limit-1356.mjs:8: * 2. The auto-restart loop resumes the session (using --resume <sessionId>) when usage limit is reached
+tests/test-auto-restart-usage-limit-1356.mjs:135:  // Simulate the auto-restart loop behavior per Issue #1356 fix
+tests/test-auto-restart-usage-limit-1356.mjs:296:test('auto-restart comment includes iteration number', () => {
+tests/test-issue-1209-overrides.mjs:3:// Tests that --gitkeep-file and other solve-passthrough options work in
+tests/test-issue-1209-overrides.mjs:93:    // Test 1: --gitkeep-file in solve-overrides (the exact issue scenario with correct spelling)
+tests/test-issue-1209-overrides.mjs:95:      name: 'Issue #1209: --gitkeep-file in solve-overrides',
+tests/test-issue-1209-overrides.mjs:96:      args: ['--token', 'test_token_123', '--solve-overrides', '(--attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats --gitkeep-file)', '--no-hive', '--dry-run'],
+tests/test-issue-1209-overrides.mjs:107:    // Test 3: --gitkeep-file in hive-overrides (should now pass)
+tests/test-issue-1209-overrides.mjs:109:      name: 'Issue #1209: --gitkeep-file in hive-overrides',
+tests/test-issue-1209-overrides.mjs:110:      args: ['--token', 'test_token_123', '--hive-overrides', '(--verbose --all-issues --gitkeep-file)', '--no-solve', '--dry-run'],
+tests/test-issue-1209-overrides.mjs:121:    // Test 5: --auto-gitkeep-file in hive-overrides (should now pass)
+tests/test-issue-1209-overrides.mjs:123:      name: 'Issue #1209: --auto-gitkeep-file in hive-overrides',
+tests/test-issue-1209-overrides.mjs:124:      args: ['--token', 'test_token_123', '--hive-overrides', '(--verbose --no-auto-gitkeep-file)', '--no-solve', '--dry-run'],
+tests/test-issue-1209-overrides.mjs:159:      args: ['--token', 'test_token_123', '--hive-overrides', '(--verbose --gitkeep-file --auto-resume-on-errors --auto-restart-on-limit-reset --prompt-subagents-via-agent-commander)', '--no-solve', '--dry-run'],
+tests/test-issue-1209-overrides.mjs:178:  --gitkeep-file
+tests/test-issue-1209-overrides.mjs:190:  --gitkeep-file
+tests/test-issue-1572-push-sync.mjs:11: * - Root cause: auto-restart-until-mergeable mode didn't sync local branch
+src/codex.lib.mjs:900:  // Similar to Claude and OpenCode version, check for uncommitted changes
+src/codex.lib.mjs:901:  await log('\n🔍 Checking for uncommitted changes...');
+src/codex.lib.mjs:903:    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+src/codex.lib.mjs:909:        await log('📝 Found uncommitted changes');
+src/codex.lib.mjs:951:          await log('🔄 AUTO-RESTART: Restarting Codex to handle uncommitted changes...');
+src/codex.lib.mjs:957:          await log('⚠️  Uncommitted changes detected but auto-restart is disabled.');
+src/codex.lib.mjs:958:          await log('   Use --auto-restart-on-uncommitted-changes to enable or commit manually.');
+src/codex.lib.mjs:963:        await log('✅ No uncommitted changes found');
+src/codex.lib.mjs:967:      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, {
+src/codex.lib.mjs:978:    await log(`⚠️ Warning: Error checking for uncommitted changes: ${gitError.message}`, { level: 'warning' });
+tests/test-false-positive-workflow-run-race-1480.mjs:384:  detect-changes:
+src/claude.lib.mjs:1429:  await log('\n🔍 Checking for uncommitted changes...');
+src/claude.lib.mjs:1431:    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+src/claude.lib.mjs:1435:        await log('📝 Found uncommitted changes');
+src/claude.lib.mjs:1471:          await log('🔄 AUTO-RESTART: Restarting Claude to handle uncommitted changes...');
+src/claude.lib.mjs:1475:          await log('\n⚠️  Uncommitted changes detected but auto-restart is disabled.');
+src/claude.lib.mjs:1476:          await log('   Use --auto-restart-on-uncommitted-changes to enable or commit manually.\n');
+src/claude.lib.mjs:1480:        await log('✅ No uncommitted changes found');
+src/claude.lib.mjs:1484:      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, {
+src/claude.lib.mjs:1491:    await log(`⚠️ Warning: Error checking for uncommitted changes: ${gitError.message}`, { level: 'warning' });
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:170:🔍 Checking for uncommitted changes to include as feedback...
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:171:[2025-11-04T04:47:57.285Z] [INFO] ✅ No uncommitted changes found
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:254:      make sure no uncommitted changes corresponding to the original requirements are left behind,
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:350:      make sure no uncommitted changes corresponding to the original requirements are left behind,
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:3141:        "text": "Let me verify the current branch and check git status:"
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:3211:          "command": "git status",
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:3247:          "command": "git diff",
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:3295:        "content": "On branch issue-47-49643b05edce\nYour branch is up to date with 'origin/issue-47-49643b05edce'.\n\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   playwright-click-and-type.js\n\tmodified:   puppeteer-click-and-type.js\n\nUntracked files:\n  (use \"git add <file>...\" to include in what will be committed)\n\tscreenshots/\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")",
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:3487:          "command": "git status",
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:4607:🔍 Checking for uncommitted changes...
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:4608:[2025-11-04T04:53:32.692Z] [INFO] 📝 Found uncommitted changes
+docs/case-studies/issue-667-pricing-calculation-failures/pr49-run2-log.txt:4615:[2025-11-04T04:53:32.696Z] [INFO] 🔄 AUTO-RESTART: Restarting Claude to handle uncommitted changes...

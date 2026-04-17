@@ -591,6 +591,11 @@ export const executeAgentCommand = async params => {
               if (data.type === 'step_finish' && data.part?.reason === 'stop') {
                 agentCompletedSuccessfully = true;
               }
+              // Issue #1629: Some agent runs emit an internal error event and then
+              // exit cleanly with hasError=false. Treat that final state as recovered.
+              if (data.type === 'log' && data.message === 'Agent exiting' && data.hasError === false) {
+                agentCompletedSuccessfully = true;
+              }
             } catch {
               // Not JSON - log as plain text
               await log(line);
@@ -658,6 +663,11 @@ export const executeAgentCommand = async params => {
                 if (stderrData.type === 'step_finish' && stderrData.part?.reason === 'stop') {
                   agentCompletedSuccessfully = true;
                 }
+                // Issue #1629: Some agent runs emit an internal error event and then
+                // exit cleanly with hasError=false. Treat that final state as recovered.
+                if (stderrData.type === 'log' && stderrData.message === 'Agent exiting' && stderrData.hasError === false) {
+                  agentCompletedSuccessfully = true;
+                }
               } catch {
                 // Not JSON - log as plain text
                 await log(stderrLine);
@@ -716,6 +726,16 @@ export const executeAgentCommand = async params => {
         }
         streamingErrorDetected = false;
         streamingErrorMessage = null;
+      }
+
+      // Issue #1629: Post-hoc detection still sees earlier type:error events in
+      // fullOutput. When the process exit code and final agent state both show a
+      // clean completion, treat those earlier events as recovered too.
+      if (exitCode === 0 && agentCompletedSuccessfully && outputError.detected) {
+        await log(`ℹ️  Ignoring recovered agent error after successful completion: ${outputError.match}`, { verbose: true });
+        outputError.detected = false;
+        outputError.type = null;
+        outputError.match = null;
       }
 
       // Issue #1201: Use streaming detection as primary, post-hoc as fallback

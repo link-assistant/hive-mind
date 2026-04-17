@@ -1,0 +1,685 @@
+Validate Critical Gameplay Systems	UNKNOWN STEP	﻿2026-04-15T17:04:15.0458592Z Current runner version: '2.333.1'
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0482186Z ##[group]Runner Image Provisioner
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0483019Z Hosted Compute Agent
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0483495Z Version: 20260213.493
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0484004Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0484651Z Build Date: 2026-02-13T00:28:41Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0485250Z Worker ID: {d4ff5d92-36d8-4d41-9205-3f1cf1c1aba8}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0485861Z Azure Region: westcentralus
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0486371Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0487926Z ##[group]Operating System
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0488449Z Ubuntu
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0488871Z 24.04.4
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0489289Z LTS
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0489803Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0490282Z ##[group]Runner Image
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0490749Z Image: ubuntu-24.04
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0491198Z Version: 20260406.80.1
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0492292Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260406.80/images/ubuntu/Ubuntu2404-Readme.md
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0493534Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260406.80
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0494399Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0495394Z ##[group]GITHUB_TOKEN Permissions
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0497428Z Contents: read
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0497927Z Metadata: read
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0498430Z Packages: read
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0498876Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0501173Z Secret source: Actions
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0501779Z Prepare workflow directory
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0826258Z Prepare all required actions
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.0865953Z Getting action download info
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:15.4440987Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.0785835Z Complete job name: Validate Critical Gameplay Systems
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1518822Z ##[group]Run actions/checkout@v4
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1519998Z with:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1520611Z   ref: dd5c998953f67e83c6cc3ce23f4b390a121bbe7c
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1521324Z   fetch-depth: 0
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1521847Z   repository: Jhon-Crow/godot-topdown-MVP
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1522768Z   token: ***
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1523267Z   ssh-strict: true
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1523739Z   ssh-user: git
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1524273Z   persist-credentials: true
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1524820Z   clean: true
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1525359Z   sparse-checkout-cone-mode: true
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1525904Z   fetch-tags: false
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1526445Z   show-progress: true
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1526946Z   lfs: false
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1527430Z   submodules: false
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1527976Z   set-safe-directory: true
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.1528815Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2613435Z Syncing repository: Jhon-Crow/godot-topdown-MVP
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2616814Z ##[group]Getting Git version info
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2618614Z Working directory is '/home/runner/work/godot-topdown-MVP/godot-topdown-MVP'
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2620385Z [command]/usr/bin/git version
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2630533Z git version 2.53.0
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2774934Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2783297Z Temporarily overriding HOME='/home/runner/work/_temp/32a8d448-4d21-48fc-a265-6fe91d332b8e' before making global git config changes
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2785828Z Adding repository directory to the temporary git global config as a safe directory
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2788198Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2791587Z Deleting the contents of '/home/runner/work/godot-topdown-MVP/godot-topdown-MVP'
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2792802Z ##[group]Initializing the repository
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2793628Z [command]/usr/bin/git init /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2794893Z hint: Using 'master' as the name for the initial branch. This default branch name
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2796137Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2797096Z hint: to use in all of your new repositories, which will suppress this warning,
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2798041Z hint: call:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2798589Z hint:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2799103Z hint: 	git config --global init.defaultBranch <name>
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2799854Z hint:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2800469Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2801564Z hint: 'development'. The just-created branch can be renamed via this command:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2802389Z hint:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2803127Z hint: 	git branch -m <name>
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2803715Z hint:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2804344Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2805532Z Initialized empty Git repository in /home/runner/work/godot-topdown-MVP/godot-topdown-MVP/.git/
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2807341Z [command]/usr/bin/git remote add origin https://github.com/Jhon-Crow/godot-topdown-MVP
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2831209Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2831992Z ##[group]Disabling automatic garbage collection
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2835169Z [command]/usr/bin/git config --local gc.auto 0
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2857575Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2858314Z ##[group]Setting up auth
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2864071Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.2891870Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.3125384Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.3152273Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.3318995Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.3352986Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.3527124Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.3554685Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.3555513Z ##[group]Fetching the repository
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:17.3562412Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.4928281Z From https://github.com/Jhon-Crow/godot-topdown-MVP
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.4929056Z  * [new branch]        backup     -> origin/backup
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.4929856Z  * [new branch]        develop    -> origin/develop
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.4930545Z  * [new branch]        main       -> origin/main
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.4962054Z [command]/usr/bin/git rev-parse --verify --quiet dd5c998953f67e83c6cc3ce23f4b390a121bbe7c^{object}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.4990475Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules origin dd5c998953f67e83c6cc3ce23f4b390a121bbe7c
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.8179307Z From https://github.com/Jhon-Crow/godot-topdown-MVP
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.8180112Z  * branch              dd5c998953f67e83c6cc3ce23f4b390a121bbe7c -> FETCH_HEAD
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.8200759Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.8201451Z ##[group]Determining the checkout info
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.8202228Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.8207842Z [command]/usr/bin/git sparse-checkout disable
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.8241365Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.8263887Z ##[group]Checking out the ref
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:23.8269281Z [command]/usr/bin/git checkout --progress --force dd5c998953f67e83c6cc3ce23f4b390a121bbe7c
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:24.8408972Z Updating files:  53% (1694/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:24.8521535Z Updating files:  54% (1706/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:24.8785109Z Updating files:  55% (1737/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:24.8923848Z Updating files:  56% (1769/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:24.9176037Z Updating files:  57% (1801/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:24.9787304Z Updating files:  58% (1832/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.0025458Z Updating files:  59% (1864/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.0149492Z Updating files:  60% (1895/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.0269052Z Updating files:  61% (1927/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.0495778Z Updating files:  62% (1958/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.0737221Z Updating files:  63% (1990/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.0908197Z Updating files:  64% (2022/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.1565399Z Updating files:  65% (2053/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.1874572Z Updating files:  66% (2085/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.1965562Z Updating files:  67% (2116/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.2138185Z Updating files:  68% (2148/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.2463614Z Updating files:  69% (2180/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.2711441Z Updating files:  70% (2211/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.3091528Z Updating files:  71% (2243/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.3510741Z Updating files:  72% (2274/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.4418826Z Updating files:  73% (2306/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.4885894Z Updating files:  74% (2337/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5019174Z Updating files:  75% (2369/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5048738Z Updating files:  76% (2401/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5072076Z Updating files:  77% (2432/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5161238Z Updating files:  78% (2464/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5200467Z Updating files:  79% (2495/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5212721Z Updating files:  80% (2527/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5223981Z Updating files:  81% (2558/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5246643Z Updating files:  82% (2590/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5258927Z Updating files:  83% (2622/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5344743Z Updating files:  84% (2653/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5371272Z Updating files:  85% (2685/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5401885Z Updating files:  86% (2716/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5423436Z Updating files:  87% (2748/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5450090Z Updating files:  88% (2780/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5502787Z Updating files:  89% (2811/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5524708Z Updating files:  90% (2843/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5545923Z Updating files:  91% (2874/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5566082Z Updating files:  92% (2906/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5591123Z Updating files:  93% (2937/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5610512Z Updating files:  94% (2969/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5631004Z Updating files:  95% (3001/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5654338Z Updating files:  96% (3032/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5678531Z Updating files:  97% (3064/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5700464Z Updating files:  98% (3095/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5724418Z Updating files:  99% (3127/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5724908Z Updating files: 100% (3158/3158)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5725342Z Updating files: 100% (3158/3158), done.
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5780762Z Note: switching to 'dd5c998953f67e83c6cc3ce23f4b390a121bbe7c'.
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5781114Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5781416Z You are in 'detached HEAD' state. You can look around, make experimental
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5783587Z changes and commit them, and you can discard any commits you make in this
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5784448Z state without impacting any branches by switching back to a branch.
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5784909Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5785181Z If you want to create a new branch to retain commits you create, you may
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5785900Z do so (now or later) by using -c with the switch command. Example:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5786316Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5786475Z   git switch -c <new-branch-name>
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5786746Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5786886Z Or undo this operation with:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5787147Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5787267Z   git switch -
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5787444Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5787807Z Turn off this advice by setting config variable advice.detachedHead to false
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5788307Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5788696Z HEAD is now at dd5c9989 Remove leftover .gitkeep (post-cleanup fallback, Issue #1436)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5869329Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5907848Z [command]/usr/bin/git log -1 --format=%H
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.5927954Z dd5c998953f67e83c6cc3ce23f4b390a121bbe7c
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6105647Z ##[group]Run echo "Checking for modifications to critical gameplay files..."
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6106346Z [36;1mecho "Checking for modifications to critical gameplay files..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6106745Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6107039Z [36;1m# Get list of changed files (vs base branch or previous commit)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6107485Z [36;1mif [ "pull_request_target" = "pull_request" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6107879Z [36;1m  BASE_SHA="acedc5a574f470b26d846a873ab67df176fc1bd2"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6108244Z [36;1m  HEAD_SHA="dd5c998953f67e83c6cc3ce23f4b390a121bbe7c"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6108520Z [36;1melse[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6108753Z [36;1m  # For push events, compare with previous commit[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6109091Z [36;1m  BASE_SHA="ea966c531d62c3267848507ad43a2ad90d6c6881"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6109437Z [36;1m  HEAD_SHA="acedc5a574f470b26d846a873ab67df176fc1bd2"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6110000Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6110210Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6110452Z [36;1m# Handle case where BASE_SHA might be empty (first push)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6110887Z [36;1mif [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6111306Z [36;1m  echo "First push or no base - checking all files"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6111597Z [36;1m  CHANGED_FILES=$(git ls-files)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6111824Z [36;1melse[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6112154Z [36;1m  CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || git ls-files)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6112541Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6112694Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6112867Z [36;1mecho "Changed files:"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6113080Z [36;1mecho "$CHANGED_FILES"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6113284Z [36;1mecho ""[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6113450Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6113666Z [36;1m# Define critical files that often break gameplay[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6113955Z [36;1mCRITICAL_PATTERNS=([0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6114172Z [36;1m  "scripts/objects/enemy.gd"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6114409Z [36;1m  "scripts/ai/"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6114618Z [36;1m  "scripts/characters/player.gd"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6114898Z [36;1m  "scripts/components/health_component.gd"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6115191Z [36;1m  "scripts/components/vision_component.gd"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6115458Z [36;1m  "scripts/autoload/"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6115681Z [36;1m  "scripts/projectiles/"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6115888Z [36;1m)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6116047Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6116207Z [36;1mCRITICAL_CHANGES=0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6116461Z [36;1mfor pattern in "${CRITICAL_PATTERNS[@]}"; do[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6116772Z [36;1m  if echo "$CHANGED_FILES" | grep -q "$pattern"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6117134Z [36;1m    echo "::warning::Critical gameplay file modified: $pattern"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6117493Z [36;1m    CRITICAL_CHANGES=$((CRITICAL_CHANGES + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6117746Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6117908Z [36;1mdone[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6118062Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6118305Z [36;1mecho "critical_changes=$CRITICAL_CHANGES" >> $GITHUB_OUTPUT[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6118599Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6118782Z [36;1mif [ "$CRITICAL_CHANGES" -gt 0 ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6119017Z [36;1m  echo ""[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6119207Z [36;1m  echo "=== IMPORTANT ==="[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6119481Z [36;1m  echo "Critical gameplay files were modified."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6119974Z [36;1m  echo "Please ensure thorough testing of:"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6120331Z [36;1m  echo "  - Enemy AI behavior (movement, combat, state transitions)"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6120670Z [36;1m  echo "  - Damage/health system"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6120925Z [36;1m  echo "  - Player controls"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6121350Z [36;1m  echo "  - Game counters (enemy count, ammo)"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6121733Z [36;1m  echo "================="[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6121952Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6137922Z shell: /usr/bin/bash -e {0}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6138168Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6190251Z Checking for modifications to critical gameplay files...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6211406Z Changed files:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6211736Z .gitkeep
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6211901Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6343769Z ##[group]Run echo "Checking enemy.gd state machine integrity..."
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6344230Z [36;1mecho "Checking enemy.gd state machine integrity..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6344518Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6344766Z [36;1mif [ ! -f "scripts/objects/enemy.gd" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6345157Z [36;1m  echo "::warning::Enemy script not found - skipping check"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6345452Z [36;1m  exit 0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6345626Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6345801Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6345962Z [36;1merrors=0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6346124Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6346356Z [36;1m# Check that AIState enum exists and has required states[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6346909Z [36;1mREQUIRED_STATES=("IDLE" "COMBAT" "SEEKING_COVER" "IN_COVER" "FLANKING" "SUPPRESSED" "RETREATING" "PURSUING")[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6347352Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6347542Z [36;1mfor state in "${REQUIRED_STATES[@]}"; do[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6347909Z [36;1m  if ! grep -q "^\s*${state}" scripts/objects/enemy.gd; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6348264Z [36;1m    echo "::error::Missing required AIState: $state"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6348556Z [36;1m    errors=$((errors + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6348766Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6348943Z [36;1mdone[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6349102Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6349368Z [36;1m# Check for critical methods that must exist[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6349880Z [36;1mREQUIRED_METHODS=([0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6350135Z [36;1m  "_ready"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6350323Z [36;1m  "_physics_process"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6350520Z [36;1m  "on_hit"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6350703Z [36;1m  "_on_death"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6350927Z [36;1m  "_check_player_visibility"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6351220Z [36;1m)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6351386Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6351593Z [36;1mfor method in "${REQUIRED_METHODS[@]}"; do[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6351945Z [36;1m  if ! grep -qE "^func\s+${method}\s*\(" scripts/objects/enemy.gd; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6352354Z [36;1m    echo "::error::Missing required method in enemy.gd: $method"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6352672Z [36;1m    errors=$((errors + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6352883Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6353049Z [36;1mdone[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6353199Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6353394Z [36;1m# Check for critical variable declarations[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6353648Z [36;1mREQUIRED_VARS=([0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6353852Z [36;1m  "_is_alive"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6354045Z [36;1m  "_current_health"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6354250Z [36;1m  "_current_state"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6354449Z [36;1m  "_player"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6354635Z [36;1m  "_can_see_player"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6354825Z [36;1m)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6354973Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6355157Z [36;1mfor var in "${REQUIRED_VARS[@]}"; do[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6355469Z [36;1m  if ! grep -q "var\s\+${var}" scripts/objects/enemy.gd; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6355841Z [36;1m    echo "::error::Missing required variable in enemy.gd: $var"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6356151Z [36;1m    errors=$((errors + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6356383Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6356545Z [36;1mdone[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6356695Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6356865Z [36;1mif [ "$errors" -gt 0 ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6357079Z [36;1m  echo ""[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6357336Z [36;1m  echo "::error::Found $errors critical issues in enemy.gd"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6357872Z [36;1m  echo "These issues could cause enemies to stop functioning!"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6358184Z [36;1m  exit 1[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6358352Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6358503Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6358715Z [36;1mecho "Enemy state machine structure validated."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6371723Z shell: /usr/bin/bash -e {0}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6371967Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6399779Z Checking enemy.gd state machine integrity...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6580148Z Enemy state machine structure validated.
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6608687Z ##[group]Run echo "Checking for dangerous code patterns..."
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6609106Z [36;1mecho "Checking for dangerous code patterns..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6609385Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6609733Z [36;1mwarnings=0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6609959Z [36;1merrors=0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6610124Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6610329Z [36;1mif [ -f "scripts/objects/enemy.gd" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6610726Z [36;1m  # Check for early returns in _physics_process that might skip all behavior[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6611155Z [36;1m  # Pattern: return early without checking _is_alive first[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6611711Z [36;1m  if grep -n "^func _physics_process" -A 5 scripts/objects/enemy.gd | grep -qE "^\s+return\s*$" | head -1; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6612241Z [36;1m    # This is a simplified check - real issues need context[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6612743Z [36;1m    echo "::notice::_physics_process has early return - verify _is_alive check is present"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6613117Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6613299Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6613536Z [36;1m  # Check for direct state assignment without signal emission[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6613903Z [36;1m  # (State changes should emit signal for debugging)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6614484Z [36;1m  if grep -nE "_current_state\s*=\s*AIState\." scripts/objects/enemy.gd | grep -v "emit_signal" | grep -v "state_changed" | head -5; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6615183Z [36;1m    echo "::notice::Direct state assignment found - consider using set_state() for signal emission"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6615595Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6615753Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6615949Z [36;1m  # Check for potentially infinite loops[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6616296Z [36;1m  if grep -nE "while\s+true\s*:" scripts/objects/enemy.gd; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6616742Z [36;1m    echo "::warning::Infinite while loop detected - ensure break condition exists"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6617136Z [36;1m    warnings=$((warnings + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6617361Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6617524Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6617725Z [36;1m  # Check for division by zero possibilities[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6618308Z [36;1m  if grep -nE "/\s*_max_health" scripts/objects/enemy.gd | grep -v "if.*_max_health" | grep -v "_max_health\s*>\s*0" | grep -v "_max_health\s*!=\s*0"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6618975Z [36;1m    echo "::notice::Division by _max_health - verify zero check exists"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6619300Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6619465Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6619793Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6620033Z [36;1m# Check for autoload direct access without null checks[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6620337Z [36;1mwhile IFS= read -r file; do[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6620675Z [36;1m  if grep -qE "^[^#]*(GameManager|AudioManager)\.[a-zA-Z]" "$file"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6621143Z [36;1m    if ! grep -qE "get_node_or_null.*/(GameManager|AudioManager)" "$file"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6621615Z [36;1m      echo "::notice file=$file::Direct autoload access without null check"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6621957Z [36;1m    fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6622125Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6622416Z [36;1mdone < <(find scripts -name "*.gd" -type f 2>/dev/null | grep -v "test_")[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6622763Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6623021Z [36;1mecho "Dangerous pattern check completed. ($warnings warnings)"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6636543Z shell: /usr/bin/bash -e {0}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6636782Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6664378Z Checking for dangerous code patterns...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6708378Z ##[notice]_physics_process has early return - verify _is_alive check is present
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6714708Z 639:			_pre_evasion_state = _current_state; _current_state = AIState.EVADING_GRENADE
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6716590Z 2594:		_current_state = AIState.SEARCHING; _search_center = global_position; _search_radius = SEARCH_INITIAL_RADIUS; _search_state_timer = 0.0; _search_scan_timer = 0.0; _search_current_waypoint_index = 0; _search_direction = 0; _search_leg_length = SEARCH_WAYPOINT_SPACING; _search_legs_completed = 0; _search_moving_to_waypoint = true; _search_visited_zones.clear(); _search_stuck_timer = 0.0; _search_last_progress_position = global_position; _generate_search_waypoints(); return
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6718121Z 2595:	_current_state = AIState.IDLE
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6718374Z 2603:	_current_state = AIState.COMBAT
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6718634Z 2620:	_current_state = AIState.SEEKING_COVER
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.6719941Z ##[notice]Direct state assignment found - consider using set_state() for signal emission
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7526591Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7545269Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7568068Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7591668Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7635617Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7657736Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7681317Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7725570Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7769096Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7791054Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7814030Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7836607Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.7858875Z ##[notice]Direct autoload access without null check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8770947Z Dangerous pattern check completed. (0 warnings)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8813684Z ##[group]Run echo "Checking health component structure..."
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8814102Z [36;1mecho "Checking health component structure..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8814372Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8814627Z [36;1mif [ ! -f "scripts/components/health_component.gd" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8815005Z [36;1m  echo "::notice::health_component.gd not found - skipping"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8815311Z [36;1m  exit 0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8815484Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8815641Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8815808Z [36;1merrors=0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8815976Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8816172Z [36;1m# Check for required signals[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8816454Z [36;1mREQUIRED_SIGNALS=("hit" "died" "health_changed")[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8816762Z [36;1mfor sig in "${REQUIRED_SIGNALS[@]}"; do[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8817133Z [36;1m  if ! grep -qE "^signal\s+${sig}" scripts/components/health_component.gd; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8817669Z [36;1m    echo "::warning::Missing expected signal in health_component.gd: $sig"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8818004Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8818175Z [36;1mdone[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8818336Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8818527Z [36;1m# Check for take_damage or similar method[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8818996Z [36;1mif ! grep -qE "^func\s+(take_damage|on_hit|receive_damage)" scripts/components/health_component.gd; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8819537Z [36;1m  echo "::error::Missing damage receiving method in health_component.gd"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8820130Z [36;1m  errors=$((errors + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8820475Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8820637Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8820805Z [36;1mif [ "$errors" -gt 0 ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8821095Z [36;1m  echo "::error::Health component validation failed"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8821378Z [36;1m  exit 1[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8821546Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8821713Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8821918Z [36;1mecho "Health component structure validated."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8835312Z shell: /usr/bin/bash -e {0}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8835546Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8865478Z Checking health component structure...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8907006Z Health component structure validated.
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8935370Z ##[group]Run echo "Checking for potential counter/state issues..."
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8935825Z [36;1mecho "Checking for potential counter/state issues..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8936127Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8936297Z [36;1mwarnings=0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8936488Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8936691Z [36;1m# Check that enemy death properly signals[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8937017Z [36;1mif [ -f "scripts/objects/enemy.gd" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8937386Z [36;1m  # Verify _die() emits the died signal[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8937835Z [36;1m  if ! grep -A 10 "^func _die" scripts/objects/enemy.gd | grep -qE "(died|emit_signal.*died)"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8938377Z [36;1m    echo "::warning::_die() may not emit 'died' signal - could break enemy counting"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8938774Z [36;1m    warnings=$((warnings + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8939004Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8939179Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8939386Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8939888Z [36;1m# Check autoload files for proper signal connections[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8940232Z [36;1mif [ -d "scripts/autoload" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8940500Z [36;1m  for file in scripts/autoload/*.gd; do[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8940776Z [36;1m    if [ -f "$file" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8941038Z [36;1m      # Check for enemy counting patterns[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8941368Z [36;1m      if grep -q "enemy" "$file" && grep -q "count" "$file"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8941742Z [36;1m        if ! grep -qE "(connect|disconnect)" "$file"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8942180Z [36;1m          echo "::notice file=$file::Contains enemy count logic - verify signal connections"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8942566Z [36;1m        fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8942745Z [36;1m      fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8942909Z [36;1m    fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8943077Z [36;1m  done[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8943232Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8943391Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8943635Z [36;1mecho "Counter/state check completed. ($warnings warnings)"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8956453Z shell: /usr/bin/bash -e {0}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8956695Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.8985680Z Checking for potential counter/state issues...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9002605Z ##[warning]_die() may not emit 'died' signal - could break enemy counting
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9030968Z ##[notice]Contains enemy count logic - verify signal connections
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9058747Z ##[notice]Contains enemy count logic - verify signal connections
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9138320Z ##[notice]Contains enemy count logic - verify signal connections
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9530375Z ##[notice]Contains enemy count logic - verify signal connections
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9656538Z Counter/state check completed. (1 warnings)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9687569Z ##[group]Run echo "Validating GDScript syntax..."
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9687971Z [36;1mecho "Validating GDScript syntax..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9688224Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9688381Z [36;1merrors=0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9688556Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9688773Z [36;1m# Check for obvious syntax errors in critical files[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9689082Z [36;1mwhile IFS= read -r file; do[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9689371Z [36;1m  # Check for mismatched parentheses (basic check)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9690080Z [36;1m  open_parens=$(grep -o "(" "$file" | wc -l)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9690394Z [36;1m  close_parens=$(grep -o ")" "$file" | wc -l)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9690705Z [36;1m  if [ "$open_parens" != "$close_parens" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9691201Z [36;1m    echo "::warning file=$file::Possible mismatched parentheses ($open_parens open, $close_parens close)"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9691649Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9691877Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9692055Z [36;1m  # Check for mismatched brackets[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9692344Z [36;1m  open_brackets=$(grep -o "\[" "$file" | wc -l)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9692653Z [36;1m  close_brackets=$(grep -o "\]" "$file" | wc -l)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9692978Z [36;1m  if [ "$open_brackets" != "$close_brackets" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9693458Z [36;1m    echo "::warning file=$file::Possible mismatched brackets ($open_brackets open, $close_brackets close)"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9693890Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9694066Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9694270Z [36;1m  # Check for common typos in critical keywords[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9694656Z [36;1m  if grep -nE "\bextedns\b|\bretunr\b|\bfucn\b|\bsiganl\b" "$file"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9695138Z [36;1m    echo "::error file=$file::Common typo detected in keywords"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9695446Z [36;1m    errors=$((errors + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9695700Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9695941Z [36;1mdone < <(find scripts -name "*.gd" -type f 2>/dev/null)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9696222Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9696385Z [36;1mif [ "$errors" -gt 0 ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9696658Z [36;1m  echo "::error::Found $errors syntax issues"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9696911Z [36;1m  exit 1[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9697091Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9697253Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9697454Z [36;1mecho "GDScript syntax validation completed."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9711854Z shell: /usr/bin/bash -e {0}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9712099Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:25.9742572Z Validating GDScript syntax...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2349015Z GDScript syntax validation completed.
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2376157Z ##[group]Run echo "Checking scene-script references..."
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2376568Z [36;1mecho "Checking scene-script references..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2376844Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2377007Z [36;1mwarnings=0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2377194Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2377401Z [36;1m# Find all .tscn files that reference scripts[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2377698Z [36;1mwhile IFS= read -r scene; do[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2377960Z [36;1m  # Extract script references from scene[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2378386Z [36;1m  scripts=$(grep -oE 'script\s*=.*res://[^"]+\.gd' "$scene" | sed 's/.*res:\/\///' | sed 's/".*//')[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2378765Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2378942Z [36;1m  for script in $scripts; do[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2379187Z [36;1m    if [ ! -f "$script" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2379529Z [36;1m      echo "::error file=$scene::References non-existent script: $script"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2380258Z [36;1m      warnings=$((warnings + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2380484Z [36;1m    fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2380657Z [36;1m  done[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2380894Z [36;1mdone < <(find scenes -name "*.tscn" -type f 2>/dev/null)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2381186Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2381354Z [36;1mif [ "$warnings" -gt 0 ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2381672Z [36;1m  echo "::warning::Found $warnings missing script references"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2381973Z [36;1melse[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2382183Z [36;1m  echo "All scene-script references valid."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2382446Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2394973Z shell: /usr/bin/bash -e {0}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2395215Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.2423495Z Checking scene-script references...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4320633Z All scene-script references valid.
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4345277Z ##[group]Run echo "Checking C# entity implementations for required patterns..."
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4346001Z [36;1mecho "Checking C# entity implementations for required patterns..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4346449Z [36;1mecho "See issue #328 and PR #327 for context on dual-language validation."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4346795Z [36;1mecho ""[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4346965Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4347128Z [36;1merrors=0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4347302Z [36;1mwarnings=0[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4347479Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4347653Z [36;1m# Check C# Enemy.cs if it exists[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4347931Z [36;1mif [ -f "Scripts/Objects/Enemy.cs" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4348249Z [36;1m  echo "Validating C# Enemy implementation..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4348514Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4348710Z [36;1m  # Check for IDamageable implementation[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4349094Z [36;1m  if ! grep -q "IDamageable" "Scripts/Objects/Enemy.cs"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4349812Z [36;1m    echo "::warning file=Scripts/Objects/Enemy.cs::C# Enemy should implement IDamageable interface"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4350268Z [36;1m    warnings=$((warnings + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4350497Z [36;1m  else[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4350706Z [36;1m    echo "  ✓ Implements IDamageable"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4350957Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4351119Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4351305Z [36;1m  # Check for required damage methods[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4351680Z [36;1m  if ! grep -qE "(public|override).*TakeDamage" "Scripts/Objects/Enemy.cs"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4352202Z [36;1m    echo "::error file=Scripts/Objects/Enemy.cs::Missing TakeDamage method in C# Enemy"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4352600Z [36;1m    errors=$((errors + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4352813Z [36;1m  else[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4353008Z [36;1m    echo "  ✓ Has TakeDamage method"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4353239Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4353410Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4353623Z [36;1m  # Check for on_hit method (for GDScript interop)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4353978Z [36;1m  if ! grep -q "on_hit\(\)" "Scripts/Objects/Enemy.cs"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4354472Z [36;1m    echo "::warning file=Scripts/Objects/Enemy.cs::Missing on_hit() method for GDScript interoperability"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4354922Z [36;1m    warnings=$((warnings + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4355163Z [36;1m  else[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4427918Z [36;1m    echo "  ✓ Has on_hit() method for GDScript interop"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4428383Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4428619Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4428862Z [36;1m  # Check for Died signal[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4429694Z [36;1m  if ! grep -q "DiedEventHandler\|signal.*Died" "Scripts/Objects/Enemy.cs"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4430730Z [36;1m    echo "::error file=Scripts/Objects/Enemy.cs::Missing Died signal - required for enemy counting"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4431379Z [36;1m    errors=$((errors + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4431705Z [36;1m  else[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4431959Z [36;1m    echo "  ✓ Has Died signal"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4432274Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4432490Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4432727Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4432977Z [36;1m# Check C# Player.cs if it exists[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4433396Z [36;1mif [ -f "Scripts/Characters/Player.cs" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4433774Z [36;1m  echo ""[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4434109Z [36;1m  echo "Validating C# Player implementation..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4434533Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4434782Z [36;1m  # Check for TakeDamage method[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4435389Z [36;1m  if ! grep -qE "(public|override).*TakeDamage" "Scripts/Characters/Player.cs"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4436266Z [36;1m    echo "::error file=Scripts/Characters/Player.cs::Missing TakeDamage method in C# Player"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4437028Z [36;1m    errors=$((errors + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4437676Z [36;1m  else[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4438120Z [36;1m    echo "  ✓ Has TakeDamage method"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4438538Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4438803Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4439268Z [36;1m  # Check for invincibility check in TakeDamage (added in PR #327)[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4440123Z [36;1m  if grep -q "TakeDamage" "Scripts/Characters/Player.cs"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4440962Z [36;1m    if ! grep -q "_invincibilityEnabled\|invincibility" "Scripts/Characters/Player.cs"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4442268Z [36;1m      echo "::warning file=Scripts/Characters/Player.cs::TakeDamage may not check invincibility mode (see PR #327)"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4443124Z [36;1m      warnings=$((warnings + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4443556Z [36;1m    else[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4443881Z [36;1m      echo "  ✓ Has invincibility check"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4444316Z [36;1m    fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4444603Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4444866Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4445136Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4445476Z [36;1m# Check C# HealthComponent if it exists[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4445996Z [36;1mif [ -f "Scripts/Components/HealthComponent.cs" ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4446449Z [36;1m  echo ""[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4446807Z [36;1m  echo "Validating C# HealthComponent..."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4447232Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4447518Z [36;1m  # Check for required signals[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4448229Z [36;1m  if ! grep -q "DiedEventHandler\|signal.*Died" "Scripts/Components/HealthComponent.cs"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4449228Z [36;1m    echo "::warning file=Scripts/Components/HealthComponent.cs::Missing Died signal"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4450309Z [36;1m    warnings=$((warnings + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4450698Z [36;1m  else[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4450993Z [36;1m    echo "  ✓ Has Died signal"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4451343Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4451569Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4452272Z [36;1m  if ! grep -q "HealthChangedEventHandler\|signal.*HealthChanged" "Scripts/Components/HealthComponent.cs"; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4452996Z [36;1m    echo "::warning file=Scripts/Components/HealthComponent.cs::Missing HealthChanged signal"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4453429Z [36;1m    warnings=$((warnings + 1))[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4453646Z [36;1m  else[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4453855Z [36;1m    echo "  ✓ Has HealthChanged signal"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4454093Z [36;1m  fi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4454256Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4454405Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4454562Z [36;1mecho ""[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4454742Z [36;1mif [ "$errors" -gt 0 ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4455071Z [36;1m  echo "::error::Found $errors critical issues in C# implementations"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4455395Z [36;1m  exit 1[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4455561Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4455718Z [36;1m[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4455880Z [36;1mif [ "$warnings" -gt 0 ]; then[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4456188Z [36;1m  echo "Found $warnings warnings in C# implementations."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4456477Z [36;1melse[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4456729Z [36;1m  echo "All C# entity implementations validated successfully."[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4457028Z [36;1mfi[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4470347Z shell: /usr/bin/bash -e {0}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4470590Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4502701Z Checking C# entity implementations for required patterns...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4503414Z See issue #328 and PR #327 for context on dual-language validation.
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4503853Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4503995Z Validating C# Enemy implementation...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4515119Z   ✓ Implements IDamageable
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4525032Z   ✓ Has TakeDamage method
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4534464Z   ✓ Has on_hit() method for GDScript interop
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4544041Z   ✓ Has Died signal
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4544366Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4544552Z Validating C# Player implementation...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4556148Z   ✓ Has TakeDamage method
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4576849Z   ✓ Has invincibility check
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4577133Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4577304Z Validating C# HealthComponent...
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4586858Z   ✓ Has Died signal
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4596573Z   ✓ Has HealthChanged signal
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4596837Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4598342Z All C# entity implementations validated successfully.
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4621778Z ##[group]Run echo "=== Gameplay Critical Systems Validation Complete ==="
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4622257Z [36;1mecho "=== Gameplay Critical Systems Validation Complete ==="[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4622571Z [36;1mecho ""[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4622756Z [36;1mecho "Checks performed:"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4623043Z [36;1mecho "  ✓ Critical file modification detection"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4623361Z [36;1mecho "  ✓ Enemy state machine integrity"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4623658Z [36;1mecho "  ✓ Dangerous code pattern detection"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4623958Z [36;1mecho "  ✓ Health component validation"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4624268Z [36;1mecho "  ✓ Counter/state reset issue detection"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4624578Z [36;1mecho "  ✓ GDScript syntax validation"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4624855Z [36;1mecho "  ✓ Scene-script consistency"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4625274Z [36;1mecho "  ✓ C# entity implementations (Issue #328)"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4625609Z [36;1mecho ""[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4625843Z [36;1mecho "This workflow protects against issues like:"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4626199Z [36;1mecho "  - PR #104, #296: Enemy AI completely broken"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4626507Z [36;1mecho "  - PR #127: Game counters broken"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4626784Z [36;1mecho "  - PR #155: Game crashes"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4627073Z [36;1mecho "  - PR #157: Enemy vision/detection broken"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4627425Z [36;1mecho "  - PR #327: Dual-language implementation inconsistency"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4627734Z [36;1mecho ""[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4627953Z [36;1mecho "All critical gameplay systems validated!"[0m
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4641028Z shell: /usr/bin/bash -e {0}
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4641262Z ##[endgroup]
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4668227Z === Gameplay Critical Systems Validation Complete ===
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4668686Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4668819Z Checks performed:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4669348Z   ✓ Critical file modification detection
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4670476Z   ✓ Enemy state machine integrity
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4670933Z   ✓ Dangerous code pattern detection
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4671362Z   ✓ Health component validation
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4671746Z   ✓ Counter/state reset issue detection
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4672031Z   ✓ GDScript syntax validation
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4672282Z   ✓ Scene-script consistency
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4672581Z   ✓ C# entity implementations (Issue #328)
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4672754Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4672856Z This workflow protects against issues like:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4673122Z   - PR #104, #296: Enemy AI completely broken
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4673389Z   - PR #127: Game counters broken
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4673623Z   - PR #155: Game crashes
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4673839Z   - PR #157: Enemy vision/detection broken
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4674127Z   - PR #327: Dual-language implementation inconsistency
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4674335Z
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4674428Z All critical gameplay systems validated!
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.4747349Z Post job cleanup.
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.5642341Z [command]/usr/bin/git version
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.5688042Z git version 2.53.0
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.5730784Z Temporarily overriding HOME='/home/runner/work/_temp/c5d58e7c-23ff-4f2a-b392-79dccaa44a39' before making global git config changes
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.5731561Z Adding repository directory to the temporary git global config as a safe directory
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.5735928Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.5782206Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.5811047Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.6012068Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.6031545Z http.https://github.com/.extraheader
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.6046488Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.6359107Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.6562200Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.6594091Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.6889018Z Cleaning up orphan processes
+Validate Critical Gameplay Systems	UNKNOWN STEP	2026-04-15T17:04:27.7097031Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

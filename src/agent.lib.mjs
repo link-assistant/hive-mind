@@ -19,6 +19,7 @@ import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
+import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 
 // Import pricing functions from claude.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
@@ -381,20 +382,7 @@ export const handleAgentRuntimeSwitch = async () => {
 };
 
 /** Check if Playwright MCP is available for Agent @returns {Promise<boolean>} */
-export const checkPlaywrightMcpAvailability = async () => {
-  try {
-    const result = await $`timeout 5 npx --no-install @playwright/mcp --help 2>&1`.catch(() => null);
-    if (result && result.exitCode === 0) return true;
-    const npmResult = await $`timeout 5 npm ls -g @playwright/mcp 2>&1`.catch(() => null);
-    if (npmResult) {
-      const output = npmResult.stdout?.toString() || '';
-      if (output.includes('@playwright/mcp')) return true;
-    }
-    return false;
-  } catch {
-    return false;
-  }
-};
+export const checkPlaywrightMcpAvailability = checkPlaywrightMcpPackageAvailability;
 
 // Main function to execute Agent with prompts and settings
 export const executeAgent = async params => {

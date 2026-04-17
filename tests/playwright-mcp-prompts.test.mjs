@@ -13,6 +13,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { cascadePlaywrightMcpDisable, getCommandResultCode, isCommandResultSuccess, parseCodexMcpServerNames } from '../src/playwright-mcp.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -160,22 +161,53 @@ async function runTests() {
     assert.ok(content.includes('export const buildMcpConfigWithoutPlaywright'), 'playwright-mcp.lib.mjs should export buildMcpConfigWithoutPlaywright');
   });
 
+  await asyncTest('command result helpers support command-stream code field', async () => {
+    assert.equal(getCommandResultCode({ code: 0 }), 0, 'command-stream uses code for successful commands');
+    assert.equal(getCommandResultCode({ exitCode: 0 }), 0, 'helpers should also support exitCode for compatible runners');
+    assert.equal(isCommandResultSuccess({ code: 0 }), true, 'code=0 should be success');
+    assert.equal(isCommandResultSuccess({ code: 1 }), false, 'code=1 should not be success');
+  });
+
   await asyncTest('claude.lib.mjs uses --strict-mcp-config when playwrightMcp is false', async () => {
     const content = await fs.readFile(path.join(srcDir, 'claude.lib.mjs'), 'utf-8');
     assert.ok(content.includes('strict-mcp-config'), 'claude.lib.mjs should use --strict-mcp-config');
     assert.ok(content.includes('argv.playwrightMcp === false'), 'claude.lib.mjs should check playwrightMcp flag');
   });
 
-  await asyncTest('playwright-mcp.lib.mjs exports Codex disable/restore functions', async () => {
+  await asyncTest('playwright-mcp.lib.mjs exports Codex per-session disable helpers', async () => {
     const content = await fs.readFile(path.join(srcDir, 'playwright-mcp.lib.mjs'), 'utf-8');
-    assert.ok(content.includes('export const disableCodexPlaywrightMcpForSession'), 'should export disableCodexPlaywrightMcpForSession');
-    assert.ok(content.includes('export const restoreCodexPlaywrightMcpForSession'), 'should export restoreCodexPlaywrightMcpForSession');
+    assert.ok(content.includes('export const getCodexPlaywrightMcpDisableConfigArgs'), 'should export getCodexPlaywrightMcpDisableConfigArgs');
+    assert.ok(content.includes('mcp_servers.${name}.enabled=false'), 'should disable Codex MCP servers through config overrides');
+    assert.ok(!content.includes('codex mcp remove'), 'should not mutate global Codex MCP registration');
+    assert.ok(!content.includes('codex mcp add playwright'), 'should not restore by adding a hard-coded global registration');
   });
 
-  await asyncTest('codex.lib.mjs disables and restores Playwright MCP per session', async () => {
+  await asyncTest('codex.lib.mjs disables Playwright MCP with per-command config overrides', async () => {
     const content = await fs.readFile(path.join(srcDir, 'codex.lib.mjs'), 'utf-8');
-    assert.ok(content.includes('codexPlaywrightMcpDisabled'), 'codex.lib.mjs should track disable state');
-    assert.ok(content.includes('restoreCodexPlaywrightMcpForSession'), 'codex.lib.mjs should restore MCP after session');
+    assert.ok(content.includes('getCodexPlaywrightMcpDisableConfigArgs'), 'codex.lib.mjs should build per-command MCP disable args');
+    assert.ok(content.includes('argv.playwrightMcp === false'), 'codex.lib.mjs should check playwrightMcp flag');
+    assert.ok(!content.includes('codex mcp remove'), 'codex.lib.mjs should not remove global MCP registrations');
+  });
+
+  await asyncTest('Codex MCP server parser extracts Playwright registrations from list output', async () => {
+    const output = `Name             Command  Args       Env  Cwd  Status    Auth
+playwright       npx      @latest    -    -    enabled   Unsupported
+playwright_alt   npx      @latest    -    -    disabled  Unsupported
+github           docker   run        -    -    enabled   Unsupported`;
+    assert.deepEqual(parseCodexMcpServerNames(output), ['playwright', 'playwright_alt', 'github']);
+  });
+
+  await asyncTest('cascadePlaywrightMcpDisable turns off prompt and cleanup flags', async () => {
+    const argv = {
+      playwrightMcp: false,
+      promptPlaywrightMcp: true,
+      playwrightMcpAutoCleanup: true,
+    };
+    const logs = [];
+    await cascadePlaywrightMcpDisable(argv, async message => logs.push(message));
+    assert.equal(argv.promptPlaywrightMcp, false, '--no-playwright-mcp should disable prompt hints');
+    assert.equal(argv.playwrightMcpAutoCleanup, false, '--no-playwright-mcp should disable MCP artifact cleanup');
+    assert.ok(logs.length >= 2, 'disable cascade should log what changed');
   });
 
   await asyncTest('playwright-mcp.lib.mjs exports cascadePlaywrightMcpDisable', async () => {

@@ -7,6 +7,52 @@ const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 
+export const getCommandResultCode = result => result?.code ?? result?.exitCode ?? null;
+
+export const getCommandResultOutput = result => `${result?.stdout?.toString() || ''}${result?.stderr?.toString() || ''}`;
+
+export const isCommandResultSuccess = result => getCommandResultCode(result) === 0;
+
+export const checkPlaywrightMcpPackageAvailability = async () => {
+  try {
+    const result = await $`timeout 5 npx --no-install @playwright/mcp --help 2>&1`.catch(() => null);
+    if (isCommandResultSuccess(result)) return true;
+    const npmResult = await $`timeout 5 npm ls -g @playwright/mcp 2>&1`.catch(() => null);
+    return getCommandResultOutput(npmResult).includes('@playwright/mcp');
+  } catch {
+    return false;
+  }
+};
+
+export const parseCodexMcpServerNames = output =>
+  output
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('Name '))
+    .map(line => line.split(/\s+/)[0])
+    .filter(name => /^[A-Za-z0-9_-]+$/.test(name));
+
+export const getCodexPlaywrightMcpDisableConfigArgs = async log => {
+  try {
+    const result = await $`timeout 5 codex mcp list 2>&1`.catch(() => null);
+    if (!isCommandResultSuccess(result)) return [];
+    const names = parseCodexMcpServerNames(getCommandResultOutput(result)).filter(name => name.toLowerCase().includes('playwright'));
+    if (names.length === 0) {
+      if (log) await log('🎭 No Codex Playwright MCP server registration found to disable for this session', { verbose: true });
+      return [];
+    }
+    if (log) {
+      await log(`🎭 Playwright MCP disabled for this Codex session via config override: ${names.join(', ')}`, {
+        verbose: true,
+      });
+    }
+    return names.flatMap(name => ['-c', `mcp_servers.${name}.enabled=false`]);
+  } catch (err) {
+    if (log) await log(`⚠️  Could not build Codex Playwright MCP disable override: ${err.message}`, { verbose: true });
+    return [];
+  }
+};
+
 /** Build a temporary MCP config JSON excluding Playwright, for use with --strict-mcp-config */
 export const buildMcpConfigWithoutPlaywright = async log => {
   const os = await use('os');
@@ -29,38 +75,12 @@ export const buildMcpConfigWithoutPlaywright = async log => {
   }
 };
 
-/** Temporarily remove Playwright MCP from Codex for this session, returning restore info */
-export const disableCodexPlaywrightMcpForSession = async log => {
-  try {
-    const listResult = await $`timeout 5 codex mcp list 2>&1`.catch(() => null);
-    if (!listResult) return null;
-    const output = `${listResult.stdout?.toString() || ''}${listResult.stderr?.toString() || ''}`;
-    if (!output.toLowerCase().includes('playwright')) return null;
-    await $`codex mcp remove playwright 2>&1`.catch(() => null);
-    if (log) await log('🎭 Playwright MCP temporarily removed from Codex for this session', { verbose: true });
-    return { wasPresent: true };
-  } catch (err) {
-    if (log) await log(`⚠️  Could not disable Playwright MCP for Codex: ${err.message}`, { verbose: true });
-    return null;
-  }
-};
-
-/** Restore Playwright MCP to Codex after session */
-export const restoreCodexPlaywrightMcpForSession = async log => {
-  try {
-    await $`codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 2>&1`.catch(() => null);
-    if (log) await log('🎭 Playwright MCP restored to Codex after session', { verbose: true });
-  } catch (err) {
-    if (log) await log(`⚠️  Could not restore Playwright MCP for Codex: ${err.message}`, { verbose: true });
-  }
-};
-
 /** Cascade --no-playwright-mcp to disable related flags */
 export const cascadePlaywrightMcpDisable = async (argv, log) => {
   if (argv.playwrightMcp === false) {
-    await log('🎭 Playwright MCP physically disabled via --no-playwright-mcp', { verbose: true });
+    if (log) await log('🎭 Playwright MCP physically disabled via --no-playwright-mcp', { verbose: true });
     argv.promptPlaywrightMcp = false;
     argv.playwrightMcpAutoCleanup = false;
-    await log('ℹ️  --prompt-playwright-mcp and --playwright-mcp-auto-cleanup also disabled', { verbose: true });
+    if (log) await log('ℹ️  --prompt-playwright-mcp and --playwright-mcp-auto-cleanup also disabled', { verbose: true });
   }
 };

@@ -21,7 +21,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
-import { disableCodexPlaywrightMcpForSession, restoreCodexPlaywrightMcpForSession } from './playwright-mcp.lib.mjs';
+import { getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens'];
 const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
@@ -375,12 +375,6 @@ export const checkPlaywrightMcpAvailability = async () => {
 export const executeCodex = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, codexPath = 'codex', $ } = params;
 
-  let codexPlaywrightMcpDisabled = false;
-  if (argv.playwrightMcp === false) {
-    const disableResult = await disableCodexPlaywrightMcpForSession(log);
-    if (disableResult?.wasPresent) codexPlaywrightMcpDisabled = true;
-  }
-
   if (argv.promptSubagentsViaAgentCommander) {
     try {
       await $`which start-agent`;
@@ -473,12 +467,11 @@ export const executeCodex = async params => {
     owner,
     repo,
     prNumber,
-    codexPlaywrightMcpDisabled,
   });
 };
 
 export const executeCodexCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, codexPlaywrightMcpDisabled } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber } = params;
 
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
@@ -544,6 +537,10 @@ export const executeCodexCommand = async params => {
       codexArgs += ` resume ${shellQuote(argv.resume)}`;
     } else {
       codexArgs += ` --model ${shellQuote(mappedModel)}`;
+    }
+    const codexPlaywrightMcpDisableConfigArgs = argv.playwrightMcp === false ? await getCodexPlaywrightMcpDisableConfigArgs(log) : [];
+    for (const arg of codexPlaywrightMcpDisableConfigArgs) {
+      codexArgs += ` ${shellQuote(arg)}`;
     }
     codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')} --dangerously-bypass-approvals-and-sandbox`;
 
@@ -845,9 +842,6 @@ export const executeCodexCommand = async params => {
       await fs.rm(promptFile, { force: true }).catch(() => {});
       await log(`🧹 Removing temporary Codex last-message file: ${lastMessageFile}`, { verbose: true });
       await fs.rm(lastMessageFile, { force: true }).catch(() => {});
-      if (codexPlaywrightMcpDisabled) {
-        await restoreCodexPlaywrightMcpForSession(log);
-      }
     }
   };
 

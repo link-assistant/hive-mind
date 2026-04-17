@@ -5,7 +5,8 @@
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
-import { primaryModelNames } from './models/index.mjs';
+import { primaryModelNames, CLAUDE_MODELS } from './models/index.mjs';
+import { supportsEffortLevel } from './config.lib.mjs';
 
 /**
  * Build the user prompt for Claude
@@ -65,20 +66,21 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
-  // Note: --think keywords are deprecated for Claude Code >= 2.1.12
-  // Thinking is now enabled by default with 31,999 token budget
-  // Use --thinking-budget to control MAX_THINKING_TOKENS instead
-  // Keeping keywords for backward compatibility with older Claude Code versions
+  // Only add thinking prompt instructions for models that do NOT support effort levels or token budget settings.
+  // Models with effort support (Opus 4.7, Opus 4.6, Sonnet 4.6, Opus 4.5, Mythos) use CLAUDE_CODE_EFFORT_LEVEL instead.
   if (argv && argv.think) {
-    const thinkMessages = {
-      low: 'Think.',
-      medium: 'Think hard.',
-      high: 'Think harder.',
-      xhigh: 'Ultrathink.',
-      max: 'Ultrathink.',
-    };
-    if (thinkMessages[argv.think]) {
-      promptLines.push(thinkMessages[argv.think]);
+    const resolvedModel = argv.model ? CLAUDE_MODELS[argv.model] || argv.model : null;
+    if (!resolvedModel || !supportsEffortLevel(resolvedModel)) {
+      const thinkMessages = {
+        low: 'Think.',
+        medium: 'Think hard.',
+        high: 'Think harder.',
+        xhigh: 'Ultrathink.',
+        max: 'Ultrathink.',
+      };
+      if (thinkMessages[argv.think]) {
+        promptLines.push(thinkMessages[argv.think]);
+      }
     }
   }
 

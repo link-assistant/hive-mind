@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.52.0
+
+### Minor Changes
+
+- 5b24866: Add Claude Opus 4.7 model support with adaptive thinking, model-correct xhigh/max effort mapping, Opus 4.5/Mythos effort detection, and the --show-thinking-content option.
+
 ## 1.51.0
 
 ### Minor Changes

@@ -22,6 +22,7 @@ import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.m
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
+import { fetchModelInfo } from './model-info.lib.mjs';
 import Decimal from 'decimal.js-light';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
@@ -399,7 +400,6 @@ export const calculateCodexPricingFromModelInfo = (modelId, tokenUsage, modelInf
 export const calculateCodexPricing = async (modelId, tokenUsage) => {
   if (!modelId) return null;
   try {
-    const { fetchModelInfo } = await import('./claude.lib.mjs');
     const modelInfo = await fetchModelInfo(modelId, { preferredProviderIds: ['openai'] });
     return calculateCodexPricingFromModelInfo(modelId, tokenUsage, modelInfo);
   } catch (error) {

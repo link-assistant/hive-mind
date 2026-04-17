@@ -21,7 +21,9 @@ import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // 
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
 import { buildMcpConfigWithoutPlaywright } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
+import { fetchModelInfo } from './model-info.lib.mjs';
 export { availableModels }; // Re-export for backward compatibility
+export { fetchModelInfo };
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
   if (!sessionId || !tempDir) return;
   const cmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
@@ -369,74 +371,6 @@ export const executeClaude = async params => {
     repo,
     prNumber,
   });
-};
-/**
- * Fetches model information from pricing API
- * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
- * @param {Object} [options]
- * @param {string[]} [options.preferredProviderIds] Provider IDs to check before the default search order.
- * @returns {Promise<Object|null>} Model information or null if not found
- */
-export const fetchModelInfo = async (modelId, options = {}) => {
-  try {
-    const https = (await use('https')).default;
-    return new Promise((resolve, reject) => {
-      https
-        .get('https://models.dev/api.json', res => {
-          let data = '';
-          res.on('data', chunk => {
-            data += chunk;
-          });
-          res.on('end', () => {
-            try {
-              const apiData = JSON.parse(data);
-              const lookupIds = modelId?.includes('/') ? [modelId.split('/').pop(), modelId] : [modelId];
-              const preferredProviderIds = Array.isArray(options.preferredProviderIds) ? options.preferredProviderIds : [];
-              const inferredProviderIds = [];
-              if (modelId?.startsWith('claude-')) inferredProviderIds.push('anthropic');
-              if (modelId?.startsWith('gpt-') || modelId?.startsWith('chatgpt-')) inferredProviderIds.push('openai');
-              const providerIds = [...new Set([...preferredProviderIds, ...inferredProviderIds])];
-              const withProvider = (providerId, modelInfo) => ({
-                ...modelInfo,
-                provider: apiData[providerId]?.name || providerId,
-              });
-
-              for (const providerId of providerIds) {
-                const provider = apiData[providerId];
-                if (!provider?.models) continue;
-                for (const lookupId of lookupIds) {
-                  if (provider.models[lookupId]) {
-                    resolve(withProvider(providerId, provider.models[lookupId]));
-                    return;
-                  }
-                }
-              }
-
-              // Search for the model across all other providers
-              for (const [providerId, provider] of Object.entries(apiData)) {
-                if (!provider.models) continue;
-                for (const lookupId of lookupIds) {
-                  if (provider.models[lookupId]) {
-                    resolve(withProvider(providerId, provider.models[lookupId]));
-                    return;
-                  }
-                }
-              }
-              // Model not found
-              resolve(null);
-            } catch (parseError) {
-              reject(parseError);
-            }
-          });
-        })
-        .on('error', err => {
-          reject(err);
-        });
-    });
-  } catch {
-    // If we can't fetch model info, return null and continue without it
-    return null;
-  }
 };
 /** Check if a model supports vision (image input) using models.dev API @returns {Promise<boolean>} */
 export const checkModelVisionCapability = async modelId => {

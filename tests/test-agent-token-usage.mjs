@@ -578,10 +578,12 @@ console.log('\n📋 Test Group: Token display pipeline (end-to-end Issue #1313 s
 
 const buildTokenUsageDisplay = tokenUsage => {
   const result = buildCostInfoString(null, null, { tokenUsage: tokenUsage || { inputTokens: 0, outputTokens: 0 } });
-  return result
-    .split('\n')
-    .find(line => line.startsWith('- Token usage:'))
-    ?.replace('- ', '') || 'Token usage: 0 input, 0 output';
+  return (
+    result
+      .split('\n')
+      .find(line => line.startsWith('- Token usage:'))
+      ?.replace('- ', '') || 'Token usage: 0 input, 0 output'
+  );
 };
 
 runTest('Issue #1313 pipeline: accumulated tokens display non-zero', () => {

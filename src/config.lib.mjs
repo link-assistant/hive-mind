@@ -198,6 +198,21 @@ export const isOpus47OrLater = model => {
 };
 
 /**
+ * Check if a model supports CLAUDE_CODE_EFFORT_LEVEL (Issue #1238, Issue #1620)
+ * Opus 4.6+, Sonnet 4.6+ all support effort levels.
+ * Haiku 4.5 and older models use MAX_THINKING_TOKENS only.
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model supports effort levels
+ */
+export const supportsEffortLevel = model => {
+  if (!model) return false;
+  const m = model.toLowerCase();
+  if (isOpus46OrLater(m)) return true;
+  if (m === 'sonnet' || m.includes('sonnet-4-6') || m.includes('sonnet-5')) return true;
+  return false;
+};
+
+/**
  * Get the max output tokens for a specific model (Issue #1221)
  * @param {string} model - The model name or ID
  * @returns {number} The max output tokens for the model
@@ -232,6 +247,7 @@ export const getThinkingLevelToTokens = (maxBudget = DEFAULT_MAX_THINKING_BUDGET
   low: Math.floor(maxBudget / 4), // ~8000 for default 31999
   medium: Math.floor(maxBudget / 2), // ~16000 for default 31999
   high: Math.floor((maxBudget * 3) / 4), // ~24000 for default 31999
+  xhigh: maxBudget, // same as max — xhigh is Opus 4.7's highest, maps to full budget for older models
   max: maxBudget, // 31999 by default
 });
 
@@ -299,6 +315,9 @@ export const thinkLevelToEffortLevel = (thinkLevel, options = {}) => {
       return 'medium';
     case 'high':
       return 'high';
+    case 'xhigh':
+      // Opus 4.7+: 'xhigh' is native; other models: clamp to 'high' (their maximum)
+      return options.isOpus47 ? 'xhigh' : 'high';
     case 'max':
       // Opus 4.7+: 'max' maps to 'xhigh' (highest non-session-only level)
       // Opus 4.6/Sonnet 4.6: 'max' maps to 'high' (highest available)
@@ -374,10 +393,9 @@ export const getClaudeEnv = (options = {}) => {
     env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
   }
 
-  // For Opus 4.6+, set CLAUDE_CODE_EFFORT_LEVEL to control thinking depth (Issue #1238, Issue #1620)
-  // Opus 4.7 supports: low/medium/high/xhigh (plus 'max' which is session-only in Claude Code)
-  // Opus 4.6/Sonnet 4.6 supports: low/medium/high
-  if (options.model && isOpus46OrLater(options.model)) {
+  // Set CLAUDE_CODE_EFFORT_LEVEL for models that support it (Issue #1238, Issue #1620)
+  // Opus 4.7: low/medium/high/xhigh; Opus 4.6/Sonnet 4.6: low/medium/high
+  if (options.model && supportsEffortLevel(options.model)) {
     const effortOptions = { isOpus47: opus47 };
     let effortLevel;
     if (options.thinkLevel) {

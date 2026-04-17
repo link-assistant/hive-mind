@@ -229,8 +229,8 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   think: {
     type: 'string',
-    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, max=31999). For Codex, mapped to reasoning effort (off=none, low=low, medium=medium, high=high, max=xhigh).',
-    choices: ['off', 'low', 'medium', 'high', 'max'],
+    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, xhigh/max=31999). xhigh maps to CLAUDE_CODE_EFFORT_LEVEL=xhigh for Opus 4.7 (clamped to high for older models). For Codex, mapped to reasoning effort (off=none, low=low, medium=medium, high=high, max=xhigh).',
+    choices: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],
     default: undefined,
   },
   'thinking-budget': {

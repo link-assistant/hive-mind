@@ -6,7 +6,7 @@ import assert from 'assert';
 
 const { CLAUDE_MODELS, MODELS_SUPPORTING_1M_CONTEXT, validateModelName, parseModelWith1mSuffix, supports1mContext, getAvailableModelNames, claudeModels } = await import('../src/models/index.mjs');
 const { mapModelToId, availableModels } = await import('../src/claude.lib.mjs');
-const { isOpus46OrLater, isOpus47OrLater, getMaxOutputTokensForModel, getDefaultMaxThinkingBudgetForModel, claudeCode, DEFAULT_MAX_THINKING_BUDGET_OPUS_46, getClaudeEnv, thinkLevelToEffortLevel, thinkingBudgetToEffortLevel, OPUS_47_EFFORT_LEVELS } = await import('../src/config.lib.mjs');
+const { isOpus46OrLater, isOpus47OrLater, supportsEffortLevel, getMaxOutputTokensForModel, getDefaultMaxThinkingBudgetForModel, claudeCode, DEFAULT_MAX_THINKING_BUDGET_OPUS_46, getClaudeEnv, thinkLevelToEffortLevel, thinkingBudgetToEffortLevel, OPUS_47_EFFORT_LEVELS, OPUS_46_EFFORT_LEVELS, getThinkingLevelToTokens, getTokensToThinkingLevel } = await import('../src/config.lib.mjs');
 
 console.log('Testing Claude Opus 4.7 Model Support (Issue #1620)\n');
 
@@ -421,6 +421,192 @@ test('getClaudeEnv does not set CLAUDE_CODE_SHOW_THINKING by default', () => {
   const env = getClaudeEnv({ model: 'opus' });
   assert.strictEqual(env.CLAUDE_CODE_SHOW_THINKING, undefined, 'CLAUDE_CODE_SHOW_THINKING should not be set by default');
 });
+
+// ============================================================
+// Section 15: --think xhigh explicit support
+// ============================================================
+console.log('\n=== 15. --think xhigh Explicit Support ===');
+
+test('thinkLevelToEffortLevel maps xhigh to xhigh for Opus 4.7', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('xhigh', { isOpus47: true }), 'xhigh', 'xhigh should map to xhigh for Opus 4.7');
+});
+
+test('thinkLevelToEffortLevel maps xhigh to high for Opus 4.6 (clamped)', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('xhigh', { isOpus47: false }), 'high', 'xhigh should clamp to high for Opus 4.6');
+});
+
+test('thinkLevelToEffortLevel maps xhigh to high without options (backward compat)', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('xhigh'), 'high', 'xhigh should clamp to high by default');
+});
+
+test('getThinkingLevelToTokens includes xhigh key', () => {
+  const tokens = getThinkingLevelToTokens(31999);
+  assert.strictEqual(tokens.xhigh, 31999, 'xhigh should map to full budget');
+});
+
+test('getClaudeEnv sets effort=xhigh for Opus 4.7 with --think xhigh', () => {
+  const env = getClaudeEnv({ model: 'opus', thinkLevel: 'xhigh' });
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'xhigh', 'Opus 4.7 with xhigh should get xhigh effort');
+  assert.strictEqual(env.MAX_THINKING_TOKENS, undefined, 'No MAX_THINKING_TOKENS for Opus 4.7');
+});
+
+test('getClaudeEnv sets effort=high for Opus 4.6 with --think xhigh (clamped)', () => {
+  const env = getClaudeEnv({ model: 'opus-4-6', thinkLevel: 'xhigh' });
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'high', 'Opus 4.6 with xhigh should clamp to high effort');
+});
+
+test('getClaudeEnv sets MAX_THINKING_TOKENS=31999 for Sonnet with --think xhigh', () => {
+  const env = getClaudeEnv({ model: 'sonnet', thinkLevel: 'xhigh', thinkingBudget: 31999 });
+  assert.strictEqual(env.MAX_THINKING_TOKENS, '31999', 'Sonnet should get full thinking budget for xhigh');
+});
+
+// ============================================================
+// Section 16: --thinking-budget cross-model effort mapping
+// ============================================================
+console.log('\n=== 16. --thinking-budget Cross-Model Effort Mapping ===');
+
+test('thinkingBudgetToEffortLevel: low budget → low effort for Opus 4.7', () => {
+  assert.strictEqual(thinkingBudgetToEffortLevel(8000, 31999, { isOpus47: true }), 'low');
+});
+
+test('thinkingBudgetToEffortLevel: medium budget → medium effort for Opus 4.7', () => {
+  assert.strictEqual(thinkingBudgetToEffortLevel(16000, 31999, { isOpus47: true }), 'medium');
+});
+
+test('thinkingBudgetToEffortLevel: high budget → high effort for Opus 4.7', () => {
+  assert.strictEqual(thinkingBudgetToEffortLevel(24000, 31999, { isOpus47: true }), 'high');
+});
+
+test('thinkingBudgetToEffortLevel: full budget → xhigh effort for Opus 4.7', () => {
+  assert.strictEqual(thinkingBudgetToEffortLevel(31999, 31999, { isOpus47: true }), 'xhigh');
+});
+
+test('thinkingBudgetToEffortLevel: full budget → high effort for Opus 4.6 (no xhigh)', () => {
+  assert.strictEqual(thinkingBudgetToEffortLevel(31999, 31999, { isOpus47: false }), 'high');
+});
+
+test('thinkingBudgetToEffortLevel: zero budget → undefined (off)', () => {
+  assert.strictEqual(thinkingBudgetToEffortLevel(0, 31999, { isOpus47: true }), undefined);
+});
+
+test('getClaudeEnv: --thinking-budget 31999 → effort=xhigh for Opus 4.7', () => {
+  const env = getClaudeEnv({ model: 'opus', thinkingBudget: 31999 });
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'xhigh');
+  assert.strictEqual(env.MAX_THINKING_TOKENS, undefined);
+});
+
+test('getClaudeEnv: --thinking-budget 31999 → effort=high + MAX_THINKING_TOKENS=31999 for Opus 4.6', () => {
+  const env = getClaudeEnv({ model: 'opus-4-6', thinkingBudget: 31999 });
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'high');
+  assert.strictEqual(env.MAX_THINKING_TOKENS, '31999');
+});
+
+test('getClaudeEnv: --thinking-budget 16000 → effort=medium + MAX_THINKING_TOKENS=16000 for Sonnet 4.6', () => {
+  const env = getClaudeEnv({ model: 'sonnet', thinkingBudget: 16000, maxBudget: 31999 });
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'medium', 'Sonnet 4.6 should get effort level');
+  assert.strictEqual(env.MAX_THINKING_TOKENS, '16000');
+});
+
+test('getClaudeEnv: --thinking-budget 8000 → MAX_THINKING_TOKENS=8000 for Haiku 4.5 (no effort level)', () => {
+  const env = getClaudeEnv({ model: 'haiku', thinkingBudget: 8000 });
+  assert.strictEqual(env.MAX_THINKING_TOKENS, '8000');
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, undefined, 'Haiku should not get effort level');
+});
+
+// ============================================================
+// Section 17: Bidirectional --think ↔ --thinking-budget conversion
+// ============================================================
+console.log('\n=== 17. Bidirectional --think ↔ --thinking-budget Conversion ===');
+
+test('getThinkingLevelToTokens: all levels produce expected tokens', () => {
+  const tokens = getThinkingLevelToTokens(31999);
+  assert.strictEqual(tokens.off, 0);
+  assert.strictEqual(tokens.low, 7999);
+  assert.strictEqual(tokens.medium, 15999);
+  assert.strictEqual(tokens.high, 23999);
+  assert.strictEqual(tokens.xhigh, 31999);
+  assert.strictEqual(tokens.max, 31999);
+});
+
+test('getTokensToThinkingLevel: roundtrip off', () => {
+  const toLevel = getTokensToThinkingLevel(31999);
+  assert.strictEqual(toLevel(0), 'off');
+});
+
+test('getTokensToThinkingLevel: roundtrip low', () => {
+  const toLevel = getTokensToThinkingLevel(31999);
+  assert.strictEqual(toLevel(7999), 'low');
+});
+
+test('getTokensToThinkingLevel: roundtrip medium', () => {
+  const toLevel = getTokensToThinkingLevel(31999);
+  assert.strictEqual(toLevel(15999), 'medium');
+});
+
+test('getTokensToThinkingLevel: roundtrip high', () => {
+  const toLevel = getTokensToThinkingLevel(31999);
+  assert.strictEqual(toLevel(23999), 'high');
+});
+
+test('getTokensToThinkingLevel: roundtrip max (xhigh budget)', () => {
+  const toLevel = getTokensToThinkingLevel(31999);
+  assert.strictEqual(toLevel(31999), 'max');
+});
+
+// ============================================================
+// Section 18: All effort levels for Opus 4.6 vs 4.7
+// ============================================================
+console.log('\n=== 18. Effort Level Constants ===');
+
+test('OPUS_46_EFFORT_LEVELS has correct values', () => {
+  assert.deepStrictEqual(OPUS_46_EFFORT_LEVELS, ['low', 'medium', 'high']);
+});
+
+test('OPUS_47_EFFORT_LEVELS has correct values including xhigh', () => {
+  assert.deepStrictEqual(OPUS_47_EFFORT_LEVELS, ['low', 'medium', 'high', 'xhigh']);
+});
+
+// ============================================================
+// Section 19: getClaudeEnv for all models with all think levels
+// ============================================================
+console.log('\n=== 19. getClaudeEnv Cross-Model Think Level Matrix ===');
+
+const thinkLevels = ['off', 'low', 'medium', 'high', 'xhigh', 'max'];
+const testModels = [
+  { name: 'opus (4.7)', alias: 'opus', isOpus47: true, supportsEffort: true },
+  { name: 'opus-4-6', alias: 'opus-4-6', isOpus47: false, supportsEffort: true },
+  { name: 'sonnet (4.6)', alias: 'sonnet', isOpus47: false, supportsEffort: true },
+  { name: 'haiku (4.5)', alias: 'haiku', isOpus47: false, supportsEffort: false },
+];
+
+for (const model of testModels) {
+  for (const level of thinkLevels) {
+    const tokens = getThinkingLevelToTokens(31999);
+    const budget = tokens[level];
+    const env = getClaudeEnv({ model: model.alias, thinkLevel: level, thinkingBudget: budget });
+
+    if (model.isOpus47) {
+      test(`${model.name} + --think ${level}: no MAX_THINKING_TOKENS`, () => {
+        assert.strictEqual(env.MAX_THINKING_TOKENS, undefined);
+      });
+    } else {
+      test(`${model.name} + --think ${level}: MAX_THINKING_TOKENS=${budget}`, () => {
+        assert.strictEqual(env.MAX_THINKING_TOKENS, String(budget));
+      });
+    }
+
+    if (level === 'off') {
+      test(`${model.name} + --think off: no effort level`, () => {
+        assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, undefined);
+      });
+    } else if (model.supportsEffort) {
+      const expectedEffort = level === 'xhigh' || level === 'max' ? (model.isOpus47 ? 'xhigh' : 'high') : level;
+      test(`${model.name} + --think ${level}: effort=${expectedEffort}`, () => {
+        assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, expectedEffort);
+      });
+    }
+  }
+}
 
 // ============================================================
 // Summary

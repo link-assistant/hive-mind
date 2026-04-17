@@ -14,60 +14,8 @@ import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: htt
 import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
 export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
-
-/** Build cost estimation string for log comments (Issue #1250, Issue #1557) */
-const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
-  const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
-  const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
-  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
-  const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
-  if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
-  // Issue #1557: Simplified display when public and Anthropic costs match
-  if (hasPublic && hasAnthropic && totalCostUSD.toFixed(6) === anthropicTotalCostUSD.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicTotalCostUSD.toFixed(6)}**`;
-  let costInfo = '\n\n### 💰 **Cost estimation:**';
-  if (pricingInfo?.modelName) {
-    costInfo += `\n- Model: ${pricingInfo.modelName}`;
-    if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
-  }
-  if (hasPublic) {
-    if (pricingInfo?.isFreeModel && totalCostUSD === 0 && !pricingInfo?.baseModelName) {
-      costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
-    } else {
-      let pricingRef = '';
-      if (pricingInfo?.baseModelName && pricingInfo?.originalProvider) {
-        pricingRef = ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)`;
-      } else if (pricingInfo?.originalProvider) {
-        pricingRef = ` (based on ${pricingInfo.originalProvider} prices)`;
-      }
-      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${pricingRef}`;
-    }
-  } else if (hasPricing) {
-    costInfo += '\n- Public pricing estimate: unknown';
-  }
-  if (hasOpencodeCost) {
-    if (pricingInfo.isOpencodeFreeModel) {
-      costInfo += '\n- Calculated by OpenCode Zen: $0.00 (Free model)';
-    } else {
-      costInfo += `\n- Calculated by OpenCode Zen: $${pricingInfo.opencodeCost.toFixed(6)}`;
-    }
-  }
-  if (pricingInfo?.tokenUsage) {
-    const u = pricingInfo.tokenUsage;
-    let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
-    if (u.reasoningTokens > 0) tokenInfo += `, ${u.reasoningTokens.toLocaleString()} reasoning`;
-    if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0) tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
-    costInfo += tokenInfo;
-  }
-  if (hasAnthropic) {
-    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)}`;
-    if (hasPublic) {
-      const diff = anthropicTotalCostUSD - totalCostUSD;
-      const pct = totalCostUSD > 0 ? (diff / totalCostUSD) * 100 : 0;
-      costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct > 0 ? '+' : ''}${pct.toFixed(2)}%)`;
-    }
-  }
-  return costInfo;
-};
+import { buildCostInfoString } from './github-cost-info.lib.mjs';
+export { buildCostInfoString };
 export const maskGitHubToken = maskToken; // Alias for backward compatibility
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {

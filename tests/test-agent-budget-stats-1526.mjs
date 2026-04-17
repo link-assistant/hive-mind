@@ -70,6 +70,21 @@ runTest('extracts model info from step_finish events', () => {
   assertEqual(usage.outputLimit, 32000, 'Should extract outputLimit');
 });
 
+runTest('marks observed zero cache write fields from agent step_finish events', () => {
+  const output = JSON.stringify({
+    type: 'step_finish',
+    part: {
+      tokens: { input: 100, output: 50, cache: { read: 200, write: 0 } },
+      cost: 0,
+    },
+  });
+  const usage = parseAgentTokenUsage(output);
+  assertEqual(usage.cacheReadTokens, 200, 'Should parse cache read tokens');
+  assertEqual(usage.cacheWriteTokens, 0, 'Should preserve zero cache write value');
+  assertEqual(usage.tokenFieldAvailability.cacheReadTokens, true, 'Should mark cache read as observed');
+  assertEqual(usage.tokenFieldAvailability.cacheWriteTokens, true, 'Should mark cache write as observed even when zero');
+});
+
 runTest('tracks peak context usage across steps', () => {
   const step1 = JSON.stringify({
     type: 'step_finish',
@@ -173,7 +188,7 @@ runTest('renders Agent CLI budget stats with context window', () => {
   const budgetData = buildAgentBudgetStats(tokenUsage, pricingInfo);
   const result = buildBudgetStatsString(budgetData);
   assertContains(result, '📊 **Context and tokens usage:**', 'Should have header');
-  assertContains(result, 'Context window:', 'Should show context window');
+  assertNotContains(result, 'Context window:', 'Should NOT show "Context window:" prefix (removed in #1600)');
   assertContains(result, '14K / 204.8K (7%) input tokens', 'Should show peak context vs limit');
   assertContains(result, '1K / 32K (3%) output tokens', 'Should show output vs limit');
   assertContains(result, 'Total:', 'Should show Total line');

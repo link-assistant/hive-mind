@@ -3,6 +3,7 @@
 // Extracted from claude.lib.mjs to maintain file line limits
 
 import { formatNumber } from './claude.lib.mjs';
+import Decimal from 'decimal.js-light';
 
 /**
  * Helper: creates a fresh sub-session usage object for tracking tokens between compactification events
@@ -105,11 +106,11 @@ export const displayModelUsage = async (usage, log) => {
     ];
     for (const { key, label } of types) {
       if (breakdown[key].tokens > 0) {
-        await log(`        ${label}: ${formatNumber(breakdown[key].tokens)} tokens × $${breakdown[key].costPerMillion}/M = $${breakdown[key].cost.toFixed(6)}`);
+        await log(`        ${label}: ${formatNumber(breakdown[key].tokens)} tokens × $${breakdown[key].costPerMillion}/M = $${new Decimal(breakdown[key].cost).toFixed(6)}`);
       }
     }
     await log('        ─────────────────────────────────');
-    await log(`        Total: $${usage.costUSD.toFixed(6)}`);
+    await log(`        Total: $${new Decimal(usage.costUSD).toFixed(6)}`);
   } else if (usage.modelInfo === null) {
     await log('');
     await log('      Cost: Not available (could not fetch pricing)');
@@ -126,18 +127,19 @@ export const displayModelUsage = async (usage, log) => {
 export const displayCostComparison = async (publicCost, anthropicCost, log) => {
   const hasPublic = publicCost !== null && publicCost !== undefined;
   const hasAnthropic = anthropicCost !== null && anthropicCost !== undefined;
-  // Issue #1557: When both costs match, show simplified format
-  if (hasPublic && hasAnthropic && publicCost.toFixed(6) === anthropicCost.toFixed(6)) {
-    await log(`\n   💰 Cost: $${anthropicCost.toFixed(6)}`);
+  const publicDec = hasPublic ? new Decimal(publicCost) : null;
+  const anthropicDec = hasAnthropic ? new Decimal(anthropicCost) : null;
+  if (publicDec && anthropicDec && publicDec.toFixed(6) === anthropicDec.toFixed(6)) {
+    await log(`\n   💰 Cost: $${anthropicDec.toFixed(6)}`);
     return;
   }
   await log('\n   💰 Cost estimation:');
-  await log(`      Public pricing estimate: ${hasPublic ? `$${publicCost.toFixed(6)}` : 'unknown'}`);
-  await log(`      Calculated by Anthropic: ${hasAnthropic ? `$${anthropicCost.toFixed(6)}` : 'unknown'}`);
-  if (hasPublic && hasAnthropic) {
-    const difference = anthropicCost - publicCost;
-    const percentDiff = publicCost > 0 ? (difference / publicCost) * 100 : 0;
-    await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
+  await log(`      Public pricing estimate: ${publicDec ? `$${publicDec.toFixed(6)}` : 'unknown'}`);
+  await log(`      Calculated by Anthropic: ${anthropicDec ? `$${anthropicDec.toFixed(6)}` : 'unknown'}`);
+  if (publicDec && anthropicDec) {
+    const difference = anthropicDec.minus(publicDec);
+    const percentDiff = publicDec.gt(0) ? difference.div(publicDec).mul(100) : new Decimal(0);
+    await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff.gt(0) ? '+' : ''}${percentDiff.toFixed(2)}%)`);
   } else {
     await log('      Difference:              unknown');
   }
@@ -169,11 +171,10 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
   const peakContext = usage.peakContextUsage || 0;
 
   if (hasMultipleSubSessions) {
+    // Issue #1600: Unified format — numbered list without "Context window:" prefix
     for (let i = 0; i < subSessions.length; i++) {
       const sub = subSessions[i];
       const subPeak = sub.peakContextUsage || 0;
-      // Issue #1539: Only use peak per-request context for context window display.
-      // Issue #1547: Percentage before unit label: X / Y (Z%) input tokens
       const parts = [];
       if (contextLimit && subPeak > 0) {
         const pct = ((subPeak / contextLimit) * 100).toFixed(0);
@@ -184,12 +185,10 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
         parts.push(`${formatNumber(sub.outputTokens)} / ${formatNumber(outputLimit)} (${outPct}%) output tokens`);
       }
       if (parts.length > 0) {
-        await log(`        ${i + 1}. Context window: ${parts.join(', ')}`);
+        await log(`        ${i + 1}. ${parts.join(', ')}`);
       }
     }
   } else if (peakContext > 0) {
-    // Single sub-session with known peak: single-line format
-    // Issue #1547: Percentage before unit label
     const parts = [];
     if (contextLimit) {
       const pct = ((peakContext / contextLimit) * 100).toFixed(0);
@@ -200,11 +199,9 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
       parts.push(`${formatNumber(usage.outputTokens)} / ${formatNumber(outputLimit)} (${outPct}%) output tokens`);
     }
     if (parts.length > 0) {
-      await log(`        Context window: ${parts.join(', ')}`);
+      await log(`        - ${parts.join(', ')}`);
     }
   }
-  // Issue #1539: When peakContextUsage is unknown, skip context window line entirely.
-  // Cumulative totals are shown on the Total line below — no duplication needed.
 
   // Cumulative totals — single line
   // Issue #1547: Parenthesized cached format and consistent output format
@@ -303,14 +300,13 @@ const formatTokensCompact = tokens => {
  * @returns {string} Formatted sub-sessions string
  */
 /**
- * Issue #1526: Format sub-sessions list using numbered single-line format.
- * Each sub-session gets: "N. Context window: X / Y input tokens (Z%), A / B output tokens (W%)"
+ * Issue #1600: Format sub-sessions list using numbered single-line format.
+ * Each sub-session gets: "N. X / Y (Z%) input tokens, A / B (W%) output tokens"
  */
 const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
   let result = '';
   for (let i = 0; i < subSessions.length; i++) {
     const sub = subSessions[i];
-    // Issue #1539: Only use peak per-request context; skip context display when unknown
     const subPeakContext = sub.peakContextUsage || 0;
     result += formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `);
   }
@@ -318,10 +314,7 @@ const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
 };
 
 /**
- * Issue #1526: Build a single-line context window + output tokens string.
- * Issue #1539: Only show context window when peakContext > 0 (per-request peak known).
- * When peakContext is 0 (unknown), context part is omitted to avoid misleading percentages.
- * Format: "- Context window: X / Y input tokens (Z%), A / B output tokens (W%)"
+ * Issue #1600: Build a single-line context + output tokens string (unified format, no "Context window:" prefix).
  * @param {number} peakContext - Peak context usage (0 if unknown — context display skipped)
  * @param {number} contextLimit - Context window limit (null if unknown)
  * @param {number} outputTokens - Output tokens used
@@ -331,22 +324,16 @@ const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
  */
 const formatContextOutputLine = (peakContext, contextLimit, outputTokens, outputLimit, prefix = '- ') => {
   const parts = [];
-  if (contextLimit) {
-    // Issue #1539: Only use peak per-request context for context window display.
-    // When peak is unknown (e.g., model only from result JSON, not in JSONL),
-    // skip context display. Cumulative totals across all requests are not valid
-    // context window metrics and produce impossible percentages (e.g. 250%).
-    if (peakContext > 0) {
-      const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-      parts.push(`${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} (${pct}%) input tokens`);
-    }
+  if (contextLimit && peakContext > 0) {
+    const pct = ((peakContext / contextLimit) * 100).toFixed(0);
+    parts.push(`${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} (${pct}%) input tokens`);
   }
   if (outputLimit) {
     const outPct = ((outputTokens / outputLimit) * 100).toFixed(0);
     parts.push(`${formatTokensCompact(outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`);
   }
   if (parts.length === 0) return '';
-  return `\n${prefix}Context window: ${parts.join(', ')}`;
+  return `\n${prefix}${parts.join(', ')}`;
 };
 
 /**
@@ -445,31 +432,37 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
 
       // Issue #1590: Check if this model was used as a sub-agent
       const callCount = getSubAgentCallCount(modelId, subAgentCallCounts);
+      const isPrimaryModel = !isMultiModel || modelId === modelIds[0];
+      const showSubSessions = hasMultipleSubSessions && isPrimaryModel;
 
       if (isMultiModel) {
         // Issue #1590: Show sub-agent call count alongside model name
+        // Issue #1600: Show session segment count for primary model
         if (callCount > 1) {
           stats += `\n\n**${modelName}:** (${callCount} sub-agent calls)`;
+        } else if (showSubSessions) {
+          stats += `\n\n**${modelName}:** (${subSessions.length} session segments)`;
         } else {
           stats += `\n\n**${modelName}:**`;
         }
+      } else if (showSubSessions) {
+        stats += `\n\n**${modelName}:** (${subSessions.length} session segments)`;
       }
 
       const peakContext = usage.peakContextUsage || 0;
 
-      if (hasMultipleSubSessions && (!isMultiModel || modelId === modelIds[0])) {
-        // Issue #1547: Show sub-sessions under the primary model heading (not globally).
-        // For single-model sessions, show under that model. For multi-model, under the first model.
+      if (showSubSessions) {
+        // Issue #1600: Unified format — no "Context window:" prefix, same format as sub-agent calls
         stats += formatSubSessionsList(subSessions, contextLimit, outputLimit);
       } else if (peakContext > 0) {
-        // Issue #1526: Single line format for context window + output tokens
         stats += formatContextOutputLine(peakContext, contextLimit, usage.outputTokens, outputLimit, '- ');
+      } else if (outputLimit && callCount <= 1) {
+        // Issue #1600: Show output-only detalization for sub-agent single sessions
+        const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
+        stats += `\n- ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`;
       }
-      // Issue #1539: When peakContextUsage is unknown, skip context window line entirely.
-      // Cumulative totals are shown on the Total line below — no duplication needed.
 
       // Cumulative totals per model: input tokens + cached shown separately
-      // Issue #1547: Parenthesized cached format: (X + Y cached) input tokens
       const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
       const cachedTokens = usage.cacheReadTokens;
       let totalLine;
@@ -479,36 +472,25 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
         totalLine = `${formatTokensCompact(totalInputNonCached)} input tokens`;
       }
 
-      // Issue #1547: Consistent output format — use X / Y (Z%) output tokens when limit known
-      // Issue #1590: When multiple sub-agent calls exist, show total output without misleading
-      // per-call percentage (e.g., 530% is sum across 12 calls, not a single call)
-      if (peakContext === 0 && outputLimit) {
-        if (callCount > 1) {
-          // Show total output without percentage (percentage is misleading for aggregated sub-agent calls)
-          totalLine += `, ${formatTokensCompact(usage.outputTokens)} output tokens`;
-        } else {
-          const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
-          totalLine += `, ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`;
-        }
+      // Issue #1600: Output tokens on Total line — skip percentage if already shown above or aggregated
+      if (callCount > 1) {
+        totalLine += `, ${formatTokensCompact(usage.outputTokens)} output tokens`;
       } else {
         totalLine += `, ${formatTokensCompact(usage.outputTokens)} output tokens`;
       }
 
-      // Issue #1508: Show per-model cost when available
+      // Issue #1600: Use Decimal for cost display precision
       if (usage.costUSD !== null && usage.costUSD !== undefined) {
-        totalLine += `, $${usage.costUSD.toFixed(6)} cost`;
+        totalLine += `, $${new Decimal(usage.costUSD).toFixed(6)} cost`;
       }
 
       // Issue #1590: Show individual sub-agent call list when multiple calls exist
-      // Total line appears AFTER the sub-agent calls list (not before)
       if (callCount > 1) {
         const matchingCalls = getSubAgentCallsForModel(modelId, validSubAgentCalls);
-        // Issue #1590: Check if actual per-call usage data is available from parent_tool_use_id tracking
         const hasActualUsage = matchingCalls.some(c => c.usage && (c.usage.inputTokens > 0 || c.usage.outputTokens > 0 || c.usage.cacheReadTokens > 0 || c.usage.cacheCreationTokens > 0));
 
         stats += `\n\nSub-agent calls:`;
         if (hasActualUsage) {
-          // Show actual per-call usage with limits and percentages (same format as sub-sessions)
           for (let i = 0; i < matchingCalls.length; i++) {
             const call = matchingCalls[i];
             const cu = call.usage || {};
@@ -530,7 +512,6 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
             stats += `\n${i + 1}. ${parts.join(', ')}`;
           }
         } else {
-          // Fallback: show estimates with limits and percentages when actual per-call data is not available
           const avgInput = Math.round((totalInputNonCached + cachedTokens) / callCount);
           const avgOutput = Math.round(usage.outputTokens / callCount);
           for (let i = 0; i < matchingCalls.length; i++) {
@@ -549,7 +530,6 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
             }
             stats += `\n${i + 1}. ${parts.join(', ')}`;
           }
-          // Note about estimates only when using fallback
           stats += `\n\n_Per-call values are estimates (total ÷ ${callCount}). Exact per-call breakdown requires [upstream support](https://github.com/anthropics/claude-code/issues/46520)._`;
         }
       }

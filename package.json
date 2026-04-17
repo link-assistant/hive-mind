@@ -70,6 +70,7 @@
     "@sentry/node": "^10.15.0",
     "@sentry/profiling-node": "^10.15.0",
     "dayjs": "^1.11.19",
+    "decimal.js-light": "^2.5.1",
     "secretlint": "^11.2.5",
     "semver": "^7.7.3"
   },

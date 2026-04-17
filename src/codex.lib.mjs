@@ -22,7 +22,7 @@ import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.m
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 
-const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens'];
+const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
 const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
 const CODEX_MODEL_DIAGNOSTIC_PATHS = [
   ['model', data => data?.model],
@@ -31,6 +31,40 @@ const CODEX_MODEL_DIAGNOSTIC_PATHS = [
   ['to_model', data => data?.to_model],
   ['message.model', data => data?.message?.model],
 ];
+
+const createCodexTokenFieldAvailability = () => ({
+  inputTokens: false,
+  outputTokens: false,
+  reasoningTokens: false,
+  cacheReadTokens: false,
+  cacheWriteTokens: false,
+});
+
+const hasOwnPath = (object, pathName) => {
+  let cursor = object;
+  for (const part of pathName.split('.')) {
+    if (!cursor || typeof cursor !== 'object' || !Object.hasOwn(cursor, part)) return false;
+    cursor = cursor[part];
+  }
+  return true;
+};
+
+const getPathValue = (object, pathName) => pathName.split('.').reduce((cursor, part) => cursor?.[part], object);
+
+const getFirstObservedNumber = (object, pathNames) => {
+  for (const pathName of pathNames) {
+    if (!hasOwnPath(object, pathName)) continue;
+    const value = getPathValue(object, pathName);
+    return Number.isFinite(value) ? value : 0;
+  }
+  return 0;
+};
+
+const hasAnyObservedPath = (object, pathNames) => pathNames.some(pathName => hasOwnPath(object, pathName));
+
+const CODEX_CACHE_READ_USAGE_PATHS = ['cached_input_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens'];
+const CODEX_CACHE_WRITE_USAGE_PATHS = ['cache_write_tokens', 'cache_creation_input_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens'];
+const CODEX_REASONING_USAGE_PATHS = ['reasoning_tokens', 'output_tokens_details.reasoning_tokens'];
 
 export const createCodexTokenUsage = requestedModelId => ({
   inputTokens: 0,
@@ -42,6 +76,7 @@ export const createCodexTokenUsage = requestedModelId => ({
   stepCount: 0,
   requestedModelId: requestedModelId || null,
   respondedModelId: requestedModelId || null,
+  tokenFieldAvailability: createCodexTokenFieldAvailability(),
 });
 
 const createEmptyCodexItemUsage = () => ({
@@ -162,6 +197,7 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     observedModelDiagnosticPaths: state.observedModelDiagnosticPaths || [],
   };
 
+  nextState.tokenUsage.tokenFieldAvailability ||= createCodexTokenFieldAvailability();
   const observedModelPaths = new Set(nextState.observedModelDiagnosticPaths);
 
   for (const rawLine of output.split('\n')) {
@@ -205,17 +241,28 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     }
 
     if (eventType === 'turn.completed' && data.usage && typeof data.usage === 'object') {
-      const inputTokens = Number.isFinite(data.usage.input_tokens) ? data.usage.input_tokens : 0;
-      const cachedInputTokens = Number.isFinite(data.usage.cached_input_tokens) ? data.usage.cached_input_tokens : 0;
-      const outputTokens = Number.isFinite(data.usage.output_tokens) ? data.usage.output_tokens : 0;
+      const inputTokens = getFirstObservedNumber(data.usage, ['input_tokens']);
+      const cachedInputTokens = getFirstObservedNumber(data.usage, CODEX_CACHE_READ_USAGE_PATHS);
+      const cacheWriteTokens = getFirstObservedNumber(data.usage, CODEX_CACHE_WRITE_USAGE_PATHS);
+      const outputTokens = getFirstObservedNumber(data.usage, ['output_tokens']);
+      const reasoningTokens = getFirstObservedNumber(data.usage, CODEX_REASONING_USAGE_PATHS);
+
+      if (hasOwnPath(data.usage, 'input_tokens')) nextState.tokenUsage.tokenFieldAvailability.inputTokens = true;
+      if (hasAnyObservedPath(data.usage, CODEX_CACHE_READ_USAGE_PATHS)) nextState.tokenUsage.tokenFieldAvailability.cacheReadTokens = true;
+      if (hasAnyObservedPath(data.usage, CODEX_CACHE_WRITE_USAGE_PATHS)) nextState.tokenUsage.tokenFieldAvailability.cacheWriteTokens = true;
+      if (hasOwnPath(data.usage, 'output_tokens')) nextState.tokenUsage.tokenFieldAvailability.outputTokens = true;
+      if (hasAnyObservedPath(data.usage, CODEX_REASONING_USAGE_PATHS)) nextState.tokenUsage.tokenFieldAvailability.reasoningTokens = true;
+
       const nonCachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
       nextState.tokenUsage.inputTokens += nonCachedInputTokens;
       nextState.tokenUsage.cacheReadTokens += cachedInputTokens;
+      nextState.tokenUsage.cacheWriteTokens += cacheWriteTokens;
       nextState.tokenUsage.outputTokens += outputTokens;
+      nextState.tokenUsage.reasoningTokens += reasoningTokens;
       nextState.tokenUsage.totalTokens = nextState.tokenUsage.inputTokens + nextState.tokenUsage.cacheReadTokens + nextState.tokenUsage.outputTokens + nextState.tokenUsage.cacheWriteTokens;
       nextState.tokenUsage.stepCount += 1;
 
-      const usageFieldSet = CODEX_USAGE_FIELD_NAMES.filter(fieldName => Object.hasOwn(data.usage, fieldName));
+      const usageFieldSet = CODEX_USAGE_FIELD_NAMES.filter(fieldName => hasOwnPath(data.usage, fieldName));
       if (usageFieldSet.length > 0) nextState.observedUsageFieldSets.push(usageFieldSet);
     }
 

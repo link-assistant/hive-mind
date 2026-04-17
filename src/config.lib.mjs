@@ -178,7 +178,7 @@ export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
   // Check for explicit opus-4-6 or later versions, or opusplan (Issue #1223)
-  // Note: The 'opus' alias now maps to Opus 4.6 (Issue #1433), so we also check for the alias directly
+  // Note: The 'opus' alias now maps to Opus 4.7 (Issue #1620), so we also check for the alias directly
   // opusplan uses Opus for planning, so it should get Opus-level settings
   return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
 };

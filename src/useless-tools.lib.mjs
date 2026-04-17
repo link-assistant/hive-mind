@@ -28,21 +28,7 @@ const path = (await use('path')).default;
  * autonomous headless hive-mind runs. Every entry is a tool name as it
  * appears in the stream-json `tools` array emitted by `claude --verbose`.
  */
-export const USELESS_CLAUDE_BUILTIN_TOOLS = Object.freeze([
-  'AskUserQuestion',
-  'CronCreate',
-  'CronDelete',
-  'CronList',
-  'EnterPlanMode',
-  'EnterWorktree',
-  'ExitPlanMode',
-  'ExitWorktree',
-  'Monitor',
-  'NotebookEdit',
-  'PushNotification',
-  'RemoteTrigger',
-  'ScheduleWakeup',
-]);
+export const USELESS_CLAUDE_BUILTIN_TOOLS = Object.freeze(['AskUserQuestion', 'CronCreate', 'CronDelete', 'CronList', 'EnterPlanMode', 'EnterWorktree', 'ExitPlanMode', 'ExitWorktree', 'Monitor', 'NotebookEdit', 'PushNotification', 'RemoteTrigger', 'ScheduleWakeup']);
 
 /**
  * Name prefixes of MCP servers that are always unusable in headless Docker
@@ -58,21 +44,14 @@ export const USELESS_MCP_SERVER_NAME_PREFIXES = Object.freeze(['claude.ai gmail'
  * entries to `--disallowedTools` is a belt-and-braces measure that complements
  * filtering the MCP server itself.
  */
-export const USELESS_MCP_TOOL_NAME_PREFIXES = Object.freeze([
-  'mcp__claude_ai_Gmail',
-  'mcp__claude_ai_Google_Drive',
-  'mcp__claude_ai_Google_Calendar',
-]);
+export const USELESS_MCP_TOOL_NAME_PREFIXES = Object.freeze(['mcp__claude_ai_Gmail', 'mcp__claude_ai_Google_Drive', 'mcp__claude_ai_Google_Calendar']);
 
 /**
  * Tool identifiers accepted by `claude --disallowedTools ...`. This is a
  * flat list combining the built-in tools with the wildcard forms of the
  * useless MCP tool-name prefixes.
  */
-export const buildDisallowedToolsList = () => [
-  ...USELESS_CLAUDE_BUILTIN_TOOLS,
-  ...USELESS_MCP_TOOL_NAME_PREFIXES.map(prefix => `${prefix}__*`),
-];
+export const buildDisallowedToolsList = () => [...USELESS_CLAUDE_BUILTIN_TOOLS, ...USELESS_MCP_TOOL_NAME_PREFIXES.map(prefix => `${prefix}__*`)];
 
 /**
  * Returns true if `name` matches one of the useless MCP server prefixes.

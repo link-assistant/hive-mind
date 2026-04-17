@@ -53,21 +53,7 @@ async function runTests() {
   // ============================================================================
 
   test('USELESS_CLAUDE_BUILTIN_TOOLS contains exactly the expected tools', () => {
-    const expected = [
-      'AskUserQuestion',
-      'CronCreate',
-      'CronDelete',
-      'CronList',
-      'EnterPlanMode',
-      'EnterWorktree',
-      'ExitPlanMode',
-      'ExitWorktree',
-      'Monitor',
-      'NotebookEdit',
-      'PushNotification',
-      'RemoteTrigger',
-      'ScheduleWakeup',
-    ];
+    const expected = ['AskUserQuestion', 'CronCreate', 'CronDelete', 'CronList', 'EnterPlanMode', 'EnterWorktree', 'ExitPlanMode', 'ExitWorktree', 'Monitor', 'NotebookEdit', 'PushNotification', 'RemoteTrigger', 'ScheduleWakeup'];
     assert.deepEqual([...USELESS_CLAUDE_BUILTIN_TOOLS].sort(), expected.sort());
   });
 

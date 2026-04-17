@@ -72,9 +72,15 @@ RUN mkdir -p /workspace/.local/bin && \
 # --- AI-specific packages installation ---
 # Every install must fail the build on error — no silent fallbacks (see issue #1505)
 
+# Install Claude Code through Anthropic's native installer. Bun blocks the
+# @anthropic-ai/claude-code postinstall that links the native binary (issue #1633).
+RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
+    bash /tmp/claude-code-install.sh && \
+    rm /tmp/claude-code-install.sh && \
+    claude --version
+
 # Install AI coding assistant CLIs
-RUN bun install -g @anthropic-ai/claude-code && \
-    bun install -g @openai/codex && \
+RUN bun install -g @openai/codex && \
     bun install -g @qwen-code/qwen-code && \
     bun install -g @google/gemini-cli && \
     bun install -g @github/copilot && \

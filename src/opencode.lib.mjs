@@ -241,6 +241,11 @@ export const executeOpenCodeCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
+    // Log Playwright MCP session state
+    if (argv.playwrightMcp === false) {
+      await log('🎭 Playwright MCP physically disabled for this OpenCode session via --no-playwright-mcp', { verbose: true });
+    }
+
     // Build OpenCode command
     let execCommand;
 

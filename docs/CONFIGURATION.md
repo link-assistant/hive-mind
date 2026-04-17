@@ -469,6 +469,7 @@ hive <github-url> [options]
 | `--prompt-issue-reporting`             |       | boolean | false         | Auto-create issues for spotted bugs                                                    |
 | `--prompt-case-studies`                |       | boolean | false         | Create case study documentation                                                        |
 | `--prompt-playwright-mcp`              |       | boolean | true          | Playwright MCP hints (only if installed)                                               |
+| `--playwright-mcp`                     |       | boolean | true          | Enable Playwright MCP for this session (`--no-playwright-mcp` to disable)              |
 | `--prompt-check-sibling-pull-requests` |       | boolean | true          | Check sibling PRs when studying related work                                           |
 
 ### hive-telegram-bot Options

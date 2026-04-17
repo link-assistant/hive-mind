@@ -197,6 +197,29 @@ github           docker   run        -    -    enabled   Unsupported`;
     assert.deepEqual(parseCodexMcpServerNames(output), ['playwright', 'playwright_alt', 'github']);
   });
 
+  await asyncTest('opencode.lib.mjs logs Playwright MCP disable when playwrightMcp is false', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'opencode.lib.mjs'), 'utf-8');
+    assert.ok(content.includes('argv.playwrightMcp === false'), 'opencode.lib.mjs should check playwrightMcp flag');
+    assert.ok(content.includes('Playwright MCP physically disabled for this OpenCode session'), 'opencode.lib.mjs should log Playwright MCP disable');
+  });
+
+  await asyncTest('agent.lib.mjs logs Playwright MCP disable when playwrightMcp is false', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'agent.lib.mjs'), 'utf-8');
+    assert.ok(content.includes('argv.playwrightMcp === false'), 'agent.lib.mjs should check playwrightMcp flag');
+    assert.ok(content.includes('Playwright MCP physically disabled for this Agent session'), 'agent.lib.mjs should log Playwright MCP disable');
+  });
+
+  await asyncTest('config --playwright-mcp description mentions all four tools', async () => {
+    const content = await fs.readFile(path.join(srcDir, 'solve.config.lib.mjs'), 'utf-8');
+    const mcpIndex = content.indexOf("'playwright-mcp'");
+    assert.ok(mcpIndex > -1, 'Config should have playwright-mcp option');
+    const section = content.substring(mcpIndex, mcpIndex + 600);
+    assert.ok(section.includes('opencode'), '--playwright-mcp description should mention opencode');
+    assert.ok(section.includes('agent'), '--playwright-mcp description should mention agent');
+    assert.ok(section.includes('claude'), '--playwright-mcp description should mention claude');
+    assert.ok(section.includes('codex'), '--playwright-mcp description should mention codex');
+  });
+
   await asyncTest('cascadePlaywrightMcpDisable turns off prompt and cleanup flags', async () => {
     const argv = {
       playwrightMcp: false,

@@ -381,7 +381,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'playwright-mcp': {
     type: 'boolean',
-    description: 'Enable Playwright MCP server connection for this session (enabled by default). Use --no-playwright-mcp to physically disable the Playwright MCP server without affecting the global MCP registration. When disabled, also disables --prompt-playwright-mcp and --playwright-mcp-auto-cleanup. Supported for --tool claude and --tool codex (opencode and agent do not connect to MCP servers directly).',
+    description: 'Enable Playwright MCP server connection for this session (enabled by default). Use --no-playwright-mcp to physically disable the Playwright MCP server without affecting the global MCP registration. When disabled, also disables --prompt-playwright-mcp and --playwright-mcp-auto-cleanup. Supported for --tool claude, --tool codex, --tool opencode, and --tool agent.',
     default: true,
   },
   'playwright-mcp-auto-cleanup': {

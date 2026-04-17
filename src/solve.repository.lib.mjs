@@ -32,12 +32,8 @@ import { safeExit } from './exit-handler.lib.mjs';
 // Import GitHub utilities for permission checks
 const githubLib = await import('./github.lib.mjs');
 const { checkRepositoryWritePermission } = githubLib;
-
-// Issue #1625: centralized markers + tracked posting for the "empty/un-
-// forkable repo" issue comment so it's excluded from --auto-attach-
-// solution-summary's AI-comment check.
-const toolComments = await import('./tool-comments.lib.mjs');
-const { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } = toolComments;
+// Issue #1625: centralized markers + tracked posting.
+const { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } = await import('./tool-comments.lib.mjs');
 
 // Get root repository (fork source or self), or null if inaccessible
 export const getRootRepository = async (owner, repo) => {

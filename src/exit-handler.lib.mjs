@@ -27,6 +27,8 @@ let logFunction = null;
 let cleanupFunction = null;
 let interruptFunction = null;
 let interruptHandlerRan = false;
+let preExitFunction = null;
+let preExitHandlerRan = false;
 
 /**
  * Initialize the exit handler with required dependencies
@@ -36,11 +38,16 @@ let interruptHandlerRan = false;
  * @param {Function} interrupt - Optional interrupt function to call on SIGINT/SIGTERM before cleanup
  *                               (e.g., auto-commit uncommitted changes, upload logs)
  */
-export const initializeExitHandler = (getLogPath, log, cleanup = null, interrupt = null) => {
+export const initializeExitHandler = (getLogPath, log, cleanup = null, interrupt = null, preExit = null) => {
   getLogPathFunction = getLogPath;
   logFunction = log;
   cleanupFunction = cleanup;
   interruptFunction = interrupt;
+  preExitFunction = preExit;
+};
+
+export const setPreExitHandler = preExit => {
+  preExitFunction = preExit;
 };
 
 /**
@@ -199,6 +206,20 @@ export const logActiveHandles = async (log = null) => {
  */
 export const safeExit = async (code = 0, reason = 'Process completed') => {
   await showExitMessage(reason, code);
+
+  if (code !== 0 && preExitFunction && !preExitHandlerRan) {
+    preExitHandlerRan = true;
+    try {
+      await preExitFunction({ code, reason });
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error);
+      if (logFunction) {
+        await logFunction(`⚠️  Pre-exit handler failed: ${message}`, { level: 'warning' });
+      } else {
+        console.warn(`⚠️  Pre-exit handler failed: ${message}`);
+      }
+    }
+  }
 
   // Issue #1431: Drain/unref active handles so the event loop exits naturally.
   // This resolves the root causes of dangling ReadStream (stdin), Socket (undici),

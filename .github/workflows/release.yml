@@ -424,6 +424,11 @@ jobs:
           echo "Running test suite for fork parent validation..."
           node tests/test-fork-parent-validation.mjs
 
+      - name: Run pre-PR failure notifier test (Issue #1640)
+        run: |
+          echo "Running test suite for pre-PR failure notifications..."
+          node tests/test-pre-pr-failure-notifier-1640.mjs
+
       - name: Run docs-code options sync test (Issue #1518)
         run: |
           echo "Running test suite for documentation-code options sync..."

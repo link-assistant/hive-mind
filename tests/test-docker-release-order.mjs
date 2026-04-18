@@ -16,8 +16,8 @@ for (const file of dockerfiles) {
   assert.ok(content.includes('ARG HIVE_MIND_VERSION=latest'), `${file} should accept the exact published hive-mind version as a build arg`);
   assert.ok(content.includes('bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"'), `${file} should install the published hive-mind package version`);
   assert.ok(content.includes('test "$(hive --version)" = "${HIVE_MIND_VERSION}"'), `${file} should verify the installed hive-mind version when a release version is supplied`);
-  assert.ok(content.includes('configure-claude --settings-path /workspace/.claude/settings.json'), `${file} should invoke the published configure-claude bin`);
-  assert.ok(content.includes('configure-claude --settings-path /workspace/.claude/settings.json --verify'), `${file} should verify the Docker baseline after applying configure-claude`);
+  assert.ok(content.includes('configure-claude --settings-path /home/box/.claude/settings.json'), `${file} should invoke the published configure-claude bin`);
+  assert.ok(content.includes('configure-claude --settings-path /home/box/.claude/settings.json --verify'), `${file} should verify the Docker baseline after applying configure-claude`);
   // PR builds (HIVE_MIND_VERSION=latest) must tolerate a configure-claude that
   // has not been published yet; release builds (pinned version) must not.
   assert.ok(/if \[ "\$\{HIVE_MIND_VERSION\}" != "latest" \]/.test(content), `${file} should branch on HIVE_MIND_VERSION so release builds enforce configure-claude strictly`);

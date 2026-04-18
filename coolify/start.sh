@@ -1,4 +1,6 @@
 #!/bin/bash
+BOX_HOME=/home/box
+
 echo "========================================"
 echo "Hive-Mind Container"
 echo "========================================"
@@ -7,36 +9,39 @@ echo "========================================"
 echo "Fixing permissions and git configuration..."
 
 # Remove .gitconfig if it's a directory and create proper git config
-if [ -d /workspace/.gitconfig ]; then
+if [ -d "$BOX_HOME/.gitconfig" ]; then
   echo "  - Removing invalid .gitconfig directory"
-  rm -rf /workspace/.gitconfig
+  rm -rf "$BOX_HOME/.gitconfig"
 fi
 
 # Create proper git config file if it doesn't exist
-if [ ! -f /workspace/.gitconfig ]; then
+if [ ! -f "$BOX_HOME/.gitconfig" ]; then
   echo "  - Creating git configuration"
-  echo "[user]" > /workspace/.gitconfig
-  echo "  name = Hive-Mind Bot" >> /workspace/.gitconfig
-  echo "  email = hive@localhost" >> /workspace/.gitconfig
-  echo "[init]" >> /workspace/.gitconfig
-  echo "  defaultBranch = main" >> /workspace/.gitconfig
-  echo "[safe]" >> /workspace/.gitconfig
-  echo "  directory = *" >> /workspace/.gitconfig
-  chown sandbox:sandbox /workspace/.gitconfig
+  echo "[user]" > "$BOX_HOME/.gitconfig"
+  echo "  name = Hive-Mind Bot" >> "$BOX_HOME/.gitconfig"
+  echo "  email = hive@localhost" >> "$BOX_HOME/.gitconfig"
+  echo "[init]" >> "$BOX_HOME/.gitconfig"
+  echo "  defaultBranch = main" >> "$BOX_HOME/.gitconfig"
+  echo "[safe]" >> "$BOX_HOME/.gitconfig"
+  echo "  directory = *" >> "$BOX_HOME/.gitconfig"
+  chown box:box "$BOX_HOME/.gitconfig"
 fi
 
 # Fix Claude and GitHub config directories
 echo "  - Setting up Claude and GitHub directories"
-mkdir -p /workspace/.claude/plugins /workspace/.config/gh
-chown -R sandbox:sandbox /workspace/.claude /workspace/.config
-chown -R sandbox:sandbox /app/claude-logs /app/claude-sessions /app/output 2>/dev/null || true
+mkdir -p "$BOX_HOME/.claude/plugins" "$BOX_HOME/.config/gh" "$BOX_HOME/.codex"
+chown -R box:box "$BOX_HOME/.claude" "$BOX_HOME/.config" "$BOX_HOME/.codex"
+chown -R box:box /app/claude-logs /app/claude-sessions /app/output 2>/dev/null || true
 
 # Ensure /tmp has proper permissions for git operations
 chmod 1777 /tmp
 
-# Pass environment to sandbox user and run main logic
-exec su -s /bin/bash sandbox -c '
+# Pass environment to box user and run main logic
+exec su -p -s /bin/bash box -c '
 cd /app
+export HOME=/home/box
+export USER=box
+export LOGNAME=box
 
 # Set token if provided
 if [ -n "$GITHUB_TOKEN" ]; then
@@ -46,7 +51,7 @@ elif [ -n "$GH_TOKEN" ]; then
 fi
 
 # Set PATH for installed tools
-export PATH="/workspace/.bun/bin:/workspace/.node-bin:/workspace/.cargo/bin:$PATH"
+export PATH="/home/box/.bun/bin:/home/box/.node-bin:/home/box/.local/bin:/home/box/.cargo/bin:$PATH"
 
 # Check if we have auth and URL
 if gh auth status >/dev/null 2>&1 && [ -n "$GITHUB_URL" ]; then

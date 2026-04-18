@@ -15,8 +15,10 @@
 
 > **注意**：自 issue #1639 起，`ubuntu-24-server-install.sh` 脚本已从仓库中删除。
 > Docker 镜像现在使用 `konard/box`（固定到特定版本）作为基础镜像，提供所有开发工具。
-> 历史参考，最后一个版本的脚本可在以下位置获取：
-> https://github.com/link-foundation/box/blob/v2.0.1/scripts/ubuntu-24-server-install.sh
+> 作为历史参考，在 Ubuntu 24.04 之上预装完整 Hive Mind 工具链的脚本最后一个版本保留在：
+> https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
+>
+> `konard/box` 镜像是通用基础镜像，本身不包含 Hive Mind 专用工具，因此这个旧的 Hive Mind 脚本仍然作为裸机安装路径的唯一保留来源。
 
 ## 步骤
 
@@ -29,8 +31,8 @@
    docker pull konard/box:2.0.1
    docker run -it konard/box:2.0.1
 
-   # 选项 2：使用 Box 安装脚本（固定到 v2.0.1 发布提交）
-   curl -fsSL -o- https://raw.githubusercontent.com/link-foundation/box/v2.0.1/scripts/ubuntu-24-server-install.sh | bash
+   # 选项 2：使用旧版 Hive Mind 裸机安装脚本（固定到最后一个包含它的提交：4f027b32）
+   curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash
    ```
 
    **注意**：安装不会自动运行 `gh auth login`。这是为了支持无超时的 Docker 构建而有意为之。身份验证将在后续步骤中执行。

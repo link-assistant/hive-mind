@@ -15,21 +15,28 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
 
 > **Note:** As of issue #1639, the Docker image uses the full `konard/box`
 > image, pinned to the current Box release, as the base image that provides all
-> development tools.
+> development tools. The standalone Hive Mind bare-metal install script was
+> removed from this repository; the last version that pre-installed all Hive
+> Mind tools on top of Ubuntu 24.04 is preserved for historical reference at:
+> https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
+>
+> The `konard/box` image is a universal base image and does not contain Hive
+> Mind specific tooling by itself, so this legacy Hive Mind script is kept as
+> the only remaining source for the bare-metal install path.
 
 ## Steps
 
 1. Reset/install VPS/VDS server with fresh Ubuntu 24.04
 2. Login to `root` user.
-3. Install Box first (provides all development tools)
+3. Install the Hive Mind toolchain (provides Docker, development tools, and the Hive Mind CLIs)
 
    ```bash
    # Option 1: Use Docker (recommended)
    docker pull konard/box:2.0.1
    docker run -it konard/box:2.0.1
 
-   # Option 2: Use the Box install script (pinned to v2.0.1)
-   curl -fsSL -o- https://raw.githubusercontent.com/link-foundation/box/v2.0.1/scripts/ubuntu-24-server-install.sh | bash
+   # Option 2: Use the legacy Hive Mind bare-metal install script (pinned to the last commit that carried it: 4f027b32)
+   curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash
    ```
 
    **Note:** The installation does NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.

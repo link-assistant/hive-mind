@@ -15,8 +15,10 @@
 
 > **नोट:** Issue #1639 के अनुसार, `ubuntu-24-server-install.sh` script को repository से हटा दिया गया है।
 > Docker image अब base image के रूप में `konard/box` (एक विशिष्ट संस्करण पर pinned) का उपयोग करता है, जो सभी development tools प्रदान करता है।
-> ऐतिहासिक संदर्भ के लिए, script का अंतिम संस्करण यहां उपलब्ध है:
-> https://github.com/link-foundation/box/blob/v2.0.1/scripts/ubuntu-24-server-install.sh
+> ऐतिहासिक संदर्भ के लिए, Ubuntu 24.04 पर पूरी Hive Mind toolchain install करने वाली script का अंतिम संस्करण यहां संरक्षित है:
+> https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
+>
+> `konard/box` image एक universal base image है और इसमें Hive Mind-specific tools शामिल नहीं हैं, इसलिए यह legacy Hive Mind script bare-metal installation path के लिए एकमात्र शेष स्रोत के रूप में रखी गई है।
 
 ## चरण
 
@@ -29,8 +31,8 @@
    docker pull konard/box:2.0.1
    docker run -it konard/box:2.0.1
 
-   # विकल्प 2: Box install script का उपयोग करें (v2.0.1 release commit पर pinned)
-   curl -fsSL -o- https://raw.githubusercontent.com/link-foundation/box/v2.0.1/scripts/ubuntu-24-server-install.sh | bash
+   # विकल्प 2: Legacy Hive Mind bare-metal install script का उपयोग करें (इसे रखने वाले अंतिम commit पर pinned: 4f027b32)
+   curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash
    ```
 
    **नोट:** Installation स्वचालित रूप से `gh auth login` नहीं चलाता। यह Docker builds को timeouts के बिना support करने के लिए जानबूझकर किया गया है। Authentication अगले चरणों में की जाती है।

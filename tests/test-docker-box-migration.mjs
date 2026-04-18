@@ -59,4 +59,16 @@ assertIncludes(releaseWorkflow, 'konard/box:', '.github/workflows/release.yml');
 assertExcludes(releaseWorkflow, 'konard/sandbox', '.github/workflows/release.yml');
 assertExcludes(releaseWorkflow, 'SANDBOX_VERSION', '.github/workflows/release.yml');
 
+const legacyInstallScriptUrl = 'https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh';
+const legacyInstallBlobUrl = 'https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh';
+const ubuntuServerDocs = ['docs/UBUNTU-SERVER.md', 'docs/UBUNTU-SERVER.ru.md', 'docs/UBUNTU-SERVER.zh.md', 'docs/UBUNTU-SERVER.hi.md'];
+for (const filePath of ubuntuServerDocs) {
+  const content = await read(filePath);
+
+  assertIncludes(content, legacyInstallScriptUrl, filePath);
+  assertIncludes(content, legacyInstallBlobUrl, filePath);
+  assertExcludes(content, 'raw.githubusercontent.com/link-foundation/box/v2.0.1/scripts/ubuntu-24-server-install.sh', filePath);
+  assertExcludes(content, 'github.com/link-foundation/box/blob/v2.0.1/scripts/ubuntu-24-server-install.sh', filePath);
+}
+
 console.log('Docker Box migration checks passed');

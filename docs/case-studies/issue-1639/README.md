@@ -119,6 +119,19 @@ The implementation migrates the active Docker surface to Box:
   Docker files no longer use the old sandbox base, user, or `/workspace` path.
 - A patch changeset records the Docker image migration for release notes.
 
+### Preserved Legacy Bare-Metal Reference
+
+The `UBUNTU-SERVER` docs (en, ru, zh, hi) keep the legacy Hive Mind bare-metal
+install script around as the "Option 2" install path, pinned to commit
+`4f027b32`:
+<https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh>
+
+This was added in response to PR review feedback on #1644. The upstream Box
+image is universal and does not ship Hive Mind specific tooling, so the script
+that last bundled the full Hive Mind software stack on top of Ubuntu 24.04 is
+still the only source for the non-Docker install path. The link is explicitly
+pinned to the SHA that carried that script to avoid drift.
+
 ## Verification
 
 The new regression test failed before implementation because `Dockerfile` still

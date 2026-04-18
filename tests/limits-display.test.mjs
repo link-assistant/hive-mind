@@ -441,6 +441,20 @@ test('formatUsageMessage includes optional system info', () => {
   assert.ok(message.includes('Disk space'), 'Should include Disk space section when diskSpace provided');
 });
 
+test('formatUsageMessage caps displayed CPU cores when load average exceeds CPU count', () => {
+  const cpuLoad = {
+    usagePercentage: 100,
+    loadAvg5: 6.85,
+    cpuCount: 6,
+  };
+
+  const message = formatUsageMessage(null, null, null, cpuLoad, null, 'Claude authentication expired.');
+
+  assert.ok(message.includes('100% ⚠️'), 'Should still show saturated CPU warning');
+  assert.ok(message.includes('6/6 CPU cores used (5m load avg 6.85)'), 'Should cap displayed CPU cores and keep raw load average for diagnostics');
+  assert.ok(!message.includes('6.85/6 CPU cores'), 'Should not show raw load average as CPU cores used');
+});
+
 // ============================================================================
 // Edge Cases for Display
 // ============================================================================

@@ -115,7 +115,7 @@ claude
 在容器重启之间持久化身份验证和工作内容：
 
 ```bash
-# 为 sandbox 用户的主目录创建卷
+# 为 box 用户的主目录创建卷
 docker volume create box-home
 
 # 挂载卷运行

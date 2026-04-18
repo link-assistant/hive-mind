@@ -99,14 +99,7 @@ runTest('isSystemComment detects bot signatures', () => {
 });
 
 runTest('isSystemComment returns false for user comments', () => {
-  const userComments = [
-    'Please fix this bug',
-    'Can you add more tests?',
-    'I noticed the build is failing',
-    'Thanks for the help!',
-    '@bot please continue',
-    'LGTM 👍'
-  ];
+  const userComments = ['Please fix this bug', 'Can you add more tests?', 'I noticed the build is failing', 'Thanks for the help!', '@bot please continue', 'LGTM 👍'];
   for (const comment of userComments) {
     if (utils.isSystemComment(comment)) {
       throw new Error(`Expected false for user comment: ${comment}`);
@@ -213,7 +206,10 @@ console.log('\n=== Testing Async Functions ===\n');
 
 await runAsyncTest('validateBidirectionalModeConfig disabled', async () => {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateBidirectionalModeConfig({ acceptIncommingCommentsAsInput: false, tool: 'claude' }, mockLog);
   if (!result) {
@@ -224,7 +220,10 @@ await runAsyncTest('validateBidirectionalModeConfig disabled', async () => {
 await runAsyncTest('validateBidirectionalModeConfig accept-incomming-comments-as-input with claude', async () => {
   const logs = [];
   const argv = { acceptIncommingCommentsAsInput: true, tool: 'claude', interactiveMode: false };
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateBidirectionalModeConfig(argv, mockLog);
   if (!result) {
@@ -242,7 +241,10 @@ await runAsyncTest('validateBidirectionalModeConfig accept-incomming-comments-as
 await runAsyncTest('validateBidirectionalModeConfig accept-incomming-comments-as-input with opencode disables it', async () => {
   const logs = [];
   const argv = { acceptIncommingCommentsAsInput: true, tool: 'opencode' };
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateBidirectionalModeConfig(argv, mockLog);
   if (result) {
@@ -263,9 +265,12 @@ await runAsyncTest('validateBidirectionalModeConfig --bidirectional-interactive-
     tool: 'claude',
     interactiveMode: false,
     acceptIncommingCommentsAsInput: false,
-    excludeAllOwnIncommingCommentsFromInput: false
+    excludeAllOwnIncommingCommentsFromInput: false,
   };
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateBidirectionalModeConfig(argv, mockLog);
   if (!result) {
@@ -279,7 +284,10 @@ await runAsyncTest('validateBidirectionalModeConfig --bidirectional-interactive-
 await runAsyncTest('validateBidirectionalModeConfig interactive-mode alone does not enable bidirectional', async () => {
   const logs = [];
   const argv = { interactiveMode: true, tool: 'claude', acceptIncommingCommentsAsInput: false };
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateBidirectionalModeConfig(argv, mockLog);
   if (!result) throw new Error('Expected true (nothing to validate when acceptIncommingCommentsAsInput is false)');
@@ -304,7 +312,7 @@ await runAsyncTest('createBidirectionalHandler returns expected interface', asyn
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   if (typeof handler.startMonitoring !== 'function') {
@@ -346,7 +354,7 @@ await runAsyncTest('handler initial state', async () => {
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   const state = handler.getState();
@@ -368,9 +376,7 @@ await runAsyncTest('handler processes user comments and queues feedback', async 
   const mockLog = () => Promise.resolve();
 
   // Mock $ function that returns simulated comments (as a tagged template literal function)
-  const mockComments = [
-    { id: 1, body: 'Please add more tests', created_at: '2024-01-01T00:00:00Z', user: 'testuser' }
-  ];
+  const mockComments = [{ id: 1, body: 'Please add more tests', created_at: '2024-01-01T00:00:00Z', user: 'testuser' }];
   // Mock $ as a tagged template literal function
   const mock$ = () => Promise.resolve({ stdout: JSON.stringify(mockComments) });
 
@@ -380,7 +386,7 @@ await runAsyncTest('handler processes user comments and queues feedback', async 
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   // Start monitoring first (this sets isMonitoring = true)
@@ -395,7 +401,7 @@ await runAsyncTest('handler processes user comments and queues feedback', async 
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   // Use internal fetchRecentComments instead (which doesn't check isMonitoring)
@@ -412,7 +418,7 @@ await runAsyncTest('handler processes user comments and queues feedback', async 
     $: mock$,
     log: mockLog,
     verbose: false,
-    pollInterval: 60000 // Long interval so polling doesn't interfere
+    pollInterval: 60000, // Long interval so polling doesn't interfere
   });
 
   await handler3.startMonitoring();
@@ -445,7 +451,7 @@ await runAsyncTest('handler filters out system comments', async () => {
   const mockComments = [
     { id: 1, body: '## 🚀 Session Started\nSession initialized', created_at: '2024-01-01T00:00:00Z', user: 'bot' },
     { id: 2, body: 'Please fix the bug', created_at: '2024-01-01T00:01:00Z', user: 'human' },
-    { id: 3, body: '## 💬 Assistant Response\nWorking on it...', created_at: '2024-01-01T00:02:00Z', user: 'bot' }
+    { id: 3, body: '## 💬 Assistant Response\nWorking on it...', created_at: '2024-01-01T00:02:00Z', user: 'bot' },
   ];
   const mock$ = () => Promise.resolve({ stdout: JSON.stringify(mockComments) });
 
@@ -456,7 +462,7 @@ await runAsyncTest('handler filters out system comments', async () => {
     $: mock$,
     log: mockLog,
     verbose: false,
-    pollInterval: 60000
+    pollInterval: 60000,
   });
 
   await handler.startMonitoring();
@@ -477,9 +483,7 @@ await runAsyncTest('handler filters out system comments', async () => {
 await runAsyncTest('handler does not duplicate processed comments', async () => {
   const mockLog = () => Promise.resolve();
 
-  const mockComments = [
-    { id: 1, body: 'Please add more tests', created_at: '2024-01-01T00:00:00Z', user: 'testuser' }
-  ];
+  const mockComments = [{ id: 1, body: 'Please add more tests', created_at: '2024-01-01T00:00:00Z', user: 'testuser' }];
   const mock$ = () => Promise.resolve({ stdout: JSON.stringify(mockComments) });
 
   const handler = createBidirectionalHandler({
@@ -489,7 +493,7 @@ await runAsyncTest('handler does not duplicate processed comments', async () => 
     $: mock$,
     log: mockLog,
     verbose: false,
-    pollInterval: 60000
+    pollInterval: 60000,
   });
 
   // Start monitoring (this does initial check)
@@ -521,7 +525,7 @@ await runAsyncTest('handler initializeWithExistingComments skips them', async ()
 
   const mockComments = [
     { id: 1, body: 'Old comment', created_at: '2024-01-01T00:00:00Z', user: 'testuser' },
-    { id: 2, body: 'New comment', created_at: '2024-01-01T01:00:00Z', user: 'testuser' }
+    { id: 2, body: 'New comment', created_at: '2024-01-01T01:00:00Z', user: 'testuser' },
   ];
   const mock$ = () => Promise.resolve({ stdout: JSON.stringify(mockComments) });
 
@@ -532,7 +536,7 @@ await runAsyncTest('handler initializeWithExistingComments skips them', async ()
     $: mock$,
     log: mockLog,
     verbose: false,
-    pollInterval: 60000
+    pollInterval: 60000,
   });
 
   // Mark comment 1 as already processed BEFORE starting monitoring
@@ -557,9 +561,7 @@ await runAsyncTest('handler initializeWithExistingComments skips them', async ()
 await runAsyncTest('handler peekFeedback does not remove from queue', async () => {
   const mockLog = () => Promise.resolve();
 
-  const mockComments = [
-    { id: 1, body: 'Test feedback', created_at: '2024-01-01T00:00:00Z', user: 'testuser' }
-  ];
+  const mockComments = [{ id: 1, body: 'Test feedback', created_at: '2024-01-01T00:00:00Z', user: 'testuser' }];
   const mock$ = () => Promise.resolve({ stdout: JSON.stringify(mockComments) });
 
   const handler = createBidirectionalHandler({
@@ -569,7 +571,7 @@ await runAsyncTest('handler peekFeedback does not remove from queue', async () =
     $: mock$,
     log: mockLog,
     verbose: false,
-    pollInterval: 60000
+    pollInterval: 60000,
   });
 
   await handler.startMonitoring();
@@ -596,7 +598,7 @@ await runAsyncTest('handler clearFeedbackQueue empties queue', async () => {
 
   const mockComments = [
     { id: 1, body: 'Test 1', created_at: '2024-01-01T00:00:00Z', user: 'testuser' },
-    { id: 2, body: 'Test 2', created_at: '2024-01-01T00:01:00Z', user: 'testuser' }
+    { id: 2, body: 'Test 2', created_at: '2024-01-01T00:01:00Z', user: 'testuser' },
   ];
   const mock$ = () => Promise.resolve({ stdout: JSON.stringify(mockComments) });
 
@@ -607,7 +609,7 @@ await runAsyncTest('handler clearFeedbackQueue empties queue', async () => {
     $: mock$,
     log: mockLog,
     verbose: false,
-    pollInterval: 60000
+    pollInterval: 60000,
   });
 
   await handler.startMonitoring();
@@ -627,8 +629,13 @@ await runAsyncTest('handler clearFeedbackQueue empties queue', async () => {
 
 await runAsyncTest('handler does not poll without PR info', async () => {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
-  const mock$ = async () => { throw new Error('Should not be called'); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
+  const mock$ = async () => {
+    throw new Error('Should not be called');
+  };
 
   const handler = createBidirectionalHandler({
     owner: '', // Empty owner
@@ -636,7 +643,7 @@ await runAsyncTest('handler does not poll without PR info', async () => {
     prNumber: null, // No PR number
     $: mock$,
     log: mockLog,
-    verbose: true
+    verbose: true,
   });
 
   // Should not throw despite missing info
@@ -650,7 +657,10 @@ await runAsyncTest('handler does not poll without PR info', async () => {
 
 await runAsyncTest('handler excludes own comments when excludeOwnComments is true', async () => {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   // Simulate gh api returning the current user login for `gh api user --jq .login`
   // and returning a list of comments with one from the "own" user and one from someone else.
@@ -658,15 +668,13 @@ await runAsyncTest('handler excludes own comments when excludeOwnComments is tru
   // literal call where the first argument is an array of string chunks. We look at the joined
   // string to decide which stub reply to return.
   const mock$ = (strings, ...values) => {
-    const full = Array.isArray(strings)
-      ? strings.reduce((acc, s, i) => acc + s + (values[i] !== undefined ? String(values[i]) : ''), '')
-      : String(strings);
+    const full = Array.isArray(strings) ? strings.reduce((acc, s, i) => acc + s + (values[i] !== undefined ? String(values[i]) : ''), '') : String(strings);
     if (full.includes('gh api user')) {
       return Promise.resolve({ stdout: 'konard\n' });
     }
     const comments = JSON.stringify([
       { id: 101, body: 'please fix the typo', created_at: '2026-01-01T00:00:00Z', user: 'konard' },
-      { id: 102, body: 'actual feedback', created_at: '2026-01-02T00:00:00Z', user: 'alice' }
+      { id: 102, body: 'actual feedback', created_at: '2026-01-02T00:00:00Z', user: 'alice' },
     ]);
     return Promise.resolve({ stdout: comments });
   };
@@ -679,7 +687,7 @@ await runAsyncTest('handler excludes own comments when excludeOwnComments is tru
     log: mockLog,
     verbose: true,
     pollInterval: 60000,
-    excludeOwnComments: true
+    excludeOwnComments: true,
   });
 
   // startMonitoring performs the initial check, which is enough for our assertions.
@@ -697,18 +705,19 @@ await runAsyncTest('handler excludes own comments when excludeOwnComments is tru
 
 await runAsyncTest('handler keeps own comments when excludeOwnComments is false', async () => {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const mock$ = (strings, ...values) => {
-    const full = Array.isArray(strings)
-      ? strings.reduce((acc, s, i) => acc + s + (values[i] !== undefined ? String(values[i]) : ''), '')
-      : String(strings);
+    const full = Array.isArray(strings) ? strings.reduce((acc, s, i) => acc + s + (values[i] !== undefined ? String(values[i]) : ''), '') : String(strings);
     if (full.includes('gh api user')) {
       return Promise.resolve({ stdout: 'konard\n' });
     }
     const comments = JSON.stringify([
       { id: 201, body: 'talking to myself', created_at: '2026-01-01T00:00:00Z', user: 'konard' },
-      { id: 202, body: 'feedback from other', created_at: '2026-01-02T00:00:00Z', user: 'alice' }
+      { id: 202, body: 'feedback from other', created_at: '2026-01-02T00:00:00Z', user: 'alice' },
     ]);
     return Promise.resolve({ stdout: comments });
   };
@@ -721,7 +730,7 @@ await runAsyncTest('handler keeps own comments when excludeOwnComments is false'
     log: mockLog,
     verbose: true,
     pollInterval: 60000,
-    excludeOwnComments: false
+    excludeOwnComments: false,
   });
 
   await handler.startMonitoring();

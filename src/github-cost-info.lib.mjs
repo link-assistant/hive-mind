@@ -21,7 +21,8 @@ const buildTokenUsageString = tokenUsage => {
 };
 
 /** Build cost estimation string for log comments (Issue #1250, Issue #1557, Issue #1600: Decimal precision) */
-export const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
+export const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo, options = {}) => {
+  const includeTokenUsage = options.includeTokenUsage !== false;
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
   const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
   const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
@@ -57,7 +58,7 @@ export const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricing
       costInfo += `\n- Calculated by OpenCode Zen: $${new Decimal(pricingInfo.opencodeCost).toFixed(6)}`;
     }
   }
-  if (pricingInfo?.tokenUsage) costInfo += buildTokenUsageString(pricingInfo.tokenUsage);
+  if (includeTokenUsage && pricingInfo?.tokenUsage) costInfo += buildTokenUsageString(pricingInfo.tokenUsage);
   if (hasAnthropic) {
     costInfo += `\n- Calculated by Anthropic: $${anthropicDec.toFixed(6)}`;
     if (hasPublic) {

@@ -365,6 +365,25 @@ runTest('handles tokenUsage being the only truthy pricingInfo field', () => {
   assertContains(result, 'Public pricing estimate: unknown', 'Should show unknown cost');
 });
 
+runTest('can omit raw token usage when budget stats already render totals', () => {
+  const result = buildCostInfoString(
+    0.399959,
+    null,
+    {
+      modelName: 'GPT-5.4',
+      provider: 'OpenAI',
+      tokenUsage: {
+        inputTokens: 42742,
+        outputTokens: 4784,
+        cacheReadTokens: 885376,
+      },
+    },
+    { includeTokenUsage: false }
+  );
+  assertContains(result, 'Public pricing estimate: $0.399959', 'Should still show public cost');
+  assertNotContains(result, 'Token usage:', 'Budget stats Total line should be the only token summary');
+});
+
 runTest('handles isFreeModel being the only truthy pricingInfo field', () => {
   const result = buildCostInfoString(0, null, {
     isFreeModel: true,

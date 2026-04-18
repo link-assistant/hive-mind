@@ -22,8 +22,11 @@ import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.m
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
+import { fetchModelInfo } from './model-info.lib.mjs';
+import Decimal from 'decimal.js-light';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
+const CODEX_LONG_CONTEXT_PRICE_THRESHOLD = 272000;
 const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
 const CODEX_MODEL_DIAGNOSTIC_PATHS = [
   ['model', data => data?.model],
@@ -77,6 +80,9 @@ export const createCodexTokenUsage = requestedModelId => ({
   stepCount: 0,
   requestedModelId: requestedModelId || null,
   respondedModelId: requestedModelId || null,
+  contextLimit: null,
+  outputLimit: null,
+  peakContextUsage: 0,
   tokenFieldAvailability: createCodexTokenFieldAvailability(),
 });
 
@@ -262,6 +268,10 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
       nextState.tokenUsage.reasoningTokens += reasoningTokens;
       nextState.tokenUsage.totalTokens = nextState.tokenUsage.inputTokens + nextState.tokenUsage.cacheReadTokens + nextState.tokenUsage.outputTokens + nextState.tokenUsage.cacheWriteTokens;
       nextState.tokenUsage.stepCount += 1;
+      const turnContextUsage = inputTokens + cacheWriteTokens;
+      if (turnContextUsage > (nextState.tokenUsage.peakContextUsage || 0)) {
+        nextState.tokenUsage.peakContextUsage = turnContextUsage;
+      }
 
       const usageFieldSet = CODEX_USAGE_FIELD_NAMES.filter(fieldName => hasOwnPath(data.usage, fieldName));
       if (usageFieldSet.length > 0) nextState.observedUsageFieldSets.push(usageFieldSet);
@@ -323,10 +333,78 @@ export const buildCodexResultModelUsage = (modelId, tokenUsage, pricingInfo = nu
       outputTokens: tokenUsage.outputTokens || 0,
       modelName: pricingInfo?.modelName || modelId,
       modelInfo: pricingInfo?.modelInfo || null,
-      peakContextUsage: 0,
+      peakContextUsage: tokenUsage.peakContextUsage || 0,
       costUSD: pricingInfo?.totalCostUSD ?? null,
     },
   };
+};
+
+const toCost = (tokens, pricePerMillion) => {
+  if (!Number.isFinite(tokens) || !Number.isFinite(pricePerMillion)) return 0;
+  return new Decimal(tokens).mul(pricePerMillion).div(1_000_000).toNumber();
+};
+
+const buildCodexPricingFallback = (modelId, tokenUsage, error = null) => ({
+  modelId,
+  modelName: modelId,
+  provider: 'OpenAI',
+  tokenUsage,
+  modelInfo: null,
+  totalCostUSD: null,
+  error,
+});
+
+export const calculateCodexPricingFromModelInfo = (modelId, tokenUsage, modelInfo) => {
+  if (!modelId) return null;
+  if (!tokenUsage) return buildCodexPricingFallback(modelId, null);
+  if (!modelInfo?.cost) return buildCodexPricingFallback(modelId, tokenUsage, 'Model pricing not found in models.dev API');
+
+  const standardCost = modelInfo.cost;
+  const usesLongContextPricing = !!standardCost.context_over_200k && (tokenUsage.peakContextUsage || 0) > CODEX_LONG_CONTEXT_PRICE_THRESHOLD;
+  const cost = usesLongContextPricing ? { ...standardCost, ...standardCost.context_over_200k } : standardCost;
+
+  const pricing = {
+    inputPerMillion: cost.input || 0,
+    outputPerMillion: cost.output || 0,
+    cacheReadPerMillion: cost.cache_read || 0,
+    cacheWritePerMillion: cost.cache_write ?? cost.input ?? 0,
+    reasoningPerMillion: cost.reasoning || 0,
+  };
+
+  const breakdown = {
+    input: toCost(tokenUsage.inputTokens || 0, pricing.inputPerMillion),
+    output: toCost(tokenUsage.outputTokens || 0, pricing.outputPerMillion),
+    cacheRead: toCost(tokenUsage.cacheReadTokens || 0, pricing.cacheReadPerMillion),
+    cacheWrite: toCost(tokenUsage.cacheWriteTokens || 0, pricing.cacheWritePerMillion),
+    reasoning: toCost(tokenUsage.reasoningTokens || 0, pricing.reasoningPerMillion),
+  };
+  const totalCostUSD = Object.values(breakdown).reduce((sum, value) => new Decimal(sum).plus(value).toNumber(), 0);
+
+  tokenUsage.contextLimit = tokenUsage.contextLimit || modelInfo.limit?.context || null;
+  tokenUsage.outputLimit = tokenUsage.outputLimit || modelInfo.limit?.output || null;
+
+  return {
+    modelId,
+    modelName: modelInfo.name || modelId,
+    provider: modelInfo.provider || 'OpenAI',
+    tokenUsage,
+    modelInfo,
+    pricing,
+    breakdown,
+    totalCostUSD,
+    usesLongContextPricing,
+    longContextThreshold: usesLongContextPricing ? CODEX_LONG_CONTEXT_PRICE_THRESHOLD : null,
+  };
+};
+
+export const calculateCodexPricing = async (modelId, tokenUsage) => {
+  if (!modelId) return null;
+  try {
+    const modelInfo = await fetchModelInfo(modelId, { preferredProviderIds: ['openai'] });
+    return calculateCodexPricingFromModelInfo(modelId, tokenUsage, modelInfo);
+  } catch (error) {
+    return buildCodexPricingFallback(modelId, tokenUsage, error.message);
+  }
 };
 
 // Function to validate Codex CLI connection
@@ -773,14 +851,15 @@ export const executeCodexCommand = async params => {
       }
 
       const firstActualModelId = mappedModel;
-      const pricingInfo = firstActualModelId
-        ? {
-            modelId: firstActualModelId,
-            modelName: firstActualModelId,
-            provider: 'OpenAI',
-            tokenUsage: codexJsonState.tokenUsage.stepCount > 0 ? codexJsonState.tokenUsage : null,
-          }
-        : null;
+      const pricingInfo = firstActualModelId ? await calculateCodexPricing(firstActualModelId, codexJsonState.tokenUsage.stepCount > 0 ? codexJsonState.tokenUsage : null) : null;
+      if (pricingInfo?.totalCostUSD !== null && pricingInfo?.totalCostUSD !== undefined) {
+        await log(`💰 Codex public pricing estimate: $${new Decimal(pricingInfo.totalCostUSD).toFixed(6)}`, { verbose: true });
+        if (pricingInfo.usesLongContextPricing) {
+          await log(`   Long-context pricing applied because peak prompt exceeded ${pricingInfo.longContextThreshold.toLocaleString()} input tokens`, { verbose: true });
+        }
+      } else if (pricingInfo?.error) {
+        await log(`⚠️ Codex public pricing estimate unavailable: ${pricingInfo.error}`, { level: 'warning', verbose: true });
+      }
       const resultModelUsage = pricingInfo?.tokenUsage ? buildCodexResultModelUsage(firstActualModelId, pricingInfo.tokenUsage, pricingInfo) : null;
 
       // Check for authentication errors first - these should never be retried
@@ -831,6 +910,7 @@ export const executeCodexCommand = async params => {
           limitReached,
           limitResetTime,
           pricingInfo,
+          publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
           resultModelUsage,
           subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
           codexJsonDetails: codexJsonState,
@@ -853,6 +933,7 @@ export const executeCodexCommand = async params => {
         limitReached,
         limitResetTime,
         pricingInfo,
+        publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
         resultModelUsage,
         subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
         codexJsonDetails: codexJsonState,
@@ -882,6 +963,7 @@ export const executeCodexCommand = async params => {
         limitReached: false,
         limitResetTime: null,
         pricingInfo: null,
+        publicPricingEstimate: null,
         resultSummary: null, // Issue #1263: No result summary available on error
       };
     } finally {

@@ -501,7 +501,7 @@ ${logContent}
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
     } else if (errorDuringExecution) {
       // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
-      const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+      const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
       logComment = `## ⚠️ ${SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 
@@ -519,7 +519,7 @@ ${logContent}
 ---
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
     } else {
-      const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+      const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
       // Determine title based on session type (Issue #1152)
       // Issue #1625: Every title variant embeds SOLUTION_DRAFT_LOG_MARKER so
       // the filter in checkForAiCreatedComments matches every variant with a
@@ -684,7 +684,7 @@ ${errorMessage}
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
           } else if (errorDuringExecution) {
             // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
-            const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+            const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
             logUploadComment = `## ⚠️ ${SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 
@@ -697,7 +697,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
           } else {
             // Success log format - use helper function for cost info
-            const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+            const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
             // Determine title based on session type
             // See: https://github.com/link-assistant/hive-mind/issues/1152
             // Issue #1625: titles embed SOLUTION_DRAFT_LOG_MARKER (single source).

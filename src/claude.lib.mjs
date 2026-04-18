@@ -21,7 +21,9 @@ import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // 
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
 import { buildMcpConfigWithoutPlaywright } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
+import { fetchModelInfo } from './model-info.lib.mjs';
 export { availableModels }; // Re-export for backward compatibility
+export { fetchModelInfo };
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
   if (!sessionId || !tempDir) return;
   const cmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
@@ -369,58 +371,6 @@ export const executeClaude = async params => {
     repo,
     prNumber,
   });
-};
-/**
- * Fetches model information from pricing API
- * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
- * @returns {Promise<Object|null>} Model information or null if not found
- */
-export const fetchModelInfo = async modelId => {
-  try {
-    const https = (await use('https')).default;
-    return new Promise((resolve, reject) => {
-      https
-        .get('https://models.dev/api.json', res => {
-          let data = '';
-          res.on('data', chunk => {
-            data += chunk;
-          });
-          res.on('end', () => {
-            try {
-              const apiData = JSON.parse(data);
-              // For public pricing calculation, prefer Anthropic provider for Claude models
-              // Check Anthropic provider first
-              if (apiData.anthropic?.models?.[modelId]) {
-                const modelInfo = apiData.anthropic.models[modelId];
-                modelInfo.provider = apiData.anthropic.name || 'Anthropic';
-                resolve(modelInfo);
-                return;
-              }
-              // Search for the model across all other providers
-              for (const provider of Object.values(apiData)) {
-                if (provider.models && provider.models[modelId]) {
-                  const modelInfo = provider.models[modelId];
-                  // Add provider info
-                  modelInfo.provider = provider.name || provider.id;
-                  resolve(modelInfo);
-                  return;
-                }
-              }
-              // Model not found
-              resolve(null);
-            } catch (parseError) {
-              reject(parseError);
-            }
-          });
-        })
-        .on('error', err => {
-          reject(err);
-        });
-    });
-  } catch {
-    // If we can't fetch model info, return null and continue without it
-    return null;
-  }
 };
 /** Check if a model supports vision (image input) using models.dev API @returns {Promise<boolean>} */
 export const checkModelVisionCapability = async modelId => {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 const { defaultModels, primaryModelNames, resolveModelId } = await import('../src/models/index.mjs');
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
-const { parseCodexExecJsonOutput, buildCodexResultModelUsage } = await import('../src/codex.lib.mjs');
+const { parseCodexExecJsonOutput, buildCodexResultModelUsage, calculateCodexPricingFromModelInfo } = await import('../src/codex.lib.mjs');
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
 
 let passed = 0;
@@ -92,9 +92,65 @@ test('Codex exec JSON parser does not mark cache write as available when CLI doe
   assert.equal(parsed.tokenUsage.inputTokens, 44823);
   assert.equal(parsed.tokenUsage.cacheReadTokens, 388480);
   assert.equal(parsed.tokenUsage.outputTokens, 3031);
+  assert.equal(parsed.tokenUsage.peakContextUsage, 433303);
   assert.deepEqual(parsed.observedUsageFieldSets, [['input_tokens', 'cached_input_tokens', 'output_tokens']]);
   assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheReadTokens, true);
   assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheWriteTokens, false);
+});
+
+test('Codex pricing uses OpenAI input, cached input, and output rates', () => {
+  assert.equal(typeof calculateCodexPricingFromModelInfo, 'function');
+
+  const pricing = calculateCodexPricingFromModelInfo(
+    'gpt-5.4',
+    {
+      inputTokens: 42742,
+      cacheReadTokens: 885376,
+      cacheWriteTokens: 0,
+      outputTokens: 4784,
+      reasoningTokens: 0,
+      peakContextUsage: 200000,
+    },
+    {
+      name: 'GPT-5.4',
+      provider: 'OpenAI',
+      cost: { input: 2.5, cache_read: 0.25, output: 15 },
+      limit: { context: 1050000, output: 128000 },
+    }
+  );
+
+  assert.equal(pricing.modelName, 'GPT-5.4');
+  assert.equal(pricing.provider, 'OpenAI');
+  assert.equal(pricing.totalCostUSD.toFixed(6), '0.399959');
+});
+
+test('Codex pricing applies long-context rates when peak prompt exceeds OpenAI threshold', () => {
+  const pricing = calculateCodexPricingFromModelInfo(
+    'gpt-5.4',
+    {
+      inputTokens: 1000,
+      cacheReadTokens: 1000,
+      cacheWriteTokens: 0,
+      outputTokens: 1000,
+      reasoningTokens: 0,
+      peakContextUsage: 300000,
+    },
+    {
+      name: 'GPT-5.4',
+      provider: 'OpenAI',
+      cost: {
+        input: 2.5,
+        cache_read: 0.25,
+        output: 15,
+        context_over_200k: { input: 5, cache_read: 0.5, output: 22.5 },
+      },
+      limit: { context: 1050000, output: 128000 },
+    }
+  );
+
+  assert.equal(pricing.usesLongContextPricing, true);
+  assert.equal(pricing.pricing.inputPerMillion, 5);
+  assert.equal(pricing.totalCostUSD.toFixed(6), '0.028000');
 });
 
 test('Codex exec JSON parser captures optional nested cache write and reasoning fields when emitted', () => {

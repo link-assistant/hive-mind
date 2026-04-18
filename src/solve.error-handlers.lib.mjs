@@ -70,6 +70,7 @@ export const handleFailure = async options => {
         });
         if (logUploadSuccess) {
           await log(`📎 Failure log attached to ${targetLabel}`);
+          if (!hasPR && hasIssue) global.prePullRequestFailureNotificationPosted = true;
         }
       } catch (attachError) {
         reportError(attachError, {

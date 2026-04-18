@@ -1,5 +1,5 @@
 
-> @link-assistant/hive-mind@1.54.3 format:check
+> @link-assistant/hive-mind@1.54.4 format:check
 > prettier --check "**/*.{js,mjs,json,md}" --ignore-path .prettierignore
 
 Checking formatting...

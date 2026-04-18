@@ -1,6 +1,6 @@
 
-> @link-assistant/hive-mind@1.54.3 test
-> node tests/solve-queue.test.mjs && node tests/limits-display.test.mjs && node tests/test-usage-limit.mjs && node tests/test-codex-support.mjs && node tests/test-build-cost-info-string.mjs && node tests/test-claude-code-install-method.mjs && node tests/test-docker-box-migration.mjs && node tests/test-issue-1616-pr-issue-link-preservation.mjs && node tests/test-telegram-message-filters.mjs && node tests/test-telegram-bot-command-aliases.mjs && node tests/test-solve-queue-command.mjs && node tests/test-queue-display-1267.mjs && node tests/test-telegram-bot-launcher.mjs
+> @link-assistant/hive-mind@1.54.4 test
+> node tests/solve-queue.test.mjs && node tests/limits-display.test.mjs && node tests/test-usage-limit.mjs && node tests/test-codex-support.mjs && node tests/test-build-cost-info-string.mjs && node tests/test-claude-code-install-method.mjs && node tests/test-docker-box-migration.mjs && node tests/test-issue-1616-pr-issue-link-preservation.mjs && node tests/test-pre-pr-failure-notifier-1640.mjs && node tests/test-telegram-message-filters.mjs && node tests/test-telegram-bot-command-aliases.mjs && node tests/test-solve-queue-command.mjs && node tests/test-queue-display-1267.mjs && node tests/test-telegram-bot-launcher.mjs
 
 
 📋 Configuration Tests
@@ -447,6 +447,12 @@ PASS: Different issue number is not matched
 Total tests: 16
 Passed: 16
 Failed: 0
+✅ notifies only nonzero exits with known issue and no PR
+✅ builds a pre-PR failure comment with the tracked failure marker
+✅ uploads logs to the issue when attach-logs is enabled
+✅ falls back to a plain issue comment when log upload is unavailable
+
+Pre-PR failure notifier tests: 4 passed, 0 failed
 ================================================================================
 Unit Tests: Telegram Message Filters (Issue #1207)
 ================================================================================

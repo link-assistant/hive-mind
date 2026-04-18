@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.54.4
+
+### Patch Changes
+
+- 2ac0a14: Notify the source issue when solve exits with a known issue but no pull request, including failure logs when `--attach-logs` is enabled.
+
 ## 1.54.3
 
 ### Patch Changes

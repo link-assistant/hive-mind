@@ -13,32 +13,32 @@
 
 以下说明描述了在 Ubuntu 24.04 服务器上进行旧版裸机安装的方法。此方法仅作参考。
 
-> **注意**：自 issue #1394 起，`ubuntu-24-server-install.sh` 脚本已从仓库中删除。
-> Docker 镜像现在使用 `konard/sandbox`（固定到特定版本）作为基础镜像，提供所有开发工具。
+> **注意**：自 issue #1639 起，`ubuntu-24-server-install.sh` 脚本已从仓库中删除。
+> Docker 镜像现在使用 `konard/box`（固定到特定版本）作为基础镜像，提供所有开发工具。
 > 历史参考，最后一个版本的脚本可在以下位置获取：
-> https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
+> https://github.com/link-foundation/box/blob/v2.0.1/scripts/ubuntu-24-server-install.sh
 
 ## 步骤
 
 1. 使用全新的 Ubuntu 24.04 重置/安装 VPS/VDS 服务器
 2. 登录 `root` 用户。
-3. 首先安装 sandbox（提供所有开发工具）
+3. 首先安装 Box（提供所有开发工具）
 
    ```bash
    # 选项 1：使用 Docker（推荐）
-   docker pull konard/sandbox:1.6.0
-   docker run -it konard/sandbox:1.6.0
+   docker pull konard/box:2.0.1
+   docker run -it konard/box:2.0.1
 
-   # 选项 2：使用 sandbox 安装脚本（固定到 v1.3.16 发布提交）
-   curl -fsSL -o- https://github.com/link-foundation/sandbox/raw/178aa3816ab2c2150844fb967ffa329c63b90131/ubuntu/24.04/full-sandbox/install.sh | bash
+   # 选项 2：使用 Box 安装脚本（固定到 v2.0.1 发布提交）
+   curl -fsSL -o- https://raw.githubusercontent.com/link-foundation/box/v2.0.1/scripts/ubuntu-24-server-install.sh | bash
    ```
 
    **注意**：安装不会自动运行 `gh auth login`。这是为了支持无超时的 Docker 构建而有意为之。身份验证将在后续步骤中执行。
 
-4. 登录 `sandbox` 用户
+4. 登录 `box` 用户
 
    ```bash
-   su - sandbox
+   su - box
    ```
 
 5. **重要**：安装完成后，使用 GitHub CLI 进行身份验证

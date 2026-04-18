@@ -1,64 +1,63 @@
 # Hive Mind Coolify Docker image
-# Inherits from konard/sandbox which provides all general-purpose development tools
+# Inherits from konard/box which provides all general-purpose development tools
 # This image adds AI-specific tools and application code for Coolify deployment
 #
-# Architecture (see issue #1394, #1499, #1505 and sandbox#73, sandbox#74):
-#   konard/sandbox (pinned version)
+# Architecture (see issue #1394, #1499, #1505 and box#79):
+#   konard/box (pinned full image)
 #     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.
 #     └── Playwright browsers pre-installed (chromium, firefox, webkit, msedge, chrome)
-#     └── /workspace directory owned by sandbox user
+#     └── /home/box directory owned by box user
 #   hive-mind (this Dockerfile)
-#     └── Inherits sandbox, adds AI coding assistants, Playwright MCP, and app code
-#     └── Runs entirely as sandbox user (no USER root needed for tool installs)
+#     └── Inherits Box, adds AI coding assistants, Playwright MCP, and app code
+#     └── Runs tool installs as box user (no USER root needed for those steps)
 #
-# Sandbox image version: pinned to a specific release for stable, reproducible builds.
+# Box image version: pinned to a specific release for stable, reproducible builds.
 # To upgrade: update the version tag below and in the root Dockerfile.
-# Latest sandbox releases: https://hub.docker.com/r/konard/sandbox/tags
+# Latest Box releases: https://github.com/link-foundation/box/releases
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-FROM konard/sandbox:1.6.0
+FROM konard/box:2.0.1
 
 # --- Environment variables ---
 # Set environment variables EARLY so they're available in subsequent RUN commands
-# All paths use /workspace (shared directory owned by sandbox:sandbox)
-ENV HOME=/workspace
-ENV NVM_DIR="/workspace/.nvm"
-ENV PYENV_ROOT="/workspace/.pyenv"
-ENV BUN_INSTALL="/workspace/.bun"
-ENV DENO_INSTALL="/workspace/.deno"
-ENV CARGO_HOME="/workspace/.cargo"
-ENV GOROOT="/workspace/.go"
-ENV GOPATH="/workspace/.go/path"
-ENV SDKMAN_DIR="/workspace/.sdkman"
-ENV PERLBREW_ROOT="/workspace/.perl5"
-ENV RBENV_ROOT="/workspace/.rbenv"
+# All paths use /home/box (shared directory owned by box:box)
+ENV HOME=/home/box
+ENV NVM_DIR="/home/box/.nvm"
+ENV PYENV_ROOT="/home/box/.pyenv"
+ENV BUN_INSTALL="/home/box/.bun"
+ENV DENO_INSTALL="/home/box/.deno"
+ENV CARGO_HOME="/home/box/.cargo"
+ENV GOROOT="/home/box/.go"
+ENV GOPATH="/home/box/.go/path"
+ENV SDKMAN_DIR="/home/box/.sdkman"
+ENV PERLBREW_ROOT="/home/box/.perl5"
+ENV RBENV_ROOT="/home/box/.rbenv"
 
-ENV OPAM_SWITCH_PREFIX="/workspace/.opam/default"
-ENV CAML_LD_LIBRARY_PATH="/workspace/.opam/default/lib/stublibs:/workspace/.opam/default/lib/ocaml/stublibs:/workspace/.opam/default/lib/ocaml"
-ENV OCAML_TOPLEVEL_PATH="/workspace/.opam/default/lib/toplevel"
+ENV OPAM_SWITCH_PREFIX="/home/box/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/home/box/.opam/default/lib/stublibs:/home/box/.opam/default/lib/ocaml/stublibs:/home/box/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/home/box/.opam/default/lib/toplevel"
 
 # Comprehensive PATH including all tools
-# Note: ~/.local/bin is included for user-installed binaries (e.g., opam binary from sandbox rocq image)
-ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/workspace/.pyenv/bin:/workspace/.pyenv/shims:/workspace/.rbenv/bin:/workspace/.rbenv/shims:/workspace/.swift/usr/bin:/workspace/.elan/bin:/workspace/.opam/default/bin:/workspace/.local/bin:/workspace/.cargo/bin:/workspace/.deno/bin:/workspace/.bun/bin:/workspace/.go/bin:/workspace/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+# Note: ~/.local/bin is included for user-installed binaries (Claude Code and opam)
+ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/home/box/.pyenv/bin:/home/box/.pyenv/shims:/home/box/.rbenv/bin:/home/box/.rbenv/shims:/home/box/.swift/usr/bin:/home/box/.elan/bin:/home/box/.opam/default/bin:/home/box/.local/bin:/home/box/.cargo/bin:/home/box/.deno/bin:/home/box/.bun/bin:/home/box/.go/bin:/home/box/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Run entirely as sandbox user — no USER root needed (see issue #1505)
-USER sandbox
-WORKDIR /workspace
+# Run tool installation steps as box user — no USER root needed (see issue #1505)
+USER box
+WORKDIR /home/box
 
 # Create stable symlink to Node.js bin directory
-RUN NODE_VERSION_DIR=$(ls -d /workspace/.nvm/versions/node/v* 2>/dev/null | head -1) && \
+RUN NODE_VERSION_DIR=$(ls -d /home/box/.nvm/versions/node/v* 2>/dev/null | head -1) && \
     if [ -n "$NODE_VERSION_DIR" ] && [ -d "$NODE_VERSION_DIR/bin" ]; then \
-      ln -sf "$NODE_VERSION_DIR/bin" /workspace/.node-bin; \
+      ln -sf "$NODE_VERSION_DIR/bin" /home/box/.node-bin; \
     fi
 
-ENV PATH="/workspace/.node-bin:${PATH}"
+ENV PATH="/home/box/.node-bin:${PATH}"
 
 # --- Install opam binary ---
-# The sandbox full image copies ~/.opam (opam switch data) from the rocq stage
-# but does NOT copy the opam binary from ~/.local/bin. Install it as sandbox user.
-# See: https://github.com/link-foundation/sandbox/issues/74
-RUN mkdir -p /workspace/.local/bin && \
+# The Box full image includes the Rocq/Coq opam switch data. Keep an explicit
+# opam binary in ~/.local/bin so verification and interactive use are stable.
+RUN mkdir -p /home/box/.local/bin && \
     ARCH="$(uname -m)" && \
     case "$ARCH" in \
       x86_64)  OPAM_ARCH="x86_64" ;; \
@@ -66,8 +65,8 @@ RUN mkdir -p /workspace/.local/bin && \
       *)       OPAM_ARCH="$ARCH" ;; \
     esac && \
     OPAM_TAG=$(curl -fsSIL -o /dev/null -w '%{url_effective}' https://github.com/ocaml/opam/releases/latest | sed 's|.*/||') && \
-    curl -fsSL "https://github.com/ocaml/opam/releases/download/${OPAM_TAG}/opam-${OPAM_TAG}-${OPAM_ARCH}-linux" -o /workspace/.local/bin/opam && \
-    chmod +x /workspace/.local/bin/opam
+    curl -fsSL "https://github.com/ocaml/opam/releases/download/${OPAM_TAG}/opam-${OPAM_TAG}-${OPAM_ARCH}-linux" -o /home/box/.local/bin/opam && \
+    chmod +x /home/box/.local/bin/opam
 
 # --- AI-specific packages installation ---
 # Every install must fail the build on error — no silent fallbacks (see issue #1505)
@@ -88,7 +87,7 @@ RUN bun install -g @openai/codex && \
 
 # Install hive-mind workflow utilities
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
-# The sandbox base image includes screen. For tmux/docker isolation, ensure they are
+# The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
 RUN bun install -g @link-assistant/hive-mind && \
     bun install -g @link-assistant/claude-profiles && \
@@ -101,7 +100,7 @@ RUN bun install -g @link-assistant/hive-mind && \
     bun install -g gh-upload-log
 
 # --- Playwright MCP Setup ---
-# Sandbox 1.6.0 pre-installs Playwright browsers and @playwright/test (sandbox#74).
+# Box 2.0.1 pre-installs Playwright browsers and @playwright/test.
 # We only add @playwright/mcp (AI-specific MCP server for Claude/Codex).
 # --force handles the shared 'playwright' binary conflict between packages.
 RUN npm install -g @playwright/mcp@latest --no-fund --force
@@ -125,10 +124,10 @@ RUN if command -v codex &>/dev/null; then \
 # removed via `claude mcp remove` because they are not registered under
 # user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
-RUN mkdir -p /workspace/.claude && \
+RUN mkdir -p /home/box/.claude && \
     node -e " \
 const fs = require('fs'); \
-const p = '/workspace/.claude/settings.json'; \
+const p = '/home/box/.claude/settings.json'; \
 const blocked = ['AskUserQuestion','CronCreate','CronDelete','CronList','EnterPlanMode','EnterWorktree','ExitPlanMode','ExitWorktree','Monitor','NotebookEdit','PushNotification','RemoteTrigger','ScheduleWakeup','mcp__claude_ai_Gmail__*','mcp__claude_ai_Google_Drive__*','mcp__claude_ai_Google_Calendar__*']; \
 let s = {}; \
 try { s = JSON.parse(fs.readFileSync(p, 'utf-8')); } catch (e) {} \
@@ -143,12 +142,12 @@ console.log('Configured', merged.length, 'disallowedTools in', p); \
 
 # --- Application Setup ---
 # Minimal USER root: only for creating /app directory and copying files.
-# All /workspace operations run as sandbox user to prevent permission issues (issue #1505).
+# All /home/box operations run as box user to prevent permission issues (issue #1505).
 USER root
 WORKDIR /app
 
 # Copy application files from repo root
-COPY --chown=sandbox:sandbox . .
+COPY --chown=box:box . .
 
 # Ensure scripts are executable
 RUN chmod +x *.mjs 2>/dev/null || true && \
@@ -156,31 +155,31 @@ RUN chmod +x *.mjs 2>/dev/null || true && \
 
 # Create /app subdirectories (root-owned parent)
 RUN mkdir -p /app/claude-logs /app/claude-sessions /app/output && \
-    chown -R sandbox:sandbox /app
+    chown -R box:box /app
 
 # Copy and configure startup script
 COPY --chown=root:root coolify/start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
-# Switch to sandbox user for /workspace operations and runtime
-USER sandbox
+# Switch to box user for /home/box setup
+USER box
 
-# Create necessary /workspace directories
-RUN mkdir -p /workspace/.claude/plugins /workspace/.config
+# Create necessary /home/box directories
+RUN mkdir -p /home/box/.claude/plugins /home/box/.config
 
-# Create bash profile for sandbox user
+# Create bash profile for box user
 # Note: .node-bin is a symlink to the active Node.js version's bin directory
-RUN echo 'export PATH="/workspace/.node-bin:/workspace/.bun/bin:/workspace/.cargo/bin:/workspace/.elan/bin:/workspace/.opam/default/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"' >> /workspace/.bashrc && \
-    echo 'export BUN_INSTALL="/workspace/.bun"' >> /workspace/.bashrc
+RUN echo 'export PATH="/home/box/.node-bin:/home/box/.bun/bin:/home/box/.cargo/bin:/home/box/.elan/bin:/home/box/.opam/default/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"' >> /home/box/.bashrc && \
+    echo 'export BUN_INSTALL="/home/box/.bun"' >> /home/box/.bashrc
 
-# Create git config file for sandbox user
-RUN echo "[user]" > /workspace/.gitconfig && \
-    echo "  name = Hive-Mind Bot" >> /workspace/.gitconfig && \
-    echo "  email = hive-mind@localhost" >> /workspace/.gitconfig && \
-    echo "[init]" >> /workspace/.gitconfig && \
-    echo "  defaultBranch = main" >> /workspace/.gitconfig && \
-    echo "[safe]" >> /workspace/.gitconfig && \
-    echo "  directory = *" >> /workspace/.gitconfig
+# Create git config file for box user
+RUN echo "[user]" > /home/box/.gitconfig && \
+    echo "  name = Hive-Mind Bot" >> /home/box/.gitconfig && \
+    echo "  email = hive-mind@localhost" >> /home/box/.gitconfig && \
+    echo "[init]" >> /home/box/.gitconfig && \
+    echo "  defaultBranch = main" >> /home/box/.gitconfig && \
+    echo "[safe]" >> /home/box/.gitconfig && \
+    echo "  directory = *" >> /home/box/.gitconfig
 
 # Runtime configuration
 ENV NODE_ENV=production
@@ -193,6 +192,10 @@ ENV MODEL=sonnet
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD pgrep -f "hive.mjs\|tail" > /dev/null || exit 1
+
+# Start as root only to repair bind-mounted directory ownership, then start.sh
+# drops to the box user before running hive-mind.
+USER root
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/app/start.sh"]

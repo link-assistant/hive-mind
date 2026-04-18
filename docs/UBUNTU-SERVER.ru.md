@@ -13,32 +13,32 @@
 
 Следующие инструкции описывают устаревшую установку на «голое железо» на Ubuntu 24.04 server. Этот подход сохранён только для справки.
 
-> **Примечание:** С задачи #1394 скрипт `ubuntu-24-server-install.sh` был удалён из репозитория.
-> Docker-образ теперь использует `konard/sandbox` (зафиксированный на конкретной версии) в качестве базового образа, который предоставляет все инструменты разработки.
+> **Примечание:** С задачи #1639 скрипт `ubuntu-24-server-install.sh` был удалён из репозитория.
+> Docker-образ теперь использует `konard/box` (зафиксированный на конкретной версии) в качестве базового образа, который предоставляет все инструменты разработки.
 > Для исторической справки последняя версия скрипта доступна по адресу:
-> https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
+> https://github.com/link-foundation/box/blob/v2.0.1/scripts/ubuntu-24-server-install.sh
 
 ## Шаги
 
 1. Сбросьте/установите VPS/VDS сервер со свежим Ubuntu 24.04
 2. Войдите как пользователь `root`.
-3. Сначала установите sandbox (предоставляет все инструменты разработки)
+3. Сначала установите Box (предоставляет все инструменты разработки)
 
    ```bash
    # Option 1: Use Docker (recommended)
-   docker pull konard/sandbox:1.6.0
-   docker run -it konard/sandbox:1.6.0
+   docker pull konard/box:2.0.1
+   docker run -it konard/box:2.0.1
 
-   # Option 2: Use the sandbox install script (pinned to v1.3.16 release commit)
-   curl -fsSL -o- https://github.com/link-foundation/sandbox/raw/178aa3816ab2c2150844fb967ffa329c63b90131/ubuntu/24.04/full-sandbox/install.sh | bash
+   # Option 2: Use the Box install script (pinned to v2.0.1 release commit)
+   curl -fsSL -o- https://raw.githubusercontent.com/link-foundation/box/v2.0.1/scripts/ubuntu-24-server-install.sh | bash
    ```
 
    **Примечание:** Установка НЕ запускает `gh auth login` автоматически. Это намеренно для поддержки сборок Docker без таймаутов. Аутентификация выполняется на следующих шагах.
 
-4. Войдите как пользователь `sandbox`
+4. Войдите как пользователь `box`
 
    ```bash
-   su - sandbox
+   su - box
    ```
 
 5. **ВАЖНО:** Пройдите аутентификацию в GitHub CLI ПОСЛЕ завершения установки

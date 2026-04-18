@@ -660,18 +660,18 @@ jobs:
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
 
-      - name: Show sandbox base image version
+      - name: Show Box base image version
         run: |
-          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
-          echo "Sandbox base image version: konard/sandbox:${SANDBOX_VERSION}"
+          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
+          echo "Box base image version: konard/box:${BOX_VERSION}"
           echo "This pinned version ensures stable, reproducible builds."
 
       - name: Build Docker image
         run: |
-          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
-          echo "Building Docker image from konard/sandbox:${SANDBOX_VERSION} base..."
-          echo "Note: General-purpose tools are inherited from pinned konard/sandbox:${SANDBOX_VERSION}"
-          echo "This image adds AI-specific tools on top of the sandbox base."
+          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
+          echo "Building Docker image from konard/box:${BOX_VERSION} base..."
+          echo "Note: General-purpose tools are inherited from pinned konard/box:${BOX_VERSION}"
+          echo "This image adds AI-specific tools on top of the Box base."
           echo ""
 
           # Note: Multi-platform builds (amd64+arm64) are tested in docker-publish job during release
@@ -699,13 +699,13 @@ jobs:
 
       - name: Verify system & development tools in running container
         run: |
-          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
           echo "=== Verifying hive-mind Docker image ==="
-          echo "Base: konard/sandbox:${SANDBOX_VERSION} (pinned) + AI-specific tools"
+          echo "Base: konard/box:${BOX_VERSION} (pinned) + AI-specific tools"
           echo ""
 
           # Run verification script inside container (mounts script as read-only volume)
-          # Verifies: sandbox user setup (/workspace access), all dev tools, AI-specific tools
+          # Verifies: box user setup (/home/box access), all dev tools, AI-specific tools
           # See scripts/verify-docker-image.sh for the full list of checks
           docker run --rm \
             -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \

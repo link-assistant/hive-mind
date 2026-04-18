@@ -13,32 +13,31 @@
 
 The following instructions describe the legacy bare-metal installation on Ubuntu 24.04 server. This approach is kept for reference only.
 
-> **Note:** As of issue #1394, the `ubuntu-24-server-install.sh` script has been removed from the repository.
-> The Docker image now uses `konard/sandbox` (pinned to a specific version) as the base image, which provides all development tools.
-> For historical reference, the last version of the script is available at:
-> https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
+> **Note:** As of issue #1639, the Docker image uses the full `konard/box`
+> image, pinned to the current Box release, as the base image that provides all
+> development tools.
 
 ## Steps
 
 1. Reset/install VPS/VDS server with fresh Ubuntu 24.04
 2. Login to `root` user.
-3. Install sandbox first (provides all development tools)
+3. Install Box first (provides all development tools)
 
    ```bash
    # Option 1: Use Docker (recommended)
-   docker pull konard/sandbox:1.6.0
-   docker run -it konard/sandbox:1.6.0
+   docker pull konard/box:2.0.1
+   docker run -it konard/box:2.0.1
 
-   # Option 2: Use the sandbox install script (pinned to v1.3.16 release commit)
-   curl -fsSL -o- https://github.com/link-foundation/sandbox/raw/178aa3816ab2c2150844fb967ffa329c63b90131/ubuntu/24.04/full-sandbox/install.sh | bash
+   # Option 2: Use the Box install script (pinned to v2.0.1)
+   curl -fsSL -o- https://raw.githubusercontent.com/link-foundation/box/v2.0.1/scripts/ubuntu-24-server-install.sh | bash
    ```
 
    **Note:** The installation does NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
 
-4. Login to `sandbox` user
+4. Login to `box` user
 
    ```bash
-   su - sandbox
+   su - box
    ```
 
 5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete

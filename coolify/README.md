@@ -168,7 +168,7 @@ If you need specific git config:
 2. Mount it as a volume in Coolify:
    ```yaml
    volumes:
-     - ./git-config:/workspace/.gitconfig:ro
+     - ./git-config:/home/box/.gitconfig:ro
    ```
 
 ## Persistent Storage
@@ -177,23 +177,23 @@ If you need specific git config:
 
 The docker-compose.yml configures several persistent volumes that Coolify will manage:
 
-| Volume            | Container Path          | Purpose                            |
-| ----------------- | ----------------------- | ---------------------------------- |
-| `./claude-config` | `/workspace/.claude`    | Claude authentication & settings   |
-| `./codex-config`  | `/workspace/.codex`     | Codex auth, config, and sessions   |
-| `./config`        | `/workspace/.config`    | General config (Claude Code, etc.) |
-| `./gh-config`     | `/workspace/.config/gh` | GitHub CLI config                  |
-| `./output`        | `/app/output`           | Generated PRs and code             |
-| `./logs`          | `/app/claude-logs`      | Execution logs                     |
-| `./sessions`      | `/app/claude-sessions`  | Session data                       |
+| Volume            | Container Path         | Purpose                            |
+| ----------------- | ---------------------- | ---------------------------------- |
+| `./claude-config` | `/home/box/.claude`    | Claude authentication & settings   |
+| `./codex-config`  | `/home/box/.codex`     | Codex auth, config, and sessions   |
+| `./config`        | `/home/box/.config`    | General config (Claude Code, etc.) |
+| `./gh-config`     | `/home/box/.config/gh` | GitHub CLI config                  |
+| `./output`        | `/app/output`          | Generated PRs and code             |
+| `./logs`          | `/app/claude-logs`     | Execution logs                     |
+| `./sessions`      | `/app/claude-sessions` | Session data                       |
 
 **Note**: These volumes are automatically created by Coolify and will persist across container updates and restarts.
 
-In our Docker-based deployments `HOME=/workspace`, so Codex stores its data in `/workspace/.codex`. Mount the full directory instead of individual files so these paths persist together:
+In our Docker-based deployments `HOME=/home/box`, so Codex stores its data in `/home/box/.codex`. Mount the full directory instead of individual files so these paths persist together:
 
-- `/workspace/.codex/auth.json`
-- `/workspace/.codex/config.toml`
-- `/workspace/.codex/sessions/`
+- `/home/box/.codex/auth.json`
+- `/home/box/.codex/config.toml`
+- `/home/box/.codex/sessions/`
 
 If you install or update Codex in the running container, use:
 

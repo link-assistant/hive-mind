@@ -1,0 +1,739 @@
+
+> @link-assistant/hive-mind@1.54.3 test
+> node tests/solve-queue.test.mjs && node tests/limits-display.test.mjs && node tests/test-usage-limit.mjs && node tests/test-codex-support.mjs && node tests/test-build-cost-info-string.mjs && node tests/test-claude-code-install-method.mjs && node tests/test-docker-box-migration.mjs && node tests/test-issue-1616-pr-issue-link-preservation.mjs && node tests/test-telegram-message-filters.mjs && node tests/test-telegram-bot-command-aliases.mjs && node tests/test-solve-queue-command.mjs && node tests/test-queue-display-1267.mjs && node tests/test-telegram-bot-launcher.mjs
+
+
+📋 Configuration Tests
+
+✅ QUEUE_CONFIG has all required fields
+✅ QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)
+✅ MESSAGE_UPDATE_INTERVAL_MS is reasonable
+✅ MIN_START_INTERVAL_MS is 1 minute
+✅ CONSUMER_POLL_INTERVAL_MS is 1 minute
+
+📋 Queue Status Tests
+
+✅ QueueItemStatus has all required statuses
+
+📋 Queue Basic Operations Tests
+
+✅ SolveQueue initializes with empty state
+✅ enqueue adds items to queue
+✅ cancel removes items from queue
+✅ getQueueSummary returns correct structure
+
+📋 Duplicate URL Prevention Tests (Issue #1080)
+
+✅ findByUrl returns null for empty queue
+✅ findByUrl finds item in queue
+✅ findByUrl returns null for different URL
+✅ findByUrl finds item among multiple queued items
+✅ findByUrl does not find cancelled items
+
+📋 Message Update Tests
+
+✅ shouldUpdateMessage returns true for items without lastMessageUpdateTime
+✅ shouldUpdateMessage returns false when update interval not reached
+✅ shouldUpdateMessage returns true when update interval reached
+
+📋 Throttle Statistics Tests
+
+✅ recordThrottle increments throttle reason count
+
+📋 Format Tests
+
+✅ formatStatus returns correct string for empty queue
+✅ formatStatus returns correct string for non-empty queue
+✅ formatDetailedStatus includes all sections
+
+📋 Claude Process Detection Tests
+
+✅ getRunningClaudeProcesses returns object with count and processes
+
+📋 Cache Tests
+
+✅ getLimitCache returns a cache instance
+✅ Cache set and get work correctly
+✅ Cache returns null for expired entries
+✅ CACHE_TTL has all required values
+
+📋 Queue Item State Transitions Tests
+
+✅ Item transitions from QUEUED to WAITING
+✅ Item transitions from WAITING to STARTING
+✅ Item transitions from STARTING to STARTED
+✅ Item can be marked as failed
+✅ Item can be marked as failed with Error object
+
+📋 Wait Time Calculation Tests
+
+✅ getWaitTime returns elapsed time for queued items
+
+📋 Reason Message Ordering Tests (Issue #1078)
+
+✅ Claude process info should be at end of reasons
+
+📋 Total Processing Calculation Tests (Issue #1133)
+
+✅ totalProcessing is calculated as processing.size + Claude processes
+✅ canStartCommand returns totalProcessing in result
+✅ canStartCommand returns claudeProcesses count in result
+
+📋 System Resource Threshold Tests (Issue #1133)
+
+✅ checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode (Issue #1155)
+✅ checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode (Issue #1155)
+✅ QUEUE_CONFIG thresholds are valid positive ratios
+
+📋 API Threshold Behavior Tests (Issue #1133)
+
+✅ checkApiLimits accepts totalProcessing parameter
+✅ checkApiLimits with different totalProcessing values
+
+📋 One-At-A-Time Mode Tests (Issue #1133)
+
+✅ oneAtATime mode blocks when totalProcessing > 0
+✅ oneAtATime mode allows when totalProcessing === 0
+✅ normal mode allows parallel commands
+
+📋 Throttle Recording Tests
+
+✅ recordThrottle increments correct stats for all threshold types
+
+📋 Threshold Naming Tests (Issue #1133)
+
+✅ CLAUDE_5_HOUR_SESSION_THRESHOLD is correctly named
+
+📋 Queue Statistics Tests
+
+✅ getStats returns all required fields
+✅ getStats tracks enqueue correctly
+
+📋 Min Start Interval Tests
+
+✅ lastStartTime is updated when item moves to processing
+✅ MIN_START_INTERVAL_MS prevents rapid consecutive starts
+
+📋 Processing Map Tests
+
+✅ processing map correctly tracks items
+
+📋 Format Waiting Reason Tests
+
+✅ formatDetailedStatus shows waiting items with reasons
+
+📋 Queue Consumer Logic Tests
+
+✅ consumer does not start when queue is empty
+✅ multiple items maintain FIFO order within tool queue
+
+📋 Edge Case Tests
+
+✅ cancel returns false for non-existent or processing items
+✅ getQueueSummary handles empty queue correctly
+✅ queue item has correct tool property
+
+📋 Tool Agent Claude Limits Skip Tests (Issue #1159)
+
+✅ checkApiLimits accepts tool parameter
+✅ checkApiLimits with tool agent should not block on Claude limits
+✅ checkApiLimits with tool codex applies Codex limits
+✅ checkApiLimits default tool is claude
+✅ canStartCommand accepts tool option
+✅ canStartCommand with tool agent skips Claude limits
+✅ canStartCommand default tool is claude
+✅ queue item tool property is used by consumer
+
+📊 Test Results
+
+Tests passed: 66
+Tests failed: 0
+Total tests: 66
+
+✅ All tests passed!
+
+📋 Progress Bar Tests
+
+✅ getProgressBar returns correct length
+✅ getProgressBar at 0% shows all empty
+✅ getProgressBar at 100% shows all filled
+✅ getProgressBar at 50% shows half filled
+✅ getProgressBar handles edge values
+
+📋 Progress Bar Threshold Marker Tests (Issue #1242)
+
+✅ getProgressBar with threshold returns correct length
+✅ getProgressBar with threshold includes marker character
+✅ getProgressBar with threshold at 65% places marker correctly
+✅ getProgressBar with threshold at 90% places marker correctly
+✅ getProgressBar with threshold at 97% places marker correctly
+✅ getProgressBar with null threshold returns original format
+✅ getProgressBar threshold marker replaces one block
+✅ DISPLAY_THRESHOLDS constants are defined
+✅ formatCodexLimitsSection renders 5 hour and weekly sections
+✅ formatCodexLimitsSection renders error state
+
+📋 Math.floor Percentage Tests (Issue #1133)
+
+✅ formatUsageMessage uses Math.floor for session percentage
+✅ formatUsageMessage shows 100% only when exactly 100
+✅ formatUsageMessage floors various percentages correctly
+✅ Math.floor ensures 100% means exactly full
+
+📋 Time Passed Percentage Tests
+
+✅ calculateTimePassedPercentage returns null for null input
+✅ calculateTimePassedPercentage returns valid percentage for future date
+✅ calculateTimePassedPercentage handles 5-hour period
+✅ calculateTimePassedPercentage handles 168-hour period (weekly)
+
+📋 formatUsageMessage Comprehensive Tests
+
+✅ formatUsageMessage includes all required sections
+✅ formatUsageMessage handles null percentages
+✅ formatUsageMessage includes optional system info
+✅ formatUsageMessage caps displayed CPU cores when load average exceeds CPU count
+
+📋 Edge Cases for Display
+
+✅ formatUsageMessage handles 0% correctly
+✅ formatUsageMessage handles extreme values
+
+📋 Warning Emoji Tests (Issue #1242)
+
+✅ formatUsageMessage shows warning emoji when session exceeds threshold
+✅ formatUsageMessage does not show warning emoji when below threshold
+✅ formatUsageMessage shows warning for system resources when exceeded
+✅ formatUsageMessage shows threshold markers in progress bars
+
+📋 Claude Error Display Tests (Issue #1343)
+
+✅ formatUsageMessage with claudeError shows error once in Claude limits section
+✅ formatUsageMessage with claudeError still shows system resource sections
+✅ formatUsageMessage with null claudeError shows normal Claude data
+
+📋 Sections Array / Extra Sections Tests (Issue #1387)
+
+✅ formatUsageMessage wraps all content in a single code block
+✅ formatUsageMessage with extraSections includes extra content inside code block
+✅ formatUsageMessage with claudeError and extraSections includes extra content inside code block
+✅ formatUsageMessage with empty extraSections works as before
+✅ formatUsageMessage sections are separated by blank lines
+
+📋 formatRetryAfterMessage Tests (Issue #1446)
+
+✅ formatRetryAfterMessage returns "Try again later." for null
+✅ formatRetryAfterMessage returns "Try again later." for undefined
+✅ formatRetryAfterMessage returns "Try again later." for "0"
+✅ formatRetryAfterMessage returns "Try again later." for negative value
+✅ formatRetryAfterMessage formats seconds correctly for small values
+✅ formatRetryAfterMessage formats seconds correctly for minutes
+✅ formatRetryAfterMessage formats seconds correctly for hours
+✅ formatRetryAfterMessage formats exact minutes without trailing seconds
+✅ formatRetryAfterMessage handles HTTP-date format
+✅ formatRetryAfterMessage handles HTTP-date in the past
+✅ formatRetryAfterMessage with rate-limit error message in formatUsageMessage
+✅ formatRetryAfterMessage with positive retry-after in formatUsageMessage
+
+📊 Test Results
+
+Tests passed: 53
+Tests failed: 0
+Total tests: 53
+
+✅ All tests passed!
+Testing isUsageLimitError: detects "limit reached"... [32m✓ PASSED[0m
+Testing isUsageLimitError: detects Claude-style "resets" message... [32m✓ PASSED[0m
+Testing isUsageLimitError: detects usage limit exceeded... [32m✓ PASSED[0m
+Testing isUsageLimitError: detects session limit reached... [32m✓ PASSED[0m
+Testing isUsageLimitError: returns false for null/undefined... [32m✓ PASSED[0m
+Testing isUsageLimitError: returns false for normal messages... [32m✓ PASSED[0m
+Testing extractResetTime: extracts time from "resets 8pm" format... [32m✓ PASSED[0m
+Testing extractResetTime: extracts time from "resets 5:00am" format... [32m✓ PASSED[0m
+Testing extractResetTime: extracts time from "try again at" format... [32m✓ PASSED[0m
+Testing extractResetTime: extracts time from 24-hour format... [32m✓ PASSED[0m
+Testing extractResetTime: returns null for no time... [32m✓ PASSED[0m
+Testing extractResetTime: returns null for invalid input... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time from "resets Jan 15, 8am" format... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time from "resets January 20, 10:30am" format... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time with PM... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time with full month name and minutes... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time for abbreviated months... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time for full month names... [32m✓ PASSED[0m
+Testing extractResetTime: handles date format with comma after day... [32m✓ PASSED[0m
+Testing extractResetTime: handles date format without comma... [32m✓ PASSED[0m
+Testing extractResetTime: prioritizes date+time over time-only patterns... [32m✓ PASSED[0m
+Testing detectUsageLimit: returns combined info... [32m✓ PASSED[0m
+Testing detectUsageLimit: no reset time for non-limit message... [32m✓ PASSED[0m
+Testing formatUsageLimitMessage: includes session ID and resume command... [32m✓ PASSED[0m
+Testing formatUsageLimitMessage: handles missing reset time... [32m✓ PASSED[0m
+Testing formatUsageLimitMessage: handles missing session ID... [32m✓ PASSED[0m
+Testing parseUsageLimitJson: parses error type JSON... [32m✓ PASSED[0m
+Testing parseUsageLimitJson: parses turn.failed type JSON... [32m✓ PASSED[0m
+Testing parseUsageLimitJson: returns null for non-limit errors... [32m✓ PASSED[0m
+Testing parseUsageLimitJson: returns null for invalid JSON... [32m✓ PASSED[0m
+Testing parseResetTime: parses time-only format "8:00 PM"... [32m✓ PASSED[0m
+Testing parseResetTime: parses time-only format "5:30 AM"... [32m✓ PASSED[0m
+Testing parseResetTime: parses time-only format "12:00 PM" (noon)... [32m✓ PASSED[0m
+Testing parseResetTime: parses time-only format "12:00 AM" (midnight)... [32m✓ PASSED[0m
+Testing parseResetTime: parses date+time format "Jan 15, 8:00 AM"... [32m✓ PASSED[0m
+Testing parseResetTime: parses date+time format with full month "January 15, 8:00 AM"... [32m✓ PASSED[0m
+Testing parseResetTime: parses date+time format "Dec 25, 11:59 PM"... [32m✓ PASSED[0m
+Testing parseResetTime: parses all abbreviated month names... [32m✓ PASSED[0m
+Testing parseResetTime: parses Sept abbreviation... [32m✓ PASSED[0m
+Testing parseResetTime: returns null for invalid input... [32m✓ PASSED[0m
+Testing parseResetTime: returns null for invalid format... [32m✓ PASSED[0m
+Testing formatRelativeTime: returns "now" for past dates... [32m✓ PASSED[0m
+Testing formatRelativeTime: formats minutes only... [32m✓ PASSED[0m
+Testing formatRelativeTime: formats hours and minutes... [32m✓ PASSED[0m
+Testing formatRelativeTime: formats days, hours and minutes... [32m✓ PASSED[0m
+Testing formatRelativeTime: returns empty string for invalid input... [32m✓ PASSED[0m
+Testing formatResetTimeWithRelative: returns original time if parsing fails... [32m✓ PASSED[0m
+Testing formatResetTimeWithRelative: returns null/undefined as-is... [32m✓ PASSED[0m
+Testing formatResetTimeWithRelative: formats valid time with relative and UTC... [32m✓ PASSED[0m
+Testing extractResetTime: does not match invalid date formats... [32m✓ PASSED[0m
+Testing isUsageLimitError: does not match unrelated messages... [32m✓ PASSED[0m
+Testing isUsageLimitError: does not match "resets" in code comments (Issue #1290)... [32m✓ PASSED[0m
+Testing isUsageLimitError: still matches valid "resets" usage limit messages (Issue #1290)... [32m✓ PASSED[0m
+Testing extractTimezone: extracts Europe/Berlin timezone... [32m✓ PASSED[0m
+Testing extractTimezone: extracts UTC timezone... [32m✓ PASSED[0m
+Testing extractTimezone: extracts America/New_York timezone... [32m✓ PASSED[0m
+Testing extractTimezone: returns null for invalid timezone... [32m✓ PASSED[0m
+Testing extractTimezone: returns null for no timezone... [32m✓ PASSED[0m
+Testing extractTimezone: returns null for null/undefined input... [32m✓ PASSED[0m
+Testing parseResetTime: parses with Europe/Berlin timezone... [32m✓ PASSED[0m
+Testing parseResetTime: parses time-only with timezone... [32m✓ PASSED[0m
+Testing Integration: extractResetTime to parseResetTime for time-only... [32m✓ PASSED[0m
+Testing Integration: extractResetTime to parseResetTime for date+time (Issue #1122)... [32m✓ PASSED[0m
+Testing Integration: full pipeline with timezone (Issue #1122)... [32m✓ PASSED[0m
+Testing Integration: detectUsageLimit includes timezone (Issue #1122)... [32m✓ PASSED[0m
+Testing isUsageLimitError: detects FreeUsageLimitError from Agent/OpenCode Zen... [32m✓ PASSED[0m
+Testing detectUsageLimit: detects agent rate limit error message (Issue #1287)... [32m✓ PASSED[0m
+
+==================================================
+Test results: 67 passed, 0 failed
+==================================================
+✅ Codex default model is gpt-5.4
+✅ Codex resolves gpt-5.4 model id
+✅ Codex primary model names include gpt-5.3-codex and exclude removed legacy entries
+✅ Codex --think max maps to xhigh reasoning
+✅ Codex --think xhigh maps to xhigh reasoning
+✅ Codex --think off maps to none reasoning
+✅ Codex --thinking-budget exposes minimal reasoning tier
+✅ Codex --thinking-budget exposes high reasoning tier
+✅ Codex defaults to none reasoning when no thinking flags are set
+✅ Codex exec JSON parser extracts session, result text, usage, and collab calls from authoritative event types
+✅ Codex exec JSON parser does not mark cache write as available when CLI does not emit it
+✅ Codex pricing uses OpenAI input, cached input, and output rates
+✅ Codex pricing applies long-context rates when peak prompt exceeds OpenAI threshold
+✅ Codex exec JSON parser captures optional nested cache write and reasoning fields when emitted
+✅ Codex exec JSON parser captures remaining supported item payloads
+✅ Codex result model usage uses parsed token usage in shared budget-stats shape
+
+Passed: 16  Failed: 0
+🧪 Running buildCostInfoString unit tests (Issue #1015)...
+
+================================================================================
+
+📋 Test Group: Issue #1015 Bug 2 - Empty when all values unknown
+
+Testing returns empty string when all values are null... ✅ PASSED
+Testing returns empty string when all values are undefined... ✅ PASSED
+Testing returns empty string with empty pricing info object... ✅ PASSED
+Testing returns empty string when pricing info has no relevant fields... ✅ PASSED
+
+📋 Test Group: Public pricing estimate
+
+Testing shows public pricing estimate when available... ✅ PASSED
+Testing formats small cost with 6 decimal places... ✅ PASSED
+Testing formats zero cost correctly... ✅ PASSED
+
+📋 Test Group: Anthropic calculated cost
+
+Testing shows Anthropic calculated cost when available... ✅ PASSED
+Testing shows difference when both costs available (Anthropic higher)... ✅ PASSED
+Testing shows difference when both costs available (Anthropic lower)... ✅ PASSED
+Testing shows simplified format when costs are equal (Issue #1557)... ✅ PASSED
+Testing handles zero public cost in percentage calculation... ✅ PASSED
+
+📋 Test Group: Pricing info formatting
+
+Testing shows model name when available... ✅ PASSED
+Testing shows provider when model name and provider available... ✅ PASSED
+Testing shows unknown for public pricing when has pricing info but no public cost... ✅ PASSED
+Testing shows free model pricing correctly... ✅ PASSED
+
+📋 Test Group: Token usage formatting
+
+Testing shows basic token usage... ✅ PASSED
+Testing shows reasoning tokens when present... ✅ PASSED
+Testing shows cache tokens when present... ✅ PASSED
+Testing handles zero tokens... ✅ PASSED
+Testing handles undefined token values... ✅ PASSED
+Testing does not show reasoning tokens when zero... ✅ PASSED
+Testing does not show cache tokens when both are zero... ✅ PASSED
+Testing shows only cache read when cache write value is unavailable... ✅ PASSED
+Testing shows observed zero cache write when field availability says it exists... ✅ PASSED
+
+📋 Test Group: Comprehensive format
+
+Testing shows all information when everything is available... ✅ PASSED
+Testing real-world example from Issue #1015... ✅ PASSED
+Testing real-world example with actual work... ✅ PASSED
+
+📋 Test Group: Edge cases
+
+Testing handles large token counts... ✅ PASSED
+Testing handles very small costs... ✅ PASSED
+Testing returns proper string format starting with newlines... ✅ PASSED
+Testing handles tokenUsage being the only truthy pricingInfo field... ✅ PASSED
+Testing can omit raw token usage when budget stats already render totals... ✅ PASSED
+Testing handles isFreeModel being the only truthy pricingInfo field... ✅ PASSED
+
+📋 Test Group: Issue #1250 - OpenCode Zen cost
+
+Testing shows OpenCode Zen as provider with free cost... ✅ PASSED
+Testing shows public pricing estimate with original provider reference... ✅ PASSED
+Testing shows both public pricing and OpenCode Zen cost for agent tool... ✅ PASSED
+Testing handles OpenCode Zen with non-free cost... ✅ PASSED
+Testing shows output with only OpenCode Zen cost present... ✅ PASSED
+Testing Codex comments with unknown public pricing omit unavailable cache write tokens... ✅ PASSED
+Testing isOpencodeFreeModel triggers hasPricing check... ✅ PASSED
+
+📋 Test Group: Issue #1250 - Base model pricing for free models
+
+Testing shows base model pricing for kimi-k2.5-free (Issue #1250 main fix)... ✅ PASSED
+Testing shows regular free model pricing when base model also has no pricing... ✅ PASSED
+Testing shows base model reference with original provider... ✅ PASSED
+Testing handles base model pricing with cache tokens... ✅ PASSED
+Testing does not show base model reference when no baseModelName... ✅ PASSED
+
+📋 Test Group: Issue #1557 - Simplified cost display when costs match
+
+Testing shows simplified format when public and Anthropic costs match exactly... ✅ PASSED
+Testing shows simplified format with real-world matching costs... ✅ PASSED
+Testing shows full format when costs differ slightly... ✅ PASSED
+Testing does not show simplified format when only public cost available... ✅ PASSED
+Testing does not show simplified format when only Anthropic cost available... ✅ PASSED
+Testing no USD suffix in Anthropic cost line (Issue #1557)... ✅ PASSED
+
+================================================================================
+Test Results for buildCostInfoString (Issues #1015, #1250 & #1557):
+  ✅ Passed: 52
+  ❌ Failed: 0
+================================================================================
+Claude Code install method tests passed
+Docker Box migration checks passed
+Testing issue #1616 PR issue-link preservation
+============================================================
+PASS: Missing issue link is detected as an update
+PASS: Existing PR body content is preserved
+PASS: Short issue-closing keyword is appended for same-repo PRs
+PASS: Same-repo issue reference uses short form
+PASS: Existing issue link is not duplicated
+PASS: Already-linked PR body is left unchanged
+PASS: Full owner/repo issue link is accepted for same-repo PRs
+PASS: Fork issue reference uses owner/repo form
+PASS: Fork issue-closing keyword is appended with owner/repo
+PASS: Empty PR body does not get leading blank lines
+PASS: buildIssueReference defaults to short form
+PASS: buildIssueReference supports fork form
+PASS: GraphQL closing issue stdout is parsed
+PASS: Numeric issue number matches string GraphQL output
+PASS: String issue number matches numeric GraphQL output
+PASS: Different issue number is not matched
+
+============================================================
+Total tests: 16
+Passed: 16
+Failed: 0
+================================================================================
+Unit Tests: Telegram Message Filters (Issue #1207)
+================================================================================
+
+
+--- isOldMessage() Tests ---
+
+  ✅ PASS: Returns false when message has no date
+  ✅ PASS: Returns true when message date is before bot start time
+  ✅ PASS: Returns false when message date equals bot start time
+  ✅ PASS: Returns false when message date is after bot start time
+  ✅ PASS: Returns false when message is undefined
+
+--- isGroupChat() Tests ---
+
+  ✅ PASS: Returns true for group chat
+  ✅ PASS: Returns true for supergroup chat
+  ✅ PASS: Returns false for private chat
+  ✅ PASS: Returns false for channel
+  ✅ PASS: Returns false when chat is undefined
+
+--- isChatAuthorized() Tests ---
+
+  ✅ PASS: Returns true when allowedChats is null (no restrictions)
+  ✅ PASS: Returns true when allowedChats is undefined (no restrictions)
+  ✅ PASS: Returns true when chat ID is in allowed list
+  ✅ PASS: Returns false when chat ID is NOT in allowed list
+  ✅ PASS: Returns false when allowed list is empty
+  ✅ PASS: Works with negative chat IDs (supergroups)
+
+--- isForwardedOrReply() Tests ---
+
+
+  Normal messages:
+
+  ✅ PASS: Returns false for normal message (no forwarding or reply fields)
+  ✅ PASS: Returns false when message is undefined
+  ✅ PASS: Returns false when forward_origin is empty object {} (issue #493)
+  ✅ PASS: Returns false when reply_to_message is empty object {} (issue #493)
+
+  Forwarded messages:
+
+  ✅ PASS: Returns true for forwarded message (new API: forward_origin with type)
+  ✅ PASS: Returns true for forwarded message (old API: forward_from)
+  ✅ PASS: Returns true for forwarded message (old API: forward_from_chat)
+  ✅ PASS: Returns true for forwarded message (old API: forward_date)
+  ✅ PASS: Returns true for forwarded message (old API: forward_sender_name)
+  ✅ PASS: Returns true for forwarded message (old API: forward_signature)
+  ✅ PASS: Returns true for forwarded message (old API: forward_from_message_id)
+
+  Reply messages:
+
+  ✅ PASS: Returns true for reply to another user message
+  ✅ PASS: Returns true for reply to bot message
+
+  Forum topic messages (issue #496):
+
+  ✅ PASS: Returns false for message in forum topic (reply_to_message with forum_topic_created)
+  ✅ PASS: Returns false for message in forum topic with topic_message and thread_id
+
+  Edge cases:
+
+  ✅ PASS: Returns true for forwarded message in forum topic (forwarding takes priority)
+  ✅ PASS: Handles message with forward_origin.type = "hidden_user"
+  ✅ PASS: Handles message with forward_origin.type = "channel"
+
+--- extractCommandFromText() Tests ---
+
+  Basic command extraction:
+
+  ✅ PASS: Extracts /solve command
+  ✅ PASS: Extracts /hive command
+  ✅ PASS: Extracts /help command
+  ✅ PASS: Extracts command with @botname mention
+  ✅ PASS: Case-insensitive command extraction (lowercase)
+
+  Bot username validation:
+
+  ✅ PASS: Returns result when botUsername matches mention
+  ✅ PASS: Returns null when botUsername does not match mention
+  ✅ PASS: Case-insensitive botUsername matching
+  ✅ PASS: Returns result when no mention and botUsername provided
+
+  Edge cases and invalid input:
+
+  ✅ PASS: Returns null for null text
+  ✅ PASS: Returns null for undefined text
+  ✅ PASS: Returns null for empty string
+  ✅ PASS: Returns null for non-command text
+  ✅ PASS: Returns null for text not starting with /
+  ✅ PASS: Returns null for slash only
+  ✅ PASS: Handles command with no arguments
+  ✅ PASS: Handles command from issue #1207 exact text
+
+================================================================================
+Results: 51 passed, 0 failed, 51 total
+================================================================================
+
+✅ All tests passed!
+Running telegram bot command aliases tests...
+
+PASS: /do command with basic URL
+PASS: /continue command with options
+PASS: /solve command still works
+PASS: /claude injects --tool claude
+PASS: /codex without arguments stays empty before reply URL resolution
+PASS: /codex injects --tool codex while preserving options
+PASS: /opencode injects --tool opencode
+PASS: /agent injects --tool agent and handles bot mention
+PASS: /agent handles Telegram em-dash replacement
+PASS: /codex command wins over explicit --tool value
+PASS: /opencode command wins over explicit --tool=value syntax
+PASS: /claude is registered as a per-tool solve alias
+PASS: /codex is registered as a per-tool solve alias
+PASS: /opencode is registered as a per-tool solve alias
+PASS: /agent is registered as a per-tool solve alias
+
+==================================================
+Total: 15 tests
+Passed: 15
+Failed: 0
+==================================================
+================================================================================
+Unit Tests: /solve_queue Command (Issue #1232)
+================================================================================
+
+📋 Registration Tests
+
+✅ registerSolveQueueCommand registers a command handler
+✅ registerSolveQueueCommand returns handleSolveQueueCommand function
+✅ Command regex matches solve_queue
+✅ Command regex matches solvequeue
+✅ Command regex matches solve-queue
+✅ Command regex matches SOLVE_QUEUE (case insensitive)
+✅ Command regex does not match solve
+✅ Command regex does not match queue
+
+📋 Permission Tests
+
+✅ Rejects non-group chat
+✅ Rejects unauthorized chat
+✅ Ignores old messages
+✅ Ignores forwarded messages
+
+📋 Queue Status Output Tests
+
+✅ Shows queue status for empty queue
+✅ Shows processing count in per-queue breakdown
+✅ Shows queue with pending items
+
+📋 Hint Text Regression Tests
+
+✅ telegram-bot.mjs uses /solve_queue in hint text (not /solve-queue)
+✅ telegram-bot.mjs includes /solve_queue in help text using backtick code block
+✅ telegram-bot.mjs includes solve_queue in text fallback handlers
+✅ telegram-solve-queue.lib.mjs uses /solve_queue in log messages (not /solve-queue)
+✅ telegram-solve-queue.lib.mjs uses [solve_queue] log tag (not [solve-queue])
+✅ telegram-bot.mjs includes /accept_invites in help text using backtick code block
+✅ telegram-accept-invitations.lib.mjs uses /accept_invites in log messages (not /accept-invites)
+
+================================================================================
+Test Results for /solve_queue command:
+  ✅ Passed: 22
+  ❌ Failed: 0
+  Total: 22
+================================================================================
+================================================================================
+Tests: Issue #1267 - Queue Display & Progress Bar Fixes
+================================================================================
+
+📋 formatDuration Tests
+
+✅ formatDuration formats seconds correctly
+✅ formatDuration formats minutes and seconds
+✅ formatDuration formats hours, minutes, and seconds
+✅ formatDuration formats days
+✅ formatDuration handles negative values gracefully
+
+📋 Queue Display Tests
+
+✅ formatStatus shows all queues even when empty
+✅ formatDetailedStatus groups items by tool queue
+✅ formatDetailedStatus shows max 5 items per queue
+
+📋 Used Label Tests
+
+✅ formatUsageMessage shows used label on progress bars below threshold
+✅ formatUsageMessage shows warning emoji on progress bars at/above threshold
+
+================================================================================
+Test Results for Issue #1267:
+  ✅ Passed: 10
+  ❌ Failed: 0
+  Total: 10
+================================================================================
+================================================================================
+Unit Tests: Telegram Bot Launcher with Retry (Issue #1240)
+================================================================================
+
+
+--- LAUNCHER_DEFAULTS Tests ---
+
+  ✅ PASS: Default base delay is 1 second
+  ✅ PASS: Default max delay is 10 minutes
+  ✅ PASS: Default backoff multiplier is 2
+  ✅ PASS: Default jitter fraction is 0.1 (10%)
+
+--- isRetryableError() Tests ---
+
+  ✅ PASS: Returns false for 401 Unauthorized (invalid token)
+  ✅ PASS: Returns true for 409 Conflict (another instance)
+  ✅ PASS: Returns true for 429 Rate Limit
+  ✅ PASS: Returns true for 500 Internal Server Error
+  ✅ PASS: Returns true for 502 Bad Gateway
+  ✅ PASS: Returns true for network error (no code)
+  ✅ PASS: Returns true for fetch error (no code)
+  ✅ PASS: Returns true for unknown error code
+
+--- calculateRetryDelay() Tests ---
+
+  ✅ PASS: Attempt 1 returns ~1s (base delay)
+  ✅ PASS: Attempt 2 returns ~2s with default multiplier
+  ✅ PASS: Attempt 3 returns ~4s with default multiplier
+  ✅ PASS: Attempt 10 returns ~512s with default multiplier
+  ✅ PASS: Delay is capped at maxDelayMs
+  ✅ PASS: Custom base delay is respected
+  ✅ PASS: Custom multiplier is respected
+  ✅ PASS: Jitter adds up to jitterFraction of delay
+  ✅ PASS: Zero jitter means exact delay
+  ✅ PASS: Backoff schedule matches expected values (no jitter)
+
+--- formatDelay() Tests ---
+
+  ✅ PASS: Formats 1000ms as "1s"
+  ✅ PASS: Formats 500ms as "1s" (rounds up)
+  ✅ PASS: Formats 30000ms as "30s"
+  ✅ PASS: Formats 60000ms as "1m"
+  ✅ PASS: Formats 90000ms as "1m 30s"
+  ✅ PASS: Formats 600000ms as "10m"
+  ✅ PASS: Formats 0ms as "0s"
+  ✅ PASS: Formats 125000ms as "2m 5s"
+
+--- launchBotWithRetry() Tests ---
+
+  Success cases:
+
+  ✅ PASS: Succeeds on first attempt with no errors
+  ✅ PASS: Calls deleteWebhook before launch
+
+  Retry cases:
+
+⚠️  Bot launch attempt 1 failed (409): Conflict: terminated by other getUpdates request. Retrying in 0s...
+✅ Bot launched successfully after 2 attempts
+  ✅ PASS: Retries on 409 Conflict and succeeds on 2nd attempt
+⚠️  Bot launch attempt 1 failed (ECONNRESET): ECONNRESET. Retrying in 0s...
+✅ Bot launched successfully after 2 attempts
+  ✅ PASS: Retries on network error and succeeds
+⚠️  Bot launch attempt 1 failed (409): Conflict. Retrying in 0s...
+⚠️  Bot launch attempt 2 failed (500): Internal Server Error. Retrying in 0s...
+✅ Bot launched successfully after 3 attempts
+  ✅ PASS: Retries multiple times (409, 500, then success)
+⚠️  Bot launch attempt 1 failed (409): Conflict. Retrying in 0s...
+⚠️  Bot launch attempt 2 failed (409): Conflict. Retrying in 0s...
+✅ Bot launched successfully after 3 attempts
+  ✅ PASS: Calls onRetry callback on each retry
+
+  Non-retryable errors:
+
+❌ Non-retryable error (401): Unauthorized
+  ✅ PASS: Throws immediately on 401 Unauthorized (no retry)
+
+  AbortSignal cases:
+
+  ✅ PASS: Aborts before first attempt if signal already aborted
+⚠️  Bot launch attempt 1 failed (409): Conflict. Retrying in 5s...
+  ✅ PASS: Aborts during retry wait
+
+  deleteWebhook behavior:
+
+  ✅ PASS: Calls deleteWebhook with drop_pending_updates: true
+⚠️  Bot launch attempt 1 failed (409): Conflict. Retrying in 0s...
+⚠️  Bot launch attempt 2 failed (409): Conflict. Retrying in 0s...
+✅ Bot launched successfully after 3 attempts
+  ✅ PASS: Retries deleteWebhook + launch together on each attempt
+
+================================================================================
+Results: 41 passed, 0 failed, 41 total
+================================================================================
+
+✅ All tests passed!

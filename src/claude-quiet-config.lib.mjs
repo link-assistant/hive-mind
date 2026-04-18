@@ -9,12 +9,13 @@ export const REQUIRED_CLAUDE_QUIET_ENV = Object.freeze({
   CLAUDE_CODE_DISABLE_CRON: '1',
   CLAUDE_CODE_DISABLE_TERMINAL_TITLE: '1',
   CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1',
-  CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS: '1',
   CLAUDE_CODE_DISABLE_FAST_MODE: '1',
   CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: '1',
   CLAUDE_CODE_DISABLE_MOUSE: '1',
   CLAUDE_CODE_ENABLE_AWAY_SUMMARY: '0',
+  CLAUDE_CODE_ENABLE_TASKS: '1',
   CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY: '4',
+  CLAUDE_CODE_RESUME_INTERRUPTED_TURN: '1',
   DISABLE_FEEDBACK_COMMAND: '1',
 });
 
@@ -24,14 +25,20 @@ export const REQUIRED_CLAUDE_QUIET_SETTINGS = Object.freeze({
   awaySummaryEnabled: false,
   feedbackSurveyRate: 0,
   includeCoAuthoredBy: false,
+  includeGitInstructions: true,
   prefersReducedMotion: true,
   showThinkingSummaries: false,
+  skipDangerousModePermissionPrompt: true,
   viewMode: 'verbose',
 });
 
 export const REQUIRED_CLAUDE_QUIET_ATTRIBUTION = Object.freeze({
   commit: '',
   pr: '',
+});
+
+export const REQUIRED_CLAUDE_QUIET_PERMISSIONS = Object.freeze({
+  defaultMode: 'bypassPermissions',
 });
 
 export const buildClaudeQuietEnv = (baseEnv = process.env) => ({
@@ -44,10 +51,11 @@ export const formatClaudeQuietConfigSummary = () => {
     .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
     .join(', ');
   const attribution = `attribution=${JSON.stringify(REQUIRED_CLAUDE_QUIET_ATTRIBUTION)}`;
+  const permissions = `permissions=${JSON.stringify(REQUIRED_CLAUDE_QUIET_PERMISSIONS)}`;
   const env = Object.entries(REQUIRED_CLAUDE_QUIET_ENV)
     .map(([key, value]) => `${key}=${value}`)
     .join(', ');
-  return `settings[${settings}, ${attribution}], env[${env}]`;
+  return `settings[${settings}, ${attribution}, ${permissions}], env[${env}]`;
 };
 
 const isPlainObject = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -87,6 +95,19 @@ export const ensureClaudeQuietConfig = async ({ settingsPath, log } = {}) => {
     updatedSettingsKeys.push('attribution');
   }
 
+  const existingPermissions = isPlainObject(settings.permissions) ? settings.permissions : {};
+  const updatedPermissionsKeys = [];
+  for (const [key, value] of Object.entries(REQUIRED_CLAUDE_QUIET_PERMISSIONS)) {
+    if (existingPermissions[key] !== value) {
+      existingPermissions[key] = value;
+      updatedPermissionsKeys.push(key);
+    }
+  }
+  settings.permissions = existingPermissions;
+  if (updatedPermissionsKeys.length > 0) {
+    updatedSettingsKeys.push('permissions');
+  }
+
   const existingEnv = isPlainObject(settings.env) ? settings.env : {};
   const updatedEnvKeys = [];
   for (const [key, value] of Object.entries(REQUIRED_CLAUDE_QUIET_ENV)) {
@@ -116,8 +137,10 @@ export const ensureClaudeQuietConfig = async ({ settingsPath, log } = {}) => {
     updatedSettingsKeys,
     updatedEnvKeys,
     updatedAttributionKeys,
+    updatedPermissionsKeys,
     settings: { ...REQUIRED_CLAUDE_QUIET_SETTINGS },
     attribution: { ...REQUIRED_CLAUDE_QUIET_ATTRIBUTION },
+    permissions: { ...REQUIRED_CLAUDE_QUIET_PERMISSIONS },
     env: { ...REQUIRED_CLAUDE_QUIET_ENV },
   };
 };

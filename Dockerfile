@@ -39,12 +39,13 @@ ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
     CLAUDE_CODE_DISABLE_CRON=1 \
     CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
     CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \
-    CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS=1 \
     CLAUDE_CODE_DISABLE_FAST_MODE=1 \
     CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1 \
     CLAUDE_CODE_DISABLE_MOUSE=1 \
     CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0 \
+    CLAUDE_CODE_ENABLE_TASKS=1 \
     CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=4 \
+    CLAUDE_CODE_RESUME_INTERRUPTED_TURN=1 \
     DISABLE_FEEDBACK_COMMAND=1
 
 # Opam environment variables for Rocq/Coq theorem prover
@@ -153,15 +154,18 @@ RUN mkdir -p /workspace/.claude && \
 const fs = require('fs'); \
 const p = '/workspace/.claude/settings.json'; \
 const blocked = ['AskUserQuestion','CronCreate','CronDelete','CronList','EnterPlanMode','EnterWorktree','ExitPlanMode','ExitWorktree','Monitor','NotebookEdit','PushNotification','RemoteTrigger','ScheduleWakeup','mcp__claude_ai_Gmail__*','mcp__claude_ai_Google_Drive__*','mcp__claude_ai_Google_Calendar__*']; \
-const quietEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', CLAUDE_CODE_DISABLE_CRON: '1', CLAUDE_CODE_DISABLE_TERMINAL_TITLE: '1', CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1', CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS: '1', CLAUDE_CODE_DISABLE_FAST_MODE: '1', CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: '1', CLAUDE_CODE_DISABLE_MOUSE: '1', CLAUDE_CODE_ENABLE_AWAY_SUMMARY: '0', CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY: '4', DISABLE_FEEDBACK_COMMAND: '1' }; \
-const quietSettings = { autoMemoryEnabled: false, spinnerTipsEnabled: false, awaySummaryEnabled: false, feedbackSurveyRate: 0, includeCoAuthoredBy: false, prefersReducedMotion: true, showThinkingSummaries: false, viewMode: 'verbose' }; \
+const quietEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', CLAUDE_CODE_DISABLE_CRON: '1', CLAUDE_CODE_DISABLE_TERMINAL_TITLE: '1', CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1', CLAUDE_CODE_DISABLE_FAST_MODE: '1', CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: '1', CLAUDE_CODE_DISABLE_MOUSE: '1', CLAUDE_CODE_ENABLE_AWAY_SUMMARY: '0', CLAUDE_CODE_ENABLE_TASKS: '1', CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY: '4', CLAUDE_CODE_RESUME_INTERRUPTED_TURN: '1', DISABLE_FEEDBACK_COMMAND: '1' }; \
+const quietSettings = { autoMemoryEnabled: false, spinnerTipsEnabled: false, awaySummaryEnabled: false, feedbackSurveyRate: 0, includeCoAuthoredBy: false, includeGitInstructions: true, prefersReducedMotion: true, showThinkingSummaries: false, skipDangerousModePermissionPrompt: true, viewMode: 'verbose' }; \
 const quietAttribution = { commit: '', pr: '' }; \
+const quietPermissions = { defaultMode: 'bypassPermissions' }; \
 let s = {}; \
 try { s = JSON.parse(fs.readFileSync(p, 'utf-8')); } catch (e) {} \
 if (!s || typeof s !== 'object' || Array.isArray(s)) s = {}; \
 for (const [key, value] of Object.entries(quietSettings)) s[key] = value; \
 s.attribution = s.attribution && typeof s.attribution === 'object' && !Array.isArray(s.attribution) ? s.attribution : {}; \
 for (const [key, value] of Object.entries(quietAttribution)) s.attribution[key] = value; \
+s.permissions = s.permissions && typeof s.permissions === 'object' && !Array.isArray(s.permissions) ? s.permissions : {}; \
+for (const [key, value] of Object.entries(quietPermissions)) s.permissions[key] = value; \
 s.env = s.env && typeof s.env === 'object' && !Array.isArray(s.env) ? s.env : {}; \
 for (const [key, value] of Object.entries(quietEnv)) s.env[key] = value; \
 const existing = Array.isArray(s.disallowedTools) ? s.disallowedTools : []; \

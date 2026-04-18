@@ -733,7 +733,7 @@ export const executeClaudeCommand = async params => {
         log,
         verbose: argv.verbose,
         pollInterval: 15000,
-        excludeOwnComments: !!argv.excludeAllOwnIncommingCommentsFromInput
+        excludeOwnComments: !!argv.excludeAllOwnIncommingCommentsFromInput,
       });
       // Initialize with existing comments to only process NEW comments during execution
       await bidirectionalHandler.initializeFromCurrentComments();
@@ -1293,7 +1293,7 @@ export const executeClaudeCommand = async params => {
           errorDuringExecution,
           anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           resultSummary, // Issue #1263: Include result summary
-          queuedFeedback // Issue #817: Bidirectional mode feedback
+          queuedFeedback, // Issue #817: Bidirectional mode feedback
         };
       }
       // Issue #1088/#1351: Log execution result status
@@ -1424,7 +1424,7 @@ export const executeClaudeCommand = async params => {
         toolUseCount,
         anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
         resultSummary, // Issue #1263: Include result summary
-        queuedFeedback // Issue #817: Bidirectional mode feedback
+        queuedFeedback, // Issue #817: Bidirectional mode feedback
       };
     }
   }; // End of executeWithRetry function

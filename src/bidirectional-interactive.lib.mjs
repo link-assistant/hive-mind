@@ -31,30 +31,7 @@ const CONFIG = {
   // Maximum queued feedback messages
   MAX_QUEUE_SIZE: 50,
   // Signature to identify system-generated comments
-  SYSTEM_COMMENT_SIGNATURES: [
-    '## 🚀 Session Started',
-    '## 💬 Assistant Response',
-    '## 💻 Tool: ',
-    '## 📝 Tool: ',
-    '## 📖 Tool: ',
-    '## ✏️ Tool: ',
-    '## 🔍 Tool: ',
-    '## 🔎 Tool: ',
-    '## 🌐 Tool: ',
-    '## 📋 Tool: ',
-    '## 🎯 Tool: ',
-    '## 📓 Tool: ',
-    '## 🔧 Tool: ',
-    '## ✅ Tool Result:',
-    '## ❌ Tool Result:',
-    '## ✅ Session Complete',
-    '## ❌ Session Failed',
-    '## ❓ Unrecognized Event:',
-    '📄 Raw JSON',
-    '🤖 Generated with [Claude Code]',
-    '🤖 AI-Powered Solution Draft',
-    '*This PR was created automatically by the AI issue solver*'
-  ]
+  SYSTEM_COMMENT_SIGNATURES: ['## 🚀 Session Started', '## 💬 Assistant Response', '## 💻 Tool: ', '## 📝 Tool: ', '## 📖 Tool: ', '## ✏️ Tool: ', '## 🔍 Tool: ', '## 🔎 Tool: ', '## 🌐 Tool: ', '## 📋 Tool: ', '## 🎯 Tool: ', '## 📓 Tool: ', '## 🔧 Tool: ', '## ✅ Tool Result:', '## ❌ Tool Result:', '## ✅ Session Complete', '## ❌ Session Failed', '## ❓ Unrecognized Event:', '📄 Raw JSON', '🤖 Generated with [Claude Code]', '🤖 AI-Powered Solution Draft', '*This PR was created automatically by the AI issue solver*'],
 };
 
 /**
@@ -63,7 +40,7 @@ const CONFIG = {
  * @param {string} body - Comment body to check
  * @returns {boolean} True if the comment is system-generated
  */
-const isSystemComment = (body) => {
+const isSystemComment = body => {
   if (!body || typeof body !== 'string') {
     return false;
   }
@@ -76,7 +53,7 @@ const isSystemComment = (body) => {
  * @param {string} feedbackText - The user's feedback text
  * @returns {string} JSON string ready to write to Claude's stdin
  */
-const formatFeedbackForClaude = (feedbackText) => {
+const formatFeedbackForClaude = feedbackText => {
   const message = {
     type: 'user',
     message: {
@@ -84,10 +61,10 @@ const formatFeedbackForClaude = (feedbackText) => {
       content: [
         {
           type: 'text',
-          text: `[USER FEEDBACK FROM PR COMMENT]\n\n${feedbackText}\n\n[END OF USER FEEDBACK - Please address this feedback in your current work]`
-        }
-      ]
-    }
+          text: `[USER FEEDBACK FROM PR COMMENT]\n\n${feedbackText}\n\n[END OF USER FEEDBACK - Please address this feedback in your current work]`,
+        },
+      ],
+    },
   };
   return JSON.stringify(message);
 };
@@ -106,17 +83,8 @@ const formatFeedbackForClaude = (feedbackText) => {
  * @param {boolean} [options.excludeOwnComments=false] - Exclude comments authored by the same GitHub user that solve runs as (prevents "talking to yourself")
  * @returns {Object} Handler object with monitoring methods
  */
-export const createBidirectionalHandler = (options) => {
-  const {
-    owner,
-    repo,
-    prNumber,
-    $,
-    log,
-    verbose = false,
-    pollInterval = CONFIG.DEFAULT_POLL_INTERVAL,
-    excludeOwnComments = false
-  } = options;
+export const createBidirectionalHandler = options => {
+  const { owner, repo, prNumber, $, log, verbose = false, pollInterval = CONFIG.DEFAULT_POLL_INTERVAL, excludeOwnComments = false } = options;
   // Resolved lazily on first check, cached for the lifetime of the handler
   let ownUserLogin = null;
   let ownUserResolved = false;
@@ -144,7 +112,7 @@ export const createBidirectionalHandler = (options) => {
     pollIntervalId: null,
     processedCommentIds: new Set(),
     totalCommentsProcessed: 0,
-    totalFeedbackQueued: 0
+    totalFeedbackQueued: 0,
   };
 
   /**
@@ -221,7 +189,7 @@ export const createBidirectionalHandler = (options) => {
             body: comment.body,
             user: comment.user,
             created_at: comment.created_at,
-            formattedMessage: formatFeedbackForClaude(comment.body)
+            formattedMessage: formatFeedbackForClaude(comment.body),
           });
           state.totalFeedbackQueued++;
 
@@ -367,7 +335,7 @@ export const createBidirectionalHandler = (options) => {
    *
    * @param {number} commentId - Comment ID to mark as processed
    */
-  const markCommentAsProcessed = (commentId) => {
+  const markCommentAsProcessed = commentId => {
     state.processedCommentIds.add(commentId);
   };
 
@@ -377,7 +345,7 @@ export const createBidirectionalHandler = (options) => {
    *
    * @param {Array<number>} commentIds - Array of comment IDs to skip
    */
-  const initializeWithExistingComments = (commentIds) => {
+  const initializeWithExistingComments = commentIds => {
     for (const id of commentIds) {
       state.processedCommentIds.add(id);
     }
@@ -410,7 +378,7 @@ export const createBidirectionalHandler = (options) => {
     feedbackQueueLength: state.feedbackQueue.length,
     processedCommentCount: state.processedCommentIds.size,
     totalCommentsProcessed: state.totalCommentsProcessed,
-    totalFeedbackQueued: state.totalFeedbackQueued
+    totalFeedbackQueued: state.totalFeedbackQueued,
   });
 
   return {
@@ -431,8 +399,8 @@ export const createBidirectionalHandler = (options) => {
       checkForNewComments,
       fetchRecentComments,
       isSystemComment,
-      formatFeedbackForClaude
-    }
+      formatFeedbackForClaude,
+    },
   };
 };
 
@@ -442,7 +410,7 @@ export const createBidirectionalHandler = (options) => {
  * @param {string} tool - Tool name (claude, opencode, codex)
  * @returns {boolean} Whether bidirectional interactive mode is supported
  */
-export const isBidirectionalModeSupported = (tool) => {
+export const isBidirectionalModeSupported = tool => {
   // Currently only supported for Claude due to --input-format stream-json support
   return tool === 'claude';
 };
@@ -494,7 +462,7 @@ export const validateBidirectionalModeConfig = async (argv, log) => {
 export const utils = {
   isSystemComment,
   formatFeedbackForClaude,
-  CONFIG
+  CONFIG,
 };
 
 // Export all functions
@@ -502,5 +470,5 @@ export default {
   createBidirectionalHandler,
   isBidirectionalModeSupported,
   validateBidirectionalModeConfig,
-  utils
+  utils,
 };

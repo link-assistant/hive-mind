@@ -149,32 +149,23 @@ RUN if command -v codex &>/dev/null; then \
 # cannot be removed via `claude mcp remove` because they are not registered
 # under user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
+#
+# The configuration is applied by scripts/configure-claude-quiet-defaults.mjs,
+# which reuses the canonical required env/settings/attribution/permissions
+# maps and the idempotent merge helpers from
+# src/claude-quiet-config.lib.mjs and src/useless-tools.lib.mjs so the
+# Dockerfile, solve command, and tests stay in lock-step.
+COPY --chown=sandbox:sandbox \
+    src/claude-quiet-config.lib.mjs \
+    src/useless-tools.lib.mjs \
+    /workspace/.hive-mind-bake/src/
+COPY --chown=sandbox:sandbox \
+    scripts/configure-claude-quiet-defaults.mjs \
+    /workspace/.hive-mind-bake/scripts/
 RUN mkdir -p /workspace/.claude && \
-    node -e " \
-const fs = require('fs'); \
-const p = '/workspace/.claude/settings.json'; \
-const blocked = ['AskUserQuestion','CronCreate','CronDelete','CronList','EnterPlanMode','EnterWorktree','ExitPlanMode','ExitWorktree','Monitor','NotebookEdit','PushNotification','RemoteTrigger','ScheduleWakeup','mcp__claude_ai_Gmail__*','mcp__claude_ai_Google_Drive__*','mcp__claude_ai_Google_Calendar__*']; \
-const quietEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', CLAUDE_CODE_DISABLE_CRON: '1', CLAUDE_CODE_DISABLE_TERMINAL_TITLE: '1', CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1', CLAUDE_CODE_DISABLE_FAST_MODE: '1', CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: '1', CLAUDE_CODE_DISABLE_MOUSE: '1', CLAUDE_CODE_ENABLE_AWAY_SUMMARY: '0', CLAUDE_CODE_ENABLE_TASKS: '1', CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY: '4', CLAUDE_CODE_RESUME_INTERRUPTED_TURN: '1', DISABLE_FEEDBACK_COMMAND: '1' }; \
-const quietSettings = { autoMemoryEnabled: false, spinnerTipsEnabled: false, awaySummaryEnabled: false, feedbackSurveyRate: 0, includeCoAuthoredBy: false, includeGitInstructions: true, prefersReducedMotion: true, showThinkingSummaries: false, skipDangerousModePermissionPrompt: true, viewMode: 'verbose' }; \
-const quietAttribution = { commit: '', pr: '' }; \
-const quietPermissions = { defaultMode: 'bypassPermissions' }; \
-let s = {}; \
-try { s = JSON.parse(fs.readFileSync(p, 'utf-8')); } catch (e) {} \
-if (!s || typeof s !== 'object' || Array.isArray(s)) s = {}; \
-for (const [key, value] of Object.entries(quietSettings)) s[key] = value; \
-s.attribution = s.attribution && typeof s.attribution === 'object' && !Array.isArray(s.attribution) ? s.attribution : {}; \
-for (const [key, value] of Object.entries(quietAttribution)) s.attribution[key] = value; \
-s.permissions = s.permissions && typeof s.permissions === 'object' && !Array.isArray(s.permissions) ? s.permissions : {}; \
-for (const [key, value] of Object.entries(quietPermissions)) s.permissions[key] = value; \
-s.env = s.env && typeof s.env === 'object' && !Array.isArray(s.env) ? s.env : {}; \
-for (const [key, value] of Object.entries(quietEnv)) s.env[key] = value; \
-const existing = Array.isArray(s.disallowedTools) ? s.disallowedTools : []; \
-const merged = [...existing]; \
-for (const t of blocked) if (!merged.includes(t)) merged.push(t); \
-s.disallowedTools = merged; \
-fs.writeFileSync(p, JSON.stringify(s, null, 2)); \
-console.log('Configured quiet Claude Code defaults and', merged.length, 'disallowedTools in', p); \
-"
+    node /workspace/.hive-mind-bake/scripts/configure-claude-quiet-defaults.mjs \
+        --settings-path /workspace/.claude/settings.json && \
+    rm -rf /workspace/.hive-mind-bake
 
 SHELL ["/bin/bash", "-c"]
 CMD ["/bin/bash"]

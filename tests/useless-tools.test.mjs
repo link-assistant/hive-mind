@@ -276,18 +276,20 @@ async function runTests() {
     assert.deepEqual(disallowedToolsList, [], 'no disallowed tools when opted out');
   });
 
-  await asyncTest('Dockerfile bakes disallowedTools into baseline ~/.claude/settings.json', async () => {
+  await asyncTest('Dockerfile bakes disallowedTools into baseline ~/.claude/settings.json via shared script', async () => {
     const content = await fs.readFile(path.join(process.cwd(), 'Dockerfile'), 'utf-8');
-    assert.ok(content.includes('disallowedTools'), 'Dockerfile should configure disallowedTools');
-    assert.ok(content.includes('AskUserQuestion'), 'Dockerfile disallowedTools should include AskUserQuestion');
-    assert.ok(content.includes('CronCreate'), 'Dockerfile disallowedTools should include CronCreate');
+    // Dockerfile delegates to scripts/configure-claude-quiet-defaults.mjs, which
+    // reuses src/useless-tools.lib.mjs#ensureDisallowedToolsInSettings — so the
+    // Dockerfile itself only needs to invoke the script and COPY the lib it uses.
+    assert.ok(content.includes('scripts/configure-claude-quiet-defaults.mjs'), 'Dockerfile should invoke scripts/configure-claude-quiet-defaults.mjs');
+    assert.ok(content.includes('useless-tools.lib.mjs'), 'Dockerfile should COPY src/useless-tools.lib.mjs for the configure script');
     assert.ok(content.includes('issue #1627'), 'Dockerfile should reference issue #1627');
   });
 
-  await asyncTest('coolify/Dockerfile bakes disallowedTools into baseline ~/.claude/settings.json', async () => {
+  await asyncTest('coolify/Dockerfile bakes disallowedTools into baseline ~/.claude/settings.json via shared script', async () => {
     const content = await fs.readFile(path.join(process.cwd(), 'coolify/Dockerfile'), 'utf-8');
-    assert.ok(content.includes('disallowedTools'), 'coolify/Dockerfile should configure disallowedTools');
-    assert.ok(content.includes('AskUserQuestion'), 'coolify/Dockerfile disallowedTools should include AskUserQuestion');
+    assert.ok(content.includes('scripts/configure-claude-quiet-defaults.mjs'), 'coolify/Dockerfile should invoke scripts/configure-claude-quiet-defaults.mjs');
+    assert.ok(content.includes('useless-tools.lib.mjs'), 'coolify/Dockerfile should COPY src/useless-tools.lib.mjs for the configure script');
     assert.ok(content.includes('issue #1627'), 'coolify/Dockerfile should reference issue #1627');
   });
 

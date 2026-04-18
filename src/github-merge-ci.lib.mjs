@@ -185,8 +185,10 @@ export async function checkBranchCIHealth(owner, repo, branch = 'main', options,
 
     // Issue #1425: Query CI runs specifically for the HEAD SHA (no status filter).
     // This ensures we see in-progress runs for the latest commit, not just completed ones.
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${headSha}&per_page=20" --jq '[.workflow_runs[] | {id: .id, name: .name, status: .status, conclusion: .conclusion, html_url: .html_url, head_sha: .head_sha, created_at: .created_at}]'`);
-    const runs = JSON.parse(stdout.trim() || '[]');
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${headSha}&per_page=100" --paginate --slurp`);
+    const runs = JSON.parse(stdout.trim() || '[]')
+      .flatMap(page => page.workflow_runs || [])
+      .map(run => ({ id: run.id, name: run.name, status: run.status, conclusion: run.conclusion, html_url: run.html_url, head_sha: run.head_sha, created_at: run.created_at }));
 
     if (verbose) {
       console.log(`[VERBOSE] /merge: Found ${runs.length} CI run(s) for HEAD commit ${headSha.substring(0, 7)} on ${owner}/${repo} branch ${branch}`);

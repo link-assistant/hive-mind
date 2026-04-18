@@ -174,13 +174,13 @@ export function registerAcceptInvitesCommand(bot, options) {
 
     try {
       // Fetch repository invitations
-      const { stdout: repoInvJson } = await exec('gh api /user/repository_invitations 2>/dev/null || echo "[]"');
+      const { stdout: repoInvJson } = await exec('gh api /user/repository_invitations --paginate 2>/dev/null || echo "[]"');
       const repoInvitations = JSON.parse(repoInvJson.trim() || '[]');
       state.totalRepos = repoInvitations.length;
       VERBOSE && console.log(`[VERBOSE] Found ${repoInvitations.length} pending repo invitations`);
 
       // Fetch organization invitations
-      const { stdout: orgMemJson } = await exec('gh api /user/memberships/orgs 2>/dev/null || echo "[]"');
+      const { stdout: orgMemJson } = await exec('gh api /user/memberships/orgs --paginate 2>/dev/null || echo "[]"');
       const orgMemberships = JSON.parse(orgMemJson.trim() || '[]');
       const pendingOrgs = orgMemberships.filter(m => m.state === 'pending');
       state.totalOrgs = pendingOrgs.length;

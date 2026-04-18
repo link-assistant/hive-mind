@@ -149,7 +149,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
             if (verbose) {
               await log(`  🔍 Fetching repository contents for raw URL resolution (repoPath=${repoPath})`, { verbose: true });
             }
-            const contentsResult = await $silent`gh api repos/${repoPath}/contents --jq '.[].name'`;
+            const contentsResult = await $silent`gh api repos/${repoPath}/contents --paginate --jq '.[].name'`;
             if (verbose) {
               await log(`  📥 Repository contents fetch completed (code=${contentsResult.code ?? 'unknown'})`, { verbose: true });
             }

@@ -429,6 +429,12 @@ jobs:
           echo "Running test suite for pre-PR failure notifications..."
           node tests/test-pre-pr-failure-notifier-1640.mjs
 
+      - name: Run ready-to-merge pagination tests (Issue #1645)
+        run: |
+          echo "Running ready-to-merge pagination regression tests..."
+          node tests/test-ready-to-merge-pagination-1645.mjs
+          node tests/test-require-gh-paginate-rule.mjs
+
       - name: Run docs-code options sync test (Issue #1518)
         run: |
           echo "Running test suite for documentation-code options sync..."

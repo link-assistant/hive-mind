@@ -667,11 +667,68 @@ jobs:
         with:
           node-version: 24.x
 
-      - name: Verify Docker release contract
+      - name: Verify Docker release-order contract
         run: |
-          echo "Docker images are built only after npm publishes @link-assistant/hive-mind."
-          echo "PRs statically verify that contract; release jobs perform the real Docker build."
+          echo "Statically verifying: release Docker publish waits for npm availability"
+          echo "and passes the exact published version into Docker builds."
           node tests/test-docker-release-order.mjs
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Show sandbox base image version
+        run: |
+          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          echo "Sandbox base image version: konard/sandbox:${SANDBOX_VERSION}"
+          echo "This pinned version ensures stable, reproducible builds."
+
+      - name: Build Docker image
+        # PR builds install @link-assistant/hive-mind@latest (the currently
+        # published version on npm, which may pre-date this PR). The Dockerfile
+        # tolerates a missing configure-claude bin in that case. Release builds
+        # install the exact version just published and enforce the bin strictly.
+        run: |
+          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          echo "Building Docker image from konard/sandbox:${SANDBOX_VERSION} base..."
+          echo "Installing @link-assistant/hive-mind@latest — configure-claude may not yet be present in the published package."
+
+          # Multi-platform builds (amd64+arm64) are tested in docker-publish during release.
+          # PR checks only validate amd64 using standard docker build (not buildx) so the
+          # image is loaded into the Docker daemon for container verification.
+          docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
+
+          echo ""
+          echo "Docker image built successfully"
+          docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
+
+      - name: Verify build completed without errors
+        run: |
+          echo "Checking build logs for critical errors..."
+
+          if grep -E 'unbound variable' build-output.log; then
+            echo "ERROR: Unbound variable error detected in Docker build"
+            grep -E 'unbound variable' build-output.log || true
+            exit 1
+          fi
+
+          echo "Build log check completed"
+
+      - name: Verify system & development tools in running container
+        run: |
+          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          echo "=== Verifying hive-mind Docker image ==="
+          echo "Base: konard/sandbox:${SANDBOX_VERSION} (pinned) + AI-specific tools"
+          echo ""
+
+          # Run verification script inside container (mounts script as read-only volume)
+          # Verifies sandbox user, dev tools, AI tools, and configure-claude (tolerantly).
+          docker run --rm \
+            -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \
+            ${{ env.IMAGE_NAME }}:test \
+            bash /verify-docker-image.sh
+
+          echo ""
+          echo "All system & development tools verification checks passed!"
 
   # === HELM PR CHECK (FAST) ===
   helm-pr-check:

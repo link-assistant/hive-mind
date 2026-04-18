@@ -147,13 +147,21 @@ RUN if command -v codex &>/dev/null; then \
 # user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
 #
-# The release workflow builds this image only after npm publishes the Hive-Mind
-# version and waits until that version is visible in the registry. The image can
-# therefore use the published `configure-claude` bin directly instead of copying
-# repository source into the Docker build context.
+# Behavior matrix (see root Dockerfile for full rationale):
+#   - Release builds (HIVE_MIND_VERSION=<exact>): `configure-claude` MUST
+#     exist and succeed.
+#   - PR builds (HIVE_MIND_VERSION=latest): tolerate a not-yet-published bin;
+#     solve re-applies the baseline at runtime.
 RUN mkdir -p /workspace/.claude && \
-    configure-claude --settings-path /workspace/.claude/settings.json && \
-    configure-claude --settings-path /workspace/.claude/settings.json --verify
+    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
+      configure-claude --settings-path /workspace/.claude/settings.json && \
+      configure-claude --settings-path /workspace/.claude/settings.json --verify; \
+    elif command -v configure-claude >/dev/null 2>&1; then \
+      configure-claude --settings-path /workspace/.claude/settings.json && \
+      configure-claude --settings-path /workspace/.claude/settings.json --verify; \
+    else \
+      echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline — solve re-applies it at runtime"; \
+    fi
 
 # --- Application Setup ---
 # Minimal USER root: only for creating /app directory and copying files.

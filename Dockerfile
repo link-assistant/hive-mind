@@ -157,13 +157,22 @@ RUN if command -v codex &>/dev/null; then \
 # under user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
 #
-# The release workflow builds this image only after npm publishes the Hive-Mind
-# version and waits until that version is visible in the registry. The image can
-# therefore use the published `configure-claude` bin directly instead of copying
-# repository source into the Docker build context.
+# Behavior matrix:
+#   - Release builds (HIVE_MIND_VERSION=<exact>): `configure-claude` MUST exist
+#     in the published package and MUST succeed. Build fails otherwise.
+#   - PR builds (HIVE_MIND_VERSION=latest): the currently published package on
+#     npm may pre-date this PR and not yet ship `configure-claude`. In that
+#     case we log and skip — the baseline is re-applied at runtime by solve.
 RUN mkdir -p /workspace/.claude && \
-    configure-claude --settings-path /workspace/.claude/settings.json && \
-    configure-claude --settings-path /workspace/.claude/settings.json --verify
+    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
+      configure-claude --settings-path /workspace/.claude/settings.json && \
+      configure-claude --settings-path /workspace/.claude/settings.json --verify; \
+    elif command -v configure-claude >/dev/null 2>&1; then \
+      configure-claude --settings-path /workspace/.claude/settings.json && \
+      configure-claude --settings-path /workspace/.claude/settings.json --verify; \
+    else \
+      echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline — solve re-applies it at runtime"; \
+    fi
 
 SHELL ["/bin/bash", "-c"]
 CMD ["/bin/bash"]

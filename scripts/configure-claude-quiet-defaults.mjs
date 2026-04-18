@@ -1,57 +1,34 @@
 #!/usr/bin/env node
 
 /**
- * Configure quiet, deterministic Claude Code defaults in a target
- * `settings.json` (typically `~/.claude/settings.json` or the pre-seeded
- * `/workspace/.claude/settings.json` inside our Docker images).
+ * Thin wrapper kept for the Dockerfile baseline — delegates to the shared
+ * `configure-claude` bin runner so the Docker image, the published CLI
+ * command, and the solve runtime stay in lock-step.
  *
- * Replaces the long inline `node -e "..."` block that used to live in both
- * Dockerfiles. Reuses the canonical required env/settings/attribution/
- * permissions maps and the idempotent merge helpers from:
- *   - src/claude-quiet-config.lib.mjs (quiet env + settings)
- *   - src/useless-tools.lib.mjs      (disallowedTools block-list)
- *
- * Usage:
- *   node scripts/configure-claude-quiet-defaults.mjs [--settings-path <path>]
- *
- * Defaults `--settings-path` to `${HOME}/.claude/settings.json`.
+ * Users installing `@link-assistant/hive-mind` should prefer running
+ * `configure-claude` directly (see `src/configure-claude.mjs`); this
+ * script only exists so the Dockerfiles can invoke the same logic from
+ * a COPY'd subset of files before the package is globally installed.
  *
  * See issues #1627 and #1642.
  */
 
-import path from 'node:path';
-import os from 'node:os';
+import { CONFIGURE_CLAUDE_HELP, formatVerifyReport, parseConfigureClaudeArgs, resolveSettingsPath, runConfigureClaude, verifyConfigureClaude } from '../src/configure-claude.lib.mjs';
 
-import { ensureClaudeQuietConfig } from '../src/claude-quiet-config.lib.mjs';
-import { ensureDisallowedToolsInSettings } from '../src/useless-tools.lib.mjs';
-
-const parseArgs = argv => {
-  const args = { settingsPath: null };
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (arg === '--settings-path' || arg === '-s') {
-      args.settingsPath = argv[++i];
-    } else if (arg.startsWith('--settings-path=')) {
-      args.settingsPath = arg.slice('--settings-path='.length);
-    } else if (arg === '--help' || arg === '-h') {
-      args.help = true;
-    }
-  }
-  return args;
-};
-
-const args = parseArgs(process.argv.slice(2));
+const args = parseConfigureClaudeArgs(process.argv.slice(2));
 
 if (args.help) {
-  console.log('Usage: node scripts/configure-claude-quiet-defaults.mjs [--settings-path <path>]');
+  console.log(CONFIGURE_CLAUDE_HELP);
   process.exit(0);
 }
 
-const settingsPath = args.settingsPath || path.join(os.homedir(), '.claude', 'settings.json');
+const settingsPath = resolveSettingsPath(args.settingsPath);
 
-const log = async line => console.log(line);
+if (args.verify) {
+  const report = await verifyConfigureClaude({ settingsPath });
+  console.log(formatVerifyReport(report));
+  process.exit(report.ok ? 0 : 1);
+}
 
-const quietResult = await ensureClaudeQuietConfig({ settingsPath, log });
-const disallowedResult = await ensureDisallowedToolsInSettings({ settingsPath, log });
-
+const { quietResult, disallowedResult } = await runConfigureClaude({ settingsPath });
 console.log(`Configured quiet Claude Code defaults and ${disallowedResult.total} disallowedTools in ${quietResult.path}`);

@@ -150,14 +150,20 @@ RUN if command -v codex &>/dev/null; then \
 # under user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
 #
-# The configuration is applied by scripts/configure-claude-quiet-defaults.mjs,
-# which reuses the canonical required env/settings/attribution/permissions
-# maps and the idempotent merge helpers from
+# The configuration is applied by the same `configure-claude` bin that users
+# and system administrators can invoke manually after installing
+# `@link-assistant/hive-mind` (see src/configure-claude.mjs). During image
+# build we COPY a minimal subset of files so the bake step works before the
+# package is globally installed — once the npm install above lands the
+# published CLI, the `configure-claude` bin becomes available on PATH and
+# this runs the same code path. All required env/settings/attribution/
+# permissions maps and the idempotent merge helpers live in
 # src/claude-quiet-config.lib.mjs and src/useless-tools.lib.mjs so the
 # Dockerfile, solve command, and tests stay in lock-step.
 COPY --chown=sandbox:sandbox \
     src/claude-quiet-config.lib.mjs \
     src/useless-tools.lib.mjs \
+    src/configure-claude.lib.mjs \
     /workspace/.hive-mind-bake/src/
 COPY --chown=sandbox:sandbox \
     scripts/configure-claude-quiet-defaults.mjs \

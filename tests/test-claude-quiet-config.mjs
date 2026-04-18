@@ -77,8 +77,8 @@ try {
 }
 
 // Dockerfile-level verification. The quiet Claude Code configuration is applied
-// by scripts/configure-claude-quiet-defaults.mjs (which reuses the canonical
-// maps + idempotent merge helpers from the src/ libs tested above), so the
+// by scripts/configure-claude-quiet-defaults.mjs (which delegates to the shared
+// `configure-claude` bin runner in src/configure-claude.lib.mjs), so the
 // Dockerfiles only need to (a) set the required env vars via `ENV` and
 // (b) invoke the shared script. All key/value coverage is enforced by the
 // end-to-end script run below.
@@ -89,7 +89,7 @@ for (const file of ['Dockerfile', 'coolify/Dockerfile']) {
   }
   assert.ok(!content.includes('CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS'), `${file} should not set CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS — built-in git instructions are kept on`);
   assert.ok(content.includes('scripts/configure-claude-quiet-defaults.mjs'), `${file} should invoke scripts/configure-claude-quiet-defaults.mjs to seed ~/.claude/settings.json`);
-  assert.ok(content.includes('claude-quiet-config.lib.mjs') && content.includes('useless-tools.lib.mjs'), `${file} should COPY the src libs that the configure script reuses`);
+  assert.ok(content.includes('claude-quiet-config.lib.mjs') && content.includes('useless-tools.lib.mjs') && content.includes('configure-claude.lib.mjs'), `${file} should COPY the src libs that the configure script reuses (including the shared configure-claude runner)`);
   assert.ok(content.includes('issue #1642'), `${file} should reference issue #1642`);
 }
 

@@ -297,6 +297,15 @@ function formatBytesRange(usedBytes, totalBytes) {
   return `${usedValue.toFixed(decimals)}/${totalValue.toFixed(decimals)} ${sizes[i]} used`;
 }
 
+function formatRoundedNumber(value, decimals = 2) {
+  return parseFloat(value.toFixed(decimals));
+}
+
+function getDisplayCpuCoresUsed(loadAvg5, cpuCount) {
+  const boundedLoad = Math.min(Math.max(loadAvg5, 0), cpuCount);
+  return formatRoundedNumber(boundedLoad);
+}
+
 /**
  * Get GitHub API rate limits by calling gh api rate_limit
  * Returns rate limit info for core, search, graphql, and other resources
@@ -428,6 +437,7 @@ export async function getCpuLoadInfo(verbose = false) {
     // Load average of 1.0 per CPU = 100% utilization
     // Using 5m average for consistency with solve queue (see issue #1137)
     const usagePercentage = Math.min(100, Math.round((loadAvg5 / cpuCount) * 100));
+    const usedCpuCores = getDisplayCpuCoresUsed(loadAvg5, cpuCount);
 
     if (verbose) {
       console.log(`[VERBOSE] /limits CPU load: ${loadAvg1.toFixed(2)} (1m), ${loadAvg5.toFixed(2)} (5m), ${loadAvg15.toFixed(2)} (15m), ${cpuCount} CPUs, ${usagePercentage}% used`);
@@ -441,6 +451,7 @@ export async function getCpuLoadInfo(verbose = false) {
         loadAvg15,
         cpuCount,
         usagePercentage,
+        usedCpuCores,
       },
     };
   } catch (error) {
@@ -1027,9 +1038,14 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     // See: https://github.com/link-assistant/hive-mind/issues/1267
     const suffix = cpuLoad.usagePercentage >= DISPLAY_THRESHOLDS.CPU ? ' ⚠️' : ' used';
     section += `${usedBar} ${cpuLoad.usagePercentage}%${suffix}\n`;
-    // Show cores used based on 5m load average (e.g., "0.04/6 CPU cores used" or "3/6 CPU cores used")
-    // Use parseFloat to strip unnecessary trailing zeros (3.00 -> 3, 0.10 -> 0.1, 0.04 -> 0.04)
-    section += `${parseFloat(cpuLoad.loadAvg5.toFixed(2))}/${cpuLoad.cpuCount} CPU cores\n`;
+    // Linux load average is demand, not bounded CPU time. Keep the cores-used
+    // display within CPU capacity and show raw load average only when saturated.
+    const usedCpuCores = cpuLoad.usedCpuCores ?? getDisplayCpuCoresUsed(cpuLoad.loadAvg5, cpuLoad.cpuCount);
+    let cpuCoresLine = `${formatRoundedNumber(usedCpuCores)}/${cpuLoad.cpuCount} CPU cores used`;
+    if (cpuLoad.loadAvg5 > cpuLoad.cpuCount) {
+      cpuCoresLine += ` (5m load avg ${formatRoundedNumber(cpuLoad.loadAvg5)})`;
+    }
+    section += `${cpuCoresLine}\n`;
     sections.push(section);
   }
 

@@ -33,6 +33,38 @@ function test(name, fn) {
   }
 }
 
+function withFixedTime(isoDate, fn) {
+  const RealDate = globalThis.Date;
+  const fixedNow = new RealDate(isoDate).getTime();
+
+  globalThis.Date = class FixedDate extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) {
+        return new RealDate(fixedNow);
+      }
+      return new RealDate(...args);
+    }
+
+    static now() {
+      return fixedNow;
+    }
+
+    static parse(value) {
+      return RealDate.parse(value);
+    }
+
+    static UTC(...args) {
+      return RealDate.UTC(...args);
+    }
+  };
+
+  try {
+    return fn();
+  } finally {
+    globalThis.Date = RealDate;
+  }
+}
+
 // ============================================================================
 // Progress Bar Tests
 // ============================================================================
@@ -409,6 +441,20 @@ test('formatUsageMessage includes optional system info', () => {
   assert.ok(message.includes('Disk space'), 'Should include Disk space section when diskSpace provided');
 });
 
+test('formatUsageMessage caps displayed CPU cores when load average exceeds CPU count', () => {
+  const cpuLoad = {
+    usagePercentage: 100,
+    loadAvg5: 6.85,
+    cpuCount: 6,
+  };
+
+  const message = formatUsageMessage(null, null, null, cpuLoad, null, 'Claude authentication expired.');
+
+  assert.ok(message.includes('100% ⚠️'), 'Should still show saturated CPU warning');
+  assert.ok(message.includes('6/6 CPU cores used (5m load avg 6.85)'), 'Should cap displayed CPU cores and keep raw load average for diagnostics');
+  assert.ok(!message.includes('6.85/6 CPU cores'), 'Should not show raw load average as CPU cores used');
+});
+
 // ============================================================================
 // Edge Cases for Display
 // ============================================================================
@@ -711,17 +757,19 @@ test('formatUsageMessage with claudeError and extraSections includes extra conte
 });
 
 test('formatUsageMessage with empty extraSections works as before', () => {
-  const usage = {
-    currentSession: { percentage: 50, resetTime: 'Jan 18, 5:00pm UTC', resetsAt: new Date(Date.now() + 3600000).toISOString() },
-    allModels: { percentage: 30, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
-    sonnetOnly: { percentage: 20, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
-  };
+  withFixedTime('2026-01-18T16:00:00.000Z', () => {
+    const usage = {
+      currentSession: { percentage: 50, resetTime: 'Jan 18, 5:00pm UTC', resetsAt: new Date(Date.now() + 3600000).toISOString() },
+      allModels: { percentage: 30, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+      sonnetOnly: { percentage: 20, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+    };
 
-  const messageWithEmpty = formatUsageMessage(usage, null, null, null, null, null, []);
-  const messageWithDefault = formatUsageMessage(usage, null, null, null, null, null);
+    const messageWithEmpty = formatUsageMessage(usage, null, null, null, null, null, []);
+    const messageWithDefault = formatUsageMessage(usage, null, null, null, null, null);
 
-  // Both forms should produce the same output
-  assert.equal(messageWithEmpty, messageWithDefault, 'Empty extraSections should produce same output as no extraSections');
+    // Both forms should produce the same output
+    assert.equal(messageWithEmpty, messageWithDefault, 'Empty extraSections should produce same output as no extraSections');
+  });
 });
 
 test('formatUsageMessage sections are separated by blank lines', () => {

@@ -327,6 +327,42 @@ runTest('postTrackedComment throws if $ helper is missing', async () => {
   assertTrue(threw, 'missing $ must throw a clear error');
 });
 
+// Issue #1631: command-stream's options bag uses `stdin`, not `input`. Passing
+// `{ input: payload }` was silently ignored, so `gh api --input -` read the
+// parent process stdin and posted an empty/malformed POST — GitHub's edge
+// replied with HTTP 400 "Whoa there!". This test pins the option name so a
+// future rename can't silently regress the same footgun.
+runTest('postTrackedComment passes body via stdin option to command-stream (Issue #1631)', async () => {
+  const { postTrackedComment, resetTrackedToolCommentIds } = await import('../src/tool-comments.lib.mjs');
+  resetTrackedToolCommentIds();
+  let capturedOptions = null;
+  const fakeResult = { code: 0, stdout: JSON.stringify({ id: 1631001 }), stderr: '' };
+  const mock$ = (...args) => {
+    // When invoked as `$(options)` the first call receives the options bag
+    // and must return the tagged-template function. When invoked as `$\`…\``
+    // the first call receives the template strings array directly — we fall
+    // through to returning the result.
+    const first = args[0];
+    if (first && typeof first === 'object' && !Array.isArray(first)) {
+      capturedOptions = first;
+      const tagged = () => Promise.resolve(fakeResult);
+      return Object.assign(tagged, Promise.resolve(fakeResult));
+    }
+    const tagged = () => Promise.resolve(fakeResult);
+    return Object.assign(tagged, Promise.resolve(fakeResult));
+  };
+  const body = 'hello world — multi-line\n\nbody';
+  const { ok, commentId } = await postTrackedComment({ $: mock$, owner: 'o', repo: 'r', targetNumber: 1, body });
+  assertTrue(ok, 'postTrackedComment should succeed');
+  assertEqual(commentId, '1631001', 'comment ID should be extracted');
+  assertTrue(capturedOptions !== null, 'command-stream options bag should have been captured');
+  assertTrue(Object.prototype.hasOwnProperty.call(capturedOptions, 'stdin'), 'options bag must include `stdin` key (command-stream ignores `input`)');
+  assertFalse(Object.prototype.hasOwnProperty.call(capturedOptions, 'input'), 'options bag must NOT use legacy `input` key (silently ignored by command-stream)');
+  const expected = JSON.stringify({ body });
+  assertEqual(capturedOptions.stdin, expected, 'stdin should contain JSON.stringify({body}) exactly');
+  resetTrackedToolCommentIds();
+});
+
 runTest('Cross-module: comment bodies posted at each site embed the centralized marker', async () => {
   // Spot-check by substring that each known posting site's literal body text
   // references the corresponding marker constant (not an ad-hoc string copy).

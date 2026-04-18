@@ -1,5 +1,33 @@
 # @link-assistant/hive-mind
 
+## 1.54.2
+
+### Patch Changes
+
+- 9d4e473: Cap `/limits` CPU cores display at available CPU count when load average demand exceeds capacity.
+- ea0b9f5: Use Anthropic's native Claude Code installer in Docker images so the CLI binary is installed even when Bun blocks dependency postinstall scripts.
+
+## 1.54.1
+
+### Patch Changes
+
+- 5f70953: fix(solve): post tool-generated PR comments again after v1.53.1 regression
+
+  `postTrackedComment()` in `src/tool-comments.lib.mjs` (added in #1626) was
+  passing the comment body to `gh api --input -` via `$({ input: payload })`,
+  but command-stream's option is `stdin`, not `input`. The misnamed key was
+  silently ignored, so `gh` read from the parent's stdin, sent an empty POST
+  body, and GitHub's edge returned `HTTP 400 "Whoa there!"`. Every tool-posted
+  comment — `AI Work Session Started`, log-upload link, `Ready to merge`,
+  `Auto-merged`, billing-limit notice, usage-limit notice — failed from this
+  one call path starting with v1.53.1.
+
+  Fix: use the documented `stdin` option so the JSON payload actually reaches
+  the child's stdin. The regression test pins the option name so a future
+  rename can't silently recur.
+
+  Fixes #1631.
+
 ## 1.54.0
 
 ### Minor Changes

@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 1.54.6
+
+### Patch Changes
+
+- 2c15727: Migrate Docker images and deployment paths from `konard/sandbox` to the current
+  full `konard/box` base image with the `box` user and `/home/box` home directory.
+
 ## 1.54.5
 
 ### Patch Changes

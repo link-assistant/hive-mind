@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { ensureClaudeQuietConfig, REQUIRED_CLAUDE_QUIET_ENV, REQUIRED_CLAUDE_QUIET_SETTINGS } from '../src/claude-quiet-config.lib.mjs';
+import { ensureClaudeQuietConfig, REQUIRED_CLAUDE_QUIET_ENV, REQUIRED_CLAUDE_QUIET_SETTINGS, REQUIRED_CLAUDE_QUIET_ATTRIBUTION } from '../src/claude-quiet-config.lib.mjs';
 import { getClaudeEnv } from '../src/config.lib.mjs';
 
 const claudeEnv = getClaudeEnv();
@@ -24,6 +24,9 @@ try {
     JSON.stringify({
       theme: 'dark',
       disallowedTools: ['CustomTool'],
+      attribution: {
+        commit: 'custom-commit-trailer',
+      },
       env: {
         CUSTOM_SETTING: 'preserved',
         CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0',
@@ -47,7 +50,10 @@ try {
     assert.equal(written.env[name], value, `settings env should force ${name}=${value}`);
   }
   for (const [name, value] of Object.entries(REQUIRED_CLAUDE_QUIET_SETTINGS)) {
-    assert.equal(written[name], value, `settings should force ${name}=${value}`);
+    assert.deepEqual(written[name], value, `settings should force ${name}=${JSON.stringify(value)}`);
+  }
+  for (const [name, value] of Object.entries(REQUIRED_CLAUDE_QUIET_ATTRIBUTION)) {
+    assert.equal(written.attribution[name], value, `attribution should force ${name}=${JSON.stringify(value)}`);
   }
 
   const secondResult = await ensureClaudeQuietConfig({ settingsPath, log: async () => {} });
@@ -62,8 +68,11 @@ for (const file of ['Dockerfile', 'coolify/Dockerfile']) {
     assert.ok(content.includes(`${name}=${value}`) || content.includes(`${name}: '${value}'`), `${file} should configure ${name}=${value}`);
   }
   for (const [name, value] of Object.entries(REQUIRED_CLAUDE_QUIET_SETTINGS)) {
-    assert.ok(content.includes(`${name}: ${value}`), `${file} should configure ${name}: ${value}`);
+    const serialized = JSON.stringify(value);
+    const singleQuoted = typeof value === 'string' ? `${name}: '${value}'` : null;
+    assert.ok(content.includes(`${name}: ${value}`) || content.includes(`${name}: ${serialized}`) || content.includes(`"${name}": ${serialized}`) || (singleQuoted && content.includes(singleQuoted)), `${file} should configure ${name}: ${serialized}`);
   }
+  assert.ok(content.includes("commit: ''") && content.includes("pr: ''"), `${file} should configure attribution commit/pr overrides`);
   assert.ok(content.includes('issue #1642'), `${file} should reference issue #1642`);
 }
 

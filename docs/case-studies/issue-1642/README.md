@@ -22,11 +22,18 @@ Issue #1642 requests deterministic, quiet Claude Code execution for the `solve` 
 ## Requirements
 
 - `solve` must read the global Claude settings file at `~/.claude/settings.json`, creating an empty object only if the file is absent.
-- `solve` must override only these settings keys: `autoMemoryEnabled=false`, `spinnerTipsEnabled=false`, `awaySummaryEnabled=false`, and `feedbackSurveyRate=0`.
+- `solve` must override only these settings keys, preserving everything else:
+  `autoMemoryEnabled=false`, `spinnerTipsEnabled=false`, `awaySummaryEnabled=false`, `feedbackSurveyRate=0`,
+  `includeCoAuthoredBy=false`, `prefersReducedMotion=true`, `showThinkingSummaries=false`,
+  and `viewMode="verbose"`.
+- `solve` must also merge `attribution.commit=""` and `attribution.pr=""` to hide Claude attribution on commits and PRs (preserving any other unrelated attribution subkeys).
 - `solve` must merge the required env vars into the settings `env` object without dropping unrelated env entries.
-- `solve` must export the six required env vars to the Claude subprocess environment:
-  `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, `CLAUDE_CODE_DISABLE_CRON=1`, `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`, `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`, `CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS=1`, and `DISABLE_FEEDBACK_COMMAND=1`.
-- Docker images must set the same env vars and ship a baseline `~/.claude/settings.json` containing the four settings plus the env block.
+- `solve` must export the required env vars to the Claude subprocess environment:
+  `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, `CLAUDE_CODE_DISABLE_CRON=1`, `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`,
+  `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`, `CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS=1`,
+  `CLAUDE_CODE_DISABLE_FAST_MODE=1`, `CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1`, `CLAUDE_CODE_DISABLE_MOUSE=1`,
+  `CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0`, `CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=4`, and `DISABLE_FEEDBACK_COMMAND=1`.
+- Docker images must set the same env vars and ship a baseline `~/.claude/settings.json` containing the target settings, attribution overrides, and the env block.
 - Startup logs must make the effective quiet configuration auditable without logging unrelated user settings or secrets.
 - Existing unrelated user settings must be preserved.
 

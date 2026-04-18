@@ -10,6 +10,11 @@ export const REQUIRED_CLAUDE_QUIET_ENV = Object.freeze({
   CLAUDE_CODE_DISABLE_TERMINAL_TITLE: '1',
   CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1',
   CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS: '1',
+  CLAUDE_CODE_DISABLE_FAST_MODE: '1',
+  CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: '1',
+  CLAUDE_CODE_DISABLE_MOUSE: '1',
+  CLAUDE_CODE_ENABLE_AWAY_SUMMARY: '0',
+  CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY: '4',
   DISABLE_FEEDBACK_COMMAND: '1',
 });
 
@@ -18,6 +23,15 @@ export const REQUIRED_CLAUDE_QUIET_SETTINGS = Object.freeze({
   spinnerTipsEnabled: false,
   awaySummaryEnabled: false,
   feedbackSurveyRate: 0,
+  includeCoAuthoredBy: false,
+  prefersReducedMotion: true,
+  showThinkingSummaries: false,
+  viewMode: 'verbose',
+});
+
+export const REQUIRED_CLAUDE_QUIET_ATTRIBUTION = Object.freeze({
+  commit: '',
+  pr: '',
 });
 
 export const buildClaudeQuietEnv = (baseEnv = process.env) => ({
@@ -29,10 +43,11 @@ export const formatClaudeQuietConfigSummary = () => {
   const settings = Object.entries(REQUIRED_CLAUDE_QUIET_SETTINGS)
     .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
     .join(', ');
+  const attribution = `attribution=${JSON.stringify(REQUIRED_CLAUDE_QUIET_ATTRIBUTION)}`;
   const env = Object.entries(REQUIRED_CLAUDE_QUIET_ENV)
     .map(([key, value]) => `${key}=${value}`)
     .join(', ');
-  return `settings[${settings}], env[${env}]`;
+  return `settings[${settings}, ${attribution}], env[${env}]`;
 };
 
 const isPlainObject = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -57,6 +72,19 @@ export const ensureClaudeQuietConfig = async ({ settingsPath, log } = {}) => {
       settings[key] = value;
       updatedSettingsKeys.push(key);
     }
+  }
+
+  const existingAttribution = isPlainObject(settings.attribution) ? settings.attribution : {};
+  const updatedAttributionKeys = [];
+  for (const [key, value] of Object.entries(REQUIRED_CLAUDE_QUIET_ATTRIBUTION)) {
+    if (existingAttribution[key] !== value) {
+      existingAttribution[key] = value;
+      updatedAttributionKeys.push(key);
+    }
+  }
+  settings.attribution = existingAttribution;
+  if (updatedAttributionKeys.length > 0) {
+    updatedSettingsKeys.push('attribution');
   }
 
   const existingEnv = isPlainObject(settings.env) ? settings.env : {};
@@ -87,7 +115,9 @@ export const ensureClaudeQuietConfig = async ({ settingsPath, log } = {}) => {
     changed,
     updatedSettingsKeys,
     updatedEnvKeys,
+    updatedAttributionKeys,
     settings: { ...REQUIRED_CLAUDE_QUIET_SETTINGS },
+    attribution: { ...REQUIRED_CLAUDE_QUIET_ATTRIBUTION },
     env: { ...REQUIRED_CLAUDE_QUIET_ENV },
   };
 };

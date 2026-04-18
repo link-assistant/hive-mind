@@ -18,6 +18,7 @@
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
 FROM konard/sandbox:1.6.0
+ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---
 # Set environment variables EARLY so they're available in subsequent RUN commands
@@ -33,6 +34,20 @@ ENV GOPATH="/workspace/.go/path"
 ENV SDKMAN_DIR="/workspace/.sdkman"
 ENV PERLBREW_ROOT="/workspace/.perl5"
 ENV RBENV_ROOT="/workspace/.rbenv"
+
+# Quiet, deterministic Claude Code defaults for autonomous solve runs (issue #1642)
+ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
+    CLAUDE_CODE_DISABLE_CRON=1 \
+    CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
+    CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \
+    CLAUDE_CODE_DISABLE_FAST_MODE=1 \
+    CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1 \
+    CLAUDE_CODE_DISABLE_MOUSE=1 \
+    CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0 \
+    CLAUDE_CODE_ENABLE_TASKS=1 \
+    CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=4 \
+    CLAUDE_CODE_RESUME_INTERRUPTED_TURN=1 \
+    DISABLE_FEEDBACK_COMMAND=1
 
 ENV OPAM_SWITCH_PREFIX="/workspace/.opam/default"
 ENV CAML_LD_LIBRARY_PATH="/workspace/.opam/default/lib/stublibs:/workspace/.opam/default/lib/ocaml/stublibs:/workspace/.opam/default/lib/ocaml"
@@ -87,10 +102,16 @@ RUN bun install -g @openai/codex && \
     bun install -g opencode-ai
 
 # Install hive-mind workflow utilities
+# Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs
+# the exact package version that contains the configure-claude bin.
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The sandbox base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-RUN bun install -g @link-assistant/hive-mind && \
+RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+    bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
+      test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
+    fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent && \
     bun install -g start-command && \
@@ -116,7 +137,7 @@ RUN if command -v codex &>/dev/null; then \
       codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
     fi
 
-# --- Disable useless Claude Code built-in tools (issue #1627) ---
+# --- Disable noisy/unused Claude Code features and tools (issue #1627, issue #1642) ---
 # Autonomous headless hive-mind runs never benefit from tools that wait for
 # human interaction or leave persistent side effects. Pre-seed the
 # user-scope ~/.claude/settings.json disallowedTools list so that even
@@ -125,21 +146,22 @@ RUN if command -v codex &>/dev/null; then \
 # removed via `claude mcp remove` because they are not registered under
 # user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
+#
+# Behavior matrix (see root Dockerfile for full rationale):
+#   - Release builds (HIVE_MIND_VERSION=<exact>): `configure-claude` MUST
+#     exist and succeed.
+#   - PR builds (HIVE_MIND_VERSION=latest): tolerate a not-yet-published bin;
+#     solve re-applies the baseline at runtime.
 RUN mkdir -p /workspace/.claude && \
-    node -e " \
-const fs = require('fs'); \
-const p = '/workspace/.claude/settings.json'; \
-const blocked = ['AskUserQuestion','CronCreate','CronDelete','CronList','EnterPlanMode','EnterWorktree','ExitPlanMode','ExitWorktree','Monitor','NotebookEdit','PushNotification','RemoteTrigger','ScheduleWakeup','mcp__claude_ai_Gmail__*','mcp__claude_ai_Google_Drive__*','mcp__claude_ai_Google_Calendar__*']; \
-let s = {}; \
-try { s = JSON.parse(fs.readFileSync(p, 'utf-8')); } catch (e) {} \
-if (!s || typeof s !== 'object' || Array.isArray(s)) s = {}; \
-const existing = Array.isArray(s.disallowedTools) ? s.disallowedTools : []; \
-const merged = [...existing]; \
-for (const t of blocked) if (!merged.includes(t)) merged.push(t); \
-s.disallowedTools = merged; \
-fs.writeFileSync(p, JSON.stringify(s, null, 2)); \
-console.log('Configured', merged.length, 'disallowedTools in', p); \
-"
+    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
+      configure-claude --settings-path /workspace/.claude/settings.json && \
+      configure-claude --settings-path /workspace/.claude/settings.json --verify; \
+    elif command -v configure-claude >/dev/null 2>&1; then \
+      configure-claude --settings-path /workspace/.claude/settings.json && \
+      configure-claude --settings-path /workspace/.claude/settings.json --verify; \
+    else \
+      echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline — solve re-applies it at runtime"; \
+    fi
 
 # --- Application Setup ---
 # Minimal USER root: only for creating /app directory and copying files.

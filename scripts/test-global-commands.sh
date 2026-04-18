@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # test-global-commands.sh
 #
-# Tests that npm global commands (hive, solve, hive-telegram-bot) are correctly
-# installed and functional after running npm link from the local project folder.
+# Tests that npm global commands are correctly installed and functional after
+# running npm link from the local project folder.
 #
 # Usage:
 #   bash scripts/test-global-commands.sh
@@ -28,6 +28,15 @@ timeout 10s solve --help || echo "Help command completed"
 echo "'solve' global command works"
 
 echo ""
+echo "Testing 'configure-claude' global command..."
+timeout 10s configure-claude --help
+CONFIGURE_CLAUDE_TEST_DIR="$(mktemp -d)"
+trap 'rm -rf "$CONFIGURE_CLAUDE_TEST_DIR"; npm unlink -g @link-assistant/hive-mind || true' EXIT
+timeout 10s configure-claude --settings-path "$CONFIGURE_CLAUDE_TEST_DIR/settings.json"
+timeout 10s configure-claude --settings-path "$CONFIGURE_CLAUDE_TEST_DIR/settings.json" --verify
+echo "'configure-claude' global command works"
+
+echo ""
 echo "Testing 'hive-telegram-bot' global command..."
 timeout 10s hive-telegram-bot --help || echo "Help command completed"
 echo "'hive-telegram-bot' global command works"
@@ -44,4 +53,4 @@ echo "'hive-telegram-bot --dry-run' works"
 
 echo ""
 echo "Cleaning up global link..."
-npm unlink || true
+npm unlink -g @link-assistant/hive-mind || true

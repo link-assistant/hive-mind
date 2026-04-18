@@ -13,12 +13,12 @@ Continue.`;
 
   // Simulate comment lines
   const commentLines = ['New comments on the pull request: 1'];
-  
+
   // Apply the fix
   if (commentLines.length > 0) {
     prompt = prompt.replace('Continue.', commentLines.join('\n') + '\n\nContinue.');
   }
-  
+
   console.log('Original behavior would show:');
   console.log('💬 Comments: None found');
   console.log('');

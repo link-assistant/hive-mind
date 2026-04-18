@@ -18,14 +18,14 @@ Based on the analysis, we recommend **Solution 3: Warning with Confirmation** as
  * @param {string} model - Model name or alias to validate
  * @returns {Object} Validation result with warnings
  */
-export const validateModelName = (model) => {
+export const validateModelName = model => {
   // Check if it's a known alias
   if (availableModels[model]) {
     return {
       valid: true,
       known: true,
       mapped: availableModels[model],
-      needsWarning: false
+      needsWarning: false,
     };
   }
 
@@ -53,7 +53,7 @@ export const validateModelName = (model) => {
         `Known model aliases:\n` +
         Object.entries(availableModels)
           .map(([alias, id]) => `  ${alias.padEnd(15)} → ${id}`)
-          .join('\n')
+          .join('\n'),
     };
   }
 
@@ -73,7 +73,7 @@ export const validateModelName = (model) => {
       Object.entries(availableModels)
         .map(([alias, id]) => `  ${alias.padEnd(15)} → ${id}`)
         .join('\n') +
-      `\n\nOr use a full Claude model ID like: claude-sonnet-4-5-20250929`
+      `\n\nOr use a full Claude model ID like: claude-sonnet-4-5-20250929`,
   };
 };
 
@@ -82,18 +82,18 @@ export const validateModelName = (model) => {
  * @param {string} input - User's input model name
  * @returns {string|null} Suggested model name or null
  */
-const suggestSimilarModel = (input) => {
+const suggestSimilarModel = input => {
   const aliases = Object.keys(availableModels);
   const inputLower = input.toLowerCase();
 
   // Check for common typos
   const typoMap = {
-    'oups': 'opus',
-    'opous': 'opus',
-    'sonett': 'sonnet',
-    'sonne': 'sonnet',
-    'haiko': 'haiku',
-    'haiky': 'haiku'
+    oups: 'opus',
+    opous: 'opus',
+    sonett: 'sonnet',
+    sonne: 'sonnet',
+    haiko: 'haiku',
+    haiky: 'haiku',
   };
 
   if (typoMap[inputLower]) {
@@ -101,18 +101,14 @@ const suggestSimilarModel = (input) => {
   }
 
   // Find aliases that start with same letter(s)
-  const startsWith = aliases.filter(alias =>
-    alias.startsWith(inputLower.substring(0, 2))
-  );
+  const startsWith = aliases.filter(alias => alias.startsWith(inputLower.substring(0, 2)));
 
   if (startsWith.length > 0) {
     return startsWith.join(', ');
   }
 
   // Find aliases that contain the input
-  const contains = aliases.filter(alias =>
-    alias.includes(inputLower) || inputLower.includes(alias)
-  );
+  const contains = aliases.filter(alias => alias.includes(inputLower) || inputLower.includes(alias));
 
   if (contains.length > 0) {
     return contains.join(', ');
@@ -233,20 +229,21 @@ console.log('✅ All model validation tests passed');
 
 ## Files Modified Summary
 
-| File | Lines Changed | Type | Priority |
-|------|--------------|------|----------|
-| `src/claude.lib.mjs` | +80 | Addition | Critical |
-| `src/solve.mjs` | +20 | Addition | Critical |
-| `src/solve.config.lib.mjs` | +15 | Modification | Critical |
-| `src/codex.lib.mjs` | +80 | Addition | Important |
-| `src/opencode.lib.mjs` | +80 | Addition | Important |
-| `tests/test-model-validation.mjs` | +30 | Addition | Important |
+| File                              | Lines Changed | Type         | Priority  |
+| --------------------------------- | ------------- | ------------ | --------- |
+| `src/claude.lib.mjs`              | +80           | Addition     | Critical  |
+| `src/solve.mjs`                   | +20           | Addition     | Critical  |
+| `src/solve.config.lib.mjs`        | +15           | Modification | Critical  |
+| `src/codex.lib.mjs`               | +80           | Addition     | Important |
+| `src/opencode.lib.mjs`            | +80           | Addition     | Important |
+| `tests/test-model-validation.mjs` | +30           | Addition     | Important |
 
 **Total estimated changes**: ~305 lines
 
 ## Testing Strategy
 
 ### Unit Tests
+
 1. Test all known aliases validate correctly
 2. Test full model IDs validate correctly
 3. Test invalid model names are rejected
@@ -254,6 +251,7 @@ console.log('✅ All model validation tests passed');
 5. Test validation can be skipped with flag
 
 ### Integration Tests
+
 1. Test `--model oups` shows error and exits
 2. Test `--model oups --force` proceeds with warning
 3. Test `--model sonnet` proceeds without warning
@@ -261,6 +259,7 @@ console.log('✅ All model validation tests passed');
 5. Test `--model invalid --skip-model-validation` skips validation
 
 ### Manual Testing
+
 1. Run solve with typo: `./solve.mjs <issue-url> --model oups`
    - Expected: Error message with suggestions, exits immediately
 2. Run solve with unknown but valid-looking model: `./solve.mjs <issue-url> --model claude-test-model`
@@ -271,6 +270,7 @@ console.log('✅ All model validation tests passed');
 ## Rollout Plan
 
 ### Phase 1: Core Implementation (This PR)
+
 - [ ] Implement `validateModelName()` function
 - [ ] Add validation to `solve.mjs`
 - [ ] Add `--force` and `--skip-model-validation` flags
@@ -279,12 +279,14 @@ console.log('✅ All model validation tests passed');
 - [ ] Test manually
 
 ### Phase 2: Extended Coverage (Follow-up PR)
+
 - [ ] Apply to `codex.lib.mjs`
 - [ ] Apply to `opencode.lib.mjs`
 - [ ] Add integration tests
 - [ ] Update documentation
 
 ### Phase 3: Enhanced Features (Future)
+
 - [ ] Add fuzzy matching for better suggestions
 - [ ] Cache validation results
 - [ ] Add metrics/telemetry for common typos
@@ -293,14 +295,18 @@ console.log('✅ All model validation tests passed');
 ## Backward Compatibility
 
 ### Breaking Changes
+
 None. All changes are additive:
+
 - New validation is opt-out (can be disabled with `--skip-model-validation`)
 - `--force` flag is additive
 - Existing valid model names continue to work
 - Unknown model names that worked before will now show warnings (but still work)
 
 ### Migration Path
+
 Users using custom/beta model IDs will see warnings but can:
+
 1. Use `--force` to skip the delay
 2. Use `--skip-model-validation` to bypass entirely
 3. Wait 5 seconds for validation to proceed automatically
@@ -308,6 +314,7 @@ Users using custom/beta model IDs will see warnings but can:
 ## Success Metrics
 
 After implementation, measure:
+
 1. **Reduction in invalid model API errors**: Should drop to near zero for typos
 2. **Time saved**: Users get immediate feedback vs 30-60 second wait
 3. **Cost saved**: $0.02-0.03 per prevented invalid API call
@@ -316,15 +323,18 @@ After implementation, measure:
 ## Risk Analysis
 
 ### Low Risk
+
 - Validation is additive and can be disabled
 - Fallback to original behavior with flags
 - No changes to core execution logic
 
 ### Medium Risk
+
 - Pattern matching might reject valid future model IDs
   - **Mitigation**: Use permissive patterns + warning instead of hard error
 
 ### Monitoring Required
+
 - Track false positives (valid models rejected)
 - Track false negatives (invalid models accepted)
 - Adjust patterns based on real-world feedback
@@ -332,6 +342,7 @@ After implementation, measure:
 ## Documentation Updates
 
 Files to update:
+
 - [ ] `README.md` - Add model validation section
 - [ ] `docs/CONFIG.md` - Document new flags
 - [ ] `docs/CONTRIBUTING.md` - Add validation testing guidelines

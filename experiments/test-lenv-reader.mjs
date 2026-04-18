@@ -119,7 +119,7 @@ console.log('\nCalling config()...');
 const result5 = loadLenvConfig({
   configuration: configString,
   override: true,
-  quiet: false
+  quiet: false,
 });
 
 console.log('\nLoaded variables:');

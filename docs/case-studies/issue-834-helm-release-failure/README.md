@@ -16,23 +16,27 @@ This case study documents the investigation and resolution of a critical failure
 ## Timeline of Events
 
 ### 2025-12-04 23:43:16 UTC - Workflow Initiated
+
 - Helm release workflow triggered on main branch
 - Environment: GitHub Actions runner with Ubuntu 24.04
 - Workflow file: `.github/workflows/helm-release.yml`
 - chart-releaser-action version: v1.6.0
 
 ### 2025-12-04 23:43:24 UTC - Chart Packaging Succeeded
+
 - Helm chart linted successfully: "1 chart(s) linted, 0 chart(s) failed"
 - Chart packaged to `.cr-release-packages/hive-mind-1.0.0.tgz`
 - gh-pages branch verification passed
 
 ### 2025-12-04 23:43:25-27 UTC - Index Update Process Started
+
 - chart-releaser installed at `/opt/hostedtoolcache/cr/v1.6.1/x86_64`
 - Chart metadata extracted from package
 - Index file updated: `.cr-index/index.yaml`
 - Git operations completed: commit created, pushed to gh-pages
 
 ### 2025-12-04 23:43:28 UTC - FAILURE
+
 ```
 /home/runner/work/_actions/helm/chart-releaser-action/v1.6.0/cr.sh: line 109: latest_tag: unbound variable
 ##[error]Process completed with exit code 1.
@@ -45,6 +49,7 @@ This case study documents the investigation and resolution of a critical failure
 ### 1. Error Description
 
 The workflow failed with an "unbound variable" error when the `cr.sh` script attempted to access the `latest_tag` variable at line 109. This error occurred despite successful completion of all previous steps including:
+
 - Chart linting
 - Package creation
 - Index file update
@@ -53,7 +58,9 @@ The workflow failed with an "unbound variable" error when the `cr.sh` script att
 ### 2. Root Cause Investigation
 
 #### 2.1 Bash Strict Mode
+
 The `cr.sh` script from chart-releaser-action v1.6.0 uses strict bash options:
+
 ```bash
 set -o errexit   # Exit on any error
 set -o nounset   # Error on undefined variables
@@ -63,6 +70,7 @@ set -o pipefail  # Fail on any pipeline error
 The `set -o nounset` option causes the script to fail when accessing undefined variables, which is exactly what happened with `latest_tag`.
 
 #### 2.2 Variable Scoping Bug
+
 The bug was introduced in chart-releaser-action between v1.5.0 and v1.6.0 through PR #130. The problematic code structure:
 
 ```bash
@@ -79,12 +87,14 @@ echo "chart_version=${latest_tag}" >chart_version.txt  # FAILS HERE
 **Issue:** The `latest_tag` variable is declared as `local` inside the conditional block but referenced outside it. When `skip_packaging=true` (our configuration), the variable is never initialized, causing the unbound variable error.
 
 #### 2.3 Our Configuration
+
 In our workflow file, we explicitly set:
+
 ```yaml
 - name: Run chart-releaser
   uses: helm/chart-releaser-action@v1.6.0
   with:
-    skip_packaging: true  # WE PACKAGE MANUALLY
+    skip_packaging: true # WE PACKAGE MANUALLY
     skip_existing: true
 ```
 
@@ -99,11 +109,13 @@ We use `skip_packaging: true` because we manually package the chart in a previou
 ### 4. Impact Assessment
 
 **Immediate Impact:**
+
 - Helm chart releases blocked
 - GitHub Pages index not updated (though index.yaml was successfully pushed)
 - Manual intervention required for chart distribution
 
 **Severity Factors:**
+
 - Workflow completes 95% successfully (only final output writing fails)
 - Chart is actually packaged and index updated successfully
 - Only affects automated release metadata
@@ -113,6 +125,7 @@ We use `skip_packaging: true` because we manually package the chart in a previou
 ## Related Issues and References
 
 ### Upstream Issue
+
 - **GitHub Issue:** [helm/chart-releaser-action#171](https://github.com/helm/chart-releaser-action/issues/171)
 - **Title:** "cr.sh: line 109: latest_tag: unbound variable"
 - **Status:** Fixed
@@ -121,6 +134,7 @@ We use `skip_packaging: true` because we manually package the chart in a previou
 - **Released in:** v1.7.0
 
 ### Version Information
+
 - **Broken versions:** v1.6.0
 - **Working versions:** v1.5.0 (before bug), v1.7.0 (after fix)
 - **Fix release date:** January 20, 2025
@@ -134,21 +148,24 @@ We use `skip_packaging: true` because we manually package the chart in a previou
 **Description:** Update chart-releaser-action from v1.6.0 to v1.7.0
 
 **Advantages:**
+
 - Official fix for the exact issue we're experiencing
 - Maintains all v1.6.0 features
 - Includes additional improvements and security updates
 - Forward-compatible
 
 **Implementation:**
+
 ```yaml
 - name: Run chart-releaser
-  uses: helm/chart-releaser-action@v1.7.0  # Changed from v1.6.0
+  uses: helm/chart-releaser-action@v1.7.0 # Changed from v1.6.0
   with:
     skip_packaging: true
     skip_existing: true
 ```
 
 **Risk Level:** Low
+
 - Official release with fix specifically for this issue
 - Released January 20, 2025
 - Backward compatible with our configuration
@@ -158,15 +175,18 @@ We use `skip_packaging: true` because we manually package the chart in a previou
 **Description:** Revert to the last known working version
 
 **Advantages:**
+
 - Proven to work with skip_packaging
 - Quick rollback option
 
 **Disadvantages:**
+
 - Missing v1.6.0 features (mark_as_latest, skip_existing improvements)
 - Not forward-compatible
 - Temporary solution only
 
 **Risk Level:** Medium
+
 - Loses newer features we might want
 - Not a long-term solution
 
@@ -175,11 +195,13 @@ We use `skip_packaging: true` because we manually package the chart in a previou
 **Description:** Let chart-releaser-action handle packaging
 
 **Challenges:**
+
 - Cannot update appVersion from package.json
 - Would need alternative approach for version synchronization
 - More complex workflow changes required
 
 **Risk Level:** High
+
 - Requires workflow redesign
 - May not meet our requirements
 
@@ -237,6 +259,7 @@ We use `skip_packaging: true` because we manually package the chart in a previou
 ## Technical Details
 
 ### Failed Workflow Configuration
+
 ```yaml
 name: Release Helm Chart
 on:
@@ -256,16 +279,17 @@ jobs:
           helm package helm/hive-mind -d .cr-release-packages
 
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0  # PROBLEMATIC VERSION
+        uses: helm/chart-releaser-action@v1.6.0 # PROBLEMATIC VERSION
         env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          CR_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
         with:
           charts_dir: helm
-          skip_packaging: true  # TRIGGERS BUG
+          skip_packaging: true # TRIGGERS BUG
           skip_existing: true
 ```
 
 ### Error Stack Trace
+
 ```
 Releasing charts...
 Updating charts repo index...
@@ -284,6 +308,7 @@ To https://github.com/link-assistant/hive-mind
 ```
 
 ### Chart Information
+
 - **Chart Name:** hive-mind
 - **Version:** 1.0.0
 - **Package:** hive-mind-1.0.0.tgz
@@ -317,18 +342,22 @@ After implementing the fix:
 ## Appendix
 
 ### A. Full CI Logs
+
 The full CI logs from the failed run are available via:
+
 - GitHub Actions: https://github.com/link-assistant/hive-mind/actions/runs/19947598686
 - Download command: `gh run view 19947598686 --repo link-assistant/hive-mind --log`
 
 Note: Log files are excluded from git repository per .gitignore configuration.
 
 ### B. Relevant Files
+
 - Workflow: `.github/workflows/helm-release.yml`
 - Chart: `helm/hive-mind/Chart.yaml`
 - Package metadata: `package.json`
 
 ### C. Timeline Summary
+
 ```
 23:43:16 - Workflow started
 23:43:24 - Chart linted (✓)
@@ -341,6 +370,7 @@ Note: Log files are excluded from git repository per .gitignore configuration.
 ```
 
 ### D. Issue Resolution Status
+
 - **Investigation:** Complete
 - **Root Cause:** Identified
 - **Solution:** Determined

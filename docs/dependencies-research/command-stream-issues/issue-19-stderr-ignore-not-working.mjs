@@ -34,14 +34,14 @@ async function setup() {
       name: 'git command outside repository',
       command: 'git rev-parse --git-dir',
       expectedError: 'fatal: not a git repository',
-      description: 'Common in worker processes that start before repo is cloned'
+      description: 'Common in worker processes that start before repo is cloned',
     },
     {
       name: 'nonexistent file access',
       command: 'cat /tmp/does-not-exist-file-test-12345.txt',
       expectedError: 'No such file or directory',
-      description: 'Checking if file exists before creating it'
-    }
+      description: 'Checking if file exists before creating it',
+    },
   ];
 
   console.log(`   Testing ${testCases.length} commands that write to stderr`);
@@ -87,7 +87,7 @@ async function runTest() {
     const $silent = $({ silent: true, stderr: 'ignore' });
     const result = await $silent`cat /tmp/does-not-exist-file-test-12345.txt 2>&1 || echo "File not found"`;
 
-    console.log('   ❌ ISSUE CONFIRMED: Options don\'t work as expected');
+    console.log("   ❌ ISSUE CONFIRMED: Options don't work as expected");
     console.log(`      Command exit code: ${result.code}`);
     console.log(`      Captured stdout: "${result.stdout.toString().trim()}"`);
   } catch (error) {
@@ -122,11 +122,11 @@ async function runTest() {
     // This gives complete control over stdio streams
     const result = execSync('git rev-parse --git-dir', {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore']  // stdin, stdout, stderr
+      stdio: ['pipe', 'pipe', 'ignore'], // stdin, stdout, stderr
     });
 
     console.log('   ✅ ALTERNATIVE SUCCESSFUL!');
-    console.log('      stderr suppressed via stdio: [\'pipe\', \'pipe\', \'ignore\']');
+    console.log("      stderr suppressed via stdio: ['pipe', 'pipe', 'ignore']");
     console.log(`      Result: "${result.trim()}"`);
   } catch (error) {
     console.log('   ✅ Error caught cleanly, stderr was suppressed during execution');
@@ -161,7 +161,7 @@ async function runTest() {
   // SUMMARY
   console.log('='.repeat(70));
   console.log('SUMMARY\n');
-  console.log('❌ ISSUE: command-stream stderr handling options don\'t work');
+  console.log("❌ ISSUE: command-stream stderr handling options don't work");
   console.log('   • $({ stderr: "ignore" }) still outputs to stderr');
   console.log('   • $({ silent: true, stderr: "ignore" }) still outputs to stderr');
   console.log('   • No documented way to suppress stderr via command-stream options');
@@ -194,7 +194,7 @@ async function runTest() {
   console.log('   • Add integration tests for stderr suppression');
 
   console.log('\n💡 Example workaround code:');
-  console.log('   // DON\'T (doesn\'t work):');
+  console.log("   // DON'T (doesn't work):");
   console.log('   const $silent = $({ silent: true, stderr: "ignore" });');
   console.log('   await $silent`git rev-parse --git-dir`;');
   console.log('');

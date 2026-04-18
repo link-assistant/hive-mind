@@ -14,7 +14,7 @@ async function testSwapDetection() {
   const meminfoContent = await readFile('/proc/meminfo', 'utf8');
   const lines = meminfoContent.split('\n');
 
-  const getValue = (key) => {
+  const getValue = key => {
     const line = lines.find(l => l.startsWith(key));
     if (!line) return 0;
     const match = line.match(/(\d+)/);

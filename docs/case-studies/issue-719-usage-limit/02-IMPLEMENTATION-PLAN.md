@@ -13,9 +13,11 @@
 ## Root Cause Analysis
 
 ### Primary Issue
+
 The usage limit error is only detected as a generic "rate limit" without proper handling for the specific "usage limit" error type that includes reset time information.
 
 ### Secondary Issues
+
 1. Error message pattern not comprehensive enough
 2. No extraction of reset time from error messages
 3. GitHub comment format doesn't distinguish usage limits from other failures
@@ -38,11 +40,13 @@ The usage limit error is only detected as a generic "rate limit" without proper 
 ### Solution 1: Enhanced Error Detection (MUST HAVE)
 
 **Location**: All three tool files
+
 - `src/claude.lib.mjs`
 - `src/codex.lib.mjs`
 - `src/opencode.lib.mjs`
 
 **Implementation**:
+
 1. Create shared utility function for usage limit detection
 2. Add pattern: "You've hit your usage limit"
 3. Add pattern: "hit your usage limit"
@@ -56,6 +60,7 @@ The usage limit error is only detected as a generic "rate limit" without proper 
 **Location**: All three tool execution functions
 
 **Current return**:
+
 ```javascript
 {
   success: false,
@@ -65,6 +70,7 @@ The usage limit error is only detected as a generic "rate limit" without proper 
 ```
 
 **Enhanced return**:
+
 ```javascript
 {
   success: false,
@@ -82,12 +88,14 @@ The usage limit error is only detected as a generic "rate limit" without proper 
 **Add new format function**: `formatUsageLimitComment()`
 
 **Format structure**:
+
 ```markdown
 ## ⏳ Usage Limit Reached
 
 The automated solution draft was interrupted because the AI tool hit its usage limit.
 
 ### 📊 Limit Information
+
 - **Tool**: [tool-name]
 - **Limit Type**: Usage limit
 - **Reset Time**: [time] (if available)
@@ -97,7 +105,9 @@ The automated solution draft was interrupted because the AI tool hit its usage l
 
 Once the limit resets, you can resume this session by running:
 ```
+
 [resume command]
+
 ```
 
 [Optional: logs section if --attach-logs]
@@ -111,11 +121,13 @@ Once the limit resets, you can resume this session by running:
 **Location**: All three tool files
 
 **Current output**:
+
 ```
 ⏳ Rate limit reached. The session can be resumed later.
 ```
 
 **Enhanced output**:
+
 ```
 ⏳ Usage Limit Reached!
 
@@ -131,12 +143,14 @@ Session ID: [session-id]
 ## Implementation Steps
 
 ### Step 1: Create Usage Limit Detection Module
+
 - [ ] Create `src/usage-limit.lib.mjs`
 - [ ] Implement `detectUsageLimit(message)` function
 - [ ] Implement `extractResetTime(message)` function
 - [ ] Add unit tests
 
 ### Step 2: Update Claude Tool
+
 - [ ] Import usage limit detection function
 - [ ] Replace existing rate limit detection (lines 1111-1120)
 - [ ] Enhance console output
@@ -144,6 +158,7 @@ Session ID: [session-id]
 - [ ] Test with sample errors
 
 ### Step 3: Update Codex Tool
+
 - [ ] Import usage limit detection function
 - [ ] Replace existing rate limit detection (lines 394-396)
 - [ ] Enhance console output
@@ -151,6 +166,7 @@ Session ID: [session-id]
 - [ ] Test with sample errors
 
 ### Step 4: Update OpenCode Tool
+
 - [ ] Import usage limit detection function
 - [ ] Replace existing rate limit detection (lines 330-332)
 - [ ] Enhance console output
@@ -158,6 +174,7 @@ Session ID: [session-id]
 - [ ] Test with sample errors
 
 ### Step 5: Update GitHub Comment Formatting
+
 - [ ] Add `formatUsageLimitComment()` to `github.lib.mjs`
 - [ ] Update `attachLogFileToTarget()` to handle usage limit type
 - [ ] Check for `limitReached` and `errorType` in result
@@ -165,12 +182,14 @@ Session ID: [session-id]
 - [ ] Include logs when --attach-logs is set
 
 ### Step 6: Update Result Handlers
+
 - [ ] Find where tool results are processed
 - [ ] Ensure `limitResetTime` is passed through
 - [ ] Ensure `errorType` is passed through
 - [ ] Update any result validators
 
 ### Step 7: Testing
+
 - [ ] Create test scenarios for each tool
 - [ ] Test usage limit detection
 - [ ] Test reset time extraction
@@ -180,6 +199,7 @@ Session ID: [session-id]
 - [ ] Verify logs are sanitized
 
 ### Step 8: Documentation
+
 - [ ] Update README if needed
 - [ ] Add comments to new code
 - [ ] Document the new error format
@@ -200,17 +220,19 @@ Session ID: [session-id]
 ## Testing Strategy
 
 ### Unit Tests
+
 ```javascript
 // Test usage limit detection
 test('detects usage limit with reset time', () => {
   const message = "You've hit your usage limit. try again at 12:16 PM.";
   const result = detectUsageLimit(message);
   assert.equal(result.isUsageLimit, true);
-  assert.equal(result.resetTime, "12:16 PM");
+  assert.equal(result.resetTime, '12:16 PM');
 });
 ```
 
 ### Integration Tests
+
 1. Mock a usage limit error from each tool
 2. Verify detection works
 3. Verify result object is correct
@@ -218,6 +240,7 @@ test('detects usage limit with reset time', () => {
 5. Verify logs are attached when requested
 
 ### Manual Testing
+
 1. Test with real usage limit (if possible)
 2. Verify user experience matches requirements
 3. Verify resume commands work
@@ -225,15 +248,18 @@ test('detects usage limit with reset time', () => {
 ## Risk Assessment
 
 ### Low Risk
+
 - Adding new detection patterns (backward compatible)
 - Adding new comment format (doesn't break existing)
 - Extracting reset time (optional field)
 
 ### Medium Risk
+
 - Modifying existing error handling logic
 - Changes to result object structure (need to verify all consumers)
 
 ### Mitigation
+
 - Keep existing error detection as fallback
 - Make new fields optional
 - Add comprehensive tests

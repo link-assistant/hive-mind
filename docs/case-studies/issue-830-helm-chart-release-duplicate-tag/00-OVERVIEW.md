@@ -1,6 +1,7 @@
 # Case Study: Helm Chart Release - Duplicate Tag Error (Issue #830)
 
 ## Issue Reference
+
 - **Issue**: https://github.com/link-assistant/hive-mind/issues/830
 - **Pull Request**: https://github.com/link-assistant/hive-mind/pull/831
 - **Date**: 2025-12-04
@@ -21,6 +22,7 @@ After fixing the missing `gh-pages` branch issue (#828, PR #829), the Helm chart
 From the CI logs (run 19946870854):
 
 **Error received:**
+
 ```
 Error: error creating GitHub release hive-mind-1.0.0: POST https://api.github.com/repos/link-assistant/hive-mind/releases: 422 Validation Failed [{Resource:Release Field:tag_name Code:already_exists Message:}]
 ```
@@ -63,18 +65,20 @@ This was fixed in PR #829 by adding a workflow step to automatically create the 
 ### Chart Configuration
 
 From `helm/hive-mind/Chart.yaml`:
+
 ```yaml
 apiVersion: v2
 name: hive-mind
 description: A Helm chart for deploying Hive Mind
 type: application
-version: 1.0.0          # This is the chart version - STATIC
-appVersion: "0.37.0"    # This is updated automatically from package.json
+version: 1.0.0 # This is the chart version - STATIC
+appVersion: '0.37.0' # This is updated automatically from package.json
 ```
 
 ### Workflow Behavior
 
 From `.github/workflows/helm-release.yml`:
+
 - Triggered on push to main branch when helm files or package.json change
 - Updates `appVersion` to match package.json version
 - Does NOT update `version` field (chart version)
@@ -84,6 +88,7 @@ From `.github/workflows/helm-release.yml`:
 ### Existing Release
 
 The `hive-mind-1.0.0` release exists:
+
 - **Tag**: `hive-mind-1.0.0`
 - **Created**: 2025-12-04T22:33:03Z
 - **Published**: 2025-12-04T22:33:18Z
@@ -93,11 +98,13 @@ The `hive-mind-1.0.0` release exists:
 ## Impact
 
 ### Immediate Impact
+
 - ❌ Helm chart releases are blocked
 - ❌ CI/CD pipeline fails on main branch
 - ❌ Chart index cannot be updated with new appVersion changes
 
 ### User Impact
+
 - Users cannot get updated Helm charts with new application versions
 - Chart repository index is stale
 - No automated releases until chart version is incremented
@@ -135,6 +142,7 @@ The chart version in `Chart.yaml` is hardcoded to `1.0.0` and is never automatic
 ## Next Steps
 
 See:
+
 - `01-TIMELINE.md` - Detailed timeline reconstruction
 - `02-ROOT-CAUSES.md` - Deep dive into root causes
 - `03-SOLUTIONS.md` - Proposed solutions and trade-offs

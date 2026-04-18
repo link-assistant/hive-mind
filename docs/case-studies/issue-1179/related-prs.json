@@ -1,0 +1,12 @@
+[
+  { "mergedAt": "2025-12-28T04:34:15Z", "number": 1016, "title": "fix: Detect Claude Code terms acceptance as error, hide empty cost section, fix code block escaping" },
+  { "mergedAt": "2026-01-25T15:42:31Z", "number": 1164, "title": "fix: use .gitkeep by default for --tool agent/opencode/codex (issue #1158)" },
+  { "mergedAt": "2026-01-25T16:39:48Z", "number": 1166, "title": "fix: detect command not found errors to prevent false success" },
+  { "mergedAt": "2026-01-23T21:39:40Z", "number": 1163, "title": "docs: case study for --tool agent failure (issue #1151)" },
+  { "mergedAt": "2026-01-10T21:36:46Z", "number": 1090, "title": "Fix slow SIGINT shutdown by stopping solve queue on exit" },
+  { "mergedAt": "2026-01-09T23:04:31Z", "number": 1087, "title": "Add LINO configuration validation with error messages" },
+  { "mergedAt": "2025-12-04T21:58:39Z", "number": 695, "title": "Add Docker support with Ubuntu 24.04 and CI/CD pipeline to Docker Hub" },
+  { "mergedAt": "2025-12-28T01:35:59Z", "number": 809, "title": "Fix: Do not retry on 404 errors, display user-friendly permission suggestions" },
+  { "mergedAt": "2025-10-30T02:51:36Z", "number": 631, "title": "Fix: /solve command validation to reject URLs without issue/PR IDs" },
+  { "mergedAt": "2025-10-16T11:11:39Z", "number": 581, "title": "Fix telegram bot error handling: Add Sentry integration and detailed error messages" }
+]

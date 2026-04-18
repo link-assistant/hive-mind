@@ -13,39 +13,37 @@ const projectRoot = join(__dirname, '..');
 console.log('Testing telegram-bot hero example with Links Notation (Issue #623)...\n');
 
 function runTest(testName, args, expectedSuccess) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     console.log(`\n--- Test: ${testName} ---`);
     console.log('Command:', `hive-telegram-bot ${args.join(' ')}`);
 
     const proc = spawn('node', [join(projectRoot, 'src/telegram-bot.mjs'), ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 10000
+      timeout: 15000,
     });
 
     let stdout = '';
     let stderr = '';
 
-    proc.stdout.on('data', (data) => {
+    proc.stdout.on('data', data => {
       stdout += data.toString();
     });
 
-    proc.stderr.on('data', (data) => {
+    proc.stderr.on('data', data => {
       stderr += data.toString();
     });
 
     const timeout = setTimeout(() => {
       proc.kill('SIGTERM');
-      console.log('⚠️  Test timed out (killed after 8s)');
-    }, 8000);
+      console.log('⚠️  Test timed out (killed after 15s)');
+    }, 15000);
 
-    proc.on('close', (code) => {
+    proc.on('close', code => {
       clearTimeout(timeout);
 
       const output = stdout + stderr;
       const hasDryRunSuccess = output.includes('Dry-run mode: All validations passed');
-      const hasValidationFailure = output.includes('❌ Invalid') ||
-                                   output.includes('Unknown option:') ||
-                                   (output.includes('Error:') && !hasDryRunSuccess);
+      const hasValidationFailure = output.includes('❌ Invalid') || output.includes('Unknown option:') || (output.includes('Error:') && !hasDryRunSuccess);
       const validatedSolve = output.includes('Validating solve overrides');
       const validatedHive = output.includes('Validating hive overrides');
 
@@ -84,7 +82,7 @@ function runTest(testName, args, expectedSuccess) {
       resolve({ passed, reason, testName, code, output });
     });
 
-    proc.on('error', (error) => {
+    proc.on('error', error => {
       clearTimeout(timeout);
       console.log(`❌ FAILED - Process error: ${error.message}`);
       resolve({ passed: false, reason: error.message, testName, code: -1 });
@@ -98,7 +96,8 @@ async function main() {
     {
       name: 'Issue #623: Hero example with Links Notation',
       args: [
-        '--configuration', `TELEGRAM_BOT_TOKEN: test_token_hero_example
+        '--configuration',
+        `TELEGRAM_BOT_TOKEN: test_token_hero_example
 TELEGRAM_ALLOWED_CHATS: (
   -1002975819706
   -1002861722681
@@ -120,16 +119,17 @@ TELEGRAM_SOLVE_OVERRIDES: (
   --no-tool-check
 )
 TELEGRAM_BOT_VERBOSE: true`,
-        '--dry-run'
+        '--dry-run',
       ],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 2: Verify individual options are parsed correctly
     {
       name: 'Simplified hero configuration',
       args: [
-        '--configuration', `TELEGRAM_BOT_TOKEN: test_token
+        '--configuration',
+        `TELEGRAM_BOT_TOKEN: test_token
 TELEGRAM_ALLOWED_CHATS: (
   -1002975819706
   -1002861722681
@@ -138,27 +138,29 @@ TELEGRAM_SOLVE_OVERRIDES: (
   --auto-fork
   --verbose
 )`,
-        '--dry-run'
+        '--dry-run',
       ],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 3: Verify TELEGRAM_BOT_VERBOSE works
     {
       name: 'Configuration with TELEGRAM_BOT_VERBOSE',
       args: [
-        '--configuration', `TELEGRAM_BOT_TOKEN: test_token
+        '--configuration',
+        `TELEGRAM_BOT_TOKEN: test_token
 TELEGRAM_BOT_VERBOSE: true`,
-        '--dry-run'
+        '--dry-run',
       ],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 4: Full hero options with all features
     {
       name: 'Full hero configuration with all options',
       args: [
-        '--configuration', `TELEGRAM_BOT_TOKEN: test_token_hero_example
+        '--configuration',
+        `TELEGRAM_BOT_TOKEN: test_token_hero_example
 TELEGRAM_ALLOWED_CHATS: (
   -1002975819706
   -1002861722681
@@ -180,10 +182,10 @@ TELEGRAM_SOLVE_OVERRIDES: (
   --no-tool-check
 )
 TELEGRAM_BOT_VERBOSE: true`,
-        '--dry-run'
+        '--dry-run',
       ],
-      shouldPass: true
-    }
+      shouldPass: true,
+    },
   ];
 
   const results = [];

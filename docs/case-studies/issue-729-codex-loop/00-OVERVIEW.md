@@ -21,11 +21,13 @@ During execution of issue #719 with the Codex CLI tool (via `--tool codex`), the
 ## Impact Metrics
 
 ### Resource Consumption
+
 - **Log file size**: 140 MB (100 MB part-00 + 40 MB part-01)
 - **Line count**: 81,031 lines
 - **Storage**: Logs stored at https://github.com/konard/hive-solve-2025-11-13T04-00-57-948Z
 
 ### Loop Characteristics
+
 - **Early phase** (04:09 - 05:30): ~3-5 minute intervals between restarts
 - **Acceleration phase** (05:34 onwards): ~7-8 second intervals between restarts
 - **Restart frequency increase**: ~25x faster in final phase
@@ -33,6 +35,7 @@ During execution of issue #719 with the Codex CLI tool (via `--tool codex`), the
 ## Root Causes
 
 ### Primary Cause: Immediate Usage Limit Without Circuit Breaker
+
 The Codex tool hit its usage limit immediately on every execution:
 
 ```
@@ -43,10 +46,12 @@ The Codex tool hit its usage limit immediately on every execution:
 ```
 
 **Problem**: The system did not distinguish between:
+
 - First-time usage limit (should wait/exit)
 - Repeated consecutive usage limits (should stop immediately)
 
 ### Secondary Cause: False Positive Feedback Detection
+
 The feedback detection system (`src/solve.feedback.lib.mjs:227-231`) triggered restarts based on:
 
 ```javascript
@@ -59,6 +64,7 @@ if (prUpdatedAt > lastCommitTime) {
 ```
 
 **Pattern observed in logs**:
+
 ```
 📢 FEEDBACK DETECTED!
    • New comments on the pull request: 2
@@ -67,12 +73,15 @@ if (prUpdatedAt > lastCommitTime) {
 ```
 
 **Problem**: This logic doesn't account for:
+
 1. Whether the PR description was edited by the tool itself (self-triggering)
 2. Whether any actual work was done since the last restart
 3. Whether the tool made any changes to the repository
 
 ### Tertiary Cause: No Progress Validation
+
 The system restarted whenever "feedback" was detected, without checking:
+
 - Did the tool make any commits?
 - Did the tool change any files?
 - Is the working directory clean?
@@ -83,15 +92,18 @@ The system restarted whenever "feedback" was detected, without checking:
 The loop showed a dramatic acceleration after 05:34 UTC:
 
 ### Early Phase (04:09 - 05:30)
+
 - Restart interval: ~3-5 minutes
 - Pattern: Tool executes, hits limit, checks for feedback, detects PR edit, restarts
 
 ### Rapid Phase (05:34 - 08:34)
+
 - Restart interval: ~7-8 seconds
 - Pattern: Same as early phase but much faster
 - Possible cause: Codex returning errors faster, or cached GitHub API responses
 
 **Example from rapid phase**:
+
 ```
 [2025-11-13T05:34:49.254Z] 🔄 Restarting: Re-running CODEX...
 [2025-11-13T05:34:49.945Z] {"type":"error","message":"You've hit your usage limit..."}
@@ -149,7 +161,7 @@ async function hasToolMadeProgress(tempDir, branchName, $) {
   const gitStatus = await $`git status --porcelain`;
   const hasChanges = gitStatus.stdout.trim().length > 0;
 
-  return (commitCountAfter > commitCountBefore) || hasChanges;
+  return commitCountAfter > commitCountBefore || hasChanges;
 }
 
 // Only restart if tool made progress OR first failure
@@ -229,6 +241,7 @@ if (shouldRestart) {
 **Implementation**: Respect `--auto-continue-on-limit-reset` flag for usage limits
 
 The code already has partial support for this (src/solve.auto-continue.lib.mjs), but it needs to:
+
 - Stop auto-restart when usage limit is hit without `--auto-continue-on-limit-reset`
 - Use the limit reset time for smarter wait logic
 - Exit cleanly instead of infinite retries
@@ -246,18 +259,22 @@ if (limitReached && !argv.autoContinueOnLimitReset) {
 ## Testing Plan
 
 ### Test Case 1: Immediate Usage Limit
+
 **Setup**: Use Codex with exhausted quota
 **Expected**: Should stop after 3 consecutive usage limit errors, not loop
 
 ### Test Case 2: PR Description Edit During Run
+
 **Setup**: Edit PR description while tool is running
 **Expected**: Should restart only if tool made progress OR description content changed
 
 ### Test Case 3: Maximum Restart Limit
+
 **Setup**: Force 50 restarts with mock conditions
 **Expected**: Should exit with error after 50 restarts
 
 ### Test Case 4: Auto-Continue-On-Limit-Reset Flag
+
 **Setup**: Run with `--auto-continue-on-limit-reset` and usage limit hit
 **Expected**: Should wait until limit reset time, then resume
 

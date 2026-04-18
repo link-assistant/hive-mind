@@ -1,0 +1,1333 @@
+name: Checks and release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+    # Only trigger for files the CI pipeline cares about (Issue #1582)
+    # Uses positive matching (consistent with detect-code-changes.mjs from Issue #1528)
+    # so unknown file types (.gitkeep, .txt, .log, images, etc.) are naturally excluded
+    paths:
+      - '**.mjs'
+      - '**.js'
+      - '**.sh'
+      - '**.json'
+      - '**.yml'
+      - '**.yaml'
+      - '**.md'
+      - '.changeset/**'
+      - '.github/**'
+      - 'Dockerfile'
+      - 'coolify/Dockerfile'
+      - '.dockerignore'
+      - 'helm/**'
+      - '.prettierrc'
+      - '.prettierignore'
+      - '.eslintrc*'
+  # Manual release support - consolidated here to work with npm trusted publishing
+  # npm only allows ONE workflow file as trusted publisher, so all publishing
+  # must go through this workflow (release.yml)
+  workflow_dispatch:
+    inputs:
+      release_mode:
+        description: 'Manual release mode'
+        required: true
+        type: choice
+        default: 'instant'
+        options:
+          - instant
+          - changeset-pr
+      bump_type:
+        description: 'Manual release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      description:
+        description: 'Manual release description (optional)'
+        required: false
+        type: string
+
+# Concurrency: Only one workflow run per branch at a time
+# - For main branch (releases): cancel older runs to prevent blocking newer releases
+#   When multiple commits are pushed quickly, we want the latest to release, not wait
+# - For PR branches: queue runs to avoid cancelling checks on force-pushes
+# IMPORTANT: Docker jobs use !cancelled() instead of always() to ensure they respect
+# concurrency cancellation. Using always() prevents workflow cancellation entirely.
+# See: docs/case-studies/issue-1274/README.md and docs/case-studies/issue-1278/README.md
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+
+env: # Force Node.js 24 for actions without native support. See issue #1417.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # === DETECT CHANGES ===
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      mjs-changed: ${{ steps.changes.outputs.mjs }}
+      package-changed: ${{ steps.changes.outputs.package }}
+      docs-changed: ${{ steps.changes.outputs.docs }}
+      workflow-changed: ${{ steps.changes.outputs.workflow }}
+      docker-changed: ${{ steps.changes.outputs.docker }}
+      any-code-changed: ${{ steps.changes.outputs.code }}
+      helm-changed: ${{ steps.changes.outputs.helm }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Detect changes
+        id: changes
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/detect-code-changes.mjs
+
+  # === VERSION CHANGE CHECK ===
+  # Prohibit manual version changes in package.json - versions should only be changed by CI/CD
+  # Only runs when code or package.json changed (Issue #1436: skip for unrelated file changes)
+  version-check:
+    name: Check for Manual Version Changes
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true')
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check for version changes in package.json
+        env:
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: node scripts/check-version.mjs
+
+  # === CHANGESET CHECK - only runs on PRs with code changes ===
+  # Docs-only PRs (./docs folder, markdown files) don't require changesets
+  changeset-check:
+    name: Check for Changesets
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check for changesets
+        env:
+          # Pass PR context to the validation script
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Skip changeset check for automated version PRs
+          if [[ "${{ github.head_ref }}" == "changeset-release/"* ]]; then
+            echo "Skipping changeset check for automated release PR"
+            exit 0
+          fi
+
+          # Run changeset validation script
+          # This validates that exactly ONE changeset was ADDED by this PR
+          # Pre-existing changesets from other merged PRs are ignored
+          node scripts/validate-changeset.mjs
+
+  # === FAST CHECKS (FAIL FAST) ===
+  # These checks run quickly (~7-21 seconds each) and should pass before long-running tests
+
+  # === COMPILATION & SYNTAX CHECKS ===
+  test-compilation:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check]
+    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+
+      - name: Test solve.mjs compilation
+        run: |
+          echo "Testing solve.mjs compilation..."
+          timeout 30s node --check src/solve.mjs
+          echo "solve.mjs compiles successfully"
+
+      - name: Test hive.mjs compilation
+        run: |
+          echo "Testing hive.mjs compilation..."
+          timeout 30s node --check src/hive.mjs
+          echo "hive.mjs compiles successfully"
+
+      - name: Check Node.js syntax for all .mjs files
+        run: bash scripts/check-mjs-syntax.sh
+
+  # === ESLINT CODE QUALITY CHECK ===
+  # Lint runs independently of changeset-check - it's a fast check that should always run
+  # See: docs/case-studies/issue-1023 for why this dependency was removed
+  # IMPORTANT: ESLint now includes max-lines rule (1500 lines) to synchronize with check-file-line-limits
+  # See docs/case-studies/issue-1141 for why fresh merge simulation is critical
+  lint:
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          # For PRs, fetch enough history to merge with base branch
+          fetch-depth: 0
+
+      - name: Simulate fresh merge with base branch (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: bash scripts/simulate-fresh-merge.sh
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Prettier format check
+        run: |
+          echo "Running Prettier format check..."
+          npm run format:check
+          echo "Prettier format check passed"
+
+      - name: Run ESLint
+        run: |
+          echo "Running ESLint code quality checks..."
+          npm run lint
+          echo "ESLint checks passed"
+
+      - name: Run code duplication check
+        run: |
+          echo "Running jscpd code duplication detection..."
+          npm run check:duplication
+          echo "Code duplication check passed"
+
+  # === FILE LINE LIMIT CHECK ===
+  # IMPORTANT: This check must validate the ACTUAL merge result, not a stale merge preview.
+  # See docs/case-studies/issue-1141 for why this is critical.
+  check-file-line-limits:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check]
+    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          # For PRs, fetch enough history to merge with base branch
+          fetch-depth: 0
+
+      - name: Simulate fresh merge with base branch (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: bash scripts/simulate-fresh-merge.sh
+
+      - name: Check file line limits (.mjs files and release.yml)
+        run: bash scripts/check-file-line-limits.sh
+
+  # === LONG-RUNNING CHECKS ===
+  # These checks take significant time (30s to 4+ minutes) and only run after all fast checks pass
+
+  # === UNIT TESTS ===
+  test-suites:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+    if: |
+      always() &&
+      !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+      needs.test-compilation.result == 'success' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
+      (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run test suite for solve.mjs
+        run: |
+          echo "Running test suite for solve.mjs..."
+          node tests/test-solve.mjs
+
+      - name: Run test suite for hive.mjs
+        run: |
+          echo "Running test suite for hive.mjs..."
+          node tests/test-hive.mjs
+
+      - name: Run test suite for memory-check.mjs
+        run: |
+          echo "Running test suite for memory-check.mjs..."
+          node tests/test-memory-check.mjs
+
+      - name: Run branch name validation test (Issue #647)
+        run: |
+          echo "Running test suite for branch name validation..."
+          node tests/test-branch-name-validation.mjs
+
+      - name: Run feedback lines regression test (Issue #168)
+        run: |
+          echo "Running feedback lines regression test..."
+          node tests/test-feedback-lines-simple.mjs
+
+      - name: Run feedback lines integration test (Issue #168)
+        env:
+          GITHUB_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN || secrets.GITHUB_TOKEN }}
+          TEST_GITHUB_USERNAME: ${{ secrets.TEST_GITHUB_USERNAME }}
+          TEST_GITHUB_USER_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN }}
+        run: |
+          echo "Running feedback lines integration test with real repository..."
+          node tests/test-feedback-lines-integration.mjs
+
+      - name: Run Sentry integration test
+        run: |
+          echo "Running test suite for Sentry integration..."
+          node tests/test-sentry.mjs
+
+      - name: Run telegram-bot dry-run test (Issue #487)
+        run: |
+          echo "Running test suite for telegram-bot --dry-run mode..."
+          node tests/test-telegram-bot-dry-run.mjs
+
+      - name: Run telegram-bot hero Links Notation test (Issue #623)
+        run: |
+          echo "Running test suite for telegram-bot hero example with Links Notation..."
+          node tests/test-telegram-bot-hero-links-notation.mjs
+
+      - name: Run hive command silent failure test (Issue #504)
+        run: |
+          echo "Running test suite for hive command silent failures..."
+          node tests/test-hive-no-silent-failure.mjs
+
+      - name: Run GitHub linking keyword detection test (Issue #568)
+        run: |
+          echo "Running test suite for GitHub linking keyword detection..."
+          node tests/test-github-linking.mjs
+
+      - name: Run Telegram Markdown escaping test (Issue #580)
+        run: |
+          echo "Running test suite for Telegram Markdown escaping..."
+          node tests/test-telegram-markdown-escaping.mjs
+
+      - name: Run lenv-reader test (Issue #604)
+        run: |
+          echo "Running test suite for lenv-reader.lib.mjs..."
+          node tests/test-lenv-reader.mjs
+
+      - name: Run lino test (Issue #1086)
+        run: |
+          echo "Running test suite for lino.lib.mjs..."
+          node tests/test-lino.mjs
+
+      - name: Run Telegram URL extraction test (Issue #603)
+        run: |
+          echo "Running test suite for Telegram URL extraction..."
+          node tests/test-telegram-url-extraction.mjs
+
+      - name: Run Telegram URL validation test (Issue #630)
+        run: |
+          echo "Running test suite for Telegram URL validation..."
+          node tests/test-telegram-validate-url.mjs
+
+      - name: Run Unicode sanitization test (Issue #1324)
+        run: |
+          echo "Running test suite for Unicode sanitization..."
+          node tests/test-unicode-sanitization.mjs
+
+      - name: Run interactive mode test (Issue #800)
+        run: |
+          echo "Running test suite for interactive mode..."
+          node tests/test-interactive-mode.mjs
+
+      - name: Run start-screen test (Issue #539)
+        run: |
+          echo "Running test suite for start-screen.mjs..."
+          node tests/test-start-screen.mjs
+
+      - name: Run buildCostInfoString test (Issue #1015)
+        run: |
+          echo "Running test suite for buildCostInfoString..."
+          node tests/test-build-cost-info-string.mjs
+
+      - name: Run token sanitization test (Issue #1037)
+        run: |
+          echo "Running test suite for token sanitization..."
+          node tests/test-token-sanitization.mjs
+
+      - name: Run agent token usage test (Issues #1250, #1313)
+        run: |
+          echo "Running test suite for agent token accumulation logic..."
+          node tests/test-agent-token-usage.mjs
+
+      - name: Run Telegram special character handling test (Issue #1070)
+        run: |
+          echo "Running test suite for Telegram special character handling..."
+          node tests/test-telegram-special-char-handling.mjs
+
+      - name: Run usage limit test (Issues #942, #1122)
+        run: |
+          echo "Running test suite for usage limit detection and parsing..."
+          node tests/test-usage-limit.mjs
+
+      - name: Run stderr warning detection test (Issue #1337)
+        run: |
+          echo "Running test suite for stderr warning detection (isStderrError)..."
+          node tests/test-issue-1337-stderr-warning-detection.mjs
+
+      - name: Run hive-solve option parity test (Issue #1209)
+        run: |
+          echo "Running test suite for hive-solve option parity..."
+          node tests/test-hive-solve-option-parity.mjs
+
+      - name: Run fork parent validation test (Issue #1518)
+        run: |
+          echo "Running test suite for fork parent validation..."
+          node tests/test-fork-parent-validation.mjs
+
+      - name: Run pre-PR failure notifier test (Issue #1640)
+        run: |
+          echo "Running test suite for pre-PR failure notifications..."
+          node tests/test-pre-pr-failure-notifier-1640.mjs
+
+      - name: Run docs-code options sync test (Issue #1518)
+        run: |
+          echo "Running test suite for documentation-code options sync..."
+          node tests/test-docs-options-sync.mjs
+
+      - name: Run detect-code-changes test (Issue #1528)
+        run: |
+          echo "Running test suite for CI/CD change detection..."
+          node tests/test-detect-code-changes-1528.mjs
+
+      - name: Run isolation runner test (Issue #380)
+        run: |
+          echo "Running test suite for isolation runner..."
+          node tests/test-isolation-runner.mjs
+
+      - name: Run session monitor isolation test (Issue #380)
+        run: |
+          echo "Running test suite for session monitor isolation support..."
+          node tests/test-session-monitor-isolation.mjs
+
+      - name: Run isolation screen fallback test (Issue #1545)
+        run: |
+          echo "Running test suite for isolation screen fallback..."
+          node tests/test-isolation-screen-fallback-1545.mjs
+
+      - name: Run isolation screen integration test (Issue #1545)
+        run: |
+          echo "Running integration tests for isolation screen session monitoring..."
+          node tests/test-isolation-screen-integration-1545.mjs
+
+  # === EXECUTION TESTS ===
+  test-execution:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+    if: |
+      always() &&
+      !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+      needs.test-compilation.result == 'success' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
+      (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Test solve.mjs execution
+        run: |
+          echo "Testing solve.mjs basic execution..."
+          timeout 10s ./src/solve.mjs --help || echo "Help command completed"
+          echo "solve.mjs executes without critical errors"
+          timeout 10s ./src/solve.mjs --version || true
+
+      - name: Verify log files contain version and command (Issue #517)
+        run: bash scripts/verify-log-file-contents.sh
+
+      - name: Test hive.mjs execution
+        run: |
+          echo "Testing hive.mjs basic execution..."
+          timeout 10s ./src/hive.mjs --help || echo "Help command completed"
+          echo "hive.mjs executes without critical errors"
+          timeout 10s ./src/hive.mjs --version || true
+
+      - name: Test telegram-bot.mjs execution
+        run: |
+          echo "Testing telegram-bot.mjs basic execution..."
+          timeout 10s ./src/telegram-bot.mjs --help || echo "Help command completed"
+          echo "telegram-bot.mjs executes without critical errors"
+
+          echo ""
+          echo "Testing telegram-bot.mjs --dry-run with issue #487 command..."
+          timeout 10s ./src/telegram-bot.mjs \
+            --token "test_token_123" \
+            --allowed-chats "(-1002975819706 -1002861722681)" \
+            --no-hive \
+            --solve-overrides $'( \n  --auto-continue\n  --attach-logs\n  --verbose\n  --no-tool-check\n)' \
+            --dry-run
+          echo "Issue #487 command passes with --dry-run"
+
+      - name: Test memory-check.mjs execution
+        run: |
+          ./src/memory-check.mjs --help
+          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --json
+
+      - name: Test global command installation
+        run: bash scripts/test-global-commands.sh
+
+      - name: Test hive dry-run with solve integration
+        run: |
+          echo "Testing hive dry-run mode with solve command integration..."
+          timeout 30s ./src/hive.mjs https://github.com/test/repo --dry-run --skip-claude-check --once --max-issues 1 2>&1 | tee hive_dry_run.log || true
+
+          if grep -q "solve.*--dry-run.*--skip-claude-check" hive_dry_run.log; then
+            echo "hive correctly passes --dry-run and --skip-claude-check flags to solve command"
+          else
+            echo "Could not verify flag propagation in dry-run mode (may be due to no issues found)"
+          fi
+
+          echo ""
+          echo "Testing solve.mjs with --dry-run and --skip-claude-check flags..."
+          timeout 10s ./src/solve.mjs https://github.com/test/repo/issues/1 --dry-run --skip-claude-check 2>&1 | head -20 || true
+          echo "solve.mjs accepts --dry-run and --skip-claude-check flags"
+
+      - name: Test --auto-fork option
+        run: bash scripts/test-auto-fork-option.sh
+
+  # === MEMORY CHECKS - LINUX ===
+  memory-check-linux:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+    if: |
+      always() &&
+      !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+      needs.test-compilation.result == 'success' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
+      (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+
+      - name: System info
+        run: |
+          echo "=== System Information ==="
+          uname -a
+          echo ""
+          echo "=== Memory Information ==="
+          free -h
+          echo ""
+          echo "=== Disk Information ==="
+          df -h
+          echo ""
+          echo "=== CPU Information ==="
+          lscpu | head -20
+
+      - name: Run memory-check tests
+        run: |
+          chmod +x tests/test-memory-check.mjs
+          node tests/test-memory-check.mjs
+
+      - name: Test memory-check with various thresholds
+        run: |
+          echo "Testing with low thresholds (should pass)..."
+          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --json
+
+          echo ""
+          echo "Testing verbose output..."
+          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100
+
+          echo ""
+          echo "Testing quiet mode..."
+          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --quiet --json
+
+      - name: Test memory-check failure conditions
+        run: |
+          echo "Testing with impossible memory requirement (should fail)..."
+          if ./src/memory-check.mjs --min-memory 999999 --exit-on-failure --quiet --json; then
+            echo "ERROR: Should have failed with impossible memory requirement"
+            exit 1
+          else
+            echo "Correctly failed with impossible memory requirement"
+          fi
+
+          echo ""
+          echo "Testing with impossible disk requirement (should fail)..."
+          if ./src/memory-check.mjs --min-disk-space 999999999 --exit-on-failure --quiet --json; then
+            echo "ERROR: Should have failed with impossible disk requirement"
+            exit 1
+          else
+            echo "Correctly failed with impossible disk requirement"
+          fi
+
+  # === DOCUMENTATION VALIDATION (FAST) ===
+  validate-docs:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check]
+    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true'
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+
+      - name: Validate documentation files
+        run: |
+          echo "Running documentation validation tests..."
+          chmod +x tests/docs-validation.mjs
+          node tests/docs-validation.mjs
+
+  # === DOCKER PR CHECK ===
+  docker-pr-check:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+    # Run if: changeset-check succeeded OR was skipped (docs-only PR), and required checks passed
+    if: |
+      always() &&
+      !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      github.event_name == 'pull_request' &&
+      (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+      (needs.test-compilation.result == 'success' || needs.test-compilation.result == 'skipped') &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
+      (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Show sandbox base image version
+        run: |
+          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          echo "Sandbox base image version: konard/sandbox:${SANDBOX_VERSION}"
+          echo "This pinned version ensures stable, reproducible builds."
+
+      - name: Build Docker image
+        run: |
+          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          echo "Building Docker image from konard/sandbox:${SANDBOX_VERSION} base..."
+          echo "Note: General-purpose tools are inherited from pinned konard/sandbox:${SANDBOX_VERSION}"
+          echo "This image adds AI-specific tools on top of the sandbox base."
+          echo ""
+
+          # Note: Multi-platform builds (amd64+arm64) are tested in docker-publish job during release
+          # PR checks only validate amd64 using standard docker build (not buildx) to ensure
+          # the image is properly loaded into Docker daemon for container verification
+          docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
+
+          echo ""
+          echo "Docker image built successfully"
+          docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
+
+      - name: Verify build completed without errors
+        run: |
+          echo "Checking build logs for critical errors..."
+
+          # Check for unbound variable errors (indicates shell script issues with set -u compatibility)
+          if grep -E 'unbound variable' build-output.log; then
+            echo "ERROR: Unbound variable error detected in Docker build"
+            echo "This typically indicates a shell script issue with set -u compatibility"
+            grep -E 'unbound variable' build-output.log || true
+            exit 1
+          fi
+
+          echo "Build log check completed"
+
+      - name: Verify system & development tools in running container
+        run: |
+          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          echo "=== Verifying hive-mind Docker image ==="
+          echo "Base: konard/sandbox:${SANDBOX_VERSION} (pinned) + AI-specific tools"
+          echo ""
+
+          # Run verification script inside container (mounts script as read-only volume)
+          # Verifies: sandbox user setup (/workspace access), all dev tools, AI-specific tools
+          # See scripts/verify-docker-image.sh for the full list of checks
+          docker run --rm \
+            -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \
+            ${{ env.IMAGE_NAME }}:test \
+            bash /verify-docker-image.sh
+
+          echo ""
+          echo "All system & development tools verification checks passed!"
+
+  # === HELM PR CHECK (FAST) ===
+  helm-pr-check:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check]
+    # Only runs when helm chart, package.json, or workflow files changed (Issue #1436)
+    if: always() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.helm-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Get package version
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Lint Helm chart
+        run: |
+          echo "Linting Helm chart..."
+          helm lint helm/hive-mind
+          echo "Helm chart validation passed"
+
+      - name: Verify Chart.yaml structure
+        run: bash scripts/verify-chart-yaml.sh
+
+  # === RELEASE - only runs on main after tests pass ===
+  release:
+    name: Release
+    needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
+      published_version: ${{ steps.publish.outputs.published_version }}
+    # Permissions required for npm OIDC trusted publishing
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Update npm for OIDC trusted publishing
+        run: node scripts/setup-npm.mjs
+
+      - name: Check for changesets
+        id: check_changesets
+        run: |
+          # Count changeset files (excluding README.md and config.json)
+          CHANGESET_COUNT=$(find .changeset -name "*.md" ! -name "README.md" | wc -l)
+          echo "Found $CHANGESET_COUNT changeset file(s)"
+          echo "has_changesets=$([[ $CHANGESET_COUNT -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "changeset_count=$CHANGESET_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Harmonize changeset bump types
+        if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
+        run: |
+          echo "Multiple changesets detected, harmonizing bump types..."
+          node scripts/merge-changesets.mjs
+
+      - name: Version packages and commit to main
+        if: steps.check_changesets.outputs.has_changesets == 'true'
+        id: version
+        run: node scripts/version-and-commit.mjs --mode changeset
+
+      - name: Publish to npm
+        # Run if version was committed OR if a previous attempt already committed (for re-runs)
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        id: publish_npm
+        run: node scripts/publish-to-npm.mjs --should-pull
+
+      - name: Set publish outputs
+        # This step explicitly sets the outputs using shell (more reliable than Node.js appendFileSync)
+        # It runs after npm publish and reads the script's outputs to pass them along
+        id: publish
+        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
+        run: |
+          echo "published=true" >> $GITHUB_OUTPUT
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
+
+      - name: Create GitHub Release
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
+
+      - name: Format GitHub release notes
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
+
+      - name: Post-publish - Upload Source Maps to Sentry
+        if: steps.publish.outputs.published == 'true'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          echo "Uploading source maps to Sentry for published packages..."
+          chmod +x scripts/upload-sourcemaps.mjs
+          node scripts/upload-sourcemaps.mjs
+
+  # === DOCKER PUBLISH ===
+  # Multi-platform builds using native runners (no QEMU). See: docs/case-studies/issue-982/
+  # ARM64 may be slow: actions/runner-images#11790, actions/partner-runner-images#101
+  # See also: docs/case-studies/issue-998/README.md
+  docker-publish:
+    name: Docker Publish (${{ matrix.platform }})
+    needs: [release]
+    # !cancelled() allows concurrency cancellation. See: docs/case-studies/issue-1278/
+    if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
+    # Timeout 60 min: arm64 can take 26+ min. See: docs/case-studies/issue-1415/README.md
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            cache_suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
+            cache_suffix: arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    outputs:
+      digest-amd64: ${{ steps.build.outputs.digest }}
+      digest-arm64: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Wait for NPM package availability
+        # Only run on first matrix job to avoid duplicate waits
+        if: matrix.platform == 'linux/amd64'
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Registry cache for faster parallel export. See: docs/case-studies/issue-1415/README.md
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }}
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Merge multi-platform manifests after all platform builds complete
+  docker-publish-merge:
+    name: Docker Publish (Merge)
+    needs: [release, docker-publish]
+    # Use !cancelled() instead of always() to allow concurrency cancellation.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.release.outputs.published_version }}
+            type=raw,value=latest
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          echo "Inspecting multi-platform image..."
+          docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
+
+      - name: Verify published image
+        run: |
+          echo "Docker image published successfully"
+          echo "Image: ${{ env.IMAGE_NAME }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+
+  # === HELM CHART RELEASE ===
+  helm-release:
+    name: Helm Release
+    needs: [release, docker-publish-merge]
+    # Use !cancelled() instead of always() to allow concurrency cancellation.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.release.outputs.published == 'true'"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Release Helm chart
+        run: node scripts/helm-release.mjs --release-version "${{ needs.release.outputs.published_version }}"
+
+      - name: Upload chart to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.release.outputs.published_version }}
+          files: .helm-packages/*.tgz
+
+  # === MANUAL INSTANT RELEASE ===
+  instant-release:
+    name: Instant Release
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
+      published_version: ${{ steps.publish.outputs.published_version }}
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Update npm for OIDC trusted publishing
+        run: node scripts/setup-npm.mjs
+
+      - name: Version packages and commit to main
+        id: version
+        run: node scripts/version-and-commit.mjs --mode instant --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+
+      - name: Publish to npm
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        id: publish_npm
+        run: node scripts/publish-to-npm.mjs
+
+      - name: Set publish outputs
+        # This step explicitly sets the outputs using shell (more reliable than Node.js appendFileSync)
+        id: publish
+        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
+        run: |
+          echo "published=true" >> $GITHUB_OUTPUT
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
+
+      - name: Create GitHub Release
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
+
+      - name: Format GitHub release notes
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
+
+  # === DOCKER PUBLISH FOR INSTANT RELEASE ===
+  # Same multi-platform setup as docker-publish above (native runners, no QEMU).
+  # See: docs/case-studies/issue-982/README.md and docs/case-studies/issue-998/README.md
+  docker-publish-instant:
+    name: Docker Publish Instant (${{ matrix.platform }})
+    needs: [instant-release]
+    # Use !cancelled() instead of always() to allow concurrency cancellation.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
+    # Timeout 60 min: arm64 can take 26+ min. See: docs/case-studies/issue-1415/README.md
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            cache_suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
+            cache_suffix: arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Wait for NPM package availability
+        # Only run on first matrix job to avoid duplicate waits
+        if: matrix.platform == 'linux/amd64'
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Registry cache for faster parallel export. See: docs/case-studies/issue-1415/README.md
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }}
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Merge multi-platform manifests after all platform builds complete (instant release)
+  docker-publish-instant-merge:
+    name: Docker Publish Instant (Merge)
+    needs: [instant-release, docker-publish-instant]
+    # Use !cancelled() instead of always() to allow concurrency cancellation.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digests-instant-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.instant-release.outputs.published_version }}
+            type=raw,value=latest
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          echo "Inspecting multi-platform image..."
+          docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
+
+      - name: Verify published image
+        run: |
+          echo "Docker image published successfully"
+          echo "Image: ${{ env.IMAGE_NAME }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+
+  # === HELM CHART RELEASE FOR INSTANT RELEASE ===
+  helm-release-instant:
+    name: Helm Release (Instant)
+    needs: [instant-release, docker-publish-instant-merge]
+    # Use !cancelled() instead of always() to allow concurrency cancellation.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Release Helm chart
+        run: node scripts/helm-release.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+
+      - name: Upload chart to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.instant-release.outputs.published_version }}
+          files: .helm-packages/*.tgz
+
+  # === MANUAL CHANGESET PR ===
+  changeset-pr:
+    name: Create Changeset PR
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create changeset file
+        run: node scripts/create-manual-changeset.mjs --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+
+      - name: Format changeset with Prettier
+        run: |
+          npx prettier --write ".changeset/*.md" || true
+          echo "Formatted changeset files"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: add changeset for manual ${{ github.event.inputs.bump_type }} release'
+          branch: changeset-manual-release-${{ github.run_id }}
+          delete-branch: true
+          title: 'chore: manual ${{ github.event.inputs.bump_type }} release'
+          body: |
+            ## Manual Release Request
+
+            This PR was created by a manual workflow trigger to prepare a **${{ github.event.inputs.bump_type }}** release.
+
+            ### Release Details
+            - **Type:** ${{ github.event.inputs.bump_type }}
+            - **Description:** ${{ github.event.inputs.description || 'Manual release' }}
+            - **Triggered by:** @${{ github.actor }}
+
+            ### Next Steps
+            1. Review the changeset in this PR
+            2. Merge this PR to main
+            3. The automated release workflow will create a version PR
+            4. Merge the version PR to publish to npm and create a GitHub release

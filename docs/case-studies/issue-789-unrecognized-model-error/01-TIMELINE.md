@@ -5,6 +5,7 @@
 Based on the full log from gist, here's the detailed sequence of events:
 
 ### Phase 1: Initialization (16:00:47 - 16:00:53)
+
 ```
 [16:00:47.126Z] Log file created
 [16:00:48.680Z] solve v0.36.3 started
@@ -14,6 +15,7 @@ Based on the full log from gist, here's the detailed sequence of events:
 **Observation**: Invalid model name `oups` is accepted without validation.
 
 ### Phase 2: Pre-flight Checks (16:00:53 - 16:01:05)
+
 ```
 [16:00:53.844Z] Memory check: ✅ 1468MB available
 [16:00:53.845Z] Skipping tool validation (dry-run mode)
@@ -26,11 +28,13 @@ Based on the full log from gist, here's the detailed sequence of events:
 ```
 
 **Observation**:
+
 - No model validation occurs during pre-flight checks
 - System proceeds with repository operations
 - `--no-tool-check` flag bypasses tool validation, but model validation is separate
 
 ### Phase 3: Claude CLI Preparation (16:01:05 - 16:01:17)
+
 ```
 [16:01:05.446Z] Starting work session
 [16:01:07.133Z] PR converted to draft mode
@@ -41,22 +45,26 @@ Based on the full log from gist, here's the detailed sequence of events:
 ```
 
 **Critical Observation**:
+
 - Line 107: "Executing Claude: **OUPS**" - the invalid model name is displayed
 - Line 108: "Model: sonnet" - this appears to be the mapped model name
 - The system mapped `oups` to something, but the mapping failed
 
 ### Phase 4: Claude CLI Execution (16:01:17 - 16:01:34)
+
 ```
 [16:01:17.279Z] Raw command:
 (cd "/tmp/gh-issue-solver-1764777657247" && claude --output-format stream-json --verbose --dangerously-skip-permissions --model oups -p "Issue to solve: ..." | jq -c .)
 ```
 
 **Critical Observation**:
+
 - The command passes `--model oups` directly to Claude CLI
 - No validation before subprocess execution
 - Invalid model name reaches Anthropic API
 
 ### Phase 5: API Error (16:01:34 - 16:01:37)
+
 ```
 [16:01:34.589Z] Session init - session_id: 16a26db9-fd28-4a13-b08f-8b06aed6552c
 [16:01:34.630Z] Session ID: 16a26db9-fd28-4a13-b08f-8b06aed6552c
@@ -64,11 +72,13 @@ Based on the full log from gist, here's the detailed sequence of events:
 ```
 
 **Observation**:
+
 - Only 3 seconds elapsed from session init to error
 - API immediately rejected the model name
 - Request ID shows the API was called
 
 ### Phase 6: Cost Calculation (16:01:37)
+
 ```
 [16:01:37.883Z] Result:
 {
@@ -99,12 +109,14 @@ Based on the full log from gist, here's the detailed sequence of events:
 ```
 
 **Critical Observations**:
+
 - Despite error, TWO models were charged: Haiku 4.5 and Opus 4.5
 - `usage.input_tokens: 0` and `usage.output_tokens: 0` but modelUsage shows tokens
 - Total cost: $0.027108
 - This suggests Claude CLI made internal API calls for model discovery/routing
 
 ### Phase 7: Error Handling (16:01:37 - 16:01:44)
+
 ```
 [16:01:37.978Z] Anthropic official cost captured: $0.027108
 [16:01:38.027Z] Detected error result from Claude CLI
@@ -113,6 +125,7 @@ Based on the full log from gist, here's the detailed sequence of events:
 ```
 
 **Observation**:
+
 - Exit code 0 (success) despite failure - handled correctly by error detection
 - Cost was captured from API response
 - Failure logs attached to PR
@@ -120,16 +133,19 @@ Based on the full log from gist, here's the detailed sequence of events:
 ## Key Timeline Insights
 
 ### Critical Gaps
+
 1. **No validation between argument parsing and API call** (47 seconds elapsed)
 2. **Model name passed unchanged to subprocess** - no mapping applied
 3. **Cost incurred before model validation** - API does the validation, not the client
 
 ### Performance Impact
+
 - Total elapsed time: ~57 seconds
 - Time wasted: All 57 seconds (operation doomed to fail from start)
 - API time: 18 seconds (time Anthropic spent processing invalid request)
 
 ### User Experience Issues
+
 1. User waits 57 seconds to discover a typo
 2. No immediate feedback during argument parsing
 3. Error message buried in JSON output
@@ -138,6 +154,7 @@ Based on the full log from gist, here's the detailed sequence of events:
 ## What Should Have Happened
 
 **Ideal Timeline:**
+
 ```
 [16:00:48.683Z] Raw command: solve ... --model oups
 [16:00:48.684Z] ❌ Invalid model name: 'oups'

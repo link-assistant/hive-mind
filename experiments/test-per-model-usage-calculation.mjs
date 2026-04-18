@@ -56,7 +56,7 @@ async function testPerModelUsageCalculation() {
       // Show per-model breakdown
       if (tokenUsage.modelUsage) {
         console.log('📊 Per-Model Usage Breakdown:');
-        console.log('=' .repeat(60));
+        console.log('='.repeat(60));
 
         for (const [modelId, usage] of Object.entries(tokenUsage.modelUsage)) {
           console.log(`\n🤖 ${usage.modelName || modelId}`);
@@ -89,12 +89,7 @@ async function testPerModelUsageCalculation() {
               console.log(`   Released: ${info.release_date}`);
             }
 
-            console.log(`   Capabilities: ${[
-              info.attachment ? 'Attachments' : null,
-              info.reasoning ? 'Reasoning' : null,
-              info.temperature ? 'Temperature' : null,
-              info.tool_call ? 'Tool calls' : null
-            ].filter(Boolean).join(', ') || 'N/A'}`);
+            console.log(`   Capabilities: ${[info.attachment ? 'Attachments' : null, info.reasoning ? 'Reasoning' : null, info.temperature ? 'Temperature' : null, info.tool_call ? 'Tool calls' : null].filter(Boolean).join(', ') || 'N/A'}`);
 
             console.log(`   Open weights: ${info.open_weights ? 'Yes' : 'No'}`);
             console.log('');
@@ -181,10 +176,7 @@ async function testPerModelUsageCalculation() {
 
     // Test fetchModelInfo separately
     console.log('\n\n🔍 Testing model info fetching from models.dev...\n');
-    const testModels = [
-      'claude-sonnet-4-5-20250929',
-      'claude-haiku-4-5-20251001'
-    ];
+    const testModels = ['claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'];
 
     for (const modelId of testModels) {
       console.log(`Fetching info for: ${modelId}`);
@@ -209,7 +201,7 @@ async function testPerModelUsageCalculation() {
       inputTokens: 1000,
       cacheCreationTokens: 5000,
       cacheReadTokens: 10000,
-      outputTokens: 2000
+      outputTokens: 2000,
     };
 
     const mockModelInfo = {
@@ -217,8 +209,8 @@ async function testPerModelUsageCalculation() {
         input: 3,
         output: 15,
         cache_read: 0.3,
-        cache_write: 3.75
-      }
+        cache_write: 3.75,
+      },
     };
 
     const cost = calculateModelCost(mockUsage, mockModelInfo);
@@ -230,15 +222,9 @@ async function testPerModelUsageCalculation() {
     console.log(`\nCalculated cost: $${cost.toFixed(6)}`);
 
     // Manual verification:
-    const manualCost = (
-      (mockUsage.inputTokens / 1000000) * mockModelInfo.cost.input +
-      (mockUsage.cacheCreationTokens / 1000000) * mockModelInfo.cost.cache_write +
-      (mockUsage.cacheReadTokens / 1000000) * mockModelInfo.cost.cache_read +
-      (mockUsage.outputTokens / 1000000) * mockModelInfo.cost.output
-    );
+    const manualCost = (mockUsage.inputTokens / 1000000) * mockModelInfo.cost.input + (mockUsage.cacheCreationTokens / 1000000) * mockModelInfo.cost.cache_write + (mockUsage.cacheReadTokens / 1000000) * mockModelInfo.cost.cache_read + (mockUsage.outputTokens / 1000000) * mockModelInfo.cost.output;
     console.log(`Manual verification: $${manualCost.toFixed(6)}`);
     console.log(cost === manualCost ? '✅ Cost calculation correct!' : '❌ Cost calculation mismatch!');
-
   } catch (error) {
     console.error('❌ Error:', error.message);
     console.error(error.stack);

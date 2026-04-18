@@ -6,7 +6,7 @@
     "headSha": "f0f83ec39374be48b53c4fcd596c90047048d0d1",
     "name": "CI/CD Pipeline for main branch",
     "status": "in_progress",
-    "url": "https://github.com/deep-assistant/hive-mind/actions/runs/19320298099",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/19320298099",
     "workflowName": "CI/CD Pipeline for main branch"
   },
   {
@@ -16,7 +16,7 @@
     "headSha": "dd81ea93544facbe8a7c09c331bb5ad0b24c57f1",
     "name": "CI/CD Pipeline for main branch",
     "status": "completed",
-    "url": "https://github.com/deep-assistant/hive-mind/actions/runs/19320210206",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/19320210206",
     "workflowName": "CI/CD Pipeline for main branch"
   },
   {
@@ -26,7 +26,7 @@
     "headSha": "97aea4dd97ef70d5ade9a760f301ad789aa5b9c4",
     "name": "CI/CD Pipeline for main branch",
     "status": "completed",
-    "url": "https://github.com/deep-assistant/hive-mind/actions/runs/19320182040",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/19320182040",
     "workflowName": "CI/CD Pipeline for main branch"
   },
   {
@@ -36,7 +36,7 @@
     "headSha": "fe8043d6ecd64fdbe045a35b09fdb55618b5982b",
     "name": "CI/CD Pipeline for main branch",
     "status": "completed",
-    "url": "https://github.com/deep-assistant/hive-mind/actions/runs/19320129982",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/19320129982",
     "workflowName": "CI/CD Pipeline for main branch"
   },
   {
@@ -46,7 +46,7 @@
     "headSha": "5e21cf3702d8b04583a0805bd084c02fb47e1413",
     "name": "CI/CD Pipeline for main branch",
     "status": "completed",
-    "url": "https://github.com/deep-assistant/hive-mind/actions/runs/19320124562",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/19320124562",
     "workflowName": "CI/CD Pipeline for main branch"
   }
 ]

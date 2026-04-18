@@ -3,6 +3,7 @@
 ## Root Cause
 
 The error occurs when:
+
 1. `solve.mjs` creates an initial commit that **modifies** (not creates) CLAUDE.md by appending task info
 2. During the session, CLAUDE.md is modified again (e.g., by prettier formatting, removing trailing newline)
 3. CLAUDE.md changes are included in subsequent commits
@@ -12,15 +13,18 @@ The error occurs when:
 ## Real-World Example from test-anywhere repo
 
 **Initial commit** (2c5f9ae):
+
 - CLAUDE.md already existed (from issue #14 and #16)
 - Script **appended** new task info for issue #19
-- Changed: "M  CLAUDE.md" (modified, not added)
+- Changed: "M CLAUDE.md" (modified, not added)
 
 **During session**:
+
 - prettier formatted CLAUDE.md, changing: `Proceed.\n` → `Proceed.` (removed trailing newline)
 - CLAUDE.md was committed again in work commit
 
 **At cleanup**:
+
 - `git revert 2c5f9ae` fails with "CONFLICT (content): Merge conflict in CLAUDE.md"
 - Revert expected CLAUDE.md to have trailing newline, but it was removed by prettier
 
@@ -59,12 +63,14 @@ if (revertResult.code !== 0 && revertResult.stderr.includes('CONFLICT')) {
 ```
 
 **Pros**:
+
 - Handles both cases: CLAUDE.md existed before OR was newly created
 - Minimal data loss risk - preserves pre-session state
 - Aligns with git's three-way merge semantics
 - Robust against edge cases
 
 **Cons**:
+
 - Slightly more complex logic
 - Requires checking parent commit
 
@@ -96,11 +102,13 @@ if (revertResult.code !== 0) {
 ```
 
 **Pros**:
+
 - Clean separation: abort on conflict, then manual fix
 - Easy to understand flow
 - No hanging revert state
 
 **Cons**:
+
 - Loses git's automatic revert metadata
 - Custom commit message instead of "Revert..." format
 - Doesn't preserve git history conventions
@@ -121,7 +129,7 @@ if (diffResult.stdout.trim()) {
   if (exists.code === 0) {
     await $({ cwd: tempDir })`git checkout ${parentCommit} -- CLAUDE.md`;
   } else {
-    await $({ cwd: tempDir})`git rm -f CLAUDE.md`;
+    await $({ cwd: tempDir })`git rm -f CLAUDE.md`;
   }
   await $({ cwd: tempDir })`git commit -m "Revert: Remove CLAUDE.md changes from initial commit"`;
 } else {
@@ -131,11 +139,13 @@ if (diffResult.stdout.trim()) {
 ```
 
 **Pros**:
+
 - Proactive detection before attempting revert
 - Avoids conflict entirely
 - Can optimize for the common case
 
 **Cons**:
+
 - Still needs manual commit for modified case
 - More upfront checks
 - Doesn't use git revert in all cases
@@ -161,11 +171,13 @@ if (existedBefore.code === 0) {
 ```
 
 **Pros**:
+
 - Simplest implementation
 - Always works, no conflict possible
 - Easy to reason about
 
 **Cons**:
+
 - Loses `git revert` metadata and conventions
 - If initial commit had other files, they won't be reverted
 - Not a true revert, just manual cleanup
@@ -181,6 +193,7 @@ if (existedBefore.code === 0) {
 5. **Maintains git history**: Keeps proper revert commits with metadata
 
 The implementation should:
+
 - Try `git revert` first
 - Detect CLAUDE.md conflicts
 - Auto-resolve by checking parent commit state

@@ -215,40 +215,76 @@ await runAsyncTest('validateBidirectionalModeConfig disabled', async () => {
   const logs = [];
   const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
 
-  const result = await validateBidirectionalModeConfig({ bidirectionalInteractive: false, tool: 'claude' }, mockLog);
+  const result = await validateBidirectionalModeConfig({ acceptIncommingCommentsAsInput: false, tool: 'claude' }, mockLog);
   if (!result) {
-    throw new Error('Expected true when bidirectional mode is disabled');
+    throw new Error('Expected true when incoming-comment acceptance is disabled');
   }
 });
 
-await runAsyncTest('validateBidirectionalModeConfig enabled with claude', async () => {
+await runAsyncTest('validateBidirectionalModeConfig accept-incomming-comments-as-input with claude', async () => {
   const logs = [];
-  const argv = { bidirectionalInteractive: true, tool: 'claude', interactiveMode: false };
+  const argv = { acceptIncommingCommentsAsInput: true, tool: 'claude', interactiveMode: false };
   const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
 
   const result = await validateBidirectionalModeConfig(argv, mockLog);
   if (!result) {
-    throw new Error('Expected true when bidirectional mode is enabled with claude');
+    throw new Error('Expected true when accept-incomming-comments-as-input is enabled with claude');
   }
-  // Should auto-enable interactive mode
-  if (!argv.interactiveMode) {
-    throw new Error('Expected interactiveMode to be auto-enabled');
+  // Issue #817: accepting incoming comments does NOT force interactive-mode on its own.
+  if (argv.interactiveMode) {
+    throw new Error('Expected interactiveMode to remain disabled when only acceptIncommingCommentsAsInput is set');
   }
   if (!logs.some(l => l.includes('Bidirectional Interactive Mode: ENABLED'))) {
     throw new Error('Expected ENABLED log message');
   }
 });
 
-await runAsyncTest('validateBidirectionalModeConfig enabled with opencode', async () => {
+await runAsyncTest('validateBidirectionalModeConfig accept-incomming-comments-as-input with opencode disables it', async () => {
   const logs = [];
+  const argv = { acceptIncommingCommentsAsInput: true, tool: 'opencode' };
   const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
 
-  const result = await validateBidirectionalModeConfig({ bidirectionalInteractive: true, tool: 'opencode' }, mockLog);
+  const result = await validateBidirectionalModeConfig(argv, mockLog);
   if (result) {
-    throw new Error('Expected false when bidirectional mode is enabled with unsupported tool');
+    throw new Error('Expected false when incoming-comment acceptance is enabled with unsupported tool');
+  }
+  if (argv.acceptIncommingCommentsAsInput) {
+    throw new Error('Expected acceptIncommingCommentsAsInput to be disabled for unsupported tool');
   }
   if (!logs.some(l => l.includes('only supported for --tool claude'))) {
     throw new Error('Expected warning log message');
+  }
+});
+
+await runAsyncTest('validateBidirectionalModeConfig --bidirectional-interactive-mode enables all three flags', async () => {
+  const logs = [];
+  const argv = {
+    bidirectionalInteractiveMode: true,
+    tool: 'claude',
+    interactiveMode: false,
+    acceptIncommingCommentsAsInput: false,
+    excludeAllOwnIncommingCommentsFromInput: false
+  };
+  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+
+  const result = await validateBidirectionalModeConfig(argv, mockLog);
+  if (!result) {
+    throw new Error('Expected true when --bidirectional-interactive-mode is enabled with claude');
+  }
+  if (!argv.interactiveMode) throw new Error('Expected interactiveMode to be auto-enabled by --bidirectional-interactive-mode');
+  if (!argv.acceptIncommingCommentsAsInput) throw new Error('Expected acceptIncommingCommentsAsInput to be auto-enabled by --bidirectional-interactive-mode');
+  if (!argv.excludeAllOwnIncommingCommentsFromInput) throw new Error('Expected excludeAllOwnIncommingCommentsFromInput to be auto-enabled by --bidirectional-interactive-mode');
+});
+
+await runAsyncTest('validateBidirectionalModeConfig interactive-mode alone does not enable bidirectional', async () => {
+  const logs = [];
+  const argv = { interactiveMode: true, tool: 'claude', acceptIncommingCommentsAsInput: false };
+  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+
+  const result = await validateBidirectionalModeConfig(argv, mockLog);
+  if (!result) throw new Error('Expected true (nothing to validate when acceptIncommingCommentsAsInput is false)');
+  if (logs.some(l => l.includes('Bidirectional Interactive Mode: ENABLED'))) {
+    throw new Error('Should not log ENABLED when only interactive mode is on');
   }
 });
 
@@ -609,6 +645,90 @@ await runAsyncTest('handler does not poll without PR info', async () => {
   // Should not have any feedback
   if (handler.hasFeedback()) {
     throw new Error('Expected no feedback when PR info is missing');
+  }
+});
+
+await runAsyncTest('handler excludes own comments when excludeOwnComments is true', async () => {
+  const logs = [];
+  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+
+  // Simulate gh api returning the current user login for `gh api user --jq .login`
+  // and returning a list of comments with one from the "own" user and one from someone else.
+  // The `$` invocation shape in the lib is `await $\`gh api ...\`` — i.e. a tagged template
+  // literal call where the first argument is an array of string chunks. We look at the joined
+  // string to decide which stub reply to return.
+  const mock$ = (strings, ...values) => {
+    const full = Array.isArray(strings)
+      ? strings.reduce((acc, s, i) => acc + s + (values[i] !== undefined ? String(values[i]) : ''), '')
+      : String(strings);
+    if (full.includes('gh api user')) {
+      return Promise.resolve({ stdout: 'konard\n' });
+    }
+    const comments = JSON.stringify([
+      { id: 101, body: 'please fix the typo', created_at: '2026-01-01T00:00:00Z', user: 'konard' },
+      { id: 102, body: 'actual feedback', created_at: '2026-01-02T00:00:00Z', user: 'alice' }
+    ]);
+    return Promise.resolve({ stdout: comments });
+  };
+
+  const handler = createBidirectionalHandler({
+    owner: 'test-owner',
+    repo: 'test-repo',
+    prNumber: 1,
+    $: mock$,
+    log: mockLog,
+    verbose: true,
+    pollInterval: 60000,
+    excludeOwnComments: true
+  });
+
+  // startMonitoring performs the initial check, which is enough for our assertions.
+  await handler.startMonitoring();
+  await handler.stopMonitoring();
+
+  if (handler.getFeedbackCount() !== 1) {
+    throw new Error(`Expected exactly 1 feedback after filtering own user, got ${handler.getFeedbackCount()}`);
+  }
+  const fb = handler.peekFeedback();
+  if (!fb || fb.user !== 'alice') {
+    throw new Error(`Expected remaining feedback from alice, got ${fb && fb.user}`);
+  }
+});
+
+await runAsyncTest('handler keeps own comments when excludeOwnComments is false', async () => {
+  const logs = [];
+  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+
+  const mock$ = (strings, ...values) => {
+    const full = Array.isArray(strings)
+      ? strings.reduce((acc, s, i) => acc + s + (values[i] !== undefined ? String(values[i]) : ''), '')
+      : String(strings);
+    if (full.includes('gh api user')) {
+      return Promise.resolve({ stdout: 'konard\n' });
+    }
+    const comments = JSON.stringify([
+      { id: 201, body: 'talking to myself', created_at: '2026-01-01T00:00:00Z', user: 'konard' },
+      { id: 202, body: 'feedback from other', created_at: '2026-01-02T00:00:00Z', user: 'alice' }
+    ]);
+    return Promise.resolve({ stdout: comments });
+  };
+
+  const handler = createBidirectionalHandler({
+    owner: 'test-owner',
+    repo: 'test-repo',
+    prNumber: 1,
+    $: mock$,
+    log: mockLog,
+    verbose: true,
+    pollInterval: 60000,
+    excludeOwnComments: false
+  });
+
+  await handler.startMonitoring();
+  await handler.stopMonitoring();
+
+  if (handler.getFeedbackCount() !== 2) {
+    throw new Error(`Expected 2 feedback items (own + other) when excludeOwnComments is false, got ${handler.getFeedbackCount()}`);
   }
 });
 

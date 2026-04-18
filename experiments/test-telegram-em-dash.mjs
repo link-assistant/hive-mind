@@ -55,38 +55,38 @@ const tests = [
   {
     name: 'Em-dash is replaced with double-dash',
     input: '/solve https://github.com/suenot/aicommit/issues/35 —fork',
-    expected: ['https://github.com/suenot/aicommit/issues/35', '--fork']
+    expected: ['https://github.com/suenot/aicommit/issues/35', '--fork'],
   },
   {
     name: 'Multiple em-dashes are replaced',
     input: '/solve https://github.com/test/repo/issues/1 —fork —auto-continue —attach-logs',
-    expected: ['https://github.com/test/repo/issues/1', '--fork', '--auto-continue', '--attach-logs']
+    expected: ['https://github.com/test/repo/issues/1', '--fork', '--auto-continue', '--attach-logs'],
   },
   {
     name: 'Normal double-dashes still work',
     input: '/solve https://github.com/test/repo/issues/1 --fork --auto-continue',
-    expected: ['https://github.com/test/repo/issues/1', '--fork', '--auto-continue']
+    expected: ['https://github.com/test/repo/issues/1', '--fork', '--auto-continue'],
   },
   {
     name: 'Mixed em-dashes and double-dashes',
     input: '/solve https://github.com/test/repo/issues/1 —fork --auto-continue —verbose',
-    expected: ['https://github.com/test/repo/issues/1', '--fork', '--auto-continue', '--verbose']
+    expected: ['https://github.com/test/repo/issues/1', '--fork', '--auto-continue', '--verbose'],
   },
   {
     name: 'Em-dash with value',
     input: '/solve https://github.com/test/repo/issues/1 —model sonnet',
-    expected: ['https://github.com/test/repo/issues/1', '--model', 'sonnet']
+    expected: ['https://github.com/test/repo/issues/1', '--model', 'sonnet'],
   },
   {
     name: 'Command without flags',
     input: '/solve https://github.com/test/repo/issues/1',
-    expected: ['https://github.com/test/repo/issues/1']
+    expected: ['https://github.com/test/repo/issues/1'],
   },
   {
     name: 'Hive command with em-dashes',
     input: '/hive https://github.com/test/repo —verbose —all-issues',
-    expected: ['https://github.com/test/repo', '--verbose', '--all-issues']
-  }
+    expected: ['https://github.com/test/repo', '--verbose', '--all-issues'],
+  },
 ];
 
 let passed = 0;

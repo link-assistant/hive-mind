@@ -7,6 +7,7 @@ The `--prefix-fork-name-with-owner-name` option was designed to allow users to f
 ## Timeline of Events
 
 ### Initial Problem Discovery
+
 **Date:** 2025-11-13 13:37:53 UTC
 **Log:** `original-log.txt`
 
@@ -21,6 +22,7 @@ The `--prefix-fork-name-with-owner-name` option was designed to allow users to f
 **Key Insight:** The branch was pushed to the user's fork (`konard/-`) but the compare API was being called on the base repository (`emirmensitov-afk/-`), which didn't have that branch.
 
 ### First Attempt with Option
+
 **Date:** 2025-11-14 19:29:58 UTC
 **Log:** `option-test-log.txt`
 
@@ -34,6 +36,7 @@ The `--prefix-fork-name-with-owner-name` option was designed to allow users to f
 **Key Issue:** Even with the option enabled, the code was still using the unprefixed fork name `konard/-` instead of the expected prefixed name like `konard/emirmensitov-afk--`.
 
 ### First Solution Draft
+
 **Date:** 2025-11-14 20:00:40 UTC
 **Log:** `solution-draft-1.txt`
 
@@ -42,6 +45,7 @@ The `--prefix-fork-name-with-owner-name` option was designed to allow users to f
 - However, the fix was incomplete and didn't cover all code paths
 
 ### Second Solution Draft
+
 **Date:** 2025-11-14 20:11:31 UTC - 20:30:12 UTC
 **Log:** `solution-draft-2.txt`
 
@@ -52,6 +56,7 @@ The `--prefix-fork-name-with-owner-name` option was designed to allow users to f
 ## Root Cause Analysis
 
 ### Primary Root Cause
+
 The `--prefix-fork-name-with-owner-name` option was implemented in PR #725, but only updated some locations in the code. Multiple other places still used the unprefixed repository name when:
 
 1. Checking if branches exist in the fork
@@ -73,32 +78,39 @@ The `--prefix-fork-name-with-owner-name` option was implemented in PR #725, but 
 Based on the PR description and logs, the following files were identified as needing fixes:
 
 ### 1. `src/solve.execution.lib.mjs` (lines 100-176)
+
 **Issue:** Fork creation and verification used unprefixed name
 **Fix:** Determine fork name based on option, use prefixed name when creating and verifying fork
 
 ### 2. `src/solve.repository.lib.mjs` (lines 454-493)
+
 **Issue:** PR fork verification assumed unprefixed name
 **Fix:** Check both prefixed and standard fork names, try expected name first
 
 ### 3. `src/solve.repository.lib.mjs` (lines 767-806)
+
 **Issue:** pr-fork remote setup used unprefixed name
 **Fix:** Determine fork repo name based on option when adding git remote
 
 ### 4. `src/solve.repo-setup.lib.mjs` (lines 24, 53-57)
+
 **Issue:** Missing owner parameter for fork name determination
 **Fix:** Pass owner parameter to `setupPrForkRemote` function
 
 ### 5. `src/solve.auto-pr.lib.mjs` (lines 381-398)
+
 **Issue:** Permission denied handler checked for fork using unprefixed name
 **Fix:** Determine fork name based on option before checking
 
 ### 6. `src/solve.branch-errors.lib.mjs` (lines 35-65)
+
 **Issue:** Assumed fork name matched base repository name
 **Fix:** Get actual fork repository name from PR data using `headRepository.name`
 
 ## Error Pattern
 
 The consistent error pattern was:
+
 ```
 Compare API error: {"message":"Not Found","documentation_url":"...","status":"404"}
 ```

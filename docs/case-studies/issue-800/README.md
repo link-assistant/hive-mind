@@ -23,11 +23,13 @@ Claude CLI outputs NDJSON (Newline-Delimited JSON) when using `--output-format s
 Based on analysis of actual solution logs from PRs #795, #797, and #792:
 
 #### 1. System Events (`type: "system"`)
+
 - **`subtype: "init"`** - Session initialization
   - Contains: `cwd`, `session_id`, `tools`, other configuration
   - Example: First event in every session
 
 #### 2. Assistant Events (`type: "assistant"`)
+
 - Contains the AI's responses
 - Nested structure with `message.content[]`
 - Content types:
@@ -35,12 +37,14 @@ Based on analysis of actual solution logs from PRs #795, #797, and #792:
   - `type: "tool_use"` - Tool invocations
 
 #### 3. User Events (`type: "user"`)
+
 - Contains tool results
 - Nested structure with `message.content[]`
 - Content types:
   - `type: "tool_result"` - Results from tool execution
 
 #### 4. Result Events (`type: "result"`)
+
 - Final event in a session
 - Subtypes:
   - `subtype: "success"` - Session completed successfully

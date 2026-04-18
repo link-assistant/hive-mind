@@ -1,6 +1,7 @@
 # Technical Summary: Codex CLI 401 Authentication Failures
 
 ## Quick Facts
+
 - **Date**: 2025-11-11
 - **Duration**: 18m 47s (12:18:52 - 12:37:39 UTC)
 - **Failure Count**: 27 consecutive sessions
@@ -11,7 +12,9 @@
 ## Technical Root Cause
 
 ### HTTP 401 Unauthorized
+
 Every Codex CLI session failed with:
+
 ```json
 {
   "type": "turn.failed",
@@ -26,6 +29,7 @@ Every Codex CLI session failed with:
 **Not**: Network issue, rate limit, or service outage.
 
 ### Command Executed
+
 ```bash
 cd "/tmp/gh-issue-solver-1762863542921" && \
   cat "/tmp/gh-issue-solver-1762863542921/codex_prompt.txt" | \
@@ -33,6 +37,7 @@ cd "/tmp/gh-issue-solver-1762863542921" && \
 ```
 
 ### Authentication Flow Failure
+
 1. Codex CLI attempts to authenticate
 2. Reads credentials from:
    - Environment: `$CODEX_API_KEY`
@@ -46,6 +51,7 @@ cd "/tmp/gh-issue-solver-1762863542921" && \
 ## System Design Issues
 
 ### Issue 1: No Pre-flight Authentication Check
+
 ```javascript
 // solve.mjs - Current behavior
 if (tool === 'codex') {
@@ -62,6 +68,7 @@ if (tool === 'codex') {
 ```
 
 ### Issue 2: Retry Logic Doesn't Distinguish Error Types
+
 ```javascript
 // claude.lib.mjs - Current retry logic
 if (data.type === 'error') {
@@ -83,6 +90,7 @@ if (data.type === 'error') {
 ```
 
 ### Issue 3: Auto-restart on Authentication Failures
+
 ```javascript
 // solve.watch.lib.mjs - Current behavior
 while (true) {
@@ -107,6 +115,7 @@ while (true) {
 ```
 
 ### Issue 4: No Circuit Breaker
+
 ```javascript
 // Current: Infinite retry potential
 let failureCount = 0;
@@ -128,7 +137,7 @@ while (true) {
       break;
     }
   } else {
-    failureCount = 0;  // Reset on success
+    failureCount = 0; // Reset on success
   }
 }
 ```
@@ -136,28 +145,26 @@ while (true) {
 ## Code Changes Required
 
 ### Change 1: Add Authentication Error Detection
+
 **File**: `src/claude.lib.mjs`
 **Location**: Line ~900-950 (error handling in executeClaudeCommand)
 
 ```javascript
 // Detect 401 Unauthorized specifically
-if (data.type === 'error' &&
-    (data.message.includes('401 Unauthorized') ||
-     data.message.includes('401 unauthorized'))) {
-
-  await log(`❌ AUTHENTICATION FAILURE: Codex CLI returned 401 Unauthorized`,
-           { color: 'red' });
+if (data.type === 'error' && (data.message.includes('401 Unauthorized') || data.message.includes('401 unauthorized'))) {
+  await log(`❌ AUTHENTICATION FAILURE: Codex CLI returned 401 Unauthorized`, { color: 'red' });
 
   return {
     success: false,
     error: 'AUTHENTICATION_FAILURE',
     authenticationRequired: true,
-    sessionId: null
+    sessionId: null,
   };
 }
 ```
 
 ### Change 2: Add Pre-flight Check
+
 **File**: `src/solve.mjs`
 **Location**: Before line ~790 (before executeClaude call)
 
@@ -168,7 +175,7 @@ if (tool === 'codex' && !argv['skip-auth-check']) {
 
   try {
     const authResult = await execPromise('codex auth status', {
-      timeout: 5000
+      timeout: 5000,
     });
 
     if (authResult.exitCode !== 0) {
@@ -185,6 +192,7 @@ if (tool === 'codex' && !argv['skip-auth-check']) {
 ```
 
 ### Change 3: Handle Authentication Errors in Main Flow
+
 **File**: `src/solve.mjs`
 **Location**: After line ~797 (after executeClaude returns)
 
@@ -199,6 +207,7 @@ if (authenticationRequired) {
 ```
 
 ### Change 4: Add Circuit Breaker to Watch Mode
+
 **File**: `src/solve.watch.lib.mjs`
 **Location**: In watchForFeedback function
 
@@ -229,6 +238,7 @@ while (true) {
 ## Testing Requirements
 
 ### Test 1: Authentication Failure Detection
+
 ```bash
 # Setup: Invalid API key
 export CODEX_API_KEY="invalid"
@@ -245,6 +255,7 @@ solve [issue-url] --tool codex
 ```
 
 ### Test 2: Circuit Breaker
+
 ```bash
 # Setup: Simulate repeated auth failures in watch mode
 
@@ -257,6 +268,7 @@ solve [issue-url] --tool codex
 ```
 
 ### Test 3: Pre-flight Check
+
 ```bash
 # Setup: No authentication
 
@@ -272,6 +284,7 @@ solve [issue-url] --tool codex
 ```
 
 ### Test 4: Successful Authentication
+
 ```bash
 # Setup: Valid authentication
 
@@ -288,18 +301,21 @@ solve [issue-url] --tool codex
 ## Performance Metrics
 
 ### Current State (Broken)
+
 - Time to first error: ~5 seconds
 - Time to give up: ~32 seconds per session
 - Total wasted time: 18 minutes 47 seconds
 - User intervention: Required (Ctrl+C)
 
 ### Target State (Fixed)
+
 - Time to first error: ~5 seconds
 - Time to give up: ~5 seconds (no retries on 401)
 - Total wasted time: < 10 seconds
 - User intervention: Not required
 
 ### Improvement
+
 - **95% faster failure detection** (~32s → ~5s)
 - **99% reduction in wasted time** (18m → 10s)
 - **Zero unnecessary retries** (135 → 0)
@@ -307,7 +323,9 @@ solve [issue-url] --tool codex
 ## Error Classification
 
 ### Non-retriable Errors (4xx Client Errors)
+
 **Action**: Fail fast, no retry
+
 - 400 Bad Request
 - 401 Unauthorized ← **This case**
 - 403 Forbidden
@@ -315,18 +333,24 @@ solve [issue-url] --tool codex
 - 422 Unprocessable Entity
 
 ### Retriable Errors with Backoff (Rate Limits)
+
 **Action**: Retry with exponential backoff
+
 - 429 Too Many Requests
 
 ### Retriable Errors (5xx Server Errors)
+
 **Action**: Retry with backoff
+
 - 500 Internal Server Error
 - 502 Bad Gateway
 - 503 Service Unavailable
 - 504 Gateway Timeout
 
 ### Retriable Errors (Network)
+
 **Action**: Retry with backoff
+
 - Connection timeout
 - Connection refused
 - DNS resolution failure
@@ -334,33 +358,37 @@ solve [issue-url] --tool codex
 ## Implementation Priority
 
 ### P0 (Critical - Ship in next release)
+
 1. ✅ Authentication error detection
 2. ✅ Circuit breaker for auth failures
 3. ✅ Clear error messages with troubleshooting
 
 ### P1 (High - Ship within month)
+
 4. ⚠️ Pre-flight authentication check
 5. ⚠️ Proper error classification (4xx vs 5xx vs network)
 6. ⚠️ Documentation updates
 
 ### P2 (Medium - Ship within quarter)
+
 7. 💡 Monitoring and alerting
 8. 💡 `--verify-auth` flag
 9. 💡 Enhanced troubleshooting guides
 
 ## Related Code Files
 
-| File | Lines | Purpose | Changes Needed |
-|------|-------|---------|----------------|
-| `src/solve.mjs` | ~790-800 | Main orchestration | Add pre-flight check, handle auth errors |
-| `src/solve.mjs` | ~918-933 | Watch mode trigger | Don't trigger on auth errors |
-| `src/solve.watch.lib.mjs` | ~200-400 | Watch loop | Add circuit breaker |
-| `src/claude.lib.mjs` | ~900-1000 | Error handling | Detect 401, classify errors |
-| `src/claude.lib.mjs` | ~700-800 | Retry logic | Skip retries for 4xx errors |
+| File                      | Lines     | Purpose            | Changes Needed                           |
+| ------------------------- | --------- | ------------------ | ---------------------------------------- |
+| `src/solve.mjs`           | ~790-800  | Main orchestration | Add pre-flight check, handle auth errors |
+| `src/solve.mjs`           | ~918-933  | Watch mode trigger | Don't trigger on auth errors             |
+| `src/solve.watch.lib.mjs` | ~200-400  | Watch loop         | Add circuit breaker                      |
+| `src/claude.lib.mjs`      | ~900-1000 | Error handling     | Detect 401, classify errors              |
+| `src/claude.lib.mjs`      | ~700-800  | Retry logic        | Skip retries for 4xx errors              |
 
 ## Monitoring Recommendations
 
 ### Metrics to Track
+
 ```javascript
 // Add to monitoring
 metrics.increment('codex.auth.failures');
@@ -370,11 +398,13 @@ metrics.histogram('codex.time_to_failure', timeMs);
 ```
 
 ### Alerts to Set Up
+
 - **Critical**: Auth failure rate > 50% over 5 minutes
 - **Warning**: Auth failure rate > 10% over 15 minutes
 - **Info**: Individual auth failure
 
 ### Logs to Capture
+
 - Authentication status at startup
 - Each authentication failure with request ID
 - Circuit breaker activations
@@ -383,11 +413,13 @@ metrics.histogram('codex.time_to_failure', timeMs);
 ## Dependencies
 
 ### External
+
 - **Codex CLI**: Authentication mechanism
 - **Network**: Connection to Codex API
 - **Credentials**: API keys, config files
 
 ### Internal
+
 - `src/solve.mjs`: Main flow
 - `src/solve.watch.lib.mjs`: Watch mode
 - `src/claude.lib.mjs`: Execution
@@ -396,21 +428,25 @@ metrics.histogram('codex.time_to_failure', timeMs);
 ## Rollout Plan
 
 ### Phase 1: Development (Week 1)
+
 - Implement P0 changes
 - Unit tests for auth error detection
 - Integration tests for circuit breaker
 
 ### Phase 2: Testing (Week 2)
+
 - Manual testing with invalid credentials
 - Test all error scenarios
 - Validate error messages
 
 ### Phase 3: Staging (Week 3)
+
 - Deploy to staging environment
 - Monitor for false positives
 - Gather user feedback
 
 ### Phase 4: Production (Week 4)
+
 - Gradual rollout (10% → 50% → 100%)
 - Monitor authentication failure rates
 - Incident response ready
@@ -418,17 +454,20 @@ metrics.histogram('codex.time_to_failure', timeMs);
 ## Success Criteria
 
 ✅ **Must Have**:
+
 - Authentication failures detected within 10 seconds
 - No more than 1 retry for 401 errors
 - Clear error message with troubleshooting steps
 - Process exits cleanly
 
 ✅ **Should Have**:
+
 - Pre-flight authentication check
 - Circuit breaker prevents > 3 consecutive auth failures
 - Monitoring and alerting in place
 
 ✅ **Nice to Have**:
+
 - `--verify-auth` flag
 - Enhanced documentation
 - Video tutorials

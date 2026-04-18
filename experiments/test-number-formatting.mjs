@@ -8,7 +8,7 @@
  */
 
 // Function to format numbers with spaces as thousands separator
-const formatNumber = (num) => {
+const formatNumber = num => {
   if (num === null || num === undefined) return 'N/A';
 
   // Convert to string and split on decimal point
@@ -20,9 +20,7 @@ const formatNumber = (num) => {
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
   // Return with decimal part if it exists
-  return decimalPart !== undefined
-    ? `${formattedInteger}.${decimalPart}`
-    : formattedInteger;
+  return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
 };
 
 // Test cases from the issue
@@ -48,9 +46,9 @@ testCases.forEach(({ input, expected, label }) => {
 console.log('\nDecimal formatting (no commas, use . for decimals):');
 const decimalTests = [
   { input: 1.932214, expected: '1.932214', label: 'Total cost' },
-  { input: 0.456360, expected: '0.456360', label: 'Cache write cost' },
+  { input: 0.45636, expected: '0.456360', label: 'Cache write cost' },
   { input: 1.381814, expected: '1.381814', label: 'Cache read cost' },
-  { input: 0.001290, expected: '0.001290', label: 'Input cost' },
+  { input: 0.00129, expected: '0.001290', label: 'Input cost' },
 ];
 
 decimalTests.forEach(({ input, expected, label }) => {
@@ -66,26 +64,26 @@ const formulaTests = [
   {
     tokens: 4606045,
     pricePerM: 0.3,
-    expected: 1.381814,  // Rounded to 6 decimals
-    label: 'Cache read: 4 606 045 tokens × $0.3/M'
+    expected: 1.381814, // Rounded to 6 decimals
+    label: 'Cache read: 4 606 045 tokens × $0.3/M',
   },
   {
     tokens: 121696,
     pricePerM: 3.75,
-    expected: 0.456360,
-    label: 'Cache write: 121 696 tokens × $3.75/M'
+    expected: 0.45636,
+    label: 'Cache write: 121 696 tokens × $3.75/M',
   },
   {
     tokens: 430,
     pricePerM: 3,
-    expected: 0.001290,
-    label: 'Input: 430 tokens × $3/M'
+    expected: 0.00129,
+    label: 'Input: 430 tokens × $3/M',
   },
   {
     tokens: 5665,
     pricePerM: 15,
     expected: 0.084975,
-    label: 'Output: 5 665 tokens × $15/M'
+    label: 'Output: 5 665 tokens × $15/M',
   },
 ];
 
@@ -101,9 +99,9 @@ formulaTests.forEach(({ tokens, pricePerM, expected, label }) => {
 
 // Test 4: Total sum verification
 console.log('\nTotal sum verification:');
-const costs = [0.001290, 0.456360, 1.381814, 0.084975];
+const costs = [0.00129, 0.45636, 1.381814, 0.084975];
 const sum = costs.reduce((acc, val) => acc + val, 0);
-const expectedSum = 1.924439;  // Note: slightly different due to rounding
+const expectedSum = 1.924439; // Note: slightly different due to rounding
 console.log(`  Input + Cache write + Cache read + Output`);
 console.log(`  $${costs[0].toFixed(6)} + $${costs[1].toFixed(6)} + $${costs[2].toFixed(6)} + $${costs[3].toFixed(6)}`);
 console.log(`  = $${sum.toFixed(6)}`);
@@ -114,6 +112,6 @@ console.log('\n\nDisplay format comparison:');
 console.log('BEFORE (with commas, using toLocaleString):');
 console.log(`  Input: 4,606,045 tokens × $0.3/M = $1.381814`);
 console.log('\nAFTER (with spaces, no commas):');
-console.log(`  Input: ${formatNumber(4606045)} tokens × $0.3/M = $${(4606045 / 1000000 * 0.3).toFixed(6)}`);
+console.log(`  Input: ${formatNumber(4606045)} tokens × $0.3/M = $${((4606045 / 1000000) * 0.3).toFixed(6)}`);
 
 console.log('\n✅ All formatting tests complete!');

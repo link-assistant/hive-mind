@@ -60,6 +60,7 @@ log_step() {
 ```
 
 ### Benefits
+
 - Improved readability
 - Clear distinction between message types
 - Better user experience during installation
@@ -69,6 +70,7 @@ log_step() {
 ## Solution 2: Pyenv Warning Mitigation
 
 ### Problem
+
 Pyenv installer shows warning about load path not being set, which is expected since we add it to `.bashrc` during installation.
 
 ### Implementation
@@ -118,6 +120,7 @@ if command -v pyenv >/dev/null 2>&1; then
 ## Solution 3: Homebrew Warning Mitigation
 
 ### Problem
+
 Homebrew installation shows warning about PATH, which is expected and handled by the script.
 
 ### Implementation
@@ -173,6 +176,7 @@ fi
 ## Solution 4: Bun Postinstall Handling
 
 ### Problem
+
 Bun blocks 3 postinstall scripts for security reasons. We should identify and optionally trust them.
 
 ### Implementation
@@ -182,7 +186,7 @@ Replace lines 407-409 with:
 ```bash
 # --- Global bun packages ---
 log_info "Installing global bun packages..."
-bun install -g @deep-assistant/hive-mind @deep-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai
+bun install -g @link-assistant/hive-mind @link-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai
 
 # Check for blocked postinstall scripts
 log_info "Checking for blocked postinstall scripts..."
@@ -201,6 +205,7 @@ fi
 ## Solution 5: NPM Warning Suppression
 
 ### Problem
+
 npm shows exec warning when using npx, and funding notices that clutter output.
 
 ### Implementation
@@ -476,6 +481,7 @@ check_version_update() {
 ## Solution 12: Swap File Enhancement
 
 ### Problem
+
 Current swap implementation is good but could be more robust.
 
 ### Implementation
@@ -504,22 +510,26 @@ fi
 ## Priority Implementation Order
 
 ### Phase 1: Critical Improvements (Must Have)
+
 1. ✅ Enhanced logging system (Solution 1)
 2. ✅ Pre-flight checks (Solution 9)
 3. ✅ Installation summary (Solution 7)
 
 ### Phase 2: Warning Mitigation (Should Have)
+
 4. ✅ Pyenv warning handling (Solution 2)
 5. ✅ Homebrew warning handling (Solution 3)
 6. ✅ NPM warning suppression (Solution 5)
 
 ### Phase 3: Enhanced Features (Nice to Have)
+
 7. ✅ Bun postinstall handling (Solution 4)
 8. ✅ Enhanced Playwright installation (Solution 10)
 9. ✅ Swap optimization (Solution 12)
 10. ✅ Retry logic for network operations (Solution 8)
 
 ### Phase 4: Optional Improvements
+
 11. ⚠️ Version update checking (Solution 11) - May increase complexity
 12. ⚠️ Progress indicators for long operations - Requires significant refactoring
 
@@ -553,6 +563,7 @@ fi
 ### Verification Checklist
 
 After running improved script, verify:
+
 - [ ] All tools appear in PATH
 - [ ] `gh auth status` shows authenticated
 - [ ] `python --version` shows Python 3.14.x
@@ -569,6 +580,7 @@ After running improved script, verify:
 ## Backward Compatibility
 
 All proposed changes maintain backward compatibility:
+
 - Existing function signatures unchanged
 - New functions are additions, not replacements
 - Color codes disabled in non-TTY environments
@@ -580,12 +592,14 @@ All proposed changes maintain backward compatibility:
 ## Documentation Updates
 
 ### README additions needed:
+
 1. System requirements (Ubuntu 24, 15GB+ disk space)
 2. Expected warnings and their meanings
 3. Troubleshooting common issues
 4. How to verify installation success
 
 ### Inline comments needed:
+
 1. Explain why certain warnings are suppressed
 2. Document retry logic and timeout values
 3. Explain security implications of bun postinstalls
@@ -596,6 +610,7 @@ All proposed changes maintain backward compatibility:
 ## Conclusion
 
 These solutions address all warnings and errors found in the installation log while:
+
 - Maintaining script reliability
 - Improving user experience
 - Adding verification and error handling

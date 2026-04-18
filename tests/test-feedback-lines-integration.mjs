@@ -48,14 +48,14 @@ function $(command, options = {}) {
     const result = execSync(command, {
       encoding: 'utf8',
       stdio: options.silent ? 'pipe' : 'inherit',
-      ...options
+      ...options,
     });
     return { code: 0, stdout: result };
   } catch (error) {
     return {
       code: error.status || 1,
       stderr: error.message,
-      stdout: error.stdout || ''
+      stdout: error.stdout || '',
     };
   }
 }
@@ -97,11 +97,7 @@ async function createTestRepository() {
   if (createResult.code !== 0) {
     // Check if it's a permission error
     const errorMsg = (createResult.stderr || createResult.stdout || '').toLowerCase();
-    if (errorMsg.includes('resource not accessible by integration') ||
-        errorMsg.includes('not accessible') ||
-        errorMsg.includes('graphql') ||
-        errorMsg.includes('403') ||
-        errorMsg.includes('forbidden')) {
+    if (errorMsg.includes('resource not accessible by integration') || errorMsg.includes('not accessible') || errorMsg.includes('graphql') || errorMsg.includes('403') || errorMsg.includes('forbidden')) {
       // This is a permission error - skip the test gracefully
       const skipError = new Error('SKIP_TEST_NO_PERMISSIONS');
       skipError.isPermissionError = true;
@@ -184,22 +180,22 @@ async function createTestRepository() {
     throw new Error(`Failed to push test-branch: ${branchPushResult.stderr}`);
   }
 
-   // Use escaped quotes or a different approach to ensure title and body are properly passed
-   // Also explicitly specify the base branch since we renamed it to 'main'
-   const prTitle = 'Test PR for feedback lines';
-   const prBody = 'This PR is for testing comment detection';
-   const prResult = $(`gh pr create --repo ${username}/${testRepo} --base main --title '${prTitle}' --body '${prBody}'`, { silent: true });
-   if (prResult.code !== 0) {
-     throw new Error(`Failed to create PR: ${prResult.stderr}`);
-   }
+  // Use escaped quotes or a different approach to ensure title and body are properly passed
+  // Also explicitly specify the base branch since we renamed it to 'main'
+  const prTitle = 'Test PR for feedback lines';
+  const prBody = 'This PR is for testing comment detection';
+  const prResult = $(`gh pr create --repo ${username}/${testRepo} --base main --title '${prTitle}' --body '${prBody}'`, { silent: true });
+  if (prResult.code !== 0) {
+    throw new Error(`Failed to create PR: ${prResult.stderr}`);
+  }
 
   console.log('   ✅ Test PR created');
 
-   // Get PR number
-   const prListResult = $(`gh pr list --repo ${username}/${testRepo} --json number`, { silent: true });
-   if (prListResult.code !== 0) {
-     throw new Error('Failed to get PR number');
-   }
+  // Get PR number
+  const prListResult = $(`gh pr list --repo ${username}/${testRepo} --json number`, { silent: true });
+  if (prListResult.code !== 0) {
+    throw new Error('Failed to get PR number');
+  }
 
   const prs = JSON.parse(prListResult.stdout);
   const prNumber = prs[0]?.number;
@@ -209,9 +205,9 @@ async function createTestRepository() {
 
   console.log(`   ✅ PR number: ${prNumber}`);
 
-   // Add some comments to the PR
-   $(`gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "First test comment for feedback lines testing"`);
-   $(`gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "Second test comment to verify comment counting"`);
+  // Add some comments to the PR
+  $(`gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "First test comment for feedback lines testing"`);
+  $(`gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "Second test comment to verify comment counting"`);
 
   console.log('   ✅ Test comments added');
 
@@ -231,9 +227,9 @@ async function createTestRepository() {
 
   console.log('   ✅ Baseline commit created');
 
-   // Add more comments after the commit
-   $(`gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "Third comment - this should be detected as NEW"`);
-   $(`gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "Fourth comment - this should also be detected as NEW"`);
+  // Add more comments after the commit
+  $(`gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "Third comment - this should be detected as NEW"`);
+  $(`gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "Fourth comment - this should also be detected as NEW"`);
 
   console.log('   ✅ New comments added after baseline commit');
 
@@ -241,7 +237,7 @@ async function createTestRepository() {
     repoName: testRepo,
     prNumber: prNumber,
     prUrl: `https://github.com/${username}/${testRepo}/pull/${prNumber}`,
-    tempDir: tempDir
+    tempDir: tempDir,
   };
 }
 
@@ -255,7 +251,9 @@ function testSolveFeedbackLines(prUrl) {
   // Debug: Show what command we're running
   console.log(`   📝 Running: node solve.mjs "${prUrl}" --dry-run --verbose --skip-tool-connection-check`);
 
-  const solveResult = $(`node ${solvePath} "${prUrl}" --dry-run --verbose --skip-tool-connection-check 2>&1`, { silent: true });
+  const solveResult = $(`node ${solvePath} "${prUrl}" --dry-run --verbose --skip-tool-connection-check 2>&1`, {
+    silent: true,
+  });
 
   if (solveResult.code !== 0) {
     console.log(`   ⚠️  solve.mjs exited with code ${solveResult.code} (expected for --dry-run)`);
@@ -321,7 +319,7 @@ function testSolveFeedbackLines(prUrl) {
     hasCommentCount,
     hasSystemPromptWithFeedback: true, // We're not checking system prompt in dry-run mode, so assume it's correct
     hasUserPromptWithFeedback,
-    output
+    output,
   };
 }
 
@@ -388,7 +386,6 @@ async function runIntegrationTest() {
     test('Comment counting should work with real repository data', () => {
       return result.hasCommentCount;
     });
-
   } catch (error) {
     // Check if it's a permission error - skip test gracefully
     if (error.isPermissionError || error.message === 'SKIP_TEST_NO_PERMISSIONS') {

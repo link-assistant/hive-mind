@@ -11,7 +11,7 @@ ENV PATH="${BUN_INSTALL}/bin:${PATH}"
 RUN bun install -g @anthropic-ai/claude-code
 
 # Install Claude Profiles
-RUN bun install -g @deep-assistant/claude-profiles
+RUN bun install -g @link-assistant/claude-profiles
 
 # Install OpenCode AI
 RUN bun install -g opencode-ai

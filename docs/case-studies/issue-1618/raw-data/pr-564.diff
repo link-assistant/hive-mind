@@ -1,0 +1,210 @@
+diff --git a/.changeset/add-do-continue-aliases.md b/.changeset/add-do-continue-aliases.md
+new file mode 100644
+index 000000000..2f7ea7374
+--- /dev/null
++++ b/.changeset/add-do-continue-aliases.md
+@@ -0,0 +1,5 @@
++---
++'@link-assistant/hive-mind': minor
++---
++
++Add /do and /continue as alias commands for /solve in telegram bot
+diff --git a/src/telegram-bot.mjs b/src/telegram-bot.mjs
+index 711fef8a8..61e02c029 100755
+--- a/src/telegram-bot.mjs
++++ b/src/telegram-bot.mjs
+@@ -658,7 +658,7 @@ bot.command('help', async ctx => {
+   message += '📝 *Available Commands:*\n\n';
+
+   if (solveEnabled) {
+-    message += '*/solve* - Solve a GitHub issue\n';
++    message += '*/solve* (aliases: */do*, */continue*) - Solve a GitHub issue\n';
+     message += 'Usage: `/solve <github-url> [options]`\n';
+     message += 'Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`\n';
+     message += 'Or reply to a message with a GitHub link: `/solve`\n';
+@@ -667,7 +667,7 @@ bot.command('help', async ctx => {
+     }
+     message += '\n';
+   } else {
+-    message += '*/solve* - ❌ Disabled\n\n';
++    message += '*/solve* (aliases: */do*, */continue*) - ❌ Disabled\n\n';
+   }
+
+   if (hiveEnabled) {
+@@ -695,7 +695,7 @@ bot.command('help', async ctx => {
+   message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete.\n';
+   if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
+   message += '\n';
+-  message += '⚠️ *Note:* /solve, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats.\n\n';
++  message += '⚠️ *Note:* /solve, /do, /continue, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats.\n\n';
+   message += '🔧 *Common Options:*\n';
+   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
+   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
+@@ -1041,7 +1041,7 @@ async function handleSolveCommand(ctx) {
+   }
+ }
+
+-bot.command(/^solve$/i, handleSolveCommand);
++bot.command([/^solve$/i, /^do$/i, /^continue$/i], handleSolveCommand); // /do and /continue are aliases (issue #525)
+
+ // Named handler for /hive command - extracted for reuse by text-based fallback (issue #1207)
+ async function handleHiveCommand(ctx) {
+@@ -1268,12 +1268,8 @@ bot.on('message', async (ctx, next) => {
+   }
+
+   // Check if this is a command we handle
+-  const handlers = {
+-    solve: handleSolveCommand,
+-    hive: handleHiveCommand,
+-    solve_queue: handleSolveQueueCommand,
+-    solvequeue: handleSolveQueueCommand,
+-  };
++  // /do and /continue are aliases for /solve (issue #525)
++  const handlers = { solve: handleSolveCommand, do: handleSolveCommand, continue: handleSolveCommand, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
+
+   const handler = handlers[extracted.command];
+   if (!handler) return next();
+diff --git a/tests/test-telegram-bot-command-aliases.mjs b/tests/test-telegram-bot-command-aliases.mjs
+new file mode 100755
+index 000000000..cb930ec45
+--- /dev/null
++++ b/tests/test-telegram-bot-command-aliases.mjs
+@@ -0,0 +1,138 @@
++#!/usr/bin/env node
++
++/**
++ * Test for /solve command aliases: /do and /continue
++ * This test verifies that /do and /continue work exactly like /solve
++ */
++
++// Mock parseCommandArgs function (same as in telegram-bot.mjs)
++function parseCommandArgs(text) {
++  // Use only first line and trim it
++  const firstLine = text.split('\n')[0].trim();
++  const argsText = firstLine.replace(/^\/\w+\s*/, '');
++
++  if (!argsText.trim()) {
++    return [];
++  }
++
++  // Replace em-dash (—) with double-dash (--) to fix Telegram auto-replacement
++  const normalizedArgsText = argsText.replace(/—/g, '--');
++
++  const args = [];
++  let currentArg = '';
++  let inQuotes = false;
++  let quoteChar = null;
++
++  for (let i = 0; i < normalizedArgsText.length; i++) {
++    const char = normalizedArgsText[i];
++
++    if ((char === '"' || char === "'") && !inQuotes) {
++      inQuotes = true;
++      quoteChar = char;
++    } else if (char === quoteChar && inQuotes) {
++      inQuotes = false;
++      quoteChar = null;
++    } else if (char === ' ' && !inQuotes) {
++      if (currentArg) {
++        args.push(currentArg);
++        currentArg = '';
++      }
++    } else {
++      currentArg += char;
++    }
++  }
++
++  if (currentArg) {
++    args.push(currentArg);
++  }
++
++  return args;
++}
++
++// Test cases
++const tests = [
++  {
++    name: '/do command with basic URL',
++    input: '/do https://github.com/test/repo/issues/1',
++    expected: ['https://github.com/test/repo/issues/1'],
++  },
++  {
++    name: '/do command with options',
++    input: '/do https://github.com/test/repo/issues/1 --fork --auto-continue',
++    expected: ['https://github.com/test/repo/issues/1', '--fork', '--auto-continue'],
++  },
++  {
++    name: '/continue command with basic URL',
++    input: '/continue https://github.com/test/repo/issues/2',
++    expected: ['https://github.com/test/repo/issues/2'],
++  },
++  {
++    name: '/continue command with options',
++    input: '/continue https://github.com/test/repo/issues/2 --verbose --attach-logs',
++    expected: ['https://github.com/test/repo/issues/2', '--verbose', '--attach-logs'],
++  },
++  {
++    name: '/solve command still works',
++    input: '/solve https://github.com/test/repo/issues/3 --fork',
++    expected: ['https://github.com/test/repo/issues/3', '--fork'],
++  },
++  {
++    name: '/do with model option',
++    input: '/do https://github.com/test/repo/issues/4 --model sonnet',
++    expected: ['https://github.com/test/repo/issues/4', '--model', 'sonnet'],
++  },
++  {
++    name: '/continue with think option',
++    input: '/continue https://github.com/test/repo/issues/5 --think high',
++    expected: ['https://github.com/test/repo/issues/5', '--think', 'high'],
++  },
++  {
++    name: '/do with em-dash',
++    input: '/do https://github.com/test/repo/issues/6 —fork',
++    expected: ['https://github.com/test/repo/issues/6', '--fork'],
++  },
++  {
++    name: '/continue with em-dash',
++    input: '/continue https://github.com/test/repo/issues/7 —verbose',
++    expected: ['https://github.com/test/repo/issues/7', '--verbose'],
++  },
++  {
++    name: '/do with multiple options',
++    input: '/do https://github.com/test/repo/issues/8 --fork --auto-continue --attach-logs --verbose',
++    expected: ['https://github.com/test/repo/issues/8', '--fork', '--auto-continue', '--attach-logs', '--verbose'],
++  },
++];
++
++let passed = 0;
++let failed = 0;
++
++console.log('Running telegram bot command aliases tests...\n');
++
++for (const test of tests) {
++  const result = parseCommandArgs(test.input);
++  const success = JSON.stringify(result) === JSON.stringify(test.expected);
++
++  if (success) {
++    console.log(`✅ PASS: ${test.name}`);
++    passed++;
++  } else {
++    console.log(`❌ FAIL: ${test.name}`);
++    console.log(`  Input:    ${test.input}`);
++    console.log(`  Expected: ${JSON.stringify(test.expected)}`);
++    console.log(`  Got:      ${JSON.stringify(result)}`);
++    failed++;
++  }
++}
++
++console.log(`\n${'='.repeat(50)}`);
++console.log(`Total: ${tests.length} tests`);
++console.log(`Passed: ${passed}`);
++console.log(`Failed: ${failed}`);
++console.log(`${'='.repeat(50)}`);
++
++if (passed === tests.length) {
++  console.log('\n✅ All tests passed!');
++  console.log('Command aliases /do and /continue are working correctly.');
++}
++
++process.exit(failed > 0 ? 1 : 0);

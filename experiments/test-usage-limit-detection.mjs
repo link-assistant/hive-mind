@@ -13,44 +13,44 @@ const testCases = [
     name: 'Usage limit with reset time (from issue #719)',
     message: '{"type":"error","message":"You\'ve hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM."}',
     expectedLimit: true,
-    expectedTime: '12:16 PM'
+    expectedTime: '12:16 PM',
   },
   {
     name: 'Turn failed with usage limit',
     message: '{"type":"turn.failed","error":{"message":"You\'ve hit your usage limit. Try again at 2:30 PM."}}',
     expectedLimit: true,
-    expectedTime: '2:30 PM'
+    expectedTime: '2:30 PM',
   },
   {
     name: 'Rate limit exceeded',
     message: 'Error: rate_limit_exceeded',
     expectedLimit: true,
-    expectedTime: null
+    expectedTime: null,
   },
   {
     name: 'You have exceeded your rate limit',
     message: 'You have exceeded your rate limit. Please try again later.',
     expectedLimit: true,
-    expectedTime: null
+    expectedTime: null,
   },
   {
     name: 'Hit your usage limit (short form)',
     message: 'Error: hit your usage limit',
     expectedLimit: true,
-    expectedTime: null
+    expectedTime: null,
   },
   {
     name: 'Regular error (should not match)',
     message: 'Error: Connection timeout',
     expectedLimit: false,
-    expectedTime: null
+    expectedTime: null,
   },
   {
     name: 'Context length exceeded (should not match)',
     message: 'Error: context_length_exceeded',
     expectedLimit: false,
-    expectedTime: null
-  }
+    expectedTime: null,
+  },
 ];
 
 let passedTests = 0;
@@ -100,7 +100,7 @@ const messageLines = formatUsageLimitMessage({
   tool: 'Claude',
   resetTime: '12:16 PM',
   sessionId: '019a77e4-0716-7152-8396-b642e26c3e20',
-  resumeCommand: 'node solve.mjs --auto-continue https://github.com/example/repo/issues/1'
+  resumeCommand: 'node solve.mjs --auto-continue https://github.com/example/repo/issues/1',
 });
 
 for (const line of messageLines) {

@@ -3,6 +3,7 @@
 ## Overview
 
 This case study analyzes two related problems with the `solve` tool's log upload functionality:
+
 1. **Problem 1 (Visual Truncation)**: Uploaded gist appears truncated in GitHub web UI
 2. **Problem 2 (Upload Failure)**: Error `$(...).quiet is not a function` causes gist creation to fail
 
@@ -24,6 +25,7 @@ This case study analyzes two related problems with the `solve` tool's log upload
 **Gist**: https://gist.github.com/konard/d5059763df5684ad9e436673a8af0bc3
 
 **Analysis of Truncation**:
+
 - Downloaded gist size: 1,138,724 bytes (~1.1 MB)
 - Downloaded gist line count: 6,935 lines
 - The gist file IS complete when downloaded via `gh gist view`
@@ -64,6 +66,7 @@ This is **not a bug** in the solve tool. It's a limitation of GitHub's web inter
 **Location**: `src/github.lib.mjs:662`
 
 **Problematic Code**:
+
 ```javascript
 const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`.quiet();
 ```
@@ -71,11 +74,13 @@ const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.lo
 **Issue**: The code uses `.quiet()` method which is available in `zx` library but NOT in `command-stream` library that this codebase uses.
 
 **Evidence from imports** (line 12 of `src/github.lib.mjs`):
+
 ```javascript
 const { $ } = await use('command-stream');
 ```
 
 The `command-stream` package does not provide a `.quiet()` method on the template literal result. This causes:
+
 1. The gist creation succeeds (line 651 works fine)
 2. The attempt to get gist details fails with `$(...).quiet is not a function`
 3. The code enters the catch block (line 781) and logs the error
@@ -85,11 +90,13 @@ The `command-stream` package does not provide a `.quiet()` method on the templat
 ## Impact Assessment
 
 ### Problem 1 Impact: Low
+
 - Users may perceive logs as truncated when viewing in browser
 - Actual data is complete and accessible via download or API
 - Workaround: Click "Download" or use `gh gist view` command
 
 ### Problem 2 Impact: High
+
 - Log upload completely fails for large logs
 - Users lose visibility into AI solution process
 - No automatic fallback works when this error occurs
@@ -99,11 +106,11 @@ The `command-stream` package does not provide a `.quiet()` method on the templat
 
 The following artifacts have been preserved in this case study folder:
 
-| File | Description | Size |
-|------|-------------|------|
-| `issue-759-screenshot.png` | Screenshot showing truncated gist display | - |
+| File                                        | Description                                 | Size   |
+| ------------------------------------------- | ------------------------------------------- | ------ |
+| `issue-759-screenshot.png`                  | Screenshot showing truncated gist display   | -      |
 | `gist-d5059763df5684ad9e436673a8af0bc3.log` | First session log (appears truncated in UI) | 1.1 MB |
-| `gist-7257b11a986a6e712f0e11ba7c56b572.log` | Second session log (upload failed) | 0.3 MB |
+| `gist-7257b11a986a6e712f0e11ba7c56b572.log` | Second session log (upload failed)          | 0.3 MB |
 
 ## Proposed Solutions
 
@@ -112,14 +119,17 @@ The following artifacts have been preserved in this case study folder:
 **Option A (Documentation)**: Add a note to users that large gists may appear truncated in the web UI but are complete when downloaded.
 
 **Option B (Link to Raw)**: Already implemented - the code constructs raw gist URLs:
+
 ```javascript
 gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${commitSha}/${fileName}`;
 ```
+
 However, this depends on the failing `.quiet()` call. Once Problem 2 is fixed, this should work.
 
 ### Solution for Problem 2 (Upload Failure)
 
 **Option A (Recommended)**: Remove `.quiet()` call since `command-stream` doesn't support it:
+
 ```javascript
 // Before (broken):
 const gistDetailsResult = await $`gh api gists/${gistId} --jq '...'`.quiet();
@@ -129,6 +139,7 @@ const gistDetailsResult = await $`gh api gists/${gistId} --jq '...'`;
 ```
 
 **Option B**: Wrap the gist details fetch in try-catch and use the page URL as fallback:
+
 ```javascript
 let gistUrl = gistPageUrl; // fallback to page URL
 try {
@@ -184,8 +195,8 @@ Log Size Check
 
 ## References
 
-- **Issue**: https://github.com/deep-assistant/hive-mind/issues/759
-- **Pull Request**: https://github.com/deep-assistant/hive-mind/pull/763
+- **Issue**: https://github.com/link-assistant/hive-mind/issues/759
+- **Pull Request**: https://github.com/link-assistant/hive-mind/pull/763
 - **Source File**: `src/github.lib.mjs:662`
 - **First Gist**: https://gist.github.com/konard/d5059763df5684ad9e436673a8af0bc3
 - **Second Gist**: https://gist.github.com/konard/7257b11a986a6e712f0e11ba7c56b572

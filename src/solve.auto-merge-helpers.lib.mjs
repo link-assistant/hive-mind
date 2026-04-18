@@ -63,12 +63,14 @@ const { SESSION_ENDING_MARKERS } = toolComments;
  * @param {number} prNumber - Pull request number
  * @param {string} commentSignature - Unique signature to search for in comment body (e.g., "✅ Ready to merge")
  * @param {boolean} verbose - Enable verbose logging
+ * @param {Function} commandRunner - Tagged-template command runner, injectable for tests
  * @returns {Promise<boolean>} - True if a matching comment already exists
  */
-export const checkForExistingComment = async (owner, repo, prNumber, commentSignature, verbose = false) => {
+export const checkForExistingComment = async (owner, repo, prNumber, commentSignature, verbose = false, commandRunner = $) => {
   try {
-    // Fetch all PR comments as JSON to get individual comment bodies in order
-    const result = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq '[.[].body]' 2>/dev/null`;
+    // Fetch every PR comment page so long threads don't scope deduplication to
+    // a stale first-page session-ending marker.
+    const result = await commandRunner`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate --jq '[.[].body]' 2>/dev/null`;
     if (result.code === 0 && result.stdout) {
       const rawOutput = result.stdout.toString().trim();
       if (!rawOutput) return false;

@@ -34,6 +34,14 @@ ENV SDKMAN_DIR="/workspace/.sdkman"
 ENV PERLBREW_ROOT="/workspace/.perl5"
 ENV RBENV_ROOT="/workspace/.rbenv"
 
+# Quiet, deterministic Claude Code defaults for autonomous solve runs (issue #1642)
+ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
+    CLAUDE_CODE_DISABLE_CRON=1 \
+    CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
+    CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \
+    CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS=1 \
+    DISABLE_FEEDBACK_COMMAND=1
+
 # Opam environment variables for Rocq/Coq theorem prover
 ENV OPAM_SWITCH_PREFIX="/workspace/.opam/default"
 ENV CAML_LD_LIBRARY_PATH="/workspace/.opam/default/lib/stublibs:/workspace/.opam/default/lib/ocaml/stublibs:/workspace/.opam/default/lib/ocaml"
@@ -121,7 +129,7 @@ RUN if command -v codex &>/dev/null; then \
       codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
     fi
 
-# --- Disable useless Claude Code built-in tools (issue #1627) ---
+# --- Disable noisy/unused Claude Code features and tools (issue #1627, issue #1642) ---
 # Autonomous headless hive-mind runs never benefit from tools that wait for
 # human interaction (AskUserQuestion, EnterPlanMode) or that register local
 # session cron jobs (CronCreate/List/Delete) or create worktrees
@@ -140,15 +148,20 @@ RUN mkdir -p /workspace/.claude && \
 const fs = require('fs'); \
 const p = '/workspace/.claude/settings.json'; \
 const blocked = ['AskUserQuestion','CronCreate','CronDelete','CronList','EnterPlanMode','EnterWorktree','ExitPlanMode','ExitWorktree','Monitor','NotebookEdit','PushNotification','RemoteTrigger','ScheduleWakeup','mcp__claude_ai_Gmail__*','mcp__claude_ai_Google_Drive__*','mcp__claude_ai_Google_Calendar__*']; \
+const quietEnv = { CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', CLAUDE_CODE_DISABLE_CRON: '1', CLAUDE_CODE_DISABLE_TERMINAL_TITLE: '1', CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1', CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS: '1', DISABLE_FEEDBACK_COMMAND: '1' }; \
+const quietSettings = { autoMemoryEnabled: false, spinnerTipsEnabled: false, awaySummaryEnabled: false, feedbackSurveyRate: 0 }; \
 let s = {}; \
 try { s = JSON.parse(fs.readFileSync(p, 'utf-8')); } catch (e) {} \
 if (!s || typeof s !== 'object' || Array.isArray(s)) s = {}; \
+for (const [key, value] of Object.entries(quietSettings)) s[key] = value; \
+s.env = s.env && typeof s.env === 'object' && !Array.isArray(s.env) ? s.env : {}; \
+for (const [key, value] of Object.entries(quietEnv)) s.env[key] = value; \
 const existing = Array.isArray(s.disallowedTools) ? s.disallowedTools : []; \
 const merged = [...existing]; \
 for (const t of blocked) if (!merged.includes(t)) merged.push(t); \
 s.disallowedTools = merged; \
 fs.writeFileSync(p, JSON.stringify(s, null, 2)); \
-console.log('Configured', merged.length, 'disallowedTools in', p); \
+console.log('Configured quiet Claude Code defaults and', merged.length, 'disallowedTools in', p); \
 "
 
 SHELL ["/bin/bash", "-c"]

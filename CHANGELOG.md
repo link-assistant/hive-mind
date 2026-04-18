@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.54.3
+
+### Patch Changes
+
+- 5030b04: Fix Codex pricing display by calculating OpenAI public estimates from models.dev token rates, passing Codex totals into shared budget stats, and avoiding duplicate raw token usage lines when a Total line is already shown.
+
 ## 1.54.2
 
 ### Patch Changes

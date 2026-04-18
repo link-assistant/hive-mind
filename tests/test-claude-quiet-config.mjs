@@ -76,74 +76,24 @@ try {
   await fs.rm(tmp, { recursive: true, force: true });
 }
 
-// Dockerfile-level verification. The quiet Claude Code configuration is applied
-// by scripts/configure-claude-quiet-defaults.mjs (which delegates to the shared
-// `configure-claude` bin runner in src/configure-claude.lib.mjs), so the
-// Dockerfiles only need to (a) set the required env vars via `ENV` and
-// (b) invoke the shared script. All key/value coverage is enforced by the
-// end-to-end script run below.
+// Dockerfile-level verification. Release Docker builds run only after npm has
+// published the Hive-Mind package version, so Dockerfiles install the exact
+// published package and invoke its `configure-claude` bin directly. The actual
+// key/value coverage is enforced by the configure-claude bin test above.
 for (const file of ['Dockerfile', 'coolify/Dockerfile']) {
   const content = await fs.readFile(path.join(process.cwd(), file), 'utf-8');
   for (const [name, value] of Object.entries(REQUIRED_CLAUDE_QUIET_ENV)) {
     assert.ok(content.includes(`${name}=${value}`), `${file} should set ${name}=${value} via ENV`);
   }
   assert.ok(!content.includes('CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS'), `${file} should not set CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS — built-in git instructions are kept on`);
-  assert.ok(content.includes('scripts/configure-claude-quiet-defaults.mjs'), `${file} should invoke scripts/configure-claude-quiet-defaults.mjs to seed ~/.claude/settings.json`);
-  assert.ok(content.includes('claude-quiet-config.lib.mjs') && content.includes('useless-tools.lib.mjs') && content.includes('configure-claude.lib.mjs'), `${file} should COPY the src libs that the configure script reuses (including the shared configure-claude runner)`);
+  assert.ok(content.includes('ARG HIVE_MIND_VERSION=latest'), `${file} should accept the published hive-mind version as a build arg`);
+  assert.ok(content.includes('bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"'), `${file} should install the published hive-mind package`);
+  assert.ok(content.includes('configure-claude --settings-path /workspace/.claude/settings.json'), `${file} should invoke the published configure-claude bin to seed ~/.claude/settings.json`);
+  assert.ok(content.includes('configure-claude --settings-path /workspace/.claude/settings.json --verify'), `${file} should verify the seeded Claude settings`);
+  assert.ok(!content.includes('/workspace/.hive-mind-bake'), `${file} should not copy repo source into a bake directory`);
+  assert.ok(!content.includes('scripts/configure-claude-quiet-defaults.mjs'), `${file} should not invoke the old repo-local wrapper script`);
+  assert.ok(!content.includes('src/claude-quiet-config.lib.mjs'), `${file} should not COPY quiet config source libs`);
   assert.ok(content.includes('issue #1642'), `${file} should reference issue #1642`);
-}
-
-// End-to-end: running scripts/configure-claude-quiet-defaults.mjs against a
-// fresh settings file must produce exactly the keys/values required for every
-// category (env, settings, attribution, permissions, disallowedTools).
-const { spawn } = await import('node:child_process');
-const runScript = async settingsPath =>
-  new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['scripts/configure-claude-quiet-defaults.mjs', '--settings-path', settingsPath], { stdio: 'pipe' });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', chunk => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on('data', chunk => {
-      stderr += chunk.toString();
-    });
-    child.on('error', reject);
-    child.on('close', code => (code === 0 ? resolve({ stdout, stderr }) : reject(new Error(`exit ${code}: ${stderr || stdout}`))));
-  });
-
-const { USELESS_CLAUDE_BUILTIN_TOOLS, USELESS_MCP_TOOL_NAME_PREFIXES } = await import('../src/useless-tools.lib.mjs');
-
-const scriptTmp = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-quiet-config-script-'));
-try {
-  const settingsPath = path.join(scriptTmp, 'settings.json');
-  const { stdout: firstStdout } = await runScript(settingsPath);
-  assert.ok(firstStdout.includes('Configured quiet Claude Code defaults'), 'script should print final summary line');
-  const written = JSON.parse(await fs.readFile(settingsPath, 'utf-8'));
-  for (const [name, value] of Object.entries(REQUIRED_CLAUDE_QUIET_ENV)) {
-    assert.equal(written.env[name], value, `script should configure env.${name}=${value}`);
-  }
-  for (const [name, value] of Object.entries(REQUIRED_CLAUDE_QUIET_SETTINGS)) {
-    assert.deepEqual(written[name], value, `script should configure ${name}=${JSON.stringify(value)}`);
-  }
-  for (const [name, value] of Object.entries(REQUIRED_CLAUDE_QUIET_ATTRIBUTION)) {
-    assert.equal(written.attribution[name], value, `script should configure attribution.${name}=${JSON.stringify(value)}`);
-  }
-  for (const [name, value] of Object.entries(REQUIRED_CLAUDE_QUIET_PERMISSIONS)) {
-    assert.equal(written.permissions[name], value, `script should configure permissions.${name}=${JSON.stringify(value)}`);
-  }
-  for (const tool of USELESS_CLAUDE_BUILTIN_TOOLS) {
-    assert.ok(written.disallowedTools.includes(tool), `script should add ${tool} to disallowedTools`);
-  }
-  for (const prefix of USELESS_MCP_TOOL_NAME_PREFIXES) {
-    assert.ok(written.disallowedTools.includes(`${prefix}__*`), `script should add ${prefix}__* to disallowedTools`);
-  }
-  // Idempotency: a second run must not duplicate tools or rewrite anything.
-  await runScript(settingsPath);
-  const written2 = JSON.parse(await fs.readFile(settingsPath, 'utf-8'));
-  assert.deepEqual(written2.disallowedTools, written.disallowedTools, 'second run should not duplicate disallowedTools entries');
-} finally {
-  await fs.rm(scriptTmp, { recursive: true, force: true });
 }
 
 console.log('Claude quiet configuration tests passed');

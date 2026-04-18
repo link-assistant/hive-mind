@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * Shared runner for the `configure-claude` bin command and the internal
- * Dockerfile/dev wrapper script. Applies or verifies the quiet Claude Code
- * defaults in a target `settings.json` by reusing the canonical maps and
- * idempotent merge helpers from:
+ * Shared runner for the `configure-claude` bin command. Applies or verifies
+ * the quiet Claude Code defaults in a target `settings.json` by reusing the
+ * canonical maps and idempotent merge helpers from:
  *   - src/claude-quiet-config.lib.mjs (quiet env + settings + attribution
  *     + permissions)
  *   - src/useless-tools.lib.mjs      (disallowedTools block-list)

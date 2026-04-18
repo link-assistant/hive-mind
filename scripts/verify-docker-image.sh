@@ -323,6 +323,13 @@ else
   echo "WARNING: Could not list bun global packages"
 fi
 
+check_tool "Hive-Mind configure-claude" configure-claude --help
+
+echo ""
+echo "Verifying quiet Claude Code baseline..."
+configure-claude --settings-path /workspace/.claude/settings.json --verify
+echo "Quiet Claude Code baseline: OK"
+
 echo ""
 echo "Checking Playwright MCP registration in Claude and Codex..."
 

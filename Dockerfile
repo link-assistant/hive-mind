@@ -18,6 +18,7 @@
 # Build: docker build -t konard/hive-mind .
 
 FROM konard/sandbox:1.6.0
+ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---
 # Set environment variables EARLY so they're available in subsequent RUN commands
@@ -106,10 +107,16 @@ RUN bun install -g @openai/codex && \
     bun install -g opencode-ai
 
 # Install hive-mind workflow utilities
+# Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs
+# the exact package version that contains the configure-claude bin.
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The sandbox base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-RUN bun install -g @link-assistant/hive-mind && \
+RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+    bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
+      test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
+    fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent && \
     bun install -g start-command && \
@@ -150,28 +157,13 @@ RUN if command -v codex &>/dev/null; then \
 # under user/local/project scope; solve.mjs filters them at run time using
 # --strict-mcp-config --mcp-config <temp-file>.
 #
-# The configuration is applied by the same `configure-claude` bin that users
-# and system administrators can invoke manually after installing
-# `@link-assistant/hive-mind` (see src/configure-claude.mjs). During image
-# build we COPY a minimal subset of files so the bake step works before the
-# package is globally installed — once the npm install above lands the
-# published CLI, the `configure-claude` bin becomes available on PATH and
-# this runs the same code path. All required env/settings/attribution/
-# permissions maps and the idempotent merge helpers live in
-# src/claude-quiet-config.lib.mjs and src/useless-tools.lib.mjs so the
-# Dockerfile, solve command, and tests stay in lock-step.
-COPY --chown=sandbox:sandbox \
-    src/claude-quiet-config.lib.mjs \
-    src/useless-tools.lib.mjs \
-    src/configure-claude.lib.mjs \
-    /workspace/.hive-mind-bake/src/
-COPY --chown=sandbox:sandbox \
-    scripts/configure-claude-quiet-defaults.mjs \
-    /workspace/.hive-mind-bake/scripts/
+# The release workflow builds this image only after npm publishes the Hive-Mind
+# version and waits until that version is visible in the registry. The image can
+# therefore use the published `configure-claude` bin directly instead of copying
+# repository source into the Docker build context.
 RUN mkdir -p /workspace/.claude && \
-    node /workspace/.hive-mind-bake/scripts/configure-claude-quiet-defaults.mjs \
-        --settings-path /workspace/.claude/settings.json && \
-    rm -rf /workspace/.hive-mind-bake
+    configure-claude --settings-path /workspace/.claude/settings.json && \
+    configure-claude --settings-path /workspace/.claude/settings.json --verify
 
 SHELL ["/bin/bash", "-c"]
 CMD ["/bin/bash"]

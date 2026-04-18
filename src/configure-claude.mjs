@@ -7,9 +7,9 @@
  * target `settings.json`, or verifies that they are already in place.
  *
  * Users and system administrators can run this manually after installing
- * `@link-assistant/hive-mind` to reset Claude Code configuration; both
- * Dockerfiles invoke the same code path via the shared runner to keep
- * the image baseline in lock-step with the published bin.
+ * `@link-assistant/hive-mind` to reset Claude Code configuration. Docker
+ * images invoke this published bin after npm release, so the image baseline
+ * stays in lock-step with the package users install.
  *
  * See issues #1627 and #1642.
  */

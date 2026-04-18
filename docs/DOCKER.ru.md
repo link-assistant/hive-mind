@@ -47,10 +47,10 @@ docker build -t hive-mind-dev .
 
 # Run with credential mounts
 docker run --rm -it \
-    -v ~/.config/gh:/workspace/.persisted-configs/gh:ro \
-    -v ~/.local/share/claude-profiles:/workspace/.persisted-configs/claude:ro \
-    -v ~/.config/claude-code:/workspace/.persisted-configs/claude-code:ro \
-    -v "$(pwd)/output:/workspace/output" \
+    -v ~/.config/gh:/home/box/.persisted-configs/gh:ro \
+    -v ~/.local/share/claude-profiles:/home/box/.persisted-configs/claude:ro \
+    -v ~/.config/claude-code:/home/box/.persisted-configs/claude-code:ro \
+    -v "$(pwd)/output:/home/box/output" \
     hive-mind-dev
 ```
 
@@ -115,18 +115,18 @@ claude
 Для сохранения аутентификации и работы между перезапусками контейнера:
 
 ```bash
-# Create a volume for the sandbox user's home directory
-docker volume create sandbox-home
+# Create a volume for the box user's home directory
+docker volume create box-home
 
 # Run with the volume mounted
-docker run -it -v sandbox-home:/workspace konard/hive-mind:latest
+docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
 ### Запуск в фоновом режиме
 
 ```bash
 # Start a detached container
-docker run -d --name hive-worker -v sandbox-home:/workspace konard/hive-mind:latest sleep infinity
+docker run -d --name hive-worker -v box-home:/home/box konard/hive-mind:latest sleep infinity
 
 # Execute commands in the running container
 docker exec -it hive-worker bash
@@ -145,12 +145,12 @@ services:
   hive-mind:
     image: konard/hive-mind:latest
     volumes:
-      - sandbox-home:/workspace
+      - box-home:/home/box
     stdin_open: true
     tty: true
 
 volumes:
-  sandbox-home:
+  box-home:
 ```
 
 Затем запустите:

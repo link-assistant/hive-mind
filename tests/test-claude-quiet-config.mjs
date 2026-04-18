@@ -88,8 +88,8 @@ for (const file of ['Dockerfile', 'coolify/Dockerfile']) {
   assert.ok(!content.includes('CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS'), `${file} should not set CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS — built-in git instructions are kept on`);
   assert.ok(content.includes('ARG HIVE_MIND_VERSION=latest'), `${file} should accept the published hive-mind version as a build arg`);
   assert.ok(content.includes('bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"'), `${file} should install the published hive-mind package`);
-  assert.ok(content.includes('configure-claude --settings-path /workspace/.claude/settings.json'), `${file} should invoke the published configure-claude bin to seed ~/.claude/settings.json`);
-  assert.ok(content.includes('configure-claude --settings-path /workspace/.claude/settings.json --verify'), `${file} should verify the seeded Claude settings`);
+  assert.ok(content.includes('configure-claude --settings-path /home/box/.claude/settings.json'), `${file} should invoke the published configure-claude bin to seed ~/.claude/settings.json`);
+  assert.ok(content.includes('configure-claude --settings-path /home/box/.claude/settings.json --verify'), `${file} should verify the seeded Claude settings`);
   assert.ok(!content.includes('/workspace/.hive-mind-bake'), `${file} should not copy repo source into a bake directory`);
   assert.ok(!content.includes('scripts/configure-claude-quiet-defaults.mjs'), `${file} should not invoke the old repo-local wrapper script`);
   assert.ok(!content.includes('src/claude-quiet-config.lib.mjs'), `${file} should not COPY quiet config source libs`);

@@ -51,7 +51,7 @@ Options:
 Examples:
   configure-claude                           # apply defaults to ~/.claude/settings.json
   configure-claude --verify                  # check only, non-zero exit if drift detected
-  configure-claude -s /workspace/.claude/settings.json
+  configure-claude -s /home/box/.claude/settings.json
 
 Reference: https://github.com/link-assistant/hive-mind/issues/1642
 `;

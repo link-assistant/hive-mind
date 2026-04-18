@@ -203,19 +203,19 @@ docker attach hive-mind
 mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
 touch -a /root/.hive-mind/claude.json
 
-# In our Docker images HOME=/workspace, so Codex stores its data in /workspace/.codex.
+# In our Docker images HOME=/home/box, so Codex stores its data in /home/box/.codex.
 # Mount the full Codex directory so auth.json, config.toml, and sessions survive restarts.
-docker run -dit --user sandbox --name hive-mind --restart unless-stopped \
-  -v /root/.hive-mind/claude:/workspace/.claude \
-  -v /root/.hive-mind/codex:/workspace/.codex \
-  -v /root/.hive-mind/claude.json:/workspace/.claude.json \
-  -v /root/.hive-mind/gh:/workspace/.config/gh \
-  konard/hive-mind:latest bash -l -c 'bash /workspace/start-bot.sh'
+docker run -dit --user box --name hive-mind --restart unless-stopped \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
 
-# After the first start, fix ownership to match the sandbox user inside the container:
-SANDBOX_UID=$(docker exec hive-mind id -u sandbox)
-chown -R $SANDBOX_UID:$SANDBOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
-chown $SANDBOX_UID:$SANDBOX_UID /root/.hive-mind/claude.json
+# After the first start, fix ownership to match the box user inside the container:
+BOX_UID=$(docker exec hive-mind id -u box)
+chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+chown $BOX_UID:$BOX_UID /root/.hive-mind/claude.json
 
 # Important: mounted ~/.codex data overrides the image-baked Codex config.
 # If the host directory was created before Playwright MCP was added to the image,
@@ -231,7 +231,7 @@ docker exec -it hive-mind bash -lc 'codex mcp list && codex mcp add playwright -
 - ✅ Easy to run multiple instances with different GitHub accounts
 - ✅ Consistent environment across different machines
 
-The Docker image itself now registers Playwright MCP for both Claude and Codex during build, and CI verifies those registrations in the built container. If `codex mcp list` is still empty in a running container, the usual cause is not the published image itself but a mounted `/workspace/.codex` directory from the host that replaces the image's default Codex configuration.
+The Docker image itself now registers Playwright MCP for both Claude and Codex during build, and CI verifies those registrations in the built container. If `codex mcp list` is still empty in a running container, the usual cause is not the published image itself but a mounted `/home/box/.codex` directory from the host that replaces the image's default Codex configuration.
 
 See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
 

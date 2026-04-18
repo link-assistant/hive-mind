@@ -7,9 +7,9 @@
 #   docker run --rm IMAGE bash scripts/verify-docker-image.sh
 #
 # This script verifies:
-#   1. User setup (sandbox user with /workspace access)
-#   2. All system & development tools (from sandbox base image, alphabetical order)
-#   3. AI-specific tools (added by hive-mind on top of sandbox)
+#   1. User setup (box user with /home/box access)
+#   2. All system & development tools (from Box base image, alphabetical order)
+#   3. AI-specific tools (added by hive-mind on top of Box)
 #
 # Exit code 0 = all checks passed; non-zero = one or more checks failed.
 
@@ -20,7 +20,7 @@ set -euo pipefail
 # Third-party init scripts may reference unset variables, so we temporarily
 # disable the unbound-variable check (set -u) while sourcing them.
 # ---------------------------------------------------------------------------
-export HOME=/workspace
+export HOME=/home/box
 # Add ~/.local/bin for user-installed binaries (e.g. opam installed by rocq install script)
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -77,48 +77,48 @@ check_tool() {
 }
 
 # ---------------------------------------------------------------------------
-# Step 1: Verify user setup (sandbox user with /workspace access)
+# Step 1: Verify user setup (box user with /home/box access)
 # ---------------------------------------------------------------------------
-echo "=== Verifying user setup (sandbox user with /workspace access) ==="
+echo "=== Verifying user setup (box user with /home/box access) ==="
 echo ""
 
 CURRENT_USER=$(whoami)
 echo "Current user: $CURRENT_USER"
-if [ "$CURRENT_USER" != "sandbox" ]; then
-  echo "ERROR: Expected user sandbox, got $CURRENT_USER"
+if [ "$CURRENT_USER" != "box" ]; then
+  echo "ERROR: Expected user box, got $CURRENT_USER"
   exit 1
 fi
 
-if [ "$HOME" != "/workspace" ]; then
-  echo "ERROR: HOME should be /workspace, got $HOME"
+if [ "$HOME" != "/home/box" ]; then
+  echo "ERROR: HOME should be /home/box, got $HOME"
   exit 1
 fi
 
-if [ ! -d /workspace ]; then
-  echo "ERROR: /workspace directory does not exist"
+if [ ! -d /home/box ]; then
+  echo "ERROR: /home/box directory does not exist"
   exit 1
 fi
 
-if [ ! -w /workspace ]; then
-  echo "ERROR: /workspace is not writable by sandbox user"
+if [ ! -w /home/box ]; then
+  echo "ERROR: /home/box is not writable by box user"
   exit 1
 fi
 
-# Verify sandbox user is in the sandbox group
-if id -nG sandbox | grep -qw sandbox; then
-  echo "sandbox user is in sandbox group: OK"
+# Verify box user is in the box group
+if id -nG box | grep -qw box; then
+  echo "box user is in box group: OK"
 else
-  echo "ERROR: sandbox user is not in the sandbox group"
+  echo "ERROR: box user is not in the box group"
   exit 1
 fi
 
 # Verify .config directory ownership (see issue #1419)
 # Root-owned .config prevents tools from creating config subdirectories at runtime
-if [ -d /workspace/.config ]; then
-  CONFIG_OWNER=$(stat -c '%U' /workspace/.config 2>/dev/null || stat -f '%Su' /workspace/.config 2>/dev/null)
+if [ -d /home/box/.config ]; then
+  CONFIG_OWNER=$(stat -c '%U' /home/box/.config 2>/dev/null || stat -f '%Su' /home/box/.config 2>/dev/null)
   echo ".config directory owner: $CONFIG_OWNER"
-  if [ "$CONFIG_OWNER" != "sandbox" ]; then
-    echo "ERROR: /workspace/.config is owned by $CONFIG_OWNER, expected sandbox"
+  if [ "$CONFIG_OWNER" != "box" ]; then
+    echo "ERROR: /home/box/.config is owned by $CONFIG_OWNER, expected box"
     echo "This causes EACCES errors when tools try to create config subdirectories"
     echo "See: https://github.com/link-assistant/hive-mind/issues/1419"
     exit 1
@@ -128,12 +128,12 @@ else
   echo ".config directory does not exist yet (will be created at runtime): OK"
 fi
 
-# Verify sandbox user can create directories in .config (see issue #1419)
-if mkdir -p /workspace/.config/.verify-test 2>/dev/null; then
-  rmdir /workspace/.config/.verify-test 2>/dev/null
+# Verify box user can create directories in .config (see issue #1419)
+if mkdir -p /home/box/.config/.verify-test 2>/dev/null; then
+  rmdir /home/box/.config/.verify-test 2>/dev/null
   echo ".config directory write access: OK"
 else
-  echo "ERROR: sandbox user cannot create directories in /workspace/.config"
+  echo "ERROR: box user cannot create directories in /home/box/.config"
   echo "See: https://github.com/link-assistant/hive-mind/issues/1419"
   exit 1
 fi
@@ -144,7 +144,7 @@ echo ""
 # ---------------------------------------------------------------------------
 # Step 2: Verify all system & development tools (alphabetical order)
 # ---------------------------------------------------------------------------
-echo "=== Verifying system & development tools (from sandbox base) ==="
+echo "=== Verifying system & development tools (from Box base) ==="
 echo "Checking all tools in alphabetical order to reduce merge conflicts"
 
 check_tool "Bun"       bun       --version
@@ -206,7 +206,7 @@ for browser in $BROWSERS_REQUIRED; do
   fi
 done
 
-# Google Chrome — in sandbox 1.6.0+, installed as sandbox user to Playwright cache
+# Google Chrome — in Box 2.0.1+, installed as box user to Playwright cache
 # (no longer system-wide via sudo). Check cache directory, with command fallback.
 ARCH=$(uname -m)
 if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then
@@ -231,7 +231,7 @@ for browser in chromium_headless_shell ffmpeg; do
   fi
 done
 
-# msedge — in sandbox 1.6.0+, installed to Playwright cache as sandbox user
+# msedge — in Box 2.0.1+, installed to Playwright cache as box user
 MSEDGE_DIR=$(ls -d "${PLAYWRIGHT_CACHE}/msedge"* 2>/dev/null | head -1 || true)
 if [ -n "$MSEDGE_DIR" ] && [ -d "$MSEDGE_DIR" ]; then
   echo "  msedge: OK ($(basename "$MSEDGE_DIR"))"
@@ -310,7 +310,7 @@ echo ""
 echo "=== All system & development tools verification checks PASSED ==="
 
 # ---------------------------------------------------------------------------
-# Step 3: Verify AI-specific tools (added by hive-mind on top of sandbox)
+# Step 3: Verify AI-specific tools (added by hive-mind on top of Box)
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== Verifying AI-specific tools (hive-mind additions) ==="
@@ -331,7 +331,7 @@ if command -v configure-claude >/dev/null 2>&1; then
 
   echo ""
   echo "Verifying quiet Claude Code baseline..."
-  configure-claude --settings-path /workspace/.claude/settings.json --verify
+  configure-claude --settings-path /home/box/.claude/settings.json --verify
   echo "Quiet Claude Code baseline: OK"
 else
   # PR Docker builds install @link-assistant/hive-mind@latest, which can pre-date
@@ -368,7 +368,7 @@ if command -v codex &>/dev/null; then
     echo "ERROR: Codex Playwright MCP registration missing"
     echo "$CODEX_MCP_OUTPUT"
     echo "This image is expected to preconfigure Playwright MCP for Codex during build."
-    echo "If this happens only in a runtime container with mounted /workspace/.codex, the mount may be overriding the image-baked Codex config."
+    echo "If this happens only in a runtime container with mounted /home/box/.codex, the mount may be overriding the image-baked Codex config."
     exit 1
   fi
 else

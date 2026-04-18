@@ -8,7 +8,7 @@
  * deduplicated bin command that users and system administrators can run
  * manually after installing `@link-assistant/hive-mind`. Docker release builds
  * install that published package and run the same bin for the pre-seeded
- * /workspace/.claude/settings.json.
+ * /home/box/.claude/settings.json.
  */
 
 import assert from 'node:assert/strict';

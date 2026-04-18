@@ -676,10 +676,10 @@ jobs:
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
 
-      - name: Show sandbox base image version
+      - name: Show Box base image version
         run: |
-          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
-          echo "Sandbox base image version: konard/sandbox:${SANDBOX_VERSION}"
+          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
+          echo "Box base image version: konard/box:${BOX_VERSION}"
           echo "This pinned version ensures stable, reproducible builds."
 
       - name: Build Docker image
@@ -688,9 +688,12 @@ jobs:
         # tolerates a missing configure-claude bin in that case. Release builds
         # install the exact version just published and enforce the bin strictly.
         run: |
-          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
-          echo "Building Docker image from konard/sandbox:${SANDBOX_VERSION} base..."
-          echo "Installing @link-assistant/hive-mind@latest — configure-claude may not yet be present in the published package."
+          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
+          echo "Building Docker image from konard/box:${BOX_VERSION} base..."
+          echo "Note: General-purpose tools are inherited from pinned konard/box:${BOX_VERSION}"
+          echo "This image adds AI-specific tools on top of the Box base."
+          echo "Installing @link-assistant/hive-mind@latest; configure-claude may not yet be present in the published package."
+          echo ""
 
           # Multi-platform builds (amd64+arm64) are tested in docker-publish during release.
           # PR checks only validate amd64 using standard docker build (not buildx) so the
@@ -715,13 +718,14 @@ jobs:
 
       - name: Verify system & development tools in running container
         run: |
-          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
           echo "=== Verifying hive-mind Docker image ==="
-          echo "Base: konard/sandbox:${SANDBOX_VERSION} (pinned) + AI-specific tools"
+          echo "Base: konard/box:${BOX_VERSION} (pinned) + AI-specific tools"
           echo ""
 
           # Run verification script inside container (mounts script as read-only volume)
-          # Verifies sandbox user, dev tools, AI tools, and configure-claude (tolerantly).
+          # Verifies box user setup (/home/box access), dev tools, AI tools,
+          # and configure-claude (tolerantly for PR builds).
           docker run --rm \
             -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \
             ${{ env.IMAGE_NAME }}:test \

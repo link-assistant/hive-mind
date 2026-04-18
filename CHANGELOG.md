@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 1.54.2
+
+### Patch Changes
+
+- 9d4e473: Cap `/limits` CPU cores display at available CPU count when load average demand exceeds capacity.
+- ea0b9f5: Use Anthropic's native Claude Code installer in Docker images so the CLI binary is installed even when Bun blocks dependency postinstall scripts.
+
 ## 1.54.1
 
 ### Patch Changes

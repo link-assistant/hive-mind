@@ -11,7 +11,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
-import { createBidirectionalHandler, validateBidirectionalModeConfig } from './bidirectional-interactive.lib.mjs';
+import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig } from './bidirectional-interactive.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
@@ -719,30 +719,9 @@ export const executeClaudeCommand = async params => {
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }
-    // Issue #817: Create bidirectional handler if --accept-incomming-comments-as-input
-    // (or the combined --bidirectional-interactive-mode) is enabled.
-    // Accepts new PR comments as input for Claude during execution.
-    let bidirectionalHandler = null;
-    if (argv.acceptIncommingCommentsAsInput && owner && repo && prNumber) {
-      await log('🔌 Bidirectional mode: Creating handler to accept incoming PR comments as Claude input', { verbose: true });
-      bidirectionalHandler = createBidirectionalHandler({
-        owner,
-        repo,
-        prNumber,
-        $,
-        log,
-        verbose: argv.verbose,
-        pollInterval: 15000,
-        excludeOwnComments: !!argv.excludeAllOwnIncommingCommentsFromInput,
-      });
-      // Initialize with existing comments to only process NEW comments during execution
-      await bidirectionalHandler.initializeFromCurrentComments();
-      // Start monitoring
-      await bidirectionalHandler.startMonitoring();
-      await log('🔌 Bidirectional mode: Started monitoring PR comments for feedback', { verbose: true });
-    } else if (argv.acceptIncommingCommentsAsInput) {
-      await log('⚠️ Bidirectional mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
-    }
+    // Issue #817: Set up bidirectional handler when --accept-incomming-comments-as-input
+    // (or composite --bidirectional-interactive-mode) is enabled. Returns null when inactive.
+    const bidirectionalHandler = await setupBidirectionalHandler({ argv, owner, repo, prNumber, $, log });
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
@@ -1146,25 +1125,7 @@ export const executeClaudeCommand = async params => {
       }
 
       // Issue #817: Stop bidirectional mode monitoring and collect queued feedback
-      if (bidirectionalHandler) {
-        try {
-          await bidirectionalHandler.stopMonitoring();
-          const state = bidirectionalHandler.getState();
-          queuedFeedback = bidirectionalHandler.getAllQueuedFeedback();
-          if (queuedFeedback.length > 0) {
-            await log(`\n📥 Bidirectional mode: ${queuedFeedback.length} feedback message(s) received during execution`, { level: 'info' });
-            for (const feedback of queuedFeedback) {
-              await log(`   • From @${feedback.user}: ${feedback.body.substring(0, 100)}${feedback.body.length > 100 ? '...' : ''}`, { level: 'info' });
-            }
-            await log('   💡 This feedback will be available for the next continuation of this task.', { level: 'info' });
-          } else {
-            await log('📊 Bidirectional mode: No new feedback received during execution', { verbose: true });
-          }
-          await log(`📊 Bidirectional mode stats: ${state.totalCommentsProcessed} comments processed, ${state.totalFeedbackQueued} feedback queued`, { verbose: true });
-        } catch (bidirectionalError) {
-          await log(`⚠️ Bidirectional mode cleanup error: ${bidirectionalError.message}`, { verbose: true });
-        }
-      }
+      queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
       const isTransientError = isStartupTimeout || isActivityTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
       if ((commandFailed || isTransientError) && isTransientError) {

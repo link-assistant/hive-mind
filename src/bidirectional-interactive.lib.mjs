@@ -458,6 +458,75 @@ export const validateBidirectionalModeConfig = async (argv, log) => {
   return true;
 };
 
+/**
+ * Set up the bidirectional handler for an execution. Returns `null` when the
+ * feature is not requested or PR info is missing — callers can treat a null
+ * return as "no-op".
+ *
+ * @param {Object} params
+ * @param {Object} params.argv - Parsed CLI args (expects `acceptIncommingCommentsAsInput`,
+ *   `excludeAllOwnIncommingCommentsFromInput`, `verbose`).
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {string|number} params.prNumber
+ * @param {Function} params.$ - command-stream tagged template
+ * @param {Function} params.log
+ * @returns {Promise<Object|null>} Started handler or null when inactive.
+ */
+export const setupBidirectionalHandler = async ({ argv, owner, repo, prNumber, $, log }) => {
+  if (!argv.acceptIncommingCommentsAsInput) return null;
+  if (!owner || !repo || !prNumber) {
+    await log('⚠️ Bidirectional mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
+    return null;
+  }
+  await log('🔌 Bidirectional mode: Creating handler to accept incoming PR comments as Claude input', { verbose: true });
+  const handler = createBidirectionalHandler({
+    owner,
+    repo,
+    prNumber,
+    $,
+    log,
+    verbose: argv.verbose,
+    pollInterval: 15000,
+    excludeOwnComments: !!argv.excludeAllOwnIncommingCommentsFromInput,
+  });
+  await handler.initializeFromCurrentComments();
+  await handler.startMonitoring();
+  await log('🔌 Bidirectional mode: Started monitoring PR comments for feedback', { verbose: true });
+  return handler;
+};
+
+/**
+ * Stop the handler, flush its queue, and log a summary. Safe to call with a
+ * null handler (returns an empty array).
+ *
+ * @param {Object|null} handler - Handler returned by setupBidirectionalHandler, or null.
+ * @param {Function} log
+ * @returns {Promise<Array>} Queued feedback messages (possibly empty).
+ */
+export const finalizeBidirectionalHandler = async (handler, log) => {
+  if (!handler) return [];
+  try {
+    await handler.stopMonitoring();
+    const state = handler.getState();
+    const queuedFeedback = handler.getAllQueuedFeedback();
+    if (queuedFeedback.length > 0) {
+      await log(`\n📥 Bidirectional mode: ${queuedFeedback.length} feedback message(s) received during execution`, { level: 'info' });
+      for (const feedback of queuedFeedback) {
+        await log(`   • From @${feedback.user}: ${feedback.body.substring(0, 100)}${feedback.body.length > 100 ? '...' : ''}`, { level: 'info' });
+      }
+      await log('   💡 This feedback will be available for the next continuation of this task.', { level: 'info' });
+    } else {
+      await log('📊 Bidirectional mode: No new feedback received during execution', { verbose: true });
+    }
+    await log(`📊 Bidirectional mode stats: ${state.totalCommentsProcessed} comments processed, ${state.totalFeedbackQueued} feedback queued`, { verbose: true });
+    return queuedFeedback;
+  } catch (bidirectionalError) {
+    await log(`⚠️ Bidirectional mode cleanup error: ${bidirectionalError.message}`, { verbose: true });
+    return [];
+  }
+};
+
 // Export utilities for testing
 export const utils = {
   isSystemComment,
@@ -470,5 +539,7 @@ export default {
   createBidirectionalHandler,
   isBidirectionalModeSupported,
   validateBidirectionalModeConfig,
+  setupBidirectionalHandler,
+  finalizeBidirectionalHandler,
   utils,
 };

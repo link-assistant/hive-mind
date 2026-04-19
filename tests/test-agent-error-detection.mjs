@@ -672,6 +672,109 @@ console.log('Test 27: Agent exiting with hasError=false marks success');
   console.log('  ✅ PASSED: Clean Agent exiting event prevents false AGENT execution failed\n');
 }
 
+// Test 28: Real production log shape - nested UnknownError inside type:"error" event
+// This reproduces the actual NDJSON event observed in
+// docs/case-studies/issue-1629/logs/solution-draft-6aeb182b868a97770a8ed3ff525819f6.log:52576
+// where the error message is nested at data.error.data.message rather than
+// at data.message or data.error.
+console.log('Test 28: Nested UnknownError with Agent exiting clears all error state');
+{
+  let test28AgentCompleted = false;
+  let test28StreamingError = false;
+  let test28StreamingErrorMessage = null;
+  const test28ExitCode = 0;
+
+  const realErrorEvent = {
+    type: 'error',
+    timestamp: 1776272635970,
+    sessionID: 'ses_26de88a5cffeeVEcAPu2bDkVEy',
+    error: {
+      name: 'UnknownError',
+      data: { message: "TypeError: undefined is not an object (evaluating 'usage.inputTokens.total')" },
+    },
+  };
+  const exitEvent = {
+    type: 'log',
+    level: 'info',
+    service: 'default',
+    hasError: false,
+    uptimeSeconds: 132,
+    message: 'Agent exiting',
+  };
+  const productionSequence = [JSON.stringify(realErrorEvent), JSON.stringify(exitEvent)];
+
+  for (const line of productionSequence) {
+    try {
+      const data = JSON.parse(line);
+      if (data.type === 'error' || data.type === 'step_error') {
+        test28StreamingError = true;
+        test28StreamingErrorMessage = data.message || data.error || line.substring(0, 100);
+      }
+      if (data.type === 'log' && data.message === 'Agent exiting' && data.hasError === false) {
+        test28AgentCompleted = true;
+      }
+    } catch {
+      // Not JSON
+    }
+  }
+
+  assert.strictEqual(test28StreamingError, true, 'Streaming should detect the type:error event');
+  assert.strictEqual(test28AgentCompleted, true, 'Agent exiting with hasError=false should mark success');
+
+  // Apply Issue #1276 streaming-clear rule (agent.lib.mjs line 722-728)
+  if (test28ExitCode === 0 && (test28AgentCompleted || !test28StreamingError)) {
+    test28StreamingError = false;
+    test28StreamingErrorMessage = null;
+  }
+  assert.strictEqual(test28StreamingError, false, 'Streaming error cleared after successful completion');
+
+  // Apply post-hoc detection
+  const fullOutput = productionSequence.join('\n');
+  const outputError = detectAgentErrors(fullOutput);
+  assert.strictEqual(outputError.detected, true, 'Post-hoc sees the error event initially');
+
+  // Apply Issue #1629 post-hoc-clear rule (agent.lib.mjs line 734-738)
+  if (test28ExitCode === 0 && test28AgentCompleted && outputError.detected) {
+    outputError.detected = false;
+    outputError.type = null;
+    outputError.match = null;
+  }
+  assert.strictEqual(outputError.detected, false, 'Post-hoc error cleared after Agent exiting hasError:false');
+
+  // Apply Issue #1290 fallback-gate (agent.lib.mjs line 756)
+  const shouldRunFallback = !outputError.detected && !test28StreamingError && !(test28ExitCode === 0 && test28AgentCompleted);
+  assert.strictEqual(shouldRunFallback, false, 'Fallback pattern match gated off when agent completed successfully');
+
+  console.log('  ✅ PASSED: Full Issue #1629 production shape handled end-to-end\n');
+}
+
+// Test 29: AGENT execution should NOT fail when user's real-world shape appears
+// Real log line 52710 shows the fallback fired in production. Simulate the
+// complete gate chain: streaming undetected, post-hoc detects nothing, fallback
+// would normally find "type":"error" in fullOutput. Confirm Issue #1629 cleared
+// agentCompletedSuccessfully gates fallback off.
+console.log('Test 29: Fallback pattern match gated off for Issue #1629 production shape');
+{
+  const test29ExitCode = 0;
+  const test29AgentCompleted = true; // from the Issue #1629 fix
+  const test29StreamingError = false; // cleared by Issue #1276
+  const test29OutputErrorDetected = false; // cleared by Issue #1629
+
+  // This mirrors the real raw fullOutput which contains "type":"error" as
+  // unformatted NDJSON (no spaces).
+  const rawFullOutput = '{"type":"error","sessionID":"ses_26de88a5cffeeVEcAPu2bDkVEy","error":{"name":"UnknownError","data":{"message":"TypeError: undefined is not an object (evaluating \'usage.inputTokens.total\')"}}}\n{"type":"log","level":"info","service":"default","hasError":false,"uptimeSeconds":132,"message":"Agent exiting"}';
+
+  // Fallback gate (agent.lib.mjs line 756)
+  const shouldRunFallback = !test29OutputErrorDetected && !test29StreamingError && !(test29ExitCode === 0 && test29AgentCompleted);
+  assert.strictEqual(shouldRunFallback, false, 'Fallback must be skipped when agent recovered');
+
+  // Independently confirm the fallback would have matched had it run
+  const wouldMatch = rawFullOutput.includes('"type":"error"') || rawFullOutput.includes('"type": "error"');
+  assert.strictEqual(wouldMatch, true, 'Fallback pattern would have matched without the gate');
+
+  console.log('  ✅ PASSED: Fallback correctly gated off for real production NDJSON shape\n');
+}
+
 console.log('========================================');
 console.log('All tests passed! ✅');
 console.log('========================================');

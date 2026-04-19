@@ -623,6 +623,38 @@ export const setupBidirectionalHandler = async ({ argv, owner, repo, prNumber, $
 };
 
 /**
+ * Attach a live Claude process to the handler so new comments stream into
+ * its stdin as NDJSON frames. Also writes the initial user prompt as the
+ * first frame so the run starts normally. Issue #817.
+ *
+ * Safe to call with a null handler (no-op). Logs diagnostics but never throws.
+ *
+ * @param {Object|null} handler - Handler from setupBidirectionalHandler, or null
+ * @param {Object} execCommand - command-stream ProcessRunner with `streams.stdin`
+ * @param {string} prompt - Initial user prompt text
+ * @param {Function} log
+ * @param {boolean} [verbose=false]
+ * @returns {Promise<boolean>} Whether streaming input is active
+ */
+export const attachStreamingInput = async (handler, execCommand, prompt, log, verbose = false) => {
+  if (!handler || !execCommand) return false;
+  try {
+    const stdinStream = await execCommand.streams.stdin;
+    if (!stdinStream) {
+      if (verbose) await log('⚠️ Bidirectional mode: Could not acquire Claude stdin stream; falling back to queued-only feedback.', { verbose: true });
+      return false;
+    }
+    handler.attachClaudeStdin(stdinStream);
+    const ok = await handler.streamInitialPrompt(prompt);
+    if (verbose) await log(`🔌 Bidirectional mode: Streaming input ${ok ? 'ENABLED' : 'FAILED'} (wrote initial user frame to Claude stdin).`, { verbose: true });
+    return ok;
+  } catch (attachError) {
+    await log(`⚠️ Bidirectional mode: Failed to attach stdin (${attachError.message}); continuing without live streaming.`, { verbose: true });
+    return false;
+  }
+};
+
+/**
  * Stop the handler, flush its queue, and log a summary. Safe to call with a
  * null handler (returns an empty array).
  *

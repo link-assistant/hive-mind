@@ -11,7 +11,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
-import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig } from './bidirectional-interactive.lib.mjs';
+import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig, attachStreamingInput } from './bidirectional-interactive.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
@@ -760,19 +760,9 @@ export const executeClaudeCommand = async params => {
     }
     try {
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      const claudeEnv = getClaudeEnv({
-        thinkingBudget: resolvedThinkingBudget,
-        model: effectiveModel,
-        thinkLevel,
-        maxBudget,
-        planModel: resolvedPlanModel,
-        executionModel: resolvedExecutionModel,
-        showThinkingContent: argv.showThinkingContent,
-        // Issue #817: Keep headless Claude alive between stream-json turns so
-        // PR comments arriving later can be streamed in as additional user
-        // messages. Matches the reference gist (60s default).
-        exitAfterStopDelayMs: streamingInput ? 60_000 : undefined,
-      });
+      // Issue #817: Streaming mode sets exitAfterStopDelayMs=60000 so the
+      // headless Claude process stays alive between NDJSON turns.
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined });
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
@@ -791,32 +781,15 @@ export const executeClaudeCommand = async params => {
         execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else if (streamingInput) {
         // Issue #817: Drive Claude via --input-format stream-json on a pipe
-        // stdin. The initial prompt is written as the first NDJSON frame after
-        // the child is spawned; later PR comments append more frames via the
-        // bidirectional handler.
+        // stdin. Initial prompt + later PR comments are written as NDJSON
+        // frames by attachStreamingInput (see bidirectional-interactive.lib.mjs).
         const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
         execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
         execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
       }
-      // Issue #817: When streaming input is active, attach the live stdin to
-      // the bidirectional handler and push the initial user prompt. This must
-      // happen before we start consuming the output stream.
-      if (streamingInput && bidirectionalHandler) {
-        try {
-          const stdinStream = await execCommand.streams.stdin;
-          if (stdinStream) {
-            bidirectionalHandler.attachClaudeStdin(stdinStream);
-            const ok = await bidirectionalHandler.streamInitialPrompt(prompt);
-            if (argv.verbose) {
-              await log(`🔌 Bidirectional mode: Streaming input ${ok ? 'ENABLED' : 'FAILED'} (wrote initial user frame to Claude stdin).`, { verbose: true });
-            }
-          } else if (argv.verbose) {
-            await log('⚠️ Bidirectional mode: Could not acquire Claude stdin stream; falling back to queued-only feedback.', { verbose: true });
-          }
-        } catch (attachError) {
-          await log(`⚠️ Bidirectional mode: Failed to attach stdin (${attachError.message}); continuing without live streaming.`, { verbose: true });
-        }
+      if (streamingInput) {
+        await attachStreamingInput(bidirectionalHandler, execCommand, prompt, log, !!argv.verbose);
       }
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));

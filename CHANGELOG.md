@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.54.8
+
+### Patch Changes
+
+- 12f5761: Fix `--auto-restart-until-mergeable` readiness comment deduplication for pull requests with more than one page of comments, and enforce pagination on list-returning `gh api` calls.
+
 ## 1.54.7
 
 ### Patch Changes

@@ -53,7 +53,7 @@ function freeDiskSpace() {
     try {
       console.log(`Removing ${packagePath}...`);
       exec(`sudo rm -rf ${packagePath}`);
-    } catch (error) {
+    } catch {
       console.warn(`Warning: Could not remove ${packagePath}`);
     }
   }
@@ -62,7 +62,7 @@ function freeDiskSpace() {
   try {
     console.log('Pruning unused Docker images...');
     exec('sudo docker image prune --all --force');
-  } catch (error) {
+  } catch {
     console.warn('Warning: Could not prune Docker images');
   }
 

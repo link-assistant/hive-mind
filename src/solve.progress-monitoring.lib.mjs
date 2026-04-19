@@ -242,7 +242,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
           state.commentId = posted.commentId;
         } else {
           // Fallback: find the comment we just created by looking for our marker
-          const commentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq ${`[.[] | select(.body | contains("${CONFIG.PROGRESS_SECTION_START}")) | .id] | last`}`;
+          const commentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate --jq ${`[.[] | select(.body | contains("${CONFIG.PROGRESS_SECTION_START}")) | .id] | last`}`;
           const commentId = commentsResult.stdout?.toString?.().trim();
           if (commentId && commentId !== 'null') {
             state.commentId = commentId;

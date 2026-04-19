@@ -79,10 +79,18 @@ export default [
         URL: 'readonly',
       },
     },
-    files: ['src/**/*.{js,mjs,cjs}'],
+    files: ['src/**/*.{js,mjs,cjs}', 'scripts/**/*.{js,mjs,cjs}', 'eslint-rules/**/*.{js,mjs,cjs}'],
     rules: {
       'no-undef': 'error',
-      'no-unused-vars': ['error'],
+      'no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrors: 'all',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
       'no-console': 'off',
       'no-useless-escape': 'warn',
       'no-case-declarations': 'warn',
@@ -100,7 +108,7 @@ export default [
       'prettier/prettier': 'warn',
       // Require --paginate on gh api calls that return lists
       // This prevents missing data when GitHub API returns more than 30 results
-      'gh-paginate/require-gh-paginate': 'warn',
+      'gh-paginate/require-gh-paginate': 'error',
       // Disallow thin wrapper functions that only pass arguments through to an underscore-prefixed import
       // These wrappers add no value — call the underscore function directly at the call site
       'no-underscore-wrapper/no-underscore-passthrough-wrapper': 'error',

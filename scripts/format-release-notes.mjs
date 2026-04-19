@@ -142,7 +142,7 @@ try {
     const currentTag = `v${versionWithoutV}`;
 
     // Find the previous version tag by listing tags sorted by version
-    const tagsResult = await $`gh api "repos/${repository}/tags?per_page=10" --jq '.[].name'`.run({ capture: true });
+    const tagsResult = await $`gh api "repos/${repository}/tags?per_page=100" --paginate --jq '.[].name'`.run({ capture: true });
     const tags = tagsResult.stdout
       .trim()
       .split('\n')
@@ -153,7 +153,7 @@ try {
 
     if (previousTag) {
       console.log(`Finding merge commits between ${previousTag} and ${currentTag}...`);
-      const mergeCommitsResult = await $`gh api "repos/${repository}/compare/${previousTag}...${currentTag}" --jq '.commits[] | select(.parents | length > 1) | .sha'`.run({ capture: true });
+      const mergeCommitsResult = await $`gh api "repos/${repository}/compare/${previousTag}...${currentTag}" --paginate --jq '.commits[] | select(.parents | length > 1) | .sha'`.run({ capture: true });
       const mergeCommits = mergeCommitsResult.stdout.trim().split('\n').filter(Boolean);
 
       console.log(`Found ${mergeCommits.length} merge commit(s) between tags`);
@@ -180,7 +180,7 @@ try {
       console.log(`  Checking commit ${sha} (from ${source})...`);
 
       try {
-        const prResult = await $`gh api "repos/${repository}/commits/${sha}/pulls"`.run({ capture: true });
+        const prResult = await $`gh api "repos/${repository}/commits/${sha}/pulls" --paginate`.run({ capture: true });
         const prsData = JSON.parse(prResult.stdout);
 
         // Find PRs that are not version bump PRs (not "chore: version packages")

@@ -313,9 +313,8 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
     const prData = JSON.parse(prJson.trim());
     const sha = prData.headRefOid;
 
-    // Get check runs for this SHA
-    const { stdout: checksJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/check-runs --paginate --jq '.check_runs'`);
-    const checkRuns = JSON.parse(checksJson.trim() || '[]');
+    const { stdout: checksJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/check-runs --paginate --slurp`);
+    const checkRuns = JSON.parse(checksJson.trim() || '[]').flatMap(page => page.check_runs || []);
 
     // Get commit statuses (some CI systems use status API instead of checks API)
     const { stdout: statusJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/status --jq '.statuses'`);
@@ -685,9 +684,11 @@ export function parseRepositoryUrl(url) {
 export async function getActiveBranchRuns(owner, repo, branch = 'main', verbose = false) {
   try {
     // Query for in_progress and queued runs on the specified branch
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?branch=${branch}&per_page=10" --jq '[.workflow_runs[] | select(.status=="in_progress" or .status=="queued")] | map({id: .id, name: .name, status: .status, created_at: .created_at, html_url: .html_url})'`);
-
-    const runs = JSON.parse(stdout.trim() || '[]');
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?branch=${branch}&per_page=100" --paginate --slurp`);
+    const runs = JSON.parse(stdout.trim() || '[]')
+      .flatMap(page => page.workflow_runs || [])
+      .filter(run => run.status === 'in_progress' || run.status === 'queued')
+      .map(run => ({ id: run.id, name: run.name, status: run.status, created_at: run.created_at, html_url: run.html_url }));
 
     if (verbose) {
       console.log(`[VERBOSE] /merge: Found ${runs.length} active runs on ${owner}/${repo} branch ${branch}`);
@@ -839,7 +840,7 @@ export async function getDefaultBranch(owner, repo, verbose = false) {
  */
 export async function getCheckRunAnnotations(owner, repo, checkRunId, verbose = false) {
   try {
-    const { stdout } = await exec(`gh api repos/${owner}/${repo}/check-runs/${checkRunId}/annotations 2>/dev/null || echo "[]"`);
+    const { stdout } = await exec(`gh api repos/${owner}/${repo}/check-runs/${checkRunId}/annotations --paginate 2>/dev/null || echo "[]"`);
     const annotations = JSON.parse(stdout.trim() || '[]');
 
     if (verbose) {
@@ -895,12 +896,6 @@ export const BILLING_LIMIT_ERROR_PATTERN = 'The job was not started because rece
  * Check if CI failure is due to billing/spending limits
  * Issue #1314: Detects when GitHub Actions jobs fail due to billing issues rather than code problems
  *
- * Detection criteria:
- * 1. Job has conclusion='failure'
- * 2. Job has empty steps array (no steps were executed)
- * 3. Job has runner_id=0 or null (no runner was assigned)
- * 4. Annotation contains the billing limit error message
- *
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
@@ -909,14 +904,14 @@ export const BILLING_LIMIT_ERROR_PATTERN = 'The job was not started because rece
  */
 export async function checkForBillingLimitError(owner, repo, prNumber, verbose = false) {
   try {
-    // Get the PR's head SHA
     const { stdout: prJson } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid`);
     const prData = JSON.parse(prJson.trim());
     const sha = prData.headRefOid;
 
-    // Get workflow runs for this SHA
-    const { stdout: runsJson } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=10" --jq '.workflow_runs[].id'`);
-    const runIds = runsJson.trim().split('\n').filter(Boolean);
+    const { stdout: runsJson } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
+    const runIds = JSON.parse(runsJson.trim() || '[]')
+      .flatMap(page => page.workflow_runs || [])
+      .map(run => run.id);
 
     if (verbose) {
       console.log(`[VERBOSE] /merge: Found ${runIds.length} workflow runs for PR #${prNumber} at SHA ${sha.substring(0, 7)}`);
@@ -925,11 +920,10 @@ export async function checkForBillingLimitError(owner, repo, prNumber, verbose =
     const affectedJobs = [];
     let totalJobs = 0;
 
-    // Check each workflow run's jobs
     for (const runId of runIds) {
       try {
-        const { stdout: jobsJson } = await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/jobs --jq '.jobs'`);
-        const jobs = JSON.parse(jobsJson.trim() || '[]');
+        const { stdout: jobsJson } = await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/jobs --paginate --slurp`);
+        const jobs = JSON.parse(jobsJson.trim() || '[]').flatMap(page => page.jobs || []);
 
         for (const job of jobs) {
           totalJobs++;
@@ -1068,9 +1062,8 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
     const prData = JSON.parse(prJson.trim());
     const sha = prData.headRefOid;
 
-    // Get check runs for this SHA
-    const { stdout: checksJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/check-runs --paginate --jq '.check_runs'`);
-    const checkRuns = JSON.parse(checksJson.trim() || '[]');
+    const { stdout: checksJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/check-runs --paginate --slurp`);
+    const checkRuns = JSON.parse(checksJson.trim() || '[]').flatMap(page => page.check_runs || []);
 
     // Get commit statuses
     const { stdout: statusJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/status --jq '.statuses'`);
@@ -1214,8 +1207,10 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
  */
 export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
   try {
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=20" --jq '[.workflow_runs[] | {id: .id, status: .status, conclusion: .conclusion, name: .name, html_url: .html_url}]'`);
-    const runs = JSON.parse(stdout.trim() || '[]');
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
+    const runs = JSON.parse(stdout.trim() || '[]')
+      .flatMap(page => page.workflow_runs || [])
+      .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url }));
 
     if (verbose) {
       console.log(`[VERBOSE] /merge: Found ${runs.length} workflow runs for SHA ${sha.substring(0, 7)}`);
@@ -1251,13 +1246,13 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
  */
 export async function getActiveRepoWorkflows(owner, repo, verbose = false) {
   try {
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/workflows" --jq '[.workflows[] | select(.state == "active")] | map({id: .id, name: .name, state: .state, path: .path})'`);
-    const allWorkflows = JSON.parse(stdout.trim() || '[]');
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/workflows" --paginate --slurp`);
+    const allWorkflows = JSON.parse(stdout.trim() || '[]')
+      .flatMap(page => page.workflows || [])
+      .filter(workflow => workflow.state === 'active')
+      .map(workflow => ({ id: workflow.id, name: workflow.name, state: workflow.state, path: workflow.path }));
 
-    // Issue #1399: Filter out GitHub Pages deployment workflows.
-    // These have path "dynamic/pages/pages-build-deployment" and only run on the
-    // default branch after merge — they never produce check-runs on PR branches.
-    // Including them causes an infinite loop when waiting for PR CI checks.
+    // GitHub Pages workflows only run after merge and never produce PR check-runs.
     const workflows = allWorkflows.filter(wf => !wf.path.startsWith('dynamic/pages/'));
 
     if (verbose) {
@@ -1351,8 +1346,8 @@ export async function checkPreviousPRCommitsHadCI(owner, repo, prNumber, headSha
 
     for (const sha of commitsToCheck) {
       try {
-        const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=1" --jq '.total_count'`);
-        const count = parseInt(stdout.trim(), 10);
+        const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
+        const count = JSON.parse(stdout.trim() || '[]').reduce((sum, page) => sum + (page.workflow_runs?.length || 0), 0);
         if (count > 0) {
           commitsWithCI++;
         }
@@ -1390,7 +1385,7 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false,
     // Issue #1503: Support querying workflow files from a specific branch (ref)
     const refParam = ref ? `?ref=${encodeURIComponent(ref)}` : '';
     // List workflow files in .github/workflows/ (uses ref if provided, otherwise default branch)
-    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows${refParam}" --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]' 2>/dev/null`);
+    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows${refParam}" --paginate --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]' 2>/dev/null`);
     const files = JSON.parse(listJson.trim() || '[]');
 
     if (files.length === 0) {

@@ -22,6 +22,7 @@ CLAUDE.md
 
 # Case study logs (some .json files are actually log files)
 docs/case-studies/**/raw/**/*.json
+docs/case-studies/**/raw-data/**/*.json
 docs/case-studies/**/working-session-logs/**/*.json
 docs/case-studies/**/logs/**/*.md
 docs/case-studies/issue-1639/data/

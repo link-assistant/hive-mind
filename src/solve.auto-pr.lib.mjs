@@ -604,7 +604,7 @@ Proceed.
           }
           compareResult = await $({
             silent: true,
-          })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
+          })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --paginate --jq '.ahead_by' 2>&1`;
 
           if (compareResult.code === 0) {
             const aheadBy = parseInt(compareResult.stdout.toString().trim(), 10);
@@ -798,9 +798,9 @@ Proceed.
             // Use the correct head reference for the compare API check
             if (argv.fork && forkedRepo) {
               const forkUser = forkedRepo.split('/')[0];
-              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName}`);
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName} --paginate`);
             } else {
-              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName}`);
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName} --paginate`);
             }
             await log('');
 

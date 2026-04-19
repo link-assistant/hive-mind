@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.54.7
+
+### Patch Changes
+
+- 06b1a41: Fix `--auto-attach-solution-summary` so the AI-comment scan starts at the current work session instead of the older feedback reference time.
+
 ## 1.54.6
 
 ### Patch Changes

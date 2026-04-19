@@ -22,6 +22,7 @@ import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // 
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
 import { buildMcpConfigWithoutPlaywright } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
+import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 export { availableModels }; // Re-export for backward compatibility
 export { fetchModelInfo };
@@ -739,6 +740,7 @@ export const executeClaudeCommand = async params => {
       await log(`🔄 Resuming from session: ${argv.resume}`);
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
     }
+    await ensureClaudeQuietConfig({ log });
     const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright });
     if (mcpConfigPath) claudeArgs += ` --strict-mcp-config --mcp-config "${mcpConfigPath}"`;
     if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.join(' ')}`;

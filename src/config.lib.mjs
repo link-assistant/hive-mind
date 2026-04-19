@@ -24,6 +24,7 @@ const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.
 
 // Use semver package for version comparison (see issue #1146)
 import semver from 'semver';
+import { buildClaudeQuietEnv } from './claude-quiet-config.lib.mjs';
 
 // Import lino for parsing Links Notation format
 const { lino } = await import('./lino.lib.mjs');
@@ -419,14 +420,14 @@ export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
   const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
 
-  const env = {
+  const env = buildClaudeQuietEnv({
     ...process.env,
     CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(maxOutputTokens),
     // MCP timeout configurations to prevent tool calls from hanging indefinitely
     // See: https://github.com/link-assistant/hive-mind/issues/1066
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
-  };
+  });
 
   // Opus 4.7+ always uses adaptive thinking — MAX_THINKING_TOKENS has no effect (Issue #1620)
   // For Opus 4.6 and earlier, MAX_THINKING_TOKENS controls extended thinking (Claude Code >= 2.1.12)

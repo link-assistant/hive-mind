@@ -4,128 +4,199 @@
  * GitHub API returns a maximum of 30 results per page by default.
  * Without --paginate, API calls that return lists will miss data beyond the first page.
  *
- * This rule detects gh api calls that target list-returning endpoints and warns
+ * This rule detects gh api calls that target list-returning endpoints and reports
  * if they don't include the --paginate flag.
  */
 
-// GitHub API endpoints that return lists and need --paginate
-// These patterns match the endpoint part of the URL
-const LIST_ENDPOINTS = [
+// GitHub API endpoints that return lists and need --paginate.
+// These patterns match normalized endpoint paths after template expressions,
+// query strings, quotes, and leading slashes are stripped.
+const LIST_ENDPOINT_PATTERNS = [
   // Issues and PRs
-  /\/issues$/,
-  /\/issues\/\d+\/comments$/,
-  /\/issues\/\d+\/timeline$/,
-  /\/pulls$/,
-  /\/pulls\/\d+\/comments$/,
-  /\/pulls\/\d+\/commits$/,
-  /\/pulls\/\d+\/files$/,
-  /\/pulls\/\d+\/reviews$/,
-  // Commits
-  /\/commits$/,
-  /\/commits\/[^/]+\/check-runs$/,
-  // Branches
-  /\/branches$/,
-  // Forks
-  /\/forks$/,
-  // Note: /contents/{path} is NOT included because it returns a single file
-  // when path points to a file, and a list when pointing to a directory.
-  // We cannot reliably detect which at static analysis time, so we skip it.
-  // Developers should manually add --paginate when listing directory contents.
-  // Repos
-  /\/repos$/, // For orgs/users repos lists
-  // Workflows
-  /\/workflows$/,
-  /\/workflows\/[^/]+\/runs$/,
-  /\/runs$/,
-  /\/runs\/\d+\/jobs$/,
-  // Releases
-  /\/releases$/,
-  /\/releases\/\d+\/assets$/,
-  // Tags
-  /\/tags$/,
-  // Contributors/Collaborators
-  /\/contributors$/,
-  /\/collaborators$/,
-  // Notifications
-  /\/notifications$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?issues$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?issues\/[^/]+\/comments$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?issues\/[^/]+\/timeline$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?pulls$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?pulls\/[^/]+\/comments$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?pulls\/[^/]+\/commits$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?pulls\/[^/]+\/files$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?pulls\/[^/]+\/reviews$/,
+
+  // Commits and comparisons
+  /^repos\/[^/]+\/(?:[^/]+\/)?commits$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?commits\/[^/]+\/check-runs$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?commits\/[^/]+\/pulls$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?compare\/[^/]+$/,
+
+  // Branches, forks, and repository contents listings
+  /^repos\/[^/]+\/(?:[^/]+\/)?branches$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?forks$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?contents$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?contents\/\.github\/workflows$/,
+
+  // Repositories
+  /^(?:orgs|users)\/[^/]+\/repos$/,
+
+  // Workflows and workflow runs
+  /^repos\/[^/]+\/(?:[^/]+\/)?actions\/workflows$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?actions\/workflows\/[^/]+\/runs$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?actions\/runs$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?actions\/runs\/[^/]+\/jobs$/,
+
+  // Releases and tags
+  /^repos\/[^/]+\/(?:[^/]+\/)?releases$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?releases\/[^/]+\/assets$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?tags$/,
+
+  // Contributors, collaborators, checks, notifications, and events
+  /^repos\/[^/]+\/(?:[^/]+\/)?contributors$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?collaborators$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?check-runs\/[^/]+\/annotations$/,
+  /^notifications$/,
+  /^repos\/[^/]+\/(?:[^/]+\/)?events$/,
+
+  // Authenticated user list endpoints
+  /^user\/repository_invitations$/,
+  /^user\/memberships\/orgs$/,
+
   // Search
   /^search\//,
-  // Events
-  /\/events$/,
 ];
 
-// Patterns that indicate the command is NOT a list (single resource)
-const SINGLE_RESOURCE_PATTERNS = [
-  /\/issues\/\d+(?!\/)/, // Single issue
-  /\/pulls\/\d+(?!\/)/, // Single PR
-  /\/commits\/[a-f0-9]+(?!\/)/, // Single commit by SHA
-  /\/branches\/[^/]+(?!\/)/, // Single branch
-  /\/releases\/\d+(?!\/)/, // Single release
-  /\/repos\/[^/]+\/[^/]+(?!\/)/, // Single repo
-];
+const OPTION_VALUE_FLAGS = new Set(['--cache', '--field', '--header', '--hostname', '--input', '--jq', '--method', '--preview', '--raw-field', '-F', '-H', '-X', '-f', '-q']);
 
-/**
- * Check if an endpoint returns a list
- */
-function endpointReturnsList(endpoint) {
-  // Clean the endpoint
-  const cleanEndpoint = endpoint.replace(/^\$\{.*?\}\//, '').replace(/`/g, '');
+const COMMAND_SEPARATORS = new Set(['&&', '||', ';', '|']);
 
-  // Check if it's a single resource first
-  for (const pattern of SINGLE_RESOURCE_PATTERNS) {
-    if (pattern.test(cleanEndpoint)) {
-      return false;
-    }
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+const stripQuotes = value => value.replace(/^(['"])(.*)\1$/, '$2');
+
+const normalizeTemplateExpressions = commandStr => commandStr.replace(/\$\{[^}]*\}/g, ':param');
+
+const tokenizeCommand = commandStr => normalizeTemplateExpressions(commandStr).match(/"[^"]*"|'[^']*'|&&|\|\||[;|]|\S+/g) || [];
+
+const normalizeEndpoint = endpoint => stripQuotes(endpoint).replace(/^\/+/, '').replace(/\?.*$/, '').replace(/`/g, '');
+
+const isOptionValueFlag = token => OPTION_VALUE_FLAGS.has(token) || [...OPTION_VALUE_FLAGS].some(flag => token.startsWith(`${flag}=`));
+
+const isWriteMethodFlag = token => token === '--method' || token === '-X' || token.startsWith('--method=') || token.startsWith('-X');
+
+const extractInlineWriteMethod = token => {
+  if (token.startsWith('--method=')) {
+    return token.slice('--method='.length).toUpperCase();
   }
 
-  // Check if it matches a list endpoint
-  for (const pattern of LIST_ENDPOINTS) {
-    if (pattern.test(cleanEndpoint)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Extract the endpoint from a gh api command string
- */
-function extractEndpoint(commandStr) {
-  // Handle template literals - look for gh api followed by path
-  // Common patterns:
-  // `gh api repos/${owner}/${repo}/issues`
-  // `gh api users/${owner} --jq .type`
-  // `gh api search/issues --jq '.items'`
-
-  const ghApiMatch = commandStr.match(/gh\s+api\s+([^\s`'"]+)/);
-  if (ghApiMatch) {
-    return ghApiMatch[1];
+  if (token.startsWith('-X') && token.length > 2) {
+    return token.slice(2).toUpperCase();
   }
 
   return null;
+};
+
+const isRedirection = token => /^\d?>/.test(token) || /^\d?</.test(token);
+
+const isGhApiToken = (tokens, index) => stripQuotes(tokens[index]) === 'gh' && stripQuotes(tokens[index + 1] || '') === 'api';
+
+/**
+ * Extract gh api calls from a shell command string.
+ */
+function extractGhApiCalls(commandStr) {
+  const tokens = tokenizeCommand(commandStr);
+  const calls = [];
+
+  for (let index = 0; index < tokens.length - 1; index++) {
+    if (!isGhApiToken(tokens, index)) {
+      continue;
+    }
+
+    const call = {
+      endpoint: null,
+      hasPaginate: false,
+      isGraphQL: false,
+      isWrite: false,
+    };
+
+    for (let tokenIndex = index + 2; tokenIndex < tokens.length; tokenIndex++) {
+      const token = stripQuotes(tokens[tokenIndex]);
+
+      if (COMMAND_SEPARATORS.has(token)) {
+        break;
+      }
+
+      if (token === '--paginate') {
+        call.hasPaginate = true;
+        continue;
+      }
+
+      if (isWriteMethodFlag(token)) {
+        const inlineMethod = extractInlineWriteMethod(token);
+        const method = inlineMethod || stripQuotes(tokens[tokenIndex + 1] || '').toUpperCase();
+        if (WRITE_METHODS.has(method)) {
+          call.isWrite = true;
+        }
+      }
+
+      if (token.startsWith('-')) {
+        if (isOptionValueFlag(token) && !token.includes('=')) {
+          tokenIndex++;
+        }
+        continue;
+      }
+
+      if (isRedirection(token)) {
+        continue;
+      }
+
+      if (!call.endpoint) {
+        call.endpoint = normalizeEndpoint(token);
+        call.isGraphQL = call.endpoint === 'graphql';
+      }
+    }
+
+    if (call.endpoint) {
+      calls.push(call);
+    }
+  }
+
+  return calls;
 }
 
 /**
- * Check if the command includes --paginate
+ * Check if an endpoint returns a list.
  */
-function hasPaginateFlag(commandStr) {
-  return /--paginate/.test(commandStr);
+function endpointReturnsList(endpoint) {
+  return LIST_ENDPOINT_PATTERNS.some(pattern => pattern.test(endpoint));
 }
 
-/**
- * Check if this is a GraphQL query (doesn't need --paginate)
- */
-function isGraphQLQuery(commandStr) {
-  return /graphql/.test(commandStr);
+function reportMissingPaginate(context, node, call) {
+  if (call.isGraphQL || call.isWrite || call.hasPaginate) {
+    return;
+  }
+
+  if (endpointReturnsList(call.endpoint)) {
+    context.report({
+      node,
+      messageId: 'missingPaginate',
+      data: {
+        endpoint: call.endpoint,
+      },
+    });
+  }
 }
 
-/**
- * Check if this is a write operation (doesn't need --paginate)
- */
-function isWriteOperation(commandStr) {
-  return /--method\s+(POST|PUT|PATCH|DELETE)|-X\s+(POST|PUT|PATCH|DELETE)|--method=(POST|PUT|PATCH|DELETE)|-X(POST|PUT|PATCH|DELETE)/i.test(commandStr);
+function checkCommandString(context, node, commandStr) {
+  for (const call of extractGhApiCalls(commandStr)) {
+    reportMissingPaginate(context, node, call);
+  }
 }
+
+// Exported for direct regression testing if RuleTester is not enough in future.
+export const _testing = {
+  endpointReturnsList,
+  extractGhApiCalls,
+  normalizeEndpoint,
+  tokenizeCommand,
+};
 
 export default {
   meta: {
@@ -143,93 +214,24 @@ export default {
 
   create(context) {
     return {
-      // Check template literals (most common pattern in this codebase)
       TemplateLiteral(node) {
-        // Build the full string from quasis
         const quasis = node.quasis.map(q => q.value.raw).join('${...}');
-
-        // Skip if not a gh api command
         if (!quasis.includes('gh api') && !quasis.includes('gh\napi')) {
           return;
         }
-
-        // Skip GraphQL queries
-        if (isGraphQLQuery(quasis)) {
-          return;
-        }
-
-        // Skip write operations
-        if (isWriteOperation(quasis)) {
-          return;
-        }
-
-        // Skip if already has --paginate
-        if (hasPaginateFlag(quasis)) {
-          return;
-        }
-
-        // Extract endpoint
-        const endpoint = extractEndpoint(quasis);
-        if (!endpoint) {
-          return;
-        }
-
-        // Check if endpoint returns a list
-        if (endpointReturnsList(endpoint)) {
-          context.report({
-            node,
-            messageId: 'missingPaginate',
-            data: {
-              endpoint,
-            },
-          });
-        }
+        checkCommandString(context, node, quasis);
       },
 
-      // Also check regular string literals (for execAsync and similar)
       Literal(node) {
         if (typeof node.value !== 'string') {
           return;
         }
 
         const str = node.value;
-
-        // Skip if not a gh api command
         if (!str.includes('gh api')) {
           return;
         }
-
-        // Skip GraphQL queries
-        if (isGraphQLQuery(str)) {
-          return;
-        }
-
-        // Skip write operations
-        if (isWriteOperation(str)) {
-          return;
-        }
-
-        // Skip if already has --paginate
-        if (hasPaginateFlag(str)) {
-          return;
-        }
-
-        // Extract endpoint
-        const endpoint = extractEndpoint(str);
-        if (!endpoint) {
-          return;
-        }
-
-        // Check if endpoint returns a list
-        if (endpointReturnsList(endpoint)) {
-          context.report({
-            node,
-            messageId: 'missingPaginate',
-            data: {
-              endpoint,
-            },
-          });
-        }
+        checkCommandString(context, node, str);
       },
     };
   },

@@ -525,7 +525,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         await log(`${formatAligned('🔍', 'Safety check:', 'Comparing commits against upstream...')}`);
         let safeToDelete = false;
         try {
-          const cmp = await $`gh api repos/${owner}/${repo}/compare/${owner}:HEAD...${existingForkName.split('/')[0]}:HEAD --jq '.ahead_by' 2>&1`;
+          const cmp = await $`gh api repos/${owner}/${repo}/compare/${owner}:HEAD...${existingForkName.split('/')[0]}:HEAD --paginate --jq '.ahead_by' 2>&1`;
           if (cmp.code === 0 && parseInt(cmp.stdout.toString().trim(), 10) === 0) {
             await log(`${formatAligned('✅', 'Safe to delete:', 'No additional commits in non-fork repository')}`);
             safeToDelete = true;

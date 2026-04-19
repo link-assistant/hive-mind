@@ -9,7 +9,7 @@ const dockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
 for (const file of dockerfiles) {
   const content = await fs.readFile(path.join(process.cwd(), file), 'utf-8');
 
-  assert.ok(content.includes('/workspace/.local/bin'), `${file} should keep ~/.local/bin on PATH for native Claude Code`);
+  assert.ok(content.includes('/home/box/.local/bin'), `${file} should keep ~/.local/bin on PATH for native Claude Code`);
   assert.ok(content.includes('https://claude.ai/install.sh'), `${file} should install Claude Code through the native installer`);
   assert.ok(content.includes('claude --version'), `${file} should verify that the installed Claude Code binary runs`);
   assert.ok(!content.includes('bun install -g @anthropic-ai/claude-code'), `${file} should not install Claude Code through Bun`);

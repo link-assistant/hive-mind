@@ -47,10 +47,10 @@ docker build -t hive-mind-dev .
 
 # 挂载凭据运行
 docker run --rm -it \
-    -v ~/.config/gh:/workspace/.persisted-configs/gh:ro \
-    -v ~/.local/share/claude-profiles:/workspace/.persisted-configs/claude:ro \
-    -v ~/.config/claude-code:/workspace/.persisted-configs/claude-code:ro \
-    -v "$(pwd)/output:/workspace/output" \
+    -v ~/.config/gh:/home/box/.persisted-configs/gh:ro \
+    -v ~/.local/share/claude-profiles:/home/box/.persisted-configs/claude:ro \
+    -v ~/.config/claude-code:/home/box/.persisted-configs/claude-code:ro \
+    -v "$(pwd)/output:/home/box/output" \
     hive-mind-dev
 ```
 
@@ -115,18 +115,18 @@ claude
 在容器重启之间持久化身份验证和工作内容：
 
 ```bash
-# 为 sandbox 用户的主目录创建卷
-docker volume create sandbox-home
+# 为 box 用户的主目录创建卷
+docker volume create box-home
 
 # 挂载卷运行
-docker run -it -v sandbox-home:/workspace konard/hive-mind:latest
+docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
 ### 以守护进程模式运行
 
 ```bash
 # 启动守护进程容器
-docker run -d --name hive-worker -v sandbox-home:/workspace konard/hive-mind:latest sleep infinity
+docker run -d --name hive-worker -v box-home:/home/box konard/hive-mind:latest sleep infinity
 
 # 在运行中的容器内执行命令
 docker exec -it hive-worker bash
@@ -145,12 +145,12 @@ services:
   hive-mind:
     image: konard/hive-mind:latest
     volumes:
-      - sandbox-home:/workspace
+      - box-home:/home/box
     stdin_open: true
     tty: true
 
 volumes:
-  sandbox-home:
+  box-home:
 ```
 
 然后运行：

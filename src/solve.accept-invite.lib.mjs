@@ -43,7 +43,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
 
   // Check for pending repository invitation
   try {
-    const { stdout: repoInvJson } = await ghRetry(() => exec('gh api /user/repository_invitations 2>/dev/null || echo "[]"'), { label: 'fetch repo invitations' });
+    const { stdout: repoInvJson } = await ghRetry(() => exec('gh api /user/repository_invitations --paginate 2>/dev/null || echo "[]"'), { label: 'fetch repo invitations' });
     const repoInvitations = JSON.parse(repoInvJson.trim() || '[]');
     verbose && (await log(`   Found ${repoInvitations.length} total pending repo invitation(s)`, { verbose: true }));
 
@@ -66,7 +66,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
 
   // Check for pending organization membership
   try {
-    const { stdout: orgMemJson } = await ghRetry(() => exec('gh api /user/memberships/orgs 2>/dev/null || echo "[]"'), { label: 'fetch org memberships' });
+    const { stdout: orgMemJson } = await ghRetry(() => exec('gh api /user/memberships/orgs --paginate 2>/dev/null || echo "[]"'), { label: 'fetch org memberships' });
     const orgMemberships = JSON.parse(orgMemJson.trim() || '[]');
     const pendingOrgs = orgMemberships.filter(m => m.state === 'pending');
     verbose && (await log(`   Found ${pendingOrgs.length} total pending org invitation(s)`, { verbose: true }));

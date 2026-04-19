@@ -22,10 +22,11 @@ const exec = promisify(execCallback);
  */
 export async function getAllActiveRepoRuns(owner, repo, verbose = false) {
   try {
-    const activeFilter = '.workflow_runs[] | select(.status=="in_progress" or .status=="queued" or .status=="waiting" or .status=="requested" or .status=="pending")';
-    const fields = '{id: .id, name: .name, status: .status, head_branch: .head_branch, head_sha: (.head_sha[:7])}';
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?per_page=100" --jq '[${activeFilter}] | map(${fields})'`);
-    const runs = JSON.parse(stdout.trim() || '[]');
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?per_page=100" --paginate --slurp`);
+    const runs = JSON.parse(stdout.trim() || '[]')
+      .flatMap(page => page.workflow_runs || [])
+      .filter(run => ['in_progress', 'queued', 'waiting', 'requested', 'pending'].includes(run.status))
+      .map(run => ({ id: run.id, name: run.name, status: run.status, head_branch: run.head_branch, head_sha: run.head_sha?.slice(0, 7) }));
     if (verbose && runs.length > 0) {
       console.log(`[VERBOSE] repo-actions: ${runs.length} active run(s) in ${owner}/${repo}`);
       for (const r of runs) console.log(`[VERBOSE] repo-actions:   ${r.name} (${r.status}) on ${r.head_branch}`);

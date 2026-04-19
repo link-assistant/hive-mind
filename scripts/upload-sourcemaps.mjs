@@ -89,13 +89,13 @@ try {
 
   // Set release commits (if in Git repository)
   try {
-    const gitCommit = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+    execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
     execSync(`npx @sentry/cli releases set-commits ${version} --auto --org ${orgName} --project ${projectName}`, {
       stdio: 'inherit',
       env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
     });
     console.log(`📝 Associated commits with release ${version}`);
-  } catch (err) {
+  } catch {
     console.log('⚠️  Could not associate commits (not a git repository or no commits)');
   }
 

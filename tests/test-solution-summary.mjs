@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from 'fs';
 
 /**
  * Test suite for solution summary attachment functionality
@@ -136,6 +137,17 @@ runTest('solve.mjs handles --auto-attach-solution-summary flag', async () => {
   const fs = await import('fs');
   const solveMjs = fs.readFileSync('./src/solve.mjs', 'utf-8');
   assertTrue(solveMjs.includes('argv.autoAttachSolutionSummary'), 'autoAttachSolutionSummary flag should be checked');
+});
+
+// Issue #1647: The "did the AI post comments during this session?" check must
+// start from the current work-session boundary, not the older feedback
+// referenceTime. Otherwise a human PR comment from before the session can be
+// counted as an AI-authored session comment when the same GitHub user runs solve.
+runTest('solve.mjs checks auto-attach comments from work session start (Issue #1647)', () => {
+  const solveMjs = fs.readFileSync('./src/solve.mjs', 'utf-8');
+  assertTrue(solveMjs.includes('const workStartTime = await startWorkSession'), 'startWorkSession return value should be captured');
+  assertTrue(solveMjs.includes('checkForAiCreatedComments(workStartTime, owner, repo, prNumber, issueNumber)'), 'auto-attach should use workStartTime as the comment scan boundary');
+  assertFalse(solveMjs.includes('checkForAiCreatedComments(referenceTime, owner, repo, prNumber, issueNumber)'), 'auto-attach must not use feedback referenceTime as the session comment scan boundary');
 });
 
 // Issue #1625: Tool-generated comments should not count as AI-created comments

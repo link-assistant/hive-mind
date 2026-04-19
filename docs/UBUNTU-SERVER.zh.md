@@ -13,32 +13,34 @@
 
 以下说明描述了在 Ubuntu 24.04 服务器上进行旧版裸机安装的方法。此方法仅作参考。
 
-> **注意**：自 issue #1394 起，`ubuntu-24-server-install.sh` 脚本已从仓库中删除。
-> Docker 镜像现在使用 `konard/sandbox`（固定到特定版本）作为基础镜像，提供所有开发工具。
-> 历史参考，最后一个版本的脚本可在以下位置获取：
+> **注意**：自 issue #1639 起，`ubuntu-24-server-install.sh` 脚本已从仓库中删除。
+> Docker 镜像现在使用 `konard/box`（固定到特定版本）作为基础镜像，提供所有开发工具。
+> 作为历史参考，在 Ubuntu 24.04 之上预装完整 Hive Mind 工具链的脚本最后一个版本保留在：
 > https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
+>
+> `konard/box` 镜像是通用基础镜像，本身不包含 Hive Mind 专用工具，因此这个旧的 Hive Mind 脚本仍然作为裸机安装路径的唯一保留来源。
 
 ## 步骤
 
 1. 使用全新的 Ubuntu 24.04 重置/安装 VPS/VDS 服务器
 2. 登录 `root` 用户。
-3. 首先安装 sandbox（提供所有开发工具）
+3. 首先安装 Box（提供所有开发工具）
 
    ```bash
    # 选项 1：使用 Docker（推荐）
-   docker pull konard/sandbox:1.6.0
-   docker run -it konard/sandbox:1.6.0
+   docker pull konard/box:2.0.1
+   docker run -it konard/box:2.0.1
 
-   # 选项 2：使用 sandbox 安装脚本（固定到 v1.3.16 发布提交）
-   curl -fsSL -o- https://github.com/link-foundation/sandbox/raw/178aa3816ab2c2150844fb967ffa329c63b90131/ubuntu/24.04/full-sandbox/install.sh | bash
+   # 选项 2：使用旧版 Hive Mind 裸机安装脚本（固定到最后一个包含它的提交：4f027b32）
+   curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash
    ```
 
    **注意**：安装不会自动运行 `gh auth login`。这是为了支持无超时的 Docker 构建而有意为之。身份验证将在后续步骤中执行。
 
-4. 登录 `sandbox` 用户
+4. 登录 `box` 用户
 
    ```bash
-   su - sandbox
+   su - box
    ```
 
 5. **重要**：安装完成后，使用 GitHub CLI 进行身份验证

@@ -741,6 +741,262 @@ await runAsyncTest('handler keeps own comments when excludeOwnComments is false'
   }
 });
 
+// ============================================
+// ISSUE #817: STREAMING INPUT TESTS
+// ============================================
+
+console.log('\n=== Testing Streaming Input Helpers (Issue #817) ===\n');
+
+runTest('buildInitialUserFrame produces valid stream-json user frame', () => {
+  const raw = utils.buildInitialUserFrame('hello claude');
+  const parsed = JSON.parse(raw);
+  if (parsed.type !== 'user') {
+    throw new Error(`Expected type 'user', got ${parsed.type}`);
+  }
+  if (parsed.message?.role !== 'user') {
+    throw new Error(`Expected message.role 'user', got ${parsed.message?.role}`);
+  }
+  if (!Array.isArray(parsed.message?.content) || parsed.message.content[0]?.text !== 'hello claude') {
+    throw new Error('Expected message.content[0].text to equal the prompt');
+  }
+  if (parsed.parent_tool_use_id !== null) {
+    throw new Error('Expected parent_tool_use_id to be null');
+  }
+  if ('session_id' in parsed) {
+    throw new Error('Expected no session_id when none was provided');
+  }
+});
+
+runTest('buildInitialUserFrame stamps optional session_id', () => {
+  const raw = utils.buildInitialUserFrame('hi', { sessionId: 'abc-123' });
+  const parsed = JSON.parse(raw);
+  if (parsed.session_id !== 'abc-123') {
+    throw new Error(`Expected session_id 'abc-123', got ${parsed.session_id}`);
+  }
+});
+
+runTest('buildInitialUserFrame coerces non-string prompts', () => {
+  const raw = utils.buildInitialUserFrame(undefined);
+  const parsed = JSON.parse(raw);
+  if (parsed.message.content[0].text !== '') {
+    throw new Error(`Expected empty string for undefined prompt, got ${parsed.message.content[0].text}`);
+  }
+});
+
+await runAsyncTest('writeFrameToStdin writes NDJSON with trailing newline', async () => {
+  const written = [];
+  const fakeStream = {
+    writable: true,
+    write: chunk => {
+      written.push(chunk);
+      return true;
+    },
+  };
+  const ok = await utils.writeFrameToStdin(fakeStream, '{"type":"user"}');
+  if (!ok) throw new Error('Expected write to return true on writable stream');
+  if (written.length !== 1 || written[0] !== '{"type":"user"}\n') {
+    throw new Error(`Expected one NDJSON line with newline, got ${JSON.stringify(written)}`);
+  }
+});
+
+await runAsyncTest('writeFrameToStdin returns false when stream is null or destroyed', async () => {
+  if (await utils.writeFrameToStdin(null, '{}')) {
+    throw new Error('Expected false for null stream');
+  }
+  const destroyed = { destroyed: true, write: () => true };
+  if (await utils.writeFrameToStdin(destroyed, '{}')) {
+    throw new Error('Expected false for destroyed stream');
+  }
+});
+
+await runAsyncTest('attachClaudeStdin streams new user comments live as NDJSON frames', async () => {
+  const written = [];
+  const fakeStdin = {
+    write: chunk => {
+      written.push(chunk);
+      return true;
+    },
+  };
+
+  const mockLog = () => Promise.resolve();
+  const mock$ = () =>
+    Promise.resolve({
+      stdout: JSON.stringify([{ id: 301, body: 'please retry', created_at: '2026-01-01T00:00:00Z', user: 'bob' }]),
+    });
+
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: mock$,
+    log: mockLog,
+    verbose: false,
+    pollInterval: 60000,
+    excludeOwnComments: false,
+  });
+
+  handler.attachClaudeStdin(fakeStdin);
+  await handler.startMonitoring();
+  await handler.stopMonitoring();
+
+  if (written.length === 0) {
+    throw new Error('Expected at least one NDJSON frame written to stdin');
+  }
+  const last = written[written.length - 1];
+  if (!last.endsWith('\n')) {
+    throw new Error('Expected NDJSON frame to end with newline');
+  }
+  const frame = JSON.parse(last.trim());
+  if (frame.type !== 'user' || !frame.message?.content?.[0]?.text?.includes('please retry')) {
+    throw new Error(`Unexpected streamed frame: ${last}`);
+  }
+  const state = handler.getState();
+  if (state.totalFeedbackStreamed !== 1) {
+    throw new Error(`Expected totalFeedbackStreamed=1, got ${state.totalFeedbackStreamed}`);
+  }
+  if (!state.isStreamingAttached) {
+    throw new Error('Expected isStreamingAttached=true');
+  }
+});
+
+await runAsyncTest('streamInitialPrompt writes the prompt as the first user frame', async () => {
+  const written = [];
+  const fakeStdin = {
+    write: chunk => {
+      written.push(chunk);
+      return true;
+    },
+  };
+
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: () => Promise.resolve({ stdout: '[]' }),
+    log: () => Promise.resolve(),
+    verbose: false,
+  });
+
+  handler.attachClaudeStdin(fakeStdin);
+  const ok = await handler.streamInitialPrompt('initial prompt text');
+  if (!ok) throw new Error('Expected streamInitialPrompt to return true');
+  if (written.length !== 1) {
+    throw new Error(`Expected exactly one write, got ${written.length}`);
+  }
+  const frame = JSON.parse(written[0].trim());
+  if (frame.message?.content?.[0]?.text !== 'initial prompt text') {
+    throw new Error('Expected initial prompt to be the frame text');
+  }
+});
+
+await runAsyncTest('detachClaudeStdin stops streaming new comments', async () => {
+  const written = [];
+  const fakeStdin = {
+    write: chunk => {
+      written.push(chunk);
+      return true;
+    },
+  };
+
+  const mockLog = () => Promise.resolve();
+  const mock$ = () =>
+    Promise.resolve({
+      stdout: JSON.stringify([{ id: 401, body: 'comment A', created_at: '2026-01-01T00:00:00Z', user: 'bob' }]),
+    });
+
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: mock$,
+    log: mockLog,
+    verbose: false,
+    pollInterval: 60000,
+  });
+
+  handler.attachClaudeStdin(fakeStdin);
+  handler.detachClaudeStdin();
+  await handler.startMonitoring();
+  await handler.stopMonitoring();
+
+  if (written.length !== 0) {
+    throw new Error(`Expected no writes after detach, got ${written.length}`);
+  }
+  if (handler.getFeedbackCount() !== 1) {
+    throw new Error('Expected comment to still be queued');
+  }
+});
+
+await runAsyncTest('validateBidirectionalModeConfig enables accept-incomming without interactive-mode', async () => {
+  const argv = {
+    tool: 'claude',
+    acceptIncommingCommentsAsInput: true,
+    interactiveMode: false,
+    excludeAllOwnIncommingCommentsFromInput: false,
+    bidirectionalInteractiveMode: false,
+  };
+  const logs = [];
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
+
+  const ok = await validateBidirectionalModeConfig(argv, mockLog);
+  if (!ok) throw new Error('Expected validation to return true for claude tool');
+  if (!argv.acceptIncommingCommentsAsInput) {
+    throw new Error('Expected acceptIncommingCommentsAsInput to remain enabled');
+  }
+  if (argv.interactiveMode !== false) {
+    throw new Error('Expected interactiveMode to stay false (independent of accept-incomming)');
+  }
+});
+
+await runAsyncTest('validateBidirectionalModeConfig --bidirectional composite enables the three flags', async () => {
+  const argv = {
+    tool: 'claude',
+    bidirectionalInteractiveMode: true,
+    acceptIncommingCommentsAsInput: false,
+    interactiveMode: false,
+    excludeAllOwnIncommingCommentsFromInput: false,
+  };
+  await validateBidirectionalModeConfig(argv, () => Promise.resolve());
+  if (!argv.interactiveMode || !argv.acceptIncommingCommentsAsInput || !argv.excludeAllOwnIncommingCommentsFromInput) {
+    throw new Error('Expected composite flag to enable all three sub-flags');
+  }
+});
+
+await runAsyncTest('validateBidirectionalModeConfig disables accept-incomming when tool is not claude', async () => {
+  const argv = {
+    tool: 'codex',
+    acceptIncommingCommentsAsInput: true,
+    excludeAllOwnIncommingCommentsFromInput: true,
+    bidirectionalInteractiveMode: false,
+  };
+  const ok = await validateBidirectionalModeConfig(argv, () => Promise.resolve());
+  if (ok) throw new Error('Expected validation to return false for non-claude tool');
+  if (argv.acceptIncommingCommentsAsInput !== false) {
+    throw new Error('Expected acceptIncommingCommentsAsInput to be disabled for codex');
+  }
+});
+
+// ============================================
+// ISSUE #817: CLAUDE_CODE_EXIT_AFTER_STOP_DELAY_MS TEST
+// ============================================
+
+console.log('\n=== Testing getClaudeEnv exit-after-stop-delay wiring (Issue #817) ===\n');
+
+await runAsyncTest('getClaudeEnv sets CLAUDE_CODE_EXIT_AFTER_STOP_DELAY_MS when requested', async () => {
+  const { getClaudeEnv } = await import(join(__dirname, '..', 'src', 'config.lib.mjs'));
+  const env = getClaudeEnv({ exitAfterStopDelayMs: 60_000 });
+  if (env.CLAUDE_CODE_EXIT_AFTER_STOP_DELAY_MS !== '60000') {
+    throw new Error(`Expected CLAUDE_CODE_EXIT_AFTER_STOP_DELAY_MS='60000', got ${env.CLAUDE_CODE_EXIT_AFTER_STOP_DELAY_MS}`);
+  }
+  const envNoDelay = getClaudeEnv({});
+  if ('CLAUDE_CODE_EXIT_AFTER_STOP_DELAY_MS' in envNoDelay) {
+    throw new Error('Expected CLAUDE_CODE_EXIT_AFTER_STOP_DELAY_MS to be absent when not requested');
+  }
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`Test Results for bidirectional-interactive.lib.mjs:`);

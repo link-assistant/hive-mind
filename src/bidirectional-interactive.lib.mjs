@@ -30,6 +30,11 @@ const CONFIG = {
   DEFAULT_POLL_INTERVAL: 15000,
   // Maximum queued feedback messages
   MAX_QUEUE_SIZE: 50,
+  // Default keep-alive for the headless Claude process between stream-json
+  // turns. Claude Code exits after this many ms with no new input once it
+  // has replied, so new PR comments have a window to flow in as additional
+  // user messages. Issue #817.
+  DEFAULT_EXIT_AFTER_STOP_DELAY_MS: 60_000,
   // Signature to identify system-generated comments
   SYSTEM_COMMENT_SIGNATURES: ['## 🚀 Session Started', '## 💬 Assistant Response', '## 💻 Tool: ', '## 📝 Tool: ', '## 📖 Tool: ', '## ✏️ Tool: ', '## 🔍 Tool: ', '## 🔎 Tool: ', '## 🌐 Tool: ', '## 📋 Tool: ', '## 🎯 Tool: ', '## 📓 Tool: ', '## 🔧 Tool: ', '## ✅ Tool Result:', '## ❌ Tool Result:', '## ✅ Session Complete', '## ❌ Session Failed', '## ❓ Unrecognized Event:', '📄 Raw JSON', '🤖 Generated with [Claude Code]', '🤖 AI-Powered Solution Draft', '*This PR was created automatically by the AI issue solver*'],
 };
@@ -67,6 +72,65 @@ const formatFeedbackForClaude = feedbackText => {
     },
   };
   return JSON.stringify(message);
+};
+
+/**
+ * Build the first stream-json user frame for a Claude Code headless session.
+ *
+ * Issue #817: When --accept-incomming-comments-as-input is enabled, solve
+ * spawns Claude with `--input-format stream-json` and a pipe stdin. The
+ * initial user prompt must therefore be delivered as a NDJSON frame rather
+ * than via `-p`. This matches the pattern from the reference gist
+ * `claude-stream-persistent.mjs`.
+ *
+ * @param {string} promptText - The initial user prompt
+ * @param {Object} [options]
+ * @param {string} [options.sessionId] - Optional session_id to stamp on the frame
+ * @returns {string} NDJSON-ready JSON string (no trailing newline)
+ */
+const buildInitialUserFrame = (promptText, options = {}) => {
+  const frame = {
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [{ type: 'text', text: String(promptText ?? '') }],
+    },
+    parent_tool_use_id: null,
+  };
+  if (options.sessionId) frame.session_id = options.sessionId;
+  return JSON.stringify(frame);
+};
+
+/**
+ * Write one NDJSON frame into a live Claude stdin stream.
+ *
+ * Returns true on a successful write, false when the stream is missing or
+ * closed. Never throws — callers just log and continue. Internal helper used
+ * by both the comment-polling loop and `streamInitialPrompt`.
+ *
+ * @param {Object} stream - A writable stream (child.stdin)
+ * @param {string} jsonFrame - A single JSON frame (no trailing newline)
+ * @param {Function} [logFn] - Optional logger
+ * @param {boolean} [verbose=false]
+ * @returns {Promise<boolean>}
+ * @private
+ */
+const writeFrameToStdin = async (stream, jsonFrame, logFn, verbose = false) => {
+  if (!stream || typeof stream.write !== 'function') return false;
+  if (stream.destroyed || stream.writableEnded || stream.closed) return false;
+  try {
+    stream.write(`${jsonFrame}\n`);
+    return true;
+  } catch (err) {
+    if (logFn && verbose) {
+      try {
+        await logFn(`⚠️ Bidirectional mode: Failed to write to Claude stdin: ${err.message}`, { verbose: true });
+      } catch {
+        /* ignore logger errors */
+      }
+    }
+    return false;
+  }
 };
 
 /**
@@ -113,6 +177,11 @@ export const createBidirectionalHandler = options => {
     processedCommentIds: new Set(),
     totalCommentsProcessed: 0,
     totalFeedbackQueued: 0,
+    // Issue #817: Writable stdin of the live Claude process. When set, new
+    // non-system comments are written directly as NDJSON frames rather than
+    // only accumulated in feedbackQueue.
+    claudeStdin: null,
+    totalFeedbackStreamed: 0,
   };
 
   /**
@@ -184,17 +253,32 @@ export const createBidirectionalHandler = options => {
 
         // This is a new user comment - queue it as feedback
         if (state.feedbackQueue.length < CONFIG.MAX_QUEUE_SIZE) {
+          const formattedMessage = formatFeedbackForClaude(comment.body);
           state.feedbackQueue.push({
             id: comment.id,
             body: comment.body,
             user: comment.user,
             created_at: comment.created_at,
-            formattedMessage: formatFeedbackForClaude(comment.body),
+            formattedMessage,
           });
           state.totalFeedbackQueued++;
 
           if (verbose) {
             await log(`📥 Bidirectional mode: Queued feedback from @${comment.user} (comment #${comment.id})`, { verbose: true });
+          }
+
+          // Issue #817: If we have a live Claude stdin attached, stream the
+          // comment as an NDJSON frame right now so Claude can pick it up on
+          // the next turn. This is the core of "real JSON streaming input"
+          // requested in the issue and the reference gist.
+          if (state.claudeStdin) {
+            const streamed = await writeFrameToStdin(state.claudeStdin, formattedMessage, log, verbose);
+            if (streamed) {
+              state.totalFeedbackStreamed++;
+              if (verbose) {
+                await log(`📤 Bidirectional mode: Streamed feedback from @${comment.user} (comment #${comment.id}) into Claude stdin`, { verbose: true });
+              }
+            }
           }
         } else {
           if (verbose) {
@@ -369,6 +453,41 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
+   * Attach a live Claude stdin stream to the handler.
+   *
+   * Issue #817: Once attached, every new non-system comment detected by the
+   * polling loop is also written to this stream as a NDJSON `user` frame.
+   * Safe to call before or after monitoring starts.
+   *
+   * @param {Object} stream - Writable stream (child.stdin)
+   */
+  const attachClaudeStdin = stream => {
+    state.claudeStdin = stream || null;
+  };
+
+  /**
+   * Detach the Claude stdin stream. After this call, comments are only queued.
+   */
+  const detachClaudeStdin = () => {
+    state.claudeStdin = null;
+  };
+
+  /**
+   * Stream the initial user prompt as a stream-json frame into the attached
+   * Claude stdin. Use this when running Claude with `--input-format stream-json`.
+   *
+   * @param {string} promptText
+   * @param {Object} [options]
+   * @param {string} [options.sessionId]
+   * @returns {Promise<boolean>} Whether the write succeeded
+   */
+  const streamInitialPrompt = async (promptText, options = {}) => {
+    if (!state.claudeStdin) return false;
+    const frame = buildInitialUserFrame(promptText, options);
+    return writeFrameToStdin(state.claudeStdin, frame, log, verbose);
+  };
+
+  /**
    * Get current handler state (for debugging)
    *
    * @returns {Object} Current state
@@ -379,6 +498,8 @@ export const createBidirectionalHandler = options => {
     processedCommentCount: state.processedCommentIds.size,
     totalCommentsProcessed: state.totalCommentsProcessed,
     totalFeedbackQueued: state.totalFeedbackQueued,
+    totalFeedbackStreamed: state.totalFeedbackStreamed,
+    isStreamingAttached: !!state.claudeStdin,
   });
 
   return {
@@ -393,6 +514,9 @@ export const createBidirectionalHandler = options => {
     markCommentAsProcessed,
     initializeWithExistingComments,
     initializeFromCurrentComments,
+    attachClaudeStdin,
+    detachClaudeStdin,
+    streamInitialPrompt,
     getState,
     // Expose for testing
     _internal: {
@@ -400,6 +524,8 @@ export const createBidirectionalHandler = options => {
       fetchRecentComments,
       isSystemComment,
       formatFeedbackForClaude,
+      buildInitialUserFrame,
+      writeFrameToStdin,
     },
   };
 };
@@ -507,6 +633,7 @@ export const setupBidirectionalHandler = async ({ argv, owner, repo, prNumber, $
 export const finalizeBidirectionalHandler = async (handler, log) => {
   if (!handler) return [];
   try {
+    handler.detachClaudeStdin?.();
     await handler.stopMonitoring();
     const state = handler.getState();
     const queuedFeedback = handler.getAllQueuedFeedback();
@@ -515,11 +642,15 @@ export const finalizeBidirectionalHandler = async (handler, log) => {
       for (const feedback of queuedFeedback) {
         await log(`   • From @${feedback.user}: ${feedback.body.substring(0, 100)}${feedback.body.length > 100 ? '...' : ''}`, { level: 'info' });
       }
-      await log('   💡 This feedback will be available for the next continuation of this task.', { level: 'info' });
+      if (state.totalFeedbackStreamed > 0) {
+        await log(`   📤 ${state.totalFeedbackStreamed} of these were streamed live into Claude stdin.`, { level: 'info' });
+      } else {
+        await log('   💡 This feedback will be available for the next continuation of this task.', { level: 'info' });
+      }
     } else {
       await log('📊 Bidirectional mode: No new feedback received during execution', { verbose: true });
     }
-    await log(`📊 Bidirectional mode stats: ${state.totalCommentsProcessed} comments processed, ${state.totalFeedbackQueued} feedback queued`, { verbose: true });
+    await log(`📊 Bidirectional mode stats: ${state.totalCommentsProcessed} comments processed, ${state.totalFeedbackQueued} feedback queued, ${state.totalFeedbackStreamed} streamed into Claude stdin`, { verbose: true });
     return queuedFeedback;
   } catch (bidirectionalError) {
     await log(`⚠️ Bidirectional mode cleanup error: ${bidirectionalError.message}`, { verbose: true });
@@ -531,6 +662,8 @@ export const finalizeBidirectionalHandler = async (handler, log) => {
 export const utils = {
   isSystemComment,
   formatFeedbackForClaude,
+  buildInitialUserFrame,
+  writeFrameToStdin,
   CONFIG,
 };
 

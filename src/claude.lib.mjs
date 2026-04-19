@@ -731,6 +731,10 @@ export const executeClaudeCommand = async params => {
     let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
     // Declare queuedFeedback for use in catch/finally blocks and return value
     let queuedFeedback = [];
+    // Issue #817: When --accept-incomming-comments-as-input is set and we are
+    // not resuming a prior session, drive Claude via NDJSON stream-json input
+    // so incoming PR comments can be streamed as additional user turns.
+    const streamingInput = !!(argv.acceptIncommingCommentsAsInput && bidirectionalHandler && !argv.resume);
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
@@ -738,7 +742,12 @@ export const executeClaudeCommand = async params => {
     const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright });
     if (mcpConfigPath) claudeArgs += ` --strict-mcp-config --mcp-config "${mcpConfigPath}"`;
     if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.join(' ')}`;
-    claudeArgs += ` -p "${escapedPrompt}" --append-system-prompt "${escapedSystemPrompt}"`;
+    if (streamingInput) {
+      // Prompt is delivered as the first NDJSON frame on stdin (not as -p).
+      claudeArgs += ` -p --input-format stream-json --append-system-prompt "${escapedSystemPrompt}"`;
+    } else {
+      claudeArgs += ` -p "${escapedPrompt}" --append-system-prompt "${escapedSystemPrompt}"`;
+    }
     const fullCommand = `(cd "${tempDir}" && ${claudePath} ${claudeArgs} | jq -c .)`;
     await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
     await log(`${fullCommand}`);
@@ -749,7 +758,19 @@ export const executeClaudeCommand = async params => {
     }
     try {
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, showThinkingContent: argv.showThinkingContent });
+      const claudeEnv = getClaudeEnv({
+        thinkingBudget: resolvedThinkingBudget,
+        model: effectiveModel,
+        thinkLevel,
+        maxBudget,
+        planModel: resolvedPlanModel,
+        executionModel: resolvedExecutionModel,
+        showThinkingContent: argv.showThinkingContent,
+        // Issue #817: Keep headless Claude alive between stream-json turns so
+        // PR comments arriving later can be streamed in as additional user
+        // messages. Matches the reference gist (60s default).
+        exitAfterStopDelayMs: streamingInput ? 60_000 : undefined,
+      });
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
@@ -766,8 +787,34 @@ export const executeClaudeCommand = async params => {
       if (argv.resume) {
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
         execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+      } else if (streamingInput) {
+        // Issue #817: Drive Claude via --input-format stream-json on a pipe
+        // stdin. The initial prompt is written as the first NDJSON frame after
+        // the child is spawned; later PR comments append more frames via the
+        // bidirectional handler.
+        const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
+        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
         execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
+      }
+      // Issue #817: When streaming input is active, attach the live stdin to
+      // the bidirectional handler and push the initial user prompt. This must
+      // happen before we start consuming the output stream.
+      if (streamingInput && bidirectionalHandler) {
+        try {
+          const stdinStream = await execCommand.streams.stdin;
+          if (stdinStream) {
+            bidirectionalHandler.attachClaudeStdin(stdinStream);
+            const ok = await bidirectionalHandler.streamInitialPrompt(prompt);
+            if (argv.verbose) {
+              await log(`🔌 Bidirectional mode: Streaming input ${ok ? 'ENABLED' : 'FAILED'} (wrote initial user frame to Claude stdin).`, { verbose: true });
+            }
+          } else if (argv.verbose) {
+            await log('⚠️ Bidirectional mode: Could not acquire Claude stdin stream; falling back to queued-only feedback.', { verbose: true });
+          }
+        } catch (attachError) {
+          await log(`⚠️ Bidirectional mode: Failed to attach stdin (${attachError.message}); continuing without live streaming.`, { verbose: true });
+        }
       }
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));

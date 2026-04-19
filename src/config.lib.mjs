@@ -462,6 +462,14 @@ export const getClaudeEnv = (options = {}) => {
   if (options.showThinkingContent) {
     env.CLAUDE_CODE_SHOW_THINKING = '1';
   }
+  // Issue #817: When bidirectional streaming input is enabled, keep the headless
+  // Claude process alive between turns so newly arriving PR comments can be
+  // streamed into stdin as additional user messages. Without this env var the
+  // process would exit as soon as the first --input-format stream-json frame
+  // is processed. Default is 1 minute (60000ms), matching the reference gist.
+  if (options.exitAfterStopDelayMs) {
+    env.CLAUDE_CODE_EXIT_AFTER_STOP_DELAY_MS = String(options.exitAfterStopDelayMs);
+  }
   // Set ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is specified (Issue #1223)
   // This tells Claude Code which model to use during plan mode in opusplan
   if (options.planModel) {

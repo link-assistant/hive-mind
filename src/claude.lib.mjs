@@ -11,6 +11,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
+import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig, attachStreamingInput } from './bidirectional-interactive.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
@@ -632,6 +633,10 @@ export const executeClaudeCommand = async params => {
     repo,
     prNumber,
   } = params;
+  // Issue #817: Apply bidirectional-mode composition and tool-support validation before running.
+  // This may enable argv.interactiveMode, argv.acceptIncommingCommentsAsInput, and
+  // argv.excludeAllOwnIncommingCommentsFromInput when --bidirectional-interactive-mode is set.
+  await validateBidirectionalModeConfig(argv, log);
   // Issue #1331: Unified retry configuration for all transient API errors
   // (Overloaded, 503 Network Error, Internal Server Error) - same params, all with session preservation
   let retryCount = 0;
@@ -715,6 +720,9 @@ export const executeClaudeCommand = async params => {
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }
+    // Issue #817: Set up bidirectional handler when --accept-incomming-comments-as-input
+    // (or composite --bidirectional-interactive-mode) is enabled. Returns null when inactive.
+    const bidirectionalHandler = await setupBidirectionalHandler({ argv, owner, repo, prNumber, $, log });
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
@@ -722,6 +730,12 @@ export const executeClaudeCommand = async params => {
     const effectiveModel = resolvedPlanModel ? 'opusplan' : mappedModel;
     const resolvedExecutionModel = resolvedPlanModel ? mappedModel : undefined;
     let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
+    // Declare queuedFeedback for use in catch/finally blocks and return value
+    let queuedFeedback = [];
+    // Issue #817: When --accept-incomming-comments-as-input is set and we are
+    // not resuming a prior session, drive Claude via NDJSON stream-json input
+    // so incoming PR comments can be streamed as additional user turns.
+    const streamingInput = !!(argv.acceptIncommingCommentsAsInput && bidirectionalHandler && !argv.resume);
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
@@ -730,7 +744,12 @@ export const executeClaudeCommand = async params => {
     const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright });
     if (mcpConfigPath) claudeArgs += ` --strict-mcp-config --mcp-config "${mcpConfigPath}"`;
     if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.join(' ')}`;
-    claudeArgs += ` -p "${escapedPrompt}" --append-system-prompt "${escapedSystemPrompt}"`;
+    if (streamingInput) {
+      // Prompt is delivered as the first NDJSON frame on stdin (not as -p).
+      claudeArgs += ` -p --input-format stream-json --append-system-prompt "${escapedSystemPrompt}"`;
+    } else {
+      claudeArgs += ` -p "${escapedPrompt}" --append-system-prompt "${escapedSystemPrompt}"`;
+    }
     const fullCommand = `(cd "${tempDir}" && ${claudePath} ${claudeArgs} | jq -c .)`;
     await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
     await log(`${fullCommand}`);
@@ -741,7 +760,9 @@ export const executeClaudeCommand = async params => {
     }
     try {
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, showThinkingContent: argv.showThinkingContent });
+      // Issue #817: Streaming mode sets exitAfterStopDelayMs=60000 so the
+      // headless Claude process stays alive between NDJSON turns.
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined });
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
@@ -758,8 +779,17 @@ export const executeClaudeCommand = async params => {
       if (argv.resume) {
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
         execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+      } else if (streamingInput) {
+        // Issue #817: Drive Claude via --input-format stream-json on a pipe
+        // stdin. Initial prompt + later PR comments are written as NDJSON
+        // frames by attachStreamingInput (see bidirectional-interactive.lib.mjs).
+        const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
+        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
         execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
+      }
+      if (streamingInput) {
+        await attachStreamingInput(bidirectionalHandler, execCommand, prompt, log, !!argv.verbose);
       }
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -1116,6 +1146,8 @@ export const executeClaudeCommand = async params => {
         }
       }
 
+      // Issue #817: Stop bidirectional mode monitoring and collect queued feedback
+      queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
       const isTransientError = isStartupTimeout || isActivityTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
       if ((commandFailed || isTransientError) && isTransientError) {
@@ -1141,6 +1173,7 @@ export const executeClaudeCommand = async params => {
             is503Error,
             anthropicTotalCostUSD,
             resultSummary,
+            queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
         if (retryCount < maxRetries) {
@@ -1183,6 +1216,7 @@ export const executeClaudeCommand = async params => {
             is503Error, // preserve for callers that check this
             anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
             resultSummary, // Issue #1263: Include result summary
+            queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
       }
@@ -1242,6 +1276,7 @@ export const executeClaudeCommand = async params => {
           errorDuringExecution,
           anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           resultSummary, // Issue #1263: Include result summary
+          queuedFeedback, // Issue #817: Bidirectional mode feedback
         };
       }
       // Issue #1088/#1351: Log execution result status
@@ -1330,6 +1365,7 @@ export const executeClaudeCommand = async params => {
         resultModelUsage, // Issue #1454
         streamTokenUsage: streamTokenUsage.eventCount > 0 ? streamTokenUsage : null, // Issue #1491
         subAgentCalls: subAgentCalls.length > 0 ? subAgentCalls : null, // Issue #1590
+        queuedFeedback, // Issue #817: Bidirectional mode feedback
       };
     } catch (error) {
       reportError(error, {
@@ -1371,6 +1407,7 @@ export const executeClaudeCommand = async params => {
         toolUseCount,
         anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
         resultSummary, // Issue #1263: Include result summary
+        queuedFeedback, // Issue #817: Bidirectional mode feedback
       };
     }
   }; // End of executeWithRetry function

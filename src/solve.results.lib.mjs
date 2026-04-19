@@ -1058,14 +1058,14 @@ export const { TOOL_GENERATED_COMMENT_MARKERS, isToolGeneratedComment, trackTool
  * Issue #1625: Filter out comments produced by solve.mjs itself (session start,
  * log upload, auto-restart, etc.) so they do not falsely count as AI-authored.
  *
- * @param {Date} referenceTime - The timestamp before tool execution
+ * @param {Date} sessionStartTime - The timestamp when this solve work session started
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number (null if working on issue only)
  * @param {number} issueNumber - Issue number
  * @returns {Promise<boolean>} - True if AI created comments during the session
  */
-export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNumber, issueNumber) => {
+export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, prNumber, issueNumber) => {
   try {
     // Get the current user's GitHub username
     const userResult = await $`gh api user --jq .login`;
@@ -1077,10 +1077,10 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       return false;
     }
 
-    await log(`🔎 Checking comments by '${currentUser}' after ${referenceTime.toISOString()} (PR #${prNumber ?? 'none'}, issue #${issueNumber ?? 'none'})`, { verbose: true });
+    await log(`🔎 Checking comments by '${currentUser}' after session start ${sessionStartTime.toISOString()} (PR #${prNumber ?? 'none'}, issue #${issueNumber ?? 'none'})`, { verbose: true });
 
     // Issue #1625: A comment counts as an "AI comment" only if it was posted
-    // by the current user AFTER referenceTime AND solve.mjs did NOT post it
+    // by the current user AFTER sessionStartTime AND solve.mjs did NOT post it
     // itself. We identify tool-posted comments in two ways, in order:
     //   1. Primary: comment ID is in the in-memory tracked set populated by
     //      every solve.mjs posting site (postTrackedComment / trackToolCommentId).
@@ -1097,7 +1097,7 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       const skippedByIdCount = { n: 0 };
       for (const comment of comments) {
         if (!comment || !comment.user || comment.user.login !== currentUser) continue;
-        if (!(new Date(comment.created_at) > referenceTime)) continue;
+        if (!(new Date(comment.created_at) > sessionStartTime)) continue;
 
         const isReview = kind === 'review';
         if (!isReview) {
@@ -1132,7 +1132,7 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       if (prCommentsResult.code === 0) {
         const prComments = JSON.parse(prCommentsResult.stdout.toString().trim() || '[]');
         const newPrComments = filterNewAiComments(prComments, 'pr');
-        await log(`   📨 PR conversation comments after referenceTime by '${currentUser}' (excluding tool-generated): ${newPrComments.length}`, { verbose: true });
+        await log(`   📨 PR conversation comments after session start by '${currentUser}' (excluding tool-generated): ${newPrComments.length}`, { verbose: true });
         if (newPrComments.length > 0) {
           return true;
         }
@@ -1143,7 +1143,7 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       if (reviewCommentsResult.code === 0) {
         const reviewComments = JSON.parse(reviewCommentsResult.stdout.toString().trim() || '[]');
         const newReviewComments = filterNewAiComments(reviewComments, 'review');
-        await log(`   📝 PR review (inline) comments after referenceTime by '${currentUser}': ${newReviewComments.length}`, { verbose: true });
+        await log(`   📝 PR review (inline) comments after session start by '${currentUser}': ${newReviewComments.length}`, { verbose: true });
         if (newReviewComments.length > 0) {
           return true;
         }
@@ -1156,7 +1156,7 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       if (issueCommentsResult.code === 0) {
         const issueComments = JSON.parse(issueCommentsResult.stdout.toString().trim() || '[]');
         const newIssueComments = filterNewAiComments(issueComments, 'issue');
-        await log(`   📨 Issue comments after referenceTime by '${currentUser}' (excluding tool-generated): ${newIssueComments.length}`, { verbose: true });
+        await log(`   📨 Issue comments after session start by '${currentUser}' (excluding tool-generated): ${newIssueComments.length}`, { verbose: true });
         if (newIssueComments.length > 0) {
           return true;
         }

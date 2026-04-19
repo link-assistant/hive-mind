@@ -642,7 +642,7 @@ try {
     // Continue mode is a manual resume via PR URL
     sessionType = SESSION_TYPES.RESUME;
   }
-  await startWorkSession({
+  const workStartTime = await startWorkSession({
     isContinueMode,
     prNumber,
     argv,
@@ -1190,7 +1190,7 @@ try {
     } else if (argv.autoAttachSolutionSummary) {
       // Auto mode - only attach if AI didn't create comments
       await log('🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...');
-      const aiCreatedComments = await checkForAiCreatedComments(referenceTime, owner, repo, prNumber, issueNumber);
+      const aiCreatedComments = await checkForAiCreatedComments(workStartTime, owner, repo, prNumber, issueNumber);
       if (aiCreatedComments) {
         await log('ℹ️  AI created comments during session, skipping solution summary attachment');
       } else {

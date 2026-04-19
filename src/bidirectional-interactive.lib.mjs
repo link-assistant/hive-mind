@@ -198,8 +198,8 @@ export const createBidirectionalHandler = options => {
     }
 
     try {
-      // Fetch comments using gh api with pagination, sorted by created_at desc
-      const result = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq '[.[] | {id: .id, body: .body, created_at: .created_at, user: .user.login}] | sort_by(.created_at) | reverse'`;
+      // Fetch comments using gh api with pagination (GitHub defaults to 30/page), sorted by created_at desc
+      const result = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate --jq '[.[] | {id: .id, body: .body, created_at: .created_at, user: .user.login}] | sort_by(.created_at) | reverse'`;
       const comments = JSON.parse(result.stdout.toString());
       return comments;
     } catch (error) {

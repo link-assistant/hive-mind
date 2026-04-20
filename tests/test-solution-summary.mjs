@@ -385,6 +385,7 @@ runTest('Cross-module: comment bodies posted at each site embed the centralized 
   assertTrue(githubLib.includes('USAGE_LIMIT_REACHED_MARKER'), 'github.lib.mjs should reference USAGE_LIMIT_REACHED_MARKER');
   assertTrue(githubLib.includes('SOLUTION_DRAFT_FAILED_MARKER'), 'github.lib.mjs should reference SOLUTION_DRAFT_FAILED_MARKER');
   assertTrue(githubLib.includes('NOW_WORKING_SESSION_IS_ENDED_MARKER'), 'github.lib.mjs should reference NOW_WORKING_SESSION_IS_ENDED_MARKER');
+  assertTrue(githubLib.includes('Administrator-only CLI details'), 'issue failure log comments should keep admin CLI details out of user-facing guidance');
   const autoMerge = fs.readFileSync('./src/solve.auto-merge.lib.mjs', 'utf-8');
   assertTrue(autoMerge.includes('READY_TO_MERGE_MARKER'), 'solve.auto-merge.lib.mjs should reference READY_TO_MERGE_MARKER');
   assertTrue(autoMerge.includes('AUTO_MERGED_MARKER'), 'solve.auto-merge.lib.mjs should reference AUTO_MERGED_MARKER');

@@ -8,6 +8,26 @@ const truncate = (value, maxLength = 2000) => {
 
 const fence = value => truncate(value || 'Unknown error').replaceAll('```', '` ` `');
 
+export function buildPrePullRequestFailureActionSection(reason = '') {
+  const normalizedReason = String(reason || '').toLowerCase();
+  const isForkOrRecoveryFailure = normalizedReason.includes('fork') || normalizedReason.includes('auto-recovery') || normalizedReason.includes('repository setup');
+
+  if (isForkOrRecoveryFailure) {
+    return `### What you can do
+- If the affected fork or repository belongs to you, remove, rename, archive, initialize, or otherwise repair it in GitHub, then rerun the solver.
+- If the action requires elevated Hive Mind access, ask a Hive Mind administrator to handle the affected fork or repository and rerun the solver.
+- Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.
+
+Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this issue comment.`;
+  }
+
+  return `### What you can do
+- Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.
+- If this requires elevated Hive Mind access, ask a Hive Mind administrator to handle the specific failure described above.
+
+Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this issue comment.`;
+}
+
 export function shouldNotifyIssueAboutPrePullRequestFailure({ code, globalState }) {
   if (code === 0) return false;
   if (!globalState?.issueNumber || !globalState?.owner || !globalState?.repo) return false;
@@ -16,18 +36,11 @@ export function shouldNotifyIssueAboutPrePullRequestFailure({ code, globalState 
   return getTrackedToolCommentIds().size === 0;
 }
 
-export function buildPrePullRequestFailureComment({ reason, owner, repo, issueNumber, argv = {}, rawCommand = null, logAttachmentAttempted = false }) {
+export function buildPrePullRequestFailureComment({ reason, owner, repo, issueNumber, argv = {}, logAttachmentAttempted = false }) {
   const tool = argv.tool || 'claude';
   const modelLine = argv.model ? `\n- **Requested model**: \`${argv.model}\`` : '';
-  const commandBlock = rawCommand
-    ? `
-
-### Command
-\`\`\`bash
-${fence(rawCommand)}
-\`\`\``
-    : '';
   const logLine = logAttachmentAttempted ? 'Log attachment was attempted but failed. Check the solver terminal log for the complete failure output.' : 'Logs were not attached because `--attach-logs` was not enabled.';
+  const actionSection = buildPrePullRequestFailureActionSection(reason);
 
   return `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}
 
@@ -41,11 +54,12 @@ The automated solver stopped before creating a pull request, so no PR was opened
 **Reason**
 \`\`\`text
 ${fence(reason)}
-\`\`\`${commandBlock}
+\`\`\`
+
+${actionSection}
 
 ${logLine}
-
-Please resolve the reported problem and rerun the solve command.`;
+`;
 }
 
 export async function notifyIssueAboutPrePullRequestFailure(options) {

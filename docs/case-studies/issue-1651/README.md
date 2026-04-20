@@ -200,12 +200,18 @@ See PR #1652. The change is deliberately small and reversible:
 2. Improve the `Delete failed:` branch in `src/solve.repository.lib.mjs`
    so that when the failure output mentions `delete_repo` or `admin
 rights`, the user gets the real remediation (`gh auth refresh -h
-github.com -s delete_repo`) and a mention of the alternative
+github.com -s delete_repo`), an explicit note that Hive Mind does not
+   request repository deletion permission by default, and a mention of the alternative
    (`gh repo rename` / manual archive + `--prefix-fork-name-with-owner-name`).
 3. Log the full `gh` stderr in `--verbose` mode so that the next user
    report already contains the extra diagnostic lines needed for root
    cause analysis (addresses the issue requirement to add verbose
    output where current data is insufficient).
+4. Keep pre-PR failure comments on GitHub issues user-facing: comments
+   now tell the issue reporter to fix repository/account state if they
+   can, or ask a Hive Mind administrator to handle the affected
+   repository. Administrator CLI details remain in the terminal log
+   rather than being copied into the issue comment.
 
 ## Upstream / external issues to file
 

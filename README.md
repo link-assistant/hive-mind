@@ -818,123 +818,33 @@ s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"
 
 ### Script for managing screens
 
+The legacy `hive-screens.sh` script has been promoted to a first-class command:
+`hive-screens`. It ships with `@link-assistant/hive-mind`, so once the package is
+installed (globally, through `npx`, or in a project) it is available on `PATH`.
+
+It scans detached GNU screen sessions, looks for solve runs that are done and
+mergeable (scrollback contains both `process completed` and `PR is mergeable!`
+or `PR merged!`), and then either lists, enters, or closes them. `--list`,
+`--enter`, and `--close` share the **same matching predicate**, so anything
+you see under `--list` is guaranteed to be the same set `--close` will act on
+— use `--list` first to debug, then rerun with `--close`.
+
 ```bash
-cat <<'EOF' > hive-screens.sh
-#!/usr/bin/env bash
+# Safe preview — show every finished, mergeable solve session.
+hive-screens --list --all
 
-enter=false
-close=false
-oldest=false
-newest=false
-all=false
+# Close the oldest finished session (same as the legacy script's default).
+hive-screens --close
 
-# --- parse args ---
-for arg in "$@"; do
-  case "$arg" in
-    --enter) enter=true ;;
-    --close) close=true ;;
-    --oldest) oldest=true ;;
-    --newest) newest=true ;;
-    --all) all=true ;;
-    *)
-      echo "Unknown option: $arg"
-      exit 1
-      ;;
-  esac
-done
+# Attach to the newest finished session.
+hive-screens --enter --newest
 
-# --- validate ---
-if ! $enter && ! $close; then
-  echo "Must specify --enter or --close"
-  exit 1
-fi
-
-# --- default ---
-if ! $oldest && ! $newest && ! $all; then
-  oldest=true
-fi
-
-matches=()
-
-# --- sorting ---
-if $newest; then
-  sorter="sort -nr"
-else
-  sorter="sort -n"
-fi
-
-# --- scan sessions ---
-while read -r sess; do
-  tmp=$(mktemp)
-  clean=$(mktemp)
-
-  # FIX: better capture
-  screen -S "$sess" -X scrollback 200000 2>/dev/null
-  sleep 0.15
-  screen -S "$sess" -X hardcopy -h "$tmp" 2>/dev/null
-
-  # strip garbage / non-printable chars
-  tr -cd '\11\12\15\40-\176' < "$tmp" > "$clean"
-
-  if grep -qi 'process completed' "$clean" &&
-     grep -qiE 'pr is mergeable!|pr merged!' "$clean"; then
-
-    log_path=$(tac "$clean" | grep -m1 -i 'full log file:' \
-      | sed 's/.*Full log file:[[:space:]]*//')
-
-    issue=$(tac "$clean" | grep -m1 -i 'Issue:[[:space:]]*https://github\.com/' \
-      | sed 's/Issue:[[:space:]]*//')
-
-    matches+=("$sess|$log_path|$issue")
-  fi
-
-  rm -f "$tmp" "$clean"
-done < <(screen -ls | awk '/Detached/ {print $1}' | $sorter)
-
-# --- no matches ---
-if [ ${#matches[@]} -eq 0 ]; then
-  echo "No matching sessions"
-  exit 0
-fi
-
-process_one() {
-  IFS="|" read -r sess log issue <<< "$1"
-
-  echo "Session: $sess"
-
-  if $enter; then
-    echo "Entering $sess"
-    screen -r "$sess"
-    echo "Left $sess"
-  fi
-
-  [ -n "$log" ] && echo "Log: $log" || echo "Log: (not found)"
-  [ -n "$issue" ] && echo "Issue: $issue" || echo "Issue: (not found)"
-
-  if $close; then
-    echo "Closing $sess"
-    screen -S "$sess" -X stuff $'exit\n'
-  fi
-
-  echo "-----------------------------------"
-}
-
-# --- execution ---
-if $all; then
-  for m in "${matches[@]}"; do
-    process_one "$m"
-  done
-elif $oldest; then
-  process_one "${matches[0]}"
-elif $newest; then
-  last_index=$((${#matches[@]} - 1))
-  process_one "${matches[$last_index]}"
-fi
-
-EOF
-
-chmod +x hive-screens.sh
+# Close every finished session.
+hive-screens --close --all
 ```
+
+Selection defaults to `--oldest`. Supply `--newest` or `--all` to change it.
+Run `hive-screens --help` for the full option list.
 
 ### Reboot server.
 

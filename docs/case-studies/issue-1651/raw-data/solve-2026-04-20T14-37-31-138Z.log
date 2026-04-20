@@ -1,0 +1,97 @@
+# Solve.mjs Log - 2026-04-20T14:37:31.139Z
+
+[2026-04-20T14:37:31.140Z] [INFO] 📁 Log file: /home/box/solve-2026-04-20T14-37-31-138Z.log
+[2026-04-20T14:37:31.140Z] [INFO]    (All output will be logged here)
+[2026-04-20T14:37:31.587Z] [INFO] 
+[2026-04-20T14:37:31.588Z] [INFO] 🚀 solve v1.55.0
+[2026-04-20T14:37:31.588Z] [INFO] 🔧 Raw command executed:
+[2026-04-20T14:37:31.588Z] [INFO]    /home/box/.nvm/versions/node/v20.20.2/bin/node /home/box/.bun/bin/solve https://github.com/labtgbot/teleton-agent/pull/2 --model opus --tool claude --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --auto-attach-solution-summary
+[2026-04-20T14:37:31.588Z] [INFO] 
+[2026-04-20T14:37:31.604Z] [INFO] 
+[2026-04-20T14:37:31.604Z] [WARNING] ⚠️  SECURITY WARNING: --attach-logs is ENABLED
+[2026-04-20T14:37:31.605Z] [INFO] 
+[2026-04-20T14:37:31.605Z] [INFO]    This option will upload the complete solution draft log file to the Pull Request.
+[2026-04-20T14:37:31.605Z] [INFO]    The log may contain sensitive information such as:
+[2026-04-20T14:37:31.605Z] [INFO]    • API keys, tokens, or secrets
+[2026-04-20T14:37:31.605Z] [INFO]    • File paths and directory structures
+[2026-04-20T14:37:31.606Z] [INFO]    • Command outputs and error messages
+[2026-04-20T14:37:31.606Z] [INFO]    • Internal system information
+[2026-04-20T14:37:31.606Z] [INFO] 
+[2026-04-20T14:37:31.606Z] [INFO]    ⚠️  DO NOT use this option with public repositories or if the log
+[2026-04-20T14:37:31.606Z] [INFO]        might contain sensitive data that should not be shared publicly.
+[2026-04-20T14:37:31.606Z] [INFO] 
+[2026-04-20T14:37:31.606Z] [INFO]    Continuing in 5 seconds... (Press Ctrl+C to abort)
+[2026-04-20T14:37:31.606Z] [INFO] 
+[2026-04-20T14:37:31.606Z] [STDOUT]    Countdown: 5 seconds remaining...
+[2026-04-20T14:37:32.607Z] [STDOUT]    Countdown: 4 seconds remaining...
+[2026-04-20T14:37:33.609Z] [STDOUT]    Countdown: 3 seconds remaining...
+[2026-04-20T14:37:34.611Z] [STDOUT]    Countdown: 2 seconds remaining...
+[2026-04-20T14:37:35.613Z] [STDOUT]    Countdown: 1 seconds remaining...
+[2026-04-20T14:37:36.615Z] [INFO] 
+[2026-04-20T14:37:36.615Z] [STDOUT]    Proceeding with log attachment enabled.                    
+[2026-04-20T14:37:36.631Z] [INFO] 💾 Disk space check: 47231MB available (2048MB required) ✅
+[2026-04-20T14:37:36.632Z] [INFO] 🧠 Memory check: 10643MB available, swap: none, total: 10643MB (256MB required) ✅
+[2026-04-20T14:37:36.643Z] [INFO] ⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)
+[2026-04-20T14:37:36.643Z] [INFO] ⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)
+[2026-04-20T14:37:36.644Z] [INFO] 📋 URL validation:
+[2026-04-20T14:37:36.644Z] [INFO]    Input URL: https://github.com/labtgbot/teleton-agent/pull/2
+[2026-04-20T14:37:36.644Z] [INFO]    Is Issue URL: false
+[2026-04-20T14:37:36.644Z] [INFO]    Is PR URL: true
+[2026-04-20T14:37:36.644Z] [INFO] 🔍 --auto-accept-invite: Checking for pending invitation to labtgbot/teleton-agent...
+[2026-04-20T14:37:36.979Z] [INFO]    Found 1 total pending repo invitation(s)
+[2026-04-20T14:37:36.980Z] [INFO]    No pending repository invitation found for labtgbot/teleton-agent
+[2026-04-20T14:37:37.400Z] [INFO]    Found 0 total pending org invitation(s)
+[2026-04-20T14:37:37.400Z] [INFO]    No pending organization invitation found for labtgbot
+[2026-04-20T14:37:37.400Z] [INFO] ℹ️  --auto-accept-invite: No pending invitation found for labtgbot/teleton-agent or organization labtgbot
+[2026-04-20T14:37:37.401Z] [INFO] 🔍 Checking repository access for auto-fork...
+[2026-04-20T14:37:37.834Z] [STDOUT] {"admin":false,"maintain":false,"pull":true,"push":false,"triage":false}
+[2026-04-20T14:37:38.251Z] [STDOUT] public
+[2026-04-20T14:37:38.255Z] [INFO]    Repository visibility: public
+[2026-04-20T14:37:38.255Z] [INFO] ✅ Auto-fork: No write access detected, enabling fork mode
+[2026-04-20T14:37:38.256Z] [INFO] ✅ Repository access check: Skipped (fork mode enabled)
+[2026-04-20T14:37:38.513Z] [STDOUT] labtgbot
+[2026-04-20T14:37:38.900Z] [STDOUT] labtgbot/teleton-agent
+[2026-04-20T14:37:39.266Z] [STDOUT] {"number":2,"state":"OPEN"}
+[2026-04-20T14:37:39.636Z] [STDOUT] public
+[2026-04-20T14:37:39.642Z] [INFO]    Repository visibility: public
+[2026-04-20T14:37:39.643Z] [INFO]    Auto-cleanup default: false (repository is public)
+[2026-04-20T14:37:39.644Z] [INFO] 🔄 Continue mode: Working with PR #2
+[2026-04-20T14:37:39.644Z] [INFO]    Continue mode activated: PR URL provided directly
+[2026-04-20T14:37:39.644Z] [INFO]    PR Number set to: 2
+[2026-04-20T14:37:39.644Z] [INFO]    Will fetch PR details and linked issue
+[2026-04-20T14:37:40.113Z] [STDOUT] {"body":"## Summary\n\nImplements the **Autonomous Task Engine (ATE)** as described in issue #1, enabling Teleton Agent to work independently toward long-running goals without constant user supervision.\n\n### What's implemented\n\n- **`src/autonomous/`** — Core ATE module:\n  - `loop.ts` — `AutonomousLoop` class with the `plan→execute→observe→reflect→save` cycle, powered by `AgentRuntime.processMessage`\n  - `store.ts` — `AutonomousStore` for SQLite persistence of tasks, checkpoints, execution logs\n  - `policy.ts` — `PolicyEngine` enforcing tool restrictions, TON budget limits, iteration/duration caps, loop detection\n  - `migrate.ts` — DB migration for 3 new tables (`autonomous_tasks`, `autonomous_checkpoints`, `autonomous_execution_logs`)\n  - `module.ts` — `PluginModule` integration with the builtin module loader\n  - `tools.ts` — 6 `admin-only` agent tools: `autonomous_create`, `autonomous_run`, `autonomous_list`, `autonomous_status`, `autonomous_pause`, `autonomous_cancel`\n  - `types.ts` — TypeScript types for `AutonomousTask`, `TaskCheckpoint`, `TaskResult`, `Reflection`, etc.\n\n- **DB migration 1.20.0** — adds `autonomous_tasks`, `autonomous_checkpoints`, `autonomous_execution_logs` tables\n\n- **CLI commands** — `teleton autonomous enable|disable|list|status|pause|cancel`\n\n- **Auto-resume** — on startup, any `running` tasks are automatically resumed from last checkpoint\n\n- **32 unit tests** — covering `AutonomousStore`, `PolicyEngine`, and `migrateAutonomousTables`\n\n- **Documentation** — `docs/AUTONOMOUS_MODE.md` (user guide) + `examples/autonomous/` (3 example configs + strategy profiles)\n\n### How to reproduce / test\n\n```bash\n# Create an autonomous task via CLI\nteleton autonomous enable \\\n  --task=\"Monitor DeDust pools every 5 minutes and report to @username\" \\\n  --strategy=balanced \\\n  --interval=300 \\\n  --notify=@username \\\n  --max-iterations=10\n\n# View created task\nteleton autonomous list\n\n# Or via agent message (admin users only):\n# \"autonomous_create: goal=Monitor new pools on DeDust, success_criteria=['3 pools found'], max_iterations=10\"\n```\n\n### Test suite\n\n```bash\nnpm run test -- src/autonomous\n# 32 tests pass (migrate, store, policy)\n```\n\n### Architecture notes\n\n- Autonomous mode is **disabled by default** — all tools are `admin-only` scope\n- The `AutonomousLoop` singleton is wired with the real `AgentRuntime` on app start (in `startAgent()`), enabling LLM-based planning\n- Each iteration: plan via LLM → check policies → execute tools → save checkpoint → check success criteria → sleep (strategy-based)\n- Loop detection: 5 identical consecutive tool calls → pause and notify user\n- Checkpoints: saved after each step; auto-resume on restart from last checkpoint step\n- Old checkpoints auto-pruned after 7 days\n\n### Acceptance criteria coverage\n\n| Criterion | Status |\n|-----------|--------|\n| Basic scenario: task creation, execution, reporting | ✅ |\n| Recovery from restart via checkpoints | ✅ |\n| Security: budget escalation, tool restrictions | ✅ |\n| Loop detection → pause | ✅ |\n| CLI management (enable/disable/list/pause/cancel) | ✅ |\n| Documentation | ✅ |\n\n### Remaining for follow-up\n\n- WebUI dashboard for real-time task monitoring (issue #1 stage 6)\n- REST API endpoints for remote control (issue #1 stage 6)\n- Real-time WebSocket event stream (issue #1 stage 6)\n- Email/webhook alerting beyond Telegram notifications\n\n\nFixes labtgbot/teleton-agent#1","headRefName":"issue-1-13ac91029e5f","headRepository":{"id":"R_kgDORfIVOg","name":"labtgbot-teleton-agent","nameWithOwner":"konard/labtgbot-teleton-agent"},"headRepositoryOwner":{"id":"MDQ6VXNlcjE0MzE5MDQ=","name":"Konstantin Diachenko","login":"konard"},"mergeStateStatus":"CLEAN","number":2,"state":"OPEN"}
+[2026-04-20T14:37:40.118Z] [INFO] 🍴 Detected fork PR from konard/labtgbot-teleton-agent
+[2026-04-20T14:37:40.118Z] [INFO]    Fork owner: konard
+[2026-04-20T14:37:40.119Z] [INFO]    Will clone fork repository for continue mode
+[2026-04-20T14:37:40.119Z] [INFO] 📝 PR branch: issue-1-13ac91029e5f
+[2026-04-20T14:37:40.119Z] [INFO] 🔗 Found linked issue #1
+[2026-04-20T14:37:40.120Z] [INFO] 
+[2026-04-20T14:37:40.120Z] [INFO] Creating temporary directory: /tmp/gh-issue-solver-1776695860120
+[2026-04-20T14:37:40.122Z] [INFO] 
+[2026-04-20T14:37:40.122Z] [INFO] 🍴 Fork mode:                ENABLED
+[2026-04-20T14:37:40.124Z] [INFO]  Checking fork status...   
+[2026-04-20T14:37:40.124Z] [INFO] 
+[2026-04-20T14:37:40.422Z] [STDOUT] konard
+[2026-04-20T14:37:40.427Z] [INFO] 🔍 Detecting fork conflicts... 
+[2026-04-20T14:37:40.787Z] [STDOUT] {"fork":true,"source":"TONresistor/teleton-agent"}
+[2026-04-20T14:37:41.104Z] [STDOUT] konard
+[2026-04-20T14:37:41.543Z] [INFO] ✅ No fork conflict:         Safe to proceed
+[2026-04-20T14:37:41.879Z] [STDOUT] {"name":"labtgbot-teleton-agent"}
+[2026-04-20T14:37:41.885Z] [INFO] ✅ Fork exists:              konard/labtgbot-teleton-agent
+[2026-04-20T14:37:41.886Z] [INFO] 🔍 Validating fork parent... 
+[2026-04-20T14:37:42.282Z] [STDOUT] {"fork":true,"parent":"xlabtg/teleton-agent","source":"TONresistor/teleton-agent"}
+[2026-04-20T14:37:42.286Z] [INFO] 
+[2026-04-20T14:37:42.287Z] [WARNING] ⚠️ FORK PARENT MISMATCH DETECTED 
+[2026-04-20T14:37:42.287Z] [INFO]                            Fork konard/labtgbot-teleton-agent was created from xlabtg/teleton-agent instead of labtgbot/teleton-agent (see issue #967)
+[2026-04-20T14:37:42.287Z] [INFO]                            Fork parent: xlabtg/teleton-agent, source: TONresistor/teleton-agent, expected: labtgbot/teleton-agent
+[2026-04-20T14:37:42.287Z] [INFO] 🔍 Safety check:             Comparing commits against upstream...
+[2026-04-20T14:37:42.780Z] [STDOUT] 0
+[2026-04-20T14:37:42.784Z] [INFO] ✅ Safe to delete:           No additional commits in non-fork repository
+[2026-04-20T14:37:42.785Z] [INFO] 🔄 Auto-recovery:            Deleting non-fork repository and creating fresh fork...
+[2026-04-20T14:37:43.223Z] [STDOUT] HTTP 403: Must have admin rights to Repository. (https://api.github.com/repos/konard/labtgbot-teleton-agent)
+This API operation needs the "delete_repo" scope. To request it, run:  gh auth refresh -h github.com -s delete_repo
+[2026-04-20T14:37:43.227Z] [ERROR] ❌ Delete failed:            HTTP 403: Must have admin rights to Repository. (https://api.github.com/repos/konard/labtgbot-teleton-agent)
+[2026-04-20T14:37:43.227Z] [INFO]   💡 Manual fix: gh repo delete konard/labtgbot-teleton-agent --yes, then re-run
+[2026-04-20T14:37:43.228Z] [INFO] 
+[2026-04-20T14:37:43.229Z] [ERROR] ❌ Auto-recovery failed - could not delete problematic repository
+[2026-04-20T14:37:43.230Z] [INFO] 📁 Full log file: /home/box/solve-2026-04-20T14-37-31-138Z.log

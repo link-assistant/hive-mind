@@ -553,8 +553,9 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         if (deleteResult.code !== 0) {
           const delOut = (deleteResult.stderr?.toString() || '') + (deleteResult.stdout?.toString() || '');
           await log(`${formatAligned('❌', 'Delete failed:', delOut.split('\n')[0])}`, { level: 'error' });
-          await log(`  💡 Manual fix: gh repo delete ${existingForkName} --yes, then re-run`);
-          await safeExit(1, 'Auto-recovery failed - could not delete problematic repository');
+          await log(/delete_repo/i.test(delOut) || (/HTTP 403/.test(delOut) && /admin rights/i.test(delOut)) ? `  💡 Token missing "delete_repo" scope. Hive Mind does not request it by default. Admin fix: gh auth refresh -h github.com -s delete_repo\n  🔧 Or no-scope alternative: gh repo rename ${existingForkName} ${existingForkName.split('/')[1]}-old (or gh repo archive ${existingForkName} --yes), then re-run with --prefix-fork-name-with-owner-name` : `  💡 Manual fix: gh repo delete ${existingForkName} --yes, then re-run`); // Issue #1651
+          if (argv.verbose) await log(`${formatAligned('🔧', 'Full delete output:', delOut.trim())}`);
+          await safeExit(1, `Auto-recovery failed - ask the fork owner or Hive Mind administrator to delete, rename, or archive ${existingForkName}`);
         }
         await log(`${formatAligned('✅', 'Deleted:', existingForkName)}`);
         existingForkName = null; // Fall through to fork creation below

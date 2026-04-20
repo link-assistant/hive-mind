@@ -21,6 +21,18 @@ export { buildCostInfoString };
 import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
 export const maskGitHubToken = maskToken; // Alias for backward compatibility
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
+const buildIssueFailureActionSection = targetType => {
+  if (targetType !== 'issue') return '';
+
+  return `
+
+### What you can do
+- Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.
+- If this requires elevated Hive Mind access, ask a Hive Mind administrator to handle the specific failure described above.
+- Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.
+
+Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this issue comment.`;
+};
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
   const { $ } = await use('command-stream');
 
@@ -486,7 +498,7 @@ ${footerNote}`;
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
-\`\`\`${modelInfoString}
+\`\`\`${buildIssueFailureActionSection(targetType)}${modelInfoString}
 
 <details>
 <summary>Click to expand failure log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -675,7 +687,7 @@ ${uploadFooterNote}`;
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
-\`\`\`${modelInfoString}
+\`\`\`${buildIssueFailureActionSection(targetType)}${modelInfoString}
 
 ### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 - [View complete failure log](${logUrl})

@@ -553,7 +553,23 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         if (deleteResult.code !== 0) {
           const delOut = (deleteResult.stderr?.toString() || '') + (deleteResult.stdout?.toString() || '');
           await log(`${formatAligned('❌', 'Delete failed:', delOut.split('\n')[0])}`, { level: 'error' });
-          await log(`  💡 Manual fix: gh repo delete ${existingForkName} --yes, then re-run`);
+          // Issue #1651: detect missing delete_repo scope and print the actual remediation,
+          // not the same command that just failed.
+          const missingDeleteScope = /delete_repo/i.test(delOut) || (/HTTP 403/.test(delOut) && /admin rights/i.test(delOut));
+          if (missingDeleteScope) {
+            await log('  💡 Your GitHub CLI token is missing the "delete_repo" scope.');
+            await log('     Fix: gh auth refresh -h github.com -s delete_repo');
+            await log('     Then re-run this command.');
+            await log('  🔧 Alternative (no extra scope needed): rename or archive the mismatched fork, then');
+            await log(`     re-run with --prefix-fork-name-with-owner-name so a fresh fork is created:`);
+            await log(`       gh repo rename ${existingForkName} ${existingForkName.split('/')[1]}-old`);
+            await log('       # or: gh repo archive ' + existingForkName + ' --yes');
+          } else {
+            await log(`  💡 Manual fix: gh repo delete ${existingForkName} --yes, then re-run`);
+          }
+          if (argv.verbose) {
+            await log(`${formatAligned('🔧', 'Full delete output:', delOut.trim())}`);
+          }
           await safeExit(1, 'Auto-recovery failed - could not delete problematic repository');
         }
         await log(`${formatAligned('✅', 'Deleted:', existingForkName)}`);

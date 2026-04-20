@@ -403,6 +403,34 @@ runTest('fork parent validation in creation/discovery path (Issue #1518)', () =>
   }
 });
 
+// Test 23: Verify missing delete_repo scope remediation (Issue #1651)
+runTest('missing delete_repo scope remediation (Issue #1651)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check that the failure output is inspected for the missing scope
+  if (!content.includes('/delete_repo/i.test(delOut)')) {
+    throw new Error('Missing detection of delete_repo scope in gh repo delete failure output');
+  }
+
+  // Check that the concrete remediation command is printed, not just the one that just failed
+  if (!content.includes('gh auth refresh -h github.com -s delete_repo')) {
+    throw new Error('Missing gh auth refresh remediation for missing delete_repo scope');
+  }
+
+  // Check that a non-destructive alternative is offered (rename / archive + prefix flag)
+  if (!content.includes('gh repo rename ')) {
+    throw new Error('Missing alternative remediation via gh repo rename');
+  }
+  if (!content.includes('gh repo archive ')) {
+    throw new Error('Missing alternative remediation via gh repo archive');
+  }
+
+  // Check that the full delete output is dumped in verbose mode for next-iteration diagnostics
+  if (!content.includes('Full delete output:')) {
+    throw new Error('Missing verbose full-output dump for failed delete (needed for root cause analysis)');
+  }
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log('Test Results for fork parent validation:');

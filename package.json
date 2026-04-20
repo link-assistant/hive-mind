@@ -11,10 +11,11 @@
     "review": "./src/review.mjs",
     "configure-claude": "./src/configure-claude.mjs",
     "start-screen": "./src/start-screen.mjs",
+    "hive-screens": "./src/hive-screens.mjs",
     "hive-telegram-bot": "./src/telegram-bot.mjs"
   },
   "scripts": {
-    "test": "node tests/solve-queue.test.mjs && node tests/limits-display.test.mjs && node tests/test-usage-limit.mjs && node tests/test-codex-support.mjs && node tests/test-build-cost-info-string.mjs && node tests/test-claude-code-install-method.mjs && node tests/test-claude-quiet-config.mjs && node tests/test-configure-claude-bin.mjs && node tests/test-docker-release-order.mjs && node tests/test-docker-box-migration.mjs && node tests/test-issue-1616-pr-issue-link-preservation.mjs && node tests/test-pre-pr-failure-notifier-1640.mjs && node tests/test-ready-to-merge-pagination-1645.mjs && node tests/test-require-gh-paginate-rule.mjs && node tests/test-telegram-message-filters.mjs && node tests/test-telegram-bot-command-aliases.mjs && node tests/test-solve-queue-command.mjs && node tests/test-queue-display-1267.mjs && node tests/test-telegram-bot-launcher.mjs",
+    "test": "node tests/solve-queue.test.mjs && node tests/limits-display.test.mjs && node tests/test-usage-limit.mjs && node tests/test-codex-support.mjs && node tests/test-build-cost-info-string.mjs && node tests/test-claude-code-install-method.mjs && node tests/test-claude-quiet-config.mjs && node tests/test-configure-claude-bin.mjs && node tests/test-docker-release-order.mjs && node tests/test-docker-box-migration.mjs && node tests/test-hive-screens.mjs && node tests/test-issue-1616-pr-issue-link-preservation.mjs && node tests/test-pre-pr-failure-notifier-1640.mjs && node tests/test-ready-to-merge-pagination-1645.mjs && node tests/test-require-gh-paginate-rule.mjs && node tests/test-telegram-message-filters.mjs && node tests/test-telegram-bot-command-aliases.mjs && node tests/test-solve-queue-command.mjs && node tests/test-queue-display-1267.mjs && node tests/test-telegram-bot-launcher.mjs",
     "test:queue": "node tests/solve-queue.test.mjs",
     "test:limits-display": "node tests/limits-display.test.mjs",
     "test:usage-limit": "node tests/test-usage-limit.mjs",
@@ -26,7 +27,7 @@
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "npm run build:pre && changeset publish",
-    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/configure-claude.mjs",
+    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/configure-claude.mjs && chmod +x src/hive-screens.mjs",
     "prepare": "husky"
   },
   "repository": {

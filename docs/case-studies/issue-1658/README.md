@@ -33,6 +33,8 @@ the natural form for CLI options that take a separate value.
 5. `--isolation` in locked Telegram overrides must be consumed by Telegram isolation
    handling and not forwarded to solve/hive yargs validation.
 6. Issue data and reproduction evidence must be preserved in this case-study folder.
+7. Direct `--isolation screen` argument vectors must preserve `screen` as the
+   effective Telegram execution isolation backend for solve/hive launches.
 
 ## Data Inventory
 
@@ -50,7 +52,9 @@ Saved source data:
 - `source-data/reproduction/after-dry-run.log`
 - `source-data/reproduction/after-dry-run.exit-code`
 
-There were no issue comments or PR review comments at investigation time.
+The refreshed PR source data includes five PR conversation comments and no PR
+review comments or submitted reviews. The third conversation comment requested an
+explicit double-check that `--isolation screen` is passed through correctly.
 
 ## Online Research
 
@@ -88,6 +92,10 @@ Inference from sources:
 - The fix was verified with `--dry-run`; the same configuration now exits 0 and
   keeps `--isolation` plus `screen` in both override summaries:
   `source-data/reproduction/after-dry-run.log`.
+- 2026-04-23 22:53 UTC: PR feedback requested a direct double-check for
+  `--isolation screen` pass-through to solve/hive command execution.
+- 2026-04-23 22:54 UTC: PR #1659 was converted back to draft for this follow-up
+  work session and the GitHub source-data files were refreshed.
 
 ## Root Causes
 
@@ -115,6 +123,14 @@ Inference from sources:
    then pass the effective isolation backend to execution or queueing.
 5. Await LENV configuration loading in the Telegram bot entry point.
 6. Add regression coverage for the issue #1658 configuration shape.
+7. Include the direct `--isolation screen` extraction test in the main `npm test`
+   suite so CI verifies that `screen` is retained as the effective backend.
+
+Note: solve/hive yargs configs do not define an `--isolation` option. In the
+Telegram bot, correct pass-through means parsing `--isolation screen` into the
+effective execution backend, stripping those two tokens before solve/hive yargs
+validation, and passing that backend to `isolation-runner` for execution or
+queueing.
 
 ## Rejected Alternatives
 
@@ -136,6 +152,7 @@ Focused checks:
 node tests/test-lenv-reader.mjs
 node tests/test-lino.mjs
 node tests/test-telegram-bot-configuration-isolation-links-notation.mjs
+node tests/test-extract-isolation-from-args.mjs
 node tests/test-telegram-bot-hero-links-notation.mjs
 ```
 

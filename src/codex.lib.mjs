@@ -183,6 +183,57 @@ const upsertCodexItemError = (itemErrors, item) => {
   });
 };
 
+const unwrapCodexErrorMessage = value => {
+  if (!value) return '';
+  if (typeof value !== 'string') {
+    if (typeof value?.error?.message === 'string') return unwrapCodexErrorMessage(value.error.message);
+    if (typeof value?.message === 'string') return unwrapCodexErrorMessage(value.message);
+    return String(value);
+  }
+
+  let text = value.trim();
+  for (let i = 0; i < 3; i++) {
+    if (!text.startsWith('{') && !text.startsWith('[')) break;
+    try {
+      const parsed = JSON.parse(text);
+      if (typeof parsed?.error?.message === 'string') return unwrapCodexErrorMessage(parsed.error.message);
+      if (typeof parsed?.message === 'string') {
+        text = parsed.message.trim();
+        continue;
+      }
+      return JSON.stringify(parsed);
+    } catch {
+      break;
+    }
+  }
+  return text;
+};
+
+export const getCodexErrorEventSummary = codexJsonState => {
+  const events = [];
+  const addEvents = (type, items = []) => {
+    for (const item of items) {
+      const message = unwrapCodexErrorMessage(item?.message);
+      events.push({ type, message: message || 'Codex emitted an error event' });
+    }
+  };
+
+  addEvents('item', codexJsonState?.itemErrors);
+  addEvents('turn', codexJsonState?.turnFailures);
+  addEvents('stream', codexJsonState?.streamErrors);
+
+  return {
+    hasError: events.length > 0,
+    message: events[0]?.message || null,
+    events,
+    counts: {
+      item: codexJsonState?.itemErrors?.length || 0,
+      turn: codexJsonState?.turnFailures?.length || 0,
+      stream: codexJsonState?.streamErrors?.length || 0,
+    },
+  };
+};
+
 export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = null) => {
   const nextState = {
     sessionId: state.sessionId || null,
@@ -597,7 +648,7 @@ export const executeCodex = async params => {
 };
 
 export const executeCodexCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, calculatePricing = calculateCodexPricing } = params;
 
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
@@ -852,7 +903,7 @@ export const executeCodexCommand = async params => {
       }
 
       const firstActualModelId = mappedModel;
-      const pricingInfo = firstActualModelId ? await calculateCodexPricing(firstActualModelId, codexJsonState.tokenUsage.stepCount > 0 ? codexJsonState.tokenUsage : null) : null;
+      const pricingInfo = firstActualModelId ? await calculatePricing(firstActualModelId, codexJsonState.tokenUsage.stepCount > 0 ? codexJsonState.tokenUsage : null) : null;
       if (pricingInfo?.totalCostUSD !== null && pricingInfo?.totalCostUSD !== undefined) {
         await log(`💰 Codex public pricing estimate: $${new Decimal(pricingInfo.totalCostUSD).toFixed(6)}`, { verbose: true });
         if (pricingInfo.usesLongContextPricing) {
@@ -874,6 +925,49 @@ export const executeCodexCommand = async params => {
         const error = new Error('Codex authentication failed - 401 Unauthorized. Please run: codex login');
         error.isAuthError = true;
         throw error;
+      }
+
+      const codexErrorSummary = getCodexErrorEventSummary(codexJsonState);
+      if (codexErrorSummary.hasError) {
+        const limitInfo = detectUsageLimit(codexErrorSummary.message || lastMessage);
+        if (limitInfo.isUsageLimit) {
+          limitReached = true;
+          limitResetTime = limitInfo.resetTime;
+
+          const messageLines = formatUsageLimitMessage({
+            tool: 'OpenAI Codex',
+            resetTime: limitInfo.resetTime,
+            sessionId,
+            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
+          });
+
+          for (const line of messageLines) {
+            await log(line, { level: 'warning' });
+          }
+        } else {
+          await log(`\n\n❌ Codex emitted error event: ${codexErrorSummary.message}`, { level: 'error' });
+          await log(`   Error events: item=${codexErrorSummary.counts.item}, turn=${codexErrorSummary.counts.turn}, stream=${codexErrorSummary.counts.stream}`, { level: 'error' });
+        }
+
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime,
+          pricingInfo,
+          publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
+          resultModelUsage,
+          subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
+          codexJsonDetails: codexJsonState,
+          errorInfo: codexErrorSummary,
+          result: codexErrorSummary.message,
+          resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
+        };
       }
 
       if (exitCode !== 0) {
@@ -915,6 +1009,7 @@ export const executeCodexCommand = async params => {
           resultModelUsage,
           subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
           codexJsonDetails: codexJsonState,
+          errorInfo: getCodexErrorEventSummary(codexJsonState),
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
         };
       }
@@ -965,6 +1060,8 @@ export const executeCodexCommand = async params => {
         limitResetTime: null,
         pricingInfo: null,
         publicPricingEstimate: null,
+        errorInfo: { hasError: true, message: error.message, events: [{ type: 'exception', message: error.message }], counts: { item: 0, turn: 0, stream: 0 } },
+        result: error.message,
         resultSummary: null, // Issue #1263: No result summary available on error
       };
     } finally {

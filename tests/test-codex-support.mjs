@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 const { defaultModels, primaryModelNames, resolveModelId, resolveRuntimeDefaultModel, validateModelName } = await import('../src/models/index.mjs');
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
-const { parseCodexExecJsonOutput, buildCodexResultModelUsage, calculateCodexPricingFromModelInfo } = await import('../src/codex.lib.mjs');
+const { parseCodexExecJsonOutput, getCodexErrorEventSummary, executeCodexCommand, buildCodexResultModelUsage, calculateCodexPricingFromModelInfo } = await import('../src/codex.lib.mjs');
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
 
 let passed = 0;
@@ -264,6 +264,77 @@ test('Codex exec JSON parser captures remaining supported item payloads', () => 
   assert.equal(parsed.itemErrors.length, 1);
   assert.equal(parsed.turnFailures.length, 1);
   assert.equal(parsed.streamErrors.length, 1);
+});
+
+test('Codex error summary unwraps unsupported ChatGPT-account model errors', () => {
+  const message = JSON.stringify({
+    type: 'error',
+    status: 400,
+    error: {
+      type: 'invalid_request_error',
+      message: "The 'gpt-5.5-mini' model is not supported when using Codex with a ChatGPT account.",
+    },
+  });
+  const jsonl = [`{"type":"error","message":${JSON.stringify(message)}}`, `{"type":"turn.failed","error":{"message":${JSON.stringify(message)}}}`].join('\n');
+
+  const parsed = parseCodexExecJsonOutput(jsonl, {}, 'gpt-5.5-mini');
+  const summary = getCodexErrorEventSummary(parsed);
+
+  assert.equal(summary.hasError, true);
+  assert.equal(summary.counts.stream, 1);
+  assert.equal(summary.counts.turn, 1);
+  assert.match(summary.message, /gpt-5\.5-mini/);
+  assert.match(summary.message, /ChatGPT account/);
+});
+
+await asyncTest('Codex command fails when JSON error events are emitted with exit code 0', async () => {
+  const message = JSON.stringify({
+    type: 'error',
+    status: 400,
+    error: {
+      type: 'invalid_request_error',
+      message: "The 'gpt-5.5-mini' model is not supported when using Codex with a ChatGPT account.",
+    },
+  });
+  const jsonl = [`{"type":"thread.started","thread_id":"thread_issue_1660"}`, `{"type":"error","message":${JSON.stringify(message)}}`, `{"type":"turn.failed","error":{"message":${JSON.stringify(message)}}}`].join('\n');
+  const logLines = [];
+  const fakeDollar = () => () => ({
+    async *stream() {
+      yield { type: 'stdout', data: Buffer.from(jsonl) };
+      yield { type: 'exit', code: 0 };
+    },
+  });
+
+  const result = await executeCodexCommand({
+    tempDir: process.cwd(),
+    branchName: 'issue-1660-test',
+    prompt: 'test prompt',
+    systemPrompt: '',
+    argv: { model: 'gpt-5.5-mini', verbose: false },
+    log: async message => {
+      logLines.push(String(message));
+    },
+    formatAligned: (icon, label, value = '') => `${icon} ${label} ${value}`,
+    getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+    forkedRepo: null,
+    feedbackLines: [],
+    codexPath: 'codex',
+    $: fakeDollar,
+    owner: null,
+    repo: null,
+    prNumber: null,
+    calculatePricing: async () => null,
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.limitReached, false);
+  assert.equal(result.sessionId, 'thread_issue_1660');
+  assert.equal(result.errorInfo.hasError, true);
+  assert.match(result.errorInfo.message, /not supported/);
+  assert.ok(
+    logLines.some(line => line.includes('Codex emitted error event')),
+    'Should log the Codex error as fatal'
+  );
 });
 
 test('Codex result model usage uses parsed token usage in shared budget-stats shape', () => {

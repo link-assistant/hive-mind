@@ -86,7 +86,7 @@ if (isRunningDirectly) {
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
     const modelValidation = await import('./models/index.mjs');
-    const { validateAndExitOnInvalidModel, defaultModels } = modelValidation;
+    const { validateAndExitOnInvalidModel, defaultModels, resolveRuntimeDefaultModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
     // Import YouTrack-related functions
@@ -458,7 +458,7 @@ if (isRunningDirectly) {
 
     const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
     if (argv.tool && !modelExplicitlyProvided && defaultModels[argv.tool]) {
-      argv.model = defaultModels[argv.tool];
+      argv.model = await resolveRuntimeDefaultModel(argv.tool);
     }
 
     // Validate model names EARLY (simple string check, always runs)

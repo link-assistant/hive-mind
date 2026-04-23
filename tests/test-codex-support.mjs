@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 
-const { defaultModels, primaryModelNames, resolveModelId } = await import('../src/models/index.mjs');
+const { defaultModels, primaryModelNames, resolveModelId, resolveRuntimeDefaultModel } = await import('../src/models/index.mjs');
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
 const { parseCodexExecJsonOutput, buildCodexResultModelUsage, calculateCodexPricingFromModelInfo } = await import('../src/codex.lib.mjs');
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
@@ -22,21 +22,62 @@ const test = (name, fn) => {
   }
 };
 
-test('Codex default model is gpt-5.4', () => {
-  assert.equal(defaultModels.codex, 'gpt-5.4');
+const asyncTest = async (name, fn) => {
+  try {
+    await fn();
+    console.log(`✅ ${name}`);
+    passed++;
+  } catch (error) {
+    console.log(`❌ ${name}`);
+    console.log(`   ${error.message}`);
+    failed++;
+  }
+};
+
+test('Codex preferred default model is gpt-5.5', () => {
+  assert.equal(defaultModels.codex, 'gpt-5.5');
 });
 
-test('Codex resolves gpt-5.4 model id', () => {
-  assert.equal(resolveModelId('gpt-5.4', 'codex'), 'gpt-5.4');
+test('Codex resolves gpt-5.5 model id', () => {
+  assert.equal(resolveModelId('gpt-5.5', 'codex'), 'gpt-5.5');
 });
 
-test('Codex primary model names include gpt-5.3-codex and exclude removed legacy entries', () => {
-  assert.deepEqual(primaryModelNames.codex, ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2-codex']);
+test('Codex primary model names prioritize gpt-5.5 and current visible catalog entries', () => {
+  assert.deepEqual(primaryModelNames.codex, ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark']);
 });
 
-test('Codex --think max maps to xhigh reasoning', () => {
-  const result = resolveCodexReasoningEffort({ think: 'max' });
-  assert.equal(result.reasoningEffort, 'xhigh');
+await asyncTest('Codex runtime default stays on gpt-5.5 when the local catalog includes it', async () => {
+  const result = await resolveRuntimeDefaultModel('codex', {
+    availableCodexModels: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'],
+  });
+  assert.equal(result, 'gpt-5.5');
+});
+
+await asyncTest('Codex runtime default falls back to gpt-5.4 when gpt-5.5 is not in the local catalog', async () => {
+  const result = await resolveRuntimeDefaultModel('codex', {
+    availableCodexModels: ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex'],
+  });
+  assert.equal(result, 'gpt-5.4');
+});
+
+test('Codex --think off maps to none reasoning', () => {
+  const result = resolveCodexReasoningEffort({ think: 'off' });
+  assert.equal(result.reasoningEffort, 'none');
+});
+
+test('Codex --think low maps to low reasoning', () => {
+  const result = resolveCodexReasoningEffort({ think: 'low' });
+  assert.equal(result.reasoningEffort, 'low');
+});
+
+test('Codex --think medium maps to medium reasoning', () => {
+  const result = resolveCodexReasoningEffort({ think: 'medium' });
+  assert.equal(result.reasoningEffort, 'medium');
+});
+
+test('Codex --think high maps to high reasoning', () => {
+  const result = resolveCodexReasoningEffort({ think: 'high' });
+  assert.equal(result.reasoningEffort, 'high');
 });
 
 test('Codex --think xhigh maps to xhigh reasoning', () => {
@@ -44,9 +85,9 @@ test('Codex --think xhigh maps to xhigh reasoning', () => {
   assert.equal(result.reasoningEffort, 'xhigh');
 });
 
-test('Codex --think off maps to none reasoning', () => {
-  const result = resolveCodexReasoningEffort({ think: 'off' });
-  assert.equal(result.reasoningEffort, 'none');
+test('Codex --think max maps to xhigh reasoning', () => {
+  const result = resolveCodexReasoningEffort({ think: 'max' });
+  assert.equal(result.reasoningEffort, 'xhigh');
 });
 
 test('Codex --thinking-budget exposes minimal reasoning tier', () => {

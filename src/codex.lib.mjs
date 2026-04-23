@@ -23,6 +23,7 @@ import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
+import { defaultModels } from './models/index.mjs';
 import Decimal from 'decimal.js-light';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
@@ -408,7 +409,7 @@ export const calculateCodexPricing = async (modelId, tokenUsage) => {
 };
 
 // Function to validate Codex CLI connection
-export const validateCodexConnection = async (model = 'gpt-5.4', verbose = false) => {
+export const validateCodexConnection = async (model = defaultModels.codex, verbose = false) => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
 

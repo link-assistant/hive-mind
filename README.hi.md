@@ -452,7 +452,7 @@ Aliases:
 /agent /solve --tool agent के बराबर है
 
 Tool alias examples:
-/codex https://github.com/owner/repo/issues/123 --model gpt-5.4
+/codex https://github.com/owner/repo/issues/123 --model gpt-5.5
 /opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 

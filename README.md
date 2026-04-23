@@ -831,7 +831,7 @@ you see under `--list` is guaranteed to be the same set `--close` will act on
 
 ```bash
 # Safe preview — show every finished, mergeable solve session.
-hive-screens --list --all
+hive-screens --list
 
 # Close the oldest finished session (same as the legacy script's default).
 hive-screens --close
@@ -841,10 +841,15 @@ hive-screens --enter --newest
 
 # Close every finished session.
 hive-screens --close --all
+
+# Print diagnostic output while scanning (useful when matching fails).
+hive-screens --list --verbose
 ```
 
-Selection defaults to `--oldest`. Supply `--newest` or `--all` to change it.
-Run `hive-screens --help` for the full option list.
+`--list` defaults to `--all` so a bare `hive-screens --list` shows every match.
+`--enter` and `--close` default to `--oldest` because they are destructive.
+Supply `--oldest`, `--newest`, or `--all` to override. Run
+`hive-screens --help` for the full option list.
 
 ### Reboot server.
 

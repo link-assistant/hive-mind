@@ -18,17 +18,22 @@ const { LenvReader, lenvReader, loadLenvConfig } = lenvReaderModule;
 
 let testsPassed = 0;
 let testsFailed = 0;
+const pendingTests = [];
 
-async function runTest(name, testFn) {
-  process.stdout.write(`Testing ${name}... `);
-  try {
-    await testFn();
-    console.log('✅ PASSED');
-    testsPassed++;
-  } catch (error) {
-    console.log(`❌ FAILED: ${error.message}`);
-    testsFailed++;
-  }
+function runTest(name, testFn) {
+  const testPromise = (async () => {
+    process.stdout.write(`Testing ${name}... `);
+    try {
+      await testFn();
+      console.log('✅ PASSED');
+      testsPassed++;
+    } catch (error) {
+      console.log(`❌ FAILED: ${error.message}`);
+      testsFailed++;
+    }
+  })();
+  pendingTests.push(testPromise);
+  return testPromise;
 }
 
 // Test 1: LenvReader class is exported
@@ -536,7 +541,52 @@ runTest('validation error message includes problematic value', () => {
   }
 });
 
+// Test 25: Accept parenthesized option/value links
+runTest('accept parenthesized option/value links', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --verbose
+  (--isolation screen)`;
+
+  const result = reader.parse(config);
+  const expected = `(
+  --verbose
+  --isolation
+  screen
+)`;
+
+  if (result.TELEGRAM_HIVE_OVERRIDES !== expected) {
+    throw new Error(`Expected flattened parenthesized option/value link, got: ${result.TELEGRAM_HIVE_OVERRIDES}`);
+  }
+});
+
+// Test 26: Accept issue #1658 Telegram configuration shape
+runTest('accept issue #1658 Telegram configuration shape', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_BOT_TOKEN: 'test-token'
+TELEGRAM_HIVE_OVERRIDES:
+  --all-issues
+  (--isolation screen)
+TELEGRAM_SOLVE_OVERRIDES:
+  --attach-logs
+  (--isolation screen)`;
+
+  const result = reader.parse(config);
+
+  if (result.TELEGRAM_BOT_TOKEN !== 'test-token') {
+    throw new Error(`Expected TELEGRAM_BOT_TOKEN to be parsed, got: ${result.TELEGRAM_BOT_TOKEN}`);
+  }
+  if (!result.TELEGRAM_HIVE_OVERRIDES.includes('--isolation') || !result.TELEGRAM_HIVE_OVERRIDES.includes('screen')) {
+    throw new Error(`Expected hive overrides to include flattened isolation args, got: ${result.TELEGRAM_HIVE_OVERRIDES}`);
+  }
+  if (!result.TELEGRAM_SOLVE_OVERRIDES.includes('--isolation') || !result.TELEGRAM_SOLVE_OVERRIDES.includes('screen')) {
+    throw new Error(`Expected solve overrides to include flattened isolation args, got: ${result.TELEGRAM_SOLVE_OVERRIDES}`);
+  }
+});
+
 // Summary
+await Promise.all(pendingTests);
+
 console.log('\n' + '='.repeat(50));
 console.log(`Test Results for lenv-reader.lib.mjs:`);
 console.log(`  ✅ Passed: ${testsPassed}`);

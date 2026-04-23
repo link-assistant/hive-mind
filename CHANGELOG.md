@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.56.3
+
+### Patch Changes
+
+- 86da037: Support `gpt-5.5` for the Codex tool, prefer it as the default model, accept forward-compatible `gpt-5.5-mini` and `gpt-5.5-nano` aliases, and document per-tool model and reasoning defaults.
+
 ## 1.56.2
 
 ### Patch Changes

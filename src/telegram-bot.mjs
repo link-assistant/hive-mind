@@ -28,7 +28,7 @@ const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.
 
 // Load .env/.lenv configuration (issue #1318)
 dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
-loadLenvConfig({ override: true, quiet: true });
+await loadLenvConfig({ override: true, quiet: true });
 
 const yargsModule = await use('yargs@17.7.2');
 const yargs = yargsModule.default || yargsModule;
@@ -123,7 +123,7 @@ const config = yargs(hideBin(process.argv))
 
 // Configuration priority: CLI option > --configuration LINO > .lenv > .env
 if (config.configuration) {
-  loadLenvConfig({ configuration: config.configuration, override: true, quiet: true });
+  await loadLenvConfig({ configuration: config.configuration, override: true, quiet: true });
 }
 
 const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
@@ -173,8 +173,12 @@ if (ISOLATION_BACKEND) {
 if (solveEnabled && solveOverrides.length > 0) {
   console.log('Validating solve overrides...');
   try {
+    const { backend: solveOverrideIsolation, filteredArgs: solveOverridesForValidation } = extractIsolationFromArgs(solveOverrides);
+    if (solveOverrideIsolation && !isValidPerCommandIsolation(solveOverrideIsolation)) {
+      throw new Error(`Invalid --isolation value '${solveOverrideIsolation}'. Must be: screen, tmux, or docker`);
+    }
     // Add a dummy URL as the first argument (required positional for solve)
-    const testArgs = ['https://github.com/test/test/issues/1', ...solveOverrides];
+    const testArgs = ['https://github.com/test/test/issues/1', ...solveOverridesForValidation];
 
     // Temporarily suppress stderr to avoid yargs error output during validation
     const originalStderrWrite = process.stderr.write;
@@ -197,7 +201,7 @@ if (solveEnabled && solveOverrides.length > 0) {
         });
       await testYargs.parse(testArgs);
       // Issue #1482: Validate --base-branch in overrides early
-      const overrideBranchError = validateBranchInArgs(solveOverrides);
+      const overrideBranchError = validateBranchInArgs(solveOverridesForValidation);
       if (overrideBranchError) throw new Error(overrideBranchError);
       console.log('✅ Solve overrides validated successfully');
     } finally {
@@ -216,8 +220,12 @@ if (solveEnabled && solveOverrides.length > 0) {
 if (hiveEnabled && hiveOverrides.length > 0) {
   console.log('Validating hive overrides...');
   try {
+    const { backend: hiveOverrideIsolation, filteredArgs: hiveOverridesForValidation } = extractIsolationFromArgs(hiveOverrides);
+    if (hiveOverrideIsolation && !isValidPerCommandIsolation(hiveOverrideIsolation)) {
+      throw new Error(`Invalid --isolation value '${hiveOverrideIsolation}'. Must be: screen, tmux, or docker`);
+    }
     // Add a dummy URL as the first argument (required positional for hive)
-    const testArgs = ['https://github.com/test/test', ...hiveOverrides];
+    const testArgs = ['https://github.com/test/test', ...hiveOverridesForValidation];
 
     // Temporarily suppress stderr to avoid yargs error output during validation
     const originalStderrWrite = process.stderr.write;
@@ -239,7 +247,7 @@ if (hiveEnabled && hiveOverrides.length > 0) {
           throw new Error(msg);
         });
       await testYargs.parse(testArgs);
-      const overrideBranchError = validateBranchInArgs(hiveOverrides); // Issue #1482
+      const overrideBranchError = validateBranchInArgs(hiveOverridesForValidation); // Issue #1482
       if (overrideBranchError) throw new Error(overrideBranchError);
       console.log('✅ Hive overrides validated successfully');
     } finally {
@@ -890,7 +898,13 @@ async function handleSolveCommand(ctx) {
     await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(solvePerCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
-  const args = mergeArgsWithOverrides(userArgsWithoutIsolation, solveOverrides);
+  const mergedSolveArgs = mergeArgsWithOverrides(userArgsWithoutIsolation, solveOverrides);
+  const { backend: solveOverrideIsolation, filteredArgs: args } = extractIsolationFromArgs(mergedSolveArgs);
+  if (solveOverrideIsolation && !isValidPerCommandIsolation(solveOverrideIsolation)) {
+    await safeReply(ctx, `❌ Invalid locked --isolation value '${escapeMarkdown(solveOverrideIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+  const effectiveSolveIsolation = solveOverrideIsolation || solvePerCommandIsolation;
 
   // Determine tool from args (default: claude)
   let solveTool = 'claude';
@@ -990,9 +1004,9 @@ async function handleSolveCommand(ctx) {
   const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
   if (check.canStart && toolQueuedCount === 0) {
     const startingMessage = await safeReply(ctx, `🚀 Starting solve command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, solvePerCommandIsolation);
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, effectiveSolveIsolation);
   } else {
-    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: solvePerCommandIsolation });
+    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation });
     let queueMessage = `📋 Solve command queued (${solveTool} queue position #${toolQueuedCount + 1})\n\n${infoBlock}`; // tool-specific position (#1551)
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
@@ -1102,7 +1116,13 @@ async function handleHiveCommand(ctx) {
     await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(hivePerCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
-  const args = mergeArgsWithOverrides(normalizedArgsWithoutIsolation, hiveOverrides);
+  const mergedHiveArgs = mergeArgsWithOverrides(normalizedArgsWithoutIsolation, hiveOverrides);
+  const { backend: hiveOverrideIsolation, filteredArgs: args } = extractIsolationFromArgs(mergedHiveArgs);
+  if (hiveOverrideIsolation && !isValidPerCommandIsolation(hiveOverrideIsolation)) {
+    await safeReply(ctx, `❌ Invalid locked --isolation value '${escapeMarkdown(hiveOverrideIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+  const effectiveHiveIsolation = hiveOverrideIsolation || hivePerCommandIsolation;
 
   // Determine tool from args (default: claude)
   let hiveTool = 'claude';
@@ -1161,7 +1181,7 @@ async function handleHiveCommand(ctx) {
   }
 
   const startingMessage = await safeReply(ctx, `🚀 Starting hive command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
-  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock, hivePerCommandIsolation);
+  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock, effectiveHiveIsolation);
 }
 
 bot.command(/^hive$/i, handleHiveCommand);

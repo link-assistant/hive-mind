@@ -38,6 +38,43 @@ const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 
 const fs = await import('fs');
 
+function isCliOptionToken(value) {
+  return /^--[a-zA-Z0-9][a-zA-Z0-9=_.-]*$/.test(value) || /^-[a-zA-Z]$/.test(value);
+}
+
+function collectStringValues(value, result = []) {
+  if (value && typeof value === 'object' && Array.isArray(value.values)) {
+    if (value.id !== null && value.id !== undefined) {
+      result.push(String(value.id));
+    }
+    for (const child of value.values) {
+      collectStringValues(child, result);
+    }
+  } else if (value !== null && value !== undefined) {
+    result.push(String(value));
+  }
+  return result;
+}
+
+function validateNoBareSameLineOptions(content) {
+  let currentVar = 'configuration';
+
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed === '(' || trimmed === ')') continue;
+
+    const topLevelMatch = !/^\s/.test(line) ? trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*):(?:\s*(.*))?$/) : null;
+    const valueText = topLevelMatch ? (topLevelMatch[2] || '').trim() : trimmed;
+    if (topLevelMatch) currentVar = topLevelMatch[1];
+    if (!valueText || valueText === '(' || valueText === ')' || valueText.startsWith('(')) continue;
+
+    const parts = valueText.split(/\s+/).filter(Boolean);
+    if (parts.length > 1 && isCliOptionToken(parts[0])) {
+      throw new Error(`Invalid LINO format in "${currentVar}": Multiple values on the same line are not supported.\n` + `Found: "${parts.join(' ')}"\n` + `Each value must be on its own line with proper indentation, or grouped explicitly as a parenthesized link.`);
+    }
+  }
+}
+
 /**
  * LenvReader - Reads and parses .lenv files using LINO notation
  */
@@ -59,6 +96,8 @@ export class LenvReader {
     const result = {};
 
     try {
+      validateNoBareSameLineOptions(content);
+
       // Parse the entire content as LINO
       const parsed = this.parser.parse(content);
 
@@ -77,36 +116,9 @@ export class LenvReader {
 
         // The values are the variable value
         if (link.values && link.values.length > 0) {
-          // Check for nested structures (multiple items on same line) - reject with error
-          // A nested tuple with id=null that appears amongst other direct values indicates
-          // same-line grouping (e.g., "--option1  --option2" on same line)
-          // However, if the entire list is a SINGLE nested tuple (e.g., "VAR: (\n  1\n  2\n)"),
-          // that's valid parenthesized syntax
-          const hasDirectValues = link.values.some(v => v && typeof v === 'object' && v.id !== null);
-          const hasNestedTuples = link.values.some(v => v && typeof v === 'object' && v.id === null && v.values && v.values.length > 0);
-
-          if (hasDirectValues && hasNestedTuples) {
-            // Mixed direct values and nested tuples indicates same-line grouping
-            for (const v of link.values) {
-              if (v && typeof v === 'object' && v.id === null && v.values && v.values.length > 0) {
-                const nestedItems = v.values.map(nested => nested.id || nested).join(' ');
-                throw new Error(`Invalid LINO format in "${varName}": Multiple values on the same line are not supported.\n` + `Found: "${nestedItems}"\n` + `Each value must be on its own line with proper indentation.`);
-              }
-            }
-          }
-
-          // Determine which values to validate for invalid characters
-          // If it's a single nested tuple (parenthesized list), unwrap it for validation
-          let valuesToValidate = link.values;
-          if (link.values.length === 1 && link.values[0] && typeof link.values[0] === 'object' && link.values[0].id === null && link.values[0].values) {
-            // Single parenthesized list - use inner values
-            valuesToValidate = link.values[0].values;
-          }
-
           // Check for invalid characters in option-like values
-          for (const v of valuesToValidate) {
+          for (const valueStr of link.values.flatMap(v => collectStringValues(v))) {
             // Options should match pattern: --option-name or -o (with optional =value)
-            const valueStr = v.id || v;
             if (typeof valueStr === 'string' && valueStr.startsWith('-')) {
               // This looks like a command-line option, validate it
               // Valid option pattern: -x, --option-name, --option-name=value
@@ -119,7 +131,7 @@ export class LenvReader {
           }
 
           // If there are multiple values, format them as LINO notation
-          const values = link.values.map(v => v.id || v);
+          const values = link.values.flatMap(v => collectStringValues(v));
 
           // If it's a single value, just use it as-is
           if (values.length === 1) {

@@ -112,6 +112,8 @@ export const codexModels = {
   gpt5: 'gpt-5',
   'gpt-5': 'gpt-5',
   'gpt-5.5': 'gpt-5.5',
+  'gpt-5.5-mini': 'gpt-5.5-mini',
+  'gpt-5.5-nano': 'gpt-5.5-nano',
   'gpt-5.4': 'gpt-5.4',
   'gpt-5.4-mini': 'gpt-5.4-mini',
   'gpt-5.4-nano': 'gpt-5.4-nano',
@@ -198,6 +200,8 @@ export const CODEX_MODELS = {
   ...codexModels,
   'gpt-5': 'gpt-5',
   'gpt-5.5': 'gpt-5.5',
+  'gpt-5.5-mini': 'gpt-5.5-mini',
+  'gpt-5.5-nano': 'gpt-5.5-nano',
   'gpt-5.4': 'gpt-5.4',
   'gpt-5.4-mini': 'gpt-5.4-mini',
   'gpt-5.4-nano': 'gpt-5.4-nano',
@@ -259,7 +263,7 @@ export const getDefaultModelForTool = tool => {
 };
 
 let cachedInstalledCodexModelsPromise = null;
-const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex'];
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
 
 export const getInstalledCodexModels = async () => {
   if (!cachedInstalledCodexModelsPromise) {

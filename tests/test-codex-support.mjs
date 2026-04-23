@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 
-const { defaultModels, primaryModelNames, resolveModelId, resolveRuntimeDefaultModel } = await import('../src/models/index.mjs');
+const { defaultModels, primaryModelNames, resolveModelId, resolveRuntimeDefaultModel, validateModelName } = await import('../src/models/index.mjs');
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
 const { parseCodexExecJsonOutput, buildCodexResultModelUsage, calculateCodexPricingFromModelInfo } = await import('../src/codex.lib.mjs');
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
@@ -42,6 +42,18 @@ test('Codex resolves gpt-5.5 model id', () => {
   assert.equal(resolveModelId('gpt-5.5', 'codex'), 'gpt-5.5');
 });
 
+test('Codex validates gpt-5.5-mini model id', () => {
+  const result = validateModelName('gpt-5.5-mini', 'codex');
+  assert.equal(result.valid, true);
+  assert.equal(result.mappedModel, 'gpt-5.5-mini');
+});
+
+test('Codex validates gpt-5.5-nano model id', () => {
+  const result = validateModelName('gpt-5.5-nano', 'codex');
+  assert.equal(result.valid, true);
+  assert.equal(result.mappedModel, 'gpt-5.5-nano');
+});
+
 test('Codex primary model names prioritize gpt-5.5 and current visible catalog entries', () => {
   assert.deepEqual(primaryModelNames.codex, ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark']);
 });
@@ -58,6 +70,13 @@ await asyncTest('Codex runtime default falls back to gpt-5.4 when gpt-5.5 is not
     availableCodexModels: ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex'],
   });
   assert.equal(result, 'gpt-5.4');
+});
+
+await asyncTest('Codex runtime default falls back to gpt-5.5-mini when newer small variants are available before older full-size fallbacks', async () => {
+  const result = await resolveRuntimeDefaultModel('codex', {
+    availableCodexModels: ['gpt-5.5-mini', 'gpt-5.5-nano'],
+  });
+  assert.equal(result, 'gpt-5.5-mini');
 });
 
 test('Codex --think off maps to none reasoning', () => {

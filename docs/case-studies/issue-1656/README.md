@@ -35,6 +35,9 @@ Issue #1656 requires:
 3. Double-check `--think off`, `low`, `medium`, `high`, `xhigh`, and `max`.
 4. Preserve research and analysis in `docs/case-studies/issue-1656`.
 5. Use current online facts, not only stale hardcoded repo state.
+6. Follow-up PR feedback from April 23, 2026 asked us to pre-accept `gpt-5.5-mini` and `gpt-5.5-nano` for Codex as forward-compatible aliases.
+7. Double-check Claude Opus 4.7 and Claude Sonnet 4.6 reasoning-level handling against Anthropic's current docs.
+8. Clearly document the default model and default reasoning behavior for every supported tool.
 
 ## Data Inventory
 
@@ -55,17 +58,36 @@ Official OpenAI sources used:
 - OpenAI product release: https://openai.com/index/introducing-gpt-5-5/
 - GPT-5.4 model page: https://developers.openai.com/api/docs/models/gpt-5.4
 - Reasoning guide: https://developers.openai.com/api/docs/guides/reasoning
+- OpenAI models overview: https://platform.openai.com/docs/models
+
+Official Anthropic sources used:
+
+- Claude Sonnet 4.6 launch page: https://www.anthropic.com/research/claude-sonnet-4-6
+- Claude effort docs: https://platform.claude.com/docs/en/build-with-claude/effort
+- Claude adaptive thinking docs: https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking
+- Claude extended thinking docs: https://platform.claude.com/docs/en/build-with-claude/extended-thinking
 
 Key facts:
 
 - OpenAI announced GPT-5.5 on April 23, 2026 and said it is rolling out to ChatGPT
   and Codex immediately, with API availability coming soon.
 - The GPT-5.5 release page says Codex gets GPT-5.5 with a 400K context window.
+- OpenAI's public model docs did not yet expose dedicated `gpt-5.5-mini` or
+  `gpt-5.5-nano` pages on April 23, 2026; the public small-model pages still use
+  the plain GPT-5 family naming (`gpt-5-mini`, `gpt-5-nano`).
 - The GPT-5.4 model page documents `reasoning.effort` support for `none` (default),
   `low`, `medium`, `high`, and `xhigh`.
 - The reasoning guide says supported reasoning values are model-dependent and may
   include `none`, `minimal`, `low`, `medium`, `high`, and `xhigh`, and explicitly
   notes that `gpt-5.4` defaults to `none`.
+- Anthropic's effort docs say effort is supported on Mythos Preview, Opus 4.7,
+  Opus 4.6, Sonnet 4.6, and Opus 4.5.
+- Anthropic's effort docs say `max` is available on Mythos Preview, Opus 4.7,
+  Opus 4.6, and Sonnet 4.6, while `xhigh` is available only on Opus 4.7.
+- Anthropic's effort and adaptive-thinking docs say the API default effort is
+  `high` when effort is used, Sonnet 4.6 defaults to `high`, and adaptive
+  thinking is the default only on Mythos Preview. Opus 4.7 requires explicitly
+  selecting adaptive thinking.
 
 Inference from sources:
 
@@ -74,6 +96,9 @@ Inference from sources:
   Codex mapping remains appropriate: `off -> none`, `low -> low`, `medium -> medium`,
   `high -> high`, `xhigh -> xhigh`, and `max -> xhigh`.
 - `max` is still an internal Hive Mind alias, not a raw Codex reasoning level.
+- Support for `gpt-5.5-mini` and `gpt-5.5-nano` in Hive Mind should be treated as
+  forward-compatible alias acceptance rather than proof that those exact Codex model
+  IDs are already publicly documented or visible in the local Codex catalog.
 
 ## Root Cause
 
@@ -109,8 +134,15 @@ PR #1657 does the following:
 3. Adds `resolveRuntimeDefaultModel()` for rollout-safe defaults.
 4. Uses the local `codex debug models` catalog to keep `gpt-5.5` when available and
    fall back to `gpt-5.4` when the installed Codex CLI has not received the rollout.
-5. Updates Codex-focused tests so the regression is reproducible.
-6. Updates README Codex examples from `gpt-5.4` to `gpt-5.5`.
+5. Extends Codex alias validation to accept `gpt-5.5-mini` and `gpt-5.5-nano`, and
+   lets runtime fallback pick those newer smaller variants when they are the only
+   newer Codex models available locally.
+6. Keeps Claude reasoning handling aligned with Anthropic's current effort docs:
+   `xhigh` only for Opus 4.7, `max` for Mythos Preview / Opus 4.7 / Opus 4.6 /
+   Sonnet 4.6, and degradation elsewhere.
+7. Updates Codex-focused tests so the regression is reproducible.
+8. Updates README and configuration docs to make per-tool defaults explicit,
+   including default reasoning behavior.
 
 ## Verification
 

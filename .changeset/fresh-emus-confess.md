@@ -2,4 +2,4 @@
 '@link-assistant/hive-mind': patch
 ---
 
-Support `gpt-5.5` for the Codex tool, prefer it as the default model, and fall back to `gpt-5.4` until local Codex catalogs expose the rollout.
+Support `gpt-5.5` for the Codex tool, prefer it as the default model, accept forward-compatible `gpt-5.5-mini` and `gpt-5.5-nano` aliases, and document per-tool model and reasoning defaults.

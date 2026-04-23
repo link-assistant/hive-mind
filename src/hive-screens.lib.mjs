@@ -18,7 +18,7 @@ import { promisify } from 'node:util';
 
 const execAsync = promisify(execCallback);
 
-export const HIVE_SCREENS_HELP = `Usage: hive-screens (--list | --enter | --close) [--oldest|--newest|--all]
+export const HIVE_SCREENS_HELP = `Usage: hive-screens (--list | --enter | --close) [--oldest|--newest|--all] [--verbose]
 
 Scan detached GNU screen sessions for completed solve runs and either list,
 enter, or close them. A session matches when its scrollback contains both
@@ -30,21 +30,24 @@ Actions (one required):
       --enter          Attach to the selected match (blocking)
       --close          Send \`exit\\n\` to the selected match so it terminates
 
-Selection (optional, default: --oldest):
-      --oldest         Act on the oldest match (default)
+Selection (optional):
+      --oldest         Act on the oldest match (default for --enter/--close)
       --newest         Act on the newest match
-      --all            Act on every match in oldest-first order
+      --all            Act on every match (default for --list)
 
 Options:
+  -v, --verbose        Print diagnostic output to stderr while scanning
   -h, --help           Show this help and exit
 
 Examples:
-  hive-screens --list                   # safe preview of matches
-  hive-screens --list --all             # preview every match
-  hive-screens --close --oldest         # close the oldest finished run
+  hive-screens --list                   # list every match (default is --all)
+  hive-screens --list --oldest          # preview only the oldest match
+  hive-screens --close                  # close the oldest finished run
   hive-screens --enter --newest         # attach to the newest finished run
 
-Reference: https://github.com/link-assistant/hive-mind/issues/1649
+References:
+  https://github.com/link-assistant/hive-mind/issues/1649
+  https://github.com/link-assistant/hive-mind/issues/1654
 `;
 
 const ACTION_FLAGS = new Set(['--enter', '--close', '--list']);
@@ -61,6 +64,7 @@ export const parseHiveScreensArgs = argv => {
     close: false,
     list: false,
     selection: null,
+    verbose: false,
     help: false,
     error: null,
   };
@@ -68,6 +72,10 @@ export const parseHiveScreensArgs = argv => {
   for (const arg of argv) {
     if (arg === '--help' || arg === '-h') {
       result.help = true;
+      continue;
+    }
+    if (arg === '--verbose' || arg === '-v') {
+      result.verbose = true;
       continue;
     }
     if (ACTION_FLAGS.has(arg)) {
@@ -100,7 +108,10 @@ export const parseHiveScreensArgs = argv => {
     return result;
   }
 
-  if (!result.selection) result.selection = 'oldest';
+  // --list is a safe preview so default to showing every match. --enter and
+  // --close are destructive, so their default stays --oldest (mirrors the
+  // legacy hive-screens.sh behaviour).
+  if (!result.selection) result.selection = result.list ? 'all' : 'oldest';
   return result;
 };
 
@@ -212,7 +223,12 @@ export const selectMatches = (matches, selection) => {
   return [matches[0]];
 };
 
-const printSession = ({ session, logPath, issueUrl }, { log }) => {
+/**
+ * Print the Session / Log / Issue triple for one match. Shared by --list,
+ * --enter (after leaving), and --close so every action surfaces the same
+ * human-readable context the legacy hive-screens.sh script showed.
+ */
+const printSessionInfo = ({ session, logPath, issueUrl }, { log }) => {
   log(`Session: ${session}`);
   log(logPath ? `Log: ${logPath}` : 'Log: (not found)');
   log(issueUrl ? `Issue: ${issueUrl}` : 'Issue: (not found)');
@@ -221,12 +237,31 @@ const printSession = ({ session, logPath, issueUrl }, { log }) => {
 const SEPARATOR = '-----------------------------------';
 
 /**
+ * Send `exit\n` to a detached screen session so its login shell terminates
+ * and the session is destroyed. Uses `spawn` with an argv array instead of
+ * `exec` with a shell string so we do not depend on the invoking shell
+ * understanding bash ANSI-C quoting (`$'exit\n'`), which `/bin/sh` on
+ * Debian/Ubuntu is dash and does not support. See issue #1654.
+ */
+export const closeScreenSession = async (session, { spawn } = {}) => {
+  const spawnFn = spawn || (await import('node:child_process')).spawn;
+  return new Promise((resolve, reject) => {
+    const child = spawnFn('screen', ['-S', session, '-X', 'stuff', 'exit\n'], { stdio: 'ignore' });
+    child.on('error', reject);
+    child.on('exit', code => {
+      if (code === 0) resolve();
+      else reject(new Error(`screen -X stuff exited with code ${code}`));
+    });
+  });
+};
+
+/**
  * Top-level orchestrator used by the bin. `deps` is injected so tests can
  * stub `exec`, `fs`, stdio, and process spawning without touching real
  * screen sessions.
  */
 export const runHiveScreens = async (argv, deps = {}) => {
-  const { exec = execAsync, fsModule = fs, tmpDir = os.tmpdir(), log = (...args) => console.log(...args), error = (...args) => console.error(...args), spawnScreen, captureOptions } = deps;
+  const { exec = execAsync, fsModule = fs, tmpDir = os.tmpdir(), log = (...args) => console.log(...args), error = (...args) => console.error(...args), spawnScreen, closeScreen, captureOptions } = deps;
 
   const args = parseHiveScreensArgs(argv);
   if (args.help) {
@@ -238,8 +273,12 @@ export const runHiveScreens = async (argv, deps = {}) => {
     return 1;
   }
 
+  const debug = args.verbose ? (...parts) => error('[hive-screens]', ...parts) : () => {};
+
   const order = args.selection === 'newest' ? 'newest' : 'oldest';
+  debug(`scanning detached sessions in ${order}-first order`);
   const matches = await findMatchingSessions({ exec, fsModule, tmpDir, order, captureOptions });
+  debug(`found ${matches.length} matching session(s)`);
 
   if (!matches.length) {
     log('No matching sessions');
@@ -247,10 +286,15 @@ export const runHiveScreens = async (argv, deps = {}) => {
   }
 
   const selected = selectMatches(matches, args.selection);
+  debug(`selection=${args.selection} -> acting on ${selected.length} session(s)`);
 
   for (const match of selected) {
-    printSession(match, { log });
     if (args.enter) {
+      // Print the session name up-front so the user knows which one they
+      // are about to attach to, then print the Log/Issue context AFTER
+      // control returns — otherwise `screen -r` swaps to the alternate
+      // buffer and wipes any context we printed beforehand.
+      log(`Session: ${match.session}`);
       log(`Entering ${match.session}`);
       if (spawnScreen) {
         await spawnScreen(match.session);
@@ -258,13 +302,23 @@ export const runHiveScreens = async (argv, deps = {}) => {
         await attachScreen(match.session);
       }
       log(`Left ${match.session}`);
-    }
-    if (args.close) {
+      log(match.logPath ? `Log: ${match.logPath}` : 'Log: (not found)');
+      log(match.issueUrl ? `Issue: ${match.issueUrl}` : 'Issue: (not found)');
+    } else if (args.close) {
+      printSessionInfo(match, { log });
       log(`Closing ${match.session}`);
-      const shellSession = match.session.replace(/'/g, "'\\''");
-      await exec(`screen -S '${shellSession}' -X stuff $'exit\\n'`).catch(err => {
+      debug(`sending 'exit\\n' to ${match.session} via screen -X stuff`);
+      try {
+        if (closeScreen) {
+          await closeScreen(match.session);
+        } else {
+          await closeScreenSession(match.session);
+        }
+      } catch (err) {
         error(`Failed to send exit to ${match.session}: ${err.message}`);
-      });
+      }
+    } else {
+      printSessionInfo(match, { log });
     }
     log(SEPARATOR);
   }

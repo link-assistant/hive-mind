@@ -14,7 +14,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { HIVE_SCREENS_HELP, captureSessionScrollback, findMatchingSessions, listDetachedSessions, parseHiveScreensArgs, runHiveScreens, selectMatches, sessionMatches } from '../src/hive-screens.lib.mjs';
+import { HIVE_SCREENS_HELP, captureSessionScrollback, closeScreenSession, findMatchingSessions, listDetachedSessions, parseHiveScreensArgs, runHiveScreens, selectMatches, sessionMatches } from '../src/hive-screens.lib.mjs';
 
 // --- package.json contract ---
 const pkg = JSON.parse(await fs.readFile(path.join(process.cwd(), 'package.json'), 'utf-8'));
@@ -22,9 +22,16 @@ assert.equal(pkg.bin['hive-screens'], './src/hive-screens.mjs', 'package.json sh
 assert.ok(pkg.scripts['build:pre'].includes('chmod +x src/hive-screens.mjs'), 'build:pre should mark hive-screens.mjs executable');
 
 // --- arg parsing ---
-assert.deepEqual(parseHiveScreensArgs(['--list']), { enter: false, close: false, list: true, selection: 'oldest', help: false, error: null }, '--list defaults to --oldest selection');
-assert.deepEqual(parseHiveScreensArgs(['--enter', '--newest']), { enter: true, close: false, list: false, selection: 'newest', help: false, error: null }, '--enter + --newest are parsed together');
-assert.deepEqual(parseHiveScreensArgs(['--close', '--all']), { enter: false, close: true, list: false, selection: 'all', help: false, error: null }, '--close + --all are parsed together');
+// Issue #1654: --list should default to --all so a bare `hive-screens --list`
+// is enough to see every match, not just the oldest one.
+assert.deepEqual(parseHiveScreensArgs(['--list']), { enter: false, close: false, list: true, selection: 'all', verbose: false, help: false, error: null }, '--list defaults to --all so it lists every match');
+assert.deepEqual(parseHiveScreensArgs(['--list', '--oldest']), { enter: false, close: false, list: true, selection: 'oldest', verbose: false, help: false, error: null }, '--list --oldest overrides the new default');
+assert.deepEqual(parseHiveScreensArgs(['--enter']), { enter: true, close: false, list: false, selection: 'oldest', verbose: false, help: false, error: null }, '--enter still defaults to --oldest because it is destructive');
+assert.deepEqual(parseHiveScreensArgs(['--close']), { enter: false, close: true, list: false, selection: 'oldest', verbose: false, help: false, error: null }, '--close still defaults to --oldest because it is destructive');
+assert.deepEqual(parseHiveScreensArgs(['--enter', '--newest']), { enter: true, close: false, list: false, selection: 'newest', verbose: false, help: false, error: null }, '--enter + --newest are parsed together');
+assert.deepEqual(parseHiveScreensArgs(['--close', '--all']), { enter: false, close: true, list: false, selection: 'all', verbose: false, help: false, error: null }, '--close + --all are parsed together');
+assert.deepEqual(parseHiveScreensArgs(['--list', '-v']), { enter: false, close: false, list: true, selection: 'all', verbose: true, help: false, error: null }, '-v sets verbose');
+assert.deepEqual(parseHiveScreensArgs(['--close', '--verbose']), { enter: false, close: true, list: false, selection: 'oldest', verbose: true, help: false, error: null }, '--verbose sets verbose');
 assert.equal(parseHiveScreensArgs([]).error, 'Must specify --list, --enter, or --close', 'missing action is an error');
 assert.equal(parseHiveScreensArgs(['--enter', '--close']).error, 'Specify only one of --list, --enter, --close', 'conflicting actions rejected');
 assert.equal(parseHiveScreensArgs(['--list', '--oldest', '--newest']).error, 'Conflicting selection flags: --oldest and --newest', 'conflicting selection rejected');
@@ -186,11 +193,37 @@ assert.ok(
 );
 
 // --- runHiveScreens --list prints each match and no side effects ---
+// Issue #1654: a bare `--list` (no selection flag) should list every match,
+// not just the oldest one. Our fixture has two matching sessions, so we
+// expect both to appear in the output.
+const stdoutMulti = {
+  '10001.solve-a': 'process completed\nPR is mergeable!\nFull log file: /tmp/a.log\nIssue: https://github.com/o/r/issues/1',
+  '30001.solve-c': 'Process Completed\nPR merged!\nFull log file: /tmp/c.log\nIssue: https://github.com/o/r/issues/3',
+};
+let nextReadContentMulti = '';
+const fakeExecMulti = cmd => {
+  if (cmd === 'screen -ls') {
+    return Promise.resolve({
+      stdout: ['There are screens on:', '\t10001.solve-a\t(04/20/2026 09:00:00)\t(Detached)', '\t30001.solve-c\t(04/20/2026 11:00:00)\t(Detached)', '2 Sockets in /run/screen.'].join('\n'),
+    });
+  }
+  const hardcopyMatch = cmd.match(/hardcopy -h '([^']+)'/);
+  if (hardcopyMatch) {
+    const sessionMatch = cmd.match(/screen -S '([^']+)'/);
+    nextReadContentMulti = stdoutMulti[sessionMatch[1]] || '';
+    return Promise.resolve({ stdout: '' });
+  }
+  return Promise.resolve({ stdout: '' });
+};
+const fakeFsMulti = {
+  readFile: async () => nextReadContentMulti,
+  unlink: async () => {},
+};
 const logs2 = [];
 const errs2 = [];
-const listCode = await runHiveScreens(['--list', '--all'], {
-  exec: fakeExec,
-  fsModule: fakeFs,
+const listCode = await runHiveScreens(['--list'], {
+  exec: fakeExecMulti,
+  fsModule: fakeFsMulti,
   log: (...a) => logs2.push(a.join(' ')),
   error: (...a) => errs2.push(a.join(' ')),
   captureOptions: { settleMs: 0 },
@@ -198,33 +231,93 @@ const listCode = await runHiveScreens(['--list', '--all'], {
 assert.equal(listCode, 0, '--list returns 0');
 assert.ok(
   logs2.some(l => l.startsWith('Session: 10001.solve-a')),
-  '--list prints matched session'
+  'bare --list prints the oldest match'
+);
+assert.ok(
+  logs2.some(l => l.startsWith('Session: 30001.solve-c')),
+  'bare --list also prints the newest match (defaults to --all per #1654)'
 );
 assert.ok(!logs2.some(l => l.startsWith('Entering')), '--list never enters a session');
 assert.ok(!logs2.some(l => l.startsWith('Closing')), '--list never closes a session');
 
-// --- runHiveScreens --close sends screen -X stuff exit ---
-const closeExecCalls = [];
-const closeExec = cmd => {
-  closeExecCalls.push(cmd);
-  return fakeExec(cmd);
-};
+// --- runHiveScreens --close invokes closeScreen hook ---
+// Issue #1654 regression: the previous implementation ran
+//   exec(`screen -S '<s>' -X stuff $'exit\\n'`)
+// which only works when /bin/sh understands bash ANSI-C quoting. On dash
+// (the default /bin/sh on Debian/Ubuntu) the `$'...'` syntax is not
+// recognised, so the literal string `$exit\n` was sent into the screen
+// session instead of the `exit` command, and --close listed matches
+// without actually closing them. The fix is to spawn `screen` directly
+// with the newline embedded in an argv element so no shell parses it.
+const closeCalls = [];
 const logs3 = [];
 await runHiveScreens(['--close', '--all'], {
-  exec: closeExec,
+  exec: fakeExec,
   fsModule: fakeFs,
   log: (...a) => logs3.push(a.join(' ')),
   error: () => {},
+  closeScreen: session => {
+    closeCalls.push(session);
+    return Promise.resolve();
+  },
   captureOptions: { settleMs: 0 },
 });
-assert.ok(
-  closeExecCalls.some(cmd => /screen -S '10001\.solve-a' -X stuff \$'exit\\n'/.test(cmd)),
-  '--close sends "exit\\n" via screen -X stuff'
-);
+assert.deepEqual(closeCalls, ['10001.solve-a'], '--close invokes closeScreen with the selected session');
 assert.ok(
   logs3.some(l => l === 'Closing 10001.solve-a'),
   '--close logs "Closing <session>"'
 );
+assert.ok(
+  logs3.some(l => l.startsWith('Session: 10001.solve-a')),
+  '--close still prints Session/Log/Issue context'
+);
+
+// --- closeScreenSession spawns screen with newline in argv (shell-safe) ---
+// Regression test for issue #1654: verify the newline survives as an
+// argv element instead of going through /bin/sh where dash would mangle
+// `$'exit\n'` into a literal `$exit\n` string.
+const spawnCalls = [];
+const fakeSpawn = (cmd, args) => {
+  spawnCalls.push({ cmd, args });
+  const listeners = {};
+  return {
+    on: (event, cb) => {
+      listeners[event] = cb;
+      if (event === 'exit') setTimeout(() => cb(0), 0);
+      return listeners;
+    },
+  };
+};
+await closeScreenSession('42.solve', { spawn: fakeSpawn });
+assert.equal(spawnCalls.length, 1, 'closeScreenSession spawns exactly once');
+assert.equal(spawnCalls[0].cmd, 'screen', 'closeScreenSession runs the screen binary directly');
+assert.deepEqual(spawnCalls[0].args, ['-S', '42.solve', '-X', 'stuff', 'exit\n'], 'closeScreenSession passes "exit\\n" as a literal argv element (dash-safe)');
+
+// --- runHiveScreens --enter prints Log/Issue AFTER leaving the session ---
+// Issue #1654: when --enter ran, `screen -r` swapped the terminal to the
+// alternate buffer so anything printed beforehand was wiped on detach.
+// The fix prints the Session name before attaching (so the user knows
+// which one they're entering) and prints the Log + Issue lines AFTER
+// returning, so they are still visible in the scrollback.
+const enterLogs = [];
+await runHiveScreens(['--enter', '--oldest'], {
+  exec: fakeExec,
+  fsModule: fakeFs,
+  log: (...a) => enterLogs.push(a.join(' ')),
+  error: () => {},
+  spawnScreen: () => Promise.resolve(),
+  captureOptions: { settleMs: 0 },
+});
+const sessionLineIdx = enterLogs.indexOf('Session: 10001.solve-a');
+const enteringIdx = enterLogs.indexOf('Entering 10001.solve-a');
+const leftIdx = enterLogs.indexOf('Left 10001.solve-a');
+const logLineIdx = enterLogs.findIndex(l => l.startsWith('Log: /tmp/a.log'));
+const issueLineIdx = enterLogs.findIndex(l => l.startsWith('Issue: https://github.com/o/r/issues/1'));
+assert.ok(sessionLineIdx >= 0, '--enter prints the session name');
+assert.ok(sessionLineIdx < enteringIdx, '--enter prints Session before Entering');
+assert.ok(leftIdx >= 0, '--enter prints Left after detaching');
+assert.ok(logLineIdx > leftIdx, '--enter prints Log AFTER Left so it is not wiped by the alternate screen buffer');
+assert.ok(issueLineIdx > leftIdx, '--enter prints Issue AFTER Left so it is not wiped by the alternate screen buffer');
 
 // --- runHiveScreens --enter spawns screen -r via injected hook ---
 const enterCalls = [];

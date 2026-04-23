@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.56.4
+
+### Patch Changes
+
+- 2d6d405: Fix Telegram bot LINO configuration parsing for parenthesized option/value links such as `(--isolation screen)`.
+
 ## 1.56.3
 
 ### Patch Changes

@@ -9,6 +9,20 @@ const fs = await import('fs');
 const path = await import('path');
 const os = await import('os');
 
+function collectStringValues(value, result = []) {
+  if (value && typeof value === 'object' && Array.isArray(value.values)) {
+    if (value.id !== null && value.id !== undefined) {
+      result.push(String(value.id));
+    }
+    for (const child of value.values) {
+      collectStringValues(child, result);
+    }
+  } else if (value !== null && value !== undefined) {
+    result.push(String(value));
+  }
+  return result;
+}
+
 export class LinksNotationManager {
   constructor() {
     this.parser = new LinoParser();
@@ -26,8 +40,7 @@ export class LinksNotationManager {
 
       if (link.values && link.values.length > 0) {
         for (const value of link.values) {
-          const val = value.id || value;
-          values.push(val);
+          values.push(...collectStringValues(value));
         }
       } else if (link.id) {
         values.push(link.id);
@@ -50,9 +63,11 @@ export class LinksNotationManager {
 
       if (link.values && link.values.length > 0) {
         for (const value of link.values) {
-          const num = parseInt(value.id || value);
-          if (!isNaN(num)) {
-            ids.push(num);
+          for (const linkValue of collectStringValues(value)) {
+            const num = parseInt(linkValue);
+            if (!isNaN(num)) {
+              ids.push(num);
+            }
           }
         }
       } else if (link.id) {
@@ -79,8 +94,7 @@ export class LinksNotationManager {
 
       if (link.values && link.values.length > 0) {
         for (const value of link.values) {
-          const linkStr = value.id || value;
-          if (typeof linkStr === 'string') {
+          for (const linkStr of collectStringValues(value)) {
             links.push(linkStr);
           }
         }

@@ -13,17 +13,22 @@ const { LinksNotationManager, lino, CACHE_FILES } = linoModule;
 
 let testsPassed = 0;
 let testsFailed = 0;
+const pendingTests = [];
 
-async function runTest(name, testFn) {
-  process.stdout.write(`Testing ${name}... `);
-  try {
-    await testFn();
-    console.log('✅ PASSED');
-    testsPassed++;
-  } catch (error) {
-    console.log(`❌ FAILED: ${error.message}`);
-    testsFailed++;
-  }
+function runTest(name, testFn) {
+  const testPromise = (async () => {
+    process.stdout.write(`Testing ${name}... `);
+    try {
+      await testFn();
+      console.log('✅ PASSED');
+      testsPassed++;
+    } catch (error) {
+      console.log(`❌ FAILED: ${error.message}`);
+      testsFailed++;
+    }
+  })();
+  pendingTests.push(testPromise);
+  return testPromise;
 }
 
 function assertEqual(actual, expected, message = '') {
@@ -304,9 +309,19 @@ runTest('parseStringValues with short options', () => {
   assertEqual(result, ['-v', '-a', '-m'], 'Should parse short options');
 });
 
+// Test 27: Parenthesized option/value tuple
+runTest('parseStringValues with parenthesized option/value tuple', () => {
+  const input = `(
+  --verbose
+  (--isolation screen)
+)`;
+  const result = lino.parseStringValues(input);
+  assertEqual(result, ['--verbose', '--isolation', 'screen'], 'Should flatten parenthesized option/value tuple');
+});
+
 console.log('\n📋 Cache Method Tests\n');
 
-// Test 27: getCachePath returns correct path
+// Test 28: getCachePath returns correct path
 runTest('getCachePath returns correct path', () => {
   const path = lino.getCachePath('test.lino');
   if (!path || !path.includes('test.lino')) {
@@ -314,7 +329,7 @@ runTest('getCachePath returns correct path', () => {
   }
 });
 
-// Test 28: cacheExists for non-existent file
+// Test 29: cacheExists for non-existent file
 runTest('cacheExists for non-existent file', async () => {
   const exists = await lino.cacheExists('definitely-does-not-exist-12345.lino');
   if (exists !== false) {
@@ -323,6 +338,8 @@ runTest('cacheExists for non-existent file', async () => {
 });
 
 // Summary
+await Promise.all(pendingTests);
+
 console.log('\n' + '='.repeat(50));
 console.log(`Test Results for lino.lib.mjs:`);
 console.log(`  ✅ Passed: ${testsPassed}`);

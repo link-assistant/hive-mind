@@ -8,7 +8,7 @@
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
 import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
-import { defaultModels, buildModelOptionDescription } from './models/index.mjs';
+import { defaultModels, buildModelOptionDescription, resolveRuntimeDefaultModel } from './models/index.mjs';
 import { validateBranchName } from './solve.branch.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
@@ -678,7 +678,7 @@ export const parseArguments = async (yargs, hideBin) => {
   if (argv.tool && !modelExplicitlyProvided && defaultModels[argv.tool]) {
     // User did not explicitly provide --model, so use the correct default for the tool
     // (Issue #1473: centralized in models/index.mjs)
-    argv.model = defaultModels[argv.tool];
+    argv.model = await resolveRuntimeDefaultModel(argv.tool);
   }
 
   // Validate mutual exclusivity of --claude-file and --gitkeep-file

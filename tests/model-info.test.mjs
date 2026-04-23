@@ -106,6 +106,10 @@ test('resolveModelId resolves "gpt5" for codex tool', () => {
   assert.equal(resolveModelId('gpt5', 'codex'), 'gpt-5');
 });
 
+test('resolveModelId resolves "gpt-5.5" for codex tool', () => {
+  assert.equal(resolveModelId('gpt-5.5', 'codex'), 'gpt-5.5');
+});
+
 test('resolveModelId strips [1m] suffix', () => {
   const result = resolveModelId('opus[1m]', 'claude');
   assert.ok(result.startsWith('claude-opus'), `Expected claude-opus prefix but got: ${result}`);

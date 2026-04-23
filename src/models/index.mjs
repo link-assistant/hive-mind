@@ -12,6 +12,9 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1473
  */
 
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
 // Check if use is already defined (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
@@ -19,6 +22,8 @@ if (typeof globalThis.use === 'undefined') {
 }
 
 import { log } from '../lib.mjs';
+
+const execFileAsync = promisify(execFile);
 
 // ─── MODEL DATA ──────────────────────────────────────────────────────────────
 
@@ -106,9 +111,13 @@ export const opencodeModels = {
 export const codexModels = {
   gpt5: 'gpt-5',
   'gpt-5': 'gpt-5',
+  'gpt-5.5': 'gpt-5.5',
+  'gpt-5.5-mini': 'gpt-5.5-mini',
+  'gpt-5.5-nano': 'gpt-5.5-nano',
   'gpt-5.4': 'gpt-5.4',
   'gpt-5.4-mini': 'gpt-5.4-mini',
   'gpt-5.4-nano': 'gpt-5.4-nano',
+  'gpt-5.2': 'gpt-5.2',
   'gpt-5.2-codex': 'gpt-5.2-codex',
   'gpt-5.3-codex': 'gpt-5.3-codex',
   'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
@@ -125,7 +134,7 @@ export const defaultModels = {
   claude: 'sonnet',
   agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'grok-code-fast-1',
-  codex: 'gpt-5.4',
+  codex: 'gpt-5.5',
 };
 
 // Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329)
@@ -190,9 +199,13 @@ export const OPENCODE_MODELS = {
 export const CODEX_MODELS = {
   ...codexModels,
   'gpt-5': 'gpt-5',
+  'gpt-5.5': 'gpt-5.5',
+  'gpt-5.5-mini': 'gpt-5.5-mini',
+  'gpt-5.5-nano': 'gpt-5.5-nano',
   'gpt-5.4': 'gpt-5.4',
   'gpt-5.4-mini': 'gpt-5.4-mini',
   'gpt-5.4-nano': 'gpt-5.4-nano',
+  'gpt-5.2': 'gpt-5.2',
   'gpt-5.2-codex': 'gpt-5.2-codex',
   'gpt-5.3-codex': 'gpt-5.3-codex',
   'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
@@ -247,6 +260,50 @@ export const getModelMapForTool = tool => {
  */
 export const getDefaultModelForTool = tool => {
   return defaultModels[tool] || defaultModels.claude;
+};
+
+let cachedInstalledCodexModelsPromise = null;
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+
+export const getInstalledCodexModels = async () => {
+  if (!cachedInstalledCodexModelsPromise) {
+    cachedInstalledCodexModelsPromise = (async () => {
+      try {
+        const { stdout } = await execFileAsync('codex', ['debug', 'models'], {
+          encoding: 'utf8',
+          maxBuffer: 10 * 1024 * 1024,
+        });
+        const parsed = JSON.parse(stdout);
+        const modelSlugs = parsed?.models?.map(model => model?.slug).filter(Boolean);
+        return Array.isArray(modelSlugs) ? [...new Set(modelSlugs)] : null;
+      } catch {
+        return null;
+      }
+    })();
+  }
+
+  return cachedInstalledCodexModelsPromise;
+};
+
+export const resolveRuntimeDefaultModel = async (tool, options = {}) => {
+  const toolName = (tool || 'claude').toString().toLowerCase();
+  const preferredDefault = defaultModels[toolName] || defaultModels.claude;
+
+  if (toolName !== 'codex') {
+    return preferredDefault;
+  }
+
+  const availableCodexModels = options.availableCodexModels === undefined ? await getInstalledCodexModels() : options.availableCodexModels;
+
+  if (!Array.isArray(availableCodexModels) || availableCodexModels.length === 0) {
+    return preferredDefault;
+  }
+
+  if (availableCodexModels.includes(preferredDefault)) {
+    return preferredDefault;
+  }
+
+  return CODEX_DEFAULT_FALLBACK_CHAIN.find(model => availableCodexModels.includes(model)) || preferredDefault;
 };
 
 /**
@@ -318,7 +375,7 @@ export const getValidModelsForTool = tool => {
 export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan'],
   opencode: ['grok', 'gpt4o'],
-  codex: ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2-codex'],
+  codex: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark'],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
 };
 

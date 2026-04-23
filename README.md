@@ -461,7 +461,7 @@ Aliases:
 /agent is equivalent to /solve --tool agent
 
 Tool alias examples:
-/codex https://github.com/owner/repo/issues/123 --model gpt-5.4
+/codex https://github.com/owner/repo/issues/123 --model gpt-5.5
 /opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 
@@ -476,6 +476,17 @@ Free Models via Kilo Gateway (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-4.5-air-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/deepseek-r1-free
 ```
+
+Current tool defaults in Hive Mind:
+
+| Tool       | Default model                                               | Default reasoning behavior                                                               |
+| ---------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `claude`   | `sonnet`                                                    | No extra thinking is requested unless you pass `--think` or `--thinking-budget`          |
+| `codex`    | `gpt-5.5` preferred, with runtime fallback to local catalog | Codex runs with `reasoning_effort=none` unless you pass `--think` or `--thinking-budget` |
+| `opencode` | `grok-code-fast-1`                                          | No extra thinking prompt is added for the default model                                  |
+| `agent`    | `nemotron-3-super-free`                                     | No extra thinking prompt is added for the default model                                  |
+
+See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 
 > **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models including OpenCode Zen and Kilo Gateway providers.
 

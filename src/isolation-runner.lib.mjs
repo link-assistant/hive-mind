@@ -22,6 +22,8 @@ const { $ } = await use('command-stream');
 
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
+const RUNNING_SESSION_STATUSES = new Set(['executing', 'running']);
+const TERMINAL_SESSION_STATUSES = new Set(['executed', 'completed', 'failed', 'cancelled', 'canceled', 'error']);
 
 /**
  * Generate a UUID v4 for unique session identification
@@ -29,6 +31,76 @@ const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
  */
 export function generateSessionId() {
   return crypto.randomUUID();
+}
+
+/**
+ * Parse output from `$ --status <session>`.
+ *
+ * start-command versions used in the wild may return JSON when
+ * `--output-format json` is supported, or human-readable key/value text.
+ * Keep the parser tolerant so completion monitoring survives either format.
+ *
+ * @param {string} output - Raw stdout from `$ --status`
+ * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, raw: string}}
+ */
+export function parseSessionStatusOutput(output) {
+  const raw = (output || '').trim();
+  if (!raw) {
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, raw: '' };
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    const data = Array.isArray(parsed) ? parsed[0] : parsed;
+    return {
+      exists: true,
+      uuid: data?.uuid || null,
+      status: typeof data?.status === 'string' ? data.status.toLowerCase() : null,
+      exitCode: data?.exitCode !== undefined && data?.exitCode !== null ? Number(data.exitCode) : null,
+      startTime: data?.startTime || null,
+      endTime: data?.endTime || null,
+      currentTime: data?.currentTime || null,
+      raw,
+    };
+  } catch {
+    // Fall through to text parsing.
+  }
+
+  const firstLine =
+    raw
+      .split('\n')
+      .find(line => line.trim() && !line.includes(' '))
+      ?.trim() || null;
+  const readField = name => {
+    const match = raw.match(new RegExp(`^\\s*${name}\\s+"?([^"\\n]+)"?\\s*$`, 'mi'));
+    return match ? match[1].trim() : null;
+  };
+
+  const status = readField('status')?.toLowerCase() || null;
+  const exitCodeText = readField('exitCode');
+
+  return {
+    exists: Boolean(status || firstLine),
+    uuid: readField('uuid') || firstLine,
+    status,
+    exitCode: exitCodeText !== null ? Number(exitCodeText) : null,
+    startTime: readField('startTime'),
+    endTime: readField('endTime'),
+    currentTime: readField('currentTime'),
+    raw,
+  };
+}
+
+export function isExecutingSessionStatus(status) {
+  return RUNNING_SESSION_STATUSES.has(String(status || '').toLowerCase());
+}
+
+export function isTerminalSessionStatus(status) {
+  return TERMINAL_SESSION_STATUSES.has(String(status || '').toLowerCase());
+}
+
+export function shouldFallbackToScreenStatus(statusResult) {
+  return !statusResult?.exists || !statusResult?.status;
 }
 
 /**
@@ -133,7 +205,7 @@ export async function executeWithIsolation(command, args, options = {}) {
  *
  * @param {string} sessionId - UUID of the session to check
  * @param {boolean} [verbose] - Enable verbose logging
- * @returns {Promise<{exists: boolean, status: string|null, exitCode: number|null, raw: string}>}
+ * @returns {Promise<{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, raw: string}>}
  */
 export async function querySessionStatus(sessionId, verbose = false) {
   const binPath = await findStartCommandBinary();
@@ -141,7 +213,7 @@ export async function querySessionStatus(sessionId, verbose = false) {
     if (verbose) {
       console.log('[VERBOSE] isolation-runner: Cannot query status - $ binary not found');
     }
-    return { exists: false, status: null, exitCode: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, raw: '' };
   }
 
   try {
@@ -153,30 +225,12 @@ export async function querySessionStatus(sessionId, verbose = false) {
       console.log(`[VERBOSE] isolation-runner: Status query result: ${stdout.substring(0, 300)}`);
     }
 
-    try {
-      const data = JSON.parse(stdout);
-      return {
-        exists: true,
-        status: data.status || null,
-        exitCode: data.exitCode !== undefined ? data.exitCode : null,
-        raw: stdout,
-      };
-    } catch {
-      // If JSON parsing fails, try text-based detection
-      const isExecuting = stdout.includes('executing');
-      const isExecuted = stdout.includes('executed');
-      return {
-        exists: isExecuting || isExecuted,
-        status: isExecuting ? 'executing' : isExecuted ? 'executed' : null,
-        exitCode: null,
-        raw: stdout,
-      };
-    }
+    return parseSessionStatusOutput(stdout);
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: Status query error: ${error.message}`);
     }
-    return { exists: false, status: null, exitCode: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, raw: '' };
   }
 }
 
@@ -222,16 +276,21 @@ export async function isSessionRunning(sessionId, options = {}) {
   const { backend, verbose = false } = opts;
 
   const result = await querySessionStatus(sessionId, verbose);
-  if (result.exists && result.status === 'executing') {
-    return true;
+  if (result.exists && result.status) {
+    if (isExecutingSessionStatus(result.status)) {
+      return true;
+    }
+    if (isTerminalSessionStatus(result.status)) {
+      return false;
+    }
   }
 
   // Fallback: for screen backend, check screen -ls directly.
-  // This works around start-command bugs where:
+  // Only use this when $ --status has no usable record. This works around
+  // older start-command bugs where:
   // 1. $ --status can't find session by --session name (only by internal UUID)
-  // 2. $ --status reports "executed" immediately for --detached screen sessions
   // See: https://github.com/link-assistant/hive-mind/issues/1545
-  if (backend === 'screen') {
+  if (backend === 'screen' && shouldFallbackToScreenStatus(result)) {
     const screenRunning = await checkScreenSessionRunning(sessionId, verbose);
     if (screenRunning && verbose) {
       console.log(`[VERBOSE] isolation-runner: $ --status says not running, but screen -ls confirms session '${sessionId}' is still active`);

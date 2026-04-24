@@ -28,12 +28,6 @@ async function getIsolationRunner() {
   }
   return _isolationRunner;
 }
-// Legacy accessor for querySessionStatus
-async function getQuerySessionStatus() {
-  const mod = await getIsolationRunner();
-  return mod.querySessionStatus;
-}
-
 // In-memory session store
 const activeSessions = new Map();
 
@@ -62,51 +56,6 @@ export async function checkScreenSessionExists(sessionName) {
   } catch {
     // screen -ls returns exit code 1 when no sessions exist
     return false;
-  }
-}
-
-/**
- * Check if an isolated session is still running.
- * Uses isolation-runner's isSessionRunning which includes screen -ls fallback
- * for screen-backend sessions to work around start-command UUID mismatch.
- *
- * @param {string} sessionId - UUID of the isolated session (screen session name)
- * @param {Object} [options] - Options
- * @param {string} [options.backend] - Isolation backend ('screen', 'tmux', 'docker')
- * @param {boolean} [options.verbose] - Whether to log verbose output
- * @returns {Promise<boolean>} True if session is still running
- * @see https://github.com/link-assistant/hive-mind/issues/1545
- */
-async function checkIsolatedSessionRunning(sessionId, options = {}) {
-  const opts = typeof options === 'boolean' ? { verbose: options } : options;
-  const { backend, verbose = false } = opts;
-  try {
-    const runner = await getIsolationRunner();
-    return await runner.isSessionRunning(sessionId, { backend, verbose });
-  } catch (error) {
-    if (verbose) {
-      console.error(`[VERBOSE] Error checking isolated session ${sessionId}: ${error.message}`);
-    }
-    return false;
-  }
-}
-
-/**
- * Get the exit code of a completed isolated session
- * @param {string} sessionId - UUID of the isolated session
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<number|null>} Exit code or null if unknown
- */
-async function getIsolatedSessionExitCode(sessionId, verbose = false) {
-  try {
-    const queryStatus = await getQuerySessionStatus();
-    const result = await queryStatus(sessionId, verbose);
-    if (result.exists && result.status === 'executed') {
-      return result.exitCode;
-    }
-    return null;
-  } catch {
-    return null;
   }
 }
 
@@ -172,6 +121,67 @@ function completeSession(sessionName, exitCode = 0, verbose = false) {
   }
 }
 
+function normalizeSessionUrl(url) {
+  return url.replace(/\/+$/, '').replace(/#.*$/, '').toLowerCase();
+}
+
+function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) {
+  const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
+  const elapsed = Date.now() - startTime.getTime();
+  if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+    if (verbose) {
+      console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s), removing from tracking`);
+    }
+    activeSessions.delete(sessionName);
+    return false;
+  }
+  if (verbose) {
+    const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
+    console.log(`[VERBOSE] Non-isolation session ${sessionName} still within timeout (${remainingSec}s remaining)`);
+  }
+  return true;
+}
+
+async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
+  const { verbose = false, statusProvider = null } = options;
+  const sessionId = sessionInfo.sessionId || sessionName;
+
+  try {
+    const runner = await getIsolationRunner();
+    const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
+
+    if (statusResult?.exists && statusResult.status) {
+      if (runner.isExecutingSessionStatus(statusResult.status)) {
+        return { running: true, exitCode: null, status: statusResult.status, statusResult };
+      }
+      if (runner.isTerminalSessionStatus(statusResult.status)) {
+        return {
+          running: false,
+          exitCode: statusResult.exitCode !== undefined ? statusResult.exitCode : null,
+          status: statusResult.status,
+          statusResult,
+        };
+      }
+    }
+
+    const running = await runner.isSessionRunning(sessionId, {
+      backend: sessionInfo.isolationBackend,
+      verbose,
+    });
+    return {
+      running,
+      exitCode: running ? null : (statusResult?.exitCode ?? null),
+      status: statusResult?.status || null,
+      statusResult,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${error.message}`);
+    }
+    return { running: false, exitCode: null, status: null, statusResult: null };
+  }
+}
+
 /**
  * Monitor active sessions and send notifications when they complete
  * @param {Object} bot - Telegraf bot instance for sending messages
@@ -193,15 +203,12 @@ export async function monitorSessions(bot, verbose = false) {
     let exitCode = null;
 
     if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
-      // Isolation mode: use $ --status with screen -ls fallback for screen backend
-      // See: https://github.com/link-assistant/hive-mind/issues/1545
-      stillRunning = await checkIsolatedSessionRunning(sessionInfo.sessionId, {
-        backend: sessionInfo.isolationBackend,
-        verbose,
-      });
-      if (!stillRunning) {
-        exitCode = await getIsolatedSessionExitCode(sessionInfo.sessionId, verbose);
-      }
+      // Isolation mode: use $ --status, with screen -ls only as a fallback
+      // when the status record is unavailable. Terminal $ statuses are
+      // authoritative so completed screen sessions do not stay blocked.
+      const state = await getIsolationSessionState(sessionName, sessionInfo, { verbose });
+      stillRunning = state.running;
+      exitCode = state.exitCode;
     } else {
       // Issue #1586: Non-isolation screen sessions cannot reliably detect
       // completion because start-screen keeps the screen alive via `exec bash`.
@@ -294,27 +301,14 @@ export function hasActiveSessionForUrl(url, verbose = false) {
   if (!url) return { isActive: false, sessionName: null };
 
   // Normalize the URL for comparison (remove trailing slashes, fragments, etc.)
-  const normalizeUrl = u => u.replace(/\/+$/, '').replace(/#.*$/, '').toLowerCase();
-  const normalizedUrl = normalizeUrl(url);
+  const normalizedUrl = normalizeSessionUrl(url);
 
   for (const [sessionName, sessionInfo] of activeSessions.entries()) {
     // Issue #1586: Auto-expire non-isolation sessions after timeout
-    if (!sessionInfo.isolationBackend) {
-      const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
-      const elapsed = Date.now() - startTime.getTime();
-      if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
-        if (verbose) {
-          console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s), removing from tracking`);
-        }
-        activeSessions.delete(sessionName);
-        continue;
-      }
-      if (verbose) {
-        const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
-        console.log(`[VERBOSE] Non-isolation session ${sessionName} still within timeout (${remainingSec}s remaining)`);
-      }
+    if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
+      continue;
     }
-    if (sessionInfo.url && normalizeUrl(sessionInfo.url) === normalizedUrl) {
+    if (sessionInfo.url && normalizeSessionUrl(sessionInfo.url) === normalizedUrl) {
       if (verbose) {
         const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'non-isolation (timeout-based)';
         console.log(`[VERBOSE] Found active session for URL ${url}: ${sessionName} (${mode})`);
@@ -327,6 +321,96 @@ export function hasActiveSessionForUrl(url, verbose = false) {
     console.log(`[VERBOSE] No active session found for URL ${url}`);
   }
   return { isActive: false, sessionName: null };
+}
+
+/**
+ * Async active-session check for command handlers.
+ *
+ * Isolation-backed sessions are refreshed through `$ --status` before they
+ * block a duplicate URL, so completed screen-isolated runs no longer require
+ * waiting for the background polling interval.
+ *
+ * @param {string} url - The GitHub URL to check
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {Object} [options] - Test/support options
+ * @param {Function} [options.statusProvider] - Optional `$ --status` provider
+ * @returns {Promise<{isActive: boolean, sessionName: string|null, status?: string|null}>}
+ */
+export async function hasActiveSessionForUrlAsync(url, verbose = false, options = {}) {
+  if (!url) return { isActive: false, sessionName: null };
+
+  const normalizedUrl = normalizeSessionUrl(url);
+
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
+      continue;
+    }
+
+    if (!sessionInfo.isolationBackend) {
+      if (isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
+        return { isActive: true, sessionName, status: null };
+      }
+      continue;
+    }
+
+    const state = await getIsolationSessionState(sessionName, sessionInfo, {
+      verbose,
+      statusProvider: options.statusProvider,
+    });
+    if (state.running) {
+      if (verbose) {
+        console.log(`[VERBOSE] Found executing isolated session for URL ${url}: ${sessionName} (status: ${state.status || 'unknown'})`);
+      }
+      return { isActive: true, sessionName, status: state.status || null };
+    }
+
+    if (verbose) {
+      console.log(`[VERBOSE] Isolated session ${sessionName} for URL ${url} is no longer running (status: ${state.status || 'unknown'}), allowing retry while monitor sends completion`);
+    }
+    sessionInfo.lastKnownStatus = state.status || null;
+    sessionInfo.lastKnownExitCode = state.exitCode ?? null;
+  }
+
+  if (verbose) {
+    console.log(`[VERBOSE] No active session found for URL ${url}`);
+  }
+  return { isActive: false, sessionName: null };
+}
+
+/**
+ * Refresh tracked isolation sessions and count only those that are executing.
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {Object} [options] - Test/support options
+ * @param {Function} [options.statusProvider] - Optional `$ --status` provider
+ * @returns {Promise<{count: number, sessions: string[], byTool: Object}>}
+ */
+export async function getRunningTrackedIsolationSessions(verbose = false, options = {}) {
+  const sessions = [];
+  const byTool = {};
+
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    if (!sessionInfo.isolationBackend) {
+      continue;
+    }
+
+    const state = await getIsolationSessionState(sessionName, sessionInfo, {
+      verbose,
+      statusProvider: options.statusProvider,
+    });
+
+    if (!state.running) {
+      sessionInfo.lastKnownStatus = state.status || null;
+      sessionInfo.lastKnownExitCode = state.exitCode ?? null;
+      continue;
+    }
+
+    const tool = sessionInfo.tool || 'claude';
+    sessions.push(sessionName);
+    byTool[tool] = (byTool[tool] || 0) + 1;
+  }
+
+  return { count: sessions.length, sessions, byTool };
 }
 
 /**

@@ -80,8 +80,8 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
     if (iso) {
       const sid = iso.runner.generateSessionId();
       const r = await iso.runner.executeWithIsolation(item.command || 'solve', item.args, { backend: iso.backend, sessionId: sid, verbose });
-      if (r.success) trackSession(sid, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: item.command || 'solve', isolationBackend: iso.backend, sessionId: sid }, verbose);
-      return { ...r, output: r.output || `session: ${sid}` };
+      if (r.success) trackSession(sid, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: item.command || 'solve', isolationBackend: iso.backend, sessionId: sid, tool: item.tool || 'claude' }, verbose);
+      return { ...r, sessionId: sid, isolationBackend: iso.backend, output: r.output || `session: ${sid}` };
     }
     return fallbackCallback(item);
   };

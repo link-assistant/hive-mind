@@ -49,7 +49,7 @@ const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFro
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { trackSession, startSessionMonitoring, hasActiveSessionForUrl } = await import('./session-monitor.lib.mjs');
+const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync } = await import('./session-monitor.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -549,7 +549,7 @@ async function safeReply(ctx, text, options = {}) {
   }
 }
 
-async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null) {
+async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude') {
   const { chat, message_id: msgId } = startingMessage;
   const safeEdit = async text => {
     try {
@@ -567,19 +567,19 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
     VERBOSE && console.log(`[VERBOSE] Using isolation (${iso.backend}), session: ${session}`);
     result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, verbose: VERBOSE });
     extraInfo = `\n🔒 Isolation: \`${iso.backend}\``;
-    if (result.success) trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: iso.backend, sessionId: session }, VERBOSE);
+    if (result.success) trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: iso.backend, sessionId: session, tool }, VERBOSE);
   } else {
     result = await executeStartScreen(commandName, args);
     const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
     session = match ? match[1] : 'unknown';
     // Issue #1586: Track non-isolation sessions with timeout-based expiry.
     // These sessions cannot reliably detect completion (screen stays alive via
-    // `exec bash`), so hasActiveSessionForUrl() auto-expires them after 10 min.
+    // `exec bash`), so active URL checks auto-expire them after 10 min.
     // This prevents accidental duplicate commands within the timeout window.
-    if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName }, VERBOSE);
+    if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool }, VERBOSE);
   }
   if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
-  if (result.success) await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`${extraInfo}\n\n${infoBlock}\n\n🔔 You will receive a notification when the session finishes.`);
+  if (result.success) await safeEdit(`🔄 ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command executing...\n\nStatus: \`Executing...\`\n📊 Session: \`${session}\`${extraInfo}\n\n${infoBlock}\n\n🔔 This message will update when the session finishes.`);
   else await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
 }
 
@@ -990,7 +990,7 @@ async function handleSolveCommand(ctx) {
     return;
   }
   // Issue #1567: Prevent concurrent sessions on the same PR/issue
-  const activeSession = hasActiveSessionForUrl(normalizedUrl, VERBOSE);
+  const activeSession = await hasActiveSessionForUrlAsync(normalizedUrl, VERBOSE);
   if (activeSession.isActive) {
     await safeReply(ctx, `❌ A working session is already running for this URL.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nSession: \`${activeSession.sessionName}\`\n\n💡 Wait for the current session to complete, or use /solve\\_stop to cancel it.`, { reply_to_message_id: ctx.message.message_id });
     return;
@@ -1006,7 +1006,7 @@ async function handleSolveCommand(ctx) {
   const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
   if (check.canStart && toolQueuedCount === 0) {
     const startingMessage = await safeReply(ctx, `🚀 Starting solve command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, effectiveSolveIsolation);
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, effectiveSolveIsolation, solveTool);
   } else {
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation });
     let queueMessage = `📋 Solve command queued (${solveTool} queue position #${toolQueuedCount + 1})\n\n${infoBlock}`; // tool-specific position (#1551)
@@ -1171,7 +1171,7 @@ async function handleHiveCommand(ctx) {
   }
 
   const startingMessage = await safeReply(ctx, `🚀 Starting hive command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
-  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock, effectiveHiveIsolation);
+  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock, effectiveHiveIsolation, hiveTool);
 }
 
 bot.command(/^hive$/i, handleHiveCommand);

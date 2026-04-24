@@ -24,6 +24,7 @@ import { buildMcpConfigWithoutPlaywright } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
+import { classifyRetryableError, maybeSwitchToFallbackModel } from './tool-retry.lib.mjs';
 export { availableModels }; // Re-export for backward compatibility
 export { fetchModelInfo };
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -1148,8 +1149,9 @@ export const executeClaudeCommand = async params => {
 
       // Issue #817: Stop bidirectional mode monitoring and collect queued feedback
       queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
+      const retryableLastError = classifyRetryableError(lastMessage);
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
-      const isTransientError = isStartupTimeout || isActivityTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
+      const isTransientError = isStartupTimeout || isActivityTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || retryableLastError.isRetryable || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
       if ((commandFailed || isTransientError) && isTransientError) {
         // Issue #1472/#1475: Startup/activity timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 2min–30min
         const isTimeoutRetry = isStartupTimeout || isActivityTimeout;
@@ -1178,7 +1180,7 @@ export const executeClaudeCommand = async params => {
         }
         if (retryCount < maxRetries) {
           const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
-          const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
+          const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : retryableLastError.label || (isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
           const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
           const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
           const retryMode = isStartupTimeout ? ' (fresh start)' : ' (session preserved)';
@@ -1199,6 +1201,7 @@ export const executeClaudeCommand = async params => {
           }
           // Activity timeout preserves session (work was started), startup timeout does not (no session created)
           if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
+          await maybeSwitchToFallbackModel({ tool: 'claude', argv, log, errorMessage: retryableLastError.message || lastMessage });
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;
@@ -1375,11 +1378,12 @@ export const executeClaudeCommand = async params => {
         operation: 'run_claude_command',
       });
       const errorStr = error.message || error.toString();
+      const retryableException = classifyRetryableError(errorStr);
       // Issue #1331: Unified handler for all transient API errors in exception block
       // Issue #1353: Also handle "Request timed out" in exception block
       // (Overloaded, 503, Internal Server Error, Request timed out) - all with session preservation
       const isTimeoutException = errorStr === 'Request timed out' || errorStr.includes('Request timed out');
-      const isTransientException = isTimeoutException || (errorStr.includes('API Error: 500') && (errorStr.includes('Overloaded') || errorStr.includes('Internal server error'))) || (errorStr.includes('API Error: 529') && (errorStr.includes('overloaded_error') || errorStr.includes('Overloaded'))) || (errorStr.includes('api_error') && errorStr.includes('Overloaded')) || (errorStr.includes('overloaded_error') && errorStr.includes('Overloaded')) || errorStr.includes('API Error: 503') || (errorStr.includes('503') && (errorStr.includes('upstream connect error') || errorStr.includes('remote connection failure')));
+      const isTransientException = isTimeoutException || retryableException.isRetryable;
       if (isTransientException) {
         // Issue #1353: Use timeout-specific backoff for request timeouts
         const maxRetries = isTimeoutException ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
@@ -1387,9 +1391,10 @@ export const executeClaudeCommand = async params => {
         const maxDelay = isTimeoutException ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
         if (retryCount < maxRetries) {
           const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
-          const errorLabel = isTimeoutException ? 'Request timeout' : errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
+          const errorLabel = isTimeoutException ? 'Request timeout' : retryableException.label || (errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
           await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
           if (sessionId && !argv.resume) argv.resume = sessionId;
+          await maybeSwitchToFallbackModel({ tool: 'claude', argv, log, errorMessage: errorStr });
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;

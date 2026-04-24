@@ -88,7 +88,7 @@ export async function notifyIssueAboutPrePullRequestFailure(options) {
         sanitizeLogContent,
         verbose: argv.verbose,
         errorMessage: `The solver stopped before creating a pull request.\n\nReason: ${reason || 'Unknown error'}`,
-        requestedModel: argv.model,
+        requestedModel: argv.originalModel || argv.model,
         tool: argv.tool || 'claude',
       });
       if (uploaded) {

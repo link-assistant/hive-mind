@@ -15,13 +15,14 @@ const os = (await use('os')).default;
 // Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts } from './config.lib.mjs';
+import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { opencodeModels, defaultModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
 import { calculateAgentPricing } from './agent.lib.mjs';
+import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
 
 export { parseOpenCodeTokenUsage };
 
@@ -184,10 +185,9 @@ export const executeOpenCode = async params => {
 };
 
 export const executeOpenCodeCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, opencodePath, $ } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, opencodePath, $, waitForRetryDelay = waitWithCountdown } = params;
 
   // Retry configuration
-  const maxRetries = 3;
   let retryCount = 0;
 
   const executeWithRetry = async () => {
@@ -195,7 +195,7 @@ export const executeOpenCodeCommand = async params => {
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing OpenCode:', argv.model.toUpperCase())}`);
     } else {
-      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${maxRetries}`)}`);
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
     }
 
     if (argv.verbose) {
@@ -265,7 +265,7 @@ export const executeOpenCodeCommand = async params => {
 
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
-      opencodeArgs = `run --format json --resume ${argv.resume} --model ${mappedModel}`;
+      opencodeArgs = `run --format json --session ${argv.resume} --model ${mappedModel}`;
     }
 
     // For OpenCode, we pass the prompt via stdin
@@ -301,7 +301,7 @@ export const executeOpenCodeCommand = async params => {
           cwd: tempDir,
           mirror: false,
           env: opencodeEnv,
-        })`cat ${promptFile} | ${opencodePath} run --format json --resume ${argv.resume} --model ${mappedModel}`;
+        })`cat ${promptFile} | ${opencodePath} run --format json --session ${argv.resume} --model ${mappedModel}`;
       } else {
         execCommand = $({
           cwd: tempDir,
@@ -470,6 +470,28 @@ export const executeOpenCodeCommand = async params => {
       }
 
       if (exitCode !== 0) {
+        const retryableError = classifyRetryableError(allOutput || lastMessage);
+        if (retryableError.isRetryable) {
+          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
+          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+          if (retryCount < maxRetries) {
+            const delay = getRetryDelayMs({
+              retryCount,
+              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+            });
+            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            await maybeSwitchToFallbackModel({ tool: 'opencode', argv, log, errorMessage: retryableError.message });
+            await waitForRetryDelay(delay, log);
+            await log('\n🔄 Retrying now...');
+            retryCount++;
+            return await executeWithRetry();
+          }
+          await log(`\n\n❌ ${retryableError.label} persisted after ${maxRetries} retries`, { level: 'error' });
+        }
+
         // Check for usage limit errors first (more specific)
         const limitInfo = detectUsageLimit(lastMessage);
         if (limitInfo.isUsageLimit) {

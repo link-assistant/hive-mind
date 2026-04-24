@@ -12,7 +12,7 @@ const HIVE_ONLY_OPTION_NAMES = new Set(['monitor-tag', 'all-issues', 'skip-issue
 
 // Solve-only options that should NOT be registered in hive
 // (they are internal to solve and not meaningful when passed from hive)
-const SOLVE_ONLY_OPTION_NAMES = new Set(['resume', 'working-directory', 'only-prepare-command', 'session-type']);
+const SOLVE_ONLY_OPTION_NAMES = new Set(['resume', 'working-directory', 'only-prepare-command', 'session-type', 'auto-resume-iteration']);
 
 // Options that hive defines with different defaults/descriptions than solve.
 // These are registered manually in hive config to preserve hive-specific behavior.

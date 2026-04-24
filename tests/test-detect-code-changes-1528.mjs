@@ -10,9 +10,17 @@
  */
 
 import { isExcludedFromCodeChanges, matchesPattern } from '../scripts/detect-code-changes.mjs';
+import { execFileSync } from 'child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 let testsPassed = 0;
 let testsFailed = 0;
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const detectCodeChangesScript = join(repoRoot, 'scripts/detect-code-changes.mjs');
 
 function runTest(name, testFn) {
   process.stdout.write(`Testing ${name}... `);
@@ -32,8 +40,66 @@ function assertEqual(actual, expected, message) {
   }
 }
 
+function assertIncludes(text, expected, message) {
+  if (!text.includes(expected)) {
+    throw new Error(message || `Expected output to include ${JSON.stringify(expected)}`);
+  }
+}
+
+function assertNotIncludes(text, expected, message) {
+  if (text.includes(expected)) {
+    throw new Error(message || `Expected output not to include ${JSON.stringify(expected)}`);
+  }
+}
+
+function git(cwd, args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+}
+
+function writeRepoFile(repoDir, filePath, content) {
+  const fullPath = join(repoDir, filePath);
+  mkdirSync(dirname(fullPath), { recursive: true });
+  writeFileSync(fullPath, content);
+}
+
+function runDetectCodeChanges(repoDir, envOverrides = {}) {
+  const env = { ...process.env, ...envOverrides };
+  delete env.GITHUB_OUTPUT;
+  return execFileSync(process.execPath, [detectCodeChangesScript], {
+    cwd: repoDir,
+    env,
+    encoding: 'utf8',
+  });
+}
+
+function createRepoWithCodeThenMetadataUpdate() {
+  const repoDir = mkdtempSync(join(tmpdir(), 'detect-code-changes-1665-'));
+
+  git(repoDir, ['init', '--initial-branch=main']);
+  git(repoDir, ['config', 'user.email', 'test@example.com']);
+  git(repoDir, ['config', 'user.name', 'Test User']);
+
+  writeRepoFile(repoDir, 'README.md', '# fixture\n');
+  git(repoDir, ['add', '.']);
+  git(repoDir, ['commit', '-m', 'base']);
+  const baseCommit = git(repoDir, ['rev-parse', 'HEAD']);
+
+  git(repoDir, ['checkout', '-b', 'feature']);
+  writeRepoFile(repoDir, 'src/feature.mjs', 'export const feature = true;\n');
+  git(repoDir, ['add', '.']);
+  git(repoDir, ['commit', '-m', 'code change']);
+  const codeCommit = git(repoDir, ['rev-parse', 'HEAD']);
+
+  writeRepoFile(repoDir, '.gitkeep', '');
+  git(repoDir, ['add', '.gitkeep']);
+  git(repoDir, ['commit', '-m', 'metadata-only change']);
+  const metadataCommit = git(repoDir, ['rev-parse', 'HEAD']);
+
+  return { baseCommit, codeCommit, metadataCommit, repoDir };
+}
+
 // The code pattern used in detect-code-changes.mjs for positive matching
-const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\//;
+const codePattern = /\.(mjs|js|json|yml|yaml)$|\.github\/workflows\//;
 
 /**
  * Helper: simulate the full two-step code detection pipeline.
@@ -128,6 +194,10 @@ console.log('\n--- matchesPattern (codePattern positive matching) ---\n');
 
 runTest('.mjs files match code pattern', () => {
   assertEqual(matchesPattern('src/solve.mjs', codePattern), true);
+});
+
+runTest('.js files match code pattern', () => {
+  assertEqual(matchesPattern('src/app.js', codePattern), true);
 });
 
 runTest('.json files match code pattern', () => {
@@ -240,6 +310,86 @@ runTest('realistic mixed change set is correctly classified', () => {
   assertEqual(codeFiles.includes('src/solve.mjs'), true, 'should include src/solve.mjs');
   assertEqual(codeFiles.includes('package.json'), true, 'should include package.json');
   assertEqual(codeFiles.includes('.github/workflows/release.yml'), true, 'should include workflow file');
+});
+
+runTest('pull_request synchronize event SHA range skips a single metadata-only update (issue #1665)', () => {
+  const { codeCommit, metadataCommit, repoDir } = createRepoWithCodeThenMetadataUpdate();
+
+  try {
+    const output = runDetectCodeChanges(repoDir, {
+      GITHUB_EVENT_NAME: 'pull_request',
+      GITHUB_EVENT_ACTION: 'synchronize',
+      GITHUB_BEFORE_SHA: codeCommit,
+      GITHUB_AFTER_SHA: metadataCommit,
+      GITHUB_HEAD_SHA: metadataCommit,
+    });
+
+    assertIncludes(output, '  .gitkeep');
+    assertNotIncludes(output, '  src/feature.mjs', 'The latest PR-head update did not change src/feature.mjs');
+    assertIncludes(output, 'mjs=false');
+    assertIncludes(output, 'code=false');
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+runTest('pull_request synchronize event SHA range includes code from a multi-commit push (issue #1665)', () => {
+  const { baseCommit, metadataCommit, repoDir } = createRepoWithCodeThenMetadataUpdate();
+
+  try {
+    const output = runDetectCodeChanges(repoDir, {
+      GITHUB_EVENT_NAME: 'pull_request',
+      GITHUB_EVENT_ACTION: 'synchronize',
+      GITHUB_BEFORE_SHA: baseCommit,
+      GITHUB_AFTER_SHA: metadataCommit,
+      GITHUB_HEAD_SHA: metadataCommit,
+    });
+
+    assertIncludes(output, '  .gitkeep');
+    assertIncludes(output, '  src/feature.mjs');
+    assertIncludes(output, 'mjs=true');
+    assertIncludes(output, 'code=true');
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+runTest('pull_request synchronize synthetic merge fallback uses only the latest PR head commit (issue #1665)', () => {
+  const repoDir = mkdtempSync(join(tmpdir(), 'detect-code-changes-1665-'));
+
+  try {
+    git(repoDir, ['init', '--initial-branch=main']);
+    git(repoDir, ['config', 'user.email', 'test@example.com']);
+    git(repoDir, ['config', 'user.name', 'Test User']);
+
+    writeRepoFile(repoDir, 'README.md', '# fixture\n');
+    git(repoDir, ['add', '.']);
+    git(repoDir, ['commit', '-m', 'base']);
+
+    git(repoDir, ['checkout', '-b', 'feature']);
+    writeRepoFile(repoDir, 'src/feature.mjs', 'export const feature = true;\n');
+    git(repoDir, ['add', '.']);
+    git(repoDir, ['commit', '-m', 'code change']);
+
+    writeRepoFile(repoDir, '.gitkeep', '');
+    git(repoDir, ['add', '.gitkeep']);
+    git(repoDir, ['commit', '-m', 'metadata-only change']);
+
+    git(repoDir, ['checkout', 'main']);
+    git(repoDir, ['merge', '--no-ff', '--no-edit', 'feature']);
+
+    const output = runDetectCodeChanges(repoDir, {
+      GITHUB_EVENT_NAME: 'pull_request',
+      GITHUB_EVENT_ACTION: 'synchronize',
+    });
+
+    assertIncludes(output, '  .gitkeep');
+    assertNotIncludes(output, '  src/feature.mjs', 'The latest PR-head commit did not change src/feature.mjs');
+    assertIncludes(output, 'mjs=false');
+    assertIncludes(output, 'code=false');
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true });
+  }
 });
 
 // === Summary ===

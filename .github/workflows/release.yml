@@ -6,26 +6,9 @@ on:
       - main
   pull_request:
     types: [opened, synchronize, reopened]
-    # Only trigger for files the CI pipeline cares about (Issue #1582)
-    # Uses positive matching (consistent with detect-code-changes.mjs from Issue #1528)
-    # so unknown file types (.gitkeep, .txt, .log, images, etc.) are naturally excluded
-    paths:
-      - '**.mjs'
-      - '**.js'
-      - '**.sh'
-      - '**.json'
-      - '**.yml'
-      - '**.yaml'
-      - '**.md'
-      - '.changeset/**'
-      - '.github/**'
-      - 'Dockerfile'
-      - 'coolify/Dockerfile'
-      - '.dockerignore'
-      - 'helm/**'
-      - '.prettierrc'
-      - '.prettierignore'
-      - '.eslintrc*'
+    # Do not use workflow-level path filters here. The detect-changes job must
+    # run for every PR update so non-code-only changes still produce completed
+    # checks while expensive jobs are skipped by job-level conditions.
   # Manual release support - consolidated here to work with npm trusted publishing
   # npm only allows ONE workflow file as trusted publisher, so all publishing
   # must go through this workflow (release.yml)
@@ -82,14 +65,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Detect changes
         id: changes
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_ACTION: ${{ github.event.action }}
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_AFTER_SHA: ${{ github.event.after }}
         run: node scripts/detect-code-changes.mjs
 
   # === VERSION CHANGE CHECK ===

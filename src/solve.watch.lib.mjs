@@ -39,6 +39,7 @@ const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails,
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit } = await import('./auto-iteration-limits.lib.mjs');
 
 // Issue #1625: Central marker constants + tracked comment posting
 const toolComments = await import('./tool-comments.lib.mjs');
@@ -52,7 +53,7 @@ export const watchForFeedback = async params => {
 
   const watchInterval = argv.watchInterval || 60; // seconds
   const isTemporaryWatch = argv.temporaryWatch || false;
-  const maxAutoRestartIterations = argv.autoRestartMaxIterations || 3;
+  const maxAutoRestartIterations = normalizeAutoIterationLimit(argv.autoRestartMaxIterations);
 
   // Track latest session data across all iterations for accurate pricing
   let latestSessionId = null;
@@ -75,7 +76,7 @@ export const watchForFeedback = async params => {
     await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
     await log(formatAligned('', 'Mode:', 'Auto-restart (NOT --watch mode)', 2));
     await log(formatAligned('', 'Stop conditions:', 'All changes committed OR PR merged OR max iterations reached', 2));
-    await log(formatAligned('', 'Max iterations:', `${maxAutoRestartIterations}`, 2));
+    await log(formatAligned('', 'Max iterations:', formatAutoIterationLimit(maxAutoRestartIterations), 2));
     await log(formatAligned('', 'Note:', 'No wait time between iterations in auto-restart mode', 2));
   } else {
     await log(formatAligned('👁️', 'WATCH MODE ACTIVATED', ''));
@@ -117,7 +118,7 @@ export const watchForFeedback = async params => {
       }
 
       // Check if we've reached max iterations
-      if (autoRestartCount >= maxAutoRestartIterations) {
+      if (hasReachedAutoIterationLimit(autoRestartCount, maxAutoRestartIterations)) {
         await log('');
         await log(formatAligned('⚠️', 'MAX ITERATIONS REACHED', `Exiting auto-restart mode after ${autoRestartCount} iterations`));
         await log(formatAligned('', 'Some uncommitted changes may remain', '', 2));
@@ -188,7 +189,7 @@ export const watchForFeedback = async params => {
           // Post a comment to PR about auto-restart
           if (prNumber) {
             try {
-              const remainingIterations = maxAutoRestartIterations - autoRestartCount;
+              const remainingIterations = maxAutoRestartIterations === 0 ? null : maxAutoRestartIterations - autoRestartCount;
 
               // Get uncommitted files list for the comment
               let uncommittedFilesList = '';
@@ -196,7 +197,9 @@ export const watchForFeedback = async params => {
                 uncommittedFilesList = '\n\n**Uncommitted files:**\n```\n' + changes.join('\n') + '\n```';
               }
 
-              const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${autoRestartCount}/${maxAutoRestartIterations}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*Auto-restart will stop after changes are committed or discarded, or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}. Please wait until working session will end and give your feedback.*`;
+              const iterationLabel = maxAutoRestartIterations === 0 ? `${autoRestartCount}` : `${autoRestartCount}/${maxAutoRestartIterations}`;
+              const stopText = remainingIterations === null ? 'Auto-restart is configured with no iteration limit.' : `Auto-restart will stop after changes are committed or discarded, or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}.`;
+              const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${iterationLabel}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*${stopText} Please wait until working session will end and give your feedback.*`;
               // Issue #1625: Track so this doesn't falsely count as AI-authored.
               await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
               await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
@@ -283,7 +286,8 @@ export const watchForFeedback = async params => {
               const logFile = getLogFile();
               if (logFile) {
                 // Use "Auto-restart X/Y Failure Log" format to distinguish from success logs
-                const customTitle = `⚠️ Auto-restart ${autoRestartCount}/${maxAutoRestartIterations} Failure Log`;
+                const iterationLabel = maxAutoRestartIterations === 0 ? `${autoRestartCount}` : `${autoRestartCount}/${maxAutoRestartIterations}`;
+                const customTitle = `⚠️ Auto-restart ${iterationLabel} Failure Log`;
                 const logUploadSuccess = await attachLogToGitHub({
                   logFile,
                   targetType: 'pr',
@@ -372,7 +376,8 @@ export const watchForFeedback = async params => {
               const logFile = getLogFile();
               if (logFile) {
                 // Use "Auto-restart X/Y Log" format as requested in issue #1107
-                const customTitle = `🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations} Log`;
+                const iterationLabel = maxAutoRestartIterations === 0 ? `${autoRestartCount}` : `${autoRestartCount}/${maxAutoRestartIterations}`;
+                const customTitle = `🔄 Auto-restart ${iterationLabel} Log`;
                 const logUploadSuccess = await attachLogToGitHub({
                   logFile,
                   targetType: 'pr',

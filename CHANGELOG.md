@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.56.5
+
+### Patch Changes
+
+- 0447110: Treat structured Codex error events as failed tool executions even when the Codex process exits with code 0.
+
 ## 1.56.4
 
 ### Patch Changes

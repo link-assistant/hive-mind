@@ -17,7 +17,7 @@
 
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningProcesses } from './telegram-solve-queue.helpers.lib.mjs';
-import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningProcesses } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 
@@ -133,6 +133,8 @@ export class SolveQueue {
     this.verbose = options.verbose || false;
     this.executeCallback = options.executeCallback || null;
     this.messageUpdateCallback = options.messageUpdateCallback || null;
+    this.getRunningProcessesFn = options.getRunningProcesses || getRunningProcesses;
+    this.getRunningIsolatedSessionsFn = options.getRunningIsolatedSessions || getRunningIsolatedSessions;
 
     // Separate queues per tool type - claude tasks never block agent tasks
     // See: https://github.com/link-assistant/hive-mind/issues/1159
@@ -463,6 +465,46 @@ export class SolveQueue {
   }
 
   /**
+   * Get external processing counts from both process scanning and tracked
+   * isolated sessions. The displayed/accounted value is the maximum of the two
+   * sources so screen-isolated sessions remain visible even when the AI CLI
+   * process is not directly observable, while regular non-isolated runs still
+   * use pgrep as before.
+   *
+   * @param {string[]} tools - Tool queues to count
+   * @returns {Promise<{byTool: Object, processByTool: Object, isolatedByTool: Object, total: number, isolatedTotal: number, processTotal: number}>}
+   */
+  async getExternalProcessingSnapshot(tools = Object.keys(this.queues)) {
+    const uniqueTools = [...new Set(tools)];
+    const isolated = await this.getRunningIsolatedSessionsFn(this.verbose);
+    const isolatedByTool = isolated.byTool || {};
+    const processByTool = {};
+    const byTool = {};
+
+    await Promise.all(
+      uniqueTools.map(async tool => {
+        const result = await this.getRunningProcessesFn(tool, this.verbose);
+        const processCount = result?.count || 0;
+        const isolatedCount = isolatedByTool[tool] || 0;
+        processByTool[tool] = processCount;
+        byTool[tool] = Math.max(processCount, isolatedCount);
+      })
+    );
+
+    const processTotal = Object.values(processByTool).reduce((sum, count) => sum + count, 0);
+    const isolatedTotal = isolated.count || Object.values(isolatedByTool).reduce((sum, count) => sum + count, 0);
+
+    return {
+      byTool,
+      processByTool,
+      isolatedByTool,
+      total: Math.max(processTotal, isolatedTotal),
+      isolatedTotal,
+      processTotal,
+    };
+  }
+
+  /**
    * Check if a new command can start
    *
    * Logic per issue #1061:
@@ -505,16 +547,19 @@ export class SolveQueue {
       }
     }
 
-    // Check running claude processes (this is a metric, not a blocking reason by itself)
-    const claudeProcs = await getRunningClaudeProcesses(this.verbose);
-    const codexProcs = await getRunningCodexProcesses(this.verbose);
-    const agentProcs = await getRunningAgentProcesses(this.verbose);
-    const hasRunningClaude = claudeProcs.count > 0;
-    const hasRunningCodex = codexProcs.count > 0;
+    // Check running tool processes (this is a metric, not a blocking reason by itself).
+    // For screen-isolated sessions, use the maximum of `$ --status` executing
+    // counts and pgrep counts so detached sessions remain visible.
+    const externalProcessing = await this.getExternalProcessingSnapshot([...Object.keys(this.queues), tool]);
+    const claudeProcessCount = externalProcessing.byTool.claude || 0;
+    const codexProcessCount = externalProcessing.byTool.codex || 0;
+    const agentProcessCount = externalProcessing.byTool.agent || 0;
+    const hasRunningClaude = claudeProcessCount > 0;
+    const hasRunningCodex = codexProcessCount > 0;
 
     // Calculate total processing count for system resources (all tools)
     // System resources (RAM, CPU, disk) apply to all tools
-    const totalProcessing = this.processing.size + claudeProcs.count + codexProcs.count + agentProcs.count;
+    const totalProcessing = this.processing.size + externalProcessing.total;
 
     // Calculate Claude-specific processing count for Claude API limits
     // Only counts Claude items in queue + external claude processes
@@ -572,10 +617,10 @@ export class SolveQueue {
       // Add claude_running info at the END (not beginning) of reasons
       // Since it's supplementary info, not the primary blocking reason
       // See: https://github.com/link-assistant/hive-mind/issues/1078
-      reasons.push(formatWaitingReason('claude_running', claudeProcs.count, 0) + ` (${claudeProcs.count} processes)`);
+      reasons.push(formatWaitingReason('claude_running', claudeProcessCount, 0) + ` (${claudeProcessCount} processes)`);
     }
     if (tool === 'codex' && hasRunningCodex && reasons.length > 0) {
-      reasons.push(formatWaitingReason('codex_running', codexProcs.count, 0) + ` (${codexProcs.count} processes)`);
+      reasons.push(formatWaitingReason('codex_running', codexProcessCount, 0) + ` (${codexProcessCount} processes)`);
     }
 
     const canStart = reasons.length === 0 && !rejected;
@@ -595,8 +640,10 @@ export class SolveQueue {
       reason: reasons.length > 0 ? reasons.join('\n') : undefined,
       reasons,
       oneAtATime,
-      claudeProcesses: claudeProcs.count,
-      codexProcesses: codexProcs.count,
+      claudeProcesses: claudeProcessCount,
+      codexProcesses: codexProcessCount,
+      agentProcesses: agentProcessCount,
+      isolatedProcesses: externalProcessing.isolatedTotal,
       totalProcessing,
       claudeProcessingCount,
       codexProcessingCount,
@@ -1075,7 +1122,7 @@ export class SolveQueue {
         const result = await this.executeCallback(item);
 
         // Extract session name from result
-        let sessionName = 'unknown';
+        let sessionName = result?.sessionId || 'unknown';
         if (result && result.output) {
           const sessionMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/);
           if (sessionMatch) sessionName = sessionMatch[1];
@@ -1098,7 +1145,8 @@ export class SolveQueue {
               if (result.warning) {
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, `⚠️ ${result.warning}`, { parse_mode: 'Markdown' });
               } else if (result.success) {
-                const response = `✅ Solve command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${item.infoBlock}`;
+                const isolationInfo = result.isolationBackend ? `\n🔒 Isolation: \`${result.isolationBackend}\`` : '';
+                const response = `🔄 Solve command executing...\n\nStatus: \`Executing...\`\n📊 Session: \`${sessionName}\`${isolationInfo}\n\n${item.infoBlock}\n\n🔔 This message will update when the session finishes.`;
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
               } else {
                 const response = `❌ Error executing solve command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
@@ -1177,9 +1225,8 @@ export class SolveQueue {
    * Format queue status for display in /limits command
    * Shows per-tool queue breakdown with processing counts.
    *
-   * Processing count = actual running system processes (via pgrep), not items in queue processing state.
-   * This is because items transition quickly through the processing state, but the actual
-   * work happens in the spawned system process (claude, agent, etc.).
+   * Processing count = max(actual AI CLI processes via pgrep, tracked
+   * `$ --status` executing screen-isolated sessions), not queue state.
    *
    * Output format:
    * ```
@@ -1194,10 +1241,11 @@ export class SolveQueue {
    */
   async formatStatus() {
     // Always show per-tool breakdown for all known queues
+    const externalProcessing = await this.getExternalProcessingSnapshot(Object.keys(this.queues));
     let message = 'Queues\n';
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
-      const processing = (await getRunningProcesses(tool, this.verbose)).count;
+      const processing = externalProcessing.byTool[tool] || 0;
       message += `${tool} (pending: ${pending}, processing: ${processing})\n`;
     }
 
@@ -1208,9 +1256,8 @@ export class SolveQueue {
    * Format detailed queue status for Telegram message
    * Groups output by tool queue, shows first 5 items per queue, and uses human-readable time.
    *
-   * Processing count = actual running system processes (via pgrep), not items in queue processing state.
-   * This is because items transition quickly through the processing state, but the actual
-   * work happens in the spawned system process (claude, agent, etc.).
+   * Processing count = max(actual AI CLI processes via pgrep, tracked
+   * `$ --status` executing screen-isolated sessions), not queue state.
    *
    * Output format:
    * ```
@@ -1231,16 +1278,17 @@ export class SolveQueue {
    */
   async formatDetailedStatus() {
     const stats = this.getStats();
+    const externalProcessing = await this.getExternalProcessingSnapshot(Object.keys(this.queues));
 
-    // Get actual process counts for each tool queue
-    // The "processing" count is the number of running system processes, not queue internal state
-    // This ensures users see accurate counts of what's actually running
+    // Get actual processing counts for each tool queue.
+    // This combines pgrep with tracked isolation status so users see detached
+    // screen-isolated work even when the direct AI CLI process count is lower.
     let message = '📋 *Solve Queue Status*\n\n';
 
     // Show per-tool queue breakdown with items grouped by queue
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
-      const processing = (await getRunningProcesses(tool, this.verbose)).count;
+      const processing = externalProcessing.byTool[tool] || 0;
       message += `*${tool}* (pending: ${pending}, processing: ${processing})\n`;
 
       // Show first 5 queued items for this tool
@@ -1308,7 +1356,7 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
       const match = result.output && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
       const session = match ? match[1] : null;
       if (session) {
-        trackSessionFn(session, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: 'solve' });
+        trackSessionFn(session, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: 'solve', tool: item.tool || 'claude' });
       }
     }
     return result;
@@ -1316,23 +1364,21 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
 }
 
 /**
- * Get count of running isolated sessions tracked via ExecutionStore
- * When isolation mode is enabled, this replaces pgrep-based process detection
- * for more reliable task counting.
+ * Get count of tracked isolated sessions that are still executing according
+ * to `$ --status`. Queue display combines this with pgrep counts using max().
  *
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{count: number, sessions: string[]}>}
+ * @returns {Promise<{count: number, sessions: string[], byTool: Object}>}
  */
 export async function getRunningIsolatedSessions(verbose = false) {
   try {
-    const { getActiveSessionCount } = await import('./session-monitor.lib.mjs');
-    const count = getActiveSessionCount(verbose);
-    return { count, sessions: [] };
+    const { getRunningTrackedIsolationSessions } = await import('./session-monitor.lib.mjs');
+    return await getRunningTrackedIsolationSessions(verbose);
   } catch (error) {
     if (verbose) {
       console.error(`[VERBOSE] /solve_queue error getting isolated sessions:`, error.message);
     }
-    return { count: 0, sessions: [] };
+    return { count: 0, sessions: [], byTool: {} };
   }
 }
 

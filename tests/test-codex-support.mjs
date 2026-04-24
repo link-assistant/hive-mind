@@ -2,9 +2,12 @@
 
 import assert from 'node:assert/strict';
 
-const { defaultModels, primaryModelNames, resolveModelId, resolveRuntimeDefaultModel, validateModelName } = await import('../src/models/index.mjs');
+const { defaultModels, primaryModelNames, resolveDefaultFallbackModel, resolveModelId, resolveRuntimeDefaultModel, validateModelName } = await import('../src/models/index.mjs');
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
 const { parseCodexExecJsonOutput, getCodexErrorEventSummary, executeCodexCommand, buildCodexResultModelUsage, calculateCodexPricingFromModelInfo } = await import('../src/codex.lib.mjs');
+const { executeOpenCodeCommand } = await import('../src/opencode.lib.mjs');
+const { executeAgentCommand } = await import('../src/agent.lib.mjs');
+const { classifyRetryableError } = await import('../src/tool-retry.lib.mjs');
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
 
 let passed = 0;
@@ -33,6 +36,8 @@ const asyncTest = async (name, fn) => {
     failed++;
   }
 };
+
+const renderTaggedTemplateCommand = (strings, values) => strings.reduce((result, stringPart, index) => result + stringPart + (index < values.length ? String(values[index]) : ''), '');
 
 test('Codex preferred default model is gpt-5.5', () => {
   assert.equal(defaultModels.codex, 'gpt-5.5');
@@ -77,6 +82,26 @@ await asyncTest('Codex runtime default falls back to gpt-5.5-mini when newer sma
     availableCodexModels: ['gpt-5.5-mini', 'gpt-5.5-nano'],
   });
   assert.equal(result, 'gpt-5.5-mini');
+});
+
+test('Codex default fallback model resolves from gpt-5.5 to gpt-5.4', () => {
+  assert.equal(resolveDefaultFallbackModel('codex', 'gpt-5.5'), 'gpt-5.4');
+});
+
+test('Claude default fallback model resolves from opus to opus-4-6', () => {
+  assert.equal(resolveDefaultFallbackModel('claude', 'opus'), 'opus-4-6');
+});
+
+test('Models without configured defaults keep fallback unset', () => {
+  assert.equal(resolveDefaultFallbackModel('codex', 'gpt-5.4'), null);
+  assert.equal(resolveDefaultFallbackModel('agent', 'opencode/grok-code'), null);
+});
+
+test('Capacity errors are classified as retryable overloads', () => {
+  const classified = classifyRetryableError('Selected model is at capacity. Please try a different model.');
+  assert.equal(classified.isRetryable, true);
+  assert.equal(classified.isCapacity, true);
+  assert.equal(classified.label, 'Model capacity error');
 });
 
 test('Codex --think off maps to none reasoning', () => {
@@ -334,6 +359,134 @@ await asyncTest('Codex command fails when JSON error events are emitted with exi
   assert.ok(
     logLines.some(line => line.includes('Codex emitted error event')),
     'Should log the Codex error as fatal'
+  );
+});
+
+await asyncTest('Codex command retries with resume and fallback model after capacity error', async () => {
+  const commands = [];
+  let attempt = 0;
+  const fakeDollar =
+    options =>
+    (strings, ...values) => {
+      commands.push(renderTaggedTemplateCommand(strings, values));
+      const currentAttempt = attempt++;
+      return {
+        async *stream() {
+          if (currentAttempt === 0) {
+            yield {
+              type: 'stdout',
+              data: Buffer.from(['{"type":"thread.started","thread_id":"thread_capacity_1666"}', '{"type":"error","message":"Selected model is at capacity. Please try a different model."}', '{"type":"turn.failed","error":{"message":"Selected model is at capacity. Please try a different model."}}'].join('\n')),
+            };
+            yield { type: 'exit', code: 0 };
+            return;
+          }
+
+          yield {
+            type: 'stdout',
+            data: Buffer.from(['{"type":"thread.started","thread_id":"thread_capacity_1666"}', '{"type":"item.completed","item":{"id":"msg_1","type":"agent_message","text":"Recovered after fallback."}}'].join('\n')),
+          };
+          yield { type: 'exit', code: 0 };
+        },
+        result: { code: 0 },
+      };
+    };
+
+  const result = await executeCodexCommand({
+    tempDir: process.cwd(),
+    branchName: 'issue-1666-test',
+    prompt: 'test prompt',
+    systemPrompt: '',
+    argv: { model: 'gpt-5.5', verbose: false },
+    log: async () => {},
+    formatAligned: (icon, label, value = '') => `${icon} ${label} ${value}`,
+    getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+    forkedRepo: null,
+    feedbackLines: [],
+    codexPath: 'codex',
+    $: fakeDollar,
+    owner: null,
+    repo: null,
+    prNumber: null,
+    calculatePricing: async () => null,
+    waitForRetryDelay: async () => {},
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.sessionId, 'thread_capacity_1666');
+  assert.equal(commands.length, 2);
+  assert.ok(commands[0].includes('--model "gpt-5.5"'), `Expected first attempt to use gpt-5.5, got: ${commands[0]}`);
+  assert.ok(commands[1].includes('resume "thread_capacity_1666" --model "gpt-5.4"'), `Expected retry to resume with gpt-5.4, got: ${commands[1]}`);
+});
+
+await asyncTest('OpenCode resume uses --session so fallback retries can stay on the same session', async () => {
+  const commands = [];
+  const fakeDollar =
+    options =>
+    (strings, ...values) => {
+      commands.push(renderTaggedTemplateCommand(strings, values));
+      return {
+        async *stream() {
+          yield { type: 'exit', code: 0 };
+        },
+        result: { code: 0 },
+      };
+    };
+
+  const result = await executeOpenCodeCommand({
+    tempDir: process.cwd(),
+    branchName: 'issue-1666-test',
+    prompt: 'test prompt',
+    systemPrompt: '',
+    argv: { model: 'opencode/grok-code', resume: 'session-open-1666', verbose: false },
+    log: async () => {},
+    formatAligned: (icon, label, value = '') => `${icon} ${label} ${value}`,
+    getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+    forkedRepo: null,
+    feedbackLines: [],
+    opencodePath: 'opencode',
+    $: fakeDollar,
+  });
+
+  assert.equal(result.success, true);
+  assert.ok(
+    commands.some(command => command.includes('opencode run --format json --session session-open-1666 --model opencode/grok-code')),
+    `Expected --session resume command, got: ${commands.join('\n')}`
+  );
+});
+
+await asyncTest('Agent resume uses --resume with --no-fork to preserve the same session', async () => {
+  const commands = [];
+  const fakeDollar =
+    options =>
+    (strings, ...values) => {
+      commands.push(renderTaggedTemplateCommand(strings, values));
+      return {
+        async *stream() {
+          yield { type: 'exit', code: 0 };
+        },
+        result: { code: 0 },
+      };
+    };
+
+  const result = await executeAgentCommand({
+    tempDir: process.cwd(),
+    branchName: 'issue-1666-test',
+    prompt: 'test prompt',
+    systemPrompt: '',
+    argv: { model: 'opencode/grok-code', resume: 'session-agent-1666', verbose: false },
+    log: async () => {},
+    formatAligned: (icon, label, value = '') => `${icon} ${label} ${value}`,
+    getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+    forkedRepo: null,
+    feedbackLines: [],
+    agentPath: 'agent',
+    $: fakeDollar,
+  });
+
+  assert.equal(result.success, true);
+  assert.ok(
+    commands.some(command => command.includes('agent --model opencode/grok-code --resume session-agent-1666 --no-fork')),
+    `Expected --resume --no-fork command, got: ${commands.join('\n')}`
   );
 });
 

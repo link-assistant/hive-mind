@@ -464,6 +464,9 @@ if (isRunningDirectly) {
     // Validate model names EARLY (simple string check, always runs)
     const tool = argv.tool || 'claude';
     await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+    if (argv.fallbackModel) {
+      await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit);
+    }
     if (argv.planModel) {
       if (tool !== 'claude') {
         await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });

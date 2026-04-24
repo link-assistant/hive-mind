@@ -8,7 +8,7 @@
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
 import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
-import { defaultModels, buildModelOptionDescription, resolveRuntimeDefaultModel } from './models/index.mjs';
+import { defaultModels, buildModelOptionDescription, resolveDefaultFallbackModel, resolveRuntimeDefaultModel } from './models/index.mjs';
 import { validateBranchName } from './solve.branch.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
@@ -247,6 +247,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     type: 'number',
     description: 'Maximum thinking budget for calculating --think level mappings (default: 31999 for Claude Code). Values: off=0, low=max/4, medium=max/2, high=max*3/4, max=max.',
     default: 31999,
+  },
+  'fallback-model': {
+    type: 'string',
+    description: 'Fallback model to switch to on model capacity/overload errors. When supported, retries resume the same session with this model. Defaults: claude opus/opus-4-7 -> opus-4-6; codex gpt-5.5 -> gpt-5.4; all others unset.',
+    default: undefined,
   },
   'show-thinking-content': {
     type: 'boolean',
@@ -616,6 +621,7 @@ export const parseArguments = async (yargs, hideBin) => {
   // Yargs doesn't properly handle dynamic defaults based on other arguments,
   // so we need to handle this manually after parsing
   const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
+  const fallbackModelExplicitlyProvided = rawArgs.includes('--fallback-model');
   const planModelExplicitlyProvided = rawArgs.includes('--plan-model');
 
   // --plan flag expansion (Issue #1223)
@@ -679,6 +685,11 @@ export const parseArguments = async (yargs, hideBin) => {
     // User did not explicitly provide --model, so use the correct default for the tool
     // (Issue #1473: centralized in models/index.mjs)
     argv.model = await resolveRuntimeDefaultModel(argv.tool);
+  }
+
+  if (argv.tool && !fallbackModelExplicitlyProvided) {
+    const defaultFallbackModel = resolveDefaultFallbackModel(argv.tool, argv.model);
+    argv.fallbackModel = defaultFallbackModel || undefined;
   }
 
   // Validate mutual exclusivity of --claude-file and --gitkeep-file

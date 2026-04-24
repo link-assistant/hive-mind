@@ -17,6 +17,9 @@
 
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
+import { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
+
+export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -201,6 +204,7 @@ export async function monitorSessions(bot, verbose = false) {
   for (const { sessionName, sessionInfo } of sessions) {
     let stillRunning;
     let exitCode = null;
+    let statusResult = null;
 
     if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
       // Isolation mode: use $ --status, with screen -ls only as a fallback
@@ -209,6 +213,7 @@ export async function monitorSessions(bot, verbose = false) {
       const state = await getIsolationSessionState(sessionName, sessionInfo, { verbose });
       stillRunning = state.running;
       exitCode = state.exitCode;
+      statusResult = state.statusResult;
     } else {
       // Issue #1586: Non-isolation screen sessions cannot reliably detect
       // completion because start-screen keeps the screen alive via `exec bash`.
@@ -233,21 +238,14 @@ export async function monitorSessions(bot, verbose = false) {
       console.log(`Session ${sessionName} has finished. Sending notification to chat ${sessionInfo.chatId}`);
 
       try {
-        const endTime = new Date();
-        const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
-        const duration = Math.round((endTime - startTime) / 1000);
-        const minutes = Math.floor(duration / 60);
-        const seconds = duration % 60;
-
-        const statusEmoji = exitCode === null || exitCode === 0 ? '✅' : '❌';
-        const statusText = exitCode === null || exitCode === 0 ? 'Completed' : `Failed (exit code: ${exitCode})`;
-        const isolationInfo = sessionInfo.isolationBackend ? `\n🔒 Isolation: ${sessionInfo.isolationBackend}` : '';
-
-        let message = `${statusEmoji} *Work Session ${statusText}*\n\n`;
-        message += `📊 Session: \`${sessionName}\`\n`;
-        message += `⏱️ Duration: ${minutes}m ${seconds}s\n`;
-        message += `🔗 URL: ${sessionInfo.url}${isolationInfo}\n\n`;
-        message += `The work session has finished. You can now review the results.`;
+        const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
+        const message = formatSessionCompletionMessage({
+          sessionName,
+          sessionInfo,
+          statusResult,
+          observedEndTime: new Date(),
+          exitCode: finalExitCode,
+        });
 
         // Update the original reply message if messageId is available, otherwise send new message
         if (sessionInfo.messageId) {
@@ -256,7 +254,7 @@ export async function monitorSessions(bot, verbose = false) {
           await bot.telegram.sendMessage(sessionInfo.chatId, message, { parse_mode: 'Markdown' });
         }
 
-        completeSession(sessionName, exitCode || 0, verbose);
+        completeSession(sessionName, finalExitCode || 0, verbose);
       } catch (error) {
         console.error(`Failed to send completion notification for ${sessionName}:`, error);
         completeSession(sessionName, 1, verbose);

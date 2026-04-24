@@ -15,6 +15,11 @@
     "type": "github-actions-run"
   },
   {
+    "title": "Workflow run 24887339421 for PR 1668",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/24887339421",
+    "type": "github-actions-run"
+  },
+  {
     "title": "GitHub Actions workflow syntax: Git diff comparisons",
     "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#git-diff-comparisons",
     "type": "official-docs"

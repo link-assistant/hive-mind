@@ -7,9 +7,10 @@
  * and outputs the results for use in GitHub Actions workflow conditions.
  *
  * Key behavior:
- * - For PR synchronize events: detects GitHub Actions' synthetic merge commit
- *   and compares HEAD^2^..HEAD^2, so only the latest PR-head commit controls
- *   whether expensive CI jobs rerun
+ * - For PR synchronize events: compares GitHub's before..after PR head update
+ *   range, so all commits from the latest push control whether expensive CI jobs
+ *   rerun. If the event SHAs are unavailable, it falls back to GitHub Actions'
+ *   synthetic merge commit and compares HEAD^2^..HEAD^2.
  * - For PR opened/reopened events: compares the full PR head against base branch
  * - For pushes: compares HEAD against HEAD^
  * - Uses positive matching to detect code changes (only files matching known
@@ -88,7 +89,7 @@ function isZeroSha(value) {
  */
 function commitExists(ref) {
   try {
-    execSync(`git rev-parse --verify ${ref}`, { stdio: 'ignore' });
+    execSync(`git cat-file -e ${ref}^{commit}`, { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -144,12 +145,17 @@ function isMergeCommit(ref = 'HEAD') {
  * @param {string} fromRef - Base revision
  * @param {string} toRef - Head revision
  * @param {string} description - Human-readable comparison description
- * @returns {string[]} Changed file paths
+ * @returns {string[]|null} Changed file paths, or null when diff fails
  */
 function diffChangedFiles(fromRef, toRef, description) {
-  console.log(`Comparing ${description}: ${fromRef}...${toRef}`);
-  const output = exec(`git diff --name-only ${fromRef} ${toRef}`);
-  return output ? output.split('\n').filter(Boolean) : [];
+  console.log(`Comparing ${description}: ${fromRef}..${toRef}`);
+  try {
+    const output = execSync(`git diff --name-only ${fromRef} ${toRef}`, { encoding: 'utf-8' }).trim();
+    return output ? output.split('\n').filter(Boolean) : [];
+  } catch (error) {
+    console.error(`Error comparing ${description}: ${error.message}`);
+    return null;
+  }
 }
 
 /**

@@ -1,1 +1,72 @@
-[]
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4312863406",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1668#issuecomment-4312863406",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1668",
+    "id": 4312863406,
+    "node_id": "IC_kwDOPUU0qc8AAAABARESrg",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-04-24T11:41:59Z",
+    "updated_at": "2026-04-24T11:41:59Z",
+    "body": "## Solution summary\n\nImplemented and pushed the fix to PR 1668: https://github.com/link-assistant/hive-mind/pull/1668\n\nThe PR is ready for review, no longer draft, and the latest GitHub Actions run passed: `24887339421`. Local working tree is clean on `issue-1665-3c9668bedbd5`.\n\nMain changes:\n- Removed workflow-level PR `paths` filtering so `detect-changes` always runs.\n- Updated `scripts/detect-code-changes.mjs` to use the actual PR synchronize commit range, with fallbacks for GitHub synthetic merge commits.\n- Added a regression test covering the “latest commit only changes `.gitkeep`” case.\n- Added the issue 1665 case study artifacts under `docs/case-studies/issue-1665/`.\n- Updated PR title/body with reproduction, verification, and screenshot evidence.\n\nVerified with `npm run format:check`, `npm run lint`, `npm test`, focused detector tests, line-limit checks, `git diff --check`, and GitHub CI.\n\nReference docs used: GitHub’s workflow path/diff behavior docs and required-check troubleshooting docs:\nhttps://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#git-diff-comparisons\nhttps://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4312863406/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4312864485",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1668#issuecomment-4312864485",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1668",
+    "id": 4312864485,
+    "node_id": "IC_kwDOPUU0qc8AAAABAREW5Q",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-04-24T11:42:12Z",
+    "updated_at": "2026-04-24T11:42:12Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-5.5\n- Provider: OpenAI\n- Public pricing estimate: $9.472629\n\n### 📊 **Context and tokens usage:**\n- 12.3M / 1.1M (1176%) input tokens, 35.5K / 130K (27%) output tokens\n\nTotal: (496.8K + 11.8M cached) input tokens, 35.5K output tokens, $9.472629 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-5.5`\n- **Model: GPT-5.5** (`gpt-5.5`)\n\n### 📎 **Log file uploaded as Repository** (30355KB)\n- [View complete solution draft log](https://github.com/konard/log-tmp-solution-draft-log-pr-1777030923930.txt/raw/main/tmp-solution-draft-log-pr-1777030923930.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4312864485/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4312878056",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1668#issuecomment-4312878056",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1668",
+    "id": 4312878056,
+    "node_id": "IC_kwDOPUU0qc8AAAABARFL6A",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-04-24T11:44:32Z",
+    "updated_at": "2026-04-24T11:44:32Z",
+    "body": "## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4312878056/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4315256730",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1668#issuecomment-4315256730",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1668",
+    "id": 4315256730,
+    "node_id": "IC_kwDOPUU0qc8AAAABATWXmg",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-04-24T17:59:24Z",
+    "updated_at": "2026-04-24T17:59:24Z",
+    "body": "<img width=\"912\" height=\"646\" alt=\"Screenshot 2026-04-24 at 11 29 02 PM\" src=\"https://github.com/user-attachments/assets/1e4116bb-18ac-4e61-a0c6-7956a4c1fc21\" />\r\n\r\nhttps://github.com/link-assistant/hive-mind/actions/runs/24887339421/job/72870656267?pr=1668 - was still executed on this pull request after changes, so the fix didn't work?",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4315256730/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4315260957",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1668#issuecomment-4315260957",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1668",
+    "id": 4315260957,
+    "node_id": "IC_kwDOPUU0qc8AAAABATWoHQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-04-24T18:00:14Z",
+    "updated_at": "2026-04-24T18:00:14Z",
+    "body": "🤖 **AI Work Session Started**\n\nStarting automated work session at 2026-04-24T18:00:12.623Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4315260957/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  }
+]

@@ -72,6 +72,32 @@ function runDetectCodeChanges(repoDir, envOverrides = {}) {
   });
 }
 
+function createRepoWithCodeThenMetadataUpdate() {
+  const repoDir = mkdtempSync(join(tmpdir(), 'detect-code-changes-1665-'));
+
+  git(repoDir, ['init', '--initial-branch=main']);
+  git(repoDir, ['config', 'user.email', 'test@example.com']);
+  git(repoDir, ['config', 'user.name', 'Test User']);
+
+  writeRepoFile(repoDir, 'README.md', '# fixture\n');
+  git(repoDir, ['add', '.']);
+  git(repoDir, ['commit', '-m', 'base']);
+  const baseCommit = git(repoDir, ['rev-parse', 'HEAD']);
+
+  git(repoDir, ['checkout', '-b', 'feature']);
+  writeRepoFile(repoDir, 'src/feature.mjs', 'export const feature = true;\n');
+  git(repoDir, ['add', '.']);
+  git(repoDir, ['commit', '-m', 'code change']);
+  const codeCommit = git(repoDir, ['rev-parse', 'HEAD']);
+
+  writeRepoFile(repoDir, '.gitkeep', '');
+  git(repoDir, ['add', '.gitkeep']);
+  git(repoDir, ['commit', '-m', 'metadata-only change']);
+  const metadataCommit = git(repoDir, ['rev-parse', 'HEAD']);
+
+  return { baseCommit, codeCommit, metadataCommit, repoDir };
+}
+
 // The code pattern used in detect-code-changes.mjs for positive matching
 const codePattern = /\.(mjs|js|json|yml|yaml)$|\.github\/workflows\//;
 
@@ -286,7 +312,49 @@ runTest('realistic mixed change set is correctly classified', () => {
   assertEqual(codeFiles.includes('.github/workflows/release.yml'), true, 'should include workflow file');
 });
 
-runTest('pull_request synchronize synthetic merge uses only the latest PR head commit (issue #1665)', () => {
+runTest('pull_request synchronize event SHA range skips a single metadata-only update (issue #1665)', () => {
+  const { codeCommit, metadataCommit, repoDir } = createRepoWithCodeThenMetadataUpdate();
+
+  try {
+    const output = runDetectCodeChanges(repoDir, {
+      GITHUB_EVENT_NAME: 'pull_request',
+      GITHUB_EVENT_ACTION: 'synchronize',
+      GITHUB_BEFORE_SHA: codeCommit,
+      GITHUB_AFTER_SHA: metadataCommit,
+      GITHUB_HEAD_SHA: metadataCommit,
+    });
+
+    assertIncludes(output, '  .gitkeep');
+    assertNotIncludes(output, '  src/feature.mjs', 'The latest PR-head update did not change src/feature.mjs');
+    assertIncludes(output, 'mjs=false');
+    assertIncludes(output, 'code=false');
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+runTest('pull_request synchronize event SHA range includes code from a multi-commit push (issue #1665)', () => {
+  const { baseCommit, metadataCommit, repoDir } = createRepoWithCodeThenMetadataUpdate();
+
+  try {
+    const output = runDetectCodeChanges(repoDir, {
+      GITHUB_EVENT_NAME: 'pull_request',
+      GITHUB_EVENT_ACTION: 'synchronize',
+      GITHUB_BEFORE_SHA: baseCommit,
+      GITHUB_AFTER_SHA: metadataCommit,
+      GITHUB_HEAD_SHA: metadataCommit,
+    });
+
+    assertIncludes(output, '  .gitkeep');
+    assertIncludes(output, '  src/feature.mjs');
+    assertIncludes(output, 'mjs=true');
+    assertIncludes(output, 'code=true');
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+runTest('pull_request synchronize synthetic merge fallback uses only the latest PR head commit (issue #1665)', () => {
   const repoDir = mkdtempSync(join(tmpdir(), 'detect-code-changes-1665-'));
 
   try {

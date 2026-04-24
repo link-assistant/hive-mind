@@ -39,6 +39,10 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: true, isCapacity: false, label: 'Request timeout' };
   }
 
+  if (lower.includes('stream disconnected before completion')) {
+    return { message, isRetryable: true, isCapacity: false, label: 'Stream disconnected before completion' };
+  }
+
   if (lower.includes('api error: 503') || (lower.includes('503') && (lower.includes('upstream connect error') || lower.includes('remote connection failure')))) {
     return { message, isRetryable: true, isCapacity: false, label: '503 network error' };
   }

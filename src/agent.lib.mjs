@@ -15,13 +15,14 @@ const os = (await use('os')).default;
 // Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts } from './config.lib.mjs';
+import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
+import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
 
@@ -410,10 +411,9 @@ export const executeAgent = async params => {
 };
 
 export const executeAgentCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, agentPath, $ } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, agentPath, $, waitForRetryDelay = waitWithCountdown } = params;
 
   // Retry configuration
-  const maxRetries = 3;
   let retryCount = 0;
 
   const executeWithRetry = async () => {
@@ -421,7 +421,7 @@ export const executeAgentCommand = async params => {
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Agent:', argv.model.toUpperCase())}`);
     } else {
-      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${maxRetries}`)}`);
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
     }
 
     if (argv.verbose) {
@@ -468,6 +468,11 @@ export const executeAgentCommand = async params => {
     // Propagate verbose flag to agent for detailed debugging output
     if (argv.verbose) {
       agentArgs += ' --verbose';
+    }
+
+    if (argv.resume) {
+      await log(`🔄 Resuming from session: ${argv.resume}`);
+      agentArgs += ` --resume ${argv.resume} --no-fork`;
     }
 
     // Agent supports stdin in both plain text and JSON format
@@ -783,6 +788,28 @@ export const executeAgentCommand = async params => {
       }
 
       if (exitCode !== 0 || outputError.detected) {
+        const retryableError = classifyRetryableError(outputError.match || streamingErrorMessage || lastMessage || fullOutput);
+        if (retryableError.isRetryable) {
+          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
+          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+          if (retryCount < maxRetries) {
+            const delay = getRetryDelayMs({
+              retryCount,
+              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+            });
+            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            await maybeSwitchToFallbackModel({ tool: 'agent', argv, log, errorMessage: retryableError.message });
+            await waitForRetryDelay(delay, log);
+            await log('\n🔄 Retrying now...');
+            retryCount++;
+            return await executeWithRetry();
+          }
+          await log(`\n\n❌ ${retryableError.label} persisted after ${maxRetries} retries`, { level: 'error' });
+        }
+
         // Build JSON error structure for consistent error reporting
         const errorInfo = {
           type: 'error',

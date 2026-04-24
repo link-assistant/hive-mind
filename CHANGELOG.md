@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 1.56.7
+
+### Patch Changes
+
+- 37c895c: Retry capacity-related tool failures with exponential backoff and support fallback models for Codex, Claude, OpenCode, and Agent resumes.
+- 16f341d: Limit automatic restart/resume loops to five iterations by default and avoid pre-restart branch sync when local merge state must be resolved by the AI session.
+
 ## 1.56.6
 
 ### Patch Changes

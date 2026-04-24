@@ -203,6 +203,7 @@ const KNOWN_OPTION_NAMES = [
   'allow-to-push-to-contributors-pull-requests-as-maintainer',
   'prefix-fork-name-with-owner-name',
   'auto-restart-max-iterations',
+  'auto-resume-max-iterations',
   'auto-continue-only-on-new-comments',
   'auto-restart-on-limit-reset',
   'auto-restart-on-non-updated-pull-request-description',

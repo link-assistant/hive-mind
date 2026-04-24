@@ -60,6 +60,7 @@ const { READY_TO_MERGE_MARKER, AUTO_RESTART_MARKER, AUTO_MERGED_MARKER, postTrac
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit, shouldSyncBeforeRestart } = await import('./auto-iteration-limits.lib.mjs');
 
 /**
  * Main function: Watch and restart until PR becomes mergeable
@@ -73,6 +74,8 @@ export const watchUntilMergeable = async params => {
   const MIN_CI_CHECK_INTERVAL_SECONDS = 120;
   const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
+  const maxAutoRestartIterations = normalizeAutoIterationLimit(argv.autoRestartMaxIterations);
+  const maxAutoResumeIterations = normalizeAutoIterationLimit(argv.autoResumeMaxIterations);
   // Issue #1503/#1573/#1612: repo-wide action gating is opt-in strict mode.
   // The config default may be bypassed when this module is reused directly, so normalize here.
   const waitForAllRepoActionsFlag = argv.waitForAllActionsInRepositoryBeforeMergeable ?? argv['wait-for-all-actions-in-repository-before-mergeable'] ?? argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? false;
@@ -83,6 +86,7 @@ export const watchUntilMergeable = async params => {
 
   // Issue #1323: Track actual AI restarts separately from check cycle iterations
   let restartCount = 0;
+  let limitResumeCount = 0;
 
   // Issue #1371: In-memory dedup for "Ready to merge" comment (per-session, not all-time)
   let readyToMergeCommentPosted = false;
@@ -102,6 +106,8 @@ export const watchUntilMergeable = async params => {
   await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergeable (will NOT auto-merge)', 2));
   await log(formatAligned('', 'Checking interval:', `${watchInterval} seconds (minimum: ${MIN_CI_CHECK_INTERVAL_SECONDS}s)`, 2));
   await log(formatAligned('', 'Initial cooldown:', `${INITIAL_COOLDOWN_SECONDS} seconds`, 2));
+  await log(formatAligned('', 'Max restart iterations:', formatAutoIterationLimit(maxAutoRestartIterations), 2));
+  await log(formatAligned('', 'Max limit resumes:', formatAutoIterationLimit(maxAutoResumeIterations), 2));
   await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (strict repo-wide safety)' : 'No (PR-scoped CI only)', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
   await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
@@ -480,20 +486,85 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
       }
 
       if (shouldRestart) {
-        // Issue #1323: Increment restart count (actual AI executions, not check cycles)
-        restartCount++;
+        if (hasReachedAutoIterationLimit(restartCount, maxAutoRestartIterations)) {
+          await log('');
+          await log(formatAligned('⚠️', 'AUTO-RESTART LIMIT REACHED', `Stopping after ${restartCount} restart iteration${restartCount !== 1 ? 's' : ''}`));
+          await log(formatAligned('', 'Configured limit:', formatAutoIterationLimit(maxAutoRestartIterations), 2));
+          await log(formatAligned('', 'Remaining blockers:', restartReason, 2));
+          await log('');
+
+          try {
+            const limitComment = `## ⚠️ Auto-restart limit reached
+
+Hive Mind stopped auto-restart-until-mergeable after ${restartCount} restart iteration${restartCount !== 1 ? 's' : ''}.
+
+**Configured limit:** ${formatAutoIterationLimit(maxAutoRestartIterations)}
+**Remaining reason:** ${restartReason}
+
+No further AI sessions will be started automatically for this run. Please review the remaining blockers manually or rerun with a higher \`--auto-restart-max-iterations\` value.
+
+---
+*Auto-restart-until-mergeable stopped by the safety limit.*`;
+            await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: limitComment });
+          } catch (commentError) {
+            reportError(commentError, {
+              context: 'post_auto_restart_limit_comment',
+              owner,
+              repo,
+              prNumber,
+              operation: 'comment_on_pr',
+            });
+            await log(formatAligned('', '⚠️  Could not post auto-restart limit comment to PR', '', 2));
+          }
+
+          return { success: false, reason: 'auto_restart_limit_reached', latestSessionId, latestAnthropicCost };
+        }
 
         // Add standard instructions for auto-restart-until-mergeable mode using shared utility
         feedbackLines.push(...buildAutoRestartInstructions());
 
+        // Get PR merge state status
+        const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
+        const mergeStateStatus = prStateResult.code === 0 ? prStateResult.stdout.toString().trim() : null;
+
+        // Issue #1572: Sync clean local branches with remote before restarting to avoid push failures.
+        // Issue #1664: Do not run git pull over an unfinished merge or other uncommitted state.
+        // The tool must see that state and either commit, continue, abort, or otherwise resolve it.
+        const effectiveBranch = prBranch || branchName;
+        if (shouldSyncBeforeRestart({ hasUncommittedChanges })) {
+          const pullResult = await $({ cwd: tempDir })`git pull origin ${effectiveBranch} 2>&1`;
+          if (pullResult.code === 0) {
+            await log(formatAligned('🔄', 'Synced:', `Local branch ${effectiveBranch} updated from remote`));
+          } else {
+            const pullOutput = `${pullResult.stdout || ''}${pullResult.stderr || ''}`.trim() || 'no output';
+            const pullLeftLocalChanges = await checkForUncommittedChanges(tempDir, argv);
+            if (pullLeftLocalChanges && /CONFLICT|MERGE_HEAD|unmerged|Automatic merge failed|not concluded your merge/i.test(pullOutput)) {
+              await log(formatAligned('⚠️', 'Sync produced merge state:', 'Proceeding with AI restart to resolve it', 2));
+              feedbackLines.push('');
+              feedbackLines.push('⚠️ Branch sync encountered an unfinished merge or conflicts:');
+              feedbackLines.push(pullOutput);
+              feedbackLines.push('');
+              feedbackLines.push('Please resolve the merge state before finishing.');
+            } else {
+              throw new Error(`git pull failed (code ${pullResult.code}): ${pullOutput}`);
+            }
+          }
+        } else {
+          await log(formatAligned('↪️', 'Skipping branch sync:', 'Local uncommitted/merge state must be resolved by the AI session', 2));
+        }
+
+        // Issue #1323: Increment restart count only when a tool execution is about to start.
+        restartCount++;
+
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
-        await log(formatAligned('', 'Restart iteration:', `${restartCount}`, 2));
+        await log(formatAligned('', 'Restart iteration:', maxAutoRestartIterations === 0 ? `${restartCount}` : `${restartCount}/${maxAutoRestartIterations}`, 2));
         await log('');
 
-        // Post a comment to PR about the restart
-        // Issue #1356: Include restart count for tracking and add deduplication
+        // Post a comment to PR about the restart after preflight succeeds, so every
+        // posted restart notification corresponds to an actual tool session.
         try {
-          const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} triggered (iteration ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
+          const limitText = maxAutoRestartIterations === 0 ? 'No automatic restart limit is configured.' : `This run will stop after ${maxAutoRestartIterations} restart iteration${maxAutoRestartIterations !== 1 ? 's' : ''}.`;
+          const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} triggered (iteration ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. ${limitText}*`;
           // Issue #1625: Track so this doesn't falsely count as an AI-authored comment
           await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
@@ -506,20 +577,6 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             operation: 'comment_on_pr',
           });
           await log(formatAligned('', '⚠️  Could not post comment to PR', '', 2));
-        }
-
-        // Get PR merge state status
-        const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
-        const mergeStateStatus = prStateResult.code === 0 ? prStateResult.stdout.toString().trim() : null;
-
-        // Issue #1572: Sync local branch with remote before restarting to avoid push failures.
-        // Without this, the restarted session works on stale local state and can't push.
-        const effectiveBranch = prBranch || branchName;
-        const pullResult = await $({ cwd: tempDir })`git pull origin ${effectiveBranch} 2>&1`;
-        if (pullResult.code === 0) {
-          await log(formatAligned('🔄', 'Synced:', `Local branch ${effectiveBranch} updated from remote`));
-        } else {
-          throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout || pullResult.stderr || 'no output'}`);
         }
 
         // Execute the AI tool using shared utility
@@ -545,6 +602,15 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
           // Issue #1570: Always post a GitHub comment to notify the user about the delay
           // and when exactly execution will be resumed, so the user doesn't think the process is stuck.
           if (isUsageLimitReached(toolResult)) {
+            if (hasReachedAutoIterationLimit(limitResumeCount, maxAutoResumeIterations)) {
+              await log('');
+              await log(formatAligned('⚠️', 'AUTO-RESUME LIMIT REACHED', `Stopping after ${limitResumeCount} limit-reset continuation${limitResumeCount !== 1 ? 's' : ''}`));
+              await log(formatAligned('', 'Configured limit:', formatAutoIterationLimit(maxAutoResumeIterations), 2));
+              await log('');
+              return { success: false, reason: 'auto_resume_limit_reached', latestSessionId, latestAnthropicCost };
+            }
+
+            limitResumeCount++;
             const resumeSessionId = toolResult.sessionId;
             const resetTime = toolResult.limitResetTime;
             const baseWaitMs = resetTime ? calculateWaitTime(resetTime) : 0;
@@ -567,6 +633,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             await log(formatAligned('', 'Reset time:', resetTime || 'Unknown', 2));
             await log(formatAligned('', 'Waiting:', `${waitMinutes} min (reset + ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)`, 2));
             await log(formatAligned('', 'Resume at:', resumeTimeUTC, 2));
+            await log(formatAligned('', 'Auto-resume iteration:', maxAutoResumeIterations === 0 ? `${limitResumeCount}` : `${limitResumeCount}/${maxAutoResumeIterations}`, 2));
             await log(formatAligned('', 'Action:', 'Posting GitHub comment and waiting for limit reset', 2));
             if (resumeSessionId) {
               await log(formatAligned('', 'Session ID:', resumeSessionId, 2));
@@ -598,7 +665,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                     toolName: `Anthropic ${(argv.tool || 'claude').charAt(0).toUpperCase() + (argv.tool || 'claude').slice(1)} Code`,
                     isAutoResumeEnabled: true,
                     autoResumeMode: 'restart',
-                    requestedModel: argv.model,
+                    requestedModel: argv.originalModel || argv.model,
                     tool: argv.tool || 'claude',
                     publicPricingEstimate: toolResult.publicPricingEstimate,
                     pricingInfo: toolResult.pricingInfo,
@@ -676,7 +743,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                         errorMessage: `${argv.tool.toUpperCase()} execution failed after limit reset`,
                         sessionId: latestSessionId,
                         tempDir,
-                        requestedModel: argv.model,
+                        requestedModel: argv.originalModel || argv.model,
                         tool: argv.tool || 'claude',
                       });
                     }
@@ -726,7 +793,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                   errorMessage: `${argv.tool.toUpperCase()} execution failed`,
                   sessionId: latestSessionId,
                   tempDir,
-                  requestedModel: argv.model,
+                  requestedModel: argv.originalModel || argv.model,
                   tool: argv.tool || 'claude',
                 });
               }
@@ -791,7 +858,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                   publicPricingEstimate: toolResult.publicPricingEstimate,
                   pricingInfo: toolResult.pricingInfo,
                   // Issue #1225: Pass model and tool info for PR comments
-                  requestedModel: argv.model,
+                  requestedModel: argv.originalModel || argv.model,
                   tool: argv.tool || 'claude',
                   // Issue #1508: Include budget stats (context/token/cost) for auto-restart log
                   resultModelUsage: toolResult.resultModelUsage || null,

@@ -32,17 +32,13 @@ const results = await import('./solve.results.lib.mjs');
 const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildSolveResumeCommand, checkForAiCreatedComments, attachSolutionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude, checkPlaywrightMcpAvailability } = claudeLib;
-
 const githubLinking = await import('./github-linking.lib.mjs');
 const { extractLinkedIssueNumber } = githubLinking;
-
 const usageLimitLib = await import('./usage-limit.lib.mjs');
 const { formatResetTimeWithRelative } = usageLimitLib;
-
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
 const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
 const { notifyIssueAboutPrePullRequestFailure } = await import('./solve.pre-pr-failure-notifier.lib.mjs');
-
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
 const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
@@ -62,7 +58,6 @@ const { postTrackedComment, USAGE_LIMIT_REACHED_MARKER } = await import('./tool-
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
 const { validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
-
 // Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
 // Log version and raw command IMMEDIATELY after log file initialization
@@ -183,6 +178,8 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 // Validate model name EARLY - always runs regardless of --skip-tool-connection-check
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+if (argv.fallbackModel) await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit);
+argv.originalModel ||= argv.model;
 
 // Validate --plan-model if provided (Issue #1223)
 if (argv.planModel) {
@@ -912,7 +909,7 @@ try {
           await log(`   ${claudeResumeCmd}`);
           await log('');
         } else if (argv.url) {
-          const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForResume, model: argv.model, tempDir });
+          const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForResume, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
           await log(`💡 To continue this ${toolForResume} session with solve:`);
           await log('');
           await log(`   ${solveResumeCmd}`);
@@ -926,7 +923,7 @@ try {
         try {
           // Build Claude CLI resume command
           const tool = argv.tool || 'claude';
-          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, tempDir }) : null;
+          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null;
           const logUploadSuccess = await attachLogToGitHub({
             logFile: getLogFile(),
             targetType: 'pr',
@@ -942,7 +939,7 @@ try {
             toolName: getToolDisplayName(argv.tool),
             resumeCommand,
             sessionId,
-            requestedModel: argv.model,
+            requestedModel: argv.originalModel || argv.model,
             tool: argv.tool || 'claude',
             // Issue #1454: Pass resultModelUsage for accurate multi-model display
             resultModelUsage,
@@ -964,7 +961,7 @@ try {
           const resetTime = global.limitResetTime;
           // Build Claude CLI resume command
           const tool = argv.tool || 'claude';
-          const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, tempDir }) : null;
+          const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null;
           const resumeSection = resumeCmd ? `To resume after the limit resets, use:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : `Session ID: \`${sessionId}\``;
           // Format the reset time with relative time and UTC conversion if available
           const timezone = global.limitTimezone || null;
@@ -992,7 +989,7 @@ try {
           try {
             // Build Claude CLI resume command (only for logging, not shown to users when auto-resume is enabled)
             const tool = argv.tool || 'claude';
-            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, tempDir }) : null;
+            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null;
             const logUploadSuccess = await attachLogToGitHub({
               logFile: getLogFile(),
               targetType: 'pr',
@@ -1012,7 +1009,7 @@ try {
               // See: https://github.com/link-assistant/hive-mind/issues/1152
               isAutoResumeEnabled: true,
               autoResumeMode: limitContinueMode,
-              requestedModel: argv.model,
+              requestedModel: argv.originalModel || argv.model,
               tool: argv.tool || 'claude',
               // Issue #1454: Pass resultModelUsage for accurate multi-model display
               resultModelUsage,
@@ -1081,7 +1078,7 @@ try {
       await log(`   ${claudeResumeCmd}`);
       await log('');
     } else if (sessionId && argv.url) {
-      const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, tempDir });
+      const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
       await log('');
       await log(`💡 To continue this ${toolForFailure} session with solve:`);
       await log('');
@@ -1101,7 +1098,7 @@ try {
       try {
         // Build Claude CLI resume command
         const tool = argv.tool || 'claude';
-        const resumeCommand = sessionId ? (tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, tempDir })) : null;
+        const resumeCommand = sessionId ? (tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir })) : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: logTargetType,
@@ -1120,7 +1117,7 @@ try {
           sessionId,
           // If not a usage limit case, fall back to generic failure format
           errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`,
-          requestedModel: argv.model,
+          requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
           // Issue #1454: Pass resultModelUsage for accurate multi-model display
           resultModelUsage,
@@ -1383,7 +1380,7 @@ try {
           sessionId,
           tempDir,
           anthropicTotalCostUSD,
-          requestedModel: argv.model,
+          requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
           // Issue #1454: Pass resultModelUsage for accurate multi-model display
           resultModelUsage,

@@ -10,13 +10,14 @@ import assert from 'assert/strict';
 import { applySolveToolAlias, getFirstParsedPositionalArg, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs } from '../src/telegram-solve-command.lib.mjs';
 import { createYargsConfig as createSolveYargsConfig } from '../src/solve.config.lib.mjs';
 import { createYargsConfig as createHiveYargsConfig } from '../src/hive.config.lib.mjs';
+import { resolveYargsFactory } from '../src/yargs-factory.lib.mjs';
 
 if (typeof use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
 
 const yargsModule = await use('yargs@17.7.2');
-const yargs = yargsModule.default || yargsModule;
+const yargs = resolveYargsFactory(yargsModule);
 
 const issueUrl = 'https://github.com/konard/p-vs-np/issues/476';
 const repoUrl = 'https://github.com/link-assistant/hive-mind';
@@ -55,6 +56,25 @@ await test('/solve reply options without URL remain available for reply extracti
   const args = parseCommandArgs('/solve --model opus');
   const urlArg = await getFirstParsedPositionalArg(args, yargs, createSolveYargsConfig, ['issue-url']);
   assert.equal(urlArg, null);
+});
+
+await test('/codex invalid --think reports each choice once after URL probing', async () => {
+  const parsedArgs = parseCommandArgs(`/codex ${issueUrl} --think ma`);
+  const args = applySolveToolAlias(parsedArgs, getSolveToolAliasFromText('/codex'));
+
+  await getFirstParsedPositionalArg(args, yargs, createSolveYargsConfig, ['issue-url']);
+
+  const normalizedArgs = moveArgumentToFront(args, issueUrl);
+  await assert.rejects(
+    () => parseArgsWithYargs(normalizedArgs, yargs, createSolveYargsConfig),
+    error => {
+      const message = error.message || String(error);
+      assert.match(message, /Argument: think, Given: "ma"/);
+      assert.equal((message.match(/"off"/g) || []).length, 1);
+      assert.equal((message.match(/"max"/g) || []).length, 1);
+      return true;
+    }
+  );
 });
 
 await test('/hive accepts options before repository URL', async () => {

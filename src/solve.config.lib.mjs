@@ -10,6 +10,7 @@
 import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
 import { defaultModels, buildModelOptionDescription, resolveDefaultFallbackModel, resolveRuntimeDefaultModel } from './models/index.mjs';
 import { validateBranchName } from './solve.branch.lib.mjs';
+import { resolveYargsFactory } from './yargs-factory.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -18,7 +19,7 @@ export { detectMalformedFlags };
 export const initializeConfig = async use => {
   // Import yargs with specific version for hideBin support
   const yargsModule = await use('yargs@17.7.2');
-  const yargs = yargsModule.default || yargsModule;
+  const yargs = resolveYargsFactory(yargsModule);
   const helpersModule = await use('yargs@17.7.2/helpers');
   // Node 24 CJS/ESM interop may return the whole module object instead of named exports directly
   const helpers = helpersModule.default || helpersModule;

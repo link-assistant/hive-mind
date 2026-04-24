@@ -1,0 +1,9 @@
+[
+  { "headRefName": "issue-975-d2e66b3ab810", "mergedAt": "2025-12-23T22:33:56Z", "number": 976, "title": "fix: enable Docker and Helm publishing for instant releases", "url": "https://github.com/link-assistant/hive-mind/pull/976" },
+  { "headRefName": "issue-482-2ecbf94a", "mergedAt": "2025-10-12T06:07:36Z", "number": 483, "title": "fix: Prevent false positives in strict options validation for telegram-bot", "url": "https://github.com/link-assistant/hive-mind/pull/483" },
+  { "headRefName": "issue-162-3eb0c720", "mergedAt": "2025-09-17T12:58:28Z", "number": 177, "title": "Fix --help option not working (Issue #162) - Merged with Latest Features", "url": "https://github.com/link-assistant/hive-mind/pull/177" },
+  { "headRefName": "issue-848-d2a1496cb54f", "mergedAt": "2025-12-08T21:58:55Z", "number": 851, "title": "Support @link-assistant/agent as --tool agent", "url": "https://github.com/link-assistant/hive-mind/pull/851" },
+  { "headRefName": "issue-283-9d3d52c1", "mergedAt": "2025-09-24T14:29:07Z", "number": 287, "title": "feat: Integrate Sentry error tracking and monitoring (enabled by default, --no-sentry to disable)", "url": "https://github.com/link-assistant/hive-mind/pull/287" },
+  { "headRefName": "issue-817-03cfdb3ccba2", "mergedAt": "2026-04-19T12:04:56Z", "number": 843, "title": "Implement bidirectional interactive mode for real-time PR feedback", "url": "https://github.com/link-assistant/hive-mind/pull/843" },
+  { "headRefName": "issue-98-2311d116", "mergedAt": "2025-09-13T11:37:33Z", "number": 99, "title": "Fix: Add PR comment count to visible prompt in continue mode", "url": "https://github.com/link-assistant/hive-mind/pull/99" }
+]

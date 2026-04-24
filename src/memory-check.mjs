@@ -6,6 +6,7 @@ if (typeof globalThis.use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
 const use = globalThis.use;
+const { resolveYargsFactory } = await import('./yargs-factory.lib.mjs');
 
 // Temporarily unset CI to avoid command-stream trace logs
 const originalCI = process.env.CI;
@@ -18,7 +19,7 @@ const { $ } = await use('command-stream');
 const $silent = $({ mirror: false, capture: true });
 
 const yargsModule = await use('yargs@17.7.2');
-const yargs = yargsModule.default || yargsModule;
+const yargs = resolveYargsFactory(yargsModule);
 const helpersModule = await use('yargs@17.7.2/helpers');
 // Node 24 CJS/ESM interop may return the whole module object instead of named exports directly
 const _helpers = helpersModule.default || helpersModule;

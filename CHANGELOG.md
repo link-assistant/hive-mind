@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.56.6
+
+### Patch Changes
+
+- e4037e1: Support Telegram solve and hive commands when options are placed before the GitHub URL.
+
 ## 1.56.5
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 1.56.8
+
+### Patch Changes
+
+- 05a3e42: Fix CI/CD change detection for pull request synchronize events so metadata-only updates skip expensive test jobs while still reporting completed checks.
+- c12f99d: Fix screen-isolated solve monitoring so completed `$ --status` sessions no longer block duplicate commands, queued status displays executing isolation sessions, and Telegram start messages stay in an executing state until completion.
+
 ## 1.56.7
 
 ### Patch Changes

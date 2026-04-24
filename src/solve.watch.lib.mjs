@@ -306,7 +306,7 @@ export const watchForFeedback = async params => {
                   isUsageLimit: toolResult.limitReached,
                   limitResetTime: toolResult.limitResetTime,
                   // Issue #1225: Pass model and tool info for PR comments
-                  requestedModel: argv.model,
+                  requestedModel: argv.originalModel || argv.model,
                   tool: argv.tool || 'claude',
                   // Issue #1508: Pass model usage for failure log (cost info per model)
                   resultModelUsage: toolResult.resultModelUsage || null,
@@ -391,7 +391,7 @@ export const watchForFeedback = async params => {
                   publicPricingEstimate: toolResult.publicPricingEstimate,
                   pricingInfo: toolResult.pricingInfo,
                   // Issue #1225: Pass model and tool info for PR comments
-                  requestedModel: argv.model,
+                  requestedModel: argv.originalModel || argv.model,
                   tool: argv.tool || 'claude',
                   // Issue #1508: Include budget stats (context/token/cost) for auto-restart log
                   resultModelUsage: toolResult.resultModelUsage || null,

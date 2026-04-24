@@ -905,6 +905,23 @@ export const resolveModelId = (requestedModel, tool) => {
   }
 };
 
+export const defaultFallbackModels = {
+  claude: {
+    'claude-opus-4-7': 'opus-4-6',
+  },
+  codex: {
+    'gpt-5.5': 'gpt-5.4',
+  },
+};
+
+export const resolveDefaultFallbackModel = (tool, model) => {
+  if (!model) return null;
+
+  const toolName = (tool || 'claude').toString().toLowerCase();
+  const resolvedModel = resolveModelId(model, toolName);
+  return defaultFallbackModels[toolName]?.[resolvedModel] || null;
+};
+
 /**
  * Fetch model info and build the complete model information string for PR comments.
  * Uses actual models from CLI JSON output when available.

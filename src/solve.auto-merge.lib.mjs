@@ -598,7 +598,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                     toolName: `Anthropic ${(argv.tool || 'claude').charAt(0).toUpperCase() + (argv.tool || 'claude').slice(1)} Code`,
                     isAutoResumeEnabled: true,
                     autoResumeMode: 'restart',
-                    requestedModel: argv.model,
+                    requestedModel: argv.originalModel || argv.model,
                     tool: argv.tool || 'claude',
                     publicPricingEstimate: toolResult.publicPricingEstimate,
                     pricingInfo: toolResult.pricingInfo,
@@ -676,7 +676,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                         errorMessage: `${argv.tool.toUpperCase()} execution failed after limit reset`,
                         sessionId: latestSessionId,
                         tempDir,
-                        requestedModel: argv.model,
+                        requestedModel: argv.originalModel || argv.model,
                         tool: argv.tool || 'claude',
                       });
                     }
@@ -726,7 +726,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                   errorMessage: `${argv.tool.toUpperCase()} execution failed`,
                   sessionId: latestSessionId,
                   tempDir,
-                  requestedModel: argv.model,
+                  requestedModel: argv.originalModel || argv.model,
                   tool: argv.tool || 'claude',
                 });
               }
@@ -791,7 +791,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                   publicPricingEstimate: toolResult.publicPricingEstimate,
                   pricingInfo: toolResult.pricingInfo,
                   // Issue #1225: Pass model and tool info for PR comments
-                  requestedModel: argv.model,
+                  requestedModel: argv.originalModel || argv.model,
                   tool: argv.tool || 'claude',
                   // Issue #1508: Include budget stats (context/token/cost) for auto-restart log
                   resultModelUsage: toolResult.resultModelUsage || null,

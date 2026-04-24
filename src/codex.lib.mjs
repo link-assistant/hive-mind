@@ -15,7 +15,7 @@ const os = (await use('os')).default;
 // Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts } from './config.lib.mjs';
+import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
@@ -24,6 +24,7 @@ import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels } from './models/index.mjs';
+import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
 import Decimal from 'decimal.js-light';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
@@ -648,12 +649,11 @@ export const executeCodex = async params => {
 };
 
 export const executeCodexCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, calculatePricing = calculateCodexPricing } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown } = params;
 
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
   // Retry configuration
-  const maxRetries = 3;
   let retryCount = 0;
 
   const executeWithRetry = async () => {
@@ -661,7 +661,7 @@ export const executeCodexCommand = async params => {
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Codex:', argv.model.toUpperCase())}`);
     } else {
-      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${maxRetries}`)}`);
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
     }
 
     if (argv.verbose) {
@@ -711,7 +711,7 @@ export const executeCodexCommand = async params => {
     let codexArgs = 'exec';
     if (isResumeMode) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
-      codexArgs += ` resume ${shellQuote(argv.resume)}`;
+      codexArgs += ` resume ${shellQuote(argv.resume)} --model ${shellQuote(mappedModel)}`;
     } else {
       codexArgs += ` --model ${shellQuote(mappedModel)}`;
     }
@@ -930,6 +930,7 @@ export const executeCodexCommand = async params => {
       const codexErrorSummary = getCodexErrorEventSummary(codexJsonState);
       if (codexErrorSummary.hasError) {
         const limitInfo = detectUsageLimit(codexErrorSummary.message || lastMessage);
+        const retryableError = classifyRetryableError(codexErrorSummary.message || lastMessage);
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
@@ -944,6 +945,25 @@ export const executeCodexCommand = async params => {
           for (const line of messageLines) {
             await log(line, { level: 'warning' });
           }
+        } else if (retryableError.isRetryable) {
+          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
+          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+          if (retryCount < maxRetries) {
+            const delay = getRetryDelayMs({
+              retryCount,
+              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+            });
+            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            await maybeSwitchToFallbackModel({ tool: 'codex', argv, log, errorMessage: retryableError.message });
+            await waitForRetryDelay(delay, log);
+            await log('\n🔄 Retrying now...');
+            retryCount++;
+            return await executeWithRetry();
+          }
+          await log(`\n\n❌ ${retryableError.label} persisted after ${maxRetries} retries`, { level: 'error' });
         } else {
           await log(`\n\n❌ Codex emitted error event: ${codexErrorSummary.message}`, { level: 'error' });
           await log(`   Error events: item=${codexErrorSummary.counts.item}, turn=${codexErrorSummary.counts.turn}, stream=${codexErrorSummary.counts.stream}`, { level: 'error' });
@@ -971,6 +991,28 @@ export const executeCodexCommand = async params => {
       }
 
       if (exitCode !== 0) {
+        const retryableError = classifyRetryableError(lastMessage);
+        if (retryableError.isRetryable) {
+          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
+          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+          if (retryCount < maxRetries) {
+            const delay = getRetryDelayMs({
+              retryCount,
+              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+            });
+            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            await maybeSwitchToFallbackModel({ tool: 'codex', argv, log, errorMessage: retryableError.message });
+            await waitForRetryDelay(delay, log);
+            await log('\n🔄 Retrying now...');
+            retryCount++;
+            return await executeWithRetry();
+          }
+          await log(`\n\n❌ ${retryableError.label} persisted after ${maxRetries} retries`, { level: 'error' });
+        }
+
         // Check for usage limit errors first (more specific)
         const limitInfo = detectUsageLimit(lastMessage);
         if (limitInfo.isUsageLimit) {

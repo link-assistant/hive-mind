@@ -47,12 +47,13 @@ export const { buildClaudeResumeCommand, buildClaudeInitialCommand } = claudeCom
  * @param {string} options.sessionId - The session ID to resume
  * @param {string|null} [options.tool] - Tool name (codex, opencode, agent)
  * @param {string|null} [options.model] - Model name to preserve
+ * @param {string|null} [options.fallbackModel] - Explicit fallback model to preserve
  * @param {string|null} [options.tempDir] - Working directory to preserve
  * @param {string} [options.nodePath] - Node binary path
  * @param {string} [options.scriptPath] - solve.mjs path
  * @returns {string}
  */
-export const buildSolveResumeCommand = ({ issueUrl, sessionId, tool = null, model = null, tempDir = null, nodePath = process.argv[0], scriptPath = process.argv[1] }) => {
+export const buildSolveResumeCommand = ({ issueUrl, sessionId, tool = null, model = null, fallbackModel = null, tempDir = null, nodePath = process.argv[0], scriptPath = process.argv[1] }) => {
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
   const args = [shellQuote(scriptPath), shellQuote(issueUrl), '--resume', shellQuote(sessionId)];
@@ -63,6 +64,10 @@ export const buildSolveResumeCommand = ({ issueUrl, sessionId, tool = null, mode
 
   if (model) {
     args.push('--model', shellQuote(model));
+  }
+
+  if (fallbackModel) {
+    args.push('--fallback-model', shellQuote(fallbackModel));
   }
 
   if (tempDir) {
@@ -566,7 +571,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
       await log(`   ${claudeResumeCmd}`);
       await log('');
     } else if (issueUrl) {
-      const solveResumeCmd = buildSolveResumeCommand({ issueUrl, sessionId, tool, model: argv.model, tempDir });
+      const solveResumeCmd = buildSolveResumeCommand({ issueUrl, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
       await log('');
       await log(`💡 To continue this ${tool} session with solve:`);
       await log('');
@@ -823,7 +828,7 @@ Fixes ${issueRef}
             // Issue #1152: Pass sessionType for differentiated log comments
             sessionType,
             // Issue #1225: Pass model and tool info for PR comments
-            requestedModel: argv.model,
+            requestedModel: argv.originalModel || argv.model,
             tool: argv.tool || 'claude',
             // Issue #1454: Pass resultModelUsage for accurate multi-model display
             resultModelUsage,
@@ -909,7 +914,7 @@ Fixes ${issueRef}
           // Issue #1152: Pass sessionType for differentiated log comments
           sessionType,
           // Issue #1225: Pass model and tool info for issue comments
-          requestedModel: argv.model,
+          requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
           // Issue #1454: Pass resultModelUsage for accurate multi-model display
           resultModelUsage,
@@ -1000,7 +1005,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           verbose: argv.verbose || false,
           errorMessage: cleanErrorMessage(error),
           // Issue #1225: Pass model and tool info for PR comments
-          requestedModel: argv.model,
+          requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
         });
 

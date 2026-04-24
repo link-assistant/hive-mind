@@ -48,6 +48,7 @@ const { extractLinkedIssueNumber } = githubLinking;
 
 // Import configuration
 import { autoContinue, limitReset } from './config.lib.mjs';
+import { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationCounter, normalizeAutoIterationLimit } from './auto-iteration-limits.lib.mjs';
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
@@ -79,6 +80,15 @@ const formatWaitTime = ms => {
 // See: https://github.com/link-assistant/hive-mind/issues/1152
 export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs, tempDir = null, isRestart = false) => {
   try {
+    const maxAutoResumeIterations = normalizeAutoIterationLimit(argv.autoResumeMaxIterations);
+    const currentAutoResumeIteration = normalizeAutoIterationCounter(argv.autoResumeIteration);
+
+    if (hasReachedAutoIterationLimit(currentAutoResumeIteration, maxAutoResumeIterations)) {
+      await log(`\n⚠️  Auto-${isRestart ? 'restart' : 'resume'} limit reached: ${currentAutoResumeIteration}/${formatAutoIterationLimit(maxAutoResumeIterations)}`);
+      await safeExit(1, `Auto-${isRestart ? 'restart' : 'resume'} limit reached`);
+    }
+
+    const nextAutoResumeIteration = currentAutoResumeIteration + 1;
     const resetTime = global.limitResetTime;
     const timezone = global.limitTimezone || null;
     const baseWaitMs = calculateWaitTime(resetTime);
@@ -125,6 +135,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const actionType = isRestart ? 'Restarting' : 'Resuming';
     await log(`\n✅ Limit reset time reached (+ ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)! ${actionType} session...`);
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
+    await log(`   Auto-${isRestart ? 'restart' : 'resume'} iteration: ${maxAutoResumeIterations === 0 ? nextAutoResumeIteration : `${nextAutoResumeIteration}/${maxAutoResumeIterations}`}`);
 
     // Recursively call the solve script
     // For resume: use --resume with session ID to maintain context
@@ -153,6 +164,8 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     if (argv.autoRestartOnLimitReset) {
       resumeArgs.push('--auto-restart-on-limit-reset');
     }
+    resumeArgs.push('--auto-resume-iteration', String(nextAutoResumeIteration));
+    resumeArgs.push('--auto-resume-max-iterations', String(maxAutoResumeIterations));
 
     // Pass session type for proper comment differentiation
     // See: https://github.com/link-assistant/hive-mind/issues/1152

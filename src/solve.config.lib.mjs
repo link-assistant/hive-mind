@@ -173,8 +173,19 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'auto-restart-max-iterations': {
     type: 'number',
-    description: 'Maximum number of auto-restart iterations when uncommitted changes are detected (default: 3)',
-    default: 3,
+    description: 'Maximum number of auto-restart iterations before stopping (default: 5, 0 = unlimited)',
+    default: 5,
+  },
+  'auto-resume-max-iterations': {
+    type: 'number',
+    description: 'Maximum number of automatic resume/restart continuations after usage-limit resets (default: 5, 0 = unlimited)',
+    default: 5,
+  },
+  'auto-resume-iteration': {
+    type: 'number',
+    description: 'Internal: current automatic resume/restart continuation count',
+    default: 0,
+    hidden: true,
   },
   'auto-merge': {
     type: 'boolean',

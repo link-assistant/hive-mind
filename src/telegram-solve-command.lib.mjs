@@ -59,6 +59,64 @@ export function parseCommandArgs(text) {
   return args;
 }
 
+function toCamelCaseOptionName(name) {
+  return name.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+}
+
+export function getYargsPositionalArg(argv, positionalNames = []) {
+  if (!argv || typeof argv !== 'object') return null;
+
+  for (const name of positionalNames) {
+    const aliases = [name, toCamelCaseOptionName(name)];
+    for (const alias of aliases) {
+      if (typeof argv[alias] === 'string' && argv[alias].trim()) return argv[alias];
+    }
+  }
+
+  if (Array.isArray(argv._)) {
+    return argv._.find(value => typeof value === 'string' && value.trim()) || null;
+  }
+
+  return null;
+}
+
+export async function parseArgsWithYargs(args, yargsFactory, createYargsConfig) {
+  const originalStderrWrite = process.stderr.write;
+  process.stderr.write = (_chunk, encoding, callback) => {
+    if (typeof encoding === 'function') encoding();
+    else if (typeof callback === 'function') callback();
+    return true;
+  };
+  try {
+    const parser = createYargsConfig(yargsFactory());
+    parser
+      .exitProcess(false)
+      .showHelpOnFail(false)
+      .fail((msg, err) => {
+        throw err || new Error(msg || 'Invalid arguments');
+      });
+    return await parser.parse(args);
+  } finally {
+    process.stderr.write = originalStderrWrite;
+  }
+}
+
+export async function getFirstParsedPositionalArg(args, yargsFactory, createYargsConfig, positionalNames = []) {
+  try {
+    return getYargsPositionalArg(await parseArgsWithYargs(args, yargsFactory, createYargsConfig), positionalNames);
+  } catch {
+    return null;
+  }
+}
+
+export function moveArgumentToFront(args, target, normalize = value => value) {
+  if (!target) return [...args];
+  const normalizedTarget = normalize(target);
+  const index = args.findIndex(arg => normalize(arg) === normalizedTarget);
+  if (index < 0) return [normalizedTarget, ...args];
+  return [normalizedTarget, ...args.slice(0, index), ...args.slice(index + 1)];
+}
+
 export function getSolveCommandNameFromText(text) {
   if (!text || typeof text !== 'string') {
     return null;

@@ -45,7 +45,7 @@ const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = awa
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
-const { applySolveToolAlias, getSolveCommandNameFromText, getSolveToolAliasFromText, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
+const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
@@ -500,11 +500,18 @@ function mergeArgsWithOverrides(userArgs, overrides) {
 }
 
 /** Validate GitHub URL for Telegram bot commands. Returns { valid, error?, parsed?, normalizedUrl? } */
-function validateGitHubUrl(args, options = {}) {
-  const { allowedTypes = ['issue', 'pull'], commandName = 'solve' } = options;
-  if (args.length === 0) return { valid: false, error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]` };
+async function getCommandUrlArg(args, createYargsConfig, positionalNames) {
+  const parsedUrl = createYargsConfig ? await getFirstParsedPositionalArg(args, yargs, createYargsConfig, positionalNames) : null;
+  if (parsedUrl) return parsedUrl;
+  return args.find(arg => cleanNonPrintableChars(arg).includes('github.com')) || (args[0] && !args[0].startsWith('-') ? args[0] : null);
+}
+
+async function validateGitHubUrl(args, options = {}) {
+  const { allowedTypes = ['issue', 'pull'], commandName = 'solve', createYargsConfig = null, positionalNames = [] } = options;
+  const rawUrl = await getCommandUrlArg(args, createYargsConfig, positionalNames);
+  if (!rawUrl) return { valid: false, error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]` };
   // Issue #1102: Clean non-printable chars (Zero-Width Space, BOM, etc.) from URLs
-  const url = cleanNonPrintableChars(args[0]);
+  const url = cleanNonPrintableChars(rawUrl);
   if (!url.includes('github.com')) return { valid: false, error: 'First argument must be a GitHub URL' };
   const parsed = parseGitHubUrl(url);
   if (!parsed.valid) return { valid: false, error: parsed.error || 'Invalid GitHub URL', suggestion: parsed.suggestion };
@@ -842,11 +849,12 @@ async function handleSolveCommand(ctx) {
   // Issue #1325: Support all options via /solve command when replying (e.g., "/solve --model opus")
   const isReply = message.reply_to_message && message.reply_to_message.message_id && !message.reply_to_message.forum_topic_created;
 
-  // Check if the first argument looks like a GitHub URL
-  // If not, we should try to extract the URL from the replied message
-  const firstArgIsUrl = userArgs.length > 0 && (userArgs[0].includes('github.com') || userArgs[0].match(/^https?:\/\//));
+  // Check if yargs sees a command URL. If not, try to extract it from the replied message.
+  const commandUrlArg = await getCommandUrlArg(userArgs, createSolveYargsConfig, ['issue-url']);
+  const commandUrlText = commandUrlArg ? cleanNonPrintableChars(commandUrlArg) : '';
+  const commandHasUrl = commandUrlText.includes('github.com') || /^https?:\/\//.test(commandUrlText);
 
-  if (isReply && !firstArgIsUrl) {
+  if (isReply && !commandHasUrl) {
     if (VERBOSE) {
       console.log('[VERBOSE] /solve is a reply without URL in args, extracting from replied message...');
       console.log('[VERBOSE] User args:', userArgs);
@@ -883,7 +891,13 @@ async function handleSolveCommand(ctx) {
 
   userArgs = applySolveToolAlias(userArgs, solveToolAlias);
 
-  const validation = validateGitHubUrl(userArgs);
+  const { malformed, errors: malformedErrors } = detectMalformedFlags(userArgs);
+  if (malformed.length > 0) {
+    await safeReply(ctx, `❌ ${escapeMarkdown(malformedErrors.join('\n'))}\n\nPlease check your option syntax.`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
+  const validation = await validateGitHubUrl(userArgs, { createYargsConfig: createSolveYargsConfig, positionalNames: ['issue-url'] });
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
     if (validation.suggestion) {
@@ -893,6 +907,7 @@ async function handleSolveCommand(ctx) {
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
   }
+  userArgs = moveArgumentToFront(userArgs, validation.normalizedUrl, cleanNonPrintableChars);
   const { backend: solvePerCommandIsolation, filteredArgs: userArgsWithoutIsolation } = extractIsolationFromArgs(userArgs); // issue #1534
   if (solvePerCommandIsolation && !isValidPerCommandIsolation(solvePerCommandIsolation)) {
     await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(solvePerCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
@@ -928,27 +943,14 @@ async function handleSolveCommand(ctx) {
     await safeReply(ctx, `❌ ${escapeMarkdown(branchError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
-  // Issue #1092: Detect malformed flag patterns like "-- model" (space after --)
-  const { malformed, errors: malformedErrors } = detectMalformedFlags(args);
-  if (malformed.length > 0) {
-    await safeReply(ctx, `❌ ${escapeMarkdown(malformedErrors.join('\n'))}\n\nPlease check your option syntax.`, { reply_to_message_id: ctx.message.message_id });
+  const { malformed: mergedMalformed, errors: mergedMalformedErrors } = detectMalformedFlags(args);
+  if (mergedMalformed.length > 0) {
+    await safeReply(ctx, `❌ ${escapeMarkdown(mergedMalformedErrors.join('\n'))}\n\nPlease check your option syntax.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Validate merged arguments using solve's yargs config
   try {
-    // Use .parse() instead of yargs(args).parseSync() to ensure .strict() mode works
-    const testYargs = createSolveYargsConfig(yargs());
-
-    // Configure yargs to throw errors instead of trying to exit the process
-    // This prevents confusing error messages when validation fails but execution continues
-    let failureMessage = null;
-    testYargs.exitProcess(false).fail((msg, err) => {
-      // Capture the failure message instead of letting yargs print it
-      failureMessage = msg || (err && err.message) || 'Unknown validation error';
-      throw new Error(failureMessage);
-    });
-
-    testYargs.parse(args);
+    await parseArgsWithYargs(args, yargs, createSolveYargsConfig);
   } catch (error) {
     await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, {
       reply_to_message_id: ctx.message.message_id,
@@ -1095,7 +1097,7 @@ async function handleHiveCommand(ctx) {
   const userArgs = parseCommandArgs(ctx.message.text);
 
   // Issue #1102: Allow issues_list/pulls_list URLs and normalize to repo URLs
-  const validation = validateGitHubUrl(userArgs, { allowedTypes: ['repo', 'organization', 'user', 'issues_list', 'pulls_list'], commandName: 'hive' });
+  const validation = await validateGitHubUrl(userArgs, { allowedTypes: ['repo', 'organization', 'user', 'issues_list', 'pulls_list'], commandName: 'hive', createYargsConfig: createHiveYargsConfig, positionalNames: ['github-url'] });
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
     if (validation.suggestion) errorMsg += `\n\n💡 Did you mean: \`${escapeMarkdown(validation.suggestion)}\``;
@@ -1104,7 +1106,7 @@ async function handleHiveCommand(ctx) {
     return;
   }
   // Normalize issues_list/pulls_list to base repo URL, or use cleaned URL
-  let normalizedArgs = [...userArgs];
+  let normalizedArgs = moveArgumentToFront(userArgs, validation.normalizedUrl, cleanNonPrintableChars);
   const p = validation.parsed;
   if (p && (p.type === 'issues_list' || p.type === 'pulls_list')) {
     normalizedArgs[0] = `https://github.com/${p.owner}/${p.repo}`;
@@ -1149,19 +1151,7 @@ async function handleHiveCommand(ctx) {
 
   // Validate merged arguments using hive's yargs config
   try {
-    // Use .parse() instead of yargs(args).parseSync() to ensure .strict() mode works
-    const testYargs = createHiveYargsConfig(yargs());
-
-    // Configure yargs to throw errors instead of trying to exit the process
-    // This prevents confusing error messages when validation fails but execution continues
-    let failureMessage = null;
-    testYargs.exitProcess(false).fail((msg, err) => {
-      // Capture the failure message instead of letting yargs print it
-      failureMessage = msg || (err && err.message) || 'Unknown validation error';
-      throw new Error(failureMessage);
-    });
-
-    testYargs.parse(args);
+    await parseArgsWithYargs(args, yargs, createHiveYargsConfig);
   } catch (error) {
     await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, {
       reply_to_message_id: ctx.message.message_id,

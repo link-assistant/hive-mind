@@ -1,0 +1,14 @@
+{
+  "baseRefName": "main",
+  "body": "## 🤖 AI-Powered Solution Draft\n\nThis pull request is being automatically generated to solve issue #1665.\n\n### 📋 Issue Reference\nFixes #1665\n\n### 🚧 Status\n**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.\n\n### 📝 Implementation Details\n_Details will be added as the solution draft is developed..._\n\n---\n*This PR was created automatically by the AI issue solver*",
+  "commits": [{ "authoredDate": "2026-04-24T11:16:32Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-04-24T11:16:32Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/1665", "messageHeadline": "Initial commit with task details", "oid": "88c4abfa646f9b1360774cf63c4548729ccaf801" }],
+  "createdAt": "2026-04-24T11:16:40Z",
+  "headRefName": "issue-1665-3c9668bedbd5",
+  "isDraft": true,
+  "number": 1668,
+  "state": "OPEN",
+  "statusCheckRollup": [],
+  "title": "[WIP] CI/CD changes detection is completely broken",
+  "updatedAt": "2026-04-24T11:16:41Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/1668"
+}

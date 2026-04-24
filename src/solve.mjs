@@ -32,17 +32,13 @@ const results = await import('./solve.results.lib.mjs');
 const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildSolveResumeCommand, checkForAiCreatedComments, attachSolutionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude, checkPlaywrightMcpAvailability } = claudeLib;
-
 const githubLinking = await import('./github-linking.lib.mjs');
 const { extractLinkedIssueNumber } = githubLinking;
-
 const usageLimitLib = await import('./usage-limit.lib.mjs');
 const { formatResetTimeWithRelative } = usageLimitLib;
-
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
 const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
 const { notifyIssueAboutPrePullRequestFailure } = await import('./solve.pre-pr-failure-notifier.lib.mjs');
-
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
 const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
@@ -62,7 +58,6 @@ const { postTrackedComment, USAGE_LIMIT_REACHED_MARKER } = await import('./tool-
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
 const { validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
-
 // Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
 // Log version and raw command IMMEDIATELY after log file initialization
@@ -183,9 +178,7 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 // Validate model name EARLY - always runs regardless of --skip-tool-connection-check
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
-if (argv.fallbackModel) {
-  await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit);
-}
+if (argv.fallbackModel) await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit);
 argv.originalModel ||= argv.model;
 
 // Validate --plan-model if provided (Issue #1223)

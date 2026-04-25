@@ -15,6 +15,9 @@
  * @see https://github.com/link-assistant/hive-mind/issues/380
  */
 
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
@@ -33,6 +36,104 @@ async function getIsolationRunner() {
 }
 // In-memory session store
 const activeSessions = new Map();
+
+let sessionStorePath = null;
+let sessionPersistenceEnabled = false;
+
+export function getDefaultSessionStorePath() {
+  if (process.env.HIVE_MIND_SESSION_STORE_PATH) {
+    return process.env.HIVE_MIND_SESSION_STORE_PATH;
+  }
+  const homeDir = process.env.HOME || os.homedir() || os.tmpdir();
+  return path.join(homeDir, '.hive-mind', 'telegram-active-sessions.json');
+}
+
+function serializeSessionInfo(sessionInfo) {
+  return {
+    ...sessionInfo,
+    startTime: sessionInfo?.startTime instanceof Date ? sessionInfo.startTime.toISOString() : sessionInfo?.startTime,
+  };
+}
+
+function persistActiveSessions() {
+  if (!sessionPersistenceEnabled || !sessionStorePath) return;
+
+  try {
+    const payload = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      sessions: Array.from(activeSessions.entries()).map(([sessionName, sessionInfo]) => ({
+        sessionName,
+        sessionInfo: serializeSessionInfo(sessionInfo),
+      })),
+    };
+    fs.mkdirSync(path.dirname(sessionStorePath), { recursive: true });
+    const tmpPath = `${sessionStorePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(payload, null, 2));
+    fs.renameSync(tmpPath, sessionStorePath);
+  } catch (error) {
+    console.error(`[session-monitor] Failed to persist session store ${sessionStorePath}: ${error.message}`);
+  }
+}
+
+function loadPersistedSessions(verbose = false) {
+  if (!sessionPersistenceEnabled || !sessionStorePath || !fs.existsSync(sessionStorePath)) {
+    return 0;
+  }
+
+  try {
+    const payload = JSON.parse(fs.readFileSync(sessionStorePath, 'utf8'));
+    const sessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
+    let loaded = 0;
+
+    for (const entry of sessions) {
+      if (!entry?.sessionName || !entry?.sessionInfo || activeSessions.has(entry.sessionName)) {
+        continue;
+      }
+      activeSessions.set(entry.sessionName, entry.sessionInfo);
+      loaded++;
+    }
+
+    if (verbose && loaded > 0) {
+      console.log(`[VERBOSE] Loaded ${loaded} persisted session(s) from ${sessionStorePath}`);
+    }
+    return loaded;
+  } catch (error) {
+    console.error(`[session-monitor] Failed to load session store ${sessionStorePath}: ${error.message}`);
+    return 0;
+  }
+}
+
+export function configureSessionPersistence(options = {}) {
+  const { enabled = true, storePath = null, load = true, clear = false, verbose = false } = options;
+  sessionPersistenceEnabled = Boolean(enabled);
+  sessionStorePath = storePath || getDefaultSessionStorePath();
+
+  if (clear && sessionStorePath && fs.existsSync(sessionStorePath)) {
+    fs.unlinkSync(sessionStorePath);
+  }
+
+  if (!sessionPersistenceEnabled) {
+    return { enabled: false, storePath: sessionStorePath, loaded: 0 };
+  }
+
+  const loaded = load ? loadPersistedSessions(verbose) : 0;
+  persistActiveSessions(verbose);
+  return { enabled: true, storePath: sessionStorePath, loaded };
+}
+
+export function resetSessionMonitorForTests(options = {}) {
+  const { clearStore = false } = options;
+  const previousStorePath = sessionStorePath;
+  activeSessions.clear();
+
+  if (clearStore && previousStorePath && fs.existsSync(previousStorePath)) {
+    fs.unlinkSync(previousStorePath);
+  }
+
+  sessionPersistenceEnabled = false;
+  sessionStorePath = null;
+}
 
 /**
  * Issue #1586: Timeout for non-isolation sessions.
@@ -78,6 +179,7 @@ export async function checkScreenSessionExists(sessionName) {
  */
 export function trackSession(sessionName, sessionInfo, verbose = false) {
   activeSessions.set(sessionName, sessionInfo);
+  persistActiveSessions(verbose);
   if (verbose) {
     const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'screen';
     console.log(`[VERBOSE] Session ${sessionName} tracked in memory (mode: ${mode})`);
@@ -119,6 +221,7 @@ function getActiveSessions(verbose = false) {
  */
 function completeSession(sessionName, exitCode = 0, verbose = false) {
   activeSessions.delete(sessionName);
+  persistActiveSessions(verbose);
   if (verbose) {
     console.log(`[VERBOSE] Session ${sessionName} removed from tracking (exit: ${exitCode})`);
   }
@@ -136,6 +239,7 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) 
       console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s), removing from tracking`);
     }
     activeSessions.delete(sessionName);
+    persistActiveSessions(verbose);
     return false;
   }
   if (verbose) {
@@ -190,7 +294,7 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
  * @param {Object} bot - Telegraf bot instance for sending messages
  * @param {boolean} verbose - Whether to log verbose output
  */
-export async function monitorSessions(bot, verbose = false) {
+export async function monitorSessions(bot, verbose = false, options = {}) {
   const sessions = getActiveSessions(verbose);
 
   if (sessions.length === 0) {
@@ -210,7 +314,10 @@ export async function monitorSessions(bot, verbose = false) {
       // Isolation mode: use $ --status, with screen -ls only as a fallback
       // when the status record is unavailable. Terminal $ statuses are
       // authoritative so completed screen sessions do not stay blocked.
-      const state = await getIsolationSessionState(sessionName, sessionInfo, { verbose });
+      const state = await getIsolationSessionState(sessionName, sessionInfo, {
+        verbose,
+        statusProvider: options.statusProvider,
+      });
       stillRunning = state.running;
       exitCode = state.exitCode;
       statusResult = state.statusResult;
@@ -270,9 +377,17 @@ export async function monitorSessions(bot, verbose = false) {
  * @param {number} intervalMs - Monitoring interval in milliseconds (default: 30000)
  * @returns {NodeJS.Timer} The interval timer (can be cleared with clearInterval)
  */
-export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000) {
-  const timer = setInterval(() => monitorSessions(bot, verbose), intervalMs);
-  console.log(`📊 Session monitoring started (checking every ${intervalMs / 1000} seconds, storage: in-memory)`);
+export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000, options = {}) {
+  const persistence = options.persistence === false ? { enabled: false, storePath: null, loaded: 0 } : configureSessionPersistence({ storePath: options.storePath, load: true, verbose });
+  const runMonitor = () => {
+    monitorSessions(bot, verbose).catch(error => {
+      console.error(`[session-monitor] Session monitoring tick failed: ${error.message}`);
+    });
+  };
+  const timer = setInterval(runMonitor, intervalMs);
+  runMonitor();
+  const storage = persistence.enabled ? `file:${persistence.storePath}` : 'in-memory';
+  console.log(`📊 Session monitoring started (checking every ${intervalMs / 1000} seconds, storage: ${storage})`);
   return timer;
 }
 
@@ -431,6 +546,7 @@ export function getSessionStats(verbose = false) {
     successful: 0,
     failed: 0,
     isolated: isolated.length,
-    storageType: 'in-memory',
+    storageType: sessionPersistenceEnabled ? 'file' : 'in-memory',
+    storagePath: sessionPersistenceEnabled ? sessionStorePath : null,
   };
 }

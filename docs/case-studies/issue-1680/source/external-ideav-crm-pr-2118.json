@@ -1,0 +1,31 @@
+{
+  "baseRefName": "main",
+  "body": "## Summary\n\nCompleted the requested `index.php` security audit from #2117 and created one GitHub issue per confirmed vulnerability. No code changes were required for the audit task itself.\n\n## Created Issues\n\n- #2119 Security: restrict wildcard CORS on authenticated API responses\n- #2120 Security: enable TLS certificate verification for OAuth token and userinfo requests\n- #2121 Security: do not expose fatal error messages, file paths, and line numbers to clients\n- #2122 Security: replace predictable md5(microtime()) session token generation\n- #2123 Security: validate OAuth state before redirecting to prevent open redirects\n- #2124 Security: protect TRACE_IT diagnostic logging from unauthenticated activation\n\n## Testing\n\n- Not run: audit-only task with no code changes.\n\nFixes #2117",
+  "comments": [
+    {
+      "id": "IC_kwDORExwRs8AAAABAWkbZg",
+      "author": { "login": "konard" },
+      "authorAssociation": "COLLABORATOR",
+      "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-5.5\n- Provider: OpenAI\n- Public pricing estimate: $1.756360\n\n### 📊 **Context and tokens usage:**\n- 725.6K / 1.1M (69%) input tokens, 5.8K / 130K (4%) output tokens\n\nTotal: (85.6K + 640K cached) input tokens, 5.8K output tokens, $1.756360 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-5.5`\n- **Model: GPT-5.5** (`gpt-5.5`)\n\n### 📎 **Log file uploaded as Gist** (9705KB)\n- [View complete solution draft log](https://gist.githubusercontent.com/konard/5a3df6fc00526b98bf7a905914089826/raw/223cab567a8b3448c5ffa358423e712bf49eb1e7/solution-draft-log-pr-1777108999039.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+      "createdAt": "2026-04-25T09:23:24Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/ideav/crm/pull/2118#issuecomment-4318632806",
+      "viewerDidAuthor": true
+    }
+  ],
+  "commits": [{ "authoredDate": "2026-04-25T09:20:15Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-04-25T09:20:15Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/ideav/crm/issues/2117", "messageHeadline": "Initial commit with task details", "oid": "1d05ce23526efad4842389120eaca71daf1458f0" }],
+  "createdAt": "2026-04-25T09:20:22Z",
+  "headRefName": "issue-2117-43883f725be3",
+  "isDraft": false,
+  "mergedAt": "2026-04-25T09:23:08Z",
+  "number": 2118,
+  "reviews": [],
+  "state": "MERGED",
+  "statusCheckRollup": [],
+  "title": "Audit index.php security vulnerabilities",
+  "updatedAt": "2026-04-25T09:23:24Z",
+  "url": "https://github.com/ideav/crm/pull/2118"
+}

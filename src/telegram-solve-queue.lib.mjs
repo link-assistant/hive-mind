@@ -43,6 +43,11 @@ class SolveQueueItem {
     this.requester = options.requester;
     this.infoBlock = options.infoBlock;
     this.tool = options.tool || 'claude';
+    // Issue #1688: keep parsed URL context (owner/repo/number/type) so completion
+    //   notifications can look up linked PRs for issue URLs.
+    this.urlContext = options.urlContext || null;
+    // Issue #1688: requester user ID for /subscribe duplicate-suppression.
+    this.requesterUserId = options.ctx?.from?.id ?? null;
     this.createdAt = new Date();
     this.startedAt = null;
     this.status = QueueItemStatus.QUEUED;
@@ -1361,7 +1366,20 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
       const match = result.output && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
       const session = match ? match[1] : null;
       if (session) {
-        trackSessionFn(session, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: 'solve', tool: item.tool || 'claude', infoBlock: item.infoBlock });
+        trackSessionFn(session, {
+          chatId: item.ctx?.chat?.id,
+          messageId: item.messageInfo?.messageId,
+          startTime: new Date(),
+          url: item.url,
+          command: 'solve',
+          tool: item.tool || 'claude',
+          infoBlock: item.infoBlock,
+          // Issue #1688: propagate URL context + requester so the completion
+          //   notification can append a 'Pull request:' line and skip
+          //   notifying the requester twice via /subscribe.
+          urlContext: item.urlContext || null,
+          requesterUserId: item.requesterUserId ?? null,
+        });
       }
     }
     return result;

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.56.12
+
+### Patch Changes
+
+- 71e1ef5: Prevent `--attach-logs` from posting truncated fallback comments when full `gh-upload-log` uploads fail, and parse newer `gh-upload-log` repository output including shared-repository paths.
+
 ## 1.56.11
 
 ### Patch Changes

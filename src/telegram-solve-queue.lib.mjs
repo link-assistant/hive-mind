@@ -20,7 +20,7 @@ export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, ge
 import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningProcesses } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
-import { formatExecutingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 
 export const QueueItemStatus = {
   QUEUED: 'queued',
@@ -1058,7 +1058,7 @@ export class SolveQueue {
         this.stats.totalStarted++;
 
         // Update message to show Starting status
-        await this.updateItemMessage(item, `🚀 Starting solve command...\n\n${item.infoBlock}`);
+        await this.updateItemMessage(item, formatStartingWorkSessionMessage({ infoBlock: item.infoBlock }));
 
         this.log(`Starting: ${item.toString()} from ${tool} queue`);
 
@@ -1144,17 +1144,16 @@ export class SolveQueue {
           if (chatId && messageId) {
             try {
               if (result.warning) {
-                await item.ctx.telegram.editMessageText(chatId, messageId, undefined, `⚠️ ${result.warning}`, { parse_mode: 'Markdown' });
+                await item.ctx.telegram.editMessageText(chatId, messageId, undefined, `⚠️ ${result.warning}\n\n${item.infoBlock}`, { parse_mode: 'Markdown' });
               } else if (result.success) {
                 const response = formatExecutingWorkSessionMessage({
-                  commandName: item.command || 'solve',
                   sessionName,
                   isolationBackend: result.isolationBackend,
                   infoBlock: item.infoBlock,
                 });
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
               } else {
-                const response = `❌ Error executing solve command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
+                const response = `❌ Error executing solve command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${item.infoBlock}`;
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
               }
             } catch (error) {
@@ -1177,7 +1176,8 @@ export class SolveQueue {
       const { chatId, messageId } = item.messageInfo || {};
       if (chatId && messageId && item.ctx) {
         try {
-          await item.ctx.telegram.editMessageText(chatId, messageId, undefined, `❌ Error: ${error.message}`, { parse_mode: 'Markdown' });
+          const errorText = item.infoBlock ? `❌ Error: ${error.message}\n\n${item.infoBlock}` : `❌ Error: ${error.message}`;
+          await item.ctx.telegram.editMessageText(chatId, messageId, undefined, errorText, { parse_mode: 'Markdown' });
         } catch (editError) {
           // Log the edit failure for debugging
           // See: https://github.com/link-assistant/hive-mind/issues/1062
@@ -1361,7 +1361,7 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
       const match = result.output && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
       const session = match ? match[1] : null;
       if (session) {
-        trackSessionFn(session, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: 'solve', tool: item.tool || 'claude' });
+        trackSessionFn(session, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: 'solve', tool: item.tool || 'claude', infoBlock: item.infoBlock });
       }
     }
     return result;

@@ -78,7 +78,7 @@ await monitorSessions(bot, false, { statusProvider: terminalStatusProvider });
 assert(statusCalls === 2, 'Monitor polls $ --status again while the completion update is pending');
 assert(editCalls === 2, 'Monitor retries the completion message update');
 assert(edits[1].chatId === 12345 && edits[1].messageId === 67890, 'Retry uses the original chat and message IDs');
-assert(edits[1].text.includes('*Work Session Completed*'), 'Completion edit contains terminal completed status');
+assert(edits[1].text.includes('*Work session finished successfully*'), 'Completion edit contains terminal completed status');
 assert(edits[1].text.includes('Duration: 6m 15s'), 'Completion edit uses $ --status timestamps');
 assert(getActiveSessionCount(false) === 0, 'Session is removed from memory only after message update succeeds');
 

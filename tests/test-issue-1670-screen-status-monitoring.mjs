@@ -157,9 +157,10 @@ await messageQueue.executeItem(messageItem);
 messageQueue.stop();
 
 const executingMessage = queuedEdits.at(-1) || '';
-assert(executingMessage.startsWith('⏳ Solve command executing...'), 'Executing message uses in-progress hourglass status');
+assert(executingMessage.startsWith('⏳ Executing...'), 'Executing message uses in-progress hourglass status');
 assert(!executingMessage.includes('Status: `Executing...`'), 'Executing message does not duplicate the status line');
 assert(!executingMessage.includes('This message will update when the session finishes'), 'Executing message omits the update footer');
+assert(!executingMessage.includes('Solve command executing'), 'Executing message no longer references command name (issue #1684)');
 assert(executingMessage.includes('📊 Session: `issue-1670-format-session`'), 'Executing message includes session id');
 assert(executingMessage.includes('🔒 Isolation: `screen`'), 'Executing message includes isolation backend');
 
@@ -178,9 +179,10 @@ const completionMessage = formatSessionCompletionMessage({
   },
   observedEndTime: new Date('2026-04-24T21:50:00.000Z'),
 });
-assert(completionMessage.includes('❌ *Work Session Failed (exit code: 1)*'), 'Completion message treats non-zero exit code as failed');
+assert(completionMessage.includes('❌ *Work session failed (exit code: 1)*'), 'Completion message treats non-zero exit code as failed');
 assert(completionMessage.includes('⏱️ Duration: 21m 7s'), 'Completion message uses start/end times from status output');
 assert(!completionMessage.includes('This message will update when the session finishes'), 'Completion message omits transient update footer');
+assert(!completionMessage.includes('The work session has finished. You can now review the results.'), 'Completion message omits old footer (issue #1684)');
 
 const successfulCompletionMessage = formatSessionCompletionMessage({
   sessionName: 'issue-1670-success-session',
@@ -196,7 +198,7 @@ const successfulCompletionMessage = formatSessionCompletionMessage({
     endTime: '2026-04-24T21:12:59.725Z',
   },
 });
-assert(successfulCompletionMessage.includes('✅ *Work Session Completed*'), 'Completion message treats zero exit code as completed');
+assert(successfulCompletionMessage.includes('✅ *Work session finished successfully*'), 'Completion message treats zero exit code as completed');
 assert(successfulCompletionMessage.includes('⏱️ Duration: 17m 41s'), 'Successful completion uses status timestamps for duration');
 
 printSummary();

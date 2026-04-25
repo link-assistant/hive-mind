@@ -257,6 +257,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           statusResult,
           observedEndTime: new Date(),
           exitCode: finalExitCode,
+          infoBlock: sessionInfo?.infoBlock || '',
         });
 
         // Update the original reply message if messageId is available, otherwise send new message

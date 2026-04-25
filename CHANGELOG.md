@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.56.10
+
+### Patch Changes
+
+- e2f9a37: Fix duplicated yargs choice values in Telegram validation errors.
+
 ## 1.56.9
 
 ### Patch Changes

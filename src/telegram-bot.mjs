@@ -25,13 +25,14 @@ const dotenvxModule = await use('@dotenvx/dotenvx');
 const dotenvx = dotenvxModule.default || dotenvxModule;
 const getenvModule = await use('getenv');
 const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
+const { resolveYargsFactory } = await import('./yargs-factory.lib.mjs');
 
 // Load .env/.lenv configuration (issue #1318)
 dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
 await loadLenvConfig({ override: true, quiet: true });
 
 const yargsModule = await use('yargs@17.7.2');
-const yargs = yargsModule.default || yargsModule;
+const yargs = resolveYargsFactory(yargsModule);
 const helpersModuleBot = await use('yargs@17.7.2/helpers');
 const _helpersBot = helpersModuleBot.default || helpersModuleBot;
 const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));

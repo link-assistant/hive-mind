@@ -19,7 +19,8 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
     const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
     globalThis.use = use;
     const yargsModule = await use('yargs@17.7.2');
-    const yargs = yargsModule.default || yargsModule;
+    const { resolveYargsFactory } = await import('./yargs-factory.lib.mjs');
+    const yargs = resolveYargsFactory(yargsModule);
     const helpersModuleHelp = await use('yargs@17.7.2/helpers');
     const _helpersHelp = helpersModuleHelp.default || helpersModuleHelp;
     const hideBinHelp = _helpersHelp.hideBin || (argv => argv.slice(2));
@@ -71,7 +72,8 @@ if (isRunningDirectly) {
       'loading command-stream'
     );
     const yargsModule = await withTimeout(use('yargs@17.7.2'), 30000, 'loading yargs');
-    const yargs = yargsModule.default || yargsModule;
+    const { resolveYargsFactory } = await import('./yargs-factory.lib.mjs');
+    const yargs = resolveYargsFactory(yargsModule);
     const helpersModuleMain = await withTimeout(use('yargs@17.7.2/helpers'), 30000, 'loading yargs helpers');
     const _helpersMain = helpersModuleMain.default || helpersModuleMain;
     const hideBin = _helpersMain.hideBin || (argv => argv.slice(2));

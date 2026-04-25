@@ -664,7 +664,9 @@ bot.command('help', async ctx => {
   message += "Merges all PRs with 'ready' label sequentially.\n";
   message += '*/help* - Show this help message\n';
   message += '*/stop* - Stop accepting new tasks (owner only)\n';
-  message += '*/start* - Resume accepting tasks (owner only)\n\n';
+  message += '*/start* - Resume accepting tasks (owner only)\n';
+  message += '*/log* - Fetch the log of an isolation session (owner only)\n';
+  message += '  Usage: `/log <session-uuid>` or reply to a session message with `/log`\n\n';
   message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete.\n';
   if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
   message += '\n';
@@ -1184,8 +1186,19 @@ bot.command(/^hive$/i, handleHiveCommand);
 
 const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
 const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
+const { registerLogCommand } = await import('./telegram-log-command.lib.mjs');
+const { querySessionStatus: _querySessionStatus } = await import('./isolation-runner.lib.mjs');
+const { getTrackedSessionInfo } = await import('./session-monitor.lib.mjs');
+const { detectRepositoryVisibility } = await import('./github.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
 registerStartStopCommands(bot, sharedCommandOpts);
+registerLogCommand(bot, {
+  ...sharedCommandOpts,
+  querySessionStatus: _querySessionStatus,
+  getTrackedSessionInfo,
+  detectRepositoryVisibility,
+  parseGitHubUrl,
+});
 
 // Add message listener for verbose debugging
 if (VERBOSE) {

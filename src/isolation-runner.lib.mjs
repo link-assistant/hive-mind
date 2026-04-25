@@ -41,17 +41,18 @@ export function generateSessionId() {
  * Keep the parser tolerant so completion monitoring survives either format.
  *
  * @param {string} output - Raw stdout from `$ --status`
- * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, raw: string}}
+ * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, raw: string}}
  */
 export function parseSessionStatusOutput(output) {
   const raw = (output || '').trim();
   if (!raw) {
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, raw: '' };
   }
 
   try {
     const parsed = JSON.parse(raw);
     const data = Array.isArray(parsed) ? parsed[0] : parsed;
+    const isolationFromOptions = typeof data?.options?.isolation === 'string' ? data.options.isolation.toLowerCase() : null;
     return {
       exists: true,
       uuid: data?.uuid || null,
@@ -60,6 +61,10 @@ export function parseSessionStatusOutput(output) {
       startTime: data?.startTime || null,
       endTime: data?.endTime || null,
       currentTime: data?.currentTime || null,
+      logPath: data?.logPath || null,
+      command: data?.command || null,
+      isolation: typeof data?.isolation === 'string' ? data.isolation.toLowerCase() : isolationFromOptions,
+      workingDirectory: data?.workingDirectory || null,
       raw,
     };
   } catch {
@@ -87,6 +92,10 @@ export function parseSessionStatusOutput(output) {
     startTime: readField('startTime'),
     endTime: readField('endTime'),
     currentTime: readField('currentTime'),
+    logPath: readField('logPath'),
+    command: readField('command'),
+    isolation: readField('isolation')?.toLowerCase() || null,
+    workingDirectory: readField('workingDirectory'),
     raw,
   };
 }
@@ -213,7 +222,7 @@ export async function querySessionStatus(sessionId, verbose = false) {
     if (verbose) {
       console.log('[VERBOSE] isolation-runner: Cannot query status - $ binary not found');
     }
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, raw: '' };
   }
 
   try {
@@ -230,7 +239,7 @@ export async function querySessionStatus(sessionId, verbose = false) {
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: Status query error: ${error.message}`);
     }
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, raw: '' };
   }
 }
 

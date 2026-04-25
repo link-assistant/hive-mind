@@ -560,9 +560,7 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
       console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
     }
   };
-  // Issue #1688: requesterUserId is used to suppress duplicate /subscribe notifications
-  // for the user who triggered the command (they are already notified in the chat).
-  const requesterUserId = ctx.from?.id ?? null;
+  const requesterUserId = ctx.from?.id ?? null; // Issue #1688: suppress duplicate /subscribe DM
   const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
   let result, session;
   if (iso) {
@@ -574,10 +572,7 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
     result = await executeStartScreen(commandName, args);
     const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
     session = match ? match[1] : 'unknown';
-    // Issue #1586: Track non-isolation sessions with timeout-based expiry.
-    // These sessions cannot reliably detect completion (screen stays alive via
-    // `exec bash`), so active URL checks auto-expire them after 10 min.
-    // This prevents accidental duplicate commands within the timeout window.
+    // Issue #1586: Non-isolation sessions auto-expire after 10 min — screen stays alive via `exec bash` so completion can't be detected reliably; this still blocks duplicate commands in the timeout window.
     if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId }, VERBOSE);
   }
   if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
@@ -665,12 +660,11 @@ bot.command('help', async ctx => {
   message += '*/merge* - Merge queue (experimental)\n';
   message += 'Usage: `/merge <github-repo-url>`\n';
   message += "Merges all PRs with 'ready' label sequentially.\n";
-  message += '*/subscribe* - 🔔 Receive private DM notifications when /solve commands finish (experimental)\n';
-  message += '*/unsubscribe* - 🔕 Stop receiving private notifications\n';
+  message += '*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental, #1688)\n';
   message += '*/help* - Show this help message\n';
   message += '*/stop* - Stop accepting new tasks (owner only)\n';
   message += '*/start* - Resume accepting tasks (owner only)\n\n';
-  message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete. Use /subscribe (private chat or group) to also get DM notifications. Subscriptions are kept in memory and reset on bot restart (experimental, issue #1688).\n';
+  message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete. Use /subscribe to also get DM forwards (in-memory, resets on restart).\n';
   if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
   message += '\n';
   message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /subscribe and /unsubscribe work in private and group chats.\n\n';
@@ -777,8 +771,7 @@ const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs'
 registerMergeCommand(bot, sharedCommandOpts);
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue });
-// Issue #1688: experimental /subscribe + /unsubscribe (in-memory)
-const { registerSubscribeCommands } = await import('./telegram-subscribers.lib.mjs');
+const { registerSubscribeCommands } = await import('./telegram-subscribers.lib.mjs'); // #1688
 registerSubscribeCommands(bot, sharedCommandOpts);
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
@@ -988,11 +981,7 @@ async function handleSolveCommand(ctx) {
   const normalizedUrl = validation.parsed.normalized;
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
-  // Issue #1460: Escape options text to prevent Markdown parsing errors
-  // Issue #1688: Use 'Issue:' / 'Pull request:' labels (instead of generic 'URL:') so the
-  //   completion message can additionally show a 'Pull request:' line when the agent
-  //   creates a PR for an issue.
+  // #1228: only user options; #1460: escape; #1688: 'Issue:' / 'Pull request:' label so completion can append PR link.
   const userOptionsRaw = userArgs.slice(1).join(' ');
   const urlLabel = validation.parsed?.type === 'pull' ? 'Pull request' : 'Issue';
   let infoBlock = `Requested by: ${requester}\n${urlLabel}: ${escapeMarkdown(normalizedUrl)}`;
@@ -1021,17 +1010,8 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  // Issue #1688: capture URL context (owner/repo/number/type) so the completion
-  //   notification can look up linked PRs for issue URLs and add a 'Pull request:' line.
-  const solveUrlContext = validation.parsed
-    ? {
-        owner: validation.parsed.owner,
-        repo: validation.parsed.repo,
-        number: validation.parsed.number,
-        type: validation.parsed.type,
-        normalized: validation.parsed.normalized || normalizedUrl,
-      }
-    : null;
+  // Issue #1688: parsed URL context lets the completion message look up linked PRs.
+  const solveUrlContext = validation.parsed ? { owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, normalized: validation.parsed.normalized || normalizedUrl } : null;
 
   const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
   if (check.canStart && toolQueuedCount === 0) {
@@ -1273,12 +1253,9 @@ bot.on('message', async (ctx, next) => {
     }
   }
 
-  // Check if this is a command we handle
+  // /subscribe + /unsubscribe (#1688) are intentionally not in the text fallback — Telegraf's bot.command() is sufficient.
   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
   const handlers = { ...solveHandlers, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
-  // Note: /subscribe + /unsubscribe rely on Telegraf's bot.command() entity handlers and
-  // are not added to this text-fallback map intentionally — the in-memory store doesn't
-  // need fallback resilience and we keep this map narrow to avoid unintended matches.
 
   const handler = handlers[extracted.command];
   if (!handler) return next();

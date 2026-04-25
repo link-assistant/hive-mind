@@ -50,6 +50,7 @@ const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STO
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync } = await import('./session-monitor.lib.mjs');
+const { formatExecutingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -559,14 +560,11 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
     }
   };
   const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
-  let result,
-    session,
-    extraInfo = '';
+  let result, session;
   if (iso) {
     session = iso.runner.generateSessionId();
     VERBOSE && console.log(`[VERBOSE] Using isolation (${iso.backend}), session: ${session}`);
     result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, verbose: VERBOSE });
-    extraInfo = `\n🔒 Isolation: \`${iso.backend}\``;
     if (result.success) trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: iso.backend, sessionId: session, tool }, VERBOSE);
   } else {
     result = await executeStartScreen(commandName, args);
@@ -579,8 +577,16 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
     if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool }, VERBOSE);
   }
   if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
-  if (result.success) await safeEdit(`🔄 ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command executing...\n\nStatus: \`Executing...\`\n📊 Session: \`${session}\`${extraInfo}\n\n${infoBlock}\n\n🔔 This message will update when the session finishes.`);
-  else await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
+  if (result.success) {
+    await safeEdit(
+      formatExecutingWorkSessionMessage({
+        commandName,
+        sessionName: session,
+        isolationBackend: iso?.backend || null,
+        infoBlock,
+      })
+    );
+  } else await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
 }
 
 bot.command('help', async ctx => {

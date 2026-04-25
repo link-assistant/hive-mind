@@ -20,6 +20,7 @@ export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, ge
 import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningProcesses } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
+import { formatExecutingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 
 export const QueueItemStatus = {
   QUEUED: 'queued',
@@ -1145,8 +1146,12 @@ export class SolveQueue {
               if (result.warning) {
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, `⚠️ ${result.warning}`, { parse_mode: 'Markdown' });
               } else if (result.success) {
-                const isolationInfo = result.isolationBackend ? `\n🔒 Isolation: \`${result.isolationBackend}\`` : '';
-                const response = `🔄 Solve command executing...\n\nStatus: \`Executing...\`\n📊 Session: \`${sessionName}\`${isolationInfo}\n\n${item.infoBlock}\n\n🔔 This message will update when the session finishes.`;
+                const response = formatExecutingWorkSessionMessage({
+                  commandName: item.command || 'solve',
+                  sessionName,
+                  isolationBackend: result.isolationBackend,
+                  infoBlock: item.infoBlock,
+                });
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
               } else {
                 const response = `❌ Error executing solve command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;

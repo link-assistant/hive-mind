@@ -12,7 +12,7 @@
  */
 
 import { parseSessionStatusOutput, shouldFallbackToScreenStatus } from '../src/isolation-runner.lib.mjs';
-import { trackSession, hasActiveSessionForUrlAsync, getActiveSessionCount, getRunningTrackedIsolationSessions } from '../src/session-monitor.lib.mjs';
+import { trackSession, hasActiveSessionForUrlAsync, getActiveSessionCount, getRunningTrackedIsolationSessions, formatSessionCompletionMessage } from '../src/session-monitor.lib.mjs';
 import { SolveQueue } from '../src/telegram-solve-queue.lib.mjs';
 import { assert, printSummary, getFailCount } from './test-helpers.mjs';
 
@@ -127,6 +127,77 @@ const formattedStatus = await queue.formatStatus();
 assert(formattedStatus.includes('claude (pending: 0, processing: 5)'), 'Formatted status shows max claude processing count');
 assert(formattedStatus.includes('codex (pending: 0, processing: 4)'), 'Formatted status shows max codex processing count');
 queue.stop();
+
+console.log('\n  Telegram message formatting:');
+const queuedEdits = [];
+const messageQueue = new SolveQueue({ verbose: false });
+messageQueue.executeCallback = async () => ({
+  success: true,
+  sessionId: 'issue-1670-format-session',
+  isolationBackend: 'screen',
+  output: 'session: issue-1670-format-session',
+});
+const messageItem = messageQueue.enqueue({
+  url: 'https://github.com/example/repo/issues/1670',
+  args: ['https://github.com/example/repo/issues/1670'],
+  ctx: {
+    chat: { id: 42 },
+    telegram: {
+      editMessageText: async (_chatId, _messageId, _inline, text) => {
+        queuedEdits.push(text);
+      },
+    },
+  },
+  requester: '@tester',
+  infoBlock: 'Requested by: @tester\nURL: https://github.com/example/repo/issues/1670',
+  tool: 'codex',
+});
+messageItem.messageInfo = { chatId: 42, messageId: 100 };
+await messageQueue.executeItem(messageItem);
+messageQueue.stop();
+
+const executingMessage = queuedEdits.at(-1) || '';
+assert(executingMessage.startsWith('⏳ Solve command executing...'), 'Executing message uses in-progress hourglass status');
+assert(!executingMessage.includes('Status: `Executing...`'), 'Executing message does not duplicate the status line');
+assert(!executingMessage.includes('This message will update when the session finishes'), 'Executing message omits the update footer');
+assert(executingMessage.includes('📊 Session: `issue-1670-format-session`'), 'Executing message includes session id');
+assert(executingMessage.includes('🔒 Isolation: `screen`'), 'Executing message includes isolation backend');
+
+const completionMessage = formatSessionCompletionMessage({
+  sessionName: 'issue-1670-completed-session',
+  sessionInfo: {
+    startTime: new Date('2026-04-24T20:00:00.000Z'),
+    url: 'https://github.com/example/repo/issues/1670',
+    isolationBackend: 'screen',
+  },
+  statusResult: {
+    status: 'executed',
+    exitCode: 1,
+    startTime: '2026-04-24T21:17:56.192Z',
+    endTime: '2026-04-24T21:39:03.630Z',
+  },
+  observedEndTime: new Date('2026-04-24T21:50:00.000Z'),
+});
+assert(completionMessage.includes('❌ *Work Session Failed (exit code: 1)*'), 'Completion message treats non-zero exit code as failed');
+assert(completionMessage.includes('⏱️ Duration: 21m 7s'), 'Completion message uses start/end times from status output');
+assert(!completionMessage.includes('This message will update when the session finishes'), 'Completion message omits transient update footer');
+
+const successfulCompletionMessage = formatSessionCompletionMessage({
+  sessionName: 'issue-1670-success-session',
+  sessionInfo: {
+    startTime: new Date('2026-04-24T20:55:18.953Z'),
+    url: 'https://github.com/example/repo/pull/548',
+    isolationBackend: 'screen',
+  },
+  statusResult: {
+    status: 'executed',
+    exitCode: 0,
+    startTime: '2026-04-24T20:55:18.953Z',
+    endTime: '2026-04-24T21:12:59.725Z',
+  },
+});
+assert(successfulCompletionMessage.includes('✅ *Work Session Completed*'), 'Completion message treats zero exit code as completed');
+assert(successfulCompletionMessage.includes('⏱️ Duration: 17m 41s'), 'Successful completion uses status timestamps for duration');
 
 printSummary();
 

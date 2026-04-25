@@ -34,6 +34,10 @@ async function getIsolationRunner() {
 // In-memory session store
 const activeSessions = new Map();
 
+export function resetSessionMonitorForTests() {
+  activeSessions.clear();
+}
+
 /**
  * Issue #1586: Timeout for non-isolation sessions.
  * Non-isolation (plain start-screen) sessions cannot reliably detect completion
@@ -124,6 +128,11 @@ function completeSession(sessionName, exitCode = 0, verbose = false) {
   }
 }
 
+function isMessageAlreadyUpdatedError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('message is not modified');
+}
+
 function normalizeSessionUrl(url) {
   return url.replace(/\/+$/, '').replace(/#.*$/, '').toLowerCase();
 }
@@ -190,7 +199,7 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
  * @param {Object} bot - Telegraf bot instance for sending messages
  * @param {boolean} verbose - Whether to log verbose output
  */
-export async function monitorSessions(bot, verbose = false) {
+export async function monitorSessions(bot, verbose = false, options = {}) {
   const sessions = getActiveSessions(verbose);
 
   if (sessions.length === 0) {
@@ -210,7 +219,10 @@ export async function monitorSessions(bot, verbose = false) {
       // Isolation mode: use $ --status, with screen -ls only as a fallback
       // when the status record is unavailable. Terminal $ statuses are
       // authoritative so completed screen sessions do not stay blocked.
-      const state = await getIsolationSessionState(sessionName, sessionInfo, { verbose });
+      const state = await getIsolationSessionState(sessionName, sessionInfo, {
+        verbose,
+        statusProvider: options.statusProvider,
+      });
       stillRunning = state.running;
       exitCode = state.exitCode;
       statusResult = state.statusResult;
@@ -257,7 +269,16 @@ export async function monitorSessions(bot, verbose = false) {
         completeSession(sessionName, finalExitCode || 0, verbose);
       } catch (error) {
         console.error(`Failed to send completion notification for ${sessionName}:`, error);
-        completeSession(sessionName, 1, verbose);
+        if (isMessageAlreadyUpdatedError(error)) {
+          completeSession(sessionName, exitCode || 0, verbose);
+        } else {
+          sessionInfo.lastNotificationError = error.message;
+          sessionInfo.lastKnownStatus = statusResult?.status || sessionInfo.lastKnownStatus || null;
+          sessionInfo.lastKnownExitCode = exitCode ?? sessionInfo.lastKnownExitCode ?? null;
+          if (verbose) {
+            console.log(`[VERBOSE] Session ${sessionName} kept in memory so the completion notification can be retried`);
+          }
+        }
       }
     }
   }
@@ -270,8 +291,14 @@ export async function monitorSessions(bot, verbose = false) {
  * @param {number} intervalMs - Monitoring interval in milliseconds (default: 30000)
  * @returns {NodeJS.Timer} The interval timer (can be cleared with clearInterval)
  */
-export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000) {
-  const timer = setInterval(() => monitorSessions(bot, verbose), intervalMs);
+export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000, options = {}) {
+  const runMonitor = () => {
+    monitorSessions(bot, verbose, options).catch(error => {
+      console.error(`[session-monitor] Session monitoring tick failed: ${error.message}`);
+    });
+  };
+  const timer = setInterval(runMonitor, intervalMs);
+  runMonitor();
   console.log(`📊 Session monitoring started (checking every ${intervalMs / 1000} seconds, storage: in-memory)`);
   return timer;
 }

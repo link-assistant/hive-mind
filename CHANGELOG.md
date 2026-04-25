@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.56.13
+
+### Patch Changes
+
+- ca1ac93: Start Telegram work-session monitoring before Telegraf long polling can block startup code, and keep completed screen-isolated sessions in memory until their completion message is updated.
+
 ## 1.56.12
 
 ### Patch Changes

@@ -285,6 +285,29 @@ await runAsyncTest('Calls deleteWebhook before launch', async () => {
   return callOrder[0] === 'deleteWebhook' && callOrder[1] === 'launch';
 });
 
+await runAsyncTest('Calls onLaunch before a long-polling launch promise settles', async () => {
+  let resolveLaunch;
+  let onLaunchCalls = 0;
+  const bot = {
+    telegram: {
+      deleteWebhook: async () => true,
+    },
+    launch: async (_options, onLaunch) => {
+      onLaunch();
+      await new Promise(resolve => {
+        resolveLaunch = resolve;
+      });
+    },
+  };
+
+  const launchPromise = launchBotWithRetry(bot, {}, { onLaunch: () => onLaunchCalls++ });
+  await Promise.resolve();
+  const callbackRanBeforeResolution = onLaunchCalls === 1;
+  resolveLaunch();
+  await launchPromise;
+  return callbackRanBeforeResolution && onLaunchCalls === 1;
+});
+
 console.log('\n  Retry cases:\n');
 
 await runAsyncTest('Retries on 409 Conflict and succeeds on 2nd attempt', async () => {

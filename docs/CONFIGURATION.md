@@ -121,12 +121,11 @@ These settings control Claude Code CLI behavior, including output limits and MCP
 
 ### 6. File and Path Settings
 
-| Environment Variable           | Default                                    | Description                              |
-| ------------------------------ | ------------------------------------------ | ---------------------------------------- |
-| `HIVE_MIND_TEMP_DIR`           | /tmp                                       | Temporary directory path                 |
-| `HIVE_MIND_TASK_INFO_FILENAME` | CLAUDE.md                                  | Task info filename                       |
-| `HIVE_MIND_PROC_MEMINFO`       | /proc/meminfo                              | Path to memory info file                 |
-| `HIVE_MIND_SESSION_STORE_PATH` | ~/.hive-mind/telegram-active-sessions.json | Telegram work-session monitor state file |
+| Environment Variable           | Default       | Description              |
+| ------------------------------ | ------------- | ------------------------ |
+| `HIVE_MIND_TEMP_DIR`           | /tmp          | Temporary directory path |
+| `HIVE_MIND_TASK_INFO_FILENAME` | CLAUDE.md     | Task info filename       |
+| `HIVE_MIND_PROC_MEMINFO`       | /proc/meminfo | Path to memory info file |
 
 ### 7. Text Processing
 

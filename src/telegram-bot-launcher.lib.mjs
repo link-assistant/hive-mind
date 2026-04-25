@@ -105,13 +105,28 @@ export function formatDelay(delayMs) {
  * @param {number} [retryOptions.jitterFraction] - Jitter fraction (default: 0.1)
  * @param {boolean} [retryOptions.verbose] - Enable verbose logging
  * @param {Function} [retryOptions.onRetry] - Callback on each retry: (attempt, error, delayMs) => void
+ * @param {Function} [retryOptions.onLaunch] - Callback when Telegraf reports that launch has started
  * @param {AbortSignal} [retryOptions.signal] - AbortSignal to cancel retry loop
  * @returns {Promise<void>} Resolves when bot is successfully launched
  * @throws {Error} If a non-retryable error occurs or signal is aborted
  */
 export async function launchBotWithRetry(bot, launchOptions, retryOptions = {}) {
-  const { verbose = false, onRetry, signal, ...backoffConfig } = retryOptions;
+  const { verbose = false, onRetry, onLaunch, signal, ...backoffConfig } = retryOptions;
   let attempt = 0;
+  let launchNotified = false;
+
+  const notifyLaunched = () => {
+    if (launchNotified || typeof onLaunch !== 'function') return;
+    launchNotified = true;
+    try {
+      const result = onLaunch();
+      if (result && typeof result.catch === 'function') {
+        result.catch(error => console.error(`[telegram-bot-launcher] onLaunch callback failed: ${error.message}`));
+      }
+    } catch (error) {
+      console.error(`[telegram-bot-launcher] onLaunch callback failed: ${error.message}`);
+    }
+  };
 
   while (true) {
     // Check if abort was requested (e.g., during shutdown)
@@ -130,10 +145,13 @@ export async function launchBotWithRetry(bot, launchOptions, retryOptions = {}) 
 
       if (verbose) console.log(`[VERBOSE] Launch attempt ${attempt}: starting polling...`);
 
-      // Step 2: Launch bot in polling mode
-      await bot.launch(launchOptions);
+      // Step 2: Launch bot in polling mode. In Telegraf long-polling mode the
+      // launch promise may stay pending while polling is active, so use the
+      // launch callback for startup side effects such as session monitoring.
+      await bot.launch(launchOptions, notifyLaunched);
 
       // Success -- bot is running
+      notifyLaunched();
       if (attempt > 1) {
         console.log(`✅ Bot launched successfully after ${attempt} attempts`);
       }

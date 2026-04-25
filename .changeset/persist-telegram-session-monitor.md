@@ -2,4 +2,4 @@
 "@link-assistant/hive-mind": patch
 ---
 
-Persist Telegram work-session monitor state so screen-isolated runs can update their original message after a bot restart.
+Start Telegram work-session monitoring before Telegraf long polling can block startup code, and keep completed screen-isolated sessions in memory until their completion message is updated.

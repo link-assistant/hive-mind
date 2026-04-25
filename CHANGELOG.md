@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.56.11
+
+### Patch Changes
+
+- 0c00b7b: Retry Codex stream disconnects by resuming the preserved exec session.
+
 ## 1.56.10
 
 ### Patch Changes

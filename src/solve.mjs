@@ -1124,7 +1124,7 @@ try {
         });
 
         if (logUploadSuccess) {
-          await log(`  ✅ Failure logs uploaded to ${logTargetLabel} successfully`);
+          await log(`  📎 Failure logs attached to ${logTargetLabel}`);
         } else {
           // Issue #1212: Always show log upload failures (not just verbose)
           await log('  ⚠️  Failed to upload failure logs');

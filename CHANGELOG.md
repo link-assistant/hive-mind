@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.56.14
+
+### Patch Changes
+
+- 77d6be2: Prevent failure-log uploads from posting broken `null` links and replace green-check failure-log terminal status with neutral attachment wording.
+
 ## 1.56.13
 
 ### Patch Changes

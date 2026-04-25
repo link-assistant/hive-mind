@@ -136,6 +136,10 @@ async function fileSize(filePath) {
 /**
  * Registers the /log command handler with the bot.
  *
+ * Dependencies (`querySessionStatus`, `getTrackedSessionInfo`,
+ * `detectRepositoryVisibility`, `parseGitHubUrl`) are lazy-loaded from the
+ * existing libraries by default; tests pass mocked versions through `options`.
+ *
  * @param {Object} bot - Telegraf bot instance
  * @param {Object} options
  * @param {boolean} [options.VERBOSE]
@@ -143,13 +147,17 @@ async function fileSize(filePath) {
  * @param {Function} options.isChatAuthorized
  * @param {Function} [options.isTopicAuthorized]
  * @param {Function} [options.buildAuthErrorMessage]
- * @param {Function} options.querySessionStatus - From isolation-runner.lib.mjs
- * @param {Function} options.getTrackedSessionInfo - From session-monitor.lib.mjs
- * @param {Function} options.detectRepositoryVisibility - From github.lib.mjs
- * @param {Function} options.parseGitHubUrl - From github.lib.mjs
+ * @param {Function} [options.querySessionStatus] - Override for tests
+ * @param {Function} [options.getTrackedSessionInfo] - Override for tests
+ * @param {Function} [options.detectRepositoryVisibility] - Override for tests
+ * @param {Function} [options.parseGitHubUrl] - Override for tests
  */
-export function registerLogCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, querySessionStatus, getTrackedSessionInfo, detectRepositoryVisibility, parseGitHubUrl } = options;
+export async function registerLogCommand(bot, options) {
+  const { VERBOSE = false, isOldMessage, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
+  const querySessionStatus = options.querySessionStatus || (await import('./isolation-runner.lib.mjs')).querySessionStatus;
+  const getTrackedSessionInfo = options.getTrackedSessionInfo || (await import('./session-monitor.lib.mjs')).getTrackedSessionInfo;
+  const detectRepositoryVisibility = options.detectRepositoryVisibility || (await import('./github.lib.mjs')).detectRepositoryVisibility;
+  const parseGitHubUrl = options.parseGitHubUrl || (await import('./github.lib.mjs')).parseGitHubUrl;
 
   bot.command('log', async ctx => {
     VERBOSE && console.log('[VERBOSE] /log command received');

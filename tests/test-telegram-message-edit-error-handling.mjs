@@ -311,7 +311,7 @@ await runTestAsync('successful message edit works normally', async () => {
     throw new Error('editMessageText should be called with correct chat/message IDs');
   }
 
-  if (!editArgs.text.includes('command executing')) {
+  if (!editArgs.text.includes('Executing...')) {
     throw new Error('editMessageText should be called with executing message');
   }
 

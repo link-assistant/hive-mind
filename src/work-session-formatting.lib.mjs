@@ -1,10 +1,5 @@
 const FAILURE_STATUSES = new Set(['failed', 'cancelled', 'canceled', 'error']);
 
-function capitalizeCommandName(commandName) {
-  const normalized = commandName || 'solve';
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-}
-
 function parseDateValue(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -46,27 +41,32 @@ export function formatSessionDurationSeconds(seconds) {
   return parts.join(' ');
 }
 
-export function formatExecutingWorkSessionMessage({ commandName = 'solve', sessionName = 'unknown', isolationBackend = null, infoBlock = '' } = {}) {
-  const isolationInfo = isolationBackend ? `\n🔒 Isolation: \`${isolationBackend}\`` : '';
+export function formatStartingWorkSessionMessage({ infoBlock = '' } = {}) {
   const details = infoBlock ? `\n\n${infoBlock}` : '';
-  return `⏳ ${capitalizeCommandName(commandName)} command executing...\n\n📊 Session: \`${sessionName}\`${isolationInfo}${details}`;
+  return `🔄 Starting...${details}`;
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null } = {}) {
+export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', isolationBackend = null, infoBlock = '' } = {}) {
+  const isolationInfo = isolationBackend ? `\n🔒 Isolation: \`${isolationBackend}\`` : '';
+  const details = infoBlock ? `\n\n${infoBlock}` : '';
+  return `⏳ Executing...\n\n📊 Session: \`${sessionName}\`${isolationInfo}${details}`;
+}
+
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '' } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const failed = finalExitCode !== null && finalExitCode !== 0;
   const statusEmoji = failed ? '❌' : '✅';
-  const statusText = failed ? `Failed (exit code: ${finalExitCode})` : 'Completed';
-  const isolationInfo = sessionInfo?.isolationBackend ? `\n🔒 Isolation: ${sessionInfo.isolationBackend}` : '';
+  const statusText = failed ? `Work session failed (exit code: ${finalExitCode})` : 'Work session finished successfully';
+  const isolationInfo = sessionInfo?.isolationBackend ? `\n🔒 Isolation: \`${sessionInfo.isolationBackend}\`` : '';
   const startTime = parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
   const endTime = parseDateValue(statusResult?.endTime) || observedEndTime;
   const durationSeconds = Math.max(0, (endTime.getTime() - startTime.getTime()) / 1000);
+  const resolvedInfoBlock = infoBlock || sessionInfo?.infoBlock || '';
+  const details = resolvedInfoBlock ? `\n\n${resolvedInfoBlock}` : '';
 
-  let message = `${statusEmoji} *Work Session ${statusText}*\n\n`;
-  message += `📊 Session: \`${sessionName || 'unknown'}\`\n`;
+  let message = `${statusEmoji} *${statusText}*\n\n`;
   message += `⏱️ Duration: ${formatSessionDurationSeconds(durationSeconds)}\n`;
-  message += `🔗 URL: ${sessionInfo?.url || 'unknown'}${isolationInfo}\n\n`;
-  message += 'The work session has finished. You can now review the results.';
+  message += `📊 Session: \`${sessionName || 'unknown'}\`${isolationInfo}${details}`;
 
   return message;
 }

@@ -104,6 +104,13 @@ test('Capacity errors are classified as retryable overloads', () => {
   assert.equal(classified.label, 'Model capacity error');
 });
 
+test('Codex stream disconnects are classified as retryable transport errors', () => {
+  const classified = classifyRetryableError(['stream disconnected before completion: An error occurred while processing your request.', 'You can retry your request, or contact us through our help center at help.openai.com if the error persists.', 'Please include the request ID 00f1ff7f-106b-4f1e-a689-122e886fcaae in your message.'].join(' '));
+  assert.equal(classified.isRetryable, true);
+  assert.equal(classified.isCapacity, false);
+  assert.equal(classified.label, 'Stream disconnected before completion');
+});
+
 test('Codex --think off maps to none reasoning', () => {
   const result = resolveCodexReasoningEffort({ think: 'off' });
   assert.equal(result.reasoningEffort, 'none');
@@ -416,6 +423,63 @@ await asyncTest('Codex command retries with resume and fallback model after capa
   assert.equal(commands.length, 2);
   assert.ok(commands[0].includes('--model "gpt-5.5"'), `Expected first attempt to use gpt-5.5, got: ${commands[0]}`);
   assert.ok(commands[1].includes('resume "thread_capacity_1666" --model "gpt-5.4"'), `Expected retry to resume with gpt-5.4, got: ${commands[1]}`);
+});
+
+await asyncTest('Codex command retries stream disconnects by resuming the same session', async () => {
+  const commands = [];
+  let attempt = 0;
+  const disconnectMessage = ['stream disconnected before completion: An error occurred while processing your request.', 'You can retry your request, or contact us through our help center at help.openai.com if the error persists.', 'Please include the request ID 00f1ff7f-106b-4f1e-a689-122e886fcaae in your message.'].join(' ');
+  const fakeDollar =
+    options =>
+    (strings, ...values) => {
+      commands.push(renderTaggedTemplateCommand(strings, values));
+      const currentAttempt = attempt++;
+      return {
+        async *stream() {
+          if (currentAttempt === 0) {
+            yield {
+              type: 'stdout',
+              data: Buffer.from([`{"type":"thread.started","thread_id":"thread_stream_1673"}`, `{"type":"error","message":${JSON.stringify(disconnectMessage)}}`, `{"type":"turn.failed","error":{"message":${JSON.stringify(disconnectMessage)}}}`].join('\n')),
+            };
+            yield { type: 'exit', code: 0 };
+            return;
+          }
+
+          yield {
+            type: 'stdout',
+            data: Buffer.from(['{"type":"thread.started","thread_id":"thread_stream_1673"}', '{"type":"item.completed","item":{"id":"msg_1","type":"agent_message","text":"Recovered after stream disconnect."}}'].join('\n')),
+          };
+          yield { type: 'exit', code: 0 };
+        },
+        result: { code: 0 },
+      };
+    };
+
+  const result = await executeCodexCommand({
+    tempDir: process.cwd(),
+    branchName: 'issue-1673-test',
+    prompt: 'test prompt',
+    systemPrompt: '',
+    argv: { model: 'gpt-5.5', verbose: false },
+    log: async () => {},
+    formatAligned: (icon, label, value = '') => `${icon} ${label} ${value}`,
+    getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+    forkedRepo: null,
+    feedbackLines: [],
+    codexPath: 'codex',
+    $: fakeDollar,
+    owner: null,
+    repo: null,
+    prNumber: null,
+    calculatePricing: async () => null,
+    waitForRetryDelay: async () => {},
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.sessionId, 'thread_stream_1673');
+  assert.equal(commands.length, 2);
+  assert.ok(commands[0].includes('--model "gpt-5.5"'), `Expected first attempt to use gpt-5.5, got: ${commands[0]}`);
+  assert.ok(commands[1].includes('resume "thread_stream_1673" --model "gpt-5.5"'), `Expected retry to resume with same model, got: ${commands[1]}`);
 });
 
 await asyncTest('OpenCode resume uses --session so fallback retries can stay on the same session', async () => {

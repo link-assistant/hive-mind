@@ -614,7 +614,10 @@ ${logContent}
         if (uploadResult.success) {
           // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks)
           // Requirements: 1 chunk = direct raw link, >1 chunks = repo link
-          const logUrl = uploadResult.chunks === 1 ? uploadResult.rawUrl : uploadResult.url;
+          // Private repository raw URLs can contain short-lived tokens, so keep
+          // private uploads on the stable repository/tree page URL.
+          const useRawLogUrl = uploadResult.chunks === 1 && uploadResult.rawUrl && (isPublicRepo || uploadResult.type !== 'repository');
+          const logUrl = useRawLogUrl ? uploadResult.rawUrl : uploadResult.url;
           const uploadTypeLabel = uploadResult.type === 'gist' ? 'Gist' : 'Repository';
           const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} chunks)` : '';
 
@@ -752,10 +755,9 @@ ${sessionNote}
           }
         } else {
           await log('  ❌ gh-upload-log failed');
-
-          // Fallback to truncated comment
-          await log('  🔄 Falling back to truncated comment...');
-          return await attachTruncatedLog(options);
+          await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
+          await log(`  📁 Full log remains available locally at: ${logFile}`);
+          return false;
         }
       } catch (uploadError) {
         reportError(uploadError, {
@@ -763,8 +765,9 @@ ${sessionNote}
           level: 'error',
         });
         await log(`  ❌ Error uploading log: ${uploadError.message}`);
-        // Try regular comment as last resort
-        return await attachRegularComment(options, logComment);
+        await log('  ⚠️  Full log upload failed; not posting a truncated log because --attach-logs must preserve complete logs');
+        await log(`  📁 Full log remains available locally at: ${logFile}`);
+        return false;
       }
     } else {
       // Comment fits within limit
@@ -774,60 +777,6 @@ ${sessionNote}
     // Issue #1212: ENOSPC-specific actionable guidance
     const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${uploadError.message}`;
     await log(`  ❌ ${msg}`);
-    return false;
-  }
-}
-/**
- * Helper to attach a truncated log when full log is too large
- */
-async function attachTruncatedLog(options) {
-  const fs = (await use('fs')).promises;
-  const { logFile, targetType, targetNumber, owner, repo, $, log, sanitizeLogContent } = options;
-
-  const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
-  const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
-
-  const rawLogContent = await fs.readFile(logFile, 'utf8');
-  let logContent = await sanitizeLogContent(rawLogContent);
-  // Escape code blocks to prevent markdown breaking
-  logContent = escapeCodeBlocksInLog(logContent);
-  const logStats = await fs.stat(logFile);
-
-  const GITHUB_COMMENT_LIMIT = 65536;
-  const maxContentLength = GITHUB_COMMENT_LIMIT - 500;
-  const truncatedContent = logContent.substring(0, maxContentLength) + '\n\n[... Log truncated due to length ...]';
-
-  const truncatedComment = `## 🤖 ${SOLUTION_DRAFT_LOG_MARKER} (Truncated)
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.
-⚠️ **Log was truncated** due to GitHub comment size limits.
-
-<details>
-<summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB, truncated)</summary>
-
-\`\`\`
-${truncatedContent}
-\`\`\`
-
-</details>
-
----
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
-  const tempFile = `/tmp/log-truncated-comment-${targetType}-${Date.now()}.md`;
-  await fs.writeFile(tempFile, truncatedComment);
-
-  // Issue #1625: track the posted comment ID so it's excluded from the
-  // AI-authored-comment check in --auto-attach-solution-summary.
-  const posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempFile });
-  await fs.unlink(tempFile).catch(() => {});
-  // ghCommand and targetName are retained in signature for symmetry with
-  // attachLogToGitHub's logging vocabulary.
-  void ghCommand;
-  if (posted.ok) {
-    await log(`  ✅ Truncated solution draft log uploaded to ${targetName}${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
-    await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB (truncated)`);
-    return true;
-  } else {
-    await log(`  ❌ Failed to upload truncated log: ${posted.stderr || 'unknown error'}`);
     return false;
   }
 }

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.56.9
+
+### Patch Changes
+
+- 94448c3: Fix screen-isolated work-session Telegram updates so executing messages stay compact and completion messages use `$ --status` start/end timestamps and exit codes.
+
 ## 1.56.8
 
 ### Patch Changes

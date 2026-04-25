@@ -299,6 +299,26 @@ Thank you! 🙏`;
     return false;
   }
 };
+export const selectLogUploadUrl = ({ uploadResult, isPublicRepo }) => {
+  if (!uploadResult?.success) return null;
+
+  const chunks = Number.isFinite(uploadResult.chunks) ? uploadResult.chunks : 1;
+  const rawUrl = uploadResult.rawUrl || null;
+  const pageUrl = uploadResult.url || null;
+  const canUseRawUrl = chunks === 1 && rawUrl && (isPublicRepo || uploadResult.type !== 'repository');
+
+  return canUseRawUrl ? rawUrl : pageUrl;
+};
+
+const isUsableLogUrl = value => typeof value === 'string' && /^https:\/\/[^\s)]+$/u.test(value);
+
+const getLogUploadTerminalStatus = ({ errorMessage, errorDuringExecution, isUsageLimit }) => {
+  if (errorMessage) return { emoji: '📎', label: 'Failure log' };
+  if (errorDuringExecution) return { emoji: '📎', label: 'Finished-with-errors log' };
+  if (isUsageLimit) return { emoji: '📎', label: 'Usage-limit execution log' };
+  return { emoji: '✅', label: 'Solution draft log' };
+};
+
 /** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
 export async function attachLogToGitHub(options) {
   const fs = (await use('fs')).promises;
@@ -616,8 +636,14 @@ ${logContent}
           // Requirements: 1 chunk = direct raw link, >1 chunks = repo link
           // Private repository raw URLs can contain short-lived tokens, so keep
           // private uploads on the stable repository/tree page URL.
-          const useRawLogUrl = uploadResult.chunks === 1 && uploadResult.rawUrl && (isPublicRepo || uploadResult.type !== 'repository');
-          const logUrl = useRawLogUrl ? uploadResult.rawUrl : uploadResult.url;
+          const logUrl = selectLogUploadUrl({ uploadResult, isPublicRepo });
+          if (!isUsableLogUrl(logUrl)) {
+            await log('  ❌ gh-upload-log completed but no usable log URL was resolved');
+            await log('  ⚠️  Full log upload failed; not posting a broken log link');
+            await log(`  📁 Full log remains available locally at: ${logFile}`);
+            return false;
+          }
+
           const uploadTypeLabel = uploadResult.type === 'gist' ? 'Gist' : 'Repository';
           const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} chunks)` : '';
 
@@ -745,7 +771,8 @@ ${sessionNote}
           const posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempCommentFile });
           await fs.unlink(tempCommentFile).catch(() => {});
           if (posted.ok) {
-            await log(`  ✅ Solution draft log uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
+            const status = getLogUploadTerminalStatus({ errorMessage, errorDuringExecution, isUsageLimit });
+            await log(`  ${status.emoji} ${status.label} uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
             await log(`  🔗 Log URL: ${logUrl}`);
             await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
             return true;
@@ -785,7 +812,7 @@ ${sessionNote}
  */
 async function attachRegularComment(options, logComment) {
   const fs = (await use('fs')).promises;
-  const { targetType, targetNumber, owner, repo, $, log, logFile } = options;
+  const { targetType, targetNumber, owner, repo, $, log, logFile, errorMessage, errorDuringExecution, isUsageLimit } = options;
 
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -801,7 +828,8 @@ async function attachRegularComment(options, logComment) {
   await fs.unlink(tempFile).catch(() => {});
 
   if (posted.ok) {
-    await log(`  ✅ Solution draft log uploaded to ${targetName} as comment${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
+    const status = getLogUploadTerminalStatus({ errorMessage, errorDuringExecution, isUsageLimit });
+    await log(`  ${status.emoji} ${status.label} uploaded to ${targetName} as comment${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
     await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
     return true;
   } else {

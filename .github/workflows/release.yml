@@ -623,6 +623,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Use Node.js 20.x
         uses: actions/setup-node@v5
@@ -630,10 +632,14 @@ jobs:
           node-version: 24.x
 
       - name: Validate documentation files
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_AFTER_SHA: ${{ github.event.after }}
         run: |
-          echo "Running documentation validation tests..."
-          chmod +x tests/docs-validation.mjs
           node tests/docs-validation.mjs
+          node tests/test-docs-language-sync.mjs
 
   # === DOCKER PR CHECK ===
   docker-pr-check:

@@ -81,6 +81,21 @@ Before merging, ensure:
 - [ ] Human review completed
 - [ ] AI consensus achieved (if multi-agent)
 
+### Test Suite Entrypoints
+
+Use `npm test` for the default local suite. New tests that should run in the
+default suite must mark the test file itself:
+
+```javascript
+/**
+ * @hive-mind-test-suite default
+ */
+```
+
+Use a dedicated suite marker, such as `github-integration`, for tests that need
+external services or mutate real repositories. Do not append individual
+`node tests/...` commands to `package.json` or the main CI test-suite job.
+
 ### Communication Protocols
 
 #### Human → AI

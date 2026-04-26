@@ -52,7 +52,38 @@ export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', iso
   return `⏳ Executing...\n\n📊 Session: \`${sessionName}\`${isolationInfo}${details}`;
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '' } = {}) {
+/**
+ * Append an extra "Pull request:" line to an existing infoBlock when an issue's
+ * /solve session has produced a PR. Idempotent — already present URLs are not
+ * duplicated.
+ *
+ * @param {string} infoBlock - Existing infoBlock (already contains an Issue: line)
+ * @param {string|null} pullRequestUrl - PR URL discovered after the session completed
+ * @returns {string} New infoBlock
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/1688
+ */
+export function appendPullRequestLine(infoBlock, pullRequestUrl) {
+  if (!pullRequestUrl || !infoBlock) return infoBlock || '';
+  if (infoBlock.includes(pullRequestUrl)) return infoBlock;
+
+  const lines = infoBlock.split('\n');
+  let lastUrlLineIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^(Issue|Pull request|URL):\s/.test(lines[i])) {
+      lastUrlLineIdx = i;
+    }
+  }
+  const prLine = `Pull request: ${pullRequestUrl}`;
+  if (lastUrlLineIdx === -1) {
+    return `${infoBlock}\n${prLine}`;
+  }
+  const before = lines.slice(0, lastUrlLineIdx + 1);
+  const after = lines.slice(lastUrlLineIdx + 1);
+  return [...before, prLine, ...after].join('\n');
+}
+
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const failed = finalExitCode !== null && finalExitCode !== 0;
   const statusEmoji = failed ? '❌' : '✅';
@@ -61,7 +92,10 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   const startTime = parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
   const endTime = parseDateValue(statusResult?.endTime) || observedEndTime;
   const durationSeconds = Math.max(0, (endTime.getTime() - startTime.getTime()) / 1000);
-  const resolvedInfoBlock = infoBlock || sessionInfo?.infoBlock || '';
+  let resolvedInfoBlock = infoBlock || sessionInfo?.infoBlock || '';
+  // Issue #1688: When the agent created a PR for an issue-driven /solve, append
+  //   a 'Pull request:' line so the completion message includes both Issue and PR links.
+  if (pullRequestUrl) resolvedInfoBlock = appendPullRequestLine(resolvedInfoBlock, pullRequestUrl);
   const details = resolvedInfoBlock ? `\n\n${resolvedInfoBlock}` : '';
 
   let message = `${statusEmoji} *${statusText}*\n\n`;

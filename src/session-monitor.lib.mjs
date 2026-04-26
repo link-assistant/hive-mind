@@ -18,6 +18,7 @@
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
+import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
 
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 
@@ -251,6 +252,20 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
 
       try {
         const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
+
+        // Issue #1688: When the original /solve URL was an issue, look up the
+        //   linked PR so the completion message can include both an `Issue:` and
+        //   a `Pull request:` line. Failures are logged and ignored — the
+        //   notification still goes out without the PR line.
+        let pullRequestUrl = null;
+        try {
+          pullRequestUrl = await resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest });
+        } catch (lookupError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Pull request lookup failed for ${sessionName}: ${lookupError?.message || lookupError}`);
+          }
+        }
+
         const message = formatSessionCompletionMessage({
           sessionName,
           sessionInfo,
@@ -258,13 +273,44 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           observedEndTime: new Date(),
           exitCode: finalExitCode,
           infoBlock: sessionInfo?.infoBlock || '',
+          pullRequestUrl,
         });
 
         // Update the original reply message if messageId is available, otherwise send new message
+        let notifyFromChatId = null;
+        let notifyMessageId = null;
         if (sessionInfo.messageId) {
           await bot.telegram.editMessageText(sessionInfo.chatId, sessionInfo.messageId, undefined, message, { parse_mode: 'Markdown' });
+          notifyFromChatId = sessionInfo.chatId;
+          notifyMessageId = sessionInfo.messageId;
         } else {
-          await bot.telegram.sendMessage(sessionInfo.chatId, message, { parse_mode: 'Markdown' });
+          const sent = await bot.telegram.sendMessage(sessionInfo.chatId, message, { parse_mode: 'Markdown' });
+          notifyFromChatId = sent?.chat?.id || sessionInfo.chatId;
+          notifyMessageId = sent?.message_id || null;
+        }
+
+        // Issue #1688: forward the same completion message to every /subscribe-d user
+        //   in their private chat with the bot. Failures are logged but don't block
+        //   completion of the parent session.
+        if (getSubscriberCount() > 0 && notifyFromChatId && notifyMessageId) {
+          try {
+            const skipUserIds = new Set();
+            if (sessionInfo?.requesterUserId) skipUserIds.add(sessionInfo.requesterUserId);
+            const summary = await notifySubscribers({
+              bot,
+              fromChatId: notifyFromChatId,
+              messageId: notifyMessageId,
+              fallbackText: message,
+              fallbackOptions: { parse_mode: 'Markdown' },
+              skipUserIds,
+              verbose,
+            });
+            if (verbose) {
+              console.log(`[VERBOSE] Subscribe notify summary for ${sessionName}: forwarded=${summary.forwarded}, sent=${summary.sent}, skipped=${summary.skipped}, failures=${summary.failures.length}`);
+            }
+          } catch (notifyError) {
+            console.error(`[session-monitor] notifySubscribers failed for ${sessionName}:`, notifyError);
+          }
         }
 
         completeSession(sessionName, finalExitCode || 0, verbose);
@@ -283,6 +329,51 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
       }
     }
   }
+}
+
+/**
+ * Look up the URL of a pull request linked to the issue this session worked on.
+ * Returns null when the session was already operating on a PR, the URL context
+ * is missing, or no linked PR exists.
+ *
+ * Lazy-loads the GitHub batch helper so unrelated tests/imports don't pull
+ * GitHub deps. Tests can override the lookup via `options.lookupLinkedPullRequest`.
+ *
+ * @param {Object} sessionInfo
+ * @param {Object} [options]
+ * @param {boolean} [options.verbose]
+ * @param {Function} [options.lookupLinkedPullRequest] - Optional override `(ctx) => Promise<string|null>`
+ * @returns {Promise<string|null>} PR URL or null
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/1688
+ */
+async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, lookupLinkedPullRequest = null } = {}) {
+  const ctx = sessionInfo?.urlContext;
+  if (!ctx || ctx.type !== 'issue' || !ctx.owner || !ctx.repo || !ctx.number) {
+    return null;
+  }
+
+  if (typeof lookupLinkedPullRequest === 'function') {
+    return await lookupLinkedPullRequest(ctx);
+  }
+
+  try {
+    const { batchCheckPullRequestsForIssues } = await import('./github.lib.mjs');
+    const result = await batchCheckPullRequestsForIssues(ctx.owner, ctx.repo, [ctx.number]);
+    const linkedPRs = result?.[ctx.number]?.linkedPRs || [];
+    if (linkedPRs.length > 0 && linkedPRs[0].url) {
+      if (verbose) {
+        console.log(`[VERBOSE] Found linked PR ${linkedPRs[0].url} for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
+      }
+      return linkedPRs[0].url;
+    }
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] batchCheckPullRequestsForIssues failed for ${ctx.owner}/${ctx.repo}#${ctx.number}: ${error?.message || error}`);
+    }
+    throw error;
+  }
+  return null;
 }
 
 /**

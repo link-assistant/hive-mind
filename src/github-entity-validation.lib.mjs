@@ -21,13 +21,16 @@ import { ghPrView, ghIssueView } from './github.lib.mjs';
  * @param {number|string} [options.number] - Issue or PR number (if applicable)
  * @param {string} [options.type] - URL type: 'issue' or 'pull'
  * @param {boolean} [options.verbose=false] - Whether verbose logging is enabled
+ * @param {boolean} [options.autoAcceptInvite=false] - Whether the caller already passed
+ *   `--auto-accept-invite`. When true, the repo-404 message omits the suggestion to
+ *   use that flag, since it would not be actionable (issue #1692).
  * @returns {Promise<{valid: boolean, error?: string, level?: string, details?: string}>}
  *   - valid: true if all entities exist and are accessible
  *   - error: user-facing error message (when valid=false)
  *   - level: which entity level failed ('user', 'repo', 'issue', 'pull')
  *   - details: additional context for verbose logging
  */
-export async function validateGitHubEntityExistence({ owner, repo, number, type, verbose = false }) {
+export async function validateGitHubEntityExistence({ owner, repo, number, type, verbose = false, autoAcceptInvite = false }) {
   // Step 1: Check user/organization existence
   try {
     const userResult = await ghCmdRetry(() => $`gh api users/${owner} --jq .login`, { label: `check user ${owner}` });
@@ -53,9 +56,13 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
     if (repoResult.code !== 0) {
       const errorOutput = (repoResult.stderr ? repoResult.stderr.toString() : '') + (repoResult.stdout ? repoResult.stdout.toString() : '');
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
+        const bullets = ['• Repository may be private — ensure the bot has been granted access', '• The repository name is spelled correctly', '• The repository has not been deleted, transferred, or never existed'];
+        if (!autoAcceptInvite) {
+          bullets.push('• If you were recently invited, try using --auto-accept-invite to accept pending invitations');
+        }
         return {
           valid: false,
-          error: `Repository '${owner}/${repo}' not found or not accessible.\n\n💡 Please check:\n• The repository name is spelled correctly\n• If it's a private repository, ensure the bot has been granted access (GitHub returns 404 for private repos without permissions)\n• The repository has not been deleted or transferred\n• If you were recently invited, try using --auto-accept-invite to accept pending invitations`,
+          error: `Repository '${owner}/${repo}' is not accessible.\n\n💡 Please check:\n${bullets.join('\n')}`,
           level: 'repo',
         };
       }

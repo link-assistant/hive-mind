@@ -72,6 +72,27 @@ function generateTestRepoName() {
   return `test-feedback-lines-${uuid}`;
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForGitRemote(username, repoName) {
+  const remoteUrl = `https://github.com/${username}/${repoName}.git`;
+
+  for (let attempt = 1; attempt <= 10; attempt++) {
+    const remoteResult = $(`git ls-remote ${remoteUrl} HEAD`, { silent: true });
+    if (remoteResult.code === 0) {
+      return;
+    }
+
+    if (attempt < 10) {
+      await sleep(3000);
+    }
+  }
+
+  throw new Error(`Git remote did not become available: ${remoteUrl}`);
+}
+
 // Create test repository with issue and comments
 async function createTestRepository() {
   testRepo = generateTestRepoName();
@@ -108,6 +129,7 @@ async function createTestRepository() {
   }
 
   console.log(`   ✅ Repository created: https://github.com/${username}/${testRepo}`);
+  await waitForGitRemote(username, testRepo);
 
   // Initialize local repository
   const tempDir = `/tmp/${testRepo}-init`;

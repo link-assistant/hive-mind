@@ -58,7 +58,7 @@ The single deepest root cause is **lack of context propagation**: the validation
        1. Repository may be private — ensure the bot has been granted access.
        2. The repository name is spelled correctly.
        3. The repository has not been deleted, transferred, or never existed.
-     - Appends `• If you were recently invited, try using --auto-accept-invite to accept pending invitations` _only_ when `autoAcceptInvite === false`.
+     - Appends `• If Hive Mind bot was recently invited, try using --auto-accept-invite to accept pending invitations` _only_ when `autoAcceptInvite === false`.
    - Updated the JSDoc to document the new option.
 
 2. **`src/solve.mjs`** (`:293`) — passes `autoAcceptInvite: argv.autoAcceptInvite` into the call.

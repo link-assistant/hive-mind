@@ -58,7 +58,7 @@ export async function validateGitHubEntityExistence({ owner, repo, number, type,
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
         const bullets = ['• Repository may be private — ensure the bot has been granted access', '• The repository name is spelled correctly', '• The repository has not been deleted, transferred, or never existed'];
         if (!autoAcceptInvite) {
-          bullets.push('• If you were recently invited, try using --auto-accept-invite to accept pending invitations');
+          bullets.push('• If Hive Mind bot was recently invited, try using --auto-accept-invite to accept pending invitations');
         }
         return {
           valid: false,

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.57.1
+
+### Patch Changes
+
+- e4ece4d: Treat Codex app-server stream-lag item errors as non-fatal warnings when the turn otherwise completes successfully, preventing successful Codex runs from being reported as failed solution drafts.
+
 ## 1.57.0
 
 ### Minor Changes

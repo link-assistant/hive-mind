@@ -974,7 +974,7 @@ async function handleSolveCommand(ctx) {
       VERBOSE && console.log(`[VERBOSE] Auto-accept invite pre-check failed: ${e.message}`);
     }
   }
-  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, verbose: VERBOSE });
+  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, verbose: VERBOSE, autoAcceptInvite: args.some(a => a === '--auto-accept-invite') });
   if (!entityCheck.valid) {
     await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
     return;

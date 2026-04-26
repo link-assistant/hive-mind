@@ -9,13 +9,7 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import {
-  formatTerminalWatchMessage,
-  parseTerminalWatchArgs,
-  resolveTerminalWatchRepository,
-  tailTextForTerminal,
-  watchTerminalLogSession,
-} from '../src/telegram-terminal-watch-command.lib.mjs';
+import { formatTerminalWatchMessage, parseTerminalWatchArgs, resolveTerminalWatchRepository, tailTextForTerminal, watchTerminalLogSession } from '../src/telegram-terminal-watch-command.lib.mjs';
 
 let passed = 0;
 let failed = 0;

@@ -2,6 +2,7 @@
 
 /**
  * Integration test for feedback lines feature (Issue #168)
+ * @hive-mind-test-suite github-integration
  *
  * This test creates a real repository with comments and tests that
  * solve.mjs correctly detects and includes comment counts in the prompt.

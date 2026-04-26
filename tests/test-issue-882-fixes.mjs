@@ -9,16 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 
 // Import the unified model mapping
-import {
-  mapModelForTool,
-  isModelCompatibleWithTool,
-  validateToolModelCompatibility,
-  getValidModelsForTool,
-  claudeModels,
-  agentModels,
-  opencodeModels,
-  codexModels
-} from '../src/model-mapping.lib.mjs';
+import { mapModelForTool, isModelCompatibleWithTool, validateToolModelCompatibility, getValidModelsForTool, claudeModels, agentModels, opencodeModels, codexModels } from '../src/models/index.mjs';
 
 test('Model mapping - Agent tool should map grok-code correctly', () => {
   const mapped = mapModelForTool('agent', 'grok-code');
@@ -45,18 +36,15 @@ test('Model mapping - Agent tool should accept sonnet', () => {
 
 test('Model mapping - Claude tool should accept sonnet', () => {
   const mapped = mapModelForTool('claude', 'sonnet');
-  assert.strictEqual(mapped, 'claude-sonnet-4-5-20250929', 'sonnet should map to claude-sonnet-4-5-20250929 for claude');
+  // Updated for Issue #1329: sonnet now maps to Sonnet 4.6
+  assert.strictEqual(mapped, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6 for claude');
 
   const isCompatible = isModelCompatibleWithTool('claude', 'sonnet');
   assert.strictEqual(isCompatible, true, 'sonnet should be compatible with claude tool');
 });
 
 test('Model mapping - Validation should throw for incompatible model-tool combinations', () => {
-  assert.throws(
-    () => validateToolModelCompatibility('claude', 'grok-code'),
-    /not compatible with --tool claude/,
-    'Should throw error for grok-code with claude tool'
-  );
+  assert.throws(() => validateToolModelCompatibility('claude', 'grok-code'), /not compatible with --tool claude/, 'Should throw error for grok-code with claude tool');
 });
 
 test('Model mapping - Valid models list should be non-empty for each tool', () => {
@@ -96,8 +84,7 @@ test('Model mapping - Each tool has distinct model maps', () => {
   const claudeSonnet = mapModelForTool('claude', 'sonnet');
   const agentSonnet = mapModelForTool('agent', 'sonnet');
 
-  assert.notStrictEqual(claudeSonnet, agentSonnet,
-    'sonnet should map differently for claude vs agent (different APIs)');
+  assert.notStrictEqual(claudeSonnet, agentSonnet, 'sonnet should map differently for claude vs agent (different APIs)');
 });
 
 test('Model mapping - Export model maps are objects', () => {

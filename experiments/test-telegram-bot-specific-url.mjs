@@ -28,7 +28,7 @@ const content = await readFile(telegramBotPath, 'utf-8');
 // Test 1: Verify error handler exists and has improvements
 console.log('Test 1: Verify error handler improvements');
 const hasErrorHandler = content.includes('bot.catch(');
-const hasDetailedLogging = content.includes('console.error(\'Error details:\'');
+const hasDetailedLogging = content.includes("console.error('Error details:'");
 const hasSentryReporting = content.includes('reportError(error, {');
 const hasInformativeMessage = content.includes('**Error type:**');
 const hasSanitization = content.includes('.replace(/token[s]?\\s*[:=]\\s*[\\w-]+/gi');

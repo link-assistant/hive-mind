@@ -11,9 +11,7 @@
  */
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import command-stream for shell command execution
 const { $ } = await use('command-stream');

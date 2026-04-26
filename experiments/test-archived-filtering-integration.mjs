@@ -16,7 +16,7 @@ const testRepos = [
   // Regular repository (should not be archived)
   { owner: 'link-assistant', name: 'hive-mind' },
   // Another test repository
-  { owner: 'konard', name: 'vk-bot' }
+  { owner: 'konard', name: 'vk-bot' },
 ];
 
 try {

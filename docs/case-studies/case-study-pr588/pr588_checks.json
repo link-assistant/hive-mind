@@ -1,1 +1,74 @@
-[{"completedAt":"2025-10-09T09:14:07Z","event":"pull_request","link":"https://github.com/reagento/dishka/actions/runs/18371262626/job/52335467663","name":"Coverage","startedAt":"2025-10-09T09:13:48Z","state":"SUCCESS","workflow":"CI"},{"completedAt":"2025-10-09T09:13:30Z","event":"pull_request","link":"https://github.com/reagento/dishka/actions/runs/18371262626/job/52335296147","name":"Testing (3.10)","startedAt":"2025-10-09T09:11:48Z","state":"SUCCESS","workflow":"CI"},{"completedAt":"2025-10-09T09:13:27Z","event":"pull_request","link":"https://github.com/reagento/dishka/actions/runs/18371262626/job/52335296153","name":"Testing (3.11)","startedAt":"2025-10-09T09:11:48Z","state":"SUCCESS","workflow":"CI"},{"completedAt":"2025-10-09T09:13:38Z","event":"pull_request","link":"https://github.com/reagento/dishka/actions/runs/18371262626/job/52335296164","name":"Testing (3.13)","startedAt":"2025-10-09T09:11:47Z","state":"SUCCESS","workflow":"CI"},{"completedAt":"2025-10-09T09:13:45Z","event":"pull_request","link":"https://github.com/reagento/dishka/actions/runs/18371262626/job/52335296159","name":"Testing (3.12)","startedAt":"2025-10-09T09:11:46Z","state":"SUCCESS","workflow":"CI"},{"completedAt":"2025-10-09T09:13:02Z","event":"pull_request","link":"https://github.com/reagento/dishka/actions/runs/18371262626/job/52335296161","name":"Testing (3.14.0-rc.2)","startedAt":"2025-10-09T09:11:46Z","state":"SUCCESS","workflow":"CI"},{"completedAt":"2025-10-09T09:07:15Z","event":"","link":"https://sonarcloud.io/dashboard?id=reagento_dishka&pullRequest=588","name":"SonarCloud Code Analysis","startedAt":"2025-10-09T09:06:49Z","state":"SUCCESS","workflow":""},{"completedAt":"0001-01-01T00:00:00Z","event":"","link":"https://dishka--588.org.readthedocs.build/en/588/","name":"docs/readthedocs.org:dishka","startedAt":"0001-01-01T00:00:00Z","state":"SUCCESS","workflow":""}]
+[
+  {
+    "completedAt": "2025-10-09T09:14:07Z",
+    "event": "pull_request",
+    "link": "https://github.com/reagento/dishka/actions/runs/18371262626/job/52335467663",
+    "name": "Coverage",
+    "startedAt": "2025-10-09T09:13:48Z",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "completedAt": "2025-10-09T09:13:30Z",
+    "event": "pull_request",
+    "link": "https://github.com/reagento/dishka/actions/runs/18371262626/job/52335296147",
+    "name": "Testing (3.10)",
+    "startedAt": "2025-10-09T09:11:48Z",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "completedAt": "2025-10-09T09:13:27Z",
+    "event": "pull_request",
+    "link": "https://github.com/reagento/dishka/actions/runs/18371262626/job/52335296153",
+    "name": "Testing (3.11)",
+    "startedAt": "2025-10-09T09:11:48Z",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "completedAt": "2025-10-09T09:13:38Z",
+    "event": "pull_request",
+    "link": "https://github.com/reagento/dishka/actions/runs/18371262626/job/52335296164",
+    "name": "Testing (3.13)",
+    "startedAt": "2025-10-09T09:11:47Z",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "completedAt": "2025-10-09T09:13:45Z",
+    "event": "pull_request",
+    "link": "https://github.com/reagento/dishka/actions/runs/18371262626/job/52335296159",
+    "name": "Testing (3.12)",
+    "startedAt": "2025-10-09T09:11:46Z",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "completedAt": "2025-10-09T09:13:02Z",
+    "event": "pull_request",
+    "link": "https://github.com/reagento/dishka/actions/runs/18371262626/job/52335296161",
+    "name": "Testing (3.14.0-rc.2)",
+    "startedAt": "2025-10-09T09:11:46Z",
+    "state": "SUCCESS",
+    "workflow": "CI"
+  },
+  {
+    "completedAt": "2025-10-09T09:07:15Z",
+    "event": "",
+    "link": "https://sonarcloud.io/dashboard?id=reagento_dishka&pullRequest=588",
+    "name": "SonarCloud Code Analysis",
+    "startedAt": "2025-10-09T09:06:49Z",
+    "state": "SUCCESS",
+    "workflow": ""
+  },
+  {
+    "completedAt": "0001-01-01T00:00:00Z",
+    "event": "",
+    "link": "https://dishka--588.org.readthedocs.build/en/588/",
+    "name": "docs/readthedocs.org:dishka",
+    "startedAt": "0001-01-01T00:00:00Z",
+    "state": "SUCCESS",
+    "workflow": ""
+  }
+]

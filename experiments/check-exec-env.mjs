@@ -39,7 +39,7 @@ for (const file of srcFiles) {
           missing.push({
             file,
             line: lineNum,
-            call: fullCall.replace(/\s+/g, ' ').substring(0, 150)
+            call: fullCall.replace(/\s+/g, ' ').substring(0, 150),
           });
         }
       }

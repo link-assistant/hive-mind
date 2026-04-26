@@ -3,6 +3,7 @@
 ## Timeline of Events
 
 1. **User Action**: User executes `/solve` command with URL containing trailing backslash:
+
    ```
    /solve https://github.com/konard/hh-job-application-automation/issues/124\
    ```
@@ -21,20 +22,27 @@
 ## Root Causes
 
 ### Primary Cause
+
 The `parseGitHubUrl` function only checks for backslashes at the **start** of the URL (line 1084), not in the path component. The regex pattern:
+
 ```javascript
-/^[!@#$%^&*()[\]{}|\\:;"'<>,?`~]/.test(normalizedUrl)
+/^[!@#$%^&*()[\]{}|\\:;"'<>,?`~]/.test(normalizedUrl);
 ```
+
 Uses `^` which only matches at the beginning of the string.
 
 ### Secondary Cause
+
 The URL normalization step (line 1081) removes trailing slashes but doesn't check for or remove trailing backslashes:
+
 ```javascript
-normalizedUrl = url.trim().replace(/\/+$/, '');  // Only removes forward slashes
+normalizedUrl = url.trim().replace(/\/+$/, ''); // Only removes forward slashes
 ```
 
 ### Contributing Factor
+
 According to RFC 3986 and RFC 1738:
+
 - Backslash `\` is **NOT a valid character** in URL paths
 - It must be percent-encoded as `%5C` if needed
 - Using raw backslash leads to undefined behavior
@@ -44,7 +52,7 @@ According to RFC 3986 and RFC 1738:
 1. **src/github.lib.mjs**: `parseGitHubUrl()` function (line 1073)
    - Used by all URL parsing throughout the system
 
-2. **src/telegram-bot.mjs**: 
+2. **src/telegram-bot.mjs**:
    - `validateGitHubUrl()` function (line 614)
    - Used by `/solve` and `/hive` commands
 
@@ -62,6 +70,7 @@ Based on web search findings:
 - **Best Practice**: Reject URLs with unencoded backslashes to avoid ambiguity
 
 Sources:
+
 - [Rocket Validator - Backslash used as path segment delimiter](https://rocketvalidator.com/html-validation/bad-value-x-for-attribute-src-on-element-img-backslash-used-as-path-segment-delimiter)
 - [Sucuri - Bad Paths & Valid URL Characters](https://blog.sucuri.net/2023/01/bad-paths-the-importance-of-using-valid-url-characters.html)
 - [RFC 3986 - URI Generic Syntax](https://www.rfc-editor.org/rfc/rfc3986)

@@ -22,7 +22,7 @@ async function testClaudeCommandPattern() {
     const command = $({
       cwd: tempDir,
       shell: true,
-      exitOnError: false
+      exitOnError: false,
     })`${testCommand}`;
 
     let messageCount = 0;
@@ -72,7 +72,6 @@ async function testClaudeCommandPattern() {
     console.log(`   Tool uses: ${toolUseCount}`);
     console.log(`   Exit code: ${exitCode}`);
     return true;
-
   } catch (error) {
     console.error(`\n❌ Test failed: ${error.message}`);
     console.error(`   Stack: ${error.stack}`);

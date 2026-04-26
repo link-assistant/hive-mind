@@ -5,6 +5,7 @@
 When using Playwright MCP (Model Context Protocol) server with Claude Code or similar AI tools, Chrome/Chromium browser processes accumulate over time without being properly terminated. This leads to severe memory exhaustion, where the system runs out of available RAM and becomes unstable.
 
 The evidence screenshot shows a server (`147.45.234.122`) that has been running for 7 days with:
+
 - **97% memory utilization** (9925.9 MiB total, only 100.3 MiB free)
 - **Load average of 68.51** (extremely high)
 - **Multiple orphaned Chrome processes** consuming resources
@@ -53,6 +54,7 @@ This means each browser operation leaves behind an orphaned tab/process.
 #### 2. Context Lifecycle Not Properly Managed
 
 The Playwright MCP server manages browser contexts with different lifecycle modes:
+
 - **Persistent Mode (Default)**: Profile saved to disk, processes may linger
 - **Isolated Mode**: Ephemeral contexts, but must be explicitly enabled
 - **Extension Mode**: Connects to existing browser, disconnects but browser continues
@@ -70,6 +72,7 @@ This is marked as "won't fix" by the Chromium team.
 #### 4. Missing Process Recycling
 
 Long-running automation needs periodic process recycling, but:
+
 - No built-in recycling mechanism in Playwright MCP
 - Claude Code tools may spawn new browser instances without cleaning old ones
 - No maximum lifetime or instance count limits
@@ -77,6 +80,7 @@ Long-running automation needs periodic process recycling, but:
 #### 5. Container/Server Environment Issues
 
 In containerized or long-running server environments:
+
 - Shared memory (`/dev/shm`) limitations cause hangs
 - Missing `--init` flag leads to zombie process accumulation
 - Insufficient IPC namespace isolation
@@ -91,18 +95,21 @@ In containerized or long-running server environments:
 ## Impact Assessment
 
 ### Resource Impact
+
 - **Memory**: 5654.3 MiB used of 9925.9 MiB total (57% from processes, more in cache)
 - **Swap**: 1935.4 MiB used (indicates memory pressure)
 - **CPU Load**: 68.51 load average (severe overload for typical server)
 - **Process Count**: 974 total processes
 
 ### Operational Impact
+
 - System responsiveness degraded
 - New automation tasks may fail
 - Risk of complete system freeze
 - Requires manual intervention to resolve
 
 ### Business Impact
+
 - Reduced automation reliability
 - Increased operational overhead
 - Potential data loss if system crashes
@@ -113,20 +120,26 @@ In containerized or long-running server environments:
 ### Immediate Mitigations
 
 #### Solution 1: Periodic Process Cleanup (Cron Job)
+
 ```bash
 # Add to crontab: clean up orphaned Chrome processes every 30 minutes
 */30 * * * * pkill -f "chrome-headless" 2>/dev/null; sleep 5; pkill -9 -f "chrome-headless" 2>/dev/null
 ```
 
 #### Solution 2: Switch to Isolated Mode
+
 Configure Playwright MCP to use isolated mode:
+
 ```bash
 npx @playwright/mcp@latest --isolated
 ```
+
 This creates ephemeral contexts that are discarded after each session.
 
 #### Solution 3: Add Docker Flags
+
 Run containers with proper process management:
+
 ```bash
 docker run --init --ipc=host --cap-add=SYS_ADMIN your-image
 ```
@@ -134,7 +147,9 @@ docker run --init --ipc=host --cap-add=SYS_ADMIN your-image
 ### Long-term Fixes
 
 #### Solution 4: Implement Browser Lifecycle Management
+
 Add explicit browser recycling in automation code:
+
 ```javascript
 const MAX_BROWSER_LIFETIME_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_OPERATIONS_PER_BROWSER = 100;
@@ -143,9 +158,7 @@ let operationCount = 0;
 let browserStartTime = Date.now();
 
 async function ensureHealthyBrowser() {
-  const shouldRecycle =
-    operationCount >= MAX_OPERATIONS_PER_BROWSER ||
-    (Date.now() - browserStartTime) >= MAX_BROWSER_LIFETIME_MS;
+  const shouldRecycle = operationCount >= MAX_OPERATIONS_PER_BROWSER || Date.now() - browserStartTime >= MAX_BROWSER_LIFETIME_MS;
 
   if (shouldRecycle && browser) {
     await browser.close();
@@ -159,7 +172,9 @@ async function ensureHealthyBrowser() {
 ```
 
 #### Solution 5: Add Process Monitoring
+
 Implement monitoring for Chrome process count:
+
 ```bash
 #!/bin/bash
 # monitor-chrome.sh
@@ -173,7 +188,9 @@ fi
 ```
 
 #### Solution 6: Explicit Context Cleanup in MCP Integration
+
 Ensure proper cleanup sequence:
+
 ```javascript
 // In MCP tool handlers
 async function cleanupBrowserSession() {
@@ -209,14 +226,15 @@ process.on('SIGTERM', cleanupBrowserSession);
 
 Based on [2025 benchmarks](https://markaicode.com/playwright-mcp-memory-leak-fixes-2025/):
 
-| Configuration | Unoptimized | Optimized | Reduction |
-|--------------|-------------|-----------|-----------|
-| Chrome (5 contexts) | 1,240MB | 780MB | 37.1% |
-| Firefox (5 contexts) | 980MB | 615MB | 37.2% |
-| WebKit (5 contexts) | 1,150MB | 695MB | 39.6% |
-| Multi-browser setup | 2,860MB | 1,620MB | 43.4% |
+| Configuration        | Unoptimized | Optimized | Reduction |
+| -------------------- | ----------- | --------- | --------- |
+| Chrome (5 contexts)  | 1,240MB     | 780MB     | 37.1%     |
+| Firefox (5 contexts) | 980MB       | 615MB     | 37.2%     |
+| WebKit (5 contexts)  | 1,150MB     | 695MB     | 39.6%     |
+| Multi-browser setup  | 2,860MB     | 1,620MB   | 43.4%     |
 
 Key optimizations that achieved these results:
+
 1. Context-per-test pattern
 2. Periodic browser recycling
 3. Explicit context closure before browser closure
@@ -230,6 +248,7 @@ Key optimizations that achieved these results:
 ## References
 
 ### GitHub Issues
+
 - [microsoft/playwright-mcp#1111](https://github.com/microsoft/playwright-mcp/issues/1111) - Close tabs/browser not working
 - [microsoft/playwright-mcp#942](https://github.com/microsoft/playwright-mcp/issues/942) - Browser already in use error
 - [microsoft/playwright#21079](https://github.com/microsoft/playwright/issues/21079) - Memory leak on repeated open/close
@@ -237,9 +256,11 @@ Key optimizations that achieved these results:
 - [anthropics/claude-code#1383](https://github.com/anthropics/claude-code/issues/1383) - Playwright MCP frequently fails
 
 ### Documentation
+
 - [Playwright MCP Repository](https://github.com/microsoft/playwright-mcp)
 - [Browser Context Management - DeepWiki](https://deepwiki.com/microsoft/playwright-mcp/4.4-browser-context-management)
 
 ### Articles
+
 - [Playwright MCP 2.0 Memory Leak Fixes (2025)](https://markaicode.com/playwright-mcp-memory-leak-fixes-2025/)
 - [QA Touch - Playwright MCP Server Guide](https://www.qatouch.com/blog/playwright-mcp-server/)

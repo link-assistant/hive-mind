@@ -47,7 +47,6 @@ async function testCommandStreamTypes() {
     const match = output.match(/issuecomment-(\d+)/);
     console.log('Regex match:', match);
     console.log('Extracted ID:', match ? match[1] : 'NOT FOUND');
-
   } catch (error) {
     console.error('Error:', error.message);
     console.error('Error type:', error.constructor.name);

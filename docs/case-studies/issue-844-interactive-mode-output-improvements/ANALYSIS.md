@@ -15,6 +15,7 @@ This case study analyzes the interactive mode output from PR #843 and proposes i
 ### File: `src/interactive-mode.lib.mjs`
 
 The current implementation handles these event types:
+
 - `system.init` - Session initialization
 - `assistant` (text) - AI text responses
 - `assistant` (tool_use) - Tool invocations
@@ -24,16 +25,18 @@ The current implementation handles these event types:
 ### Current Comment Formats
 
 #### Session Started (system.init)
+
 ```markdown
 ## 🚀 Session Started
 
-| Property | Value |
-|----------|-------|
-| **Session ID** | `{session_id}` |
-| **Working Directory** | `{cwd}` |
-| **Available Tools** | ... |
+| Property              | Value          |
+| --------------------- | -------------- |
+| **Session ID**        | `{session_id}` |
+| **Working Directory** | `{cwd}`        |
+| **Available Tools**   | ...            |
 
 ---
+
 <details>
 <summary>📄 Raw JSON</summary>
 {single JSON object}
@@ -41,6 +44,7 @@ The current implementation handles these event types:
 ```
 
 #### Tool Call
+
 ```markdown
 ## 💻 Tool: Bash
 
@@ -52,6 +56,7 @@ The current implementation handles these event types:
 </details>
 
 ---
+
 <details>
 <summary>📄 Raw JSON</summary>
 {single JSON object}
@@ -59,6 +64,7 @@ The current implementation handles these event types:
 ```
 
 #### Tool Result
+
 ```markdown
 ## ✅ Tool Result: Success
 
@@ -70,6 +76,7 @@ The current implementation handles these event types:
 </details>
 
 ---
+
 <details>
 <summary>📄 Raw JSON</summary>
 {single JSON object}
@@ -77,15 +84,18 @@ The current implementation handles these event types:
 ```
 
 #### Assistant Response
+
 ```markdown
 ## 💬 Assistant Response
 
 {message text}
 
 ---
+
 _Tokens: {input} in / {output} out_
 
 ---
+
 <details>
 <summary>📄 Raw JSON</summary>
 {single JSON object}
@@ -93,6 +103,7 @@ _Tokens: {input} in / {output} out_
 ```
 
 #### TodoWrite Tool
+
 ```markdown
 ## 📋 Tool: TodoWrite
 
@@ -111,6 +122,7 @@ _Tokens: {input} in / {output} out_
 </details>
 
 ---
+
 <details>
 <summary>📄 Raw JSON</summary>
 {single JSON object}
@@ -120,36 +132,42 @@ _Tokens: {input} in / {output} out_
 ## Issues Identified
 
 ### Issue 1: Tool ID in comments
+
 - **Problem**: Tool IDs like `toolu_012uHuVXeG7ko5Kx5xP132xs` are shown in comments
 - **Impact**: Adds visual noise, information available in Raw JSON
 - **Solution**: Remove `**Tool ID:** \`${toolId}\`` line from tool use comments
 - **Location**: `handleToolUse()` function, line ~462
 
 ### Issue 2: Token info in assistant responses
+
 - **Problem**: Token counts shown in response header
 - **Impact**: Redundant info, available in Raw JSON
 - **Solution**: Remove token usage line from `handleAssistantText()`
 - **Location**: Lines ~354-356
 
 ### Issue 3: Verbose assistant response header
+
 - **Problem**: "## 💬 Assistant Response" header for every message
 - **Impact**: Creates visual clutter, should be just the message
 - **Solution**: Remove header for regular responses, just write message with collapsed Raw JSON after separator
 - **Location**: `handleAssistantText()` function
 
 ### Issue 4: Separate tool call and result comments
+
 - **Problem**: Tool call and result are posted as separate comments
 - **Impact**: Hard to correlate, doubles comment count, should merge them
 - **Solution**: Implement comment tracking and update mechanism
 - **Complexity**: HIGH - requires state management and GitHub API edit
 
 ### Issue 5: Raw JSON not always arrays
+
 - **Problem**: Raw JSON contains single objects, not arrays
 - **Impact**: Harder to merge multiple JSON objects (e.g., tool call + result)
 - **Solution**: Wrap all Raw JSON in arrays at root level
 - **Location**: `createRawJsonSection()` function
 
 ### Issue 6: Session comment missing details
+
 - **Problem**: "Session Started" should be "Interactive session Started"
 - **Problem**: Missing `model`, `permissionMode`, `claude_code_version` in properties
 - **Problem**: Missing `mcp_servers`, `slash_commands`, `agents` display
@@ -157,11 +175,13 @@ _Tokens: {input} in / {output} out_
 - **Location**: Lines ~317-328
 
 ### Issue 7: Tool label wording
+
 - **Problem**: `💻 Tool: Bash` should be `💻 Tool use: Bash`
 - **Solution**: Simple string replacement in tool use handlers
 - **Location**: Line ~460
 
 ### Issue 8: Todos display limit
+
 - **Problem**: Only shows 5 todos with "...and N more" at end
 - **Solution**: Show up to 30 items, skip items in middle if > 30
 - **Example format**:
@@ -182,16 +202,20 @@ _Tokens: {input} in / {output} out_
 ## Proposed Solutions
 
 ### Solution 1-3, 6-8: Direct Code Changes
+
 These are straightforward edits to the formatting functions.
 
 ### Solution 4: Comment Merging (Complex)
+
 Requires:
+
 1. Track pending tool calls by tool_use_id
 2. When result arrives, find matching call
 3. Edit existing comment instead of posting new one
 4. Merge both JSON objects into array
 
 Implementation approach:
+
 ```javascript
 // State tracking
 const pendingToolCalls = new Map(); // tool_use_id -> comment_id
@@ -211,27 +235,28 @@ if (pendingToolCalls.has(toolUseId)) {
 ```
 
 ### Solution 5: Array Wrapper
-```javascript
+
+````javascript
 const createRawJsonSection = (data) => {
   // Ensure data is always an array
   const dataArray = Array.isArray(data) ? data : [data];
   const jsonContent = truncateMiddle(safeJsonStringify(dataArray, 2), {...});
   return createCollapsible('📄 Raw JSON', '```json\n' + jsonContent + '\n```');
 };
-```
+````
 
 ## Impact Assessment
 
-| Change | Complexity | Impact | Risk |
-|--------|------------|--------|------|
-| Remove tool ID | Low | Medium | Low |
-| Remove token info | Low | Medium | Low |
-| Simplify response header | Low | Medium | Low |
-| Merge tool call/result | High | High | Medium |
-| Array wrapper for JSON | Low | Medium | Low |
-| Update session comment | Low | High | Low |
-| Change Tool label | Low | Low | Low |
-| Fix todos limit | Medium | Medium | Low |
+| Change                   | Complexity | Impact | Risk   |
+| ------------------------ | ---------- | ------ | ------ |
+| Remove tool ID           | Low        | Medium | Low    |
+| Remove token info        | Low        | Medium | Low    |
+| Simplify response header | Low        | Medium | Low    |
+| Merge tool call/result   | High       | High   | Medium |
+| Array wrapper for JSON   | Low        | Medium | Low    |
+| Update session comment   | Low        | High   | Low    |
+| Change Tool label        | Low        | Low    | Low    |
+| Fix todos limit          | Medium     | Medium | Low    |
 
 ## Recommendations
 

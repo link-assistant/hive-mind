@@ -1,0 +1,2 @@
+> @link-assistant/hive-mind@1.54.1 lint
+> eslint 'src/**/*.{js,mjs,cjs}'

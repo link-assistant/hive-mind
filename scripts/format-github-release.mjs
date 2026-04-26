@@ -14,9 +14,7 @@
  */
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -48,9 +46,7 @@ const { releaseVersion: version, repository, commitSha } = config;
 
 if (!version || !repository || !commitSha) {
   console.error('Error: Missing required arguments');
-  console.error(
-    'Usage: node scripts/format-github-release.mjs --release-version <version> --repository <repository> --commit-sha <commit_sha>'
-  );
+  console.error('Usage: node scripts/format-github-release.mjs --release-version <version> --repository <repository> --commit-sha <commit_sha>');
   process.exit(1);
 }
 
@@ -60,10 +56,7 @@ try {
   // Get the release ID for this version
   let releaseId = '';
   try {
-    const result =
-      await $`gh api "repos/${repository}/releases/tags/${tag}" --jq '.id'`.run(
-        { capture: true }
-      );
+    const result = await $`gh api "repos/${repository}/releases/tags/${tag}" --jq '.id'`.run({ capture: true });
     releaseId = result.stdout.trim();
   } catch {
     console.log(`Could not find release for ${tag}`);

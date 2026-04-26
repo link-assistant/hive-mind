@@ -14,7 +14,7 @@ const results = {
   exec: [],
   execSync: [],
   execFile: [],
-  execFileSync: []
+  execFileSync: [],
 };
 
 for (const file of allFiles) {

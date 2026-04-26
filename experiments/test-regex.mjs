@@ -2,18 +2,10 @@
 
 // Test regex patterns
 
-const testStrings = [
-  '8490aOEM',
-  '(a b c)',
-  '(\n  a\n  b\n)',
-  'value',
-  'my-option',
-  '123',
-  'normalword'
-];
+const testStrings = ['8490aOEM', '(a b c)', '(\n  a\n  b\n)', 'value', 'my-option', '123', 'normalword'];
 
-const regex1 = /[()\\n\r]|^\d|  /;  // My current regex with \\n
-const regex2 = /[()\n\r]|^\d|  /;   // Corrected regex with \n
+const regex1 = /[()\\n\r]|^\d|  /; // My current regex with \\n
+const regex2 = /[()\n\r]|^\d|  /; // Corrected regex with \n
 
 console.log('Testing regex patterns:\n');
 

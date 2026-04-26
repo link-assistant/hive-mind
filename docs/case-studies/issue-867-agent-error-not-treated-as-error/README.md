@@ -1,6 +1,7 @@
 # Case Study: Agent Tool Error Not Treated as Error in PR Comment
 
 ## Issue Reference
+
 - **Issue**: [#867 - The error for `--tool agent` was not treated as error in the comment to the pull request](https://github.com/link-assistant/hive-mind/issues/867)
 - **Pull Request**: [#868](https://github.com/link-assistant/hive-mind/pull/868)
 - **Referenced PR with failure**: [#864](https://github.com/link-assistant/hive-mind/pull/864)
@@ -20,6 +21,7 @@ This failure occurred because the agent command exited with code 0 despite print
 ## Evidence from PR #864
 
 ### Command Executed
+
 ```bash
 /home/hive/.nvm/versions/node/v20.19.6/bin/node /home/hive/.bun/bin/solve \
   https://github.com/link-assistant/hive-mind/issues/863 \
@@ -30,6 +32,7 @@ This failure occurred because the agent command exited with code 0 despite print
 ```
 
 ### Error Output (from log at 2025-12-08T22:33:21.267Z)
+
 ```
 519 |       providerID,
 520 |       modelID,
@@ -48,11 +51,13 @@ ProviderModelNotFoundError: Provi****************Error
 ```
 
 ### Incorrect Success Message (at 2025-12-08T22:33:21.281Z)
+
 ```
 ✅ Agent command completed
 ```
 
 ### Incorrect PR State Change (at 2025-12-08T22:33:23.146Z - 2025-12-08T22:33:24.072Z)
+
 ```
 🔄 Converting PR from draft to ready for review...
 ✅ PR converted to ready for review
@@ -60,20 +65,20 @@ ProviderModelNotFoundError: Provi****************Error
 
 ## Timeline / Sequence of Events
 
-| Timestamp | Event | Status |
-|-----------|-------|--------|
-| 2025-12-08T22:32:52.220Z | solve.mjs started with `--tool agent` | Starting |
-| 2025-12-08T22:32:58.022Z | Tool connection validation skipped (`--no-tool-check`) | Warning |
-| 2025-12-08T22:33:05.047Z | Branch `issue-863-fd6d55c88d74` created | OK |
-| 2025-12-08T22:33:14.581Z | PR #864 created as draft | OK |
-| 2025-12-08T22:33:20.764Z | Agent execution started with model `sonnet` | Starting |
-| 2025-12-08T22:33:20.787Z | Agent command: `agent --model anthropic/claude-3-5-sonnet` | Executing |
-| 2025-12-08T22:33:21.267Z | **ERROR**: ProviderModelNotFoundError thrown | **FAILURE** |
-| 2025-12-08T22:33:21.281Z | **INCORRECT**: Logged "✅ Agent command completed" | **BUG** |
-| 2025-12-08T22:33:21.296Z | CLAUDE.md cleanup proceeded as if successful | **BUG** |
-| 2025-12-08T22:33:22.125Z | Session summary showed "❌ No session ID extracted" | Warning ignored |
-| 2025-12-08T22:33:24.072Z | **INCORRECT**: PR converted to "ready for review" | **BUG** |
-| 2025-12-08T22:33:24.072Z | Logs uploaded to PR without error indication | **BUG** |
+| Timestamp                | Event                                                      | Status          |
+| ------------------------ | ---------------------------------------------------------- | --------------- |
+| 2025-12-08T22:32:52.220Z | solve.mjs started with `--tool agent`                      | Starting        |
+| 2025-12-08T22:32:58.022Z | Tool connection validation skipped (`--no-tool-check`)     | Warning         |
+| 2025-12-08T22:33:05.047Z | Branch `issue-863-fd6d55c88d74` created                    | OK              |
+| 2025-12-08T22:33:14.581Z | PR #864 created as draft                                   | OK              |
+| 2025-12-08T22:33:20.764Z | Agent execution started with model `sonnet`                | Starting        |
+| 2025-12-08T22:33:20.787Z | Agent command: `agent --model anthropic/claude-3-5-sonnet` | Executing       |
+| 2025-12-08T22:33:21.267Z | **ERROR**: ProviderModelNotFoundError thrown               | **FAILURE**     |
+| 2025-12-08T22:33:21.281Z | **INCORRECT**: Logged "✅ Agent command completed"         | **BUG**         |
+| 2025-12-08T22:33:21.296Z | CLAUDE.md cleanup proceeded as if successful               | **BUG**         |
+| 2025-12-08T22:33:22.125Z | Session summary showed "❌ No session ID extracted"        | Warning ignored |
+| 2025-12-08T22:33:24.072Z | **INCORRECT**: PR converted to "ready for review"          | **BUG**         |
+| 2025-12-08T22:33:24.072Z | Logs uploaded to PR without error indication               | **BUG**         |
 
 ## Root Cause Analysis
 
@@ -85,6 +90,7 @@ The @link-assistant/agent tool exited with code 0 even though it threw an error.
 2. **Error is caught but not propagated**: The error might be caught internally and logged, but the process exits normally
 
 **Evidence from research**:
+
 - [Node.js process documentation](https://nodejs.org/api/process.html) states that by default, uncaught exceptions cause exit with code 1, but custom handlers can override this
 - [GitHub issue #3479](https://github.com/nodejs/node-v0.x-archive/issues/3479) discusses how console.error output doesn't always flush before process.exit
 - [Better Stack Community](https://betterstack.com/community/questions/how-to-exit-in-node-js/) explains that exit code 0 can occur even with stderr output
@@ -123,6 +129,7 @@ return { success: true, ... };
 ```
 
 **Problems**:
+
 1. **Only checks `exitCode !== 0`**: Doesn't analyze stderr content for error patterns
 2. **Doesn't check `lastMessage`**: The error appears in stdout but isn't analyzed
 3. **No pattern matching**: Doesn't look for error keywords like "Error", "Exception", "throw"
@@ -143,6 +150,7 @@ if (!success) {
 But since `agent.lib.mjs` returned `success: true`, this check passed incorrectly.
 
 **No downstream validation**:
+
 - No check for whether any code was actually changed
 - No verification that session ID was created
 - No analysis of whether work was actually done
@@ -158,6 +166,7 @@ But since `agent.lib.mjs` returned `success: true`, this check passed incorrectl
 The `--no-tool-check` flag was used, which skipped `validateAgentConnection`. If this validation had run, it would have caught the model configuration issue earlier.
 
 **From `agent.lib.mjs:41-102`**:
+
 ```javascript
 export const validateAgentConnection = async (model = 'grok-code-fast-1') => {
   // Map model alias to full ID
@@ -169,7 +178,7 @@ export const validateAgentConnection = async (model = 'grok-code-fast-1') => {
   if (testResult.code !== 0) {
     // ... error detection ...
   }
-}
+};
 ```
 
 This would have tested the exact same command and failed early, before PR creation.
@@ -181,16 +190,16 @@ This would have tested the exact same command and failed early, before PR creati
 **Location**: `src/agent.lib.mjs:23-38`
 
 ```javascript
-export const mapModelToId = (model) => {
+export const mapModelToId = model => {
   const modelMap = {
-    'grok': 'opencode/grok-code',
+    grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     'grok-code-fast-1': 'opencode/grok-code',
     'big-pickle': 'opencode/big-pickle',
     'gpt-5-nano': 'openai/gpt-5-nano',
-    'sonnet': 'anthropic/claude-3-5-sonnet',    // ← This mapping was used
-    'haiku': 'anthropic/claude-3-5-haiku',
-    'opus': 'anthropic/claude-3-opus',
+    sonnet: 'anthropic/claude-3-5-sonnet', // ← This mapping was used
+    haiku: 'anthropic/claude-3-5-haiku',
+    opus: 'anthropic/claude-3-opus',
     'gemini-3-pro': 'google/gemini-3-pro',
   };
 
@@ -203,6 +212,7 @@ The model alias `sonnet` was correctly mapped to `anthropic/claude-3-5-sonnet`, 
 ### Error Pattern Analysis
 
 The error message structure:
+
 ```
 ProviderModelNotFoundError: Provi****************Error
  data: {
@@ -212,6 +222,7 @@ ProviderModelNotFoundError: Provi****************Error
 ```
 
 **Pattern detection opportunities**:
+
 1. **Error class name**: Contains "Error" suffix
 2. **Stack trace format**: Typical Node.js error format with `at getModel (/path/to/file:line:col)`
 3. **Error data**: Contains providerID and modelID fields
@@ -243,23 +254,27 @@ The stream correctly captured the error output, but the exit code was 0, causing
 ## Impact Analysis
 
 ### User Experience Impact
+
 - **Silent failures**: Users receive no indication that the solution failed
 - **Wasted time**: PR appears ready for review but contains no solution
 - **Confusion**: Error is visible in logs but contradicted by success messages
 - **False confidence**: "✅ Agent command completed" message misleads users
 
 ### System Integrity Impact
+
 - **Incorrect PR state**: Draft PRs converted to ready incorrectly
 - **Resource waste**: GitHub Actions may trigger on these PRs expecting code changes
 - **Noise**: Creates non-functional PRs that need manual cleanup
 - **Metrics pollution**: Success rate metrics would be inflated
 
 ### Data Accuracy Impact
+
 - **Logs show contradiction**: Logs contain both error and success messages
 - **No session ID**: "❌ No session ID extracted" warning is not treated as error
 - **Missing error context**: PR comment doesn't indicate failure
 
 ### Severity Assessment
+
 **Critical** - This bug allows complete execution failures to be reported as successes, undermining trust in the automated system.
 
 ## Comparison with Other Tools
@@ -267,6 +282,7 @@ The stream correctly captured the error output, but the exit code was 0, causing
 Looking at similar error handling in other tool integrations:
 
 ### Claude Tool (`claude.lib.mjs`)
+
 ```javascript
 if (exitCode !== 0) {
   // Check for usage limit errors first
@@ -284,24 +300,29 @@ if (exitCode !== 0) {
 **Difference**: Claude tool at least has usage limit detection pattern matching, though it still relies on exit code.
 
 ### OpenCode Tool (`opencode.lib.mjs`)
+
 Similar pattern - checks exit code but doesn't analyze output for error patterns.
 
 ### Recommended Pattern
+
 All tools should implement output-based error detection as a fallback when exit code is 0.
 
 ## Files Analyzed
 
 ### Primary Files
+
 - `src/solve.mjs` (lines 787-814) - Agent execution orchestration
 - `src/agent.lib.mjs` (lines 207-382) - Agent command execution and error handling
 - `src/agent.prompts.lib.mjs` - Prompt building (not directly related to bug)
 
 ### Supporting Files
+
 - `src/solve.results.lib.mjs` - PR status updates
 - `src/github.lib.mjs` - Log attachment logic
 - `docs/case-studies/issue-667-pricing-calculation-failures/README.md` - Template for this case study
 
 ### Log Files
+
 - `docs/case-studies/issue-867-agent-error-not-treated-as-error/pr864-full-log.txt` - Complete execution log from PR #864
 
 ## Proposed Solutions
@@ -354,6 +375,7 @@ return { success: true, ... };
 ```
 
 **Pros**:
+
 - Quick to implement
 - Catches errors regardless of exit code
 - Minimal code changes
@@ -361,6 +383,7 @@ return { success: true, ... };
 - Defensive programming approach
 
 **Cons**:
+
 - Pattern matching might have false positives
 - Doesn't fix the root cause in @link-assistant/agent
 - Requires maintenance of pattern list
@@ -423,12 +446,14 @@ if (!success) {
 ```
 
 **Pros**:
+
 - More robust success validation
 - Catches multiple failure modes
 - Provides clear diagnostics
 - Aligns with expected behavior (successful runs create sessions)
 
 **Cons**:
+
 - Assumes all successful runs create session IDs
 - More complex logic
 - May need special handling for dry-run modes
@@ -444,26 +469,28 @@ if (!success) {
 In `@link-assistant/agent` repository (not this codebase):
 
 1. **Ensure uncaught exceptions exit with code 1**:
+
 ```javascript
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   console.error('Uncaught Exception:', error);
-  process.exit(1);  // Ensure non-zero exit
+  process.exit(1); // Ensure non-zero exit
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);  // Ensure non-zero exit
+  process.exit(1); // Ensure non-zero exit
 });
 ```
 
 2. **Catch provider errors and exit properly**:
+
 ```javascript
 try {
   const provider = s.providers[providerID];
   if (!provider) {
     const error = new ModelNotFoundError({ providerID, modelID });
     console.error(error);
-    process.exit(1);  // Explicit non-zero exit
+    process.exit(1); // Explicit non-zero exit
   }
 } catch (error) {
   console.error('Provider error:', error);
@@ -472,12 +499,14 @@ try {
 ```
 
 **Pros**:
+
 - Fixes root cause
 - Benefits all consumers of @link-assistant/agent
 - Aligns with Unix conventions
 - Most correct solution
 
 **Cons**:
+
 - Requires changes in different repository
 - Takes longer to deploy
 - Doesn't protect against other tools with similar issues
@@ -528,12 +557,14 @@ if (!argv.dryRun && argv.autoPullRequestCreation) {
 ```
 
 **Pros**:
+
 - Catches configuration issues early
 - Prevents wasted PR creation
 - Works for all tools
 - Fails fast with clear error messages
 
 **Cons**:
+
 - Adds execution time
 - Duplicates validation if not skipped
 - Doesn't handle intermittent failures
@@ -544,6 +575,7 @@ if (!argv.dryRun && argv.autoPullRequestCreation) {
 ## Recommended Implementation Plan
 
 ### Phase 1: Immediate Fix (Solutions 1 + 4) - **RECOMMENDED** ✅ IMPLEMENTED
+
 1. Implement output-based error detection in `agent.lib.mjs` ✅
 2. Add pre-flight validation before PR creation
 3. Test with the exact command from PR #864
@@ -551,18 +583,21 @@ if (!argv.dryRun && argv.autoPullRequestCreation) {
 5. **Estimated timeline**: 1 hour
 
 **Implementation Details (v0.37.22):**
+
 - Added error pattern detection in `src/agent.lib.mjs` that checks for common error patterns even when exit code is 0
 - Patterns include: `ProviderModelNotFoundError`, `ModelNotFoundError`, stack traces, JavaScript errors, etc.
 - Added JSON-formatted error output for consistent error reporting
 - Errors are now properly detected and reported with structured error information
 
 ### Phase 2: Enhanced Validation (Solution 2)
+
 1. Add session ID requirement for success
 2. Add additional diagnostics in solve.mjs
 3. Test edge cases (dry-run, different tools)
 4. **Estimated timeline**: 1 hour
 
 ### Phase 3: Root Cause Fix (Solution 3) ✅ BUG FILED
+
 1. File issue in @link-assistant/agent repository ✅ https://github.com/link-assistant/agent/issues/22
 2. Submit PR with proper exit code handling
 3. Wait for review and merge
@@ -570,6 +605,7 @@ if (!argv.dryRun && argv.autoPullRequestCreation) {
 5. **Estimated timeline**: 1-3 days (depending on review process)
 
 ### Phase 4: Comprehensive Testing
+
 1. Add unit tests for error detection patterns
 2. Add integration tests for tool failures
 3. Test all tools (agent, opencode, codex, claude)
@@ -581,6 +617,7 @@ if (!argv.dryRun && argv.autoPullRequestCreation) {
 ### Test Cases
 
 #### 1. Reproduction Test (Verify Bug Exists)
+
 ```bash
 ./solve.mjs https://github.com/link-assistant/hive-mind/issues/863 \
   --tool agent \
@@ -589,11 +626,14 @@ if (!argv.dryRun && argv.autoPullRequestCreation) {
   --verbose \
   --no-tool-check
 ```
+
 **Expected (before fix)**: PR created and marked ready despite error
 **Expected (after fix)**: Error detected, PR not marked ready, failure logged
 
 #### 2. Error Detection Test
+
 Create a mock agent that prints error and exits with code 0:
+
 ```bash
 # Create mock agent script
 echo '#!/bin/bash
@@ -606,9 +646,11 @@ chmod +x /tmp/mock-agent
 # Test with mock
 AGENT_PATH=/tmp/mock-agent ./solve.mjs <issue-url> --tool agent
 ```
+
 **Expected**: Error detected from output, not just exit code
 
 #### 3. Valid Execution Test
+
 ```bash
 # Using a model that actually works
 ./solve.mjs https://github.com/link-assistant/hive-mind/issues/<test-issue> \
@@ -616,9 +658,11 @@ AGENT_PATH=/tmp/mock-agent ./solve.mjs <issue-url> --tool agent
   --model grok-code \
   --dry-run
 ```
+
 **Expected**: No false positives, executes successfully
 
 #### 4. Pre-flight Validation Test
+
 ```bash
 # With invalid model configuration
 ./solve.mjs https://github.com/link-assistant/hive-mind/issues/<test-issue> \
@@ -626,15 +670,19 @@ AGENT_PATH=/tmp/mock-agent ./solve.mjs <issue-url> --tool agent
   --model invalid-model \
   --auto-pull-request-creation
 ```
+
 **Expected**: Validation fails before PR creation
 
 #### 5. All Tools Test
+
 Test each tool individually:
+
 ```bash
 for tool in agent opencode codex claude; do
   ./solve.mjs <issue-url> --tool $tool --dry-run
 done
 ```
+
 **Expected**: Consistent error handling across all tools
 
 ### Validation Criteria
@@ -652,21 +700,25 @@ done
 ## Related Issues and Considerations
 
 ### Similar Issues in Other Tools
+
 - OpenCode tool might have same exit code issue
 - Codex tool error handling should be reviewed
 - Claude tool has better error detection but could be improved
 
 ### Session Management
+
 - Missing session ID is a strong indicator of failure
 - Should be treated as critical error, not just warning
 - May need special handling for dry-run modes
 
 ### PR State Management
+
 - PR should remain in draft state on any failures
 - Conversion to ready should require explicit success validation
 - Consider adding "failed" label to PRs with errors
 
 ### Error Reporting Improvements
+
 - Structured error data in comments
 - Clear distinction between tool errors and code errors
 - Retry suggestions when appropriate
@@ -676,6 +728,7 @@ done
 During investigation, the following sources were consulted:
 
 ### Node.js Exit Code Behavior
+
 - [Node.js Process Documentation](https://nodejs.org/api/process.html) - Official documentation on process exit codes
 - [console.error output not always flushed before process.exit · Issue #3479](https://github.com/nodejs/node-v0.x-archive/issues/3479) - GitHub issue about stderr flushing
 - [Child process | Node.js Documentation](https://nodejs.org/api/child_process.html) - Child process documentation
@@ -684,10 +737,12 @@ During investigation, the following sources were consulted:
 - [How to exit in Node.js | Better Stack Community](https://betterstack.com/community/questions/how-to-exit-in-node-js/) - Best practices for process exit
 
 ### Command Streaming and Error Handling
+
 - command-stream library documentation
 - Best practices for detecting errors in CLI tools
 
 ### Agent Tool Research
+
 - @link-assistant/agent package structure
 - Provider/model configuration
 - Error handling patterns
@@ -702,6 +757,7 @@ This case study documents a critical bug where tool execution failures were repo
 4. **Contributing factor**: Skipping tool connection validation
 
 The recommended solution is a defense-in-depth approach:
+
 - **Immediate**: Add output-based error detection (Solution 1)
 - **Short-term**: Add pre-flight validation (Solution 4)
 - **Medium-term**: Require session ID for success (Solution 2)

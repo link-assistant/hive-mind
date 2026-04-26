@@ -1,6 +1,7 @@
 # Issue #724 - Third Fix: Fork Fallback Bug
 
 ## Date
+
 2025-11-15
 
 ## Problem Statement
@@ -12,17 +13,20 @@ After PR #735 was merged with fixes for the `--prefix-fork-name-with-owner-name`
 ### Latest Log (2025-11-15T08:40:25.991Z)
 
 Command executed:
+
 ```bash
 solve https://github.com/emirmensitov-afk/-/issues/1 --prefix-fork-name-with-owner-name --auto-fork --auto-continue --attach-logs --verbose --no-tool-check
 ```
 
 **Critical Lines:**
+
 - Line 51: `✅ Fork exists: konard/-`
 - Line 53: `📥 Cloning repository: konard/-`
 
 Even with `--prefix-fork-name-with-owner-name` enabled, the code detected and used the unprefixed fork.
 
 **Error Lines:**
+
 - Lines 114-127: Compare API returned HTTP 404 errors repeatedly (5 attempts)
 - Line 142: `gh pr create --draft --repo emirmensitov-afk/- --base master --head konard:issue-1-5358767cb52c`
 
@@ -45,12 +49,13 @@ if (forkCheckResult.code === 0) {
   // Try alternate name
   forkCheckResult = await $`gh repo view ${alternateForkName} --json name 2>/dev/null`;
   if (forkCheckResult.code === 0) {
-    existingForkName = alternateForkName;  // ← BUG: Uses wrong fork!
+    existingForkName = alternateForkName; // ← BUG: Uses wrong fork!
   }
 }
 ```
 
 **The Problem:**
+
 1. When `--prefix-fork-name-with-owner-name` is enabled:
    - `expectedForkName` = `konard/emirmensitov-afk--` (prefixed)
    - `alternateForkName` = `konard/-` (standard)
@@ -63,6 +68,7 @@ This defeats the entire purpose of the `--prefix-fork-name-with-owner-name` opti
 ### Why This Causes 404 Errors
 
 When the code uses the wrong fork:
+
 1. Branch gets pushed to `konard/-`
 2. Compare API is called with `repos/emirmensitov-afk/-/compare/master...konard:issue-1-5358767cb52c`
 3. GitHub looks for the branch but can't properly resolve it because the fork name doesn't match what was expected
@@ -99,6 +105,7 @@ if (forkCheckResult.code === 0) {
 ```
 
 **Key Changes:**
+
 1. Added condition `!argv.prefixForkNameWithOwnerName` before checking alternate fork
 2. When option IS enabled, skip the alternate fork check entirely
 3. Added helpful warning when a conflicting standard fork exists
@@ -125,16 +132,19 @@ This ensures the same fix applies when verifying forks in PR/auto-continue mode.
 ### Scenario 1: Prefixed Fork Doesn't Exist, Standard Fork Exists
 
 Command:
+
 ```bash
 solve URL --prefix-fork-name-with-owner-name --auto-fork
 ```
 
 **Before Fix:**
+
 - Detects `konard/-` exists
 - Uses `konard/-` (wrong!)
 - Fails with Compare API 404
 
 **After Fix:**
+
 - Detects `konard/-` exists
 - Logs warning: "Standard fork konard/- exists but won't be used"
 - Creates new fork `konard/emirmensitov-afk--`
@@ -144,11 +154,13 @@ solve URL --prefix-fork-name-with-owner-name --auto-fork
 ### Scenario 2: Prefixed Fork Exists
 
 Command:
+
 ```bash
 solve URL --prefix-fork-name-with-owner-name --auto-fork
 ```
 
 **Behavior (no change):**
+
 - Detects `konard/emirmensitov-afk--` exists
 - Uses `konard/emirmensitov-afk--`
 - Success!
@@ -156,11 +168,13 @@ solve URL --prefix-fork-name-with-owner-name --auto-fork
 ### Scenario 3: No Option Provided
 
 Command:
+
 ```bash
 solve URL --auto-fork
 ```
 
 **Behavior (backward compatible):**
+
 - Checks for standard fork `konard/-`
 - If not found, checks for prefixed fork (in case user created one manually)
 - Uses whichever exists, or creates standard fork

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
  * Issue #3: use-m fails in eval context (node -e)
- * 
+ *
  * Problem: When modules using use-m are imported via `node -e`, they fail with:
- * TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object, 
+ * TypeError [ERR_INVALID_ARG_VALUE]: The argument 'filename' must be a file URL object,
  * file URL string, or absolute path string. Received '[eval]'
- * 
+ *
  * This affects testing and any scenarios where modules are imported from eval context.
  */
 
@@ -13,13 +13,13 @@ console.log('=== Issue #3: Eval Context Failure ===\n');
 
 // Test 1: Direct use-m in eval context
 console.log('Test 1: Running use-m directly in eval context');
-console.log('Command: node -e "globalThis.use = (await eval(await (await fetch(\'https://unpkg.com/use-m/use.js\')).text())).use; await use(\'fs\')"');
+console.log("Command: node -e \"globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use; await use('fs')\"");
 console.log('Expected: Fails with ERR_INVALID_ARG_VALUE');
 console.log('');
 
 // Test 2: Import module that uses use-m via eval
 console.log('Test 2: Import module using use-m via node -e');
-console.log('Command: node -e "import(\'./lib.mjs\').then(() => console.log(\'Success\'))"');
+console.log("Command: node -e \"import('./lib.mjs').then(() => console.log('Success'))\"");
 console.log('Expected: Fails when lib.mjs tries to initialize use-m');
 console.log('');
 

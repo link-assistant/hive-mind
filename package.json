@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "0.42.4",
+  "version": "1.56.19",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -9,17 +9,26 @@
     "solve": "./src/solve.mjs",
     "task": "./src/task.mjs",
     "review": "./src/review.mjs",
+    "configure-claude": "./src/configure-claude.mjs",
     "start-screen": "./src/start-screen.mjs",
+    "hive-screens": "./src/hive-screens.mjs",
     "hive-telegram-bot": "./src/telegram-bot.mjs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint 'src/**/*.{js,mjs,cjs}'",
-    "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' --fix",
+    "test": "node tests/solve-queue.test.mjs && node tests/limits-display.test.mjs && node tests/test-usage-limit.mjs && node tests/test-codex-support.mjs && node tests/test-build-cost-info-string.mjs && node tests/test-claude-code-install-method.mjs && node tests/test-claude-quiet-config.mjs && node tests/test-configure-claude-bin.mjs && node tests/test-docker-release-order.mjs && node tests/test-docker-box-migration.mjs && node tests/test-hive-screens.mjs && node tests/test-issue-1616-pr-issue-link-preservation.mjs && node tests/test-pre-pr-failure-notifier-1640.mjs && node tests/test-ready-to-merge-pagination-1645.mjs && node tests/test-require-gh-paginate-rule.mjs && node tests/test-auto-restart-limits-1664.mjs && node tests/test-log-upload-output-1678.mjs && node tests/test-log-upload-output-1682.mjs && node tests/test-telegram-message-filters.mjs && node tests/test-telegram-bot-command-aliases.mjs && node tests/test-telegram-options-before-url.mjs && node tests/test-telegram-bot-configuration-isolation-links-notation.mjs && node tests/test-extract-isolation-from-args.mjs && node tests/test-solve-queue-command.mjs && node tests/test-queue-display-1267.mjs && node tests/test-issue-467-terminal-watch.mjs && node tests/test-issue-1670-screen-status-monitoring.mjs && node tests/test-issue-1680-session-monitoring.mjs && node tests/test-issue-1684-message-formatting.mjs && node tests/test-issue-1686-log-command.mjs && node tests/test-issue-1688-subscribe-and-pr-link.mjs && node tests/test-issue-1694-stabilized-defaults.mjs && node tests/test-telegram-bot-launcher.mjs",
+    "test:queue": "node tests/solve-queue.test.mjs",
+    "test:limits-display": "node tests/limits-display.test.mjs",
+    "test:usage-limit": "node tests/test-usage-limit.mjs",
+    "lint": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}'",
+    "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' --fix",
+    "check:duplication": "jscpd .",
+    "format": "prettier --write \"**/*.{js,mjs,json,md}\" --ignore-path .prettierignore",
+    "format:check": "prettier --check \"**/*.{js,mjs,json,md}\" --ignore-path .prettierignore",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "npm run build:pre && changeset publish",
-    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs"
+    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/configure-claude.mjs && chmod +x src/hive-screens.mjs",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
@@ -40,7 +49,7 @@
   },
   "homepage": "https://github.com/link-assistant/hive-mind#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=24.0.0"
   },
   "files": [
     "src",
@@ -49,10 +58,27 @@
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
     "@eslint/js": "^9.35.0",
-    "eslint": "^9.35.0"
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
+    "jscpd": "^4.0.5",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.6.2"
   },
   "dependencies": {
+    "@secretlint/core": "^11.2.5",
+    "@secretlint/secretlint-rule-preset-recommend": "^11.2.5",
     "@sentry/node": "^10.15.0",
-    "@sentry/profiling-node": "^10.15.0"
+    "@sentry/profiling-node": "^10.15.0",
+    "dayjs": "^1.11.19",
+    "decimal.js-light": "^2.5.1",
+    "secretlint": "^11.2.5",
+    "semver": "^7.7.3"
+  },
+  "lint-staged": {
+    "*.{js,mjs,json,md}": [
+      "prettier --write"
+    ]
   }
 }

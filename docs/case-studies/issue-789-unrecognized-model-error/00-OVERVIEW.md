@@ -1,6 +1,7 @@
 # Case Study: Unrecognized Model Error with Cost Impact (Issue #789)
 
 ## Issue Reference
+
 - **Issue**: https://github.com/link-assistant/hive-mind/issues/789
 - **Pull Request**: https://github.com/link-assistant/hive-mind/pull/790
 - **Date**: 2025-12-03
@@ -19,11 +20,13 @@ When a user specifies an invalid model name (e.g., `--model oups`), the system f
 From the gist log (https://gist.github.com/konard/cede1c9bb333fb4fff5caf0248b98787):
 
 **Command executed:**
+
 ```bash
 /solve https://github.com/link-assistant/hive-mind/pull/788 --model oups
 ```
 
 **Error received:**
+
 ```json
 {
   "type": "text",
@@ -32,6 +35,7 @@ From the gist log (https://gist.github.com/konard/cede1c9bb333fb4fff5caf0248b987
 ```
 
 **Cost incurred:**
+
 ```json
 {
   "total_cost_usd": 0.027108,
@@ -53,16 +57,19 @@ From the gist log (https://gist.github.com/konard/cede1c9bb333fb4fff5caf0248b987
 ## Impact Analysis
 
 ### Financial Impact
+
 - Cost per failed attempt: **$0.027** USD
 - Models charged: Haiku 4.5 ($0.002138) + Opus 4.5 ($0.02497)
 - If this happens frequently (e.g., typos in automation), costs accumulate
 
 ### User Experience Impact
+
 - Error discovered **after** API call, not during argument parsing
 - No immediate feedback on invalid model name
 - Confusing for users who expect early validation
 
 ### System Behavior Impact
+
 - Invalid model name is passed through to Anthropic API
 - API attempts to process the request before rejecting it
 - Multiple model invocations occur (Haiku + Opus) before failure

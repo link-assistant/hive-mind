@@ -12,54 +12,68 @@ The Helm chart release workflow failed during the initial setup because the `gh-
 ## Timeline of Events
 
 ### 2025-12-04T22:33:17.5111304Z - Workflow Started
+
 - The Release Helm Chart workflow was triggered
 - Trigger: Push to `main` branch with changes to helm-related files or package.json
 
 ### 2025-12-04T22:33:17.5546012Z - Chart Linting
+
 ```
 ==> Linting helm/hive-mind
 1 chart(s) linted, 0 chart(s) failed
 ```
+
 **Status:** ✅ SUCCESS
 
 ### 2025-12-04T22:33:17.5590171Z - Chart Packaging
+
 ```
 mkdir -p .cr-release-packages
 helm package helm/hive-mind -d .cr-release-packages
 ```
+
 **Status:** ✅ SUCCESS
 
 ### 2025-12-04T22:33:17.6116234Z - Chart Releaser Action Execution
+
 The `helm/chart-releaser-action@v1.6.0` was executed with:
+
 - `charts_dir: helm`
 - `skip_packaging: true`
 - `version: v1.6.1`
 
 ### 2025-12-04T22:33:19.6915902Z - Index Update Attempt
+
 ```
 Updating charts repo index...
 Loading index file from git repository .cr-index/index.yaml
 ```
+
 **Status:** ⏳ IN PROGRESS
 
 ### 2025-12-04T22:33:19.7105483Z - CRITICAL FAILURE
+
 ```
 fatal: invalid reference: origin/gh-pages
 Error: exit status 128
 ```
+
 **Status:** ❌ FAILED
 
 The chart-releaser tool attempted to load the existing index from the `gh-pages` branch, but the branch did not exist, causing a fatal git error.
 
 ### 2025-12-04T22:33:19.7145688Z - Workflow Termination
+
 ```
 ##[error]Process completed with exit code 1.
 ```
+
 The workflow terminated with a failure status.
 
 ## Root Cause Analysis
 
 ### Primary Cause
+
 The `helm/chart-releaser-action` expects the `gh-pages` branch to exist before it can run. This is a **first-time setup issue** that occurs when:
 
 1. The repository has never had a `gh-pages` branch created
@@ -71,17 +85,20 @@ The `helm/chart-releaser-action` expects the `gh-pages` branch to exist before i
 ### Technical Details
 
 The chart-releaser tool runs the following command internally:
+
 ```bash
 cr index --owner link-assistant --repo hive-mind
 ```
 
 This command attempts to:
+
 1. Clone or fetch the `gh-pages` branch
 2. Read the existing `index.yaml` file from `.cr-index/index.yaml`
 3. Merge new chart packages into the index
 4. Commit and push the updated index
 
 However, when the `gh-pages` branch doesn't exist, the git command `git fetch origin gh-pages` fails with:
+
 ```
 fatal: invalid reference: origin/gh-pages
 ```
@@ -109,6 +126,7 @@ The workflow has two steps that interact with `gh-pages`:
 ## Evidence and Logs
 
 ### Error Message from CI Logs
+
 ```
 release	Run chart-releaser	2025-12-04T22:33:19.7090345Z Loading index file from git repository .cr-index/index.yaml
 release	Run chart-releaser	2025-12-04T22:33:19.7105483Z fatal: invalid reference: origin/gh-pages
@@ -116,18 +134,21 @@ release	Run chart-releaser	2025-12-04T22:33:19.7107888Z Error: exit status 128
 ```
 
 ### Chart-Releaser Configuration
+
 From `.github/workflows/helm-release.yml`:
+
 ```yaml
 - name: Run chart-releaser
   uses: helm/chart-releaser-action@v1.6.0
   env:
-    CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    CR_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
   with:
     charts_dir: helm
     skip_packaging: true
 ```
 
 ### Repository State
+
 - **Branch checked:** `gh-pages` existence verification
 - **Result:** Branch does not exist
 - **Command used:** `gh api repos/link-assistant/hive-mind/branches --jq '.[].name' | grep "gh-pages"`
@@ -136,6 +157,7 @@ From `.github/workflows/helm-release.yml`:
 ## Known Issue in Upstream Project
 
 This is a documented issue in the helm/chart-releaser-action project:
+
 - **Issue:** [release fails if gh-pages branch doesn't yet exist · Issue #10](https://github.com/helm/chart-releaser-action/issues/10)
 - **Status:** Open since 2020
 - **Impact:** Affects all first-time users of the action
@@ -143,6 +165,7 @@ This is a documented issue in the helm/chart-releaser-action project:
 ## Proposed Solutions
 
 ### Solution 1: Manual Branch Creation (Immediate Fix)
+
 Create the `gh-pages` branch manually before running the workflow:
 
 ```bash
@@ -153,15 +176,18 @@ git push origin gh-pages
 ```
 
 **Pros:**
+
 - Immediate fix
 - Simple to implement
 - No workflow changes needed
 
 **Cons:**
+
 - Manual intervention required
 - Doesn't prevent the issue for other repositories
 
 ### Solution 2: Workflow Modification (Automated Fix)
+
 Modify the workflow to create the `gh-pages` branch automatically if it doesn't exist:
 
 ```yaml
@@ -181,46 +207,54 @@ Modify the workflow to create the `gh-pages` branch automatically if it doesn't 
 ```
 
 **Pros:**
+
 - Fully automated
 - Handles first-time setup gracefully
 - Prevents future occurrences
 - No manual intervention needed
 
 **Cons:**
+
 - Requires workflow modification
 - Adds complexity to the workflow
 
 ### Solution 3: Reorder Workflow Steps (Alternative Fix)
+
 Move the GitHub Pages deployment step before the chart-releaser step and use `continue-on-error`:
 
 **Pros:**
+
 - Leverages existing GitHub Actions
 - Minimal changes
 
 **Cons:**
+
 - Less explicit about the intention
 - Relies on error handling
 
 ### Solution 4: Use Chart Releaser with `--push` flag
+
 Configure the chart-releaser to handle the initial push:
 
 ```yaml
 - name: Run chart-releaser
   uses: helm/chart-releaser-action@v1.6.0
   env:
-    CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    CR_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
   with:
     charts_dir: helm
     skip_packaging: true
     pages_branch: gh-pages
-  continue-on-error: true  # Allow first-time setup to fail
+  continue-on-error: true # Allow first-time setup to fail
 ```
 
 **Pros:**
+
 - Minimal changes
 - Explicit configuration
 
 **Cons:**
+
 - Still requires the gh-pages branch to exist
 - Doesn't solve the root cause
 

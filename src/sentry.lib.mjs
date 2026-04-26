@@ -117,12 +117,15 @@ export const withSpan = async (name, callback) => {
     return callback();
   }
 
-  return sentry.startSpan({
-    name,
-    op: 'function',
-  }, async () => {
-    return callback();
-  });
+  return sentry.startSpan(
+    {
+      name,
+      op: 'function',
+    },
+    async () => {
+      return callback();
+    }
+  );
 };
 
 /**
@@ -173,7 +176,7 @@ export const reportWarning = (warning, context = {}) => {
  * Add breadcrumb for better error context
  * @param {Object} breadcrumb - Breadcrumb data
  */
-export const addBreadcrumb = async (breadcrumb) => {
+export const addBreadcrumb = async breadcrumb => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }
@@ -188,7 +191,7 @@ export const addBreadcrumb = async (breadcrumb) => {
  * Set user context for Sentry
  * @param {Object} user - User data
  */
-export const setUserContext = async (user) => {
+export const setUserContext = async user => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }
@@ -219,7 +222,7 @@ export const setExtraContext = async (key, value) => {
  * Set tags for Sentry
  * @param {Object} tags - Tags to set
  */
-export const setTags = async (tags) => {
+export const setTags = async tags => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }
@@ -270,8 +273,16 @@ export const closeSentry = async (timeout = 2000) => {
     return;
   }
 
+  // Issue #1346: Use Promise.race with a hard deadline so a hung sentry.close()
+  // (e.g. from @sentry/profiling-node native thread) cannot block the caller forever.
   try {
-    await sentry.close(timeout);
+    let hardDeadlineId;
+    await Promise.race([
+      sentry.close(timeout),
+      new Promise(resolve => {
+        hardDeadlineId = setTimeout(resolve, timeout + 1000);
+      }),
+    ]).finally(() => clearTimeout(hardDeadlineId));
   } catch (error) {
     // Silently fail if close fails
     if (process.env.DEBUG === 'true') {

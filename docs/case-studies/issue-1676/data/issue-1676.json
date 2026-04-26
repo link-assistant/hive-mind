@@ -1,0 +1,12 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "See screenshot:\n\n<img width=\"710\" height=\"660\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/60844bc7-f63f-4b25-b3e1-ded47aeb503d\" />\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.",
+  "comments": [],
+  "createdAt": "2026-04-24T21:46:05Z",
+  "labels": [{ "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" }],
+  "number": 1676,
+  "state": "OPEN",
+  "title": "Error message contains too much duplication",
+  "updatedAt": "2026-04-24T21:46:05Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1676"
+}

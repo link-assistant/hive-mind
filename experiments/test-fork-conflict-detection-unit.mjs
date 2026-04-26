@@ -15,7 +15,7 @@ function runTest(name, testFn) {
       console.log('✅ PASSED');
       testsPassed++;
     })
-    .catch((error) => {
+    .catch(error => {
       console.log(`❌ FAILED: ${error.message}`);
       testsFailed++;
     });

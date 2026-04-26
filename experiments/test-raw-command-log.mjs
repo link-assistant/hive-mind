@@ -15,19 +15,19 @@ async function testRawCommandLogging() {
   // Test with --help to see if raw command is logged
   console.log('1. Testing with --help flag:');
   const helpProcess = spawn('node', [solvePath, '--help'], {
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   let output = '';
-  helpProcess.stdout.on('data', (data) => {
+  helpProcess.stdout.on('data', data => {
     output += data.toString();
   });
 
-  helpProcess.stderr.on('data', (data) => {
+  helpProcess.stderr.on('data', data => {
     output += data.toString();
   });
 
-  await new Promise((resolve) => {
+  await new Promise(resolve => {
     helpProcess.on('close', resolve);
   });
 
@@ -40,11 +40,11 @@ async function testRawCommandLogging() {
   console.log('2. Testing with mock GitHub URL:');
   const testUrl = 'https://github.com/test/repo/issues/999';
   const testProcess = spawn('node', [solvePath, testUrl, '--dry-run', '--skip-tool-check'], {
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   let testOutput = '';
-  testProcess.stdout.on('data', (data) => {
+  testProcess.stdout.on('data', data => {
     const text = data.toString();
     testOutput += text;
     // Look for the raw command in the output
@@ -53,11 +53,11 @@ async function testRawCommandLogging() {
     }
   });
 
-  testProcess.stderr.on('data', (data) => {
+  testProcess.stderr.on('data', data => {
     testOutput += data.toString();
   });
 
-  await new Promise((resolve) => {
+  await new Promise(resolve => {
     testProcess.on('close', resolve);
   });
 

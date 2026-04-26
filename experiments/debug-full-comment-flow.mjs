@@ -98,9 +98,7 @@ async function debugFullCommentFlow() {
 
     // Combine and count all PR comments after last commit
     const allPrComments = [...prReviewComments, ...prConversationComments];
-    const newPrComments = allPrComments.filter(comment =>
-      new Date(comment.created_at) > lastCommitTime
-    ).length;
+    const newPrComments = allPrComments.filter(comment => new Date(comment.created_at) > lastCommitTime).length;
 
     console.log(`\\n📊 Results:`);
     console.log(`   Total PR comments: ${allPrComments.length}`);
@@ -109,9 +107,7 @@ async function debugFullCommentFlow() {
     // Show details of recent comments
     if (allPrComments.length > 0) {
       console.log(`\\n📝 Recent comment details:`);
-      const recentComments = allPrComments
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 3);
+      const recentComments = allPrComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 3);
 
       recentComments.forEach((comment, i) => {
         const createdAt = new Date(comment.created_at);
@@ -121,12 +117,7 @@ async function debugFullCommentFlow() {
         console.log(`        Body length: ${comment.body.length} chars`);
 
         // Check if this would be filtered by log patterns
-        const logPatterns = [
-          /📊.*Log file|solution.*log/i,
-          /🔗.*Link:|💻.*Session:/i,
-          /Generated with.*solve\\.mjs/i,
-          /Session ID:|Log file available:/i
-        ];
+        const logPatterns = [/📊.*Log file|solution.*log/i, /🔗.*Link:|💻.*Session:/i, /Generated with.*solve\\.mjs/i, /Session ID:|Log file available:/i];
         const wouldBeFiltered = logPatterns.some(pattern => pattern.test(comment.body || ''));
         if (wouldBeFiltered) {
           console.log(`        🚫 Would be filtered as log comment`);
@@ -147,7 +138,6 @@ async function debugFullCommentFlow() {
     });
 
     return newPrComments > 0;
-
   } catch (error) {
     console.error(`\\n❌ Error: ${error.message}`);
     return false;

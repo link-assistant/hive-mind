@@ -12,7 +12,7 @@ const mockDollar = async (strings, ...values) => {
   console.log(`[MOCK] Would execute: ${command}`);
   return {
     stdout: Buffer.from('https://github.com/owner/repo/pull/123#issuecomment-9999999'),
-    toString: () => 'https://github.com/owner/repo/pull/123#issuecomment-9999999'
+    toString: () => 'https://github.com/owner/repo/pull/123#issuecomment-9999999',
   };
 };
 
@@ -30,7 +30,7 @@ const handler = createInteractiveHandler({
   prNumber: 123,
   $: mockDollar,
   log: mockLog,
-  verbose: true
+  verbose: true,
 });
 
 console.log('='.repeat(80));
@@ -48,11 +48,11 @@ const writeToolEvent = {
         name: 'Write',
         input: {
           file_path: '/tmp/test-file.js',
-          content: `function hello() {\n  console.log('Hello, world!');\n  return 'success';\n}`
-        }
-      }
-    ]
-  }
+          content: `function hello() {\n  console.log('Hello, world!');\n  return 'success';\n}`,
+        },
+      },
+    ],
+  },
 };
 
 await handler.processEvent(writeToolEvent);
@@ -73,11 +73,11 @@ const editToolEvent = {
         input: {
           file_path: '/tmp/test-file.js',
           old_string: `function hello() {\n  console.log('Hello, world!');\n}`,
-          new_string: `function hello() {\n  console.log('Hello, universe!');\n  return 'success';\n}`
-        }
-      }
-    ]
-  }
+          new_string: `function hello() {\n  console.log('Hello, universe!');\n  return 'success';\n}`,
+        },
+      },
+    ],
+  },
 };
 
 await handler.processEvent(editToolEvent);
@@ -97,11 +97,11 @@ const multiLineWriteEvent = {
         name: 'Write',
         input: {
           file_path: '/tmp/config.json',
-          content: `{\n  "name": "test-project",\n  "version": "1.0.0",\n  "description": "A test project",\n  "main": "index.js"\n}`
-        }
-      }
-    ]
-  }
+          content: `{\n  "name": "test-project",\n  "version": "1.0.0",\n  "description": "A test project",\n  "main": "index.js"\n}`,
+        },
+      },
+    ],
+  },
 };
 
 await handler.processEvent(multiLineWriteEvent);

@@ -2,16 +2,15 @@
 "@link-assistant/hive-mind": minor
 ---
 
-Add --auto-start-screen-watch-message option for hive-telegram-bot
+Add live terminal watch support for hive-telegram-bot
 
-This feature adds live terminal monitoring for screen sessions in Telegram. When enabled, the bot creates a message that updates every 2.5 seconds with the latest terminal output from the running screen session.
+This feature adds `/terminal_watch` plus the experimental `--auto-start-screen-watch-message` option. The command watches the log reported by `$ --status <uuid>` and updates a separate Telegram message with a terminal-sized text snapshot.
 
 Key features:
-- Real-time terminal monitoring with automatic message updates
-- Displays last 25 lines of terminal output in code block format
-- Automatically detects when screen session ends and freezes the message
-- Attempts to attach full log file as document when session completes
-- Automatically disabled for private repositories for security
-- Off by default (opt-in with --auto-start-screen-watch-message flag)
+- Manual `/terminal_watch <uuid>` command, including reply-based usage
+- Configurable terminal snapshot size with `--size`, `--width`, and `--height`
+- Auto-freezes the watch message and attaches the full log when the session ends
+- Public repository logs can update in chat; private/unknown visibility uses DM for manual watches
+- Auto-start remains off by default and never starts for private or unknown-visibility repositories
 
 Based on the proof-of-concept from konard/telegram-terminal-bot.

@@ -22,21 +22,21 @@ if (process.env.GITHUB_TOKEN) {
 console.log('\nTest 2: Spawn child process with env: process.env');
 const child = spawn('node', ['-e', 'console.log("GITHUB_TOKEN present:", !!process.env.GITHUB_TOKEN)'], {
   stdio: ['ignore', 'pipe', 'pipe'],
-  env: process.env
+  env: process.env,
 });
 
 let stdout = '';
 let stderr = '';
 
-child.stdout.on('data', (data) => {
+child.stdout.on('data', data => {
   stdout += data.toString();
 });
 
-child.stderr.on('data', (data) => {
+child.stderr.on('data', data => {
   stderr += data.toString();
 });
 
-child.on('close', (code) => {
+child.on('close', code => {
   if (code === 0) {
     console.log('✓ Child process executed successfully');
     console.log(`  Output: ${stdout.trim()}`);
@@ -50,22 +50,22 @@ child.on('close', (code) => {
   // Test 3: Spawn without env parameter (should fail to inherit environment)
   console.log('\nTest 3: Spawn child process WITHOUT env parameter (should not inherit)');
   const childNoEnv = spawn('node', ['-e', 'console.log("GITHUB_TOKEN present:", !!process.env.GITHUB_TOKEN)'], {
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
     // Note: missing env parameter
   });
 
   let stdoutNoEnv = '';
   let stderrNoEnv = '';
 
-  childNoEnv.stdout.on('data', (data) => {
+  childNoEnv.stdout.on('data', data => {
     stdoutNoEnv += data.toString();
   });
 
-  childNoEnv.stderr.on('data', (data) => {
+  childNoEnv.stderr.on('data', data => {
     stderrNoEnv += data.toString();
   });
 
-  childNoEnv.on('close', (codeNoEnv) => {
+  childNoEnv.on('close', codeNoEnv => {
     if (codeNoEnv === 0) {
       console.log('✓ Child process executed successfully');
       console.log(`  Output: ${stdoutNoEnv.trim()}`);

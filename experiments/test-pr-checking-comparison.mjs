@@ -22,7 +22,7 @@ async function oldApproach(owner, repo, issueNumbers) {
       apiCalls++;
 
       results[issueNum] = {
-        openPRCount: openPrCount
+        openPRCount: openPrCount,
       };
 
       console.log(`   Issue #${issueNum}: ${openPrCount} open PR(s)`);
@@ -69,7 +69,7 @@ async function newApproach(owner, repo, issueNumbers) {
 // Main comparison
 async function compareApproaches() {
   console.log('🔬 Comparing PR Checking Approaches\n');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   const owner = 'link-assistant';
   const repo = 'hive-mind';
@@ -95,7 +95,7 @@ async function compareApproaches() {
   const newResults = await newApproach(owner, repo, issues);
 
   // Compare results
-  console.log('\n' + '=' .repeat(60));
+  console.log('\n' + '='.repeat(60));
   console.log('📈 Comparison Results:\n');
 
   console.log('┌─────────────────┬──────────────────┬──────────────────┐');

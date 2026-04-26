@@ -35,7 +35,7 @@ const handler = createInteractiveHandler({
   prNumber: 123,
   $: mock$,
   log: mockLog,
-  verbose: true
+  verbose: true,
 });
 
 // Test data based on real JSON examples
@@ -46,7 +46,7 @@ const testEvents = [
     subtype: 'init',
     cwd: '/tmp/gh-issue-solver-1764803505742',
     session_id: 'faa32ca1-82fb-42ea-8e5b-04bbdfc74d25',
-    tools: ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'WebFetch', 'TodoWrite', 'Task']
+    tools: ['Read', 'Edit', 'Write', 'Bash', 'Glob', 'Grep', 'WebFetch', 'TodoWrite', 'Task'],
   },
 
   // 2. Assistant text event
@@ -60,17 +60,17 @@ const testEvents = [
       content: [
         {
           type: 'text',
-          text: 'I\'ll start by reading the issue details and understanding the current state of the PR.\n\nLet me first check what changes need to be made.'
-        }
+          text: "I'll start by reading the issue details and understanding the current state of the PR.\n\nLet me first check what changes need to be made.",
+        },
       ],
       stop_reason: 'tool_use',
       usage: {
         input_tokens: 5234,
         output_tokens: 156,
         cache_creation_input_tokens: 0,
-        cache_read_input_tokens: 4500
-      }
-    }
+        cache_read_input_tokens: 4500,
+      },
+    },
   },
 
   // 3. Tool use event (Bash)
@@ -87,16 +87,16 @@ const testEvents = [
           id: 'toolu_01ABC123',
           name: 'Bash',
           input: {
-            command: 'gh issue view https://github.com/link-assistant/hive-mind/issues/796'
-          }
-        }
+            command: 'gh issue view https://github.com/link-assistant/hive-mind/issues/796',
+          },
+        },
       ],
       stop_reason: 'tool_use',
       usage: {
         input_tokens: 5234,
-        output_tokens: 89
-      }
-    }
+        output_tokens: 89,
+      },
+    },
   },
 
   // 4. Tool result event
@@ -108,10 +108,10 @@ const testEvents = [
         {
           type: 'tool_result',
           tool_use_id: 'toolu_01ABC123',
-          content: 'title: Interactive mode\nstate: OPEN\nauthor: konard\nlabels: documentation, enhancement\ncomments: 0\nassignees:\nprojects:\nmilestone:\nnumber: 800\n--\nAdd option `--interactive-mode` for `solve` command...'
-        }
-      ]
-    }
+          content: 'title: Interactive mode\nstate: OPEN\nauthor: konard\nlabels: documentation, enhancement\ncomments: 0\nassignees:\nprojects:\nmilestone:\nnumber: 800\n--\nAdd option `--interactive-mode` for `solve` command...',
+        },
+      ],
+    },
   },
 
   // 5. Tool use event (Read)
@@ -130,16 +130,16 @@ const testEvents = [
           input: {
             file_path: '/tmp/gh-issue-solver/src/solve.config.lib.mjs',
             offset: 100,
-            limit: 50
-          }
-        }
+            limit: 50,
+          },
+        },
       ],
       stop_reason: 'tool_use',
       usage: {
         input_tokens: 1234,
-        output_tokens: 45
-      }
-    }
+        output_tokens: 45,
+      },
+    },
   },
 
   // 6. Tool use event (Edit)
@@ -158,16 +158,16 @@ const testEvents = [
           input: {
             file_path: '/tmp/gh-issue-solver/src/interactive-mode.lib.mjs',
             old_string: 'const oldCode = true;',
-            new_string: 'const newCode = false;\n// Updated code'
-          }
-        }
+            new_string: 'const newCode = false;\n// Updated code',
+          },
+        },
       ],
       stop_reason: 'tool_use',
       usage: {
         input_tokens: 2000,
-        output_tokens: 100
-      }
-    }
+        output_tokens: 100,
+      },
+    },
   },
 
   // 7. Tool use event (TodoWrite)
@@ -191,17 +191,17 @@ const testEvents = [
               { content: 'Implement handleToolUse', status: 'pending' },
               { content: 'Run tests', status: 'pending' },
               { content: 'Commit changes', status: 'pending' },
-              { content: 'Push to remote', status: 'pending' }
-            ]
-          }
-        }
+              { content: 'Push to remote', status: 'pending' },
+            ],
+          },
+        },
       ],
       stop_reason: 'tool_use',
       usage: {
         input_tokens: 500,
-        output_tokens: 80
-      }
-    }
+        output_tokens: 80,
+      },
+    },
   },
 
   // 8. Unrecognized event
@@ -210,8 +210,8 @@ const testEvents = [
     subtype: 'unknown',
     data: {
       foo: 'bar',
-      baz: 123
-    }
+      baz: 123,
+    },
   },
 
   // 9. Result event (success)
@@ -222,16 +222,16 @@ const testEvents = [
     duration_ms: 727021,
     duration_api_ms: 603394,
     num_turns: 68,
-    result: 'Perfect! Let me create a final summary of what was accomplished:\n\n## Summary\n\nI\'ve successfully implemented the interactive mode feature...',
+    result: "Perfect! Let me create a final summary of what was accomplished:\n\n## Summary\n\nI've successfully implemented the interactive mode feature...",
     session_id: 'faa32ca1-82fb-42ea-8e5b-04bbdfc74d25',
     total_cost_usd: 1.6043104499999998,
     usage: {
       input_tokens: 98000,
       output_tokens: 45678,
       cache_creation_input_tokens: 1234,
-      cache_read_input_tokens: 56789
-    }
-  }
+      cache_read_input_tokens: 56789,
+    },
+  },
 ];
 
 // Test utility functions

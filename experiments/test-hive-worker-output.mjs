@@ -10,23 +10,18 @@ console.log('🧪 Testing hive.mjs worker output with new prefixes...\n');
 
 // Test with dry-run to avoid actually processing issues
 const testCommand = './hive.mjs';
-const testArgs = [
-  'https://github.com/link-assistant/hive-mind/issues/171',
-  '--dry-run',
-  '--concurrency', '2',
-  '--verbose'
-];
+const testArgs = ['https://github.com/link-assistant/hive-mind/issues/171', '--dry-run', '--concurrency', '2', '--verbose'];
 
 console.log(`📋 Running: ${testCommand} ${testArgs.join(' ')}`);
 console.log('🔍 Looking for worker prefix patterns...\n');
 
 const child = spawn(testCommand, testArgs, {
-  stdio: 'pipe'
+  stdio: 'pipe',
 });
 
 let foundWorkerPrefixes = false;
 
-child.stdout.on('data', (data) => {
+child.stdout.on('data', data => {
   const output = data.toString();
   console.log(output);
 
@@ -37,12 +32,12 @@ child.stdout.on('data', (data) => {
   }
 });
 
-child.stderr.on('data', (data) => {
+child.stderr.on('data', data => {
   const output = data.toString();
   console.log('STDERR:', output);
 });
 
-child.on('close', (code) => {
+child.on('close', code => {
   console.log(`\n🏁 Process finished with code: ${code}`);
   if (foundWorkerPrefixes) {
     console.log('✅ SUCCESS: Worker-specific prefixes are working!');
@@ -51,6 +46,6 @@ child.on('close', (code) => {
   }
 });
 
-child.on('error', (error) => {
+child.on('error', error => {
   console.log(`❌ Error: ${error.message}`);
 });

@@ -12,12 +12,11 @@ const argv = yargs(process.argv.slice(2))
   .usage('Usage: $0 <prompt>')
   .positional('prompt', {
     type: 'string',
-    description: 'The prompt to send to Claude'
+    description: 'The prompt to send to Claude',
   })
   .demandCommand(1, 'The prompt is required')
   .help('h')
-  .alias('h', 'help')
-  .argv;
+  .alias('h', 'help').argv;
 
 const prompt = argv._[0];
 

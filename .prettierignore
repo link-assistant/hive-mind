@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+*.min.js
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+.cache/
+
+# Git
+.git/
+
+# Claude Code instructions (may contain system-specific formatting)
+CLAUDE.md
+
+# Case study logs (some .json files are actually log files)
+docs/case-studies/**/raw/**/*.json
+docs/case-studies/**/raw-data/**/*.json
+docs/case-studies/**/source-data/**/*.json
+docs/case-studies/**/working-session-logs/**/*.json
+docs/case-studies/**/logs/**/*.md
+docs/case-studies/issue-1639/data/
+docs/case-studies/issue-731-unable-to-solve-space-compiler/commits-response.json
+docs/case-studies/issue-789-unrecognized-model-error/full-log.json
+
+# Changesets use YAML frontmatter that generic markdown formatting breaks
+.changeset/*.md
+
+# Local CI investigation artifacts
+ci-logs/

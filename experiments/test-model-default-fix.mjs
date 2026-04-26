@@ -9,28 +9,28 @@ const testCases = [
   {
     rawArgs: ['https://github.com/owner/repo/issues/123', '--tool', 'opencode'],
     expected: { shouldSetDefault: true, tool: 'opencode' },
-    description: 'opencode tool without --model flag'
+    description: 'opencode tool without --model flag',
   },
   {
     rawArgs: ['https://github.com/owner/repo/issues/123', '--tool', 'opencode', '--model', 'gpt4o'],
     expected: { shouldSetDefault: false, tool: 'opencode' },
-    description: 'opencode tool with --model flag'
+    description: 'opencode tool with --model flag',
   },
   {
     rawArgs: ['https://github.com/owner/repo/issues/123', '--tool', 'opencode', '-m', 'gpt4o'],
     expected: { shouldSetDefault: false, tool: 'opencode' },
-    description: 'opencode tool with -m flag'
+    description: 'opencode tool with -m flag',
   },
   {
     rawArgs: ['https://github.com/owner/repo/issues/123', '--tool', 'claude'],
     expected: { shouldSetDefault: false, tool: 'claude' },
-    description: 'claude tool without --model flag'
+    description: 'claude tool without --model flag',
   },
   {
     rawArgs: ['https://github.com/owner/repo/issues/123', '--tool', 'opencode', '--verbose'],
     expected: { shouldSetDefault: true, tool: 'opencode' },
-    description: 'opencode tool with other flags but no --model'
-  }
+    description: 'opencode tool with other flags but no --model',
+  },
 ];
 
 for (const testCase of testCases) {

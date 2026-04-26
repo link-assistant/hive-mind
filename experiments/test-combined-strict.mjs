@@ -18,29 +18,27 @@ try {
       type: 'boolean',
       description: 'Fork the repository',
       alias: 'f',
-      default: false
+      default: false,
     })
     .option('verbose', {
       type: 'boolean',
       description: 'Enable verbose logging',
       alias: 'v',
-      default: false
+      default: false,
     })
-    .strict()  // General strict mode
-    .strictOptions()  // Strict options checking
-    .strictCommands()  // Strict commands checking
+    .strict() // General strict mode
+    .strictOptions() // Strict options checking
+    .strictCommands() // Strict commands checking
     .fail((msg, err, yargs) => {
       console.error('❌ Validation Error:');
       console.error(msg);
       process.exit(1);
-    })
-    .argv;
+    }).argv;
 
   console.log('✅ Parsing succeeded:');
   console.log('   fork:', argv.fork);
   console.log('   verbose:', argv.verbose);
   console.log('   _:', argv._);
-
 } catch (error) {
   console.error('❌ Caught error:', error.message);
   process.exit(1);

@@ -42,7 +42,7 @@ const testCases = [
   { url: 'not a valid url!', desc: 'Invalid URL with special chars' },
   { url: 'https://gitlab.com/owner/repo', desc: 'Non-GitHub URL' },
   { url: '', desc: 'Empty string' },
-  { url: null, desc: 'Null value' }
+  { url: null, desc: 'Null value' },
 ];
 
 console.log('Testing parseGitHubUrl function:');
@@ -72,14 +72,7 @@ console.log('\n===========================================');
 console.log('Testing normalizeGitHubUrl function:');
 console.log('---------------------------------\n');
 
-const urlsToNormalize = [
-  'http://github.com/konard',
-  'github.com/konard',
-  'konard',
-  'konard/repo',
-  'owner/repo/issues/123',
-  'not valid!'
-];
+const urlsToNormalize = ['http://github.com/konard', 'github.com/konard', 'konard', 'konard/repo', 'owner/repo/issues/123', 'not valid!'];
 
 for (const url of urlsToNormalize) {
   const normalized = normalizeGitHubUrl(url);
@@ -100,7 +93,7 @@ const typeTests = [
   { url: 'https://github.com/owner/repo/issues/123', types: ['issue', 'pull'], expected: true },
   { url: 'https://github.com/owner/repo/pull/456', types: ['issue', 'pull'], expected: true },
   { url: 'https://github.com/owner/repo', types: 'issue', expected: false },
-  { url: 'not valid', types: 'user', expected: false }
+  { url: 'not valid', types: 'user', expected: false },
 ];
 
 for (const test of typeTests) {
@@ -119,14 +112,7 @@ console.log('Testing with solve and hive use cases:');
 console.log('---------------------------------\n');
 
 // Test specific use cases for solve.mjs
-const solveUrls = [
-  'https://github.com/owner/repo/issues/123',
-  'http://github.com/owner/repo/issues/123',
-  'github.com/owner/repo/issues/123',
-  'owner/repo/issues/123',
-  'https://github.com/owner/repo/pull/456',
-  'owner/repo/pull/456'
-];
+const solveUrls = ['https://github.com/owner/repo/issues/123', 'http://github.com/owner/repo/issues/123', 'github.com/owner/repo/issues/123', 'owner/repo/issues/123', 'https://github.com/owner/repo/pull/456', 'owner/repo/pull/456'];
 
 console.log('Solve.mjs URLs (should accept issues and PRs):');
 for (const url of solveUrls) {
@@ -138,14 +124,7 @@ for (const url of solveUrls) {
 console.log('');
 
 // Test specific use cases for hive.mjs
-const hiveUrls = [
-  'https://github.com/konard',
-  'http://github.com/konard',
-  'github.com/konard',
-  'konard',
-  'https://github.com/konard/repo',
-  'konard/repo'
-];
+const hiveUrls = ['https://github.com/konard', 'http://github.com/konard', 'github.com/konard', 'konard', 'https://github.com/konard/repo', 'konard/repo'];
 
 console.log('Hive.mjs URLs (should accept users and repos):');
 for (const url of hiveUrls) {

@@ -1,0 +1,22 @@
+[
+  {
+    "source": "Claude Code advanced setup",
+    "url": "https://code.claude.com/docs/en/setup",
+    "relevantFacts": ["The native installer is the recommended install method for macOS, Linux, and WSL.", "The native installer command is curl -fsSL https://claude.ai/install.sh | bash.", "Claude Code installation should be verified with claude --version.", "The npm package uses per-platform optional dependencies and a postinstall step to link the native binary."]
+  },
+  {
+    "source": "Claude Code troubleshooting",
+    "url": "https://code.claude.com/docs/en/troubleshooting",
+    "relevantFacts": ["The npm package pulls the native binary through a per-platform optional dependency.", "If optional dependencies are skipped, there is no JavaScript fallback.", "Installation problems with npm can be worked around by switching to the native installer."]
+  },
+  {
+    "source": "Bun install documentation",
+    "url": "https://bun.com/docs/pm/cli/install",
+    "relevantFacts": ["Bun installs optionalDependencies by default.", "For security, Bun does not execute lifecycle scripts of installed dependencies unless the package is trusted."]
+  },
+  {
+    "source": "Bun trusted dependencies guide",
+    "url": "https://bun.com/docs/guides/install/trusted",
+    "relevantFacts": ["Bun blocks arbitrary dependency lifecycle scripts such as postinstall.", "bun pm trust can allow lifecycle scripts for a specific package in a project package.json."]
+  }
+]

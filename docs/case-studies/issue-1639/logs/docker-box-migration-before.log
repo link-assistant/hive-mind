@@ -1,0 +1,15 @@
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Dockerfile should include FROM konard/box:2.0.1
+    at assertIncludes (file:///tmp/gh-issue-solver-1776525608936/tests/test-docker-box-migration.mjs:12:10)
+    at file:///tmp/gh-issue-solver-1776525608936/tests/test-docker-box-migration.mjs:24:3 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '=='
+}
+
+Node.js v20.20.2

@@ -431,9 +431,18 @@ Hive Mind 内置 Telegram 机器人接口（SwarmMindBot），支持远程命令
    hive-telegram-bot 2>&1 | tee -a "logs/bot-$(date +%Y%m%d-%H%M%S).log"
    ```
 
+   **实验性：live terminal watch**
+
+   ```bash
+   hive-telegram-bot --auto-start-screen-watch-message
+   ```
+
+   这个 opt-in 标志会为公开仓库的 `/solve` 会话启动一条单独的 live terminal
+   消息。私有仓库或可见性未知的仓库不会自动启动 watch 消息。
+
 ### 机器人命令
 
-所有命令仅在**群聊中**有效（不支持与机器人的私聊）：
+大多数操作类命令仅在**群聊中**有效（不支持与机器人的私聊）。有意发送私密更新的命令（例如 `/terminal_watch`）也可以在私聊中使用：
 
 #### `/solve` - 解决 GitHub Issue
 
@@ -494,6 +503,21 @@ Shows:
 - Claude usage limits (session and weekly)
 ```
 
+#### `/terminal_watch` - Live Session Log
+
+```
+/terminal_watch <uuid> [--size 120x25]
+
+Examples:
+/terminal_watch 4d934f71-4cdb-4b8c-b474-582116d12c12
+/terminal_watch 4d934f71-4cdb-4b8c-b474-582116d12c12 --width 100 --height 20
+```
+
+您也可以回复机器人会话消息并发送 `/terminal_watch`。该命令会用
+`$ --status <uuid>` 报告的会话日志最新内容更新一条单独的 Telegram
+消息，并在会话结束时附加完整日志文件。公开仓库日志可以在群聊中 watch；
+私有仓库或可见性未知仓库的日志只会通过私聊发送。
+
 #### `/help` - 获取帮助和诊断信息
 
 ```
@@ -508,11 +532,24 @@ Shows:
 
 ### 功能特性
 
-- ✅ **仅限群聊**：命令仅在群聊中有效（不支持私聊）
+- ✅ **群聊执行**：`/solve` 和 `/hive` workflow 从已授权群聊中运行
 - ✅ **完整选项支持**：所有命令行选项均可在 Telegram 中使用
 - ✅ **Screen 会话**：命令在后台 Screen 会话中运行
+- ✅ **Live Terminal Watch**：`/terminal_watch` 和 opt-in auto-start 显示 live session logs
 - ✅ **聊天限制**：可选配置允许的聊天 ID 白名单
 - ✅ **诊断工具**：获取聊天 ID 和配置信息
+
+#### Live Terminal Watch
+
+启用 `--auto-start-screen-watch-message` 后，机器人会为公开仓库的 `/solve`
+会话自动启动一条单独的 live terminal watch 消息：
+
+- **Manual Watch**：`/terminal_watch <uuid>` 或回复 `/terminal_watch`
+- **Real-time Updates**：在命令执行时查看 live session log output
+- **Auto-freeze**：命令完成时消息会被冻结
+- **Log Attachment**：会话结束时自动附加完整日志
+- **Security**：私有仓库或可见性未知的仓库禁用 auto-start
+- **Smart Updates**：仅在实际内容变化时更新（rate-limited 以避免 API limits）
 
 ### 安全注意事项
 

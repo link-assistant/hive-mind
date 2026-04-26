@@ -47,3 +47,7 @@ TELEGRAM_HIVE_OVERRIDES: (
 # Set to false to disable a command
 TELEGRAM_SOLVE: true
 TELEGRAM_HIVE: true
+
+# Optional: Experimental live terminal watch auto-start
+# Public /solve sessions only; private or unknown visibility never auto-starts.
+TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE: false

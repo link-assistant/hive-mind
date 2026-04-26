@@ -194,16 +194,17 @@ These settings control the merge queue behavior for automated PR merging.
 
 ### 13. Telegram Bot
 
-| Environment Variable       | Default    | Description                                  |
-| -------------------------- | ---------- | -------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`       | (required) | Telegram bot token from @BotFather           |
-| `TELEGRAM_ALLOWED_CHATS`   | (all)      | Allowed chat IDs (Links Notation)            |
-| `TELEGRAM_SOLVE_OVERRIDES` | (none)     | Override options for /solve (Links Notation) |
-| `TELEGRAM_HIVE_OVERRIDES`  | (none)     | Override options for /hive (Links Notation)  |
-| `TELEGRAM_SOLVE`           | true       | Enable /solve command                        |
-| `TELEGRAM_HIVE`            | true       | Enable /hive command                         |
-| `TELEGRAM_BOT_VERBOSE`     | false      | Enable verbose logging                       |
-| `TELEGRAM_CONFIGURATION`   | (none)     | LINO configuration string                    |
+| Environment Variable                       | Default    | Description                                                                  |
+| ------------------------------------------ | ---------- | ---------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`                       | (required) | Telegram bot token from @BotFather                                           |
+| `TELEGRAM_ALLOWED_CHATS`                   | (all)      | Allowed chat IDs (Links Notation)                                            |
+| `TELEGRAM_SOLVE_OVERRIDES`                 | (none)     | Override options for /solve (Links Notation)                                 |
+| `TELEGRAM_HIVE_OVERRIDES`                  | (none)     | Override options for /hive (Links Notation)                                  |
+| `TELEGRAM_SOLVE`                           | true       | Enable /solve command                                                        |
+| `TELEGRAM_HIVE`                            | true       | Enable /hive command                                                         |
+| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | Auto-start a separate live terminal watch message for public /solve sessions |
+| `TELEGRAM_BOT_VERBOSE`                     | false      | Enable verbose logging                                                       |
+| `TELEGRAM_CONFIGURATION`                   | (none)     | LINO configuration string                                                    |
 
 ### 14. YouTrack Integration
 
@@ -486,18 +487,19 @@ hive <github-url> [options]
 hive-telegram-bot [options]
 ```
 
-| Option              | Alias | Type    | Default    | Description                                                                                                                                                                                               |
-| ------------------- | ----- | ------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--token`           | `-t`  | string  | (required) | Telegram bot token from @BotFather                                                                                                                                                                        |
-| `--allowed-chats`   |       | string  | (all)      | Allowed chat IDs (Links Notation)                                                                                                                                                                         |
-| `--solve-overrides` |       | string  | (none)     | Override options for /solve                                                                                                                                                                               |
-| `--hive-overrides`  |       | string  | (none)     | Override options for /hive                                                                                                                                                                                |
-| `--solve`           |       | boolean | true       | Enable /solve command (--no-solve to disable)                                                                                                                                                             |
-| `--hive`            |       | boolean | true       | Enable /hive command (--no-hive to disable)                                                                                                                                                               |
-| `--configuration`   | `-c`  | string  |            | LINO configuration string                                                                                                                                                                                 |
-| `--verbose`         | `-v`  | boolean | false      | Enable verbose logging                                                                                                                                                                                    |
-| `--dry-run`         |       | boolean | false      | Validate without starting bot                                                                                                                                                                             |
-| `--isolation`       |       | string  | `screen`   | Isolation backend (`screen`, `tmux`, `docker`). Default `screen` keeps Telegram-bot work sessions detached so they survive bot restarts. Pass `--isolation ''` (or set `TELEGRAM_ISOLATION=`) to opt out. |
+| Option                              | Alias | Type    | Default    | Description                                                                                                                                                                                               |
+| ----------------------------------- | ----- | ------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--token`                           | `-t`  | string  | (required) | Telegram bot token from @BotFather                                                                                                                                                                        |
+| `--allowed-chats`                   |       | string  | (all)      | Allowed chat IDs (Links Notation)                                                                                                                                                                         |
+| `--solve-overrides`                 |       | string  | (none)     | Override options for /solve                                                                                                                                                                               |
+| `--hive-overrides`                  |       | string  | (none)     | Override options for /hive                                                                                                                                                                                |
+| `--solve`                           |       | boolean | true       | Enable /solve command (--no-solve to disable)                                                                                                                                                             |
+| `--hive`                            |       | boolean | true       | Enable /hive command (--no-hive to disable)                                                                                                                                                               |
+| `--configuration`                   | `-c`  | string  |            | LINO configuration string                                                                                                                                                                                 |
+| `--verbose`                         | `-v`  | boolean | false      | Enable verbose logging                                                                                                                                                                                    |
+| `--dry-run`                         |       | boolean | false      | Validate without starting bot                                                                                                                                                                             |
+| `--auto-start-screen-watch-message` |       | boolean | false      | Experimental: auto-start a separate `/terminal_watch` message for public `/solve` sessions. Private or unknown-visibility repositories never auto-start watch messages.                                   |
+| `--isolation`                       |       | string  | `screen`   | Isolation backend (`screen`, `tmux`, `docker`). Default `screen` keeps Telegram-bot work sessions detached so they survive bot restarts. Pass `--isolation ''` (or set `TELEGRAM_ISOLATION=`) to opt out. |
 
 When `/solve` is enabled, the Telegram bot also accepts `/do` and `/continue`
 as plain `/solve` aliases. The `/claude`, `/codex`, `/opencode`, and `/agent`

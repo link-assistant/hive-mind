@@ -210,12 +210,23 @@ const unwrapCodexErrorMessage = value => {
   return text;
 };
 
+const isNonFatalCodexItemErrorMessage = message => /^in-process app-server event stream lagged; dropped \d+ events?$/i.test(message || '');
+
 export const getCodexErrorEventSummary = codexJsonState => {
   const events = [];
+  const ignoredEvents = [];
   const addEvents = (type, items = []) => {
     for (const item of items) {
       const message = unwrapCodexErrorMessage(item?.message);
-      events.push({ type, message: message || 'Codex emitted an error event' });
+      const event = { type, message: message || 'Codex emitted an error event' };
+      if (type === 'item' && isNonFatalCodexItemErrorMessage(message)) {
+        ignoredEvents.push({
+          ...event,
+          reason: 'Codex app-server backpressure warning; the turn can still complete successfully',
+        });
+        continue;
+      }
+      events.push(event);
     }
   };
 
@@ -223,11 +234,20 @@ export const getCodexErrorEventSummary = codexJsonState => {
   addEvents('turn', codexJsonState?.turnFailures);
   addEvents('stream', codexJsonState?.streamErrors);
 
+  const countByType = items => ({
+    item: items.filter(item => item.type === 'item').length,
+    turn: items.filter(item => item.type === 'turn').length,
+    stream: items.filter(item => item.type === 'stream').length,
+  });
+
   return {
     hasError: events.length > 0,
     message: events[0]?.message || null,
     events,
-    counts: {
+    ignoredEvents,
+    counts: countByType(events),
+    ignoredCounts: countByType(ignoredEvents),
+    observedCounts: {
       item: codexJsonState?.itemErrors?.length || 0,
       turn: codexJsonState?.turnFailures?.length || 0,
       stream: codexJsonState?.streamErrors?.length || 0,
@@ -928,6 +948,10 @@ export const executeCodexCommand = async params => {
       }
 
       const codexErrorSummary = getCodexErrorEventSummary(codexJsonState);
+      if (codexErrorSummary.ignoredEvents.length > 0) {
+        const ignoredMessages = [...new Set(codexErrorSummary.ignoredEvents.map(event => event.message))].join('; ');
+        await log(`⚠️ Ignoring non-fatal Codex item error event(s): ${ignoredMessages}`, { level: 'warning', verbose: true });
+      }
       if (codexErrorSummary.hasError) {
         const limitInfo = detectUsageLimit(codexErrorSummary.message || lastMessage);
         const retryableError = classifyRetryableError(codexErrorSummary.message || lastMessage);

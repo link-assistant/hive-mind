@@ -319,6 +319,20 @@ test('Codex error summary unwraps unsupported ChatGPT-account model errors', () 
   assert.match(summary.message, /ChatGPT account/);
 });
 
+test('Codex error summary ignores non-fatal app-server stream lag item errors', () => {
+  const jsonl = ['{"type":"thread.started","thread_id":"thread_issue_1696"}', '{"type":"item.completed","item":{"id":"item_115","type":"error","message":"in-process app-server event stream lagged; dropped 133 events"}}', '{"type":"item.completed","item":{"id":"item_116","type":"error","message":"in-process app-server event stream lagged; dropped 1 events"}}', '{"type":"turn.completed","usage":{"input_tokens":1200,"cached_input_tokens":200,"output_tokens":50}}'].join('\n');
+
+  const parsed = parseCodexExecJsonOutput(jsonl, {}, 'gpt-5.5');
+  const summary = getCodexErrorEventSummary(parsed);
+
+  assert.equal(parsed.itemErrors.length, 2);
+  assert.equal(summary.hasError, false);
+  assert.equal(summary.counts.item, 0);
+  assert.equal(summary.observedCounts.item, 2);
+  assert.equal(summary.ignoredCounts.item, 2);
+  assert.equal(summary.ignoredEvents[0].type, 'item');
+});
+
 await asyncTest('Codex command fails when JSON error events are emitted with exit code 0', async () => {
   const message = JSON.stringify({
     type: 'error',
@@ -367,6 +381,43 @@ await asyncTest('Codex command fails when JSON error events are emitted with exi
     logLines.some(line => line.includes('Codex emitted error event')),
     'Should log the Codex error as fatal'
   );
+});
+
+await asyncTest('Codex command succeeds when only non-fatal app-server stream lag item errors are emitted', async () => {
+  const jsonl = ['{"type":"thread.started","thread_id":"thread_issue_1696"}', '{"type":"item.completed","item":{"id":"item_115","type":"error","message":"in-process app-server event stream lagged; dropped 133 events"}}', '{"type":"item.completed","item":{"id":"item_116","type":"agent_message","text":"Done. PR is ready for review."}}', '{"type":"turn.completed","usage":{"input_tokens":1200,"cached_input_tokens":200,"output_tokens":50}}'].join('\n');
+  const logLines = [];
+  const fakeDollar = () => () => ({
+    async *stream() {
+      yield { type: 'stdout', data: Buffer.from(jsonl) };
+      yield { type: 'exit', code: 0 };
+    },
+  });
+
+  const result = await executeCodexCommand({
+    tempDir: process.cwd(),
+    branchName: 'issue-1696-test',
+    prompt: 'test prompt',
+    systemPrompt: '',
+    argv: { model: 'gpt-5.5', verbose: false },
+    log: async message => {
+      logLines.push(String(message));
+    },
+    formatAligned: (icon, label, value = '') => `${icon} ${label} ${value}`,
+    getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+    forkedRepo: null,
+    feedbackLines: [],
+    codexPath: 'codex',
+    $: fakeDollar,
+    owner: null,
+    repo: null,
+    prNumber: null,
+    calculatePricing: async () => null,
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.sessionId, 'thread_issue_1696');
+  assert.equal(result.resultSummary, 'Done. PR is ready for review.');
+  assert.ok(!logLines.some(line => line.includes('Codex emitted error event')), 'Non-fatal app-server lag warnings should not be logged as fatal Codex errors');
 });
 
 await asyncTest('Codex command retries with resume and fallback model after capacity error', async () => {

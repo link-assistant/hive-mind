@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI } = githubMergeLib;
+const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getWorkflowRunJobsCount, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI } = githubMergeLib;
 
 // Issue #1625: Import centralized session-ending markers so the duplicate-
 // search scope for checkForExistingComment() stays in lock-step with the
@@ -291,6 +291,55 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             }
             await log(formatAligned('ℹ️', 'CI workflows completed without executing:', `${conclusions} (${workflowRuns.map(r => r.name).join(', ')})`, 2));
             return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true, workflowRunConclusions: conclusions };
+          }
+
+          // Issue #1690: Detect invalid workflow files (e.g. YAML/expression errors).
+          // When a workflow file fails to parse, GitHub creates a workflow_run with
+          // status=completed and conclusion=failure (or startup_failure / timed_out)
+          // but NEVER instantiates any jobs. Such runs will never produce check-runs,
+          // so the auto-merge loop would otherwise wait forever for "the genuine race
+          // condition" to resolve.
+          //
+          // Distinguish by querying the jobs API: real failures have jobs > 0 (and the
+          // failed jobs would already be visible as check-runs); invalid workflow files
+          // have jobs === 0. We only check failed/timed-out completed runs to keep the
+          // additional API calls bounded.
+          const failedCompletedRuns = workflowRuns.filter(r => r.status === 'completed' && (r.conclusion === 'failure' || r.conclusion === 'startup_failure' || r.conclusion === 'timed_out'));
+          if (failedCompletedRuns.length > 0) {
+            const invalidWorkflowRuns = [];
+            for (const run of failedCompletedRuns) {
+              const jobsCount = await getWorkflowRunJobsCount(owner, repo, run.id, verbose);
+              if (jobsCount === 0) {
+                invalidWorkflowRuns.push(run);
+              }
+            }
+            if (invalidWorkflowRuns.length > 0) {
+              // Treat as a real CI failure so the auto-restart loop restarts the AI
+              // and propagates the error back instead of waiting forever.
+              if (verbose) {
+                await log(`[VERBOSE] /merge: PR #${prNumber} has ${invalidWorkflowRuns.length} workflow run(s) that completed with no jobs — workflow files likely invalid`);
+                for (const run of invalidWorkflowRuns) {
+                  await log(`[VERBOSE] /merge:   - ${run.name} (${run.id}): conclusion=${run.conclusion}, jobs=0, url=${run.html_url}`);
+                }
+              }
+              const failureLabels = invalidWorkflowRuns.map(r => `${r.path || r.name} (${r.conclusion})`);
+              await log(formatAligned('❌', 'Invalid workflow file(s):', failureLabels.join(', '), 2));
+              blockers.push({
+                type: 'ci_failure',
+                message: 'CI/CD workflow file is invalid — no jobs were instantiated',
+                details: invalidWorkflowRuns.map(r => `${r.path || r.name} — see ${r.html_url}`),
+              });
+              // Continue to the mergeability check below so other blockers are surfaced too.
+              const mergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
+              if (!mergeStatus.mergeable) {
+                blockers.push({
+                  type: 'not_mergeable',
+                  message: mergeStatus.reason || 'PR is not mergeable',
+                  details: [],
+                });
+              }
+              return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false };
+            }
           }
 
           // Some workflow runs are still in progress or produced results — genuine race condition

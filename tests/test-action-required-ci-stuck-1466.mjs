@@ -218,12 +218,17 @@ test('Completed with success but no check-runs → race condition (success means
   assert(result.blockers.length === 1, 'Should add ci_pending blocker');
 });
 
-test('Completed with failure but no check-runs → race condition (failure means jobs ran)', () => {
+test('Completed with failure but no check-runs → simulator returns race condition (1466 layer only)', () => {
+  // Note: This simulator only models the issue #1466 layer of detection.
+  // The real getMergeBlockers() in src/solve.auto-merge-helpers.lib.mjs adds an
+  // additional check (issue #1690): when a failed completed run has zero jobs,
+  // it's an invalid workflow file and should restart the AI as a real ci_failure.
+  // See tests/test-invalid-workflow-file-1690.mjs for the integrated behavior.
   const result = simulateWorkflowRunCheck({
     workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'failure' }],
   });
 
-  assert(result.raceCondition === true, 'Should treat as race condition');
+  assert(result.raceCondition === true, 'Should treat as race condition at the 1466 layer');
 });
 
 // ===== Test Suite 4: Edge cases =====

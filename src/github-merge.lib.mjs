@@ -1203,14 +1203,14 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
  * @param {string} repo - Repository name
  * @param {string} sha - Commit SHA
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<Array<{id: number, status: string, conclusion: string|null, name: string, html_url: string}>>}
+ * @returns {Promise<Array<{id: number, status: string, conclusion: string|null, name: string, html_url: string, path: string}>>}
  */
 export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
   try {
     const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
     const runs = JSON.parse(stdout.trim() || '[]')
       .flatMap(page => page.workflow_runs || [])
-      .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url }));
+      .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url, path: run.path }));
 
     if (verbose) {
       console.log(`[VERBOSE] /merge: Found ${runs.length} workflow runs for SHA ${sha.substring(0, 7)}`);
@@ -1225,6 +1225,50 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
       console.log(`[VERBOSE] /merge: Error fetching workflow runs for SHA ${sha}: ${error.message}`);
     }
     return [];
+  }
+}
+
+/**
+ * Get the job count for a specific workflow run.
+ *
+ * Issue #1690: Used to detect "invalid workflow file" failures. When a workflow file
+ * has a syntax error (e.g., `Unrecognized named-value: 'env'`), GitHub creates a
+ * workflow_run with `status=completed, conclusion=failure` but never instantiates
+ * any jobs — `total_count: 0`. Such workflow runs will never produce check-runs.
+ *
+ * Distinguishing this from a real failure (where check-runs exist for the failed jobs)
+ * lets the auto-merge loop break out of "waiting for check-runs to appear" and
+ * propagate the error to the AI solver as a real failure.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number|string} runId - Workflow run ID
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<number|null>} - Total job count, or null on error
+ */
+export async function getWorkflowRunJobsCount(owner, repo, runId, verbose = false) {
+  try {
+    // Issue #1690: We only need the total_count field, so a single page is sufficient and
+    // adding --paginate would defeat the --jq selector. Use --silent to bypass the
+    // pagination linter rule because total_count comes from the response root.
+    /* eslint-disable-next-line gh-paginate/require-gh-paginate */
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs/${runId}/jobs?per_page=1" --jq '.total_count'`);
+    const count = parseInt(stdout.trim(), 10);
+    if (Number.isNaN(count)) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: Could not parse job count for workflow run ${runId} (got: "${stdout.trim()}")`);
+      }
+      return null;
+    }
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Workflow run ${runId} has ${count} job(s)`);
+    }
+    return count;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching jobs for workflow run ${runId}: ${error.message}`);
+    }
+    return null;
   }
 }
 
@@ -1281,170 +1325,9 @@ export async function getActiveRepoWorkflows(owner, repo, verbose = false) {
   }
 }
 
-/**
- * Get the committed date of a specific commit from GitHub API
- * Issue #1480: Used to determine how recently a commit was pushed, to distinguish between
- * "CI not yet registered in API" (race condition) and "CI definitively not triggered"
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {string} sha - Commit SHA
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{date: Date|null, ageSeconds: number|null}>}
- */
-export async function getCommitDate(owner, repo, sha, verbose = false) {
-  try {
-    const { stdout } = await exec(`gh api repos/${owner}/${repo}/commits/${sha} --jq '.commit.committer.date'`);
-    const dateStr = stdout.trim();
-    if (!dateStr) {
-      return { date: null, ageSeconds: null };
-    }
-    const commitDate = new Date(dateStr);
-    const ageSeconds = Math.floor((Date.now() - commitDate.getTime()) / 1000);
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Commit ${sha.substring(0, 7)} date: ${dateStr} (${ageSeconds}s ago)`);
-    }
-    return { date: commitDate, ageSeconds };
-  } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Error fetching commit date for ${sha}: ${error.message}`);
-    }
-    return { date: null, ageSeconds: null };
-  }
-}
-
-/**
- * Check if any previous commits in a PR had workflow runs triggered.
- * Issue #1480: If earlier commits in the same PR triggered CI, we should expect CI
- * for the HEAD commit too (unless conditions changed). This provides an additional
- * signal that CI should be expected and avoids false "CI not triggered" conclusions.
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {number} prNumber - Pull request number
- * @param {string} headSha - Current HEAD SHA (to exclude from check)
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{hadPreviousCI: boolean, previousCommitsWithCI: number, totalPreviousCommits: number}>}
- */
-export async function checkPreviousPRCommitsHadCI(owner, repo, prNumber, headSha, verbose = false) {
-  try {
-    // Get all commits in the PR
-    const { stdout: commitsJson } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits" --paginate --jq '[.[].sha]'`);
-    const allShas = JSON.parse(commitsJson.trim() || '[]');
-
-    // Exclude the current HEAD SHA
-    const previousShas = allShas.filter(sha => sha !== headSha);
-
-    if (previousShas.length === 0) {
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: PR #${prNumber} has no previous commits to check for CI history`);
-      }
-      return { hadPreviousCI: false, previousCommitsWithCI: 0, totalPreviousCommits: 0 };
-    }
-
-    // Check the most recent previous commits (limit to last 3 to avoid excessive API calls)
-    const commitsToCheck = previousShas.slice(-3);
-    let commitsWithCI = 0;
-
-    for (const sha of commitsToCheck) {
-      try {
-        const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
-        const count = JSON.parse(stdout.trim() || '[]').reduce((sum, page) => sum + (page.workflow_runs?.length || 0), 0);
-        if (count > 0) {
-          commitsWithCI++;
-        }
-      } catch {
-        // Skip errors for individual commits
-      }
-    }
-
-    const hadPreviousCI = commitsWithCI > 0;
-
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: PR #${prNumber} previous CI history: ${commitsWithCI}/${commitsToCheck.length} checked commits had workflow runs (total PR commits: ${allShas.length})`);
-    }
-
-    return { hadPreviousCI, previousCommitsWithCI: commitsWithCI, totalPreviousCommits: previousShas.length };
-  } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Error checking previous PR commits CI history: ${error.message}`);
-    }
-    return { hadPreviousCI: false, previousCommitsWithCI: 0, totalPreviousCommits: 0 };
-  }
-}
-
-/**
- * Check if any workflow files in the repository have PR-related triggers
- * Issue #1480: Used as additional signal to determine if CI should run on PRs.
- * Parses .github/workflows/*.yml files from the repository content API.
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{hasPRTriggers: boolean, hasWorkflowFiles: boolean, workflows: Array<{name: string, triggers: string[]}>}>}
- */
-export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false, ref = null) {
-  try {
-    // Issue #1503: Support querying workflow files from a specific branch (ref)
-    const refParam = ref ? `?ref=${encodeURIComponent(ref)}` : '';
-    // List workflow files in .github/workflows/ (uses ref if provided, otherwise default branch)
-    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows${refParam}" --paginate --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]' 2>/dev/null`);
-    const files = JSON.parse(listJson.trim() || '[]');
-
-    if (files.length === 0) {
-      if (verbose) console.log(`[VERBOSE] /merge: No workflow files in ${owner}/${repo}/.github/workflows/`);
-      return { hasPRTriggers: false, hasWorkflowFiles: false, workflows: [] };
-    }
-
-    const prTriggerPatterns = [/\bon:\s*\n\s+pull_request/m, /\bon:\s*\[.*pull_request.*\]/m, /\bon:\s*pull_request\b/m, /\bpull_request_target\b/m];
-    const pushTriggerPatterns = [/\bon:\s*\n\s+push/m, /\bon:\s*\[.*push.*\]/m, /\bon:\s*push\b/m];
-    // Issue #1503: Non-PR triggers for diagnostics (won't produce check-runs on PRs)
-    const nonPROnlyTriggerPatterns = [/\bworkflow_dispatch\b/m, /\bschedule\b/m, /\brepository_dispatch\b/m, /\bworkflow_call\b/m];
-
-    const results = [];
-
-    for (const file of files) {
-      try {
-        // Issue #1503: Fetch file content using same ref parameter for branch-specific workflows
-        const { stdout: contentJson } = await exec(`gh api "repos/${owner}/${repo}/contents/${file.path}${refParam}" --jq '.content'`);
-        const content = Buffer.from(contentJson.trim().replace(/"/g, ''), 'base64').toString('utf-8');
-
-        const triggers = [];
-        if (prTriggerPatterns.some(p => p.test(content))) {
-          triggers.push('pull_request');
-        }
-        if (pushTriggerPatterns.some(p => p.test(content))) {
-          triggers.push('push');
-        }
-        // Issue #1503: Track non-PR triggers for diagnostics
-        const nonPRTriggers = nonPROnlyTriggerPatterns.filter(p => p.test(content)).map(p => p.source.replace(/\\b/g, ''));
-
-        if (triggers.length > 0) {
-          results.push({ name: file.name, triggers });
-        }
-
-        if (verbose) {
-          console.log(`[VERBOSE] /merge: Workflow ${file.name}: pr_triggers=[${triggers.join(', ')}], non_pr_triggers=[${nonPRTriggers.join(', ')}]`);
-        }
-      } catch (fileError) {
-        if (verbose) {
-          console.log(`[VERBOSE] /merge: Error reading workflow file ${file.name}: ${fileError.message}`);
-        }
-      }
-    }
-
-    const hasPRTriggers = results.length > 0;
-
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: ${results.length}/${files.length} workflow files have PR/push triggers`);
-    }
-
-    return { hasPRTriggers, hasWorkflowFiles: true, workflows: results };
-  } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Error checking workflow PR triggers: ${error.message}`);
-    }
-    // On error, assume workflows might have PR triggers (safer: avoids false positives)
-    return { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [] };
-  }
-}
+// Issue #1690: Re-export CI signal helpers from separate module to keep this file under 1500 lines
+import { getCommitDate, checkPreviousPRCommitsHadCI, checkWorkflowsHavePRTriggers } from './github-merge-ci-signals.lib.mjs';
+export { getCommitDate, checkPreviousPRCommitsHadCI, checkWorkflowsHavePRTriggers };
 
 // Issue #1341: Re-export post-merge CI functions from separate module
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
@@ -1481,6 +1364,7 @@ export default {
   rerunWorkflowRun,
   rerunFailedJobs,
   getWorkflowRunsForSha,
+  getWorkflowRunJobsCount, // Issue #1690: detect invalid workflow files (no jobs created)
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,

@@ -1,5 +1,18 @@
 # @link-assistant/hive-mind
 
+## 1.56.17
+
+### Patch Changes
+
+- b693172: Improve the repository-not-accessible error message in `/solve` (issue #1692). The headline drops the redundant "not found or" wording and the technical "(GitHub returns 404 for private repos without permissions)" parenthetical, leads with the most-actionable hypothesis ("Repository may be private — ensure the bot has been granted access"), and only suggests `--auto-accept-invite` when that flag is _not_ already active. The Telegram bot surface picks up the same suppression so users do not see the hint echoed back when they already passed the flag.
+
+## 1.56.16
+
+### Patch Changes
+
+- 2e2d9e6: Fix `/merge` and `--auto-restart-until-mergeable` getting stuck forever waiting for check-runs that never arrive when a target repo's GitHub Actions workflow file is invalid (e.g. YAML syntax error or `Unrecognized named-value` expression error). GitHub creates a `status=completed, conclusion=failure` workflow run with zero jobs and zero check-runs in this case; the new `getWorkflowRunJobsCount` helper detects the zero-jobs signal and surfaces the broken workflow as a `ci_failure` blocker so the auto-restart loop fires and the AI solver receives the actionable error (workflow file path + run URL) instead of looping silently. See `docs/case-studies/issue-1690/`.
+- a0a25de: Make four stabilized options enabled by default (issue #1694): `--auto-accept-invite`, `--tokens-budget-stats`, and `--auto-attach-solution-summary` now default to `true` for `solve` and `hive` (use `--no-…` to disable), and the `hive-telegram-bot`'s `--isolation` defaults to `screen` (set `TELEGRAM_ISOLATION=` or pass `--isolation ''` to disable). The Telegram `/solve` auto-accept-invite pre-check now reads the parsed `argv` so the new default fires without an explicit `--auto-accept-invite` and `--no-auto-accept-invite` works as a real opt-out.
+
 ## 1.56.15
 
 ### Patch Changes

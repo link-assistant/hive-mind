@@ -113,7 +113,7 @@ const config = yargs(hideBin(process.argv))
     alias: 'v',
     default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
   })
-  .option('isolation', { type: 'string', description: 'Experimental: isolation backend (screen/tmux/docker)', default: getenv('TELEGRAM_ISOLATION', '') })
+  .option('isolation', { type: 'string', description: "Isolation backend (screen/tmux/docker). Defaults to 'screen' so Telegram-bot work sessions survive bot restarts; pass --isolation '' (or set TELEGRAM_ISOLATION='') to disable.", default: getenv('TELEGRAM_ISOLATION', 'screen') })
   .help('h')
   .alias('h', 'help')
   .parserConfiguration({
@@ -956,23 +956,26 @@ async function handleSolveCommand(ctx) {
     return;
   }
   // Validate merged arguments using solve's yargs config
+  let parsedSolveArgs;
   try {
-    await parseArgsWithYargs(args, yargs, createSolveYargsConfig);
+    parsedSolveArgs = await parseArgsWithYargs(args, yargs, createSolveYargsConfig);
   } catch (error) {
     await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
   }
-  // Issue #1552: Validate GitHub entity existence before queueing/executing
-  if (args.some(a => a === '--auto-accept-invite') && validation.parsed.owner && validation.parsed.repo) {
+  // Issue #1552 + #1694: Validate GitHub entity existence before queueing/executing.
+  // Honor the parsed --auto-accept-invite (now default-on per #1694), so --no-auto-accept-invite
+  // disables the pre-check while the default path still accepts pending invites for the target repo/org.
+  if (parsedSolveArgs?.autoAcceptInvite && validation.parsed.owner && validation.parsed.repo) {
     try {
       await (await import('./solve.accept-invite.lib.mjs')).autoAcceptInviteForRepo(validation.parsed.owner, validation.parsed.repo, async () => {}, false);
     } catch (e) {
       VERBOSE && console.log(`[VERBOSE] Auto-accept invite pre-check failed: ${e.message}`);
     }
   }
-  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, verbose: VERBOSE });
+  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, verbose: VERBOSE, autoAcceptInvite: args.some(a => a === '--auto-accept-invite') });
   if (!entityCheck.valid) {
     await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
     return;

@@ -28,7 +28,7 @@ let failed = 0;
  * Simulated version of validateGitHubEntityExistence for unit testing.
  * Mirrors the logic of the real function but uses injected mock responses.
  */
-async function validateGitHubEntityExistenceWithMocks({ owner, repo, number, type, verbose = false }, mocks) {
+async function validateGitHubEntityExistenceWithMocks({ owner, repo, number, type, verbose = false, autoAcceptInvite = false }, mocks) {
   // Step 1: Check user/organization existence
   const userResponse = mocks.userCheck?.(owner);
   if (userResponse?.code !== 0) {
@@ -46,9 +46,13 @@ async function validateGitHubEntityExistenceWithMocks({ owner, repo, number, typ
   const repoResponse = mocks.repoCheck?.(owner, repo);
   if (repoResponse?.code !== 0) {
     if (repoResponse?.error?.includes('404') || repoResponse?.error?.includes('Not Found')) {
+      const bullets = ['• Repository may be private — ensure the bot has been granted access', '• The repository name is spelled correctly', '• The repository has not been deleted, transferred, or never existed'];
+      if (!autoAcceptInvite) {
+        bullets.push('• If Hive Mind bot was recently invited, try using --auto-accept-invite to accept pending invitations');
+      }
       return {
         valid: false,
-        error: `Repository '${owner}/${repo}' not found or not accessible.\n\n💡 Please check:\n• The repository name is spelled correctly\n• If it's a private repository, ensure the bot has been granted access (GitHub returns 404 for private repos without permissions)\n• The repository has not been deleted or transferred\n• If you were recently invited, try using --auto-accept-invite to accept pending invitations`,
+        error: `Repository '${owner}/${repo}' is not accessible.\n\n💡 Please check:\n${bullets.join('\n')}`,
         level: 'repo',
       };
     }
@@ -108,7 +112,7 @@ const testCases = [
       repoCheck: () => ({ code: 1, error: '404 Not Found' }),
     },
     expected: { valid: false, level: 'repo' },
-    errorContains: "Repository 'valid-user/nonexistent-repo' not found or not accessible",
+    errorContains: "Repository 'valid-user/nonexistent-repo' is not accessible",
   },
   {
     name: 'Fails when issue does not exist',
@@ -224,27 +228,47 @@ const testCases = [
       repoCheck: () => ({ code: 1, error: '404' }),
     },
     expected: { valid: false, level: 'repo' },
-    errorContains: "Repository 'valid-user/bad-repo' not found or not accessible",
+    errorContains: "Repository 'valid-user/bad-repo' is not accessible",
   },
   {
-    name: 'Repo 404 error message suggests auto-accept-invite for pending invitations',
+    name: 'Repo 404 message suggests --auto-accept-invite when flag was NOT set (issue #1692)',
+    input: { owner: 'valid-user', repo: 'private-repo', number: 1, type: 'issue', autoAcceptInvite: false },
+    mocks: {
+      userCheck: () => ({ code: 0 }),
+      repoCheck: () => ({ code: 1, error: '404 Not Found' }),
+    },
+    expected: { valid: false, level: 'repo' },
+    errorContains: 'If Hive Mind bot was recently invited, try using --auto-accept-invite to accept pending invitations',
+  },
+  {
+    name: 'Repo 404 message OMITS --auto-accept-invite hint when flag IS already set (issue #1692)',
+    input: { owner: 'valid-user', repo: 'private-repo', number: 1, type: 'issue', autoAcceptInvite: true },
+    mocks: {
+      userCheck: () => ({ code: 0 }),
+      repoCheck: () => ({ code: 1, error: '404 Not Found' }),
+    },
+    expected: { valid: false, level: 'repo' },
+    errorMustNotContain: '--auto-accept-invite',
+  },
+  {
+    name: 'Repo 404 message leads with private-repo possibility (issue #1692)',
     input: { owner: 'valid-user', repo: 'private-repo', number: 1, type: 'issue' },
     mocks: {
       userCheck: () => ({ code: 0 }),
       repoCheck: () => ({ code: 1, error: '404 Not Found' }),
     },
     expected: { valid: false, level: 'repo' },
-    errorContains: '--auto-accept-invite',
+    errorContains: 'Repository may be private',
   },
   {
-    name: 'Repo 404 error message mentions private repos return 404 without permissions',
+    name: 'Repo 404 message drops technical "(GitHub returns 404...)" parenthetical (issue #1692)',
     input: { owner: 'valid-user', repo: 'private-repo', number: 1, type: 'issue' },
     mocks: {
       userCheck: () => ({ code: 0 }),
       repoCheck: () => ({ code: 1, error: '404 Not Found' }),
     },
     expected: { valid: false, level: 'repo' },
-    errorContains: 'GitHub returns 404 for private repos without permissions',
+    errorMustNotContain: 'GitHub returns 404',
   },
 ];
 
@@ -272,6 +296,13 @@ for (const testCase of testCases) {
       success = false;
       failures.push(`Expected error to contain: "${testCase.errorContains}"`);
       failures.push(`Actual error: "${result.error || '(none)'}"`);
+    }
+
+    // Check error message does NOT contain forbidden text (if specified) — issue #1692
+    if (testCase.errorMustNotContain && result.error && result.error.includes(testCase.errorMustNotContain)) {
+      success = false;
+      failures.push(`Expected error to NOT contain: "${testCase.errorMustNotContain}"`);
+      failures.push(`Actual error: "${result.error}"`);
     }
 
     // If expected valid=true, ensure no error

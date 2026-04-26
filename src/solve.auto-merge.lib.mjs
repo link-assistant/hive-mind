@@ -450,6 +450,12 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; CI failures` : 'CI failures detected';
         feedbackLines.push('❌ CI/CD checks are failing:');
+        // Issue #1690: Surface the blocker message so AI sees structured failure context
+        // (e.g. "CI/CD workflow file is invalid — no jobs were instantiated") even when
+        // the failure didn't produce traditional check-runs.
+        if (ciBlocker.message && ciBlocker.message !== 'CI/CD checks are failing') {
+          feedbackLines.push(`  ${ciBlocker.message}`);
+        }
         for (const check of ciBlocker.details) {
           feedbackLines.push(`  - ${check}`);
         }

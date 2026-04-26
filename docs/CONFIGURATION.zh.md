@@ -341,7 +341,7 @@ solve <issue-url> [options]
 | `--auto-pull-request-creation`                                   |      | boolean | true          | 执行前创建草稿 PR                                                                                                                   |
 | `--attach-logs`                                                  |      | boolean | false         | 将日志附加到 PR（敏感信息）                                                                                                         |
 | `--attach-solution-summary`                                      |      | boolean | false         | 将 AI 解决方案摘要作为 PR/issue 评论附加                                                                                            |
-| `--auto-attach-solution-summary`                                 |      | boolean | false         | 仅当 AI 未发布评论时自动附加摘要                                                                                                    |
+| `--auto-attach-solution-summary`                                 |      | boolean | true          | 仅当 AI 未发布评论时自动附加摘要（使用 `--no-auto-attach-solution-summary` 禁用）                                                   |
 | `--auto-close-pull-request-on-fail`                              |      | boolean | false         | 失败时关闭 PR                                                                                                                       |
 | `--auto-continue`                                                |      | boolean | true          | 继续使用现有 PR                                                                                                                     |
 | `--auto-resume-on-limit-reset`                                   |      | boolean | true          | 限额重置时自动恢复（保持会话上下文）                                                                                                |
@@ -367,7 +367,7 @@ solve <issue-url> [options]
 | `--min-disk-space`                                               |      | number  | 2048          | 最小磁盘空间（MB）                                                                                                                  |
 | `--log-dir`                                                      | `-l` | string  | （当前目录）  | 日志文件目录                                                                                                                        |
 | `--sentry`                                                       |      | boolean | false         | 启用 Sentry 错误跟踪（默认禁用以保护隐私；使用 --sentry 选择启用）                                                                  |
-| `--auto-accept-invite`                                           |      | boolean | false         | 在检查写权限之前自动接受目标仓库待处理的 GitHub 仓库/组织邀请                                                                       |
+| `--auto-accept-invite`                                           |      | boolean | true          | 在检查写权限之前自动接受目标仓库待处理的 GitHub 仓库/组织邀请（使用 `--no-auto-accept-invite` 禁用）                                |
 | `--auto-report-issue`                                            |      | boolean | false         | 失败时自动创建 GitHub issue，无需提示（包含错误详情和日志）                                                                         |
 | `--disable-report-issue`                                         |      | boolean | false         | 完全禁用错误 issue 创建（覆盖 --auto-report-issue）                                                                                 |
 | `--auto-cleanup`                                                 |      | boolean | （不一）      | 完成后删除临时目录                                                                                                                  |
@@ -380,7 +380,7 @@ solve <issue-url> [options]
 | `--prompt-plan-sub-agent`                                        |      | boolean | false         | 使用计划子代理进行规划                                                                                                              |
 | `--prompt-explore-sub-agent`                                     |      | boolean | false         | 使用探索子代理                                                                                                                      |
 | `--prompt-general-purpose-sub-agent`                             |      | boolean | false         | 使用通用子代理                                                                                                                      |
-| `--tokens-budget-stats`                                          |      | boolean | false         | [实验性] 显示 token 预算统计                                                                                                        |
+| `--tokens-budget-stats`                                          |      | boolean | true          | 显示 token 预算统计（使用 `--no-tokens-budget-stats` 禁用）                                                                         |
 | `--prompt-issue-reporting`                                       |      | boolean | false         | 自动为发现的 bug 创建 issue                                                                                                         |
 | `--prompt-case-studies`                                          |      | boolean | false         | 创建案例研究文档                                                                                                                    |
 | `--prompt-architecture-care`                                     |      | boolean | false         | [实验性] 管理 REQUIREMENTS.md 和 ARCHITECTURE.md                                                                                    |
@@ -403,54 +403,55 @@ solve <issue-url> [options]
 hive <github-url> [options]
 ```
 
-| 选项                                   | 别名  | 类型    | 默认值        | 描述                                                               |
-| -------------------------------------- | ----- | ------- | ------------- | ------------------------------------------------------------------ |
-| `--monitor-tag`                        | `-t`  | string  | "help wanted" | 要监控的标签                                                       |
-| `--all-issues`                         | `-a`  | boolean | false         | 监控所有 issue（忽略标签）                                         |
-| `--skip-issues-with-prs`               | `-s`  | boolean | false         | 跳过已有 PR 的 issue                                               |
-| `--concurrency`                        | `-c`  | number  | 2             | 并行工作进程数                                                     |
-| `--pull-requests-per-issue`            | `-p`  | number  | 1             | 每个 issue 的 PR 数量                                              |
-| `--model`                              | `-m`  | string  | sonnet        | 使用的模型                                                         |
-| `--tool`                               |       | string  | claude        | AI 工具（claude、opencode、agent）                                 |
-| `--interval`                           | `-i`  | number  | 300           | 轮询间隔（秒）                                                     |
-| `--max-issues`                         |       | number  | 0             | 限制处理的 issue 数量（0 = 无限制）                                |
-| `--once`                               |       | boolean | false         | 单次运行（不监控）                                                 |
-| `--dry-run`                            |       | boolean | false         | 列出 issue 而不处理                                                |
-| `--skip-tool-connection-check`         |       | boolean | false         | 跳过工具连接检查                                                   |
-| `--verbose`                            | `-v`  | boolean | false         | 启用详细日志                                                       |
-| `--min-disk-space`                     |       | number  | 2048          | 最小磁盘空间（MB）                                                 |
-| `--auto-cleanup`                       |       | boolean | false         | 成功时清理临时目录                                                 |
-| `--fork`                               | `-f`  | boolean | false         | 无写权限时 Fork 仓库                                               |
-| `--auto-fork`                          |       | boolean | true          | 自动 Fork 公开仓库                                                 |
-| `--auto-init-repository`               |       | boolean | false         | 通过创建 README.md 自动初始化空仓库（传递给 solve）                |
-| `--attach-logs`                        |       | boolean | false         | 将日志附加到 PR（敏感信息）                                        |
-| `--attach-solution-summary`            |       | boolean | false         | 将 AI 解决方案摘要作为评论附加                                     |
-| `--auto-attach-solution-summary`       |       | boolean | false         | 无 AI 评论时自动附加摘要                                           |
-| `--project-number`                     | `-pn` | number  |               | 要监控的 GitHub 项目编号                                           |
-| `--project-owner`                      | `-po` | string  |               | GitHub 项目所有者                                                  |
-| `--project-status`                     | `-ps` | string  | "Ready"       | 要监控的项目状态列                                                 |
-| `--project-mode`                       | `-pm` | boolean | false         | 启用基于项目的监控                                                 |
-| `--youtrack-mode`                      |       | boolean | false         | 启用 YouTrack 模式                                                 |
-| `--youtrack-stage`                     |       | string  |               | 覆盖 YouTrack 阶段                                                 |
-| `--youtrack-project`                   |       | string  |               | 覆盖 YouTrack 项目代码                                             |
-| `--target-branch`                      | `-tb` | string  | （默认）      | PR 的目标分支                                                      |
-| `--log-dir`                            | `-l`  | string  | （当前目录）  | 日志文件目录                                                       |
-| `--auto-continue`                      |       | boolean | true          | 将 --auto-continue 传递给 solve                                    |
-| `--auto-resume-on-limit-reset`         |       | boolean | true          | 限额重置时自动恢复（传递给 solve）                                 |
-| `--think`                              |       | string  |               | 思考级别（low、medium、high、max）                                 |
-| `--prompt-plan-sub-agent`              |       | boolean | false         | 使用计划子代理                                                     |
-| `--sentry`                             |       | boolean | false         | 启用 Sentry 错误跟踪（默认禁用以保护隐私；使用 --sentry 选择启用） |
-| `--watch`                              | `-w`  | boolean | false         | 监控反馈并自动重启                                                 |
-| `--issue-order`                        | `-o`  | string  | "asc"         | 按日期排序 issue（asc、desc）                                      |
-| `--prefix-fork-name-with-owner-name`   |       | boolean | true          | 用所有者名称作为 Fork 前缀                                         |
-| `--interactive-mode`                   |       | boolean | false         | [实验性] 将输出作为 PR 评论发布                                    |
-| `--prompt-explore-sub-agent`           |       | boolean | false         | 使用探索子代理                                                     |
-| `--prompt-general-purpose-sub-agent`   |       | boolean | false         | 使用通用子代理                                                     |
-| `--tokens-budget-stats`                |       | boolean | false         | [实验性] 显示 token 预算统计                                       |
-| `--prompt-issue-reporting`             |       | boolean | false         | 自动为发现的 bug 创建 issue                                        |
-| `--prompt-case-studies`                |       | boolean | false         | 创建案例研究文档                                                   |
-| `--prompt-playwright-mcp`              |       | boolean | true          | Playwright MCP 提示（仅当已安装时）                                |
-| `--prompt-check-sibling-pull-requests` |       | boolean | true          | 研究相关工作时检查同级 PR                                          |
+| 选项                                   | 别名  | 类型    | 默认值        | 描述                                                                                 |
+| -------------------------------------- | ----- | ------- | ------------- | ------------------------------------------------------------------------------------ |
+| `--monitor-tag`                        | `-t`  | string  | "help wanted" | 要监控的标签                                                                         |
+| `--all-issues`                         | `-a`  | boolean | false         | 监控所有 issue（忽略标签）                                                           |
+| `--skip-issues-with-prs`               | `-s`  | boolean | false         | 跳过已有 PR 的 issue                                                                 |
+| `--concurrency`                        | `-c`  | number  | 2             | 并行工作进程数                                                                       |
+| `--pull-requests-per-issue`            | `-p`  | number  | 1             | 每个 issue 的 PR 数量                                                                |
+| `--model`                              | `-m`  | string  | sonnet        | 使用的模型                                                                           |
+| `--tool`                               |       | string  | claude        | AI 工具（claude、opencode、agent）                                                   |
+| `--interval`                           | `-i`  | number  | 300           | 轮询间隔（秒）                                                                       |
+| `--max-issues`                         |       | number  | 0             | 限制处理的 issue 数量（0 = 无限制）                                                  |
+| `--once`                               |       | boolean | false         | 单次运行（不监控）                                                                   |
+| `--dry-run`                            |       | boolean | false         | 列出 issue 而不处理                                                                  |
+| `--skip-tool-connection-check`         |       | boolean | false         | 跳过工具连接检查                                                                     |
+| `--verbose`                            | `-v`  | boolean | false         | 启用详细日志                                                                         |
+| `--min-disk-space`                     |       | number  | 2048          | 最小磁盘空间（MB）                                                                   |
+| `--auto-cleanup`                       |       | boolean | false         | 成功时清理临时目录                                                                   |
+| `--fork`                               | `-f`  | boolean | false         | 无写权限时 Fork 仓库                                                                 |
+| `--auto-fork`                          |       | boolean | true          | 自动 Fork 公开仓库                                                                   |
+| `--auto-init-repository`               |       | boolean | false         | 通过创建 README.md 自动初始化空仓库（传递给 solve）                                  |
+| `--auto-accept-invite`                 |       | boolean | true          | 自动接受目标仓库待处理的 GitHub 仓库/组织邀请（使用 `--no-auto-accept-invite` 禁用） |
+| `--attach-logs`                        |       | boolean | false         | 将日志附加到 PR（敏感信息）                                                          |
+| `--attach-solution-summary`            |       | boolean | false         | 将 AI 解决方案摘要作为评论附加                                                       |
+| `--auto-attach-solution-summary`       |       | boolean | true          | 无 AI 评论时自动附加摘要（使用 `--no-auto-attach-solution-summary` 禁用）            |
+| `--project-number`                     | `-pn` | number  |               | 要监控的 GitHub 项目编号                                                             |
+| `--project-owner`                      | `-po` | string  |               | GitHub 项目所有者                                                                    |
+| `--project-status`                     | `-ps` | string  | "Ready"       | 要监控的项目状态列                                                                   |
+| `--project-mode`                       | `-pm` | boolean | false         | 启用基于项目的监控                                                                   |
+| `--youtrack-mode`                      |       | boolean | false         | 启用 YouTrack 模式                                                                   |
+| `--youtrack-stage`                     |       | string  |               | 覆盖 YouTrack 阶段                                                                   |
+| `--youtrack-project`                   |       | string  |               | 覆盖 YouTrack 项目代码                                                               |
+| `--target-branch`                      | `-tb` | string  | （默认）      | PR 的目标分支                                                                        |
+| `--log-dir`                            | `-l`  | string  | （当前目录）  | 日志文件目录                                                                         |
+| `--auto-continue`                      |       | boolean | true          | 将 --auto-continue 传递给 solve                                                      |
+| `--auto-resume-on-limit-reset`         |       | boolean | true          | 限额重置时自动恢复（传递给 solve）                                                   |
+| `--think`                              |       | string  |               | 思考级别（low、medium、high、max）                                                   |
+| `--prompt-plan-sub-agent`              |       | boolean | false         | 使用计划子代理                                                                       |
+| `--sentry`                             |       | boolean | false         | 启用 Sentry 错误跟踪（默认禁用以保护隐私；使用 --sentry 选择启用）                   |
+| `--watch`                              | `-w`  | boolean | false         | 监控反馈并自动重启                                                                   |
+| `--issue-order`                        | `-o`  | string  | "asc"         | 按日期排序 issue（asc、desc）                                                        |
+| `--prefix-fork-name-with-owner-name`   |       | boolean | true          | 用所有者名称作为 Fork 前缀                                                           |
+| `--interactive-mode`                   |       | boolean | false         | [实验性] 将输出作为 PR 评论发布                                                      |
+| `--prompt-explore-sub-agent`           |       | boolean | false         | 使用探索子代理                                                                       |
+| `--prompt-general-purpose-sub-agent`   |       | boolean | false         | 使用通用子代理                                                                       |
+| `--tokens-budget-stats`                |       | boolean | true          | 显示 token 预算统计（使用 `--no-tokens-budget-stats` 禁用）                          |
+| `--prompt-issue-reporting`             |       | boolean | false         | 自动为发现的 bug 创建 issue                                                          |
+| `--prompt-case-studies`                |       | boolean | false         | 创建案例研究文档                                                                     |
+| `--prompt-playwright-mcp`              |       | boolean | true          | Playwright MCP 提示（仅当已安装时）                                                  |
+| `--prompt-check-sibling-pull-requests` |       | boolean | true          | 研究相关工作时检查同级 PR                                                            |
 
 ### hive-telegram-bot 选项
 
@@ -458,17 +459,18 @@ hive <github-url> [options]
 hive-telegram-bot [options]
 ```
 
-| 选项                | 别名 | 类型    | 默认值   | 描述                                     |
-| ------------------- | ---- | ------- | -------- | ---------------------------------------- |
-| `--token`           | `-t` | string  | （必填） | 来自 @BotFather 的 Telegram bot token    |
-| `--allowed-chats`   |      | string  | （全部） | 允许的聊天 ID（Links Notation）          |
-| `--solve-overrides` |      | string  | （无）   | /solve 的覆盖选项                        |
-| `--hive-overrides`  |      | string  | （无）   | /hive 的覆盖选项                         |
-| `--solve`           |      | boolean | true     | 启用 /solve 命令（使用 --no-solve 禁用） |
-| `--hive`            |      | boolean | true     | 启用 /hive 命令（使用 --no-hive 禁用）   |
-| `--configuration`   | `-c` | string  |          | LINO 配置字符串                          |
-| `--verbose`         | `-v` | boolean | false    | 启用详细日志                             |
-| `--dry-run`         |      | boolean | false    | 验证而不启动 bot                         |
+| 选项                | 别名 | 类型    | 默认值   | 描述                                                                                                                                                                                      |
+| ------------------- | ---- | ------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--token`           | `-t` | string  | （必填） | 来自 @BotFather 的 Telegram bot token                                                                                                                                                     |
+| `--allowed-chats`   |      | string  | （全部） | 允许的聊天 ID（Links Notation）                                                                                                                                                           |
+| `--solve-overrides` |      | string  | （无）   | /solve 的覆盖选项                                                                                                                                                                         |
+| `--hive-overrides`  |      | string  | （无）   | /hive 的覆盖选项                                                                                                                                                                          |
+| `--solve`           |      | boolean | true     | 启用 /solve 命令（使用 --no-solve 禁用）                                                                                                                                                  |
+| `--hive`            |      | boolean | true     | 启用 /hive 命令（使用 --no-hive 禁用）                                                                                                                                                    |
+| `--configuration`   | `-c` | string  |          | LINO 配置字符串                                                                                                                                                                           |
+| `--verbose`         | `-v` | boolean | false    | 启用详细日志                                                                                                                                                                              |
+| `--dry-run`         |      | boolean | false    | 验证而不启动 bot                                                                                                                                                                          |
+| `--isolation`       |      | string  | `screen` | 隔离后端（`screen`、`tmux`、`docker`）。默认 `screen`，使 Telegram-bot 工作会话保持分离，从而能够在 bot 重启后继续运行。要禁用，请传递 `--isolation ''`（或设置 `TELEGRAM_ISOLATION=`）。 |
 
 启用 `/solve` 时，Telegram bot 也接受 `/do` 和 `/continue` 作为普通
 `/solve` 别名。`/claude`、`/codex`、`/opencode` 和 `/agent` 是按工具划分的别名，

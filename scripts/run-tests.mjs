@@ -45,6 +45,7 @@ const LEGACY_DEFAULT_TESTS = [
   'tests/test-isolation-runner.mjs',
   'tests/test-isolation-screen-fallback-1545.mjs',
   'tests/test-isolation-screen-integration-1545.mjs',
+  'tests/test-issue-467-terminal-watch.mjs',
   'tests/test-issue-1337-stderr-warning-detection.mjs',
   'tests/test-issue-1616-pr-issue-link-preservation.mjs',
   'tests/test-issue-1670-screen-status-monitoring.mjs',

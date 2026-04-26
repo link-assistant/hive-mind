@@ -379,8 +379,8 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'tokens-budget-stats': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Show detailed token budget statistics including context window usage and ratios. Supported for --tool claude, --tool codex, and any tool that returns detailed token usage.',
-    default: false,
+    description: 'Show detailed token budget statistics including context window usage and ratios (enabled by default, use --no-tokens-budget-stats to disable). Supported for --tool claude, --tool codex, and any tool that returns detailed token usage.',
+    default: true,
   },
   'prompt-issue-reporting': {
     type: 'boolean',
@@ -464,13 +464,13 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'auto-attach-solution-summary': {
     type: 'boolean',
-    description: 'Automatically attach solution summary only if the AI did not create any comments during the session. This provides visible feedback when the AI completes silently.',
-    default: false,
+    description: 'Automatically attach solution summary only if the AI did not create any comments during the session. This provides visible feedback when the AI completes silently. Enabled by default; use --no-auto-attach-solution-summary to disable.',
+    default: true,
   },
   'auto-accept-invite': {
     type: 'boolean',
-    description: 'Automatically accept the pending GitHub repository or organization invitation for the specific repository/organization being solved, before checking write access. Unlike /accept_invites which accepts all pending invitations, this only accepts the invite for the target repo/org.',
-    default: false,
+    description: 'Automatically accept the pending GitHub repository or organization invitation for the specific repository/organization being solved, before checking write access. Unlike /accept_invites which accepts all pending invitations, this only accepts the invite for the target repo/org. Enabled by default; use --no-auto-accept-invite to disable.',
+    default: true,
   },
   'prompt-ensure-all-requirements-are-met': {
     type: 'boolean',

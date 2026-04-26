@@ -113,7 +113,7 @@ const config = yargs(hideBin(process.argv))
     alias: 'v',
     default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
   })
-  .option('isolation', { type: 'string', description: 'Experimental: isolation backend (screen/tmux/docker)', default: getenv('TELEGRAM_ISOLATION', '') })
+  .option('isolation', { type: 'string', description: "Isolation backend (screen/tmux/docker). Defaults to 'screen' so Telegram-bot work sessions survive bot restarts; pass --isolation '' (or set TELEGRAM_ISOLATION='') to disable.", default: getenv('TELEGRAM_ISOLATION', 'screen') })
   .help('h')
   .alias('h', 'help')
   .parserConfiguration({
@@ -551,7 +551,7 @@ async function safeReply(ctx, text, options = {}) {
   }
 }
 
-async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude') {
+async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null) {
   const { chat, message_id: msgId } = startingMessage;
   const safeEdit = async text => {
     try {
@@ -560,22 +560,20 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
       console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
     }
   };
+  const requesterUserId = ctx.from?.id ?? null; // Issue #1688: suppress duplicate /subscribe DM
   const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
   let result, session;
   if (iso) {
     session = iso.runner.generateSessionId();
     VERBOSE && console.log(`[VERBOSE] Using isolation (${iso.backend}), session: ${session}`);
     result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, verbose: VERBOSE });
-    if (result.success) trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: iso.backend, sessionId: session, tool, infoBlock }, VERBOSE);
+    if (result.success) trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: iso.backend, sessionId: session, tool, infoBlock, urlContext, requesterUserId }, VERBOSE);
   } else {
     result = await executeStartScreen(commandName, args);
     const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
     session = match ? match[1] : 'unknown';
-    // Issue #1586: Track non-isolation sessions with timeout-based expiry.
-    // These sessions cannot reliably detect completion (screen stays alive via
-    // `exec bash`), so active URL checks auto-expire them after 10 min.
-    // This prevents accidental duplicate commands within the timeout window.
-    if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock }, VERBOSE);
+    // Issue #1586: Non-isolation sessions auto-expire after 10 min — screen stays alive via `exec bash` so completion can't be detected reliably; this still blocks duplicate commands in the timeout window.
+    if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId }, VERBOSE);
   }
   if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
   if (result.success) {
@@ -662,14 +660,14 @@ bot.command('help', async ctx => {
   message += '*/merge* - Merge queue (experimental)\n';
   message += 'Usage: `/merge <github-repo-url>`\n';
   message += "Merges all PRs with 'ready' label sequentially.\n";
+  message += '*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental, #1688)\n';
   message += '*/help* - Show this help message\n';
-  message += '*/stop* - Stop accepting new tasks (owner only)\n';
-  message += '*/start* - Resume accepting tasks (owner only)\n';
-  message += '*/log* - Fetch isolation session log (owner only). Usage: `/log <uuid>` or reply to a session message with `/log`\n\n';
-  message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete.\n';
+  message += '*/stop* / */start* - Stop or resume accepting new tasks (owner only)\n';
+  message += '*/log* - Fetch isolation session log (owner only). Usage: `/log <uuid>` or reply with `/log`\n\n';
+  message += '🔔 *Session Notifications:* Completion notifications are automatic; use /subscribe for private DM forwards.\n';
   if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
   message += '\n';
-  message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /subscribe and /unsubscribe work in private and group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -765,7 +763,6 @@ bot.command('version', async ctx => {
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
 
-// Register external command modules (keeps telegram-bot.mjs under line limit)
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
 const sharedCommandOpts = { VERBOSE, isOldMessage, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage };
 registerAcceptInvitesCommand(bot, sharedCommandOpts);
@@ -773,6 +770,8 @@ const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs'
 registerMergeCommand(bot, sharedCommandOpts);
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue });
+const { registerSubscribeCommands } = await import('./telegram-subscribers.lib.mjs'); // #1688
+registerSubscribeCommands(bot, sharedCommandOpts);
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
 async function handleSolveCommand(ctx) {
@@ -956,23 +955,26 @@ async function handleSolveCommand(ctx) {
     return;
   }
   // Validate merged arguments using solve's yargs config
+  let parsedSolveArgs;
   try {
-    await parseArgsWithYargs(args, yargs, createSolveYargsConfig);
+    parsedSolveArgs = await parseArgsWithYargs(args, yargs, createSolveYargsConfig);
   } catch (error) {
     await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
   }
-  // Issue #1552: Validate GitHub entity existence before queueing/executing
-  if (args.some(a => a === '--auto-accept-invite') && validation.parsed.owner && validation.parsed.repo) {
+  // Issue #1552 + #1694: Validate GitHub entity existence before queueing/executing.
+  // Honor the parsed --auto-accept-invite (now default-on per #1694), so --no-auto-accept-invite
+  // disables the pre-check while the default path still accepts pending invites for the target repo/org.
+  if (parsedSolveArgs?.autoAcceptInvite && validation.parsed.owner && validation.parsed.repo) {
     try {
       await (await import('./solve.accept-invite.lib.mjs')).autoAcceptInviteForRepo(validation.parsed.owner, validation.parsed.repo, async () => {}, false);
     } catch (e) {
       VERBOSE && console.log(`[VERBOSE] Auto-accept invite pre-check failed: ${e.message}`);
     }
   }
-  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, verbose: VERBOSE });
+  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, verbose: VERBOSE, autoAcceptInvite: args.some(a => a === '--auto-accept-invite') });
   if (!entityCheck.valid) {
     await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
     return;
@@ -981,10 +983,10 @@ async function handleSolveCommand(ctx) {
   const normalizedUrl = validation.parsed.normalized;
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
-  // Issue #1460: Escape options text to prevent Markdown parsing errors
+  // #1228: only user options; #1460: escape; #1688: 'Issue:' / 'Pull request:' label so completion can append PR link.
   const userOptionsRaw = userArgs.slice(1).join(' ');
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}`;
+  const urlLabel = validation.parsed?.type === 'pull' ? 'Pull request' : 'Issue';
+  let infoBlock = `Requested by: ${requester}\n${urlLabel}: ${escapeMarkdown(normalizedUrl)}`;
   if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
   if (solveOverrides.length > 0) infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(solveOverrides.join(' '))}`;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
@@ -1010,12 +1012,15 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
+  // Issue #1688: parsed URL context lets the completion message look up linked PRs.
+  const solveUrlContext = validation.parsed ? { owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, normalized: validation.parsed.normalized || normalizedUrl } : null;
+
   const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
   if (check.canStart && toolQueuedCount === 0) {
     const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, effectiveSolveIsolation, solveTool);
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext);
   } else {
-    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation });
+    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext });
     let queueMessage = `📋 Solve command queued (${solveTool} queue position #${toolQueuedCount + 1})\n\n${infoBlock}`; // tool-specific position (#1551)
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
@@ -1252,7 +1257,7 @@ bot.on('message', async (ctx, next) => {
     }
   }
 
-  // Check if this is a command we handle
+  // /subscribe + /unsubscribe (#1688) are intentionally not in the text fallback — Telegraf's bot.command() is sufficient.
   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
   const handlers = { ...solveHandlers, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
 

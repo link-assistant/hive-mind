@@ -59,7 +59,8 @@ runTest('SOLVE_OPTION_DEFINITIONS includes auto-attach-solution-summary', async 
   const { SOLVE_OPTION_DEFINITIONS } = await import('../src/solve.config.lib.mjs');
   assertTrue(SOLVE_OPTION_DEFINITIONS['auto-attach-solution-summary'], 'Option should exist');
   assertEqual(SOLVE_OPTION_DEFINITIONS['auto-attach-solution-summary'].type, 'boolean', 'Type should be boolean');
-  assertEqual(SOLVE_OPTION_DEFINITIONS['auto-attach-solution-summary'].default, false, 'Default should be false');
+  // Issue #1694: stabilized — default flipped from false to true (use --no-auto-attach-solution-summary to disable)
+  assertEqual(SOLVE_OPTION_DEFINITIONS['auto-attach-solution-summary'].default, true, 'Default should be true (Issue #1694)');
 });
 
 // Test the attachSolutionSummary function (mock test)

@@ -80,7 +80,27 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
     if (iso) {
       const sid = iso.runner.generateSessionId();
       const r = await iso.runner.executeWithIsolation(item.command || 'solve', item.args, { backend: iso.backend, sessionId: sid, verbose });
-      if (r.success) trackSession(sid, { chatId: item.ctx?.chat?.id, messageId: item.messageInfo?.messageId, startTime: new Date(), url: item.url, command: item.command || 'solve', isolationBackend: iso.backend, sessionId: sid, tool: item.tool || 'claude', infoBlock: item.infoBlock }, verbose);
+      if (r.success)
+        trackSession(
+          sid,
+          {
+            chatId: item.ctx?.chat?.id,
+            messageId: item.messageInfo?.messageId,
+            startTime: new Date(),
+            url: item.url,
+            command: item.command || 'solve',
+            isolationBackend: iso.backend,
+            sessionId: sid,
+            tool: item.tool || 'claude',
+            infoBlock: item.infoBlock,
+            // Issue #1688: propagate URL context + requester through the queue so the
+            //   completion notification can append a 'Pull request:' line and skip
+            //   notifying the requester twice via /subscribe.
+            urlContext: item.urlContext || null,
+            requesterUserId: item.requesterUserId ?? null,
+          },
+          verbose
+        );
       return { ...r, sessionId: sid, isolationBackend: iso.backend, output: r.output || `session: ${sid}` };
     }
     return fallbackCallback(item);

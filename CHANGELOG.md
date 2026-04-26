@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.57.2
+
+### Patch Changes
+
+- aff6d1d: Add a stable test runner and suite markers to avoid package.json test-script conflicts.
+
 ## 1.57.1
 
 ### Patch Changes

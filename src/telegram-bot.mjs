@@ -662,9 +662,9 @@ bot.command('help', async ctx => {
   message += "Merges all PRs with 'ready' label sequentially.\n";
   message += '*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental, #1688)\n';
   message += '*/help* - Show this help message\n';
-  message += '*/stop* - Stop accepting new tasks (owner only)\n';
-  message += '*/start* - Resume accepting tasks (owner only)\n\n';
-  message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete. Use /subscribe to also get DM forwards (in-memory, resets on restart).\n';
+  message += '*/stop* / */start* - Stop or resume accepting new tasks (owner only)\n';
+  message += '*/log* - Fetch isolation session log (owner only). Usage: `/log <uuid>` or reply with `/log`\n\n';
+  message += '🔔 *Session Notifications:* Completion notifications are automatic; use /subscribe for private DM forwards.\n';
   if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
   message += '\n';
   message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /subscribe and /unsubscribe work in private and group chats.\n\n';
@@ -763,7 +763,6 @@ bot.command('version', async ctx => {
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
 
-// Register external command modules (keeps telegram-bot.mjs under line limit)
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
 const sharedCommandOpts = { VERBOSE, isOldMessage, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage };
 registerAcceptInvitesCommand(bot, sharedCommandOpts);
@@ -1191,8 +1190,10 @@ bot.command(/^hive$/i, handleHiveCommand);
 
 const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
 const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
+const { registerLogCommand } = await import('./telegram-log-command.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
 registerStartStopCommands(bot, sharedCommandOpts);
+await registerLogCommand(bot, sharedCommandOpts);
 
 // Add message listener for verbose debugging
 if (VERBOSE) {

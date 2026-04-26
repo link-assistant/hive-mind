@@ -90,6 +90,21 @@ export function trackSession(sessionName, sessionInfo, verbose = false) {
 }
 
 /**
+ * Look up the in-memory record for a session id (UUID for isolation sessions
+ * or the screen session name for non-isolation sessions). Returns null when no
+ * record exists — for example, after a process restart or for sessions that
+ * were never tracked through the Telegram bot. Used by `/log` to discover the
+ * originating chat id and the GitHub URL associated with a session.
+ *
+ * @param {string} sessionName
+ * @returns {Object|null}
+ */
+export function getTrackedSessionInfo(sessionName) {
+  if (!sessionName) return null;
+  return activeSessions.get(sessionName) || null;
+}
+
+/**
  * Get the number of active sessions being tracked
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {number} Number of active sessions

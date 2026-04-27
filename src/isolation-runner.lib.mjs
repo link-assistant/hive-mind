@@ -52,7 +52,12 @@ export function parseSessionStatusOutput(output) {
   try {
     const parsed = JSON.parse(raw);
     const data = Array.isArray(parsed) ? parsed[0] : parsed;
-    const isolationFromOptions = typeof data?.options?.isolation === 'string' ? data.options.isolation.toLowerCase() : null;
+    // start-command (link-foundation/start) reports the isolation backend at
+    // `options.isolated` in both JSON and links-notation output. Older
+    // hypothetical layouts used `options.isolation` or a top-level `isolation`
+    // field — keep accepting all three so we are tolerant of future renames.
+    // See https://github.com/link-assistant/hive-mind/issues/1700.
+    const isolationCandidate = (typeof data?.isolation === 'string' && data.isolation) || (typeof data?.options?.isolated === 'string' && data.options.isolated) || (typeof data?.options?.isolation === 'string' && data.options.isolation) || null;
     return {
       exists: true,
       uuid: data?.uuid || null,
@@ -63,7 +68,7 @@ export function parseSessionStatusOutput(output) {
       currentTime: data?.currentTime || null,
       logPath: data?.logPath || null,
       command: data?.command || null,
-      isolation: typeof data?.isolation === 'string' ? data.isolation.toLowerCase() : isolationFromOptions,
+      isolation: isolationCandidate ? isolationCandidate.toLowerCase() : null,
       workingDirectory: data?.workingDirectory || null,
       raw,
     };
@@ -83,6 +88,13 @@ export function parseSessionStatusOutput(output) {
 
   const status = readField('status')?.toLowerCase() || null;
   const exitCodeText = readField('exitCode');
+  // `start-command` links-notation output nests the isolation backend under
+  // `options` as `isolated <backend>` (not `isolation`). The leading indent
+  // varies by depth, but `readField` is anchored with `^\s*` which already
+  // matches indented lines. Older code only looked for `isolation`, which
+  // returned null for every real session and made /log + /terminal_watch
+  // reject screen/tmux/docker sessions. See issue #1700.
+  const isolationText = readField('isolated') || readField('isolation');
 
   return {
     exists: Boolean(status || firstLine),
@@ -94,7 +106,7 @@ export function parseSessionStatusOutput(output) {
     currentTime: readField('currentTime'),
     logPath: readField('logPath'),
     command: readField('command'),
-    isolation: readField('isolation')?.toLowerCase() || null,
+    isolation: isolationText?.toLowerCase() || null,
     workingDirectory: readField('workingDirectory'),
     raw,
   };

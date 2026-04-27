@@ -382,6 +382,8 @@ export async function registerTerminalWatchCommand(bot, options) {
     const { repoVisibility, repoDescription } = await resolveTerminalWatchRepository({ sessionInfo, statusResult, parseGitHubUrl, detectRepositoryVisibility });
     const decision = decideLogDestination({ statusResult, sessionInfo, repoVisibility, chatType: chat.type });
     if (decision.destination === 'reject') {
+      // Surface enough state to diagnose false-rejections like issue #1700.
+      VERBOSE && console.log(`[VERBOSE] /terminal_watch rejected session ${sessionId}: reason="${decision.reason}" parsedIsolation=${JSON.stringify(statusResult?.isolation)} sessionInfoBackend=${JSON.stringify(sessionInfo?.isolationBackend)} rawHead=${JSON.stringify((statusResult?.raw || '').slice(0, 240))}`);
       await ctx.reply(`❌ ${decision.reason}`, { reply_to_message_id: message.message_id });
       return;
     }

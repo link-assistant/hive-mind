@@ -82,9 +82,28 @@ runTest('single sub-session shows simplified format with context/output on singl
 });
 
 runTest('shows cached tokens separately in totals', () => {
+  // Issue #1710 R4: When both cache writes and cache reads are present, render
+  // them as their own categories rather than fusing the writes into the input
+  // figure. Previously this test asserted the fused form `(60K + 5K cached)`,
+  // which folded a 1.25× / 2× billed cache-write category into the 1× input
+  // category — the silent-mismatch bug Symptom D in the case study describes.
   const result = buildBudgetStatsString(makeTokenUsage({ input: 50000, cacheCreate: 10000, cacheRead: 5000 }), null);
-  // Issue #1526: Shorter total format
-  assertContains(result, '(60K + 5K cached) input tokens', 'Should show input + cached separately');
+  assertContains(result, '(50K new + 10K cache writes + 5K cache reads) input tokens', 'Should show input + cache writes + cache reads as separate categories (issue #1710 R4)');
+});
+
+runTest('preserves legacy short cached form when only cache reads exist', () => {
+  // Issue #1710 R4: When cache writes are 0, keep the back-compat
+  // `(X + Y cached)` shape so the common Opus-only case is unchanged.
+  const result = buildBudgetStatsString(makeTokenUsage({ input: 50000, cacheCreate: 0, cacheRead: 5000 }), null);
+  assertContains(result, '(50K + 5K cached) input tokens', 'Should preserve legacy form when only cache reads exist');
+});
+
+runTest('shows cache writes alone when no cache reads', () => {
+  // Issue #1710 R4: Haiku case from facts.md — writes only, no reads.
+  // Previously the cumulative line collapsed to "X input tokens" silently
+  // fusing writes with input. Now the writes appear as a labelled category.
+  const result = buildBudgetStatsString(makeTokenUsage({ input: 77969, cacheCreate: 57580, cacheRead: 0 }), null);
+  assertContains(result, '(78.0K new + 57.6K cache writes) input tokens', 'Should show cache writes as a separate category (issue #1710 R4 / Haiku case)');
 });
 
 runTest('does not show cached when zero', () => {

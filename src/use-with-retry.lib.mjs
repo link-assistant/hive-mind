@@ -3,16 +3,21 @@
 /**
  * Retry wrapper for `use-m` package loading.
  *
- * Issue #1710: Hosted CI runners occasionally hand back a truncated/corrupt
- * global package after `npm install -g <pkg>` (the resulting `index.js` is
- * cut off mid-line). The first symptom is `import` throwing a SyntaxError
- * ("Unexpected end of input") wrapped in use-m's
- *   `Failed to import module from '<path>'.`
- * error.
+ * Issue #1710: Hosted CI runners occasionally hand back a truncated or
+ * partially-installed global package after `npm install -g <pkg>`. Two
+ * surface symptoms have been observed:
  *
- * The recovery is to delete the broken install directory and ask use-m to
- * re-fetch — a clean reinstall almost always succeeds. This helper centralises
- * that retry so every call site picks it up.
+ *   1. `import` throws a SyntaxError ("Unexpected end of input") wrapped
+ *      in use-m's `Failed to import module from '<path>'.` — the file on
+ *      disk is cut off mid-line.
+ *   2. use-m throws `Failed to resolve the path to '<pkg>' from '<dir>'`
+ *      — the install completed without error but the package tree is
+ *      missing files that the `main`/`exports` entry depends on.
+ *
+ * The recovery is identical for both: delete the broken alias install
+ * directory and ask use-m to re-fetch. A clean reinstall almost always
+ * succeeds. This helper centralises that retry so every call site picks
+ * it up.
  */
 
 /**

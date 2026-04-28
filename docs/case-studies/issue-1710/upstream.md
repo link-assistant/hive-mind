@@ -78,10 +78,10 @@ totals via `result.modelUsage[<sub-agent-model>]`.
 **Suggested fix (in upstream).**
 
 Add a `peakContextUsage` integer to each entry of `modelUsage` in the result
-event, computed as the largest `input_tokens + cache_creation_input_tokens
-
-- cache_read_input_tokens`value seen across the sub-agent's API calls.
-Alternatively, include`usage.peak_context_usage`on each`task_notification` event.
+event, computed as the largest
+`input_tokens + cache_creation_input_tokens + cache_read_input_tokens`
+value seen across the sub-agent's API calls. Alternatively, include
+`usage.peak_context_usage` on each `task_notification` event.
 
 **Workaround we use today.** Render the cumulative
 `(input + cache_creation + cache_reads cached)` form for sub-agent models

@@ -558,15 +558,25 @@ export const isBidirectionalModeSupported = tool => {
  * @returns {Promise<boolean>} Whether configuration is valid for the chosen tool
  */
 export const validateBidirectionalModeConfig = async (argv, log) => {
-  // Issue #1708 Stage 1: --auto-input-until-mergeable currently implies
-  // --bidirectional-interactive-mode, which in turn cascades the three
-  // existing experimental sub-flags below. The full streaming-aware
+  // Issue #1708 Stage 1: --auto-input-until-mergeable enables only the
+  // input-side of bidirectional mode — accepting incoming PR/issue comments
+  // as new input — without enabling --interactive-mode (which would push
+  // tool output back as PR comments). The full streaming-aware
   // watchUntilMergeable replacement is staged in subsequent PRs — until
   // those land, this composition gives users on --tool claude the
   // mid-session NDJSON input pipe that already exists for issue #817 and
-  // is a no-op for non-Claude tools (the validator below disables it).
-  if (argv.autoInputUntilMergeable && !argv.bidirectionalInteractiveMode) {
-    argv.bidirectionalInteractiveMode = true;
+  // is a graceful no-op for non-Claude tools (the validator below disables
+  // it). The --auto-restart-until-mergeable / --auto-resume loops remain
+  // active as fallbacks; the goal is for them to stay dormant when input
+  // streaming keeps the session alive.
+  if (argv.autoInputUntilMergeable) {
+    if (!argv.acceptIncommingCommentsAsInput) argv.acceptIncommingCommentsAsInput = true;
+    // Default delivery mode for --auto-input-until-mergeable is queue:
+    // hold comments until the AI is idle so the model can finish the
+    // current step before being interrupted.
+    if (!argv.streamCommentsToInput && !argv.queueCommentsToInput) {
+      argv.queueCommentsToInput = true;
+    }
   }
 
   // Composition: --bidirectional-interactive-mode implies the three experimental flags.
@@ -574,6 +584,19 @@ export const validateBidirectionalModeConfig = async (argv, log) => {
     if (!argv.interactiveMode) argv.interactiveMode = true;
     if (!argv.acceptIncommingCommentsAsInput) argv.acceptIncommingCommentsAsInput = true;
     if (!argv.excludeAllOwnIncommingCommentsFromInput) argv.excludeAllOwnIncommingCommentsFromInput = true;
+  }
+
+  // Default delivery mode for --accept-incomming-comments-as-input on its
+  // own is stream (matches the existing #817 behavior of forwarding
+  // comments immediately as pollIncomingComments sees them).
+  if (argv.acceptIncommingCommentsAsInput && !argv.streamCommentsToInput && !argv.queueCommentsToInput) {
+    argv.streamCommentsToInput = true;
+  }
+
+  // queue mode wins if both delivery modes are set (defensive, in case the
+  // user passes both flags explicitly).
+  if (argv.queueCommentsToInput && argv.streamCommentsToInput) {
+    argv.streamCommentsToInput = false;
   }
 
   // Nothing more to validate if no incoming-comment acceptance is requested
@@ -585,11 +608,15 @@ export const validateBidirectionalModeConfig = async (argv, log) => {
     await log('   Incoming-comment acceptance will be disabled for this session.', { level: 'warning' });
     argv.acceptIncommingCommentsAsInput = false;
     argv.excludeAllOwnIncommingCommentsFromInput = false;
+    argv.streamCommentsToInput = false;
+    argv.queueCommentsToInput = false;
     return false;
   }
 
+  const deliveryMode = argv.queueCommentsToInput ? 'queue' : 'stream';
   await log('🔌 Bidirectional Interactive Mode: ENABLED (experimental)', { level: 'info' });
   await log(`   accept-incomming-comments-as-input: true${argv.excludeAllOwnIncommingCommentsFromInput ? ', exclude-all-own-incomming-comments-from-input: true' : ''}`, { level: 'info' });
+  await log(`   delivery mode: ${deliveryMode}-comments-to-input`, { level: 'info' });
   await log('   PR comments will be monitored and queued as feedback for Claude.', { level: 'info' });
 
   return true;

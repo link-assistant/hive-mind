@@ -169,10 +169,26 @@ plan.
   still running and we just received a single comment.
 - **G5. The new flag does not exist.** R1. `--auto-input-until-mergeable`
   needs to be added to `src/solve.config.lib.mjs` with the right
-  composition (it should imply `--auto-restart-until-mergeable` for
-  fallback safety, and imply
-  `--accept-incomming-comments-as-input` for the bidirectional pipe). It
-  must default to `false` per R4.
+  composition. After review feedback, the correct composition is:
+  `--auto-input-until-mergeable` implies only
+  `--accept-incomming-comments-as-input` (the input side of bidirectional
+  mode) plus `--queue-comments-to-input` (a new delivery-mode flag — see
+  G7). It does NOT imply `--interactive-mode` or
+  `--bidirectional-interactive-mode`, because those would also push tool
+  output back as PR comments — a separate feature with its own opt-in.
+  `--auto-restart-until-mergeable` remains enabled as a fallback; the
+  goal is for it to stay dormant when input streaming keeps the session
+  alive. It must default to `false` per R4.
+- **G7. Comment delivery has no mode toggle.** Today, when
+  `--accept-incomming-comments-as-input` is enabled, comments are
+  forwarded as soon as `pollIncomingComments` sees them. That works for
+  short interactive sessions, but with `--auto-input-until-mergeable` we
+  want the AI to finish the current step before being interrupted with
+  new instructions. Two new opt-in flags are needed:
+  `--stream-comments-to-input` (immediate forwarding — the existing
+  behavior, default for `--accept-incomming-comments-as-input` on its
+  own) and `--queue-comments-to-input` (defer until the AI signals it is
+  idle — default for `--auto-input-until-mergeable`).
 - **G6. There is no test coverage for the streaming → restart fallback
   path.** R4. Once G3 is implemented, we need an integration-style test
   that simulates "stdin write fails after writableEnded" and asserts that
@@ -188,28 +204,52 @@ back to one or more requirements and gaps.
 
 **Status: shipped in this PR.**
 
-Add `--auto-input-until-mergeable` to `src/solve.config.lib.mjs`. Default
-`false`. Document it as `[EXPERIMENTAL]`. Keep it inert for now — the flag
-exists and parses, but the loop in `solve.mjs` only enables the existing
-bidirectional handler when it is set. This is a deliberate, no-op behavior
-change that lets later stages reference the flag without changing existing
-runs.
+Add three flags to `src/solve.config.lib.mjs`, all defaulting to `false`
+and marked `[EXPERIMENTAL]`:
 
-Rationale for shipping the flag inert in stage 1:
+- `--auto-input-until-mergeable` — top-level opt-in for the new
+  experimental behavior.
+- `--stream-comments-to-input` — comment-delivery mode: forward each
+  comment immediately as it arrives. This is the default mode when
+  `--accept-incomming-comments-as-input` is enabled on its own
+  (preserves the existing #817 behavior).
+- `--queue-comments-to-input` — comment-delivery mode: queue comments
+  and only flush them once the AI signals it is idle. This is the
+  default mode implied by `--auto-input-until-mergeable` so the AI can
+  finish the current step before being interrupted.
 
-- R4 ("not break any existing features") is best satisfied by landing the
-  flag with zero behavior change first, then enabling sub-features behind
-  it in subsequent PRs.
-- It lets the flag appear in `--help` and the option-suggestions library
-  immediately so users / hive can pass it without errors.
-- It mirrors how `--bidirectional-interactive-mode` was first added, then
-  later wired to the streaming pipe.
+Composition wired up in `validateBidirectionalModeConfig`:
 
-The flag is documented as currently equivalent to
-`--bidirectional-interactive-mode` for `--tool claude`, with the larger
-`watchUntilMergeable` integration described as upcoming. This is the
-honest, narrow shipping increment — see the PR description for the
-explicit limitations.
+- `--auto-input-until-mergeable` enables
+  `--accept-incomming-comments-as-input` and defaults to
+  `--queue-comments-to-input`. It does **not** enable
+  `--interactive-mode` or `--bidirectional-interactive-mode` (those
+  would also push tool output back as PR comments — a separate feature
+  with its own opt-in).
+- `--accept-incomming-comments-as-input` on its own defaults to
+  `--stream-comments-to-input` (preserves #817 behavior).
+- `--bidirectional-interactive-mode` keeps its existing #817 cascade
+  (enables `--interactive-mode`, `--accept-incomming-comments-as-input`,
+  `--exclude-all-own-incomming-comments-from-input`).
+- For non-Claude tools, the validator warns and disables the streaming
+  pipe — same graceful fallback that #817 already provides.
+- `--auto-restart-until-mergeable` remains enabled as a fallback; the
+  goal is for it to stay dormant once Stage 3 lands and streaming
+  keeps the session alive.
+
+Rationale for shipping flag plumbing in stage 1:
+
+- R4 ("not break any existing features") is best satisfied by landing
+  the flags with the smallest possible behavior change first, then
+  enabling sub-features behind them in subsequent PRs.
+- It lets the flags appear in `--help` and the option-suggestions
+  library immediately so users / hive can pass them without errors.
+- It mirrors how `--bidirectional-interactive-mode` was first added,
+  then later wired to the streaming pipe.
+
+The wiring of `--queue-comments-to-input` into the actual handler
+(holding comments until the AI is idle) and the long-lived
+`streamUntilMergeable` loop are described in stages 3 and 5 below.
 
 ### Stage 2 — Issue/PR body+title polling (R3, G1)
 
@@ -323,10 +363,13 @@ followed by a streamed comment ends up in the resumed session's context.
 
 ## What this PR ships
 
-This PR ships **stage 1 only** — the case study, the new flag in the
-config, the option's appearance in `--help`, and a single regression test
-that the flag's presence doesn't change defaults. Subsequent PRs will
-ship stages 2–6 against this case study.
+This PR ships **stage 1 only** — the case study, the three new flags in
+the config (`--auto-input-until-mergeable`, `--stream-comments-to-input`,
+`--queue-comments-to-input`), their composition wiring in
+`validateBidirectionalModeConfig`, their appearance in `--help`, and a
+regression test that asserts both the composition and the safety contract
+that no existing default changes. Subsequent PRs will ship stages 2–6
+against this case study.
 
 This is intentional: the issue requires deep analysis and a plan
 ("propose possible solutions and solution plans for each requirement"),
@@ -339,12 +382,18 @@ landed (first the flag, then the wiring).
 ## Verification
 
 - `npm run lint` — clean.
-- `npm test` — full default suite passes (no behavioral changes to assert
-  yet at this stage).
+- `npm test` — full default suite passes (no behavioral changes to
+  `watchUntilMergeable` yet at this stage).
 - New regression test
-  `tests/test-auto-input-until-mergeable-1708.mjs` — asserts the flag
-  parses, defaults to `false`, and that enabling it does not change any
-  defaults that `watchUntilMergeable` reads.
+  `tests/test-auto-input-until-mergeable-1708.mjs` — 44 assertions
+  covering: flag presence/default, the three composition rules
+  (`--auto-input-until-mergeable` → accept + queue,
+  `--accept-incomming-comments-as-input` standalone → stream,
+  `--bidirectional-interactive-mode` → cascade unchanged), explicit
+  user toggles preserved, queue-wins-over-stream tiebreaker,
+  non-Claude-tool fallback, and the "no flag = no-op" R4 contract.
+- `tests/test-bidirectional-interactive.mjs` — 43/43 existing
+  assertions pass (no regressions in the #817 flag composition).
 
 ## References
 

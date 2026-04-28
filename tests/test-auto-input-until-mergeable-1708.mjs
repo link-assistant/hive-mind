@@ -6,21 +6,35 @@
  * for the auto-merge loop (the bigger streaming-aware watchUntilMergeable
  * replacement is staged in subsequent PRs — see
  * docs/case-studies/issue-1708/README.md). The only behavior wired up in
- * this PR is composition: enabling --auto-input-until-mergeable also
- * enables --bidirectional-interactive-mode for --tool claude, which in
- * turn cascades into the three existing experimental sub-flags from
- * issue #817.
+ * this PR is composition:
+ *   - --auto-input-until-mergeable enables --accept-incomming-comments-as-input
+ *     for --tool claude (input-only side of bidirectional mode).
+ *   - --auto-input-until-mergeable defaults the delivery mode to
+ *     --queue-comments-to-input (defer until the AI is idle).
+ *   - It does NOT enable --interactive-mode or --bidirectional-interactive-mode
+ *     (those would also push tool output back as PR comments, which is a
+ *     separate feature).
+ *
+ * Two new flags govern delivery mode:
+ *   - --stream-comments-to-input (default for --accept-incomming-comments-as-input
+ *     on its own; matches existing #817 behavior).
+ *   - --queue-comments-to-input (default for --auto-input-until-mergeable;
+ *     hold comments until the AI signals it is idle).
  *
  * This test asserts:
  *   1. The flag exists in the yargs config with default `false`.
- *   2. validateBidirectionalModeConfig auto-enables
- *      --bidirectional-interactive-mode + the three sub-flags when only
- *      --auto-input-until-mergeable is passed (claude tool).
- *   3. For non-Claude tools, the streaming pipe is disabled exactly the
- *      same way --bidirectional-interactive-mode is disabled today —
- *      i.e. the flag composes cleanly with the existing tool-support
- *      validator and does not introduce a new failure mode.
- *   4. The flag does NOT change any default that watchUntilMergeable
+ *   2. The two new delivery-mode flags exist with default `false`.
+ *   3. validateBidirectionalModeConfig auto-enables
+ *      --accept-incomming-comments-as-input + --queue-comments-to-input
+ *      when only --auto-input-until-mergeable is passed (claude tool),
+ *      WITHOUT enabling --interactive-mode or
+ *      --bidirectional-interactive-mode.
+ *   4. --accept-incomming-comments-as-input on its own defaults to
+ *      --stream-comments-to-input (preserves #817 behavior).
+ *   5. queue mode wins when both delivery flags are set.
+ *   6. For non-Claude tools, the streaming pipe is disabled with a
+ *      warning, and both delivery-mode flags are reset.
+ *   7. The flag does NOT change any default that watchUntilMergeable
  *      reads (autoRestartUntilMergeable still defaults to true,
  *      autoMerge still defaults to false).
  *
@@ -64,6 +78,20 @@ assertEqual(opt?.default, false, 'flag defaults to false (opt-in only — R4)');
 assertTrue(typeof opt?.description === 'string' && opt.description.length > 0, 'flag has a description for --help');
 assertTrue(opt?.description?.includes('[EXPERIMENTAL]'), 'description marks the flag as experimental');
 
+console.log('\n--- yargsOptions registers --stream-comments-to-input and --queue-comments-to-input ---');
+
+const streamOpt = yargsOptions['stream-comments-to-input'];
+assertTrue(!!streamOpt, '--stream-comments-to-input is present in yargsOptions');
+assertEqual(streamOpt?.type, 'boolean', '--stream-comments-to-input is boolean');
+assertEqual(streamOpt?.default, false, '--stream-comments-to-input defaults to false (opt-in only)');
+assertTrue(streamOpt?.description?.includes('[EXPERIMENTAL]'), '--stream-comments-to-input is marked experimental');
+
+const queueOpt = yargsOptions['queue-comments-to-input'];
+assertTrue(!!queueOpt, '--queue-comments-to-input is present in yargsOptions');
+assertEqual(queueOpt?.type, 'boolean', '--queue-comments-to-input is boolean');
+assertEqual(queueOpt?.default, false, '--queue-comments-to-input defaults to false (opt-in only)');
+assertTrue(queueOpt?.description?.includes('[EXPERIMENTAL]'), '--queue-comments-to-input is marked experimental');
+
 console.log('\n--- defaults for the existing auto-merge loop are unchanged ---');
 
 const autoRestartOpt = yargsOptions['auto-restart-until-mergeable'];
@@ -71,7 +99,7 @@ assertEqual(autoRestartOpt?.default, true, 'auto-restart-until-mergeable still d
 const autoMergeOpt = yargsOptions['auto-merge'];
 assertEqual(autoMergeOpt?.default, false, 'auto-merge still defaults to false');
 
-console.log('\n--- validateBidirectionalModeConfig: --auto-input-until-mergeable on claude composes ---');
+console.log('\n--- validateBidirectionalModeConfig: --auto-input-until-mergeable on claude composes correctly ---');
 
 const noLog = async () => {};
 
@@ -82,31 +110,72 @@ const claudeArgv = {
   interactiveMode: false,
   acceptIncommingCommentsAsInput: false,
   excludeAllOwnIncommingCommentsFromInput: false,
+  streamCommentsToInput: false,
+  queueCommentsToInput: false,
 };
 const claudeResult = await validateBidirectionalModeConfig(claudeArgv, noLog);
 assertEqual(claudeResult, true, 'validator returns true for claude + auto-input-until-mergeable');
-assertTrue(claudeArgv.bidirectionalInteractiveMode, 'auto-input-until-mergeable enables bidirectional-interactive-mode');
-assertTrue(claudeArgv.interactiveMode, 'cascades to interactive-mode (issue #817)');
-assertTrue(claudeArgv.acceptIncommingCommentsAsInput, 'cascades to accept-incomming-comments-as-input (issue #817)');
-assertTrue(claudeArgv.excludeAllOwnIncommingCommentsFromInput, 'cascades to exclude-all-own-incomming-comments-from-input (issue #817)');
+assertTrue(claudeArgv.acceptIncommingCommentsAsInput, 'auto-input-until-mergeable enables accept-incomming-comments-as-input');
+assertTrue(claudeArgv.queueCommentsToInput, 'auto-input-until-mergeable defaults delivery to queue mode');
+assertFalse(claudeArgv.streamCommentsToInput, 'queue mode is the default; stream is NOT enabled');
+assertFalse(claudeArgv.interactiveMode, 'auto-input-until-mergeable does NOT enable --interactive-mode (output stays out of PR)');
+assertFalse(claudeArgv.bidirectionalInteractiveMode, 'auto-input-until-mergeable does NOT imply --bidirectional-interactive-mode');
+assertFalse(claudeArgv.excludeAllOwnIncommingCommentsFromInput, 'auto-input-until-mergeable does NOT toggle the self-talk filter');
 
-console.log('\n--- validator preserves the explicit user toggle ---');
+console.log('\n--- --accept-incomming-comments-as-input on its own defaults to stream mode (#817 backwards-compat) ---');
 
-const claudeOptOutArgv = {
-  autoInputUntilMergeable: true,
-  // User explicitly opted into --bidirectional-interactive-mode separately;
-  // validator must not regress that.
-  bidirectionalInteractiveMode: true,
+const acceptOnlyArgv = {
   tool: 'claude',
-  acceptIncommingCommentsAsInput: false,
+  acceptIncommingCommentsAsInput: true,
+  streamCommentsToInput: false,
+  queueCommentsToInput: false,
+};
+await validateBidirectionalModeConfig(acceptOnlyArgv, noLog);
+assertTrue(acceptOnlyArgv.streamCommentsToInput, 'standalone accept flag defaults to stream-comments-to-input');
+assertFalse(acceptOnlyArgv.queueCommentsToInput, 'standalone accept flag does NOT default to queue mode');
+
+console.log('\n--- explicit --queue-comments-to-input wins over --stream-comments-to-input when both are set ---');
+
+const bothModesArgv = {
+  tool: 'claude',
+  acceptIncommingCommentsAsInput: true,
+  streamCommentsToInput: true,
+  queueCommentsToInput: true,
+};
+await validateBidirectionalModeConfig(bothModesArgv, noLog);
+assertTrue(bothModesArgv.queueCommentsToInput, 'queue mode stays on when both flags are set');
+assertFalse(bothModesArgv.streamCommentsToInput, 'queue mode wins; stream is reset to false');
+
+console.log('\n--- --bidirectional-interactive-mode still cascades to the three #817 flags (no regression) ---');
+
+const bidirArgv = {
+  tool: 'claude',
+  bidirectionalInteractiveMode: true,
   interactiveMode: false,
+  acceptIncommingCommentsAsInput: false,
   excludeAllOwnIncommingCommentsFromInput: false,
 };
-await validateBidirectionalModeConfig(claudeOptOutArgv, noLog);
-assertTrue(claudeOptOutArgv.bidirectionalInteractiveMode, 'explicit bidirectional-interactive-mode stays on');
-assertTrue(claudeOptOutArgv.acceptIncommingCommentsAsInput, 'cascades unchanged when both flags are set');
+await validateBidirectionalModeConfig(bidirArgv, noLog);
+assertTrue(bidirArgv.interactiveMode, 'bidirectional cascades to interactive-mode');
+assertTrue(bidirArgv.acceptIncommingCommentsAsInput, 'bidirectional cascades to accept-incomming-comments-as-input');
+assertTrue(bidirArgv.excludeAllOwnIncommingCommentsFromInput, 'bidirectional cascades to exclude-all-own-incomming-comments-from-input');
+assertTrue(bidirArgv.streamCommentsToInput, 'bidirectional defaults to stream mode (matches #817 behavior)');
 
-console.log('\n--- non-Claude tool: streaming pipe is disabled with a warning, just like today ---');
+console.log('\n--- explicit user toggles are preserved ---');
+
+const explicitArgv = {
+  autoInputUntilMergeable: true,
+  tool: 'claude',
+  acceptIncommingCommentsAsInput: true,
+  // User explicitly opted into stream mode; queue should NOT override it.
+  streamCommentsToInput: true,
+  queueCommentsToInput: false,
+};
+await validateBidirectionalModeConfig(explicitArgv, noLog);
+assertTrue(explicitArgv.streamCommentsToInput, 'explicit stream-comments-to-input stays on');
+assertFalse(explicitArgv.queueCommentsToInput, 'explicit stream choice is not overridden to queue');
+
+console.log('\n--- non-Claude tool: streaming pipe is disabled with a warning ---');
 
 const codexLogs = [];
 const codexLog = async msg => {
@@ -119,11 +188,15 @@ const codexArgv = {
   interactiveMode: false,
   acceptIncommingCommentsAsInput: false,
   excludeAllOwnIncommingCommentsFromInput: false,
+  streamCommentsToInput: false,
+  queueCommentsToInput: false,
 };
 const codexResult = await validateBidirectionalModeConfig(codexArgv, codexLog);
 assertEqual(codexResult, false, 'non-claude tool: validator returns false (existing tool-support behavior preserved)');
 assertFalse(codexArgv.acceptIncommingCommentsAsInput, 'streaming-input is disabled for codex (no NDJSON channel upstream)');
 assertFalse(codexArgv.excludeAllOwnIncommingCommentsFromInput, 'self-talk filter is disabled along with streaming-input');
+assertFalse(codexArgv.streamCommentsToInput, 'stream-comments-to-input is reset for non-claude tools');
+assertFalse(codexArgv.queueCommentsToInput, 'queue-comments-to-input is reset for non-claude tools');
 assertTrue(
   codexLogs.some(l => l.includes('only supported for --tool claude')),
   'validator logs the standard "claude only" warning so users see why streaming is off'
@@ -140,6 +213,8 @@ assertEqual(noFlagResult, true, 'validator returns true when no streaming flag i
 assertFalse(noFlagArgv.bidirectionalInteractiveMode, 'no flag means bidirectional stays off');
 assertFalse(noFlagArgv.acceptIncommingCommentsAsInput, 'no flag means streaming-input stays off');
 assertFalse(noFlagArgv.interactiveMode, 'no flag means interactive-mode stays off');
+assertFalse(noFlagArgv.streamCommentsToInput, 'no flag means stream-comments-to-input stays off');
+assertFalse(noFlagArgv.queueCommentsToInput, 'no flag means queue-comments-to-input stays off');
 
 console.log(`\n================================================================================`);
 console.log(`Result: ${passed} passed, ${failed} failed`);

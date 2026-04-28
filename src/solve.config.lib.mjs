@@ -204,7 +204,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   // and the bidirectional NDJSON pipe (see docs/case-studies/issue-1708/).
   'auto-input-until-mergeable': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Extend a single AI tool session as long as possible by streaming new input (uncommitted changes, CI/CD failures, PR/issue comments, issue title/body updates) directly into the running session, instead of restarting it. Currently a no-op alias of --bidirectional-interactive-mode for --tool claude; the full streaming-aware watchUntilMergeable replacement is staged in subsequent PRs (see docs/case-studies/issue-1708/). Falls back to --auto-restart-until-mergeable for non-Claude tools and on streaming errors. Disabled by default.',
+    description: '[EXPERIMENTAL] Extend a single AI tool session as long as possible by streaming new input (uncommitted changes, CI/CD failures, PR/issue comments, issue title/body updates) directly into the running session, instead of restarting it. Implies --accept-incomming-comments-as-input and --queue-comments-to-input by default (comments are deferred until the AI finishes the current step and is waiting for input). Existing auto-restart/auto-resume loops remain enabled as a fallback, but the goal is to keep them dormant. The full streaming-aware watchUntilMergeable replacement and per-tool wiring is staged in subsequent PRs (see docs/case-studies/issue-1708/). Falls back gracefully on non-Claude tools and on streaming errors. Disabled by default.',
     default: false,
   },
   'wait-for-all-actions-in-repository-before-mergeable': {
@@ -384,6 +384,26 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'bidirectional-interactive-mode': {
     type: 'boolean',
     description: '[EXPERIMENTAL] Convenience flag that enables --interactive-mode, --accept-incomming-comments-as-input and --exclude-all-own-incomming-comments-from-input together. Only supported for --tool claude.',
+    default: false,
+  },
+  // Issue #1708: Comment delivery mode for --accept-incomming-comments-as-input.
+  // --stream-comments-to-input: forward comments immediately as they arrive
+  //   (the default for --accept-incomming-comments-as-input on its own; matches
+  //   the existing #817 behavior of pushing comments to Claude as soon as
+  //   pollIncomingComments sees them).
+  // --queue-comments-to-input: hold comments until the AI signals it is idle
+  //   (waiting for input), then flush the queue. Used by
+  //   --auto-input-until-mergeable so the model finishes the current step
+  //   before getting interrupted with new instructions.
+  // The two flags are mutually exclusive; if both are set, queue mode wins.
+  'stream-comments-to-input': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] When --accept-incomming-comments-as-input is enabled, forward each new PR/issue comment to the AI immediately as it arrives (real-time streaming). This is the default behavior for --accept-incomming-comments-as-input on its own. Mutually exclusive with --queue-comments-to-input; queue mode wins if both are set. Only supported for --tool claude.',
+    default: false,
+  },
+  'queue-comments-to-input': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] When --accept-incomming-comments-as-input is enabled, queue new PR/issue comments and only flush them once the AI signals it is idle (waiting for input). This is the default mode implied by --auto-input-until-mergeable so the AI completes the current step before being interrupted with new instructions. Mutually exclusive with --stream-comments-to-input; queue mode wins if both are set. Only supported for --tool claude.',
     default: false,
   },
   'prompt-explore-sub-agent': {

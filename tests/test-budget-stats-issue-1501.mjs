@@ -109,8 +109,10 @@ runTest('output format shows totals with cached tokens separately', () => {
     },
   };
   const result = buildBudgetStatsString(tokenUsage, null);
-  // Issue #1526: Shorter total format
-  assertContains(result, '(60K + 200K cached) input tokens', 'Should show input + cached separately');
+  // Issue #1710 R4: Cache writes are now their own category, not silently fused
+  // into the input figure. Previously: `(60K + 200K cached)` which mixed 1× input
+  // with 1.25× cache-write tokens. Now: explicit three-way split.
+  assertContains(result, '(50K new + 10K cache writes + 200K cache reads) input tokens', 'Should show input, cache writes, and cache reads as separate categories (issue #1710 R4)');
   assertContains(result, '15K output tokens', 'Should show output tokens');
 });
 
@@ -245,8 +247,9 @@ runTest('multiple sub-sessions shows numbered list', () => {
   const result = buildBudgetStatsString(tokenUsage, null);
   // Issue #1600: Numbered sub-sessions without "Context window:" prefix
   assertNotContains(result, 'Context window:', 'Should NOT show "Context window:" prefix (removed in #1600)');
-  assertContains(result, '1. 80K / 1M (8%) input tokens', 'Should number first sub-session with content');
-  assertContains(result, '2. 45K / 1M (5%) input tokens', 'Should number second sub-session with content');
+  // Issue #1710 R3: peak request label disambiguates the bullet from the cumulative Total line
+  assertContains(result, '1. peak request: 80K / 1M (8%) input tokens', 'Should number first sub-session with content (issue #1710 R3 label)');
+  assertContains(result, '2. peak request: 45K / 1M (5%) input tokens', 'Should number second sub-session with content (issue #1710 R3 label)');
 });
 
 runTest('createEmptySubSessionUsage has peak tracking fields', () => {

@@ -25,6 +25,7 @@ import { getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels } from './models/index.mjs';
 import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import Decimal from 'decimal.js-light';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
@@ -740,6 +741,36 @@ export const executeCodexCommand = async params => {
       codexArgs += ` ${shellQuote(arg)}`;
     }
     codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')} --dangerously-bypass-approvals-and-sandbox`;
+
+    // Issue #1706: Append --disable-1m-context and --sub-session-size as Codex -c overrides.
+    let parsedSubSessionSize;
+    try {
+      parsedSubSessionSize = parseSubSessionSize(argv.subSessionSize);
+    } catch (parseError) {
+      await log(`⚠️  ${parseError.message}`, { level: 'warn' });
+      parsedSubSessionSize = { kind: 'default', tokens: null, percent: null, raw: '' };
+    }
+    let codexContextWindowTokens = null;
+    if (parsedSubSessionSize.kind === 'percent') {
+      try {
+        const codexModelMeta = await fetchModelInfo(mappedModel, { preferredProviderIds: ['openai'] });
+        codexContextWindowTokens = codexModelMeta?.limit?.context || null;
+      } catch {
+        codexContextWindowTokens = null;
+      }
+    }
+    const disable1mArgs = buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext);
+    for (const arg of disable1mArgs) {
+      codexArgs += ` ${shellQuote(arg)}`;
+    }
+    const subSessionSizeArgs = buildCodexSubSessionSizeConfigArgs(parsedSubSessionSize, { contextWindow: codexContextWindowTokens });
+    for (const arg of subSessionSizeArgs) {
+      codexArgs += ` ${shellQuote(arg)}`;
+    }
+    if (argv.verbose) {
+      if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });
+      if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
+    }
 
     const fullCommand = `(cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${codexPath} ${codexArgs})`;
 

@@ -193,10 +193,47 @@ export const buildCodexDisable1mContextConfigArgs = (disabled, { fallbackTokens 
   return ['-c', `model_context_window=${fallbackTokens}`];
 };
 
+/**
+ * Resolve --sub-session-size for a given tool, including fetching the model
+ * context window when a percentage is provided. Tolerates fetch failures.
+ *
+ * @param {Object} params
+ * @param {string|undefined|null} params.rawValue - The argv.subSessionSize value.
+ * @param {string} params.tool - 'claude' or 'codex'.
+ * @param {string} params.modelId - Model id (used for models.dev lookup when percent).
+ * @param {Function} [params.fetchModelInfo] - models.dev fetcher (injected for testability).
+ * @param {Function} [params.log] - log function (used for parse warnings).
+ * @returns {Promise<{ parsed: Object, contextWindowTokens: number|null }>}
+ */
+export const resolveSubSessionSize = async ({ rawValue, tool, modelId, fetchModelInfo, log }) => {
+  let parsed;
+  try {
+    parsed = parseSubSessionSize(rawValue);
+  } catch (parseError) {
+    if (log) await log(`⚠️  ${parseError.message}`, { level: 'warn' });
+    parsed = { kind: 'default', tokens: null, percent: null, raw: '' };
+  }
+
+  let contextWindowTokens = null;
+  if (parsed.kind === 'percent' && typeof fetchModelInfo === 'function') {
+    try {
+      const baseModelId = String(modelId || '').replace(/\[1m\]$/i, '');
+      const preferredProviderIds = tool === 'codex' ? ['openai'] : ['anthropic'];
+      const meta = await fetchModelInfo(baseModelId, { preferredProviderIds });
+      contextWindowTokens = meta?.limit?.context || null;
+    } catch {
+      contextWindowTokens = null;
+    }
+  }
+
+  return { parsed, contextWindowTokens };
+};
+
 export default {
   parseSubSessionSize,
   applySubSessionSizeToClaudeEnv,
   applyDisable1mContextToClaudeEnv,
   buildCodexSubSessionSizeConfigArgs,
   buildCodexDisable1mContextConfigArgs,
+  resolveSubSessionSize,
 };

@@ -129,7 +129,9 @@ export const displayCostComparison = async (publicCost, anthropicCost, log) => {
   const hasAnthropic = anthropicCost !== null && anthropicCost !== undefined;
   const publicDec = hasPublic ? new Decimal(publicCost) : null;
   const anthropicDec = hasAnthropic ? new Decimal(anthropicCost) : null;
-  if (publicDec && anthropicDec && publicDec.toFixed(6) === anthropicDec.toFixed(6)) {
+  // Issue #1703: also collapse to the short form when the rounded difference is below display precision,
+  // so reports like "Difference: $-0.000000 (-0.00%)" no longer waste two extra lines.
+  if (publicDec && anthropicDec && anthropicDec.minus(publicDec).abs().toFixed(6) === '0.000000') {
     await log(`\n   💰 Cost: $${anthropicDec.toFixed(6)}`);
     return;
   }

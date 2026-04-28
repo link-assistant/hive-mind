@@ -30,7 +30,10 @@ export const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricing
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
   const publicDec = hasPublic ? new Decimal(totalCostUSD) : null;
   const anthropicDec = hasAnthropic ? new Decimal(anthropicTotalCostUSD) : null;
-  if (publicDec && anthropicDec && publicDec.toFixed(6) === anthropicDec.toFixed(6)) return `\n\n### 💰 Cost: **$${anthropicDec.toFixed(6)}**`;
+  // Issue #1703: collapse to short form when the rounded difference is below 6-decimal display precision.
+  // Without this, near-matching values like $11.219694 vs $11.219693 still printed the full breakdown
+  // even though "Difference: $-0.000000 (-0.00%)" carries no meaningful information.
+  if (publicDec && anthropicDec && anthropicDec.minus(publicDec).abs().toFixed(6) === '0.000000') return `\n\n### 💰 Cost: **$${anthropicDec.toFixed(6)}**`;
   let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;

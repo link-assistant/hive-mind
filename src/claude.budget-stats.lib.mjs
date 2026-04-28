@@ -47,6 +47,11 @@ export const accumulateModelUsage = (modelUsageMap, entry) => {
   }
   if (usage.cache_read_input_tokens) modelUsageMap[model].cacheReadTokens += usage.cache_read_input_tokens;
   if (usage.output_tokens) modelUsageMap[model].outputTokens += usage.output_tokens;
+  // Issue #1710: track Anthropic server-tool usage from per-request JSONL entries
+  // so the public-pricing estimate can bill them at the documented per-request rate.
+  if (usage.server_tool_use?.web_search_requests) {
+    modelUsageMap[model].webSearchRequests += usage.server_tool_use.web_search_requests;
+  }
 };
 
 /**
@@ -108,6 +113,11 @@ export const displayModelUsage = async (usage, log) => {
       if (breakdown[key].tokens > 0) {
         await log(`        ${label}: ${formatNumber(breakdown[key].tokens)} tokens × $${breakdown[key].costPerMillion}/M = $${new Decimal(breakdown[key].cost).toFixed(6)}`);
       }
+    }
+    // Issue #1710: itemise server-tool charges so the residual that puzzled
+    // readers in PR #1707 ($0.04 web_search) is visible in the breakdown.
+    if (breakdown.webSearch && breakdown.webSearch.requests > 0) {
+      await log(`        Web search: ${breakdown.webSearch.requests} requests × $${breakdown.webSearch.costPerRequest}/req = $${new Decimal(breakdown.webSearch.cost).toFixed(6)}`);
     }
     await log('        ─────────────────────────────────');
     await log(`        Total: $${new Decimal(usage.costUSD).toFixed(6)}`);
@@ -218,14 +228,18 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
   const peakContext = usage.peakContextUsage || 0;
 
   if (hasMultipleSubSessions) {
-    // Issue #1600: Unified format — numbered list without "Context window:" prefix
+    // Issue #1600: Unified format — numbered list without "Context window:" prefix.
+    // Issue #1710 R3/R5: Peak input is `input + cache_creation` (cache reads
+    // are tracked separately on the Total line), and the bullet is now
+    // labelled "peak request:" so a reader does not try to reconcile it with
+    // the cumulative Total figure.
     for (let i = 0; i < subSessions.length; i++) {
       const sub = subSessions[i];
       const subPeak = sub.peakContextUsage || 0;
       const parts = [];
       if (contextLimit && subPeak > 0) {
         const pct = ((subPeak / contextLimit) * 100).toFixed(0);
-        parts.push(`${formatNumber(subPeak)} / ${formatNumber(contextLimit)} (${pct}%) input tokens`);
+        parts.push(`peak request: ${formatNumber(subPeak)} / ${formatNumber(contextLimit)} (${pct}%) input tokens`);
       }
       if (outputLimit) {
         const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
@@ -239,7 +253,7 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
     const parts = [];
     if (contextLimit) {
       const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-      parts.push(`${formatNumber(peakContext)} / ${formatNumber(contextLimit)} (${pct}%) input tokens`);
+      parts.push(`peak request: ${formatNumber(peakContext)} / ${formatNumber(contextLimit)} (${pct}%) input tokens`);
     }
     if (outputLimit) {
       const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
@@ -250,16 +264,16 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
     }
   }
 
-  // Cumulative totals — single line
-  // Issue #1547: Parenthesized cached format and consistent output format
-  const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
-  const cachedTokens = usage.cacheReadTokens;
-  let totalLine;
-  if (cachedTokens > 0) {
-    totalLine = `(${formatNumber(totalInputNonCached)} + ${formatNumber(cachedTokens)} cached) input tokens`;
-  } else {
-    totalLine = `${formatNumber(totalInputNonCached)} input tokens`;
-  }
+  // Cumulative totals — single line.
+  // Issue #1547: Parenthesized cached format and consistent output format.
+  // Issue #1710 R4: When cache writes are present, render them as a separate
+  // category instead of folding them into the input figure.
+  let totalLine = buildCumulativeInputPhrase({
+    input: usage.inputTokens || 0,
+    cacheWrites: usage.cacheCreationTokens || 0,
+    cacheReads: usage.cacheReadTokens || 0,
+    format: formatNumber,
+  });
   if (peakContext === 0 && outputLimit) {
     const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
     totalLine += `, ${formatNumber(usage.outputTokens)} / ${formatNumber(outputLimit)} (${outPct}%) output tokens`;
@@ -343,6 +357,44 @@ const formatTokensCompact = tokens => {
 };
 
 /**
+ * Issue #1710: Build the cumulative input-tokens phrase for the Total / fallback
+ * lines, splitting cache writes and cache reads so neither category is ever
+ * silently fused with raw input tokens.
+ *
+ * Forms (in priority order):
+ *   - reads > 0 && writes > 0 → "(X new + W cache writes + Y cache reads) input tokens"
+ *   - reads > 0 && writes = 0 → "(X + Y cached) input tokens"        (back-compat shape)
+ *   - reads = 0 && writes > 0 → "(X new + W cache writes) input tokens"
+ *   - reads = 0 && writes = 0 → "X input tokens"
+ *
+ * The legacy `(X + Y cached)` shape is preserved when only cache reads exist
+ * so we don't churn output for the common Opus-only case. The new explicit
+ * forms only appear when cache writes are non-zero (issue #1710 R4).
+ *
+ * @param {Object} opts
+ * @param {number} opts.input - non-cached input tokens (excludes cache writes/reads)
+ * @param {number} opts.cacheWrites - cache_creation_input_tokens (cumulative)
+ * @param {number} opts.cacheReads - cache_read_input_tokens (cumulative)
+ * @param {(n: number) => string} opts.format - formatter (compact or full)
+ * @returns {string} the cumulative input phrase, e.g. "(78K new + 57.6K cache writes) input tokens"
+ */
+export const buildCumulativeInputPhrase = ({ input, cacheWrites, cacheReads, format }) => {
+  const w = Math.max(0, cacheWrites || 0);
+  const r = Math.max(0, cacheReads || 0);
+  const i = Math.max(0, input || 0);
+  if (w > 0 && r > 0) {
+    return `(${format(i)} new + ${format(w)} cache writes + ${format(r)} cache reads) input tokens`;
+  }
+  if (w > 0) {
+    return `(${format(i)} new + ${format(w)} cache writes) input tokens`;
+  }
+  if (r > 0) {
+    return `(${format(i)} + ${format(r)} cached) input tokens`;
+  }
+  return `${format(i)} input tokens`;
+};
+
+/**
  * Format sub-sessions list for budget stats display
  * @param {Array} subSessions - Array of sub-session usage objects
  * @param {number|null} contextLimit - Context window limit for the model
@@ -365,6 +417,9 @@ const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
 
 /**
  * Issue #1600: Build a single-line context + output tokens string (unified format, no "Context window:" prefix).
+ * Issue #1710 R3/R5: The input figure is the peak per-request `input + cache_creation`
+ * (cache reads excluded). Labelling it "peak request:" lets readers tell it apart
+ * from the cumulative Total line.
  * @param {number} peakContext - Peak context usage (0 if unknown — context display skipped)
  * @param {number} contextLimit - Context window limit (null if unknown)
  * @param {number} outputTokens - Output tokens used
@@ -376,7 +431,7 @@ const formatContextOutputLine = (peakContext, contextLimit, outputTokens, output
   const parts = [];
   if (contextLimit && peakContext > 0) {
     const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-    parts.push(`${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} (${pct}%) input tokens`);
+    parts.push(`peak request: ${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} (${pct}%) input tokens`);
   }
   if (outputLimit) {
     const outPct = ((outputTokens / outputLimit) * 100).toFixed(0);
@@ -507,20 +562,33 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
       } else if (peakContext > 0) {
         stats += formatContextOutputLine(peakContext, contextLimit, usage.outputTokens, outputLimit, '- ');
       } else if (outputLimit && callCount <= 1) {
-        // Issue #1600: Show output-only detalization for sub-agent single sessions
+        // Issue #1600: Sub-agent single sessions previously showed only an output line.
+        // Issue #1710 R2: Always surface the cumulative input information too — sub-agent
+        // models (e.g. Haiku) never appear as the responding model in the parent JSONL,
+        // so peakContext stays at 0; without this fallback the rendered comment loses
+        // the sub-agent's input-token information entirely. Cache writes / reads are
+        // split via the same helper used for the Total line so the two lines stay
+        // arithmetically consistent.
+        const inputPhrase = buildCumulativeInputPhrase({
+          input: usage.inputTokens || 0,
+          cacheWrites: usage.cacheCreationTokens || 0,
+          cacheReads: usage.cacheReadTokens || 0,
+          format: formatTokensCompact,
+        });
         const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
-        stats += `\n- ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`;
+        stats += `\n- ${inputPhrase}, ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`;
       }
 
-      // Cumulative totals per model: input tokens + cached shown separately
-      const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
-      const cachedTokens = usage.cacheReadTokens;
-      let totalLine;
-      if (cachedTokens > 0) {
-        totalLine = `(${formatTokensCompact(totalInputNonCached)} + ${formatTokensCompact(cachedTokens)} cached) input tokens`;
-      } else {
-        totalLine = `${formatTokensCompact(totalInputNonCached)} input tokens`;
-      }
+      // Cumulative totals per model: input tokens + cached shown separately.
+      // Issue #1710 R4: Cache writes are now their own category (so the displayed
+      // "input tokens" figure never silently fuses 1.25× / 2× cache-write tokens
+      // with regular 1× input tokens — see issue #1710 root cause D).
+      let totalLine = buildCumulativeInputPhrase({
+        input: usage.inputTokens || 0,
+        cacheWrites: usage.cacheCreationTokens || 0,
+        cacheReads: usage.cacheReadTokens || 0,
+        format: formatTokensCompact,
+      });
 
       // Issue #1600: Output tokens on Total line — skip percentage if already shown above or aggregated
       if (callCount > 1) {
@@ -562,7 +630,11 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
             stats += `\n${i + 1}. ${parts.join(', ')}`;
           }
         } else {
-          const avgInput = Math.round((totalInputNonCached + cachedTokens) / callCount);
+          // Estimated per-call breakdown when sub-agent stream tracking did not capture
+          // per-call usage. Includes everything the model actually saw:
+          // input + cache_creation (writes) + cache_read.
+          const aggregateInput = (usage.inputTokens || 0) + (usage.cacheCreationTokens || 0) + (usage.cacheReadTokens || 0);
+          const avgInput = Math.round(aggregateInput / callCount);
           const avgOutput = Math.round(usage.outputTokens / callCount);
           for (let i = 0; i < matchingCalls.length; i++) {
             const parts = [];

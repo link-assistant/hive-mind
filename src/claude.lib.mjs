@@ -26,6 +26,7 @@ import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, maybeSwitchToFallbackModel } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
+import { SERVER_TOOL_PRICING_USD } from './anthropic-server-tool-pricing.lib.mjs'; // Issue #1710
 export { availableModels }; // Re-export for backward compatibility
 export { fetchModelInfo };
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -387,7 +388,7 @@ export const checkModelVisionCapability = async modelId => {
     return false;
   }
 };
-/** Calculate USD cost for a model's usage with detailed breakdown (Issue #1600: uses Decimal for precision) */
+/** Calculate USD cost for a model's usage with detailed breakdown (Issue #1600: uses Decimal for precision; Issue #1710: bills server-side tools — web_search at $10/1k requests). */
 export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) => {
   if (!modelInfo || !modelInfo.cost) {
     return includeBreakdown ? { total: 0, breakdown: null } : 0;
@@ -399,6 +400,11 @@ export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) =
     cacheWrite: { tokens: 0, costPerMillion: 0, cost: 0 },
     cacheRead: { tokens: 0, costPerMillion: 0, cost: 0 },
     output: { tokens: 0, costPerMillion: 0, cost: 0 },
+    // Issue #1710: server-side tool usage (web_search) is billed per-request,
+    // independent of token cost. Without this entry the public-pricing total
+    // diverges from Anthropic's reported total by exactly the per-request rate
+    // times the request count — the residual quoted in issue #1710.
+    webSearch: { requests: 0, costPerRequest: 0, cost: 0 },
   };
   if (usage.inputTokens && cost.input) {
     breakdown.input = {
@@ -428,7 +434,16 @@ export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) =
       cost: new Decimal(usage.outputTokens).div(million).mul(new Decimal(cost.output)).toNumber(),
     };
   }
-  const totalCost = new Decimal(breakdown.input.cost).plus(breakdown.cacheWrite.cost).plus(breakdown.cacheRead.cost).plus(breakdown.output.cost).toNumber();
+  // Issue #1710: bill web_search requests at the documented per-request rate.
+  if (usage.webSearchRequests && SERVER_TOOL_PRICING_USD.web_search.costPerRequest > 0) {
+    const perReq = SERVER_TOOL_PRICING_USD.web_search.costPerRequest;
+    breakdown.webSearch = {
+      requests: usage.webSearchRequests,
+      costPerRequest: perReq,
+      cost: new Decimal(usage.webSearchRequests).mul(new Decimal(perReq)).toNumber(),
+    };
+  }
+  const totalCost = new Decimal(breakdown.input.cost).plus(breakdown.cacheWrite.cost).plus(breakdown.cacheRead.cost).plus(breakdown.output.cost).plus(breakdown.webSearch.cost).toNumber();
   if (includeBreakdown) {
     return {
       total: totalCost,
@@ -498,8 +513,14 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
           }
           accumulateModelUsage(modelUsage, entry);
           // Issue #1501: Track peak context usage per single API request
+          // Issue #1710: Exclude cache_read_input_tokens — sub-sessions and
+          // per-request peaks should reflect *new* input the model received,
+          // not cached prompt context. Cache reads remain visible in the
+          // cumulative Total line as `(X + Y cached)`. This makes the
+          // peak-request value reconcilable with the cumulative non-cached
+          // input figure (instead of mixing semantics across the two lines).
           const usage = entry.message.usage;
-          const requestContext = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+          const requestContext = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0);
           const model = entry.message.model;
           if (requestContext > (peakContextByModel[model] || 0)) {
             peakContextByModel[model] = requestContext;
@@ -1306,7 +1327,9 @@ export const executeClaudeCommand = async params => {
               await log(`\n⚠️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries (upstream: anthropics/claude-code#6805)`, { verbose: true });
             }
             if (tokenUsage.peakContextUsage > 0) {
-              await log(`📊 Peak single-request context: ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
+              // Issue #1710: rename so the metric matches the new definition (input + cache_creation,
+              // excluding cache_read). Cache reads are still visible separately on the Total line.
+              await log(`📊 Peak single-request input (excl. cache reads): ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
             }
             await log('\n💰 Token Usage Summary:');
             // Display per-model breakdown

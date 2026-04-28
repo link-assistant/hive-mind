@@ -185,9 +185,14 @@ export const dumpBudgetTrace = async (usage, tokenUsage, log) => {
   const source = usage._sourceResultJson ? 'jsonl + result-event' : 'jsonl';
 
   await log(`\n      📊 [budget-trace] ${modelName}`, { verbose: true });
-  await log(`         peak request:    ${formatNumber(peak)}${limit.context ? ` / ${formatNumber(limit.context)} context` : ''} (largest single-request input + cache_creation + cache_read)`, { verbose: true });
+  // Issue #1710 R5: peak request is `input + cache_creation` (cache reads
+  // tracked separately on the cumulative line).
+  await log(`         peak request:    ${formatNumber(peak)}${limit.context ? ` / ${formatNumber(limit.context)} context` : ''} (largest single-request input + cache_creation, excludes cache_read)`, { verbose: true });
   await log(`         cumulative:      input ${formatNumber(inputs)}, cache_write ${formatNumber(writes)} (5m ${formatNumber(writes5m)} / 1h ${formatNumber(writes1h)}), cache_read ${formatNumber(reads)}, output ${formatNumber(outputs)}`, { verbose: true });
-  await log(`         server tools:    web_search ${webSearches}${webSearches > 0 ? ` (= $${(webSearches * 0.01).toFixed(6)} at $10 / 1k searches; not included in calculateModelCost output)` : ''}`, { verbose: true });
+  // Issue #1710 R1: web_search is now billed in calculateModelCost. The trace
+  // still surfaces the implied dollar cost so the residual remains debuggable
+  // from the saved log even if a future model lacks pricing data.
+  await log(`         server tools:    web_search ${webSearches}${webSearches > 0 ? ` (= $${(webSearches * 0.01).toFixed(6)} at $10 / 1k searches)` : ''}`, { verbose: true });
   if (usage.costUSD !== null && usage.costUSD !== undefined) {
     await log(`         cost (public):   $${new Decimal(usage.costUSD).toFixed(6)}`, { verbose: true });
   }

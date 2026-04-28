@@ -123,7 +123,9 @@ await runTest('omits web_search dollar annotation when count is 0', async () => 
   await dumpBudgetTrace(opusUsage, { subSessions: [] }, log);
   const joined = log.calls.map(c => c.text).join('\n');
   assert.match(joined, /web_search 0/, 'should still report the count');
-  assert.doesNotMatch(joined, /not included in calculateModelCost/, 'should not annotate when there is no residual');
+  // No "= $..." annotation when there is no residual (issue #1710 R1: the
+  // implied-dollar tail is for debugging non-zero residuals, suppressed at 0).
+  assert.doesNotMatch(joined, /web_search 0 \(= \$/, 'should not annotate dollar cost when count is 0');
 });
 
 await runTest('surfaces both public and Anthropic costs when both available', async () => {

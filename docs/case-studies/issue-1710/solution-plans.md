@@ -1,5 +1,13 @@
 # Issue #1710 — Solution plans (per requirement)
 
+> **Status:** R1–R5 + R7 are now **implemented** in PR #1711 — the per-requirement
+> "Plan" sections below describe the design we shipped.
+> See [`README.md` § 7](./README.md#7-implementation-status-pr-1711) for the
+> per-requirement file:line summary, and the test files
+> [`tests/test-issue-1710-format-fixes.mjs`](../../../tests/test-issue-1710-format-fixes.mjs)
+> and [`tests/test-issue-1710-budget-trace.mjs`](../../../tests/test-issue-1710-budget-trace.mjs)
+> for the locked-in fixtures.
+
 > Each plan lists: scope of change, file(s), suggested code shape, tests to
 > add or extend, and risks / open questions. Numbers below cite the _current_
 > file:line locations on `main`/`issue-1710-16bcd58d1d40` at the time of this

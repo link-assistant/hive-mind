@@ -5,7 +5,7 @@
 **Triggering report:** [PR #1707 comment 4335847447](https://github.com/link-assistant/hive-mind/pull/1707#issuecomment-4335847447)
 **Labels:** `bug`
 **Reported by:** @konard on 2026-04-28
-**Status:** Investigation / case study (no code change yet)
+**Status:** Implemented in PR #1711 (R1–R5 + R6/R7/R8) — calculation fixes shipped, case study and verbose trace included.
 
 ---
 
@@ -216,19 +216,43 @@ not flaky.
 
 ---
 
-## 7. Why no production code change in this PR
+## 7. Implementation status (PR #1711)
 
-The user explicitly wrote _"If there is not enough data to find actual root
-cause, add debug output and verbose mode … on next iteration."_ This case
-study **does** find each root cause and prescribes a fix per requirement, but
-several of the proposed fixes (especially R3 and R5) are user-facing format
-changes that should be reviewed before being shipped — exactly because the
-last format reshuffle in #1600 is what created the confusing "278.2K vs
-342.2K" rendering in the first place.
+R1–R5 are **shipped** in this PR alongside the case study and verbose trace.
+The behaviour now matches each normative requirement from the issue:
 
-The PR therefore lands the case study + reproducer fixtures + the upstream
-plan, leaving the actual format and pricing changes to a follow-up PR that
-references this document.
+- **R1.** `calculateModelCost` ([`src/claude.lib.mjs`](../../../src/claude.lib.mjs))
+  bills `webSearchRequests` at $0.01/request (sourced from
+  [`src/anthropic-server-tool-pricing.lib.mjs`](../../../src/anthropic-server-tool-pricing.lib.mjs));
+  `accumulateModelUsage` reads `usage.server_tool_use.web_search_requests` from
+  JSONL too. With this in place the public-pricing total reconciles with
+  Anthropic's `total_cost_usd` for the original PR #1707 run, and the existing
+  short-form ("Cost: $…") collapse engages.
+- **R2.** When `peakContextUsage === 0` (sub-agent traffic), the renderer emits
+  the cumulative input phrase from the totals it does have, instead of the
+  output-only fallback that previously deleted Haiku's input information.
+- **R3 / R5.** The bullet line is labelled `peak request: …` so it cannot be
+  confused with the cumulative `Total: …` line. `requestContext` excludes
+  cache_read_input_tokens, so the bullet figure is `input + cache_creation`
+  (reconcilable with the cumulative non-cached input figure). Cache reads
+  remain visible separately on the Total line, which is what the issue's
+  normative rule asks for.
+- **R4.** Both `displayBudgetStats` and `buildBudgetStatsString` now route the
+  Total line through a single helper, `buildCumulativeInputPhrase`, which
+  renders writes / reads as their own labelled categories whenever they are
+  non-zero. Cache writes are billed at 1.25× / 2× of input — silently fusing
+  them into the "input tokens" figure (the previous Haiku rendering) was a
+  real semantic bug, not a cosmetic one.
+- **R6 — case study.** ✅ this folder, with `data/`.
+- **R7 — verbose trace.** ✅ `dumpBudgetTrace` (verbose-only).
+- **R8 — upstream reports.** Drafts in [`upstream.md`](./upstream.md).
+
+Tests:
+[`tests/test-issue-1710-format-fixes.mjs`](../../../tests/test-issue-1710-format-fixes.mjs)
+locks each requirement to numbers from
+[`facts.md`](./facts.md) (the actual PR #1707 result event).
+[`tests/test-issue-1710-budget-trace.mjs`](../../../tests/test-issue-1710-budget-trace.mjs)
+covers the verbose trace.
 
 ---
 

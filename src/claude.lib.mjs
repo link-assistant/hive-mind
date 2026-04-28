@@ -374,6 +374,9 @@ export const executeClaude = async params => {
     owner,
     repo,
     prNumber,
+    // Issue #1708: forwarded so the bidirectional handler can poll
+    // issue title/body changes and uncommitted changes during the session.
+    issueNumber,
   });
 };
 /** Check if a model supports vision (image input) using models.dev API @returns {Promise<boolean>} */
@@ -594,6 +597,9 @@ export const executeClaudeCommand = async params => {
     owner,
     repo,
     prNumber,
+    // Issue #1708: enables status streaming (CI/uncommitted/PR-metadata)
+    // and issue body/title polling in setupBidirectionalHandler.
+    issueNumber,
   } = params;
   // Issue #817: Apply bidirectional-mode composition and tool-support validation before running.
   // This may enable argv.interactiveMode, argv.acceptIncommingCommentsAsInput, and
@@ -682,9 +688,11 @@ export const executeClaudeCommand = async params => {
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }
-    // Issue #817: Set up bidirectional handler when --accept-incomming-comments-as-input
-    // (or composite --bidirectional-interactive-mode) is enabled. Returns null when inactive.
-    const bidirectionalHandler = await setupBidirectionalHandler({ argv, owner, repo, prNumber, $, log });
+    // Issue #817 / #1708: Set up bidirectional handler when --accept-incomming-comments-as-input
+    // (or composite --bidirectional-interactive-mode / --auto-input-until-mergeable) is enabled.
+    // Returns null when inactive. issueNumber + tempDir are forwarded so the handler can
+    // poll issue title/body changes and uncommitted changes during the session (Issue #1708).
+    const bidirectionalHandler = await setupBidirectionalHandler({ argv, owner, repo, prNumber, issueNumber, tempDir, $, log });
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
@@ -885,12 +893,33 @@ export const executeClaudeCommand = async params => {
               }
               if (data.type === 'message') messageCount++;
               else if (data.type === 'tool_use') toolUseCount++;
+              // Issue #1708: signal busy/idle to the bidirectional handler so
+              // queue-comments-to-input mode can hold frames until the AI is
+              // idle. Any assistant/tool_use/system event means the AI is
+              // actively processing; a result event means the turn is done
+              // and queued frames can flush.
+              if (bidirectionalHandler) {
+                if (data.type === 'assistant' || data.type === 'tool_use' || data.type === 'tool_result') {
+                  if (typeof bidirectionalHandler.markAiBusy === 'function') {
+                    bidirectionalHandler.markAiBusy();
+                  }
+                }
+              }
               if (progressMonitor) await progressMonitor.processStreamEvent(data).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
               if (data.type === 'result') {
                 if (!resultEventReceived) {
                   resultEventReceived = true;
                   await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
                   resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
+                }
+                // Issue #1708: result event = AI is idle and waiting for next
+                // user input. Flush any frames queued by --queue-comments-to-input.
+                if (bidirectionalHandler && typeof bidirectionalHandler.markAiIdle === 'function') {
+                  try {
+                    await bidirectionalHandler.markAiIdle();
+                  } catch (idleErr) {
+                    if (argv.verbose) await log(`⚠️ Bidirectional mode: markAiIdle error: ${idleErr.message}`, { verbose: true });
+                  }
                 }
                 if (data.subtype === 'success') resultSuccessReceived = true;
                 if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {

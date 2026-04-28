@@ -111,6 +111,11 @@ export const watchUntilMergeable = async params => {
   await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (strict repo-wide safety)' : 'No (PR-scoped CI only)', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
   await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
+  // Issue #1708: Surface that --auto-input-until-mergeable streamed feedback
+  // into the prior session, so any restart triggered here is a fallback.
+  if (argv.autoInputUntilMergeable) {
+    await log(formatAligned('', 'Streaming-first:', '--auto-input-until-mergeable was active; this loop is the fallback', 2));
+  }
   await log('');
   await log('Press Ctrl+C to stop watching manually');
   await log('');

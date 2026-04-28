@@ -17,11 +17,16 @@ currently triggers a restart, evaluates the existing components that already
 perform JSON streaming input, and proposes a concrete solution plan that can
 be staged into smaller PRs without breaking any existing flag.
 
-This work intentionally focuses on **analysis and a reviewable plan**. No
-production behavior change is shipped in this PR — the new flag is added as
-an opt-in alias of the bidirectional path that already exists today
-(Issue #817), with the new continuous-restart loop deferred to the
-implementation PRs that will be opened against this case study.
+This case study originally staged the work into six PRs, but the
+shipping PR was expanded after review feedback to land the full
+streaming behavior on top of the existing bidirectional pipe. The
+flag now ships with: queue-vs-stream delivery routing, busy/idle
+tracking driven by Claude's `result` events, status streaming for
+CI/uncommitted/PR-metadata/issue-metadata, and a "streaming-first"
+banner in the auto-restart fallback loop. Stages 4–6 of the original
+plan (smart restart batching for non-Claude tools, resume-aware
+streaming, integration tests with a fake stream-json Claude binary)
+remain as follow-up work.
 
 ## Issue text (verbatim)
 
@@ -197,8 +202,14 @@ plan.
 
 ## Solution plan
 
-The plan is staged so each PR is independently reviewable. Each stage maps
-back to one or more requirements and gaps.
+The plan was originally staged across six PRs. Stages 1, 2 (PR/issue
+title+body polling for the streaming path), 3 (queue-vs-stream
+delivery + busy/idle routing on top of the existing #817 pipe), and
+the parts of stage 6 that can run as unit tests are now shipped in
+this PR. Stages 4 (smart restart batching for non-Claude tools), 5
+(resume-aware streaming — drop the `!argv.resume` guard), and the
+integration test with a fake stream-json Claude binary remain as
+follow-up work.
 
 ### Stage 1 — Flag plumbing (R1, R5, this PR)
 
@@ -253,26 +264,38 @@ The wiring of `--queue-comments-to-input` into the actual handler
 
 ### Stage 2 — Issue/PR body+title polling (R3, G1)
 
-Add `checkForIssueAndPrMetadataChanges({ owner, repo, issueNumber, prNumber, lastSnapshot })`
-to `src/solve.auto-merge-helpers.lib.mjs` (where the existing
-`checkForNonBotComments` lives). It returns `{ changed, diff, snapshot }`.
+**Status: shipped in this PR (streaming side).**
 
-Wire it into:
+`createBidirectionalHandler` in `src/bidirectional-interactive.lib.mjs`
+now polls PR title/body and issue title/body via
+`fetchMetadataSnapshot` + `diffMetadataSnapshot`, and emits a one-shot
+NDJSON frame (`kind: 'metadata'`) into the live Claude stdin whenever
+either changes during the session. The poller is gated on
+`streamStatusToInput` (set when `--auto-input-until-mergeable` is on),
+so the existing #817 path is unchanged.
 
-- `watchUntilMergeable` — every iteration, after `checkForNonBotComments`.
-  When `changed` is true, treat it like a non-bot comment: trigger a
-  restart with the diff in the feedback lines.
-- The bidirectional handler — same trick: when `changed` and the tool is
-  still running, write an NDJSON frame containing the diff.
-
-This stage also satisfies R3 fully because it covers the only restart
-trigger from the issue text that we currently don't react to.
+Wiring `watchUntilMergeable` to also restart on title/body changes for
+non-streaming tools is deferred to stage 4.
 
 ### Stage 3 — Long-lived streaming loop for Claude (R2, R3, G3)
 
-Add `streamUntilMergeable` to a new file
-`src/solve.stream-until-mergeable.lib.mjs`. It composes the existing
-pieces:
+**Status: partial — shipped in this PR via the existing #817 pipe.**
+
+Rather than introducing a new file, this PR extends the existing
+bidirectional pipe in `src/bidirectional-interactive.lib.mjs` so the
+single Claude session that already starts under
+`--accept-incomming-comments-as-input` now also receives status frames
+(CI / uncommitted / metadata) while it is alive. The
+`exitAfterStopDelayMs=60_000` window from #817 keeps the headless
+Claude process waiting for new input between turns; while the handler
+is alive it dispatches frames to that stdin via the queue/stream
+delivery router.
+
+A separate `streamUntilMergeable` loop that survives Claude exits is
+still useful for very long sessions, but is no longer required to
+deliver R2/R3 — every input source the issue lists is now streamed
+into the same single session via the existing pipe. The original
+design below is preserved for reference:
 
 1. Spawn Claude with the bidirectional pipe (the path that already exists
    in `claude.lib.mjs`, but reachable from the auto-merge module instead
@@ -363,21 +386,33 @@ followed by a streamed comment ends up in the resumed session's context.
 
 ## What this PR ships
 
-This PR ships **stage 1 only** — the case study, the three new flags in
-the config (`--auto-input-until-mergeable`, `--stream-comments-to-input`,
-`--queue-comments-to-input`), their composition wiring in
-`validateBidirectionalModeConfig`, their appearance in `--help`, and a
-regression test that asserts both the composition and the safety contract
-that no existing default changes. Subsequent PRs will ship stages 2–6
-against this case study.
+This PR ships the full streaming behavior on top of the existing
+#817 bidirectional pipe:
 
-This is intentional: the issue requires deep analysis and a plan
-("propose possible solutions and solution plans for each requirement"),
-and shipping the loop changes in the same PR as the analysis would
-violate R4 ("must not break any existing features") because the loop
-changes touch the most critical hot path (`watchUntilMergeable`). Splitting
-the work this way matches how `--bidirectional-interactive-mode` was
-landed (first the flag, then the wiring).
+- The three new flags (`--auto-input-until-mergeable`,
+  `--stream-comments-to-input`, `--queue-comments-to-input`) and
+  their composition wiring in `validateBidirectionalModeConfig`.
+- Queue-vs-stream delivery routing, busy/idle tracking driven by
+  Claude `result` events, and FIFO flushing on idle in
+  `createBidirectionalHandler`.
+- Status streaming (CI failures, uncommitted local changes,
+  PR/issue title and body diffs) emitted as one-shot NDJSON frames
+  via `checkForStatusChanges`, gated on
+  `--auto-input-until-mergeable`.
+- A "streaming-first" banner in
+  `watchUntilMergeable` so it is clear the auto-restart loop is the
+  fallback rather than the primary handler.
+
+The most critical hot path (`watchUntilMergeable`) is otherwise
+unchanged; existing flags (`--auto-restart-until-mergeable`,
+`--auto-merge`, `--bidirectional-interactive-mode`,
+`--accept-incomming-comments-as-input`) keep their defaults and
+existing behavior so R4 ("must not break any existing features") is
+preserved. For non-Claude tools the validator still warns and
+disables all four flags — the existing #817 fallback path. Stages 4
+(smart restart batching), 5 (resume-aware streaming), and the
+integration test with a fake stream-json Claude binary remain as
+follow-up work against this case study.
 
 ## Verification
 

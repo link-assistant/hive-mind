@@ -47,7 +47,7 @@
  */
 
 import { SOLVE_OPTION_DEFINITIONS as yargsOptions } from '../src/solve.config.lib.mjs';
-import { validateBidirectionalModeConfig } from '../src/bidirectional-interactive.lib.mjs';
+import { validateBidirectionalModeConfig, createBidirectionalHandler } from '../src/bidirectional-interactive.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -215,6 +215,47 @@ assertFalse(noFlagArgv.acceptIncommingCommentsAsInput, 'no flag means streaming-
 assertFalse(noFlagArgv.interactiveMode, 'no flag means interactive-mode stays off');
 assertFalse(noFlagArgv.streamCommentsToInput, 'no flag means stream-comments-to-input stays off');
 assertFalse(noFlagArgv.queueCommentsToInput, 'no flag means queue-comments-to-input stays off');
+
+console.log('\n--- handler exposes Issue #1708 idle/busy + queue API ---');
+
+const queueHandler = createBidirectionalHandler({
+  owner: 'o',
+  repo: 'r',
+  prNumber: 99,
+  $: () => Promise.resolve({ stdout: '[]' }),
+  log: noLog,
+  deliveryMode: 'queue',
+  streamStatusToInput: true,
+});
+assertTrue(typeof queueHandler.markAiBusy === 'function', 'handler exposes markAiBusy()');
+assertTrue(typeof queueHandler.markAiIdle === 'function', 'handler exposes markAiIdle()');
+assertTrue(typeof queueHandler.checkForStatusChanges === 'function', 'handler exposes checkForStatusChanges()');
+const initState = queueHandler.getState();
+assertEqual(initState.deliveryMode, 'queue', "getState reports deliveryMode='queue'");
+assertEqual(initState.streamStatusToInput, true, 'getState reports streamStatusToInput=true');
+assertEqual(initState.isAiBusy, false, 'getState reports isAiBusy=false initially');
+assertEqual(initState.pendingFramesLength, 0, 'getState reports pendingFramesLength=0 initially');
+assertEqual(initState.totalFramesQueued, 0, 'getState reports totalFramesQueued=0 initially');
+assertEqual(initState.totalFramesFlushed, 0, 'getState reports totalFramesFlushed=0 initially');
+assertEqual(initState.totalStatusFramesSent, 0, 'getState reports totalStatusFramesSent=0 initially');
+
+queueHandler.markAiBusy();
+assertEqual(queueHandler.getState().isAiBusy, true, 'markAiBusy() flips isAiBusy=true');
+const flushedZero = await queueHandler.markAiIdle();
+assertEqual(flushedZero, 0, 'markAiIdle() returns 0 when no frames pending');
+assertEqual(queueHandler.getState().isAiBusy, false, 'markAiIdle() flips isAiBusy=false');
+
+console.log('\n--- handler default deliveryMode is stream when not opted into queue ---');
+
+const streamHandler = createBidirectionalHandler({
+  owner: 'o',
+  repo: 'r',
+  prNumber: 99,
+  $: () => Promise.resolve({ stdout: '[]' }),
+  log: noLog,
+});
+assertEqual(streamHandler.getState().deliveryMode, 'stream', 'default deliveryMode is stream');
+assertEqual(streamHandler.getState().streamStatusToInput, false, 'default streamStatusToInput is false');
 
 console.log(`\n================================================================================`);
 console.log(`Result: ${passed} passed, ${failed} failed`);

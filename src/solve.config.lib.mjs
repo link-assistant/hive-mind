@@ -198,6 +198,15 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
     default: true,
   },
+  // Issue #1708: Stage 1 introduces this flag inert — it parses, appears in
+  // --help, and is read by validateAutoInputUntilMergeable below, but does not
+  // change the runtime loop yet. Stages 2-6 will wire it into watchUntilMergeable
+  // and the bidirectional NDJSON pipe (see docs/case-studies/issue-1708/).
+  'auto-input-until-mergeable': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Extend a single AI tool session as long as possible by streaming new input (uncommitted changes, CI/CD failures, PR/issue comments, issue title/body updates) directly into the running session, instead of restarting it. Currently a no-op alias of --bidirectional-interactive-mode for --tool claude; the full streaming-aware watchUntilMergeable replacement is staged in subsequent PRs (see docs/case-studies/issue-1708/). Falls back to --auto-restart-until-mergeable for non-Claude tools and on streaming errors. Disabled by default.',
+    default: false,
+  },
   'wait-for-all-actions-in-repository-before-mergeable': {
     type: 'boolean',
     description: 'Wait for ALL active GitHub Actions workflow runs in the entire repository to complete before declaring PR mergeable. When enabled, blocks merge if ANY CI/CD run in the repository is active, regardless of branch — this is a strict safety mode for repositories with cross-branch CI/CD coupling. Disabled by default.',

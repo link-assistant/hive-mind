@@ -558,6 +558,17 @@ export const isBidirectionalModeSupported = tool => {
  * @returns {Promise<boolean>} Whether configuration is valid for the chosen tool
  */
 export const validateBidirectionalModeConfig = async (argv, log) => {
+  // Issue #1708 Stage 1: --auto-input-until-mergeable currently implies
+  // --bidirectional-interactive-mode, which in turn cascades the three
+  // existing experimental sub-flags below. The full streaming-aware
+  // watchUntilMergeable replacement is staged in subsequent PRs — until
+  // those land, this composition gives users on --tool claude the
+  // mid-session NDJSON input pipe that already exists for issue #817 and
+  // is a no-op for non-Claude tools (the validator below disables it).
+  if (argv.autoInputUntilMergeable && !argv.bidirectionalInteractiveMode) {
+    argv.bidirectionalInteractiveMode = true;
+  }
+
   // Composition: --bidirectional-interactive-mode implies the three experimental flags.
   if (argv.bidirectionalInteractiveMode) {
     if (!argv.interactiveMode) argv.interactiveMode = true;

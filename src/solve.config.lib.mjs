@@ -260,6 +260,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Maximum thinking budget for calculating --think level mappings (default: 31999 for Claude Code). Values: off=0, low=max/4, medium=max/2, high=max*3/4, max=max.',
     default: 31999,
   },
+  'sub-session-size': {
+    type: 'string',
+    description: 'Cap on sub-session size between auto-compaction events. Accepts a token count (e.g. 150k, 1m, 200000), a percentage of the model context window (e.g. 50%), or "default" to keep the tool\'s built-in threshold. Default: 150k. For Claude this maps to CLAUDE_CODE_AUTO_COMPACT_WINDOW + CLAUDE_AUTOCOMPACT_PCT_OVERRIDE env vars. For Codex this maps to -c model_auto_compact_token_limit. (Issue #1706)',
+    default: '150k',
+  },
+  'disable-1m-context': {
+    type: 'boolean',
+    description: 'Disable 1M extended context window so the model uses its standard 200K-400K window. Helps preserve reasoning quality and reduces cost. Default: true. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 (also forbids the [1m] model-name suffix). For Codex this sets -c model_context_window=200000. Use --no-disable-1m-context to allow the 1M window. (Issue #1706)',
+    default: true,
+  },
   'fallback-model': {
     type: 'string',
     description: 'Fallback model to switch to on model capacity/overload errors. When supported, retries resume the same session with this model. Defaults: claude opus/opus-4-7 -> opus-4-6; codex gpt-5.5 -> gpt-5.4; all others unset.',

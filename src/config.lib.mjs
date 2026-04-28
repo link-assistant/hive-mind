@@ -413,9 +413,12 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 // Supports model-specific max output tokens for Opus 4.6 (Issue #1221)
 // Sets CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 models (Issue #1238)
 // Supports planModel/executionModel for opusplan mode (Issue #1223)
-// See: https://code.claude.com/docs/en/model-config
+// Issue #1706: supports subSessionSize (parsed) + disable1mContext to cap
+// auto-compaction sub-session size and opt out of the 1M extended context.
+// See: https://code.claude.com/docs/en/env-vars and https://code.claude.com/docs/en/model-config
 //   ANTHROPIC_DEFAULT_OPUS_MODEL  → model used in plan mode (and for 'opus' alias)
 //   ANTHROPIC_DEFAULT_SONNET_MODEL → model used in execution mode (and for 'sonnet' alias)
+//   CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
 export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
   const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
@@ -481,6 +484,36 @@ export const getClaudeEnv = (options = {}) => {
   // Enables combinations like --plan-model opus --model haiku
   if (options.executionModel) {
     env.ANTHROPIC_DEFAULT_SONNET_MODEL = String(options.executionModel);
+  }
+
+  // Issue #1706: --disable-1m-context. Sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1.
+  if (options.disable1mContext) {
+    env.CLAUDE_CODE_DISABLE_1M_CONTEXT = '1';
+  }
+
+  // Issue #1706: --sub-session-size. Caller passes a pre-parsed descriptor and the
+  // model context window so we can convert percentages to absolute tokens.
+  if (options.subSessionSize && options.subSessionSize.kind && options.subSessionSize.kind !== 'default') {
+    const window = Number.isFinite(options.contextWindowTokens) && options.contextWindowTokens > 0 ? options.contextWindowTokens : null;
+    if (options.subSessionSize.kind === 'tokens') {
+      const tokens = options.subSessionSize.tokens;
+      if (Number.isFinite(tokens) && tokens > 0) {
+        env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = String(tokens);
+        // Compute percentage relative to the context window so the override stays
+        // within Claude Code's "lower-only" semantics. Default to 95 when unknown.
+        let pct = 95;
+        if (window) {
+          pct = Math.max(1, Math.min(95, Math.round((tokens / window) * 100)));
+        }
+        env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(pct);
+      }
+    } else if (options.subSessionSize.kind === 'percent') {
+      const pct = Math.max(1, Math.min(95, Math.round(options.subSessionSize.percent)));
+      env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(pct);
+      if (window) {
+        env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = String(window);
+      }
+    }
   }
 
   return env;

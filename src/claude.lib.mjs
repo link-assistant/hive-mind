@@ -387,56 +387,10 @@ export const checkModelVisionCapability = async modelId => {
     return false;
   }
 };
-/** Calculate USD cost for a model's usage with detailed breakdown (Issue #1600: uses Decimal for precision) */
-export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) => {
-  if (!modelInfo || !modelInfo.cost) {
-    return includeBreakdown ? { total: 0, breakdown: null } : 0;
-  }
-  const cost = modelInfo.cost;
-  const million = new Decimal(1000000);
-  const breakdown = {
-    input: { tokens: 0, costPerMillion: 0, cost: 0 },
-    cacheWrite: { tokens: 0, costPerMillion: 0, cost: 0 },
-    cacheRead: { tokens: 0, costPerMillion: 0, cost: 0 },
-    output: { tokens: 0, costPerMillion: 0, cost: 0 },
-  };
-  if (usage.inputTokens && cost.input) {
-    breakdown.input = {
-      tokens: usage.inputTokens,
-      costPerMillion: cost.input,
-      cost: new Decimal(usage.inputTokens).div(million).mul(new Decimal(cost.input)).toNumber(),
-    };
-  }
-  if (usage.cacheCreationTokens && cost.cache_write) {
-    breakdown.cacheWrite = {
-      tokens: usage.cacheCreationTokens,
-      costPerMillion: cost.cache_write,
-      cost: new Decimal(usage.cacheCreationTokens).div(million).mul(new Decimal(cost.cache_write)).toNumber(),
-    };
-  }
-  if (usage.cacheReadTokens && cost.cache_read) {
-    breakdown.cacheRead = {
-      tokens: usage.cacheReadTokens,
-      costPerMillion: cost.cache_read,
-      cost: new Decimal(usage.cacheReadTokens).div(million).mul(new Decimal(cost.cache_read)).toNumber(),
-    };
-  }
-  if (usage.outputTokens && cost.output) {
-    breakdown.output = {
-      tokens: usage.outputTokens,
-      costPerMillion: cost.output,
-      cost: new Decimal(usage.outputTokens).div(million).mul(new Decimal(cost.output)).toNumber(),
-    };
-  }
-  const totalCost = new Decimal(breakdown.input.cost).plus(breakdown.cacheWrite.cost).plus(breakdown.cacheRead.cost).plus(breakdown.output.cost).toNumber();
-  if (includeBreakdown) {
-    return {
-      total: totalCost,
-      breakdown,
-    };
-  }
-  return totalCost;
-};
+// Issue #1710: calculateModelCost extracted to ./claude.cost.lib.mjs to keep
+// this file under the 1500-line repo cap (see check-file-line-limits CI job).
+import { calculateModelCost } from './claude.cost.lib.mjs';
+export { calculateModelCost };
 export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsage = null) => {
   const os = (await use('os')).default;
   const homeDir = os.homedir();
@@ -498,8 +452,14 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
           }
           accumulateModelUsage(modelUsage, entry);
           // Issue #1501: Track peak context usage per single API request
+          // Issue #1710: Exclude cache_read_input_tokens — sub-sessions and
+          // per-request peaks should reflect *new* input the model received,
+          // not cached prompt context. Cache reads remain visible in the
+          // cumulative Total line as `(X + Y cached)`. This makes the
+          // peak-request value reconcilable with the cumulative non-cached
+          // input figure (instead of mixing semantics across the two lines).
           const usage = entry.message.usage;
-          const requestContext = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+          const requestContext = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0);
           const model = entry.message.model;
           if (requestContext > (peakContextByModel[model] || 0)) {
             peakContextByModel[model] = requestContext;
@@ -1306,7 +1266,9 @@ export const executeClaudeCommand = async params => {
               await log(`\n⚠️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries (upstream: anthropics/claude-code#6805)`, { verbose: true });
             }
             if (tokenUsage.peakContextUsage > 0) {
-              await log(`📊 Peak single-request context: ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
+              // Issue #1710: rename so the metric matches the new definition (input + cache_creation,
+              // excluding cache_read). Cache reads are still visible separately on the Total line.
+              await log(`📊 Peak single-request input (excl. cache reads): ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
             }
             await log('\n💰 Token Usage Summary:');
             // Display per-model breakdown

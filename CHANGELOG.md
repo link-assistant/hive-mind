@@ -1,5 +1,46 @@
 # @link-assistant/hive-mind
 
+## 1.58.0
+
+### Minor Changes
+
+- 3616130: Add `--sub-session-size` and `--disable-1m-context` options for Claude and Codex (issue #1706)
+
+  `--sub-session-size` (default: `150k`) caps the size of each sub-session
+  between auto-compaction events. It accepts a token count (`150k`, `1m`,
+  `200000`), a percentage of the model context window (`50%`), or `default`
+  to keep the tool's built-in threshold.
+
+  `--disable-1m-context` (default: `true`) opts out of the 1M extended
+  context window so models stay on their standard 200K-400K window. This
+  preserves reasoning quality and avoids the long-context price tier.
+  Use `--no-disable-1m-context` to allow 1M.
+
+  Both options work for `--tool claude` and `--tool codex`. For Claude Code
+  the wrapper sets `CLAUDE_CODE_DISABLE_1M_CONTEXT`,
+  `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`
+  env vars (clamped per upstream's "lower-only" semantics). For Codex the
+  wrapper appends `-c model_context_window=200000` and
+  `-c model_auto_compact_token_limit=<tokens>` overrides.
+
+  Verbose mode logs the applied env vars and `-c` overrides so operators
+  can confirm they reached the spawned tool process.
+
+- b341775: Hide the cost-estimation breakdown when the public and Anthropic numbers agree to within display precision (issue #1703)
+
+  Both the live `displayCostComparison` console output and the
+  `buildCostInfoString` markdown rendered into PR/issue comments previously
+  collapsed to the short `💰 Cost: $X.XXXXXX` form only when the two values
+  matched **exactly** at six decimal places. Real-world calls regularly produce
+  underlying values that differ by ~`1e-7` and round to **adjacent** displays
+  (e.g. `$11.219694` vs `$11.219693`); the rendered difference (`$-0.000000
+(-0.00%)`) was therefore noise yet still printed three full lines. The guard
+  now triggers whenever `|public − anthropic|.toFixed(6) === '0.000000'`, which
+  preserves the existing behaviour at every meaningful (≥ `$0.000001`) delta and
+  adds short-form output for the boundary case from issue #1703. Regression
+  tests live in `tests/test-build-cost-info-string.mjs` and
+  `tests/test-display-cost-comparison.mjs`.
+
 ## 1.57.3
 
 ### Patch Changes

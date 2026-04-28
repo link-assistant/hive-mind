@@ -26,7 +26,6 @@ import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, maybeSwitchToFallbackModel } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
-import { SERVER_TOOL_PRICING_USD } from './anthropic-server-tool-pricing.lib.mjs'; // Issue #1710
 export { availableModels }; // Re-export for backward compatibility
 export { fetchModelInfo };
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -388,70 +387,10 @@ export const checkModelVisionCapability = async modelId => {
     return false;
   }
 };
-/** Calculate USD cost for a model's usage with detailed breakdown (Issue #1600: uses Decimal for precision; Issue #1710: bills server-side tools — web_search at $10/1k requests). */
-export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) => {
-  if (!modelInfo || !modelInfo.cost) {
-    return includeBreakdown ? { total: 0, breakdown: null } : 0;
-  }
-  const cost = modelInfo.cost;
-  const million = new Decimal(1000000);
-  const breakdown = {
-    input: { tokens: 0, costPerMillion: 0, cost: 0 },
-    cacheWrite: { tokens: 0, costPerMillion: 0, cost: 0 },
-    cacheRead: { tokens: 0, costPerMillion: 0, cost: 0 },
-    output: { tokens: 0, costPerMillion: 0, cost: 0 },
-    // Issue #1710: server-side tool usage (web_search) is billed per-request,
-    // independent of token cost. Without this entry the public-pricing total
-    // diverges from Anthropic's reported total by exactly the per-request rate
-    // times the request count — the residual quoted in issue #1710.
-    webSearch: { requests: 0, costPerRequest: 0, cost: 0 },
-  };
-  if (usage.inputTokens && cost.input) {
-    breakdown.input = {
-      tokens: usage.inputTokens,
-      costPerMillion: cost.input,
-      cost: new Decimal(usage.inputTokens).div(million).mul(new Decimal(cost.input)).toNumber(),
-    };
-  }
-  if (usage.cacheCreationTokens && cost.cache_write) {
-    breakdown.cacheWrite = {
-      tokens: usage.cacheCreationTokens,
-      costPerMillion: cost.cache_write,
-      cost: new Decimal(usage.cacheCreationTokens).div(million).mul(new Decimal(cost.cache_write)).toNumber(),
-    };
-  }
-  if (usage.cacheReadTokens && cost.cache_read) {
-    breakdown.cacheRead = {
-      tokens: usage.cacheReadTokens,
-      costPerMillion: cost.cache_read,
-      cost: new Decimal(usage.cacheReadTokens).div(million).mul(new Decimal(cost.cache_read)).toNumber(),
-    };
-  }
-  if (usage.outputTokens && cost.output) {
-    breakdown.output = {
-      tokens: usage.outputTokens,
-      costPerMillion: cost.output,
-      cost: new Decimal(usage.outputTokens).div(million).mul(new Decimal(cost.output)).toNumber(),
-    };
-  }
-  // Issue #1710: bill web_search requests at the documented per-request rate.
-  if (usage.webSearchRequests && SERVER_TOOL_PRICING_USD.web_search.costPerRequest > 0) {
-    const perReq = SERVER_TOOL_PRICING_USD.web_search.costPerRequest;
-    breakdown.webSearch = {
-      requests: usage.webSearchRequests,
-      costPerRequest: perReq,
-      cost: new Decimal(usage.webSearchRequests).mul(new Decimal(perReq)).toNumber(),
-    };
-  }
-  const totalCost = new Decimal(breakdown.input.cost).plus(breakdown.cacheWrite.cost).plus(breakdown.cacheRead.cost).plus(breakdown.output.cost).plus(breakdown.webSearch.cost).toNumber();
-  if (includeBreakdown) {
-    return {
-      total: totalCost,
-      breakdown,
-    };
-  }
-  return totalCost;
-};
+// Issue #1710: calculateModelCost extracted to ./claude.cost.lib.mjs to keep
+// this file under the 1500-line repo cap (see check-file-line-limits CI job).
+import { calculateModelCost } from './claude.cost.lib.mjs';
+export { calculateModelCost };
 export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsage = null) => {
   const os = (await use('os')).default;
   const homeDir = os.homedir();

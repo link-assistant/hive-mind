@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 /**
+ * @hive-mind-test-suite default
+ *
  * Issue #1710: verify the new `dumpBudgetTrace` helper.
  *
  * `dumpBudgetTrace` is the verbose-only diagnostic added so that the next

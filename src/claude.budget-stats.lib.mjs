@@ -148,6 +148,47 @@ export const displayCostComparison = async (publicCost, anthropicCost, log) => {
 };
 
 /**
+ * Issue #1710: Emit a verbose, machine-friendly trace of every input that
+ * feeds the budget-stats renderer for a single model. Hidden behind
+ * `{ verbose: true }` so it never pollutes the default log, but always
+ * captured when --verbose is set. The trace is what we wished we had had
+ * available *before* filing #1710 — it shows peak vs. cumulative side by
+ * side, splits cache writes from cache reads, and surfaces server-tool
+ * usage (web search) that the public-pricing estimator currently ignores.
+ *
+ * @param {Object} usage      - Per-model usage entry from `tokenUsage.modelUsage`.
+ * @param {Object} tokenUsage - Full token usage object (used only for sub-session count).
+ * @param {Function} log      - Async logger (must accept a `{verbose}` options arg).
+ */
+export const dumpBudgetTrace = async (usage, tokenUsage, log) => {
+  const modelName = usage.modelName || usage.modelInfo?.name || 'unknown';
+  const limit = usage.modelInfo?.limit || {};
+  const peak = usage.peakContextUsage || 0;
+  const writes5m = usage.cacheCreation5mTokens || 0;
+  const writes1h = usage.cacheCreation1hTokens || 0;
+  const writes = usage.cacheCreationTokens || 0;
+  const reads = usage.cacheReadTokens || 0;
+  const inputs = usage.inputTokens || 0;
+  const outputs = usage.outputTokens || 0;
+  const webSearches = usage.webSearchRequests || 0;
+  const subSessionCount = (tokenUsage?.subSessions || []).length;
+  const source = usage._sourceResultJson ? 'jsonl + result-event' : 'jsonl';
+
+  await log(`\n      📊 [budget-trace] ${modelName}`, { verbose: true });
+  await log(`         peak request:    ${formatNumber(peak)}${limit.context ? ` / ${formatNumber(limit.context)} context` : ''} (largest single-request input + cache_creation + cache_read)`, { verbose: true });
+  await log(`         cumulative:      input ${formatNumber(inputs)}, cache_write ${formatNumber(writes)} (5m ${formatNumber(writes5m)} / 1h ${formatNumber(writes1h)}), cache_read ${formatNumber(reads)}, output ${formatNumber(outputs)}`, { verbose: true });
+  await log(`         server tools:    web_search ${webSearches}${webSearches > 0 ? ` (= $${(webSearches * 0.01).toFixed(6)} at $10 / 1k searches; not included in calculateModelCost output)` : ''}`, { verbose: true });
+  if (usage.costUSD !== null && usage.costUSD !== undefined) {
+    await log(`         cost (public):   $${new Decimal(usage.costUSD).toFixed(6)}`, { verbose: true });
+  }
+  if (usage._resultCostUSD !== null && usage._resultCostUSD !== undefined) {
+    await log(`         cost (anthropic result-event): $${new Decimal(usage._resultCostUSD).toFixed(6)}`, { verbose: true });
+  }
+  await log(`         sub-session count: ${subSessionCount}`, { verbose: true });
+  await log(`         data source:     ${source}`, { verbose: true });
+};
+
+/**
  * Display token budget statistics (context window usage and ratios)
  * @param {Object} usage - Usage data for a model
  * @param {Object} tokenUsage - Full token usage data (with subSessions)
@@ -155,6 +196,10 @@ export const displayCostComparison = async (publicCost, anthropicCost, log) => {
  */
 /**
  * Issue #1526: Updated to use single-line context+output format.
+ * Issue #1710: After the standard rendering, emit a verbose trace of the
+ *              raw inputs that fed the renderer (gated behind --verbose),
+ *              so future calculation-correctness reports can be triaged
+ *              without re-running the session.
  */
 export const displayBudgetStats = async (usage, tokenUsage, log) => {
   const modelInfo = usage.modelInfo;
@@ -222,6 +267,9 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
     totalLine += `, ${formatNumber(usage.outputTokens)} output tokens`;
   }
   await log(`        Total: ${totalLine}`);
+
+  // Issue #1710: verbose-only, never affects default output.
+  await dumpBudgetTrace(usage, tokenUsage, log);
 };
 
 /**

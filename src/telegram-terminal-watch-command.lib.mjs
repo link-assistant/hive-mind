@@ -6,15 +6,12 @@
  */
 
 import fs from 'fs/promises';
-import path from 'path';
-import { constants as fsConstants } from 'fs';
 import { extractSessionIdFromText, decideLogDestination, resolveLogPath } from './telegram-log-command.lib.mjs';
 
 const DEFAULT_WIDTH = 120;
 const DEFAULT_HEIGHT = 25;
 const DEFAULT_INTERVAL_MS = 2500;
 const DEFAULT_MAX_CHARS = 3400;
-const TELEGRAM_DOCUMENT_MAX_BYTES = 50 * 1024 * 1024;
 const GITHUB_URL_RE = /https:\/\/github\.com\/[^\s"'`<>]+/i;
 const activeWatches = new Map();
 
@@ -135,23 +132,6 @@ export function formatTerminalWatchMessage({ sessionId, statusResult = null, log
   return lines.join('\n');
 }
 
-async function fileExists(filePath) {
-  try {
-    await fs.access(filePath, fsConstants.R_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function fileSize(filePath) {
-  try {
-    return (await fs.stat(filePath)).size;
-  } catch {
-    return null;
-  }
-}
-
 async function readLogFile(logPath) {
   try {
     return await fs.readFile(logPath, 'utf8');
@@ -182,16 +162,6 @@ export async function resolveTerminalWatchRepository({ sessionInfo = null, statu
   }
 }
 
-async function sendLogDocument({ bot, chatId, logPath, sessionId, statusResult }) {
-  if (!(await fileExists(logPath))) return;
-  const size = await fileSize(logPath);
-  if (size !== null && size > TELEGRAM_DOCUMENT_MAX_BYTES) {
-    await bot.telegram.sendMessage(chatId, `⚠️ Full log for \`${sessionId}\` is ${(size / (1024 * 1024)).toFixed(1)} MB, above Telegram's 50 MB upload limit.`, { parse_mode: 'Markdown' });
-    return;
-  }
-  await bot.telegram.sendDocument(chatId, { source: logPath, filename: path.basename(logPath) }, { caption: `📄 Full log for session \`${sessionId}\`${statusResult?.status ? `\nStatus: \`${statusResult.status}\`` : ''}`, parse_mode: 'Markdown' });
-}
-
 async function querySessionStatusWithRetry(querySessionStatus, sessionId, verbose, attempts = 3) {
   for (let attempt = 1; attempt <= attempts; attempt++) {
     const statusResult = await querySessionStatus(sessionId, verbose);
@@ -201,7 +171,9 @@ async function querySessionStatusWithRetry(querySessionStatus, sessionId, verbos
   return null;
 }
 
-export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options = {}, repoDescription = null, verbose = false, attachLogOnComplete = true }) {
+// Note: /terminal_watch never uploads the full session log itself (issue #1720).
+// Use /log <uuid> if you want the log file delivered as a document.
+export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options = {}, repoDescription = null, verbose = false }) {
   const key = `${chatId}:${messageId}:${sessionId}`;
   activeWatches.get(key)?.stop();
 
@@ -225,7 +197,6 @@ export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, log
       if (completed) {
         stopped = true;
         activeWatches.delete(key);
-        if (attachLogOnComplete) await sendLogDocument({ bot, chatId, logPath, sessionId, statusResult });
         return;
       }
     } catch (error) {
@@ -409,6 +380,5 @@ export const __INTERNAL_FOR_TESTS__ = {
   DEFAULT_HEIGHT,
   DEFAULT_INTERVAL_MS,
   DEFAULT_MAX_CHARS,
-  TELEGRAM_DOCUMENT_MAX_BYTES,
   GITHUB_URL_RE,
 };

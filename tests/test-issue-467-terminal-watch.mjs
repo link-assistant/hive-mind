@@ -111,7 +111,8 @@ watchTerminalLogSession({
 
 await new Promise(resolve => setTimeout(resolve, 80));
 assert(edits.length >= 2, 'edits the watch message while running and at completion', { editCount: edits.length });
-assert(documents.length === 1, 'attaches full log when the session reaches terminal status', { documents });
+// /terminal_watch must not upload the log file itself — that is /log's job (issue #1720).
+assert(documents.length === 0, 'does not attach the full log when the session reaches terminal status (issue #1720)', { documents });
 assert(String(edits.at(-1)?.[3] || '').includes('Terminal watch complete'), 'freezes final message as complete');
 
 await fs.rm(tempDir, { recursive: true, force: true });

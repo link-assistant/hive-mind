@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 /**
- * Unit tests for src/use-with-retry.lib.mjs (Issue #1710).
+ * Unit tests for src/use-with-retry.lib.mjs (Issue #1710, #1712).
  *
- * Verifies that the retry helper for `use-m` recovers from the two
+ * Verifies that the retry helper for `use-m` recovers from the three
  * known hosted-CI flake modes:
  *   1. SyntaxError mid-import after a truncated `npm install -g`.
  *   2. "Failed to resolve the path" after an incomplete install.
+ *   3. ERR_INVALID_PACKAGE_CONFIG when the installed package.json itself
+ *      is corrupt (issue #1712).
  *
  * @hive-mind-test-suite default
  */
@@ -35,6 +37,12 @@ const makeImportError = filePath => {
 
 const makeResolveError = (pkg, dir) => new Error(`Failed to resolve the path to '${pkg}' from '${dir}'.`);
 
+const makeInvalidPackageConfigError = pkgJsonPath => {
+  const err = new Error(`Invalid package config ${pkgJsonPath}.`);
+  err.code = 'ERR_INVALID_PACKAGE_CONFIG';
+  return err;
+};
+
 console.log('\n📋 isCorruptInstallError\n');
 
 await test('detects SyntaxError cause as corrupt install', () => {
@@ -48,6 +56,23 @@ await test('detects "Unexpected end of input" cause message', () => {
 
 await test('detects "Failed to resolve the path" message', () => {
   assert.equal(isCorruptInstallError(makeResolveError('links-notation', '/tmp/links-notation-v-latest')), true);
+});
+
+await test('detects ERR_INVALID_PACKAGE_CONFIG by code (issue #1712)', () => {
+  assert.equal(isCorruptInstallError(makeInvalidPackageConfigError('/tmp/getenv-v-latest/package.json')), true);
+});
+
+await test('detects ERR_INVALID_PACKAGE_CONFIG on cause', () => {
+  const cause = makeInvalidPackageConfigError('/tmp/getenv-v-latest/package.json');
+  const err = new Error('npm install wrapper failure', { cause });
+  assert.equal(isCorruptInstallError(err), true);
+});
+
+await test('detects "Invalid package config" by message (no code)', () => {
+  // Defensive: if the error bubbles through use-m without preserving `code`,
+  // the message-prefix match still flags it as corrupt.
+  const err = new Error('Invalid package config /tmp/getenv-v-latest/package.json.');
+  assert.equal(isCorruptInstallError(err), true);
 });
 
 await test('does not flag unrelated errors', () => {
@@ -64,6 +89,10 @@ await test('extracts file path from import-failed message', () => {
 
 await test('extracts directory path from resolve-failed message', () => {
   assert.equal(extractCorruptedFilePath(makeResolveError('links-notation', '/opt/node_modules/links-notation-v-latest')), '/opt/node_modules/links-notation-v-latest');
+});
+
+await test('extracts package.json path from invalid-package-config message (issue #1712)', () => {
+  assert.equal(extractCorruptedFilePath(makeInvalidPackageConfigError('/opt/hostedtoolcache/node/24.14.1/x64/lib/node_modules/getenv-v-latest/package.json')), '/opt/hostedtoolcache/node/24.14.1/x64/lib/node_modules/getenv-v-latest/package.json');
 });
 
 await test('returns null when no path is present', () => {
@@ -121,6 +150,26 @@ await test('retries after resolve-path failure and cleans up alias dir', async (
   assert.equal(calls, 2);
   assert.deepEqual(cleanedPaths, ['/tmp/links-notation-v-latest']);
   assert.equal(typeof result.Parser, 'function');
+});
+
+await test('retries after ERR_INVALID_PACKAGE_CONFIG and cleans up alias dir (issue #1712)', async () => {
+  let calls = 0;
+  const cleanedPaths = [];
+  const fakeUse = async () => {
+    calls++;
+    if (calls === 1) {
+      throw makeInvalidPackageConfigError('/tmp/getenv-v-latest/package.json');
+    }
+    return { default: 'recovered' };
+  };
+  const cleanup = async path => {
+    cleanedPaths.push(path);
+  };
+  const result = await useWithRetry(fakeUse, 'getenv', { cleanup });
+  assert.equal(calls, 2);
+  // package.json path → cleanup() walks up to the alias dir before rm -rf.
+  assert.deepEqual(cleanedPaths, ['/tmp/getenv-v-latest']);
+  assert.deepEqual(result, { default: 'recovered' });
 });
 
 await test('does not retry on unrelated errors', async () => {

@@ -36,10 +36,15 @@ if (typeof globalThis.use === 'undefined') {
   }
 }
 
-const getenvModule = await use('getenv');
+// Issue #1710 / #1712: use-m occasionally hands back a truncated/corrupt global
+// package on hosted CI (npm install -g flake — manifests as ERR_INVALID_PACKAGE_CONFIG,
+// "Failed to resolve the path", or SyntaxError mid-import). useWithRetry deletes
+// the broken install dir and re-fetches.
+const { useWithRetry } = await import('./use-with-retry.lib.mjs');
+const getenvModule = await useWithRetry(globalThis.use, 'getenv');
 // Node 24 CJS/ESM interop may return the whole module object instead of the function directly
 const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
-const linoModule = await use('links-notation');
+const linoModule = await useWithRetry(globalThis.use, 'links-notation');
 const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 
 /**

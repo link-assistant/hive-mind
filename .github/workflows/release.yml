@@ -271,6 +271,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Pre-install use-m packages (issue #1724)
+        run: node scripts/preinstall-use-m-packages.mjs
+
       - name: Run default test suite
         run: npm test
 
@@ -305,6 +308,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Pre-install use-m packages (issue #1724)
+        run: node scripts/preinstall-use-m-packages.mjs
 
       - name: Test solve.mjs execution
         run: |

@@ -798,7 +798,11 @@ if (isRunningDirectly) {
                 for (const entry of value) {
                   args.push(`--${optionName}`, String(entry));
                 }
-              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined) {
+              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined && value !== false) {
+                // Issue #1718: some solve options declare type:'string' but default:false.
+                // yargs preserves the boolean false at runtime, so without this guard hive
+                // would forward "--<option> false", and solve would reject it (e.g.
+                // --working-session-live-progress only accepts "comment" or "pr").
                 args.push(`--${optionName}`, String(value));
               }
             }
@@ -1482,6 +1486,19 @@ if (isRunningDirectly) {
       await log(`\n❌ Fatal error: ${cleanErrorMessage(error)}`, { level: 'error' });
       await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
       await safeExit(1, 'Error occurred');
+    }
+
+    // Issue #1718: If any worker failed, exit non-zero so wrappers (start-command, the
+    // Telegram bot, CI) can detect the failure. Without this, hive exits naturally
+    // with code 0 even when every queued issue failed and the green
+    // "Work session finished successfully" envelope is shown to the user.
+    const finalStats = issueQueue.getStats();
+    if (finalStats.failed > 0) {
+      await log(
+        `\n❌ Hive finished with ${finalStats.failed} failed task(s) (completed: ${finalStats.completed})`,
+        { level: 'error' }
+      );
+      await safeExit(1, `${finalStats.failed} task(s) failed`);
     }
   } catch (fatalError) {
     // Handle fatal errors during initialization or execution

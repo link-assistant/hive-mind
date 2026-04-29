@@ -33,7 +33,43 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getWorkflowRunJobsCount, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI } = githubMergeLib;
+const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getWorkflowRunJobsCount, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI, getActivePRWorkflowRuns } = githubMergeLib;
+
+/**
+ * Issue #1712: Plain-English meaning of GitHub Actions / check-run statuses, so the
+ * verbose log explains itself instead of forcing the user to look up GitHub docs.
+ * Returns the same status string suffixed with a parenthetical hint, e.g.
+ * "in_progress (currently executing)". Unknown statuses are returned unchanged.
+ */
+const STATUS_HINTS = {
+  in_progress: 'currently executing',
+  queued: 'waiting for a runner',
+  pending: 'waiting to start',
+  waiting: 'blocked on a deployment / approval gate',
+  requested: 'requested but not yet picked up',
+  completed: 'finished',
+};
+const CONCLUSION_HINTS = {
+  success: 'passed',
+  failure: 'failed',
+  cancelled: 'cancelled (will be re-triggered if applicable)',
+  timed_out: 'timed out',
+  skipped: 'skipped (e.g. paths-ignore matched)',
+  neutral: 'neutral / informational',
+  action_required: 'manual approval required',
+  stale: 'stale — superseded by a newer run',
+  startup_failure: 'workflow failed to start (likely invalid YAML)',
+};
+const explainStatus = (status, conclusion) => {
+  const statusPart = status ? `${status}${STATUS_HINTS[status] ? ` (${STATUS_HINTS[status]})` : ''}` : 'unknown';
+  if (!conclusion) return statusPart;
+  const concPart = `${conclusion}${CONCLUSION_HINTS[conclusion] ? ` (${CONCLUSION_HINTS[conclusion]})` : ''}`;
+  return `${statusPart} → ${concPart}`;
+};
+const formatRunLine = run => {
+  const status = run.conclusion ? `${run.status}/${run.conclusion}` : run.status;
+  return `${run.name} [${status}] — ${run.html_url}`;
+};
 
 // Issue #1625: Import centralized session-ending markers so the duplicate-
 // search scope for checkForExistingComment() stays in lock-step with the
@@ -343,20 +379,38 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
           }
 
           // Some workflow runs are still in progress or produced results — genuine race condition
-          // Issue #1712: Make the verbose log message and the user-facing blocker details
-          // include the workflow run URLs so the user can open them and verify what's
-          // blocking. The previous wording ("has no CI check-runs yet") read like the repo
-          // had no CI configured, which led to a false-alarm Ctrl+C.
+          // Issue #1712: User-facing blocker `details` carry the run URL + status so the
+          // top-level "⏳ Waiting for CI:" line is self-explanatory. Verbose listing is
+          // produced by `getWorkflowRunsForSha(..., verbose=true)` above — do NOT print the
+          // same run list twice. Here we only emit the one-line summary that explains
+          // *why* we're still waiting (race vs. real run).
+          const commitUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}/commits/${ciStatus.sha}`;
           if (verbose) {
-            await log(`[VERBOSE] /merge: PR #${prNumber} commit ${ciStatus.sha.substring(0, 7)} has ${workflowRuns.length} workflow run(s) registered, but check-runs have not been published yet — waiting for the runs to publish check-runs:`);
-            for (const run of workflowRuns) {
-              await log(`[VERBOSE] /merge:   - ${run.name} (run #${run.id}): status=${run.status}, conclusion=${run.conclusion ?? 'null'} — ${run.html_url}`);
+            await log(`[VERBOSE] /merge: ${workflowRuns.length} workflow run(s) registered for PR #${prNumber} HEAD ${commitUrl} — waiting for them to publish check-runs (race condition between workflow_run and check_runs APIs, typically ~30–120 s)`);
+          }
+
+          // Also surface any active workflow runs on OLDER PR commits, so the user's view of
+          // the GitHub Actions tab (which shows yellow dots for every commit) reconciles
+          // with the log. These are NOT blockers — GitHub's concurrency group cancels them
+          // when a new commit is pushed — but listing them stops the user from worrying that
+          // the watcher is missing them.
+          const activeAcrossCommits = await getActivePRWorkflowRuns(owner, repo, prNumber, ciStatus.sha, verbose, getWorkflowRunsForSha);
+          if (verbose && activeAcrossCommits.otherActive > 0) {
+            await log(`[VERBOSE] /merge: ${activeAcrossCommits.otherActive} additional active workflow run(s) on older commits of PR #${prNumber} (these are not blockers — GitHub's concurrency group will cancel them):`);
+            for (const group of activeAcrossCommits.groups) {
+              if (group.isHead) continue;
+              const olderCommitUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}/commits/${group.sha}`;
+              await log(`[VERBOSE] /merge:   on ${olderCommitUrl}:`);
+              for (const run of group.runs) {
+                await log(`[VERBOSE] /merge:     - ${formatRunLine(run)} — ${explainStatus(run.status, run.conclusion)}`);
+              }
             }
           }
+
           blockers.push({
             type: 'ci_pending',
-            message: `Waiting for ${workflowRuns.length} workflow run(s) on commit ${ciStatus.sha.substring(0, 7)} to publish check-runs`,
-            details: workflowRuns.map(r => `${r.name} [${r.status}${r.conclusion ? `/${r.conclusion}` : ''}] — ${r.html_url}`),
+            message: `Waiting for ${workflowRuns.length} workflow run(s) on HEAD ${commitUrl} to publish check-runs`,
+            details: workflowRuns.map(formatRunLine),
           });
         } else {
           // No workflow runs for this SHA — but this could be a race condition!
@@ -533,9 +587,14 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
       return `${c.name}${statusPart}${urlPart}`;
     });
     if (verbose) {
-      await log(`[VERBOSE] /merge: PR #${prNumber} commit ${ciStatus.sha.substring(0, 7)} has ${pendingChecks.length} pending/queued check-run(s):`);
+      // Issue #1712: One concise line + a per-check entry that includes a plain-English
+      // explanation of the status. We do NOT also call getWorkflowRunsForSha here — the
+      // detailed CI status already covers the same data via check-runs.
+      const commitUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}/commits/${ciStatus.sha}`;
+      await log(`[VERBOSE] /merge: ${pendingChecks.length} check-run(s) still running/queued on PR #${prNumber} HEAD ${commitUrl}:`);
       for (const c of pendingChecks) {
-        await log(`[VERBOSE] /merge:   - ${c.name}: status=${c.status ?? 'unknown'}, conclusion=${c.conclusion ?? 'null'}${c.html_url ? ` — ${c.html_url}` : ''}`);
+        const url = c.html_url ? ` — ${c.html_url}` : '';
+        await log(`[VERBOSE] /merge:   - ${c.name}: ${explainStatus(c.status, c.conclusion)}${url}`);
       }
     }
     blockers.push({

@@ -903,10 +903,30 @@ No further AI sessions will be started automatically for this run. Please review
         const cancelledOnly = blockers.every(b => b.type === 'ci_cancelled' || b.type === 'ci_pending');
         const cancelledBlocker = blockers.find(b => b.type === 'ci_cancelled');
 
+        // Issue #1712: When `details` contain URLs (which they now always do for ci_pending /
+        // ci_cancelled blockers), comma-joining them produces an unreadable single-line wall
+        // of text. Render the first detail inline (with the message as the header) and any
+        // additional details on their own indented lines. Each detail is already
+        // self-explanatory: "<name> [<status>] — <url>".
+        const renderBlocker = (icon, header, blocker) => {
+          if (!blocker.details || blocker.details.length === 0) {
+            return log(formatAligned(icon, header, blocker.message, 2));
+          }
+          if (blocker.details.length === 1) {
+            return log(formatAligned(icon, header, blocker.details[0], 2));
+          }
+          return (async () => {
+            await log(formatAligned(icon, header, blocker.message, 2));
+            for (const detail of blocker.details) {
+              await log(formatAligned('', '', detail, 4));
+            }
+          })();
+        };
+
         if (cancelledOnly && cancelledBlocker) {
-          await log(formatAligned('🔄', 'Waiting for re-triggered CI:', cancelledBlocker.details.join(', '), 2));
+          await renderBlocker('🔄', 'Waiting for re-triggered CI:', cancelledBlocker);
         } else if (pendingBlocker) {
-          await log(formatAligned('⏳', 'Waiting for CI:', pendingBlocker.details.length > 0 ? pendingBlocker.details.join(', ') : pendingBlocker.message, 2));
+          await renderBlocker('⏳', 'Waiting for CI:', pendingBlocker);
         } else {
           await log(formatAligned('⏳', 'Waiting for:', blockers.map(b => b.message).join(', '), 2));
         }

@@ -395,3 +395,145 @@ behaviour. Our log just had to communicate it more clearly.)
   full verbose log.
 - **Hyperlink in TTY**: when stdout is a TTY, render the URL with the ANSI OSC
   8 hyperlink sequence so the user can click it directly without copy/paste.
+
+## Follow-up round (PR #1713 — second pass)
+
+After the initial fix landed on the branch, the user reviewed the new output
+([PR #1713 review comment 4342387674](https://github.com/link-assistant/hive-mind/pull/1713#issuecomment-4342387674))
+and pointed out four remaining problems:
+
+1. **Cross-commit visibility** — the verbose log lists "1 workflow run" for the
+   head SHA, but the user's GitHub Actions tab still shows yellow dots for older
+   commits whose runs were auto-cancelled by the concurrency group. The two
+   views look like they contradict each other.
+2. **Duplicated data** — both `getWorkflowRunsForSha` and the no_checks branch
+   were each printing the per-run line, so the same workflow run appeared
+   twice in the verbose log.
+3. **SHA hashes vs. commit links** — verbose lines printed `${sha.substring(0,
+7)}` (e.g. `dfc4c14`) instead of a clickable
+   `https://github.com/owner/repo/commit/<full-sha>` URL.
+4. **Unexplained statuses / conclusions** — values like `in_progress`,
+   `queued`, `action_required`, `stale` showed up bare; users had to look up
+   GitHub docs to know what each one meant.
+
+### Code changes (round 2)
+
+**`src/github-merge-repo-actions.lib.mjs`** — new helper
+`getActivePRWorkflowRuns(owner, repo, prNumber, headSha, verbose, getWorkflowRunsForSha)`
+that walks every commit on the PR (`/repos/.../pulls/N/commits`), fetches its
+workflow runs, filters to active statuses (`in_progress`, `pending`, `queued`,
+`waiting`, `requested`), deduplicates by `run.id`, and returns groups with
+`{ sha, isHead, runs }` plus `headActive` / `otherActive` counts. Used in the
+no_checks "race condition" branch to print the older-commit runs after the
+head-commit ones.
+
+**`src/github-merge.lib.mjs`** —
+
+- `getWorkflowRunsForSha` verbose listing now uses
+  `https://github.com/${owner}/${repo}/commit/${sha}` instead of the short SHA,
+  and prints one line per run as
+  `- ${run.name} [${status}${conclusion ? '/' + conclusion : ''}]: ${run.html_url}`.
+- `getDetailedCIStatus` and `checkPRCIStatus` no_checks lines also use the full
+  commit URL.
+- Re-exports `getActivePRWorkflowRuns`.
+
+**`src/solve.auto-merge-helpers.lib.mjs`** — new dictionaries and helpers:
+
+```js
+const STATUS_HINTS = {
+  in_progress: 'currently executing',
+  queued: 'waiting for a runner',
+  pending: 'waiting to start',
+  waiting: 'blocked on a deployment / approval gate',
+  requested: 'requested but not yet picked up',
+  completed: 'finished',
+};
+const CONCLUSION_HINTS = {
+  success: 'passed',
+  failure: 'failed',
+  cancelled: 'cancelled (will be re-triggered if applicable)',
+  timed_out: 'timed out',
+  skipped: 'skipped (e.g. paths-ignore matched)',
+  neutral: 'neutral / informational',
+  action_required: 'manual approval required',
+  stale: 'stale — superseded by a newer run',
+  startup_failure: 'workflow failed to start (likely invalid YAML)',
+};
+const explainStatus = (status, conclusion) => { ... };
+const formatRunLine = run => `${run.name} [${run.conclusion ? run.status + '/' + run.conclusion : run.status}] — ${run.html_url}`;
+```
+
+The no_checks "race condition" branch was rewritten so it:
+
+- Emits a **single** explanatory verbose line about the race window, **not**
+  re-iterating `workflowRuns` (avoids the duplicate-output complaint).
+- Calls `getActivePRWorkflowRuns` and, when older commits have active runs,
+  groups them under per-commit URL headers and lists each run as
+  `formatRunLine(run) — explainStatus(...)`.
+
+The pending and cancelled branches were updated to use the same `formatRunLine`
+
+- `explainStatus` helpers so the output is consistent.
+
+**`src/solve.auto-merge.lib.mjs`** — replaced the single comma-joined
+`⏳ Waiting for CI:` line with `renderBlocker`:
+
+```js
+const renderBlocker = (icon, header, blocker) => {
+  if (!blocker.details || blocker.details.length === 0) return log(formatAligned(icon, header, blocker.message, 2));
+  if (blocker.details.length === 1) return log(formatAligned(icon, header, blocker.details[0], 2));
+  return (async () => {
+    await log(formatAligned(icon, header, blocker.message, 2));
+    for (const detail of blocker.details) {
+      await log(formatAligned('', '', detail, 4));
+    }
+  })();
+};
+```
+
+This keeps the output single-line for the common case (one run) but renders
+each run on its own line when multiple are pending — eliminating the
+hard-to-read comma-joined list.
+
+### What the new logs look like (round 2)
+
+When the head SHA has 1 active run **and** an older commit still has 1 active
+(soon-to-be-cancelled) run:
+
+```text
+[VERBOSE] /merge: Found 1 workflow run(s) for https://github.com/link-foundation/box/commit/dfc4c14746aa3dce19a060bf5b5b328eb3296350
+[VERBOSE] /merge:   - Build and Release Docker Image [in_progress]: https://github.com/link-foundation/box/actions/runs/25097532949
+[VERBOSE] /merge: 1 workflow run(s) registered for PR #83 HEAD https://github.com/link-foundation/box/pull/83/commits/dfc4c14746aa3dce19a060bf5b5b328eb3296350 — waiting for them to publish check-runs (race condition between workflow_run and check_runs APIs, typically ~30–120 s)
+[VERBOSE] /merge: 1 additional active workflow run(s) on older commits of PR #83 (these are not blockers — GitHub's concurrency group will cancel them):
+[VERBOSE] /merge:   on https://github.com/link-foundation/box/pull/83/commits/aa35cde4280238d066db4a771a662a6ebdcb604a:
+[VERBOSE] /merge:     - Build and Release Docker Image [in_progress] — https://github.com/link-foundation/box/actions/runs/25097500291 — in_progress (currently executing)
+  ⏳ Waiting for CI:         Build and Release Docker Image [in_progress] — https://github.com/link-foundation/box/actions/runs/25097532949
+```
+
+The user can now:
+
+- Click the commit URL to confirm `/merge` is watching the right SHA.
+- See _both_ active runs (head + older) and understand why the Actions tab
+  shows two yellow dots.
+- Read `[in_progress] (currently executing)` instead of having to look up what
+  `in_progress` means.
+- See per-run lines on their own line in the user-facing waiting message when
+  there are multiple, instead of a hard-to-parse comma-joined string.
+
+### Tests (round 2)
+
+`tests/test-misleading-merge-logs-1712.mjs` adds Groups 5–8 (8 new tests):
+
+| Group | Test                                                                  | Expectation                                                                                                                                                                                    |
+| ----- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5     | `getActivePRWorkflowRuns` surfaces older-commit runs                  | `headActive=1, otherActive=1`, head/older groups marked correctly                                                                                                                              |
+| 5     | `getActivePRWorkflowRuns` deduplicates by `run.id`                    | Same run id under two SHAs counts once                                                                                                                                                         |
+| 5     | `getActivePRWorkflowRuns` ignores `completed` runs                    | Only ACTIVE_STATUSES surface                                                                                                                                                                   |
+| 6     | no_checks branch does not iterate `workflowRuns` for verbose          | Static-source check: regex over the no_checks branch span finds no `for (const run of workflowRuns)` followed by per-run `[VERBOSE]` lines (avoids duplicating `getWorkflowRunsForSha` output) |
+| 6     | Verbose lines reference commit URL, not just short SHA                | Source contains `https://github.com/${owner}/${repo}/commit/${sha}`                                                                                                                            |
+| 7     | `explainStatus` produces a hint for common statuses                   | "currently executing" for `in_progress`, etc.                                                                                                                                                  |
+| 7     | Source declares `STATUS_HINTS` / `CONCLUSION_HINTS` / `explainStatus` | Inline plain-English meanings exist                                                                                                                                                            |
+| 8     | `renderBlocker` puts each detail on its own line for >1               | Multi-line output for ≥2 details                                                                                                                                                               |
+
+All 21 tests pass; the regression suites for #1480 (31 tests) and #1466 (14 tests)
+also still pass.

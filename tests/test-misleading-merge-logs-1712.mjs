@@ -101,11 +101,16 @@ test('src/github-merge.lib.mjs normalized check entries carry html_url field', (
 console.log('\nGroup 2: Behavioural simulation of blocker enrichment');
 
 // Mirrors the no_checks + workflowRuns.length > 0 branch in src/solve.auto-merge-helpers.lib.mjs
-function buildNoChecksBlocker(workflowRuns, sha) {
+const formatRunLine = run => {
+  const status = run.conclusion ? `${run.status}/${run.conclusion}` : run.status;
+  return `${run.name} [${status}] — ${run.html_url}`;
+};
+function buildNoChecksBlocker(workflowRuns, sha, owner = 'link-foundation', repo = 'box', prNumber = 83) {
+  const commitUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}/commits/${sha}`;
   return {
     type: 'ci_pending',
-    message: `Waiting for ${workflowRuns.length} workflow run(s) on commit ${sha.substring(0, 7)} to publish check-runs`,
-    details: workflowRuns.map(r => `${r.name} [${r.status}${r.conclusion ? `/${r.conclusion}` : ''}] — ${r.html_url}`),
+    message: `Waiting for ${workflowRuns.length} workflow run(s) on HEAD ${commitUrl} to publish check-runs`,
+    details: workflowRuns.map(formatRunLine),
   };
 }
 
@@ -153,7 +158,7 @@ test('no_checks branch: blocker details include workflow run html_url', () => {
   assert(blocker.details.length === 1, `expected 1 detail, got ${blocker.details.length}`);
   assert(blocker.details[0].includes('https://github.com/link-foundation/box/actions/runs/25097532949'), `expected details to include the run URL, got: ${blocker.details[0]}`);
   assert(blocker.details[0].includes('[in_progress]'), `expected details to include status [in_progress], got: ${blocker.details[0]}`);
-  assert(blocker.message.includes('dfc4c14'), `expected message to include short SHA, got: ${blocker.message}`);
+  assert(blocker.message.includes(`https://github.com/link-foundation/box/pull/83/commits/${sha}`), `expected message to include full commit link, got: ${blocker.message}`);
 });
 
 test('no_checks branch: completed workflow run renders status/conclusion', () => {
@@ -288,6 +293,145 @@ test('joined details work cleanly for multiple runs', () => {
   assert(joined.includes('https://example.test/runs/2'), `missing URL #2: ${joined}`);
   assert(joined.includes('Build [in_progress]'), `missing first run formatting: ${joined}`);
   assert(joined.includes('Test [queued]'), `missing second run formatting: ${joined}`);
+});
+
+// ===== Issue #1712 follow-up: cross-commit listing, deduplication, less duplication =====
+
+console.log('\nGroup 5: Cross-commit active workflow runs (#1712 follow-up)');
+
+// Mirrors getActivePRWorkflowRuns from src/github-merge-repo-actions.lib.mjs
+function buildActivePRWorkflowRuns(commitsWithRuns, headSha) {
+  const ACTIVE_STATUSES = new Set(['in_progress', 'pending', 'queued', 'waiting', 'requested']);
+  const groups = [];
+  const seenRunIds = new Set();
+  let totalActive = 0;
+  let headActive = 0;
+  let otherActive = 0;
+  for (const { sha, runs } of commitsWithRuns) {
+    const activeRuns = runs.filter(r => ACTIVE_STATUSES.has(r.status) && !seenRunIds.has(r.id));
+    for (const r of activeRuns) seenRunIds.add(r.id);
+    if (activeRuns.length === 0) continue;
+    const isHead = sha === headSha;
+    groups.push({ sha, isHead, runs: activeRuns });
+    totalActive += activeRuns.length;
+    if (isHead) headActive += activeRuns.length;
+    else otherActive += activeRuns.length;
+  }
+  return { groups, totalActive, headActive, otherActive };
+}
+
+test('getActivePRWorkflowRuns: surfaces active runs on older commits, marks head', () => {
+  const headSha = 'dfc4c14746aa3dce19a060bf5b5b328eb3296350';
+  const commits = [
+    { sha: 'aa35cde4280238d066db4a771a662a6ebdcb604a', runs: [{ id: 25097500291, name: 'Build and Release Docker Image', status: 'in_progress', conclusion: null, html_url: 'https://github.com/link-foundation/box/actions/runs/25097500291' }] },
+    { sha: headSha, runs: [{ id: 25097532949, name: 'Build and Release Docker Image', status: 'in_progress', conclusion: null, html_url: 'https://github.com/link-foundation/box/actions/runs/25097532949' }] },
+  ];
+  const result = buildActivePRWorkflowRuns(commits, headSha);
+  assert(result.totalActive === 2, `expected 2 active runs total, got ${result.totalActive}`);
+  assert(result.headActive === 1, `expected 1 active run on head, got ${result.headActive}`);
+  assert(result.otherActive === 1, `expected 1 active run on older commits, got ${result.otherActive}`);
+  const headGroup = result.groups.find(g => g.isHead);
+  const olderGroup = result.groups.find(g => !g.isHead);
+  assert(headGroup && headGroup.sha === headSha, 'head group should be marked');
+  assert(olderGroup && olderGroup.sha !== headSha, 'older group should not be marked as head');
+});
+
+test('getActivePRWorkflowRuns: deduplicates a run that appears under multiple commits', () => {
+  // GitHub sometimes returns the same workflow_run id for multiple SHAs (rare, but the dedup
+  // behaviour matters for correctness — we don't want to double-count blockers).
+  const headSha = 'aaaa1111';
+  const commits = [
+    { sha: 'older1', runs: [{ id: 1, name: 'Build', status: 'in_progress', conclusion: null, html_url: 'https://x/1' }] },
+    { sha: 'older2', runs: [{ id: 1, name: 'Build', status: 'in_progress', conclusion: null, html_url: 'https://x/1' }] },
+    { sha: headSha, runs: [{ id: 2, name: 'Test', status: 'queued', conclusion: null, html_url: 'https://x/2' }] },
+  ];
+  const result = buildActivePRWorkflowRuns(commits, headSha);
+  assert(result.totalActive === 2, `expected dedup to leave 2 runs, got ${result.totalActive}`);
+});
+
+test('getActivePRWorkflowRuns: ignores completed runs', () => {
+  const headSha = 'aaaa1111';
+  const commits = [
+    { sha: 'older1', runs: [{ id: 1, name: 'X', status: 'completed', conclusion: 'cancelled', html_url: 'https://x/1' }] },
+    { sha: headSha, runs: [{ id: 2, name: 'Y', status: 'in_progress', conclusion: null, html_url: 'https://x/2' }] },
+  ];
+  const result = buildActivePRWorkflowRuns(commits, headSha);
+  assert(result.totalActive === 1, `completed runs should be filtered out`);
+  assert(result.headActive === 1 && result.otherActive === 0);
+});
+
+console.log('\nGroup 6: Verbose log no longer duplicates per-run lines');
+
+test('no_checks branch: per-run lines are NOT printed twice in the same code path', () => {
+  // The previous code path (before this follow-up) called getWorkflowRunsForSha(verbose=true),
+  // then iterated the same `workflowRuns` array printing the same per-run line in the no_checks
+  // branch. After the fix, the no_checks "race condition" branch must only emit a one-line
+  // summary explaining *why* we're waiting — never re-iterate workflowRuns and print per-run
+  // lines, because getWorkflowRunsForSha(verbose=true) already did that.
+  //
+  // Note: there are other branches in this file that legitimately emit per-run lines for a
+  // DIFFERENT array (e.g. invalidWorkflowRuns from issue #1690). Those are not duplicates of
+  // getWorkflowRunsForSha because that helper does not iterate that filtered subset. We
+  // specifically check the no_checks branch by looking for a loop over `workflowRuns` that
+  // emits per-run verbose lines.
+  const noChecksRangeMatch = autoMergeHelpersSrc.match(/workflow_run and check_runs APIs[\s\S]*?type:\s*'ci_pending'/);
+  assert(noChecksRangeMatch, 'expected to find the no_checks "race condition" branch in solve.auto-merge-helpers.lib.mjs');
+  const noChecksBranchSrc = noChecksRangeMatch[0];
+  const dupeRunIteration = /for\s*\(\s*const\s+run\s+of\s+workflowRuns\s*\)[\s\S]{0,200}\[VERBOSE\] \/merge:\s+-/.test(noChecksBranchSrc);
+  assert(!dupeRunIteration, "no_checks 'race condition' branch must not iterate workflowRuns to emit per-run [VERBOSE] /merge:   - ... lines (getWorkflowRunsForSha already prints them)");
+});
+
+test('verbose lines reference commit URL, not just short SHA', () => {
+  // The user requested links to commits (not just SHA hashes).
+  // After the fix, the `getDetailedCIStatus` no_checks line references commits/<sha>.
+  assert(/https:\/\/github\.com\/\$\{owner\}\/\$\{repo\}\/commit\/\$\{sha\}/.test(ghMergeSrc), 'getDetailedCIStatus / checkPRCIStatus / getWorkflowRunsForSha should build a github.com/.../commit/<sha> URL');
+});
+
+console.log('\nGroup 7: Status explanations included in verbose log');
+
+test('explainStatus helper produces a hint for in_progress, queued, pending', () => {
+  // Replay the helper from src/solve.auto-merge-helpers.lib.mjs.
+  const STATUS_HINTS = {
+    in_progress: 'currently executing',
+    queued: 'waiting for a runner',
+    pending: 'waiting to start',
+    waiting: 'blocked on a deployment / approval gate',
+    requested: 'requested but not yet picked up',
+    completed: 'finished',
+  };
+  const explainStatus = (status, conclusion) => {
+    const statusPart = status ? `${status}${STATUS_HINTS[status] ? ` (${STATUS_HINTS[status]})` : ''}` : 'unknown';
+    if (!conclusion) return statusPart;
+    return `${statusPart} → ${conclusion}`;
+  };
+  assert(explainStatus('in_progress', null).includes('currently executing'));
+  assert(explainStatus('queued', null).includes('waiting for a runner'));
+  assert(explainStatus('pending', null).includes('waiting to start'));
+  assert(explainStatus('weird-status', null) === 'weird-status');
+});
+
+test('source file declares STATUS_HINTS / CONCLUSION_HINTS for inline explanations', () => {
+  assert(autoMergeHelpersSrc.includes('STATUS_HINTS'), 'STATUS_HINTS table missing — verbose lines need plain-English status meanings');
+  assert(autoMergeHelpersSrc.includes('CONCLUSION_HINTS'), 'CONCLUSION_HINTS table missing — verbose lines need plain-English conclusion meanings');
+  assert(autoMergeHelpersSrc.includes('explainStatus'), 'explainStatus helper missing');
+});
+
+console.log('\nGroup 8: User-facing message renders multi-line for >1 details');
+
+test('renderBlocker logic puts each detail on its own line when there are multiple', () => {
+  // Simulate the renderBlocker callable used in solve.auto-merge.lib.mjs.
+  // It must produce one line for header + one line per detail when details.length > 1.
+  const details = ['Build [in_progress] — https://example.com/1', 'Test [queued] — https://example.com/2'];
+  const blocker = { details, message: 'Waiting on 2 runs' };
+  const out = [];
+  if (blocker.details.length === 1) out.push(`⏳ Waiting for CI: ${blocker.details[0]}`);
+  else {
+    out.push(`⏳ Waiting for CI: ${blocker.message}`);
+    for (const d of blocker.details) out.push(`    ${d}`);
+  }
+  assert(out.length === 3, `expected 3 lines (header + 2 details), got ${out.length}`);
+  assert(out[1].includes('Build [in_progress]'));
+  assert(out[2].includes('Test [queued]'));
 });
 
 console.log('\n================================================================================');

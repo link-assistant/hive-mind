@@ -92,6 +92,60 @@ export async function getPRCommitShas(owner, repo, prNumber, verbose = false) {
 }
 
 /**
+ * Issue #1712: Collect every active (in_progress / pending / queued / waiting / requested)
+ * workflow run on the PR branch — across ALL commits, not only the head SHA.
+ *
+ * Why this exists: when the user watches `/merge`, the GitHub Actions tab shows yellow
+ * dots for every commit that ever had a run, including older commits whose runs were
+ * automatically cancelled by GitHub's concurrency group. The verbose log used to list
+ * only the head-SHA runs, so a user comparing the log to the GitHub UI would see
+ * "1 workflow run" in the log but two yellow dots on screen — looking like a bug.
+ *
+ * Returns runs grouped by SHA, deduplicated by run.id (a single run can be associated
+ * with one SHA, but the same workflow file can produce runs on multiple SHAs).
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {string} headSha - The PR head SHA (used to mark which group is "current")
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {Function} getWorkflowRunsForSha - Function to get workflow runs for a SHA
+ * @returns {Promise<{groups: Array<{sha: string, isHead: boolean, runs: Array}>, totalActive: number, headActive: number, otherActive: number}>}
+ */
+export async function getActivePRWorkflowRuns(owner, repo, prNumber, headSha, verbose, getWorkflowRunsForSha) {
+  const shas = await getPRCommitShas(owner, repo, prNumber, false);
+  if (shas.length === 0) {
+    return { groups: [], totalActive: 0, headActive: 0, otherActive: 0 };
+  }
+
+  const ACTIVE_STATUSES = new Set(['in_progress', 'pending', 'queued', 'waiting', 'requested']);
+  const groups = [];
+  const seenRunIds = new Set();
+  let totalActive = 0;
+  let headActive = 0;
+  let otherActive = 0;
+
+  for (const sha of shas) {
+    const runs = await getWorkflowRunsForSha(owner, repo, sha, false);
+    const activeRuns = runs.filter(r => ACTIVE_STATUSES.has(r.status) && !seenRunIds.has(r.id));
+    for (const r of activeRuns) seenRunIds.add(r.id);
+    if (activeRuns.length === 0) continue;
+
+    const isHead = sha === headSha;
+    groups.push({ sha, isHead, runs: activeRuns });
+    totalActive += activeRuns.length;
+    if (isHead) headActive += activeRuns.length;
+    else otherActive += activeRuns.length;
+  }
+
+  if (verbose && totalActive > 0) {
+    console.log(`[VERBOSE] pr-commits: ${totalActive} active workflow run(s) across ${groups.length} commit(s) on PR #${prNumber} (${headActive} on HEAD, ${otherActive} on older commits)`);
+  }
+
+  return { groups, totalActive, headActive, otherActive };
+}
+
+/**
  * Check that workflow runs for ALL commits on the PR branch have completed.
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name

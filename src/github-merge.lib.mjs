@@ -343,7 +343,8 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
     if (allChecks.length === 0) {
       if (verbose) {
         // Issue #1712: Reword for clarity — empty check-runs API response, not "no CI configured".
-        console.log(`[VERBOSE] /merge: PR #${prNumber} commit ${sha.substring(0, 7)} has no check-runs/statuses registered yet — treating as pending`);
+        const commitUrl = `https://github.com/${owner}/${repo}/commit/${sha}`;
+        console.log(`[VERBOSE] /merge: PR #${prNumber} HEAD ${commitUrl} has no check-runs/statuses registered yet — treating as pending`);
       }
       return {
         status: 'pending',
@@ -1100,7 +1101,8 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
         // an empty result means no check-runs/statuses are registered yet for this commit, NOT that the
         // repository has no CI/CD workflows. The caller (`getMergeBlockers`) decides between race
         // condition vs. "no CI configured" based on additional API calls.
-        console.log(`[VERBOSE] /merge: PR #${prNumber} commit ${sha.substring(0, 7)} has no check-runs or commit statuses registered yet (status=no_checks; race vs. no-CI distinction is decided downstream)`);
+        const commitUrl = `https://github.com/${owner}/${repo}/commit/${sha}`;
+        console.log(`[VERBOSE] /merge: PR #${prNumber} HEAD ${commitUrl} has no check-runs or commit statuses registered yet (status=no_checks; race vs. no-CI distinction is decided downstream)`);
       }
       return {
         status: 'no_checks',
@@ -1223,10 +1225,14 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
       .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url, path: run.path }));
 
     if (verbose) {
-      // Issue #1712: Include the run html_url so the user can open the workflow run from the log.
-      console.log(`[VERBOSE] /merge: Found ${runs.length} workflow run(s) for SHA ${sha.substring(0, 7)}`);
+      // Issue #1712: Include the commit URL (not just SHA) and the workflow run html_url
+      // so the user can click through to GitHub instead of pasting IDs into a URL by hand.
+      // The run html_url already encodes the run ID, so we don't repeat it as a separate field.
+      const commitUrl = `https://github.com/${owner}/${repo}/commit/${sha}`;
+      console.log(`[VERBOSE] /merge: Found ${runs.length} workflow run(s) for ${commitUrl}`);
       for (const run of runs) {
-        console.log(`[VERBOSE] /merge:   - ${run.name} (run #${run.id}): status=${run.status}, conclusion=${run.conclusion ?? 'null'} — ${run.html_url}`);
+        const concPart = run.conclusion ? `/${run.conclusion}` : '';
+        console.log(`[VERBOSE] /merge:   - ${run.name} [${run.status}${concPart}]: ${run.html_url}`);
       }
     }
 
@@ -1344,8 +1350,8 @@ export { getCommitDate, checkPreviousPRCommitsHadCI, checkWorkflowsHavePRTrigger
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
 export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
 
-import { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas } from './github-merge-repo-actions.lib.mjs'; // Issue #1503
-export { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas };
+import { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas, getActivePRWorkflowRuns } from './github-merge-repo-actions.lib.mjs'; // Issue #1503, #1712
+export { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas, getActivePRWorkflowRuns };
 
 export default {
   READY_LABEL,
@@ -1387,4 +1393,5 @@ export default {
   getAllActiveRepoRuns,
   waitForAllRepoActions,
   checkCIConsensus, // Issue #1503
+  getActivePRWorkflowRuns, // Issue #1712: list active runs across ALL PR commits
 };

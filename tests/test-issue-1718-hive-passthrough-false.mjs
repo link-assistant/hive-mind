@@ -70,12 +70,9 @@ const hiveSource = fs.readFileSync(HIVE_MJS, 'utf8');
 
 test('hive.mjs guards against value === false for string/number options', () => {
   // The fixed branch must include `value !== false` next to `value !== undefined`.
-  const re =
-    /\(def\.type === 'string' \|\| def\.type === 'number'\)\s*&&\s*value !== undefined\s*&&\s*value !== false/;
+  const re = /\(def\.type === 'string' \|\| def\.type === 'number'\)\s*&&\s*value !== undefined\s*&&\s*value !== false/;
   if (!re.test(hiveSource)) {
-    throw new Error(
-      'src/hive.mjs auto-forward branch must read `(def.type === \'string\' || def.type === \'number\') && value !== undefined && value !== false`'
-    );
+    throw new Error("src/hive.mjs auto-forward branch must read `(def.type === 'string' || def.type === 'number') && value !== undefined && value !== false`");
   }
 });
 
@@ -90,12 +87,9 @@ test('hive.mjs cites issue #1718 next to the guard', () => {
 // ---------------------------------------------------------------------------
 test('hive.mjs calls safeExit(1, …) when finalStats.failed > 0', () => {
   // The fix must call safeExit with code 1 and reference issueQueue.getStats().failed.
-  const blockRe =
-    /issueQueue\.getStats\(\)[\s\S]{0,400}?finalStats\.failed > 0[\s\S]{0,400}?safeExit\(1,/;
+  const blockRe = /issueQueue\.getStats\(\)[\s\S]{0,400}?finalStats\.failed > 0[\s\S]{0,400}?safeExit\(1,/;
   if (!blockRe.test(hiveSource)) {
-    throw new Error(
-      'src/hive.mjs must compute finalStats = issueQueue.getStats() and call safeExit(1, …) when finalStats.failed > 0'
-    );
+    throw new Error('src/hive.mjs must compute finalStats = issueQueue.getStats() and call safeExit(1, …) when finalStats.failed > 0');
   }
 });
 
@@ -104,18 +98,7 @@ test('hive.mjs calls safeExit(1, …) when finalStats.failed > 0', () => {
 //    reproduces the #1718 scenario. This is the closest we can get to a unit
 //    test without spawning a subprocess.
 // ---------------------------------------------------------------------------
-const SKIP_AUTO_FORWARD = new Set([
-  'model',
-  'worker-model',
-  'base-branch',
-  'skip-tool-connection-check',
-  'tool-connection-check',
-  'skip-tool-check',
-  'skip-claude-check',
-  'tool-check',
-  'dry-run',
-  'auto-cleanup',
-]);
+const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
 const kebabToCamel = s => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 
 function buildSolveArgs(argv) {
@@ -135,11 +118,7 @@ function buildSolveArgs(argv) {
       }
     } else if (def.type === 'array' && Array.isArray(value) && value.length > 0) {
       for (const entry of value) args.push(`--${optionName}`, String(entry));
-    } else if (
-      (def.type === 'string' || def.type === 'number') &&
-      value !== undefined &&
-      value !== false
-    ) {
+    } else if ((def.type === 'string' || def.type === 'number') && value !== undefined && value !== false) {
       args.push(`--${optionName}`, String(value));
     }
   }
@@ -153,9 +132,7 @@ test('replayed forwarder does NOT push --working-session-live-progress when valu
   const args = buildSolveArgs(argv);
   const idx = args.indexOf('--working-session-live-progress');
   if (idx !== -1) {
-    throw new Error(
-      `forwarder pushed --working-session-live-progress ${args[idx + 1]}; expected nothing`
-    );
+    throw new Error(`forwarder pushed --working-session-live-progress ${args[idx + 1]}; expected nothing`);
   }
 });
 
@@ -211,9 +188,7 @@ test('NO type=string option with default=false is forwarded as `--<flag> false`'
     const args = buildSolveArgs(argv);
     const idx = args.indexOf(`--${optionName}`);
     if (idx !== -1) {
-      throw new Error(
-        `forwarder still pushes --${optionName} ${args[idx + 1]} when value=false (option has type='string', default=false)`
-      );
+      throw new Error(`forwarder still pushes --${optionName} ${args[idx + 1]} when value=false (option has type='string', default=false)`);
     }
   }
 });

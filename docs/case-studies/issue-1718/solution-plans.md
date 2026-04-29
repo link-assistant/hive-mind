@@ -44,11 +44,11 @@ options that declare `default: false` even though their `type` is `'string'`):
 
 This is the minimum-surface-area fix:
 
-* It does not change yargs' parsing in either `solve` or `hive`.
-* It does not require fixing `solve.config.lib.mjs`'s mismatched
+- It does not change yargs' parsing in either `solve` or `hive`.
+- It does not require fixing `solve.config.lib.mjs`'s mismatched
   `type: 'string', default: false` declarations (which would be a wider
   refactor).
-* It mirrors the protective check that already exists for boolean options on
+- It mirrors the protective check that already exists for boolean options on
   the same loop body (which knows not to forward arbitrary values).
 
 **Why not change `solve.config.lib.mjs` instead?** The intent of `default:
@@ -102,7 +102,7 @@ Add `tests/test-issue-1718-hive-passthrough-false.mjs` that:
 3. Asserts that the forwarder still pushes string values (`'comment'`,
    `'pr'`) and number values when supplied.
 4. Asserts the regression contract that `working-session-live-progress` is
-   *not* in the hive-only or solve-only exclusion lists, so this entire path
+   _not_ in the hive-only or solve-only exclusion lists, so this entire path
    stays exercised.
 
 ## SP-6 — No upstream report needed

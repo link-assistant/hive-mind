@@ -63,11 +63,11 @@ But hive auto-forwards every solve option. The forwarding code in
 
 For `working-session-live-progress`:
 
-| Predicate                    | Value             |
-| ---------------------------- | ----------------- |
-| `def.type === 'string'`      | `true`            |
-| `value !== undefined`        | `true` (`false`)  |
-| Pushed argv                  | `--working-session-live-progress false` |
+| Predicate               | Value                                   |
+| ----------------------- | --------------------------------------- |
+| `def.type === 'string'` | `true`                                  |
+| `value !== undefined`   | `true` (`false`)                        |
+| Pushed argv             | `--working-session-live-progress false` |
 
 Inside the spawned `solve`, that string `"false"` is no longer falsy, so
 `solve.config.lib.mjs:720` rejects it:
@@ -96,12 +96,12 @@ $ grep -n "type: 'string'" src/solve.config.lib.mjs | head
 
 Searching `git log`:
 
-* `working-session-live-progress` was introduced relatively recently
+- `working-session-live-progress` was introduced relatively recently
   (referenced by case studies `issue-1647`, `issue-1670`, `issue-1673`,
   `issue-1710`, `issue-1616`).
-* The hive auto-forwarder was added in #1209 to reduce manual maintenance.
-* No regression test in `tests/test-hive-solve-option-parity.mjs` checks
-  the *value* of forwarded args — only their presence.
+- The hive auto-forwarder was added in #1209 to reduce manual maintenance.
+- No regression test in `tests/test-hive-solve-option-parity.mjs` checks
+  the _value_ of forwarded args — only their presence.
 
 So the regression is: option author chose a non-conformant `default` (boolean
 `false` for a string-typed option), the hive auto-forwarder did not guard

@@ -60,14 +60,14 @@ The issue also says:
 
 ## 2. Source data captured for this case study
 
-| Path                                                 | What it is                                                                                                                           |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| [`data/issue-1718.json`](./data/issue-1718.json)     | Raw JSON of the GitHub issue.                                                                                                        |
-| [`data/full-log.txt`](./data/full-log.txt)           | The 239-line start-command log linked from the issue (downloaded from gist, 24 KB).                                                  |
-| [`facts.md`](./facts.md)                             | The exact lines from the log that prove each symptom, with line numbers.                                                             |
-| [`root-causes.md`](./root-causes.md)                 | Per-symptom root cause analysis with file/line citations into `src/`.                                                                |
-| [`solution-plans.md`](./solution-plans.md)           | Per-requirement solution plan with the library/component context already present in the repo.                                        |
-| [`upstream.md`](./upstream.md)                       | Upstream / third-party considerations (yargs boolean-vs-string interaction).                                                         |
+| Path                                             | What it is                                                                                    |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| [`data/issue-1718.json`](./data/issue-1718.json) | Raw JSON of the GitHub issue.                                                                 |
+| [`data/full-log.txt`](./data/full-log.txt)       | The 239-line start-command log linked from the issue (downloaded from gist, 24 KB).           |
+| [`facts.md`](./facts.md)                         | The exact lines from the log that prove each symptom, with line numbers.                      |
+| [`root-causes.md`](./root-causes.md)             | Per-symptom root cause analysis with file/line citations into `src/`.                         |
+| [`solution-plans.md`](./solution-plans.md)       | Per-requirement solution plan with the library/component context already present in the repo. |
+| [`upstream.md`](./upstream.md)                   | Upstream / third-party considerations (yargs boolean-vs-string interaction).                  |
 
 Anyone trying to reproduce the case can rerun the failing forwarding logic
 locally with the unit test in
@@ -77,17 +77,17 @@ locally with the unit test in
 
 ## 3. Timeline / sequence of events
 
-| Time (UTC)               | Event                                                                                                                                                                |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-04-29 10:26:56.208  | `/hive` is invoked from Telegram bot for `https://github.com/xlabtg/anti-corruption` (`isolation=screen`, detached). Start-command writes its banner.                |
-| 2026-04-29 10:27:00.312  | `hive` boots, opens its own log `/home/box/hive-2026-04-29T10-27-00-312Z.log`, validates auth + Claude CLI.                                                          |
-| 2026-04-29 10:27:05      | Issue list fetched: 5 open issues, none with PRs. All five queued.                                                                                                   |
-| 2026-04-29 10:27:29      | Workers 1+2 spawn `solve` for issues #5 and #3. Both `solve` invocations contain the trailing tokens `--working-session-live-progress false`.                        |
-| 2026-04-29 10:27:30      | Both `solve` processes immediately exit 1 with `❌ Invalid --working-session-live-progress value: "false". Expected "comment" or "pr".`                                |
-| 2026-04-29 10:27:39      | Workers retry with the next queued issues (#6, #9). Same crash.                                                                                                      |
-| 2026-04-29 10:27:48      | Final issue #11 fails the same way.                                                                                                                                  |
-| 2026-04-29 10:27:55      | Hive prints `Failed: 5` and stops, but the Node process exits naturally with code 0 (no explicit `process.exit(stats.failed > 0 ? 1 : 0)`).                          |
-| 2026-04-29 10:27:55.620  | Start-command sees exit 0 and reports a green "Work session finished successfully" message back to Telegram.                                                         |
+| Time (UTC)              | Event                                                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-04-29 10:26:56.208 | `/hive` is invoked from Telegram bot for `https://github.com/xlabtg/anti-corruption` (`isolation=screen`, detached). Start-command writes its banner. |
+| 2026-04-29 10:27:00.312 | `hive` boots, opens its own log `/home/box/hive-2026-04-29T10-27-00-312Z.log`, validates auth + Claude CLI.                                           |
+| 2026-04-29 10:27:05     | Issue list fetched: 5 open issues, none with PRs. All five queued.                                                                                    |
+| 2026-04-29 10:27:29     | Workers 1+2 spawn `solve` for issues #5 and #3. Both `solve` invocations contain the trailing tokens `--working-session-live-progress false`.         |
+| 2026-04-29 10:27:30     | Both `solve` processes immediately exit 1 with `❌ Invalid --working-session-live-progress value: "false". Expected "comment" or "pr".`               |
+| 2026-04-29 10:27:39     | Workers retry with the next queued issues (#6, #9). Same crash.                                                                                       |
+| 2026-04-29 10:27:48     | Final issue #11 fails the same way.                                                                                                                   |
+| 2026-04-29 10:27:55     | Hive prints `Failed: 5` and stops, but the Node process exits naturally with code 0 (no explicit `process.exit(stats.failed > 0 ? 1 : 0)`).           |
+| 2026-04-29 10:27:55.620 | Start-command sees exit 0 and reports a green "Work session finished successfully" message back to Telegram.                                          |
 
 Crucial point: **every reported symptom is deterministically reproducible just
 from the captured log — there is no flakiness involved.**
@@ -96,36 +96,36 @@ from the captured log — there is no flakiness involved.**
 
 ## 4. Requirements extracted from the issue
 
-| #   | Requirement                                                                                                                  | Source phrase                                                                                                          |
-| --- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| R1  | When at least one queued issue fails, `hive` MUST exit with a non-zero status code so wrappers (`$`, Telegram bot) see failure. | "the hive command should return not success exit code when any task failing"                                            |
-| R2  | All five `solve` invocations failing because of `--working-session-live-progress false` MUST stop crashing.                  | "we need to find root cause of all failures and fix them. It should just work."                                         |
-| R3  | `/hive` MUST keep running solve under `--isolation screen` (i.e., make sure the existing wrapper does not regress).          | "we should double check that like with /solve command, /hive command now uses latest `--isolation screen`…"             |
-| R4  | Capture all related logs/data in `docs/case-studies/issue-1718/` and produce a deep analysis (timeline, requirements, root causes, solutions). | "We need to download all logs and data related about the issue to this repository…"                                    |
-| R5  | If a root cause is not yet diagnosable, add debug/verbose output for the next iteration.                                     | "If there is not enough data to find actual root cause, add debug output and verbose mode if not present…"              |
-| R6  | If the bug touches a third-party project that accepts issues, file a reproducible bug report there.                          | "If issue related to any other repository/project, where we can report issues on GitHub, please do so."                 |
+| #   | Requirement                                                                                                                                    | Source phrase                                                                                               |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| R1  | When at least one queued issue fails, `hive` MUST exit with a non-zero status code so wrappers (`$`, Telegram bot) see failure.                | "the hive command should return not success exit code when any task failing"                                |
+| R2  | All five `solve` invocations failing because of `--working-session-live-progress false` MUST stop crashing.                                    | "we need to find root cause of all failures and fix them. It should just work."                             |
+| R3  | `/hive` MUST keep running solve under `--isolation screen` (i.e., make sure the existing wrapper does not regress).                            | "we should double check that like with /solve command, /hive command now uses latest `--isolation screen`…" |
+| R4  | Capture all related logs/data in `docs/case-studies/issue-1718/` and produce a deep analysis (timeline, requirements, root causes, solutions). | "We need to download all logs and data related about the issue to this repository…"                         |
+| R5  | If a root cause is not yet diagnosable, add debug/verbose output for the next iteration.                                                       | "If there is not enough data to find actual root cause, add debug output and verbose mode if not present…"  |
+| R6  | If the bug touches a third-party project that accepts issues, file a reproducible bug report there.                                            | "If issue related to any other repository/project, where we can report issues on GitHub, please do so."     |
 
 ---
 
 ## 5. What this PR ships
 
-* **R1** — When any worker has failed, `hive` now calls `safeExit(1, …)`
+- **R1** — When any worker has failed, `hive` now calls `safeExit(1, …)`
   before returning, so the start-command wrapper records the correct exit code
   and Telegram renders the failed-session envelope.
-* **R2** — The auto-forwarder in `hive.mjs` no longer re-emits string-typed
+- **R2** — The auto-forwarder in `hive.mjs` no longer re-emits string-typed
   solve options whose value equals `false` (which is what yargs returns when
   the user did not pass the flag and the option's `default` is `false`). This
   is the root cause for `--working-session-live-progress false` reaching
   `solve`. Two more solve options share the same shape and benefited from the
   fix.
-* **R3** — Verified: hive is already invoked under `screen` (line 5 of the
+- **R3** — Verified: hive is already invoked under `screen` (line 5 of the
   log shows `Environment: screen`). The fix does not regress this path; a
   regression test pins it.
-* **R4** — This case study folder.
-* **R5** — Hive's `--verbose` mode now prints the exact `solve` argv it is
+- **R4** — This case study folder.
+- **R5** — Hive's `--verbose` mode now prints the exact `solve` argv it is
   about to spawn after the auto-forwarding loop completes, so the next time a
   malformed option leaks through it can be reproduced from the log alone.
-* **R6** — See [`upstream.md`](./upstream.md). The bug is internal to this
+- **R6** — See [`upstream.md`](./upstream.md). The bug is internal to this
   repo; nothing needs to be reported upstream.
 
 The detailed analysis is in [`root-causes.md`](./root-causes.md) and

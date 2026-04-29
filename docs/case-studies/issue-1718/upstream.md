@@ -15,7 +15,7 @@ auto-forwards solve options. For the option
 yargs preserves the boolean `false` as the runtime value of
 `argv.workingSessionLiveProgress` because the user did not supply the flag.
 This is **expected and documented yargs behaviour** — `default` is returned
-verbatim if the option is absent. yargs does *not* coerce defaults to the
+verbatim if the option is absent. yargs does _not_ coerce defaults to the
 declared `type`.
 
 There is therefore **no upstream bug to file**. The fix lives entirely in our

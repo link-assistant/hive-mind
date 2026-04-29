@@ -799,11 +799,7 @@ if (isRunningDirectly) {
                   args.push(`--${optionName}`, String(entry));
                 }
               } else if ((def.type === 'string' || def.type === 'number') && value !== undefined && value !== false) {
-                // Issue #1718: some solve options declare type:'string' but default:false.
-                // yargs preserves the boolean false at runtime, so without this guard hive
-                // would forward "--<option> false", and solve would reject it (e.g.
-                // --working-session-live-progress only accepts "comment" or "pr").
-                args.push(`--${optionName}`, String(value));
+                args.push(`--${optionName}`, String(value)); // Issue #1718: skip false (some string options have default:false)
               }
             }
             // Log the actual command being executed so users can investigate/reproduce
@@ -1488,18 +1484,8 @@ if (isRunningDirectly) {
       await safeExit(1, 'Error occurred');
     }
 
-    // Issue #1718: If any worker failed, exit non-zero so wrappers (start-command, the
-    // Telegram bot, CI) can detect the failure. Without this, hive exits naturally
-    // with code 0 even when every queued issue failed and the green
-    // "Work session finished successfully" envelope is shown to the user.
-    const finalStats = issueQueue.getStats();
-    if (finalStats.failed > 0) {
-      await log(
-        `\n❌ Hive finished with ${finalStats.failed} failed task(s) (completed: ${finalStats.completed})`,
-        { level: 'error' }
-      );
-      await safeExit(1, `${finalStats.failed} task(s) failed`);
-    }
+    const finalStats = issueQueue.getStats(); // Issue #1718: surface worker failures via exit code
+    if (finalStats.failed > 0) await safeExit(1, `${finalStats.failed} task(s) failed (completed: ${finalStats.completed})`);
   } catch (fatalError) {
     // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');

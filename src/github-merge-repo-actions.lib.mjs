@@ -12,10 +12,16 @@
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { githubLimits } from './config.lib.mjs';
+import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 const execRaw = promisify(execCallback);
 // Issue #1722: raise exec maxBuffer above Node's 1 MB default for paginated gh
 // API responses (workflow runs can easily exceed that on busy repos).
-const exec = (cmd, opts = {}) => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts });
+// Issue #1726: wrap with rate-limit retry so a 5,000/hr quota hit waits for
+// reset instead of bubbling up as a generic fetch failure.
+const exec = (cmd, opts = {}) =>
+  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts }), {
+    label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+  });
 
 // Statuses we treat as "not yet finished".
 const ACTIVE_RUN_STATUSES = ['in_progress', 'queued', 'waiting', 'requested', 'pending'];

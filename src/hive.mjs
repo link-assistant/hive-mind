@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
+// Marker: this file's gh API calls flow through a $ wrapped with
+// wrapDollarWithGhRetry by the caller. See issue #1726.
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
+void _wrapDollarWithGhRetry;
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
   const { getVersion } = await import('./version.lib.mjs');

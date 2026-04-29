@@ -1,21 +1,5 @@
 # @link-assistant/hive-mind
 
-## 1.59.1
-
-### Patch Changes
-
-- Fix Telegram `/solve` regression where the
-  `Repository '<owner>/<repo>' is not accessible` error still suggested
-  `--auto-accept-invite` even though that flag is now default-on
-  (issue #1714). The `validateGitHubEntityExistence` call in
-  `src/telegram-bot.mjs` now reads the parsed argv
-  (`parsedSolveArgs?.autoAcceptInvite`) instead of looking for the
-  literal flag in raw args, matching the auto-accept pre-check above
-  it. Adds `tests/test-issue-1714-auto-accept-invite-hint.mjs` as a
-  regression lock-in (parsed-argv contract + source-level guard against
-  the `args.some(...)` form returning) and a case study under
-  `docs/case-studies/issue-1714/`.
-
 ## 1.59.0
 
 ### Minor Changes

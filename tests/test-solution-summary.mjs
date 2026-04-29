@@ -76,6 +76,13 @@ runTest('solve.results.lib.mjs exports attachSolutionSummary', async () => {
   assertTrue(typeof resultsLib.attachSolutionSummary === 'function', 'Function should be exported');
 });
 
+// Issue #1728: Unified working-session summary helper used by all working
+// session call sites (solve.mjs, solve.auto-merge.lib.mjs, solve.watch.lib.mjs).
+runTest('solve.results.lib.mjs exports maybeAttachWorkingSessionSummary (Issue #1728)', async () => {
+  const resultsLib = await import('../src/solve.results.lib.mjs');
+  assertTrue(typeof resultsLib.maybeAttachWorkingSessionSummary === 'function', 'maybeAttachWorkingSessionSummary should be exported');
+});
+
 // Test that resultSummary is included in tool return types
 console.log('\n📋 Tool Return Type Tests\n');
 
@@ -128,27 +135,72 @@ runTest('solve.mjs extracts resultSummary from toolResult', async () => {
   assertTrue(solveMjs.includes('let resultSummary = toolResult.resultSummary'), 'resultSummary should be extracted from toolResult');
 });
 
-runTest('solve.mjs handles --attach-solution-summary flag', async () => {
+// Issue #1728: solve.mjs now delegates the attach decision to the shared
+// maybeAttachWorkingSessionSummary helper. The helper itself reads
+// argv.attachSolutionSummary / argv.autoAttachSolutionSummary, so we verify
+// the helper is invoked (and therefore the flags are honoured) instead of
+// looking for inline argv references in solve.mjs.
+runTest('solve.mjs delegates summary attachment to maybeAttachWorkingSessionSummary (Issue #1728)', async () => {
   const fs = await import('fs');
   const solveMjs = fs.readFileSync('./src/solve.mjs', 'utf-8');
-  assertTrue(solveMjs.includes('argv.attachSolutionSummary'), 'attachSolutionSummary flag should be checked');
+  assertTrue(solveMjs.includes('maybeAttachWorkingSessionSummary'), 'maybeAttachWorkingSessionSummary should be invoked from solve.mjs');
 });
 
-runTest('solve.mjs handles --auto-attach-solution-summary flag', async () => {
+runTest('maybeAttachWorkingSessionSummary handles --attach-solution-summary and --auto-attach-solution-summary flags (Issue #1728)', async () => {
   const fs = await import('fs');
-  const solveMjs = fs.readFileSync('./src/solve.mjs', 'utf-8');
-  assertTrue(solveMjs.includes('argv.autoAttachSolutionSummary'), 'autoAttachSolutionSummary flag should be checked');
+  const resultsLibSrc = fs.readFileSync('./src/solve.results.lib.mjs', 'utf-8');
+  assertTrue(resultsLibSrc.includes('argv.attachSolutionSummary'), 'helper should check argv.attachSolutionSummary');
+  assertTrue(resultsLibSrc.includes('argv.autoAttachSolutionSummary'), 'helper should check argv.autoAttachSolutionSummary');
 });
 
-// Issue #1647: The "did the AI post comments during this session?" check must
-// start from the current work-session boundary, not the older feedback
-// referenceTime. Otherwise a human PR comment from before the session can be
-// counted as an AI-authored session comment when the same GitHub user runs solve.
-runTest('solve.mjs checks auto-attach comments from work session start (Issue #1647)', () => {
+// Issue #1647 / #1728: The "did the AI post comments during this session?"
+// check must start from the current work-session boundary, not the older
+// feedback referenceTime. The helper now receives workStartTime as a parameter
+// and forwards it to checkForAiCreatedComments.
+runTest('solve.mjs forwards workStartTime to summary helper (Issues #1647, #1728)', async () => {
+  const fs = await import('fs');
   const solveMjs = fs.readFileSync('./src/solve.mjs', 'utf-8');
   assertTrue(solveMjs.includes('const workStartTime = await startWorkSession'), 'startWorkSession return value should be captured');
-  assertTrue(solveMjs.includes('checkForAiCreatedComments(workStartTime, owner, repo, prNumber, issueNumber)'), 'auto-attach should use workStartTime as the comment scan boundary');
-  assertFalse(solveMjs.includes('checkForAiCreatedComments(referenceTime, owner, repo, prNumber, issueNumber)'), 'auto-attach must not use feedback referenceTime as the session comment scan boundary');
+  assertTrue(/maybeAttachWorkingSessionSummary\([^)]*workStartTime/.test(solveMjs), 'maybeAttachWorkingSessionSummary should be called with workStartTime');
+  assertFalse(solveMjs.includes('checkForAiCreatedComments(referenceTime'), 'auto-attach must not use feedback referenceTime as the session comment scan boundary');
+});
+
+// Issue #1728: Auto-restart-until-mergeable iterations must call the helper
+// after every successful tool execution, scoping the AI-comment check to the
+// iteration's own start time.
+runTest('solve.auto-merge.lib.mjs invokes maybeAttachWorkingSessionSummary per iteration (Issue #1728)', async () => {
+  const fs = await import('fs');
+  const autoMerge = fs.readFileSync('./src/solve.auto-merge.lib.mjs', 'utf-8');
+  assertTrue(autoMerge.includes('maybeAttachWorkingSessionSummary'), 'auto-merge should call the unified helper');
+  assertTrue(autoMerge.includes('iterationStartTime'), 'auto-merge should capture iteration-scoped start time');
+});
+
+// Issue #1728: Watch-mode / temporary auto-restart iterations must do the same.
+runTest('solve.watch.lib.mjs invokes maybeAttachWorkingSessionSummary per iteration (Issue #1728)', async () => {
+  const fs = await import('fs');
+  const watch = fs.readFileSync('./src/solve.watch.lib.mjs', 'utf-8');
+  assertTrue(watch.includes('maybeAttachWorkingSessionSummary'), 'watch should call the unified helper');
+  assertTrue(watch.includes('iterationStartTime'), 'watch should capture iteration-scoped start time');
+});
+
+// Issue #1728: Comment header rename — the user-facing header must be
+// "Working session summary", but the function/flag names stay the same for
+// backwards compatibility.
+runTest('attachSolutionSummary posts a "Working session summary" comment (Issue #1728)', async () => {
+  const fs = await import('fs');
+  const resultsLibSrc = fs.readFileSync('./src/solve.results.lib.mjs', 'utf-8');
+  assertTrue(resultsLibSrc.includes('## Working session summary'), 'comment header should be "Working session summary"');
+  assertFalse(/^[^*\/]*## Solution summary/m.test(resultsLibSrc), 'comment header should no longer say "Solution summary" outside comments');
+});
+
+// Issue #1728: The new "Working session summary" header must be tracked in
+// TOOL_GENERATED_COMMENT_MARKERS so that an iteration's auto-attach summary
+// doesn't make the next iteration's auto-attach check think the AI posted.
+runTest('TOOL_GENERATED_COMMENT_MARKERS includes "Working session summary" (Issue #1728)', async () => {
+  const { TOOL_GENERATED_COMMENT_MARKERS, WORKING_SESSION_SUMMARY_MARKER, isToolGeneratedComment } = await import('../src/tool-comments.lib.mjs');
+  assertEqual(WORKING_SESSION_SUMMARY_MARKER, 'Working session summary', 'WORKING_SESSION_SUMMARY_MARKER constant should be the header text');
+  assertTrue(TOOL_GENERATED_COMMENT_MARKERS.includes(WORKING_SESSION_SUMMARY_MARKER), 'marker must be in TOOL_GENERATED_COMMENT_MARKERS');
+  assertTrue(isToolGeneratedComment('## Working session summary\n\nresult body'), 'isToolGeneratedComment should match the new header');
 });
 
 // Issue #1625: Tool-generated comments should not count as AI-created comments

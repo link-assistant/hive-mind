@@ -46,6 +46,10 @@ const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIte
 const toolComments = await import('./tool-comments.lib.mjs');
 const { AUTO_RESTART_MARKER, postTrackedComment } = toolComments;
 
+// Issue #1728: Per-iteration working session summary attachment helper
+const resultsLib = await import('./solve.results.lib.mjs');
+const { maybeAttachWorkingSessionSummary } = resultsLib;
+
 /**
  * Monitor for feedback in a loop and trigger restart when detected
  */
@@ -231,6 +235,10 @@ export const watchForFeedback = async params => {
           await log('');
           await log(formatAligned('🔄', 'Restarting:', `Re-running ${argv.tool.toUpperCase()} to handle feedback...`));
         }
+
+        // Issue #1728: Scope the AI-comment check that gates --auto-attach-solution-summary
+        // to comments posted during *this* iteration only, not across the whole watch loop.
+        const iterationStartTime = new Date();
 
         // Execute tool using shared utility
         const toolResult = await executeToolIteration({
@@ -422,6 +430,34 @@ export const watchForFeedback = async params => {
               });
               await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
             }
+          }
+
+          // Issue #1728: Attach a "Working session summary" comment for this
+          // iteration if the AI didn't post any comments of its own (and
+          // --auto-attach-solution-summary is enabled, which it is by default).
+          // Same fix as in solve.auto-merge.lib.mjs — every working session,
+          // not just the top-level run, should honour the auto-attach flag.
+          try {
+            await maybeAttachWorkingSessionSummary({
+              argv,
+              resultSummary: toolResult.resultSummary,
+              workStartTime: iterationStartTime,
+              owner,
+              repo,
+              prNumber,
+              issueNumber,
+              success: true,
+            });
+          } catch (summaryError) {
+            reportError(summaryError, {
+              context: 'attach_watch_working_session_summary',
+              prNumber,
+              owner,
+              repo,
+              autoRestartCount,
+              operation: 'attach_working_session_summary',
+            });
+            await log(formatAligned('', `⚠️  Working session summary error: ${cleanErrorMessage(summaryError)}`, '', 2));
           }
 
           await log('');

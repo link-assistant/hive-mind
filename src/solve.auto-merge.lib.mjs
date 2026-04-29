@@ -59,6 +59,10 @@ const { checkForExistingComment, checkForNonBotComments, getMergeBlockers } = au
 const toolComments = await import('./tool-comments.lib.mjs');
 const { READY_TO_MERGE_MARKER, AUTO_RESTART_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
 
+// Issue #1728: Per-iteration working session summary attachment helper
+const resultsLib = await import('./solve.results.lib.mjs');
+const { maybeAttachWorkingSessionSummary } = resultsLib;
+
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit, shouldSyncBeforeRestart } = await import('./auto-iteration-limits.lib.mjs');
@@ -594,6 +598,10 @@ No further AI sessions will be started automatically for this run. Please review
         // Execute the AI tool using shared utility
         await log(formatAligned('🔄', 'Restarting:', `Running ${argv.tool.toUpperCase()} to address issues...`));
 
+        // Issue #1728: Scope the AI-comment check that gates --auto-attach-solution-summary
+        // to comments posted during *this* iteration only, not across the whole watch loop.
+        const iterationStartTime = new Date();
+
         const toolResult = await executeToolIteration({
           issueUrl,
           owner,
@@ -889,6 +897,35 @@ No further AI sessions will be started automatically for this run. Please review
               });
               await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
             }
+          }
+
+          // Issue #1728: Attach a "Working session summary" comment for this
+          // iteration if the AI didn't post any comments of its own (and
+          // --auto-attach-solution-summary is enabled, which it is by default).
+          // Before this fix, only the top-level solve.mjs flow honoured this
+          // flag, so iterations inside auto-restart-until-mergeable silently
+          // dropped the AI's last message — see #1728.
+          try {
+            await maybeAttachWorkingSessionSummary({
+              argv,
+              resultSummary: toolResult.resultSummary,
+              workStartTime: iterationStartTime,
+              owner,
+              repo,
+              prNumber,
+              issueNumber,
+              success: true,
+            });
+          } catch (summaryError) {
+            reportError(summaryError, {
+              context: 'attach_auto_restart_working_session_summary',
+              prNumber,
+              owner,
+              repo,
+              iteration,
+              operation: 'attach_working_session_summary',
+            });
+            await log(formatAligned('', `⚠️  Working session summary error: ${cleanErrorMessage(summaryError)}`, '', 2));
           }
 
           await log('');

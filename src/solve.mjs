@@ -31,7 +31,7 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildSolveResumeCommand, checkForAiCreatedComments, attachSolutionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildSolveResumeCommand, maybeAttachWorkingSessionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude, checkPlaywrightMcpAvailability } = claudeLib;
 const githubLinking = await import('./github-linking.lib.mjs');
@@ -1106,40 +1106,22 @@ try {
     await safeExit(0, 'Auto-continue child process will handle post-processing');
   }
 
-  // Issue #1263: Handle solution summary attachment
-  // --attach-solution-summary: Always attach if result summary is available
-  // --auto-attach-solution-summary: Only attach if AI didn't create any comments during session
-  if (success && resultSummary && (argv.attachSolutionSummary || argv.autoAttachSolutionSummary)) {
-    let shouldAttachSummary = false;
-
-    if (argv.attachSolutionSummary) {
-      // Explicit flag - always attach
-      shouldAttachSummary = true;
-      await log('📝 --attach-solution-summary enabled, attaching result summary...');
-    } else if (argv.autoAttachSolutionSummary) {
-      // Auto mode - only attach if AI didn't create comments
-      await log('🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...');
-      const aiCreatedComments = await checkForAiCreatedComments(workStartTime, owner, repo, prNumber, issueNumber);
-      if (aiCreatedComments) {
-        await log('ℹ️  AI created comments during session, skipping solution summary attachment');
-      } else {
-        shouldAttachSummary = true;
-        await log('📝 No AI comments detected, attaching solution summary...');
-      }
-    }
-
-    if (shouldAttachSummary) {
-      await attachSolutionSummary({
-        resultSummary,
-        prNumber,
-        issueNumber,
-        owner,
-        repo,
-      });
-    }
-  } else if ((argv.attachSolutionSummary || argv.autoAttachSolutionSummary) && !resultSummary) {
-    await log('ℹ️  No solution summary available from AI tool output', { verbose: true });
-  }
+  // Issue #1263 / #1728: Working session summary attachment.
+  // Routed through the shared maybeAttachWorkingSessionSummary helper so that
+  // top-level solve, auto-restart-until-mergeable, and watch-mode iterations
+  // all use identical attach logic. The helper internally honours
+  // --attach-solution-summary (always attach) and --auto-attach-solution-summary
+  // (attach only if no AI comment was posted during the session).
+  await maybeAttachWorkingSessionSummary({
+    argv,
+    resultSummary,
+    workStartTime,
+    owner,
+    repo,
+    prNumber,
+    issueNumber,
+    success,
+  });
 
   // Search for newly created pull requests and comments
   const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage, subAgentCalls);

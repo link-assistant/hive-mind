@@ -342,7 +342,8 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
     // ([].every(fn) returns true for any fn).
     if (allChecks.length === 0) {
       if (verbose) {
-        console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks yet - treating as pending`);
+        // Issue #1712: Reword for clarity — empty check-runs API response, not "no CI configured".
+        console.log(`[VERBOSE] /merge: PR #${prNumber} commit ${sha.substring(0, 7)} has no check-runs/statuses registered yet — treating as pending`);
       }
       return {
         status: 'pending',
@@ -1070,6 +1071,8 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
     const statuses = JSON.parse(statusJson.trim() || '[]');
 
     // Build detailed checks list
+    // Issue #1712: Include html_url so the user-facing waiting message can include
+    // a clickable link for each pending/failing check.
     const allChecks = [
       ...checkRuns.map(check => ({
         name: check.name,
@@ -1077,6 +1080,7 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
         conclusion: check.conclusion, // success, failure, cancelled, timed_out, skipped, neutral, action_required, stale, null
         type: 'check_run',
         id: check.id,
+        html_url: check.html_url || check.details_url || null,
       })),
       ...statuses.map(status => ({
         name: status.context,
@@ -1084,13 +1088,19 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
         conclusion: status.state === 'pending' ? null : status.state === 'success' ? 'success' : status.state === 'failure' ? 'failure' : status.state,
         type: 'status',
         id: null,
+        html_url: status.target_url || null,
       })),
     ];
 
     // No checks yet
     if (allChecks.length === 0) {
       if (verbose) {
-        console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks yet - treating as no_checks`);
+        // Issue #1712: Reword to avoid "no CI checks" sounding like "no CI configured".
+        // We are inspecting the GitHub `/commits/{sha}/check-runs` and `/commits/{sha}/status` endpoints;
+        // an empty result means no check-runs/statuses are registered yet for this commit, NOT that the
+        // repository has no CI/CD workflows. The caller (`getMergeBlockers`) decides between race
+        // condition vs. "no CI configured" based on additional API calls.
+        console.log(`[VERBOSE] /merge: PR #${prNumber} commit ${sha.substring(0, 7)} has no check-runs or commit statuses registered yet (status=no_checks; race vs. no-CI distinction is decided downstream)`);
       }
       return {
         status: 'no_checks',
@@ -1213,9 +1223,10 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
       .map(run => ({ id: run.id, status: run.status, conclusion: run.conclusion, name: run.name, html_url: run.html_url, path: run.path }));
 
     if (verbose) {
-      console.log(`[VERBOSE] /merge: Found ${runs.length} workflow runs for SHA ${sha.substring(0, 7)}`);
+      // Issue #1712: Include the run html_url so the user can open the workflow run from the log.
+      console.log(`[VERBOSE] /merge: Found ${runs.length} workflow run(s) for SHA ${sha.substring(0, 7)}`);
       for (const run of runs) {
-        console.log(`[VERBOSE] /merge:   - ${run.name} (${run.id}): status=${run.status}, conclusion=${run.conclusion}`);
+        console.log(`[VERBOSE] /merge:   - ${run.name} (run #${run.id}): status=${run.status}, conclusion=${run.conclusion ?? 'null'} — ${run.html_url}`);
       }
     }
 

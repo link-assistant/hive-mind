@@ -343,13 +343,20 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
           }
 
           // Some workflow runs are still in progress or produced results — genuine race condition
+          // Issue #1712: Make the verbose log message and the user-facing blocker details
+          // include the workflow run URLs so the user can open them and verify what's
+          // blocking. The previous wording ("has no CI check-runs yet") read like the repo
+          // had no CI configured, which led to a false-alarm Ctrl+C.
           if (verbose) {
-            await log(`[VERBOSE] /merge: PR #${prNumber} has no CI check-runs yet, but ${workflowRuns.length} workflow run(s) were triggered for SHA ${ciStatus.sha.substring(0, 7)} - genuine race condition (waiting for check-runs to appear)`);
+            await log(`[VERBOSE] /merge: PR #${prNumber} commit ${ciStatus.sha.substring(0, 7)} has ${workflowRuns.length} workflow run(s) registered, but check-runs have not been published yet — waiting for the runs to publish check-runs:`);
+            for (const run of workflowRuns) {
+              await log(`[VERBOSE] /merge:   - ${run.name} (run #${run.id}): status=${run.status}, conclusion=${run.conclusion ?? 'null'} — ${run.html_url}`);
+            }
           }
           blockers.push({
             type: 'ci_pending',
-            message: `CI/CD checks have not started yet (${workflowRuns.length} workflow run(s) triggered, waiting for check-runs to appear)`,
-            details: workflowRuns.map(r => r.name),
+            message: `Waiting for ${workflowRuns.length} workflow run(s) on commit ${ciStatus.sha.substring(0, 7)} to publish check-runs`,
+            details: workflowRuns.map(r => `${r.name} [${r.status}${r.conclusion ? `/${r.conclusion}` : ''}] — ${r.html_url}`),
           });
         } else {
           // No workflow runs for this SHA — but this could be a race condition!
@@ -519,11 +526,22 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
     }
   } else if (ciStatus.status === 'pending') {
     // CI is still running or queued - wait for completion
-    const pendingNames = [...ciStatus.pendingChecks, ...ciStatus.queuedChecks].map(c => c.name);
+    const pendingChecks = [...ciStatus.pendingChecks, ...ciStatus.queuedChecks];
+    const pendingDetails = pendingChecks.map(c => {
+      const statusPart = c.status ? ` [${c.status}]` : '';
+      const urlPart = c.html_url ? ` — ${c.html_url}` : '';
+      return `${c.name}${statusPart}${urlPart}`;
+    });
+    if (verbose) {
+      await log(`[VERBOSE] /merge: PR #${prNumber} commit ${ciStatus.sha.substring(0, 7)} has ${pendingChecks.length} pending/queued check-run(s):`);
+      for (const c of pendingChecks) {
+        await log(`[VERBOSE] /merge:   - ${c.name}: status=${c.status ?? 'unknown'}, conclusion=${c.conclusion ?? 'null'}${c.html_url ? ` — ${c.html_url}` : ''}`);
+      }
+    }
     blockers.push({
       type: 'ci_pending',
       message: 'CI/CD checks are still running or queued',
-      details: pendingNames,
+      details: pendingDetails,
     });
   } else if (ciStatus.status === 'cancelled') {
     // All non-passed checks are cancelled or stale (no genuine failures)
@@ -540,10 +558,15 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
     } else {
       // These need to be re-triggered, NOT treated as AI-fixable failures
       const cancelledOrStaleChecks = [...ciStatus.cancelledChecks, ...(ciStatus.staleChecks || [])];
+      const cancelledDetails = cancelledOrStaleChecks.map(c => {
+        const concPart = c.conclusion ? ` [${c.conclusion}]` : '';
+        const urlPart = c.html_url ? ` — ${c.html_url}` : '';
+        return `${c.name}${concPart}${urlPart}`;
+      });
       blockers.push({
         type: 'ci_cancelled',
         message: 'CI/CD checks were cancelled or became stale',
-        details: cancelledOrStaleChecks.map(c => c.name),
+        details: cancelledDetails,
         sha: ciStatus.sha,
       });
     }

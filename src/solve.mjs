@@ -296,19 +296,26 @@ if (!entityCheck.valid) {
   await safeExit(1, `GitHub entity not found (${entityCheck.level})`);
 }
 
-// Detect repository visibility and set auto-cleanup default if not explicitly set
+// Detect repository visibility once and reuse for downstream decisions
+// (auto-cleanup default + Issue #1716 private-repo fork bypass)
+const { detectRepositoryVisibility } = githubLib;
+const { isPublic: isRepoPublic } = await detectRepositoryVisibility(owner, repo);
 if (argv.autoCleanup === undefined) {
-  const { detectRepositoryVisibility } = githubLib;
-  const { isPublic } = await detectRepositoryVisibility(owner, repo);
   // For public repos: keep temp directories (default false)
   // For private repos: clean up temp directories (default true)
-  argv.autoCleanup = !isPublic;
+  argv.autoCleanup = !isRepoPublic;
   if (argv.verbose) {
-    await log(`   Auto-cleanup default: ${argv.autoCleanup} (repository is ${isPublic ? 'public' : 'private'})`, {
+    await log(`   Auto-cleanup default: ${argv.autoCleanup} (repository is ${isRepoPublic ? 'public' : 'private'})`, {
       verbose: true,
     });
   }
 }
+// Issue #1716: When the upstream repository is private and the user has direct
+// write access, fork-based workflows should be skipped — even if the existing
+// PR was originally created from a fork. Forks of private repositories often
+// become inaccessible (renamed, deleted, parent re-private'd) and there's no
+// reason to use them when we can push branches and PRs to the upstream repo.
+const skipForkForPrivateUpstream = !isRepoPublic && !argv.fork && hasWriteAccess;
 // Determine mode and get issue details
 let issueNumber;
 let prNumber;
@@ -345,17 +352,25 @@ if (autoContinueResult.isContinueMode) {
           await log(`   Merge status: ${mergeStateStatus || 'UNKNOWN'}`, { verbose: true });
         }
         if (prCheckData.headRepositoryOwner && prCheckData.headRepositoryOwner.login !== owner) {
-          forkOwner = prCheckData.headRepositoryOwner.login;
-          // Get actual fork repository name (may be prefixed) and store for use in setupRepository
-          forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : null;
-          await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
-          if (argv.verbose) {
-            await log(`   Fork owner: ${forkOwner}`, { verbose: true });
-            await log('   Will clone fork repository for continue mode', { verbose: true });
+          const detectedForkOwner = prCheckData.headRepositoryOwner.login;
+          const detectedForkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : null;
+          // Issue #1716: Skip fork mode for private upstream repos with write access.
+          if (skipForkForPrivateUpstream) {
+            await log(`🔒 Detected fork PR from ${detectedForkOwner}/${detectedForkRepoName || repo}, but upstream ${owner}/${repo} is private and you have write access.`);
+            await log('   Working directly on the private upstream repository (Issue #1716).');
+          } else {
+            forkOwner = detectedForkOwner;
+            // Get actual fork repository name (may be prefixed) and store for use in setupRepository
+            forkRepoName = detectedForkRepoName;
+            await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
+            if (argv.verbose) {
+              await log(`   Fork owner: ${forkOwner}`, { verbose: true });
+              await log('   Will clone fork repository for continue mode', { verbose: true });
+            }
           }
 
           // Check if maintainer can push to the fork when --allow-to-push-to-contributors-pull-requests-as-maintainer is enabled
-          if (argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
+          if (forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
             const { checkMaintainerCanModifyPR, requestMaintainerAccess } = githubLib;
             const { canModify } = await checkMaintainerCanModifyPR(owner, repo, prNumber);
 
@@ -425,17 +440,25 @@ if (isPrUrl) {
     prState = prData.state;
     // Check if this is a fork PR
     if (prData.headRepositoryOwner && prData.headRepositoryOwner.login !== owner) {
-      forkOwner = prData.headRepositoryOwner.login;
-      // Get actual fork repository name and store for use in setupRepository
-      forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;
-      await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
-      if (argv.verbose) {
-        await log(`   Fork owner: ${forkOwner}`, { verbose: true });
-        await log('   Will clone fork repository for continue mode', { verbose: true });
+      const detectedForkOwner = prData.headRepositoryOwner.login;
+      const detectedForkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;
+      // Issue #1716: Skip fork mode for private upstream repos with write access.
+      if (skipForkForPrivateUpstream) {
+        await log(`🔒 Detected fork PR from ${detectedForkOwner}/${detectedForkRepoName || repo}, but upstream ${owner}/${repo} is private and you have write access.`);
+        await log('   Working directly on the private upstream repository (Issue #1716).');
+      } else {
+        forkOwner = detectedForkOwner;
+        // Get actual fork repository name and store for use in setupRepository
+        forkRepoName = detectedForkRepoName;
+        await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
+        if (argv.verbose) {
+          await log(`   Fork owner: ${forkOwner}`, { verbose: true });
+          await log('   Will clone fork repository for continue mode', { verbose: true });
+        }
       }
 
       // Check if maintainer can push to the fork when --allow-to-push-to-contributors-pull-requests-as-maintainer is enabled
-      if (argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
+      if (forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
         const { checkMaintainerCanModifyPR, requestMaintainerAccess } = githubLib;
         const { canModify } = await checkMaintainerCanModifyPR(owner, repo, prNumber);
 

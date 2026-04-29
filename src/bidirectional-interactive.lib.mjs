@@ -22,10 +22,7 @@
  * @experimental
  */
 
-// Marker: this file's gh API calls flow through a $ wrapped with
-// wrapDollarWithGhRetry by the caller. See issue #1726.
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
-void _wrapDollarWithGhRetry;
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 // Configuration constants
 const CONFIG = {
   // Minimum time between comment checks to avoid rate limiting (in ms)

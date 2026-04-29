@@ -131,15 +131,17 @@ export default [
       // Files that import ghWithRateLimitRetry / execGhWithRetry / ghRetry / ghCmdRetry are exempt.
       // See: https://github.com/link-assistant/hive-mind/issues/1726
       'gh-rate-limit/no-direct-gh-exec': 'error',
-      // Enforce max 1500 lines per file to match CI workflow check
-      // This ensures ESLint and check-file-line-limits job are synchronized
-      // See: docs/case-studies/issue-1141 for context
+      // Enforce max 1500 lines per file to match CI workflow check.
+      // Counts blank lines and comments (skipBlankLines/skipComments=false) so
+      // this rule and scripts/check-file-line-limits.sh (raw `wc -l`) agree —
+      // otherwise ESLint passes locally while CI fails (issue #1730).
+      // See: docs/case-studies/issue-1141, docs/case-studies/issue-1730.
       'max-lines': [
         'error',
         {
           max: 1500,
-          skipBlankLines: true,
-          skipComments: true,
+          skipBlankLines: false,
+          skipComments: false,
         },
       ],
     },

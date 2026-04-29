@@ -5,10 +5,7 @@
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 
-// Marker: this file's gh API calls flow through a $ wrapped with
-// wrapDollarWithGhRetry by the caller. See issue #1726.
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
-void _wrapDollarWithGhRetry;
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 // Import Sentry integration
 import { reportError } from './sentry.lib.mjs';
 

@@ -11,10 +11,9 @@ if (typeof globalThis.use === 'undefined') {
 }
 const use = globalThis.use;
 
-// Use command-stream for consistent $ behavior across runtimes
-const { $: __rawDollar$ } = await use('command-stream');
+// Use command-stream for consistent $ behavior; wrap with rate-limit retry (#1726)
 const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
-const $ = wrapDollarWithGhRetry(__rawDollar$);
+const $ = wrapDollarWithGhRetry((await use('command-stream')).$);
 const os = (await use('os')).default;
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;

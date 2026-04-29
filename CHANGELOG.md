@@ -1,5 +1,125 @@
 # @link-assistant/hive-mind
 
+## 1.59.6
+
+### Patch Changes
+
+- d6d05a0: Fully safeguard from GitHub API rate-limit errors — issue #1726.
+
+  `/merge` merged a draft PR even though every `gh api` call had been failing
+  with `HTTP 403: API rate limit exceeded`. The merge subsystem caught those
+  errors silently in `getActiveRepoWorkflows()` and reported _"no CI checks
+  and repo has no active workflows — no CI/CD configured"_, which `/merge`
+  interpreted as _"all clear"_. Verbose log
+  ([`docs/case-studies/issue-1726/data/a4dccea2-a941-4a0c-a50e-60b1ed454e1e.log`](./docs/case-studies/issue-1726/data/a4dccea2-a941-4a0c-a50e-60b1ed454e1e.log),
+  lines 40251–40269):
+
+  ```
+  [VERBOSE] /merge: Error fetching workflows for link-foundation/relative-meta-logic:
+    Command failed: gh api "repos/link-foundation/relative-meta-logic/actions/workflows" --paginate --slurp
+  gh: API rate limit exceeded for user ID 1431904 ... (HTTP 403)
+
+  [VERBOSE] /merge: PR #100 has no CI checks and repo has no active workflows - no CI/CD configured
+  ```
+
+  Two combining root causes:
+  1. **`getActiveRepoWorkflows()` swallowed exceptions** in
+     [`src/github-merge.lib.mjs`](./src/github-merge.lib.mjs) and returned
+     `[]`. Rate-limit responses became "this repo has no workflows", which the
+     merge gate treated as "no CI configured, safe to merge".
+  2. **No gh API call site had rate-limit retry**. The existing
+     `ghCmdRetry`/`ghRetry` helpers only recognised transient TCP/TLS faults,
+     so a 403 fell straight through. ~135 raw `$gh ...` and
+     ``exec(`gh ...`)`` call sites scattered across `src/solve.*`,
+     `src/github-merge.*`, scripts, and reviewers.
+
+  Fix:
+  - **New rate-limit module**
+    [`src/github-rate-limit.lib.mjs`](./src/github-rate-limit.lib.mjs) with
+    `isRateLimitError`, `parseRateLimitReset`, `fetchNextRateLimitReset`,
+    `computeRateLimitWait`, `ghWithRateLimitRetry`, `execGhWithRetry`,
+    `wrapDollarWithGhRetry`. Applies the issue's policy:
+    `wait = (resetTime − now) + bufferMs (10 min) + random(0..jitterMs) (0..5 min)`,
+    reusing `limitReset.bufferMs` / `limitReset.jitterMs` from
+    [`src/config.lib.mjs`](./src/config.lib.mjs) (introduced in #1236).
+  - **Propagate errors instead of swallowing**. `getActiveRepoWorkflows()`
+    no longer wraps the gh call in try/catch that returns `[]`. Errors bubble
+    up; the merge gate sees the failure and stops.
+  - **Layered retry in legacy helpers**. `ghRetry` and `ghCmdRetry` in
+    [`src/lib.mjs`](./src/lib.mjs) check `isRateLimitError` first and delegate
+    to `ghWithRateLimitRetry` before applying transient-network retry.
+  - **Local `exec` shim** in 7 merge files rebound through
+    `ghWithRateLimitRetry` — converts every existing ``exec(`gh ...`)`` site
+    without per-call edits.
+  - **Wrapped `$` at every entry point** (15 files). `wrapDollarWithGhRetry`
+    routes every `$gh ...` through the retry helper while passing non-gh
+    commands unchanged.
+  - **Marker imports** in 17 callee files that receive `$` as a parameter,
+    declaring rate-limit awareness for the ESLint rule.
+  - **Queue threshold lowered** from 75% to 50% in
+    [`src/queue-config.lib.mjs`](./src/queue-config.lib.mjs).
+  - **Custom ESLint rule**
+    [`eslint-rules/no-direct-gh-exec.mjs`](./eslint-rules/no-direct-gh-exec.mjs)
+    flags any unsafe `gh` exec call site; files that import a known-safe
+    wrapper are exempted at file scope.
+
+  Tests:
+  - [`tests/github-rate-limit.test.mjs`](./tests/github-rate-limit.test.mjs)
+    — 22 unit tests covering `isRateLimitError` (primary, secondary,
+    abuse-detection, stderr, cause-chain), `parseRateLimitReset` (header
+    variants), `computeRateLimitWait` (future / null / past reset, jitter
+    bounds), `ghWithRateLimitRetry` (success, propagation, retry-then-succeed,
+    exhausted retries), `wrapDollarWithGhRetry` (passthrough, retry,
+    propagation).
+  - [`tests/test-no-direct-gh-exec-rule.mjs`](./tests/test-no-direct-gh-exec-rule.mjs)
+    — RuleTester valid/invalid cases.
+  - Updated `tests/queue-config.test.mjs` and `tests/limits-display.test.mjs`
+    for the 50% threshold.
+
+  Documentation:
+  [`docs/case-studies/issue-1726/`](./docs/case-studies/issue-1726/README.md)
+  contains the failing run logs, root-cause analysis, fix breakdown, and
+  verification commands.
+
+- bb0af8c: Fix `check-file-line-limits` CI failure on `main` after issue #1726 merge.
+
+  After PR #1726 (rate-limit safeguards) merged into `main`, the
+  `check-file-line-limits` job failed because three `.mjs` files crossed the
+  1500-line hard limit:
+  - `src/hive.mjs` — 1500 → 1504 lines
+  - `src/limits.lib.mjs` — 1497 → 1501 lines
+  - `src/solve.repository.lib.mjs` — 1500 → 1501 lines
+
+  Two root causes combined: (1) the per-file marker block PR #1726 added was 4
+  lines (2 comment lines + import + `void`), with no headroom check; (2) ESLint's
+  `max-lines` rule was configured with `skipBlankLines: true, skipComments: true`
+  while the CI script counts raw `wc -l`, so `npm run lint` passed locally even
+  though the CI script would fail. Local lint and CI line-limit had silently
+  drifted apart. See
+  [`docs/case-studies/issue-1730`](./docs/case-studies/issue-1730/README.md)
+  for the timeline, log excerpts, and template comparison.
+
+  Fix:
+  - **Synchronize ESLint `max-lines` with the CI script** in
+    [`eslint.config.mjs`](./eslint.config.mjs) by setting `skipBlankLines: false,
+skipComments: false`. Now `npm run lint` catches the failure locally before
+    push, restoring the invariant the rule's comment claimed.
+  - **Compact the rate-limit marker** introduced by #1726 from 4 lines to 1 line
+    in all 17 files. ESLint's existing `varsIgnorePattern: '^_'` means the
+    `void _wrapDollarWithGhRetry;` line was redundant; the trailing-comment form
+    preserves rate-limit awareness for `no-direct-gh-exec` while saving 3 lines
+    per file. Files: `src/hive.mjs`, `src/limits.lib.mjs`,
+    `src/{solve.session,solve.preparation,solve.progress-monitoring,solve.error-handlers,solve.feedback,solve.auto-pr,solve.branch-errors,hive.recheck,github.batch,bidirectional-interactive,token-sanitization}.lib.mjs`,
+    `src/youtrack/youtrack-sync.mjs`,
+    `scripts/{create-github-release,format-github-release,format-release-notes}.mjs`.
+  - **Compact `solve.repository.lib.mjs`** wrap pattern from 4 lines to 3 while
+    keeping the destructure form so `eslint-rules/no-direct-gh-exec.mjs` still
+    recognizes `wrapDollarWithGhRetry` in scope.
+
+  After the fix, all three previously-failing files are at or below 1500 raw
+  lines (1500 / 1498 / 1500) and `npm run lint` would now reject any
+  re-introduction of the regression.
+
 ## 1.59.5
 
 ### Patch Changes

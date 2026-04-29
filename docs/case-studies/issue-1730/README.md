@@ -150,13 +150,12 @@ Other gaps in hive-mind vs the template (out of scope for this issue but worth n
 
 The template is missing the `WARN_THRESHOLD=1350` band that prevents the
 concurrent-PR-merge race. Hive-mind went through that exact failure (case study
-`issue-1593`) and re-experienced its tail in this issue. We will file an issue
-upstream:
+`issue-1593`) and re-experienced its tail in this issue. Upstream issue filed:
 
-- Repo: `link-foundation/js-ai-driven-development-pipeline-template`
-- Title: `check-file-line-limits.sh: add 1350 warn threshold to mitigate concurrent-PR merge race`
-- Suggested patch: port the `WARN_THRESHOLD` block from
-  `scripts/check-file-line-limits.sh` of this repo (commit on the fix PR).
+- <https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/41>
+  — `check-file-line-limits.sh: add 1350 warn threshold to mitigate concurrent-PR merge race`.
+  Suggested patch: port the `WARN_THRESHOLD` block from
+  `scripts/check-file-line-limits.sh` of this repo.
 
 ## Why no new debug output was added
 

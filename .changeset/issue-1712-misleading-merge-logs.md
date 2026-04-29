@@ -47,3 +47,27 @@ Three new unit tests in `tests/test-use-with-retry.mjs` cover the new mode.
 
 No upstream issue is needed — the bug was entirely in `link-assistant/hive-mind`. The
 external workflow finished successfully (`check-runs-dfc4c14.json` shows `total_count: 22`).
+
+**Follow-up round** (after review feedback in
+[PR #1713 comment](https://github.com/link-assistant/hive-mind/pull/1713#issuecomment-4342387674)):
+
+- **List active runs across ALL PR commits, not just HEAD.** New
+  `getActivePRWorkflowRuns()` in `src/github-merge-repo-actions.lib.mjs` walks every
+  commit on the PR (`/repos/.../pulls/N/commits`), dedupes by `run.id`, returns groups
+  marked `head` / `older`. The verbose log now lists active runs on older commits under
+  per-commit URL headers, so the GitHub Actions tab (which shows yellow dots for older
+  commits) reconciles with the log.
+- **Eliminate duplicate logging.** `getWorkflowRunsForSha(verbose=true)` already prints
+  every run; the no_checks branch no longer re-iterates `workflowRuns`, just emits a
+  single explanatory summary line.
+- **Commit URLs instead of short SHAs.** Verbose lines that referenced
+  `${sha.substring(0, 7)}` now use `https://github.com/${owner}/${repo}/commit/${sha}`
+  (or `/pull/N/commits/${sha}` where the PR context matters).
+- **Inline plain-English explanations.** New `STATUS_HINTS` / `CONCLUSION_HINTS`
+  dictionaries plus `explainStatus()` helper — verbose lines read
+  `[in_progress] (currently executing)` instead of bare `in_progress`.
+- **Multi-line user-facing waiting message.** The `⏳ Waiting for CI:` line is now
+  rendered by `renderBlocker()` — single-line for the common case (one run), but each
+  detail on its own indented line when there are multiple.
+- 8 new tests added to `tests/test-misleading-merge-logs-1712.mjs` (Groups 5–8); 21
+  total. #1480 (31/31) and #1466 (14/14) regression suites still pass.

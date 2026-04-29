@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
-// Marker: this file's gh API calls flow through a $ wrapped with
-// wrapDollarWithGhRetry by the caller. See issue #1726.
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
-void _wrapDollarWithGhRetry;
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
   const { getVersion } = await import('./version.lib.mjs');
@@ -32,7 +29,6 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
-    // Show help and exit
     helpYargs.showHelp();
     process.exit(0);
   } catch (error) {
@@ -1501,4 +1497,4 @@ if (isRunningDirectly) {
     console.error('\nPlease report this issue at: https://github.com/link-assistant/hive-mind/issues');
     process.exit(1);
   }
-} // End of main execution block
+}

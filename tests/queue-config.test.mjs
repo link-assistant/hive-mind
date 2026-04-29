@@ -67,7 +67,8 @@ test('QUEUE_CONFIG has expected default values', () => {
   assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.9, 'DISK_THRESHOLD should be 0.9');
   assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.65, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 0.65');
   assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, 0.97, 'CLAUDE_WEEKLY_THRESHOLD should be 0.97');
-  assert.equal(QUEUE_CONFIG.GITHUB_API_THRESHOLD, 0.75, 'GITHUB_API_THRESHOLD should be 0.75');
+  // Issue #1726: lowered default from 0.75 to 0.50 for safer headroom.
+  assert.equal(QUEUE_CONFIG.GITHUB_API_THRESHOLD, 0.5, 'GITHUB_API_THRESHOLD should be 0.5');
 });
 
 // ============================================================================
@@ -106,7 +107,8 @@ test('DISPLAY_THRESHOLDS has expected default values', () => {
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY should be 97');
   assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, 65, 'CODEX_5_HOUR_SESSION should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CODEX_WEEKLY, 97, 'CODEX_WEEKLY should be 97');
-  assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 75, 'GITHUB_API should be 75');
+  // Issue #1726: lowered default from 75 to 50.
+  assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 50, 'GITHUB_API should be 50');
 });
 
 // ============================================================================

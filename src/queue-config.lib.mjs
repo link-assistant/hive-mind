@@ -88,7 +88,7 @@ function normalizeMetricName(name) {
  *   (cpu (65% enqueue))
  *   (claude-5-hour (65% dequeue-one-at-a-time))
  *   (claude-weekly (97% dequeue-one-at-a-time))
- *   (github-api (75% enqueue))
+ *   (github-api (50% enqueue))
  * )
  * ```
  *
@@ -253,7 +253,11 @@ export const QUEUE_CONFIG = {
     claudeWeekly: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time'),
     codex5Hour: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time'),
     codexWeekly: getThresholdConfig('codexWeekly', 'HIVE_MIND_CODEX_WEEKLY_THRESHOLD', 'HIVE_MIND_CODEX_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time'),
-    githubApi: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 0.75, 'enqueue'),
+    // Issue #1726: lowered default from 0.75 to 0.50 to start backing off earlier
+    // and leave a wider safety margin before the hard 5,000/hr ceiling. Hosted
+    // runners hit the ceiling repeatedly with the 75% setting (see
+    // docs/case-studies/issue-1726).
+    githubApi: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 0.5, 'enqueue'),
   },
 
   // Legacy flat threshold values for backward compatibility
@@ -265,7 +269,7 @@ export const QUEUE_CONFIG = {
   CLAUDE_WEEKLY_THRESHOLD: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time').value,
   CODEX_5_HOUR_SESSION_THRESHOLD: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time').value,
   CODEX_WEEKLY_THRESHOLD: getThresholdConfig('codexWeekly', 'HIVE_MIND_CODEX_WEEKLY_THRESHOLD', 'HIVE_MIND_CODEX_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time').value,
-  GITHUB_API_THRESHOLD: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 0.75, 'enqueue').value,
+  GITHUB_API_THRESHOLD: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 0.5, 'enqueue').value,
 
   // Timing
   // MIN_START_INTERVAL_MS: Time to allow solve command to start actual claude process

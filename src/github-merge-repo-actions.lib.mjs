@@ -11,7 +11,14 @@
 
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
-const exec = promisify(execCallback);
+import { githubLimits } from './config.lib.mjs';
+const execRaw = promisify(execCallback);
+// Issue #1722: raise exec maxBuffer above Node's 1 MB default for paginated gh
+// API responses (workflow runs can easily exceed that on busy repos).
+const exec = (cmd, opts = {}) => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts });
+
+// Statuses we treat as "not yet finished".
+const ACTIVE_RUN_STATUSES = ['in_progress', 'queued', 'waiting', 'requested', 'pending'];
 
 /**
  * Get ALL active workflow runs across the entire repository (no branch filter).
@@ -21,20 +28,34 @@ const exec = promisify(execCallback);
  * @returns {Promise<{runs: Array, hasActiveRuns: boolean, count: number}>}
  */
 export async function getAllActiveRepoRuns(owner, repo, verbose = false) {
-  try {
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?per_page=100" --paginate --slurp`);
-    const runs = JSON.parse(stdout.trim() || '[]')
-      .flatMap(page => page.workflow_runs || [])
-      .filter(run => ['in_progress', 'queued', 'waiting', 'requested', 'pending'].includes(run.status))
-      .map(run => ({ id: run.id, name: run.name, status: run.status, head_branch: run.head_branch, head_sha: run.head_sha?.slice(0, 7) }));
-    if (verbose && runs.length > 0) {
-      console.log(`[VERBOSE] repo-actions: ${runs.length} active run(s) in ${owner}/${repo}`);
-      for (const r of runs) console.log(`[VERBOSE] repo-actions:   ${r.name} (${r.status}) on ${r.head_branch}`);
+  // Issue #1722: filter on the server side per status to avoid pulling the full
+  // history of workflow runs (which can exceed exec maxBuffer). Also: do not
+  // swallow errors as "no active runs" — bubble them up so callers can retry
+  // instead of merging on top of a still-running CI run.
+  const seen = new Set();
+  const runs = [];
+  for (const status of ACTIVE_RUN_STATUSES) {
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?status=${status}&per_page=100" --paginate --slurp`);
+    const pages = JSON.parse(stdout.trim() || '[]');
+    for (const page of pages) {
+      for (const run of page.workflow_runs || []) {
+        if (seen.has(run.id)) continue;
+        seen.add(run.id);
+        runs.push({
+          id: run.id,
+          name: run.name,
+          status: run.status,
+          head_branch: run.head_branch,
+          head_sha: run.head_sha?.slice(0, 7),
+        });
+      }
     }
-    return { runs, hasActiveRuns: runs.length > 0, count: runs.length };
-  } catch {
-    return { runs: [], hasActiveRuns: false, count: 0 };
   }
+  if (verbose && runs.length > 0) {
+    console.log(`[VERBOSE] repo-actions: ${runs.length} active run(s) in ${owner}/${repo}`);
+    for (const r of runs) console.log(`[VERBOSE] repo-actions:   ${r.name} (${r.status}) on ${r.head_branch}`);
+  }
+  return { runs, hasActiveRuns: runs.length > 0, count: runs.length };
 }
 
 /**
@@ -52,7 +73,16 @@ export async function waitForAllRepoActions(owner, repo, options = {}, verbose =
   let peakRunCount = 0;
 
   while (Date.now() - startTime < timeout) {
-    const active = await getAllActiveRepoRuns(owner, repo, verbose);
+    let active;
+    try {
+      active = await getAllActiveRepoRuns(owner, repo, verbose);
+    } catch (error) {
+      // Issue #1722: do not silently treat fetch errors as "no active runs".
+      // Log and retry on the next poll instead.
+      console.error(`[ERROR] repo-actions: Error checking repo CI: ${error.message}`);
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      continue;
+    }
     if (onStatusUpdate) {
       try {
         await onStatusUpdate({ ...active, elapsedMs: Date.now() - startTime });
@@ -66,7 +96,15 @@ export async function waitForAllRepoActions(owner, repo, options = {}, verbose =
     peakRunCount = Math.max(peakRunCount, active.count);
     await new Promise(resolve => setTimeout(resolve, pollInterval));
   }
-  const finalRuns = await getAllActiveRepoRuns(owner, repo, verbose);
+  // Issue #1722: if the timeout-final check throws, surface that as an error
+  // rather than reporting "no remaining runs".
+  let finalRuns;
+  try {
+    finalRuns = await getAllActiveRepoRuns(owner, repo, verbose);
+  } catch (error) {
+    console.error(`[ERROR] repo-actions: Final CI check failed after timeout: ${error.message}`);
+    return { success: false, waitedForRuns: true, timedOut: true, remainingRuns: [] };
+  }
   return { success: false, waitedForRuns: true, timedOut: true, remainingRuns: finalRuns.runs };
 }
 

@@ -14,9 +14,17 @@
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 
-const exec = promisify(execCallback);
+const execRaw = promisify(execCallback);
 
 import { parseGitHubUrl } from './github.lib.mjs';
+import { githubLimits } from './config.lib.mjs';
+
+// Issue #1722: gh api `--paginate --slurp` responses for repos with many
+// historical workflow runs can easily exceed Node's default 1 MB exec buffer
+// (observed 12.7 MB on this repo's main branch). Default to the configured
+// githubLimits.bufferMaxSize (10 MB; HIVE_MIND_GITHUB_BUFFER_MAX_SIZE) for all
+// gh calls in this file.
+const exec = (cmd, opts = {}) => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts });
 
 // Issue #1413: Import ready tag sync, timeline, and label constant from separate module
 // to keep this file under the 1500 line limit
@@ -675,8 +683,19 @@ export function parseRepositoryUrl(url) {
 }
 
 /**
+ * Statuses we treat as "still running" / "not yet finished".
+ * Issue #1722: be exhaustive — GitHub uses several non-completed statuses.
+ */
+const ACTIVE_RUN_STATUSES = ['in_progress', 'queued', 'waiting', 'requested', 'pending'];
+
+/**
  * Get active workflow runs on a specific branch
  * Issue #1307: Used to check if there are any in-progress or queued runs on the target branch
+ * Issue #1722: Filter on the server side per status, otherwise the unfiltered
+ * `--paginate --slurp` response can overflow exec maxBuffer on busy repos
+ * (observed 12.7 MB on link-assistant/hive-mind main). Also: errors are now
+ * surfaced rather than swallowed as `hasActiveRuns: false`, which previously
+ * caused /merge to merge on top of a still-running CI run.
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {string} branch - Branch name (default: main)
@@ -684,36 +703,38 @@ export function parseRepositoryUrl(url) {
  * @returns {Promise<{runs: Array<Object>, hasActiveRuns: boolean, count: number}>}
  */
 export async function getActiveBranchRuns(owner, repo, branch = 'main', verbose = false) {
-  try {
-    // Query for in_progress and queued runs on the specified branch
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?branch=${branch}&per_page=100" --paginate --slurp`);
-    const runs = JSON.parse(stdout.trim() || '[]')
-      .flatMap(page => page.workflow_runs || [])
-      .filter(run => run.status === 'in_progress' || run.status === 'queued')
-      .map(run => ({ id: run.id, name: run.name, status: run.status, created_at: run.created_at, html_url: run.html_url }));
-
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Found ${runs.length} active runs on ${owner}/${repo} branch ${branch}`);
-      for (const run of runs) {
-        console.log(`[VERBOSE] /merge:   - Run #${run.id}: ${run.name} (${run.status})`);
+  const seen = new Set();
+  const runs = [];
+  for (const status of ACTIVE_RUN_STATUSES) {
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?branch=${branch}&status=${status}&per_page=100" --paginate --slurp`);
+    const pages = JSON.parse(stdout.trim() || '[]');
+    for (const page of pages) {
+      for (const run of page.workflow_runs || []) {
+        if (seen.has(run.id)) continue;
+        seen.add(run.id);
+        runs.push({
+          id: run.id,
+          name: run.name,
+          status: run.status,
+          created_at: run.created_at,
+          html_url: run.html_url,
+        });
       }
     }
-
-    return {
-      runs,
-      hasActiveRuns: runs.length > 0,
-      count: runs.length,
-    };
-  } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Error checking active runs on ${branch}: ${error.message}`);
-    }
-    return {
-      runs: [],
-      hasActiveRuns: false,
-      count: 0,
-    };
   }
+
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: Found ${runs.length} active runs on ${owner}/${repo} branch ${branch}`);
+    for (const run of runs) {
+      console.log(`[VERBOSE] /merge:   - Run #${run.id}: ${run.name} (${run.status})`);
+    }
+  }
+
+  return {
+    runs,
+    hasActiveRuns: runs.length > 0,
+    count: runs.length,
+  };
 }
 
 /**
@@ -788,7 +809,20 @@ export async function waitForBranchCI(owner, repo, branch = 'main', options = {}
   }
 
   // Timeout reached
-  const finalCheck = await getActiveBranchRuns(owner, repo, branch, verbose);
+  // Issue #1722: if the final check throws, do NOT silently report "ready".
+  // Treat it the same as still-active (force a timeout failure), so /merge
+  // waits/retries instead of merging on top of a still-running CI run.
+  let finalCheck;
+  try {
+    finalCheck = await getActiveBranchRuns(owner, repo, branch, verbose);
+  } catch (error) {
+    return {
+      success: false,
+      waitedForRuns: true,
+      completedRuns: totalWaitedRuns,
+      error: `Timeout reached and final CI check failed on ${branch}: ${error.message}`,
+    };
+  }
   if (finalCheck.hasActiveRuns) {
     return {
       success: false,

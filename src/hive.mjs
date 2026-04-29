@@ -798,8 +798,8 @@ if (isRunningDirectly) {
                 for (const entry of value) {
                   args.push(`--${optionName}`, String(entry));
                 }
-              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined) {
-                args.push(`--${optionName}`, String(value));
+              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined && value !== false) {
+                args.push(`--${optionName}`, String(value)); // Issue #1718: skip false (some string options have default:false)
               }
             }
             // Log the actual command being executed so users can investigate/reproduce
@@ -1483,6 +1483,9 @@ if (isRunningDirectly) {
       await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
       await safeExit(1, 'Error occurred');
     }
+
+    const finalStats = issueQueue.getStats(); // Issue #1718: surface worker failures via exit code
+    if (finalStats.failed > 0) await safeExit(1, `${finalStats.failed} task(s) failed (completed: ${finalStats.completed})`);
   } catch (fatalError) {
     // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');

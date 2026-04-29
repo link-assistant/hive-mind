@@ -1178,11 +1178,17 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
 };
 
 /**
- * Attach the AI's solution summary as a comment to the PR or issue.
+ * Attach the AI's working session summary as a comment to the PR or issue.
  * The summary is extracted from the tool's result field and posted
- * with a "Solution summary" header.
+ * with a "Working session summary" header.
  *
  * Issue #1263: Support for --attach-solution-summary and --auto-attach-solution-summary
+ * Issue #1728: Renamed comment header from "Solution summary" to "Working session
+ * summary" so it accurately describes continuation/restart iterations too. CLI
+ * flag names are preserved for backwards compatibility. Posting now uses
+ * postTrackedComment so the comment ID is registered in the in-memory tool-
+ * comment set — that way the next iteration's --auto-attach-solution-summary
+ * check doesn't mistake a previous iteration's summary for an AI comment.
  *
  * @param {Object} options - Options object
  * @param {string} options.resultSummary - The AI's result summary text
@@ -1194,34 +1200,33 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
  */
 export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo }) => {
   if (!resultSummary || typeof resultSummary !== 'string') {
-    await log('⚠️  No solution summary available to attach', { verbose: true });
+    await log('⚠️  No working session summary available to attach', { verbose: true });
     return false;
   }
 
   const targetNumber = prNumber || issueNumber;
   const targetType = prNumber ? 'pr' : 'issue';
-  const ghCommand = prNumber ? 'pr' : 'issue';
 
   if (!targetNumber) {
-    await log('⚠️  No PR or issue number to attach solution summary to', { verbose: true });
+    await log('⚠️  No PR or issue number to attach working session summary to', { verbose: true });
     return false;
   }
 
   try {
-    const comment = `## Solution summary
+    const comment = `## Working session summary
 
 ${resultSummary}
 
 ---
 *This summary was automatically extracted from the AI working session output.*`;
 
-    const result = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body ${comment}`;
+    const { ok, commentId, stderr } = await postTrackedComment({ $, owner, repo, targetNumber, body: comment });
 
-    if (result.code === 0) {
-      await log(`✅ Solution summary attached to ${targetType} #${targetNumber}`);
+    if (ok) {
+      await log(`✅ Working session summary attached to ${targetType} #${targetNumber}${commentId ? ` (id=${commentId})` : ''}`);
       return true;
     } else {
-      await log(`⚠️  Failed to attach solution summary: ${result.stderr?.toString() || 'Unknown error'}`, {
+      await log(`⚠️  Failed to attach working session summary: ${stderr || 'Unknown error'}`, {
         level: 'warning',
       });
       return false;
@@ -1231,9 +1236,78 @@ ${resultSummary}
       context: 'attach_solution_summary',
       targetType,
       targetNumber,
-      operation: 'post_solution_summary_comment',
+      operation: 'post_working_session_summary_comment',
     });
-    await log(`⚠️  Error attaching solution summary: ${error.message}`, { level: 'warning' });
+    await log(`⚠️  Error attaching working session summary: ${error.message}`, { level: 'warning' });
     return false;
   }
+};
+
+/**
+ * Decide whether to attach a working session summary for a single working
+ * session and, if so, post it. Single source of truth for the attach decision
+ * shared by every working-session call site:
+ *
+ *   - solve.mjs (top-level, end-of-run)
+ *   - solve.auto-merge.lib.mjs (auto-restart-until-mergeable iterations)
+ *   - solve.watch.lib.mjs (watch / temporary auto-restart iterations)
+ *
+ * Issue #1728: Before this helper, only solve.mjs ran the attach decision, so
+ * iterations inside auto-restart-until-mergeable / watch silently dropped the
+ * AI's `resultSummary` whenever the AI itself posted no comment. Centralising
+ * the decision here means every working session ends with either an AI-authored
+ * comment OR an automated "Working session summary" comment, matching the
+ * issue's "unify logic for all working sessions" requirement.
+ *
+ * @param {Object} options
+ * @param {Object} options.argv - parsed CLI arguments (reads attachSolutionSummary
+ *   and autoAttachSolutionSummary; flag names preserved for backwards compat)
+ * @param {string|null|undefined} options.resultSummary - AI's last-message summary
+ * @param {Date} options.workStartTime - the iteration's own start time, used to
+ *   scope the AI-comment check to this iteration only
+ * @param {string} options.owner
+ * @param {string} options.repo
+ * @param {number|null} options.prNumber
+ * @param {number|null} options.issueNumber
+ * @param {boolean} [options.success=true] - skip attachment for failed iterations
+ * @returns {Promise<{attached: boolean, reason: string}>}
+ */
+export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, workStartTime, owner, repo, prNumber, issueNumber, success = true }) => {
+  if (!success) {
+    return { attached: false, reason: 'iteration_failed' };
+  }
+
+  const attachFlag = argv && (argv.attachSolutionSummary || argv['attach-solution-summary']);
+  const autoAttachFlag = argv && (argv.autoAttachSolutionSummary || argv['auto-attach-solution-summary']);
+
+  if (!attachFlag && !autoAttachFlag) {
+    return { attached: false, reason: 'flag_disabled' };
+  }
+
+  if (!resultSummary || typeof resultSummary !== 'string') {
+    await log('ℹ️  No working session summary available from AI tool output', { verbose: true });
+    return { attached: false, reason: 'no_result_summary' };
+  }
+
+  let shouldAttach = false;
+  if (attachFlag) {
+    shouldAttach = true;
+    await log('📝 --attach-solution-summary enabled, attaching working session summary...');
+  } else if (autoAttachFlag) {
+    await log('🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...');
+    const aiCreatedComments = await checkForAiCreatedComments(workStartTime, owner, repo, prNumber, issueNumber);
+    if (aiCreatedComments) {
+      await log('ℹ️  AI created comments during session, skipping working session summary attachment');
+      return { attached: false, reason: 'ai_comments_present' };
+    }
+    shouldAttach = true;
+    await log('📝 No AI comments detected, attaching working session summary...');
+  }
+
+  if (!shouldAttach) {
+    return { attached: false, reason: 'no_attach_decision' };
+  }
+
+  const ok = await attachSolutionSummary({ resultSummary, prNumber, issueNumber, owner, repo });
+  return { attached: !!ok, reason: ok ? 'attached' : 'post_failed' };
 };

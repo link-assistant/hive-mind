@@ -498,12 +498,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'attach-solution-summary': {
     type: 'boolean',
-    description: 'Attach the AI solution summary (from the result field) as a comment to the PR/issue after completion. The summary is extracted from the AI tool JSON output and posted under a "Solution summary" header.',
+    description: 'Attach the AI working session summary (from the result field) as a comment to the PR/issue after every working session. The summary is extracted from the AI tool JSON output and posted under a "Working session summary" header. Applies to the top-level run, auto-restart-until-mergeable iterations, and watch-mode iterations.',
     default: false,
   },
   'auto-attach-solution-summary': {
     type: 'boolean',
-    description: 'Automatically attach solution summary only if the AI did not create any comments during the session. This provides visible feedback when the AI completes silently. Enabled by default; use --no-auto-attach-solution-summary to disable.',
+    description: 'Automatically attach a "Working session summary" comment at the end of any working session in which the AI did not create any comments itself. This provides visible feedback when the AI completes silently, including inside auto-restart-until-mergeable and watch-mode iterations. Enabled by default; use --no-auto-attach-solution-summary to disable.',
     default: true,
   },
   'auto-accept-invite': {

@@ -55,6 +55,17 @@ export const AUTO_MERGED_MARKER = 'Auto-merged';
 // solve.auto-merge.lib.mjs — billing-limit notification (spending cap / free tier)
 export const BILLING_LIMIT_MARKER = 'GitHub Actions Billing Limit';
 
+// solve.results.lib.mjs — working session summary comments posted by
+// --attach-solution-summary / --auto-attach-solution-summary at the end of
+// every working session (top-level solve, auto-restart-until-mergeable
+// iteration, or watch-mode iteration). Issue #1728: Renamed from
+// "Solution summary" because not every working session is a solution draft —
+// many are continuation/restart iterations that are part of an in-progress
+// solution. Tracking it as a tool-generated marker prevents the next
+// iteration's --auto-attach-solution-summary check from mistaking a
+// previous iteration's summary for an AI-authored comment.
+export const WORKING_SESSION_SUMMARY_MARKER = 'Working session summary';
+
 // github.lib.mjs — fork contributor "Allow edits by maintainers" request
 export const MAINTAINER_ACCESS_REQUEST_MARKER = 'Allow edits by maintainers';
 
@@ -88,7 +99,7 @@ export const USAGE_LIMIT_REACHED_MARKER = 'Usage Limit Reached';
  * named constants above so that adding a new marker only requires adding
  * the constant and appending it here.
  */
-export const TOOL_GENERATED_COMMENT_MARKERS = [AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER];
+export const TOOL_GENERATED_COMMENT_MARKERS = [AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, WORKING_SESSION_SUMMARY_MARKER];
 
 /**
  * Markers that indicate the end of a working session. Used by

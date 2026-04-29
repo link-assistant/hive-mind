@@ -16,15 +16,7 @@ import { join } from 'node:path';
 
 const execAsync = promisify(exec);
 
-const PACKAGES = [
-  'command-stream',
-  'getenv',
-  'links-notation',
-  '@dotenvx/dotenvx',
-  'telegraf',
-  'zx',
-  'yargs',
-];
+const PACKAGES = ['command-stream', 'getenv', 'links-notation', '@dotenvx/dotenvx', 'telegraf', 'zx', 'yargs'];
 
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 1000;

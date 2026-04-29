@@ -36,7 +36,7 @@ const test = (name, fn) => {
         err => {
           console.error(`❌ ${name}\n   ${err?.stack || err}`);
           failed++;
-        },
+        }
       );
     }
     console.log(`✅ ${name}`);

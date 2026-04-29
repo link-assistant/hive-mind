@@ -12,14 +12,14 @@ production source files from a test file.
 
 ## Timeline of Events
 
-| Time (UTC) | Event |
-| --- | --- |
-| 2026-04-29 12:53:01 | Push to `main` (sha `074a781d`) triggers run 25109962685. |
-| 2026-04-29 12:54:13 | `test-suites` job starts on `ubuntu-24.04`, Node 24.14.1, npm 11.11.0. |
-| 2026-04-29 12:54:33 | `npm install` finishes; `npm test` starts (`scripts/run-tests.mjs --suite default`). |
-| 2026-04-29 12:54:33 | `[1/75] tests/limits-display.test.mjs` — passes. |
-| 2026-04-29 12:54:36 | `[2/75] tests/<…>` — passes. |
-| 2026-04-29 12:54:37 | `[3/75] tests/test-active-branch-runs-buffer-1722.mjs` starts. |
+| Time (UTC)          | Event                                                                                                                                                                                                                                                                                                           |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-04-29 12:53:01 | Push to `main` (sha `074a781d`) triggers run 25109962685.                                                                                                                                                                                                                                                       |
+| 2026-04-29 12:54:13 | `test-suites` job starts on `ubuntu-24.04`, Node 24.14.1, npm 11.11.0.                                                                                                                                                                                                                                          |
+| 2026-04-29 12:54:33 | `npm install` finishes; `npm test` starts (`scripts/run-tests.mjs --suite default`).                                                                                                                                                                                                                            |
+| 2026-04-29 12:54:33 | `[1/75] tests/limits-display.test.mjs` — passes.                                                                                                                                                                                                                                                                |
+| 2026-04-29 12:54:36 | `[2/75] tests/<…>` — passes.                                                                                                                                                                                                                                                                                    |
+| 2026-04-29 12:54:37 | `[3/75] tests/test-active-branch-runs-buffer-1722.mjs` starts.                                                                                                                                                                                                                                                  |
 | 2026-04-29 12:54:39 | The test file imports `src/github-merge.lib.mjs` → `src/github.lib.mjs` (top-level `await use('command-stream')` via `use-m`). `npm install -g command-stream-v-latest@npm:command-stream@latest` fails with `ENOTEMPTY`. The whole test file aborts; `run-tests.mjs` exits 1; the job ends with `exit code 1`. |
 
 A previous run (25072975006, 2026-04-28 19:21) failed in the same step with a sibling symptom: `Failed to resolve the
@@ -66,8 +66,7 @@ with no retry.
 (e.g. `src/github.lib.mjs`, `src/playwright-mcp.lib.mjs`):
 
 ```js
-if (typeof globalThis.use === 'undefined')
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+if (typeof globalThis.use === 'undefined') globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 const { $ } = await use('command-stream');
 ```
 
@@ -108,13 +107,13 @@ must not depend on a synchronous fix there. We address that separately (see "Ups
 
 ## Implementation Plan
 
-| Step | File | Change |
-| --- | --- | --- |
-| 1 | `scripts/preinstall-use-m-packages.mjs` (new) | Pre-install the `latest` packages used by `use-m` with retry on `ENOTEMPTY`/`EBUSY`/network errors; emit verbose progress. |
-| 2 | `package.json` | Add a `preinstall:use-m` npm script that calls the above. |
-| 3 | `.github/workflows/release.yml` | Run `node scripts/preinstall-use-m-packages.mjs` after `npm install` in `test-suites` and `test-execution`, before `npm test`. |
-| 4 | `tests/test-preinstall-use-m-packages.mjs` (new) | Unit-test the retry helper deterministically (no real npm calls). |
-| 5 | `docs/case-studies/issue-1724/` | This case study. |
+| Step | File                                             | Change                                                                                                                         |
+| ---- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1    | `scripts/preinstall-use-m-packages.mjs` (new)    | Pre-install the `latest` packages used by `use-m` with retry on `ENOTEMPTY`/`EBUSY`/network errors; emit verbose progress.     |
+| 2    | `package.json`                                   | Add a `preinstall:use-m` npm script that calls the above.                                                                      |
+| 3    | `.github/workflows/release.yml`                  | Run `node scripts/preinstall-use-m-packages.mjs` after `npm install` in `test-suites` and `test-execution`, before `npm test`. |
+| 4    | `tests/test-preinstall-use-m-packages.mjs` (new) | Unit-test the retry helper deterministically (no real npm calls).                                                              |
+| 5    | `docs/case-studies/issue-1724/`                  | This case study.                                                                                                               |
 
 ## Templates
 

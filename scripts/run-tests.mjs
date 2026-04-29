@@ -54,6 +54,7 @@ const LEGACY_DEFAULT_TESTS = [
   'tests/test-issue-1686-log-command.mjs',
   'tests/test-issue-1688-subscribe-and-pr-link.mjs',
   'tests/test-issue-1694-stabilized-defaults.mjs',
+  'tests/test-issue-1714-auto-accept-invite-hint.mjs',
   'tests/test-lenv-reader.mjs',
   'tests/test-lino.mjs',
   'tests/test-log-upload-output-1678.mjs',

@@ -35,8 +35,9 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 const yargs = (await use('yargs@latest')).default;
 const os = (await use('os')).default;
 const path = (await use('path')).default;

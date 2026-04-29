@@ -18,13 +18,24 @@ const execRaw = promisify(execCallback);
 
 import { parseGitHubUrl } from './github.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
+import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
 // (observed 12.7 MB on this repo's main branch). Default to the configured
 // githubLimits.bufferMaxSize (10 MB; HIVE_MIND_GITHUB_BUFFER_MAX_SIZE) for all
 // gh calls in this file.
-const exec = (cmd, opts = {}) => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts });
+//
+// Issue #1726: every gh call in the merge subsystem must be rate-limit safe.
+// Wrapping the local `exec` shim ensures all 25+ call sites pick up retry
+// behaviour without per-call changes. Non-rate-limit errors continue to throw
+// so genuine failures (404, auth, malformed JSON downstream) surface to the
+// caller — they MUST NOT be swallowed as in the original /merge bug where a
+// rate-limit error was silently treated as "no workflows".
+const exec = (cmd, opts = {}) =>
+  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts }), {
+    label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+  });
 
 // Issue #1413: Import ready tag sync, timeline, and label constant from separate module
 // to keep this file under the 1500 line limit
@@ -1340,40 +1351,37 @@ export async function getWorkflowRunJobsCount(owner, repo, runId, verbose = fals
  * @returns {Promise<{count: number, hasWorkflows: boolean, workflows: Array<{id: number, name: string, state: string, path: string}>}>}
  */
 export async function getActiveRepoWorkflows(owner, repo, verbose = false) {
-  try {
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/workflows" --paginate --slurp`);
-    const allWorkflows = JSON.parse(stdout.trim() || '[]')
-      .flatMap(page => page.workflows || [])
-      .filter(workflow => workflow.state === 'active')
-      .map(workflow => ({ id: workflow.id, name: workflow.name, state: workflow.state, path: workflow.path }));
+  // Issue #1726: this function previously swallowed every error as "no workflows",
+  // including GitHub API rate-limit responses. The /merge command then thought CI
+  // was unconfigured and proceeded as if checks had passed — a hard failure mode
+  // visible in the original case-study log where errors were thrown but the
+  // process exited 0.
+  //
+  // Rate-limit errors are now retried inside the local exec() wrapper. After
+  // retries are exhausted, the error MUST propagate so callers can decide
+  // whether to abort or continue — never default to "no workflows".
+  const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/workflows" --paginate --slurp`);
+  const allWorkflows = JSON.parse(stdout.trim() || '[]')
+    .flatMap(page => page.workflows || [])
+    .filter(workflow => workflow.state === 'active')
+    .map(workflow => ({ id: workflow.id, name: workflow.name, state: workflow.state, path: workflow.path }));
 
-    // GitHub Pages workflows only run after merge and never produce PR check-runs.
-    const workflows = allWorkflows.filter(wf => !wf.path.startsWith('dynamic/pages/'));
+  // GitHub Pages workflows only run after merge and never produce PR check-runs.
+  const workflows = allWorkflows.filter(wf => !wf.path.startsWith('dynamic/pages/'));
 
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Found ${allWorkflows.length} active workflows in ${owner}/${repo} (${workflows.length} PR-relevant after filtering out GitHub Pages deployment workflows)`);
-      for (const wf of allWorkflows) {
-        const filtered = wf.path.startsWith('dynamic/pages/');
-        console.log(`[VERBOSE] /merge:   - ${wf.name} (${wf.id}): ${wf.state}, path=${wf.path}${filtered ? ' [excluded: GitHub Pages deployment]' : ''}`);
-      }
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: Found ${allWorkflows.length} active workflows in ${owner}/${repo} (${workflows.length} PR-relevant after filtering out GitHub Pages deployment workflows)`);
+    for (const wf of allWorkflows) {
+      const filtered = wf.path.startsWith('dynamic/pages/');
+      console.log(`[VERBOSE] /merge:   - ${wf.name} (${wf.id}): ${wf.state}, path=${wf.path}${filtered ? ' [excluded: GitHub Pages deployment]' : ''}`);
     }
-
-    return {
-      count: workflows.length,
-      hasWorkflows: workflows.length > 0,
-      workflows,
-    };
-  } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Error fetching workflows for ${owner}/${repo}: ${error.message}`);
-    }
-    // On error, assume no workflows (safer: avoids false positives in the no-CI case)
-    return {
-      count: 0,
-      hasWorkflows: false,
-      workflows: [],
-    };
   }
+
+  return {
+    count: workflows.length,
+    hasWorkflows: workflows.length > 0,
+    workflows,
+  };
 }
 
 // Issue #1690: Re-export CI signal helpers from separate module to keep this file under 1500 lines

@@ -28,6 +28,10 @@
 // comment is excluded from --auto-attach-solution-summary's AI-comment check.
 import { LIVE_PROGRESS_SECTION_START_MARKER, LIVE_PROGRESS_SECTION_END_MARKER, postTrackedCommentFromFile, trackToolCommentId } from './tool-comments.lib.mjs';
 
+// Marker: this file's gh API calls flow through a $ wrapped with
+// wrapDollarWithGhRetry by the caller. See issue #1726.
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
+void _wrapDollarWithGhRetry;
 /**
  * Configuration constants for progress monitoring
  */

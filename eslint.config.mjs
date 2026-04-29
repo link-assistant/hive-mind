@@ -5,6 +5,7 @@ import requireGhPaginate from './eslint-rules/require-gh-paginate.mjs';
 import noUnderscorePassthroughWrapper from './eslint-rules/no-underscore-passthrough-wrapper.mjs';
 import noLeakedTimers from './eslint-rules/no-leaked-timers.mjs';
 import noLeakedStreams from './eslint-rules/no-leaked-streams.mjs';
+import noDirectGhExec from './eslint-rules/no-direct-gh-exec.mjs';
 
 // Create custom plugin for gh paginate rule
 const ghPaginatePlugin = {
@@ -34,6 +35,13 @@ const streamsPlugin = {
   },
 };
 
+// Create custom plugin to prevent rate-limit-unsafe gh exec calls (issue #1726)
+const ghRateLimitPlugin = {
+  rules: {
+    'no-direct-gh-exec': noDirectGhExec,
+  },
+};
+
 export default [
   js.configs.recommended,
   prettierConfig,
@@ -44,6 +52,7 @@ export default [
       'no-underscore-wrapper': noUnderscoreWrapperPlugin,
       timers: timerPlugin,
       streams: streamsPlugin,
+      'gh-rate-limit': ghRateLimitPlugin,
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -118,6 +127,10 @@ export default [
       // Require capturing createReadStream/createWriteStream return values so streams can be closed.
       // Unclosed streams keep the Node.js event loop alive and cause hangs (issue #1431).
       'streams/no-leaked-streams': 'error',
+      // Disallow raw exec/execAsync/$ calls to `gh` without a rate-limit-safe wrapper.
+      // Files that import ghWithRateLimitRetry / execGhWithRetry / ghRetry / ghCmdRetry are exempt.
+      // See: https://github.com/link-assistant/hive-mind/issues/1726
+      'gh-rate-limit/no-direct-gh-exec': 'error',
       // Enforce max 1500 lines per file to match CI workflow check
       // This ensures ESLint and check-file-line-limits job are synchronized
       // See: docs/case-studies/issue-1141 for context

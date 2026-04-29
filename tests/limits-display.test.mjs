@@ -169,7 +169,8 @@ test('DISPLAY_THRESHOLDS constants are defined', () => {
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY threshold should be 97');
   assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, 65, 'CODEX_5_HOUR_SESSION threshold should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CODEX_WEEKLY, 97, 'CODEX_WEEKLY threshold should be 97');
-  assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 75, 'GITHUB_API threshold should be 75');
+  // Issue #1726: lowered default from 75 to 50.
+  assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 50, 'GITHUB_API threshold should be 50');
 });
 
 test('formatCodexLimitsSection renders 5 hour and weekly sections', () => {

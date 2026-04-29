@@ -17,14 +17,14 @@ The issue also asks for terminology unification: the user-facing comment header 
 
 All times UTC, 2026-04-29.
 
-| Time     | Event                                                                                                                                                                       | Source                                                                                  |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| 14:58:56 | `🤖 AI Work Session Started` posted on PR #83 (`isContinueMode + autoContinue`)                                                                                              | comment id `4344938702`                                                                 |
-| 15:13:49 | AI posts its own `## Solution summary` comment from inside that session                                                                                                     | comment id `4345042341`                                                                 |
-| 15:13:58 | `🤖 Solution Draft Log` (cost + log gist) posted by `solve.mjs` post-processing                                                                                              | comment id `4345043806`                                                                 |
-| 15:28:40 | `## 🔄 Auto-restart triggered (iteration 1)` — `--auto-restart-until-mergeable` decides to run another iteration because `Reason: CI failures detected; Uncommitted changes` | comment id [`4345164478`](https://github.com/link-foundation/box/pull/83#issuecomment-4345164478) |
-| 15:28–16:06 | `executeToolIteration()` runs the AI tool inside the auto-restart loop. The AI eventually exits without posting any comment of its own.                                     | `src/solve.auto-merge.lib.mjs:596`                                                      |
-| 16:06:10 | `## 🔄 Auto-restart-until-mergeable Log (iteration 1)` — log upload only; **no working session summary**                                                                     | comment id [`4345439482`](https://github.com/link-foundation/box/pull/83#issuecomment-4345439482) |
+| Time        | Event                                                                                                                                                                        | Source                                                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 14:58:56    | `🤖 AI Work Session Started` posted on PR #83 (`isContinueMode + autoContinue`)                                                                                              | comment id `4344938702`                                                                           |
+| 15:13:49    | AI posts its own `## Solution summary` comment from inside that session                                                                                                      | comment id `4345042341`                                                                           |
+| 15:13:58    | `🤖 Solution Draft Log` (cost + log gist) posted by `solve.mjs` post-processing                                                                                              | comment id `4345043806`                                                                           |
+| 15:28:40    | `## 🔄 Auto-restart triggered (iteration 1)` — `--auto-restart-until-mergeable` decides to run another iteration because `Reason: CI failures detected; Uncommitted changes` | comment id [`4345164478`](https://github.com/link-foundation/box/pull/83#issuecomment-4345164478) |
+| 15:28–16:06 | `executeToolIteration()` runs the AI tool inside the auto-restart loop. The AI eventually exits without posting any comment of its own.                                      | `src/solve.auto-merge.lib.mjs:596`                                                                |
+| 16:06:10    | `## 🔄 Auto-restart-until-mergeable Log (iteration 1)` — log upload only; **no working session summary**                                                                     | comment id [`4345439482`](https://github.com/link-foundation/box/pull/83#issuecomment-4345439482) |
 
 Saved sources:
 
@@ -36,7 +36,7 @@ Saved sources:
 
 ## Requirements (extracted from the issue)
 
-1. **Unify working session logic.** The summary-attachment behaviour must apply to *every* working session, not just the top-level `solve.mjs` flow.
+1. **Unify working session logic.** The summary-attachment behaviour must apply to _every_ working session, not just the top-level `solve.mjs` flow.
 2. **Auto-attach last AI message when there's no AI comment.** If a working session ends without the AI posting any comment, post the AI's last message as an automated comment.
 3. **Rename "Solution summary" → "Working session summary"** to be accurate (a session may be a continuation, restart or resume rather than the original solution draft).
 4. **Compile case-study data into `./docs/case-studies/issue-1728/`.**
@@ -51,7 +51,7 @@ Saved sources:
 
 ### Where the summary is currently attached
 
-`src/solve.mjs:1107-1140` is the only call site of `attachSolutionSummary` and `checkForAiCreatedComments`. It runs once, after the *parent* solve flow's main tool execution returns. Auto-restart-until-mergeable and watch-mode iterations happen **after** this point (or replace it entirely when the parent process is the one doing the watching), so this call is bypassed for those iterations.
+`src/solve.mjs:1107-1140` is the only call site of `attachSolutionSummary` and `checkForAiCreatedComments`. It runs once, after the _parent_ solve flow's main tool execution returns. Auto-restart-until-mergeable and watch-mode iterations happen **after** this point (or replace it entirely when the parent process is the one doing the watching), so this call is bypassed for those iterations.
 
 ```js
 // src/solve.mjs:1107
@@ -68,7 +68,7 @@ if (success && resultSummary && (argv.attachSolutionSummary || argv.autoAttachSo
 
 ### Where iterations actually happen and discard the summary
 
-`src/solve.auto-merge.lib.mjs:596-895` — `watchUntilMergeable()` calls `executeToolIteration()` and on success only attaches the *log* (gist + cost), then loops. The `toolResult.resultSummary` returned by `executeClaude()` / `executeOpenCode()` / `executeCodex()` / `executeAgent()` is never consulted.
+`src/solve.auto-merge.lib.mjs:596-895` — `watchUntilMergeable()` calls `executeToolIteration()` and on success only attaches the _log_ (gist + cost), then loops. The `toolResult.resultSummary` returned by `executeClaude()` / `executeOpenCode()` / `executeCodex()` / `executeAgent()` is never consulted.
 
 ```js
 // src/solve.auto-merge.lib.mjs:596
@@ -89,7 +89,7 @@ const toolResult = await executeToolIteration({ ... });
 
 `src/solve.watch.lib.mjs:235-410` has the symmetric gap for `--watch` / temporary auto-restart iterations.
 
-### Why this is a *unification* problem rather than a bug fix in one place
+### Why this is a _unification_ problem rather than a bug fix in one place
 
 Every place the AI runs is a "working session". Today only one of them honours `--auto-attach-solution-summary`. The cleanest fix is therefore to factor the summary-attachment decision into a single helper that all three call sites use:
 
@@ -99,7 +99,7 @@ Every place the AI runs is a "working session". Today only one of them honours `
 
 ### Why renaming "Solution summary" → "Working session summary" is correct
 
-The original "Solution summary" header (added in #1263) was named when the only call site was the end of the solution draft. Now that the same comment will be posted at the end of *any* iteration — including continuations and restarts that aren't really "the solution" — the more accurate label is **"Working session summary"**. The existing `--attach-solution-summary` / `--auto-attach-solution-summary` CLI flag names are kept (renaming flags is a breaking change with no benefit); only the user-facing comment header changes.
+The original "Solution summary" header (added in #1263) was named when the only call site was the end of the solution draft. Now that the same comment will be posted at the end of _any_ iteration — including continuations and restarts that aren't really "the solution" — the more accurate label is **"Working session summary"**. The existing `--attach-solution-summary` / `--auto-attach-solution-summary` CLI flag names are kept (renaming flags is a breaking change with no benefit); only the user-facing comment header changes.
 
 ## Solution
 

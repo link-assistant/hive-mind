@@ -13,8 +13,9 @@ if (typeof globalThis.use === 'undefined') {
 }
 
 const fs = (await use('fs')).promises;
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 const GITHUB_ISSUE_BODY_MAX_SIZE = 60000;
 const GITHUB_FILE_MAX_SIZE = 10 * 1024 * 1024;
 

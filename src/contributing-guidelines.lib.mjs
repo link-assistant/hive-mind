@@ -9,8 +9,9 @@ if (typeof globalThis.use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
 
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 /**
  * Common paths where contributing guidelines might be found
  */

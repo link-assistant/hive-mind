@@ -38,5 +38,12 @@ Changes:
   [link-foundation/box#83](https://github.com/link-foundation/box/pull/83) (which CI
   passed for, after the user killed the watcher prematurely).
 
+Also extends the `useWithRetry` helper (originally added in #1710 to recover from corrupt
+hosted-CI npm-install state) with a third failure mode: `ERR_INVALID_PACKAGE_CONFIG` —
+seen in this branch's own CI run when Node refused to parse a truncated
+`getenv-v-latest/package.json`. `src/queue-config.lib.mjs` now loads `getenv` and
+`links-notation` through the retry wrapper, matching `config.lib.mjs` and `lino.lib.mjs`.
+Three new unit tests in `tests/test-use-with-retry.mjs` cover the new mode.
+
 No upstream issue is needed — the bug was entirely in `link-assistant/hive-mind`. The
 external workflow finished successfully (`check-runs-dfc4c14.json` shows `total_count: 22`).

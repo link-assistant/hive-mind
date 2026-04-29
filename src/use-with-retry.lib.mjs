@@ -4,7 +4,7 @@
  * Retry wrapper for `use-m` package loading.
  *
  * Issue #1710: Hosted CI runners occasionally hand back a truncated or
- * partially-installed global package after `npm install -g <pkg>`. Two
+ * partially-installed global package after `npm install -g <pkg>`. Three
  * surface symptoms have been observed:
  *
  *   1. `import` throws a SyntaxError ("Unexpected end of input") wrapped
@@ -13,8 +13,11 @@
  *   2. use-m throws `Failed to resolve the path to '<pkg>' from '<dir>'`
  *      — the install completed without error but the package tree is
  *      missing files that the `main`/`exports` entry depends on.
+ *   3. Node throws `Invalid package config <dir>/package.json.` with
+ *      `code: 'ERR_INVALID_PACKAGE_CONFIG'` — the package.json itself
+ *      is corrupt/truncated and cannot even be parsed (issue #1712).
  *
- * The recovery is identical for both: delete the broken alias install
+ * The recovery is identical for all three: delete the broken alias install
  * directory and ask use-m to re-fetch. A clean reinstall almost always
  * succeeds. This helper centralises that retry so every call site picks
  * it up.
@@ -68,10 +71,18 @@ export const isCorruptInstallError = error => {
   if (cause instanceof SyntaxError) return true;
   const causeMessage = typeof cause?.message === 'string' ? cause.message : '';
   if (/Unexpected end of input|Unexpected token/.test(causeMessage)) return true;
+  // Mode 3 (issue #1712): package.json itself is corrupt — Node refuses to
+  // even parse it and throws ERR_INVALID_PACKAGE_CONFIG before use-m's own
+  // resolve/import logic gets a chance to run.
+  if (error?.code === 'ERR_INVALID_PACKAGE_CONFIG') return true;
+  if (cause?.code === 'ERR_INVALID_PACKAGE_CONFIG') return true;
   // Mode 2 (also seen on hosted CI): npm install completes but the package
   // tree is incomplete, so use-m can't resolve the entry point.
   const message = typeof error?.message === 'string' ? error.message : '';
-  return /^Failed to resolve the path to /.test(message);
+  if (/^Failed to resolve the path to /.test(message)) return true;
+  // Fallback string match for ERR_INVALID_PACKAGE_CONFIG (in case the error
+  // bubbles through use-m without preserving the `code` property).
+  return /^Invalid package config /.test(message);
 };
 
 export const extractCorruptedFilePath = error => {
@@ -82,7 +93,12 @@ export const extractCorruptedFilePath = error => {
   // is already the alias install directory — return it directly so callers
   // can clean it up (cleanup() handles both files and directories).
   const resolveMatch = message.match(/Failed to resolve the path to '[^']+' from '([^']+)'/);
-  return resolveMatch ? resolveMatch[1] : null;
+  if (resolveMatch) return resolveMatch[1];
+  // Mode 3 (issue #1712): "Invalid package config <dir>/package.json." —
+  // extract the package.json path so the caller's cleanup() walks up to
+  // the alias dir.
+  const invalidConfigMatch = message.match(/Invalid package config (\S+?package\.json)/);
+  return invalidConfigMatch ? invalidConfigMatch[1] : null;
 };
 
 const defaultCleanup = async path => {

@@ -58,6 +58,7 @@ const { postTrackedComment, USAGE_LIMIT_REACHED_MARKER } = await import('./tool-
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
 const { validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
+const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 // Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
 // Log version and raw command IMMEDIATELY after log file initialization
@@ -209,73 +210,7 @@ if (argv.autoAcceptInvite) {
   await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
 }
 // Handle --auto-fork option: automatically fork public repositories without write access
-if (argv.autoFork && !argv.fork) {
-  const { detectRepositoryVisibility } = githubLib;
-  // Check if we have write access first (issue #1536: retry on transient network errors)
-  await log('🔍 Checking repository access for auto-fork...');
-  const permResult = await lib.ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .permissions`, { label: 'auto-fork perms' });
-
-  if (permResult.code === 0) {
-    const permissions = JSON.parse(permResult.stdout.toString().trim());
-    const hasWriteAccess = permissions.push === true || permissions.admin === true || permissions.maintain === true;
-
-    if (!hasWriteAccess) {
-      // No write access - check if repository is public before enabling fork mode
-      const { isPublic } = await detectRepositoryVisibility(owner, repo);
-
-      if (!isPublic) {
-        // Private repository without write access - cannot fork
-        await log('');
-        await log("❌ --auto-fork failed: Repository is private and you don't have write access", { level: 'error' });
-        await log('');
-        await log('   🔍 What happened:', { level: 'error' });
-        await log(`      Repository ${owner}/${repo} is private`, { level: 'error' });
-        await log("      You don't have write access to this repository", { level: 'error' });
-        await log('      --auto-fork cannot create a fork of a private repository you cannot access', {
-          level: 'error',
-        });
-        await log('');
-        await log('   💡 Solution:', { level: 'error' });
-        await log('      • Request collaborator access from the repository owner', { level: 'error' });
-        await log(`        https://github.com/${owner}/${repo}/settings/access`, { level: 'error' });
-        await log('');
-        await safeExit(1, 'Auto-fork failed - private repository without access');
-      }
-
-      // Public repository without write access - automatically enable fork mode
-      await log('✅ Auto-fork: No write access detected, enabling fork mode');
-      argv.fork = true;
-    } else {
-      // Has write access - work directly on the repo (works for both public and private repos)
-      const { isPublic } = await detectRepositoryVisibility(owner, repo);
-      await log(`✅ Auto-fork: Write access detected to ${isPublic ? 'public' : 'private'} repository, working directly on repository`);
-    }
-  } else {
-    // Could not check permissions - assume no access and try to fork if public
-    const { isPublic } = await detectRepositoryVisibility(owner, repo);
-
-    if (!isPublic) {
-      // Cannot determine permissions for private repo - fail safely
-      await log('');
-      await log('❌ --auto-fork failed: Could not verify permissions for private repository', { level: 'error' });
-      await log('');
-      await log('   🔍 What happened:', { level: 'error' });
-      await log(`      Repository ${owner}/${repo} is private`, { level: 'error' });
-      await log('      Could not check your permissions to this repository', { level: 'error' });
-      await log('');
-      await log('   💡 Solutions:', { level: 'error' });
-      await log('      • Check your GitHub CLI authentication: gh auth status', { level: 'error' });
-      await log("      • Request collaborator access if you don't have it yet", { level: 'error' });
-      await log(`        https://github.com/${owner}/${repo}/settings/access`, { level: 'error' });
-      await log('');
-      await safeExit(1, 'Auto-fork failed - cannot verify private repository permissions');
-    }
-
-    // Public repository but couldn't check permissions - assume no access and fork
-    await log('⚠️  Auto-fork: Could not check permissions, enabling fork mode for public repository');
-    argv.fork = true;
-  }
-}
+await handleAutoForkOption({ owner, repo, argv, safeExit });
 // Permission check BEFORE entity validation (#1552): avoids false 404 on private repos without access
 const { checkRepositoryWritePermission } = githubLib;
 const hasWriteAccess = await checkRepositoryWritePermission(owner, repo, {
@@ -371,21 +306,7 @@ if (autoContinueResult.isContinueMode) {
 
           // Check if maintainer can push to the fork when --allow-to-push-to-contributors-pull-requests-as-maintainer is enabled
           if (forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
-            const { checkMaintainerCanModifyPR, requestMaintainerAccess } = githubLib;
-            const { canModify } = await checkMaintainerCanModifyPR(owner, repo, prNumber);
-
-            if (canModify) {
-              await log('✅ Maintainer can push to fork: Enabled by contributor');
-              await log("   Will push changes directly to contributor's fork instead of creating own fork");
-              // Don't disable fork mode, but we'll use the contributor's fork
-            } else {
-              await log('⚠️  Maintainer cannot push to fork: "Allow edits by maintainers" is not enabled', {
-                level: 'warning',
-              });
-              await log('   Posting comment to request access...', { level: 'warning' });
-              await requestMaintainerAccess(owner, repo, prNumber);
-              await log('   Comment posted. Proceeding with own fork instead.', { level: 'warning' });
-            }
+            await handleMaintainerForkAccess({ owner, repo, prNumber });
           }
         }
       }
@@ -459,21 +380,7 @@ if (isPrUrl) {
 
       // Check if maintainer can push to the fork when --allow-to-push-to-contributors-pull-requests-as-maintainer is enabled
       if (forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork) {
-        const { checkMaintainerCanModifyPR, requestMaintainerAccess } = githubLib;
-        const { canModify } = await checkMaintainerCanModifyPR(owner, repo, prNumber);
-
-        if (canModify) {
-          await log('✅ Maintainer can push to fork: Enabled by contributor');
-          await log("   Will push changes directly to contributor's fork instead of creating own fork");
-          // Don't disable fork mode, but we'll use the contributor's fork
-        } else {
-          await log('⚠️  Maintainer cannot push to fork: "Allow edits by maintainers" is not enabled', {
-            level: 'warning',
-          });
-          await log('   Posting comment to request access...', { level: 'warning' });
-          await requestMaintainerAccess(owner, repo, prNumber);
-          await log('   Comment posted. Proceeding with own fork instead.', { level: 'warning' });
-        }
+        await handleMaintainerForkAccess({ owner, repo, prNumber });
       }
     }
     await log(`📝 PR branch: ${prBranch}`);

@@ -105,7 +105,7 @@ await asyncTest('formatStatus shows all queues even when empty', async () => {
 
 await asyncTest('formatDetailedStatus groups items by tool queue', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ verbose: false, autoStart: false });
 
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -146,7 +146,7 @@ await asyncTest('formatDetailedStatus groups items by tool queue', async () => {
 
 await asyncTest('formatDetailedStatus shows max 5 items per queue', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ verbose: false, autoStart: false });
 
   // Add 7 items to claude queue
   for (let i = 1; i <= 7; i++) {

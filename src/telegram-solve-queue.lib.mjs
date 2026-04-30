@@ -141,6 +141,7 @@ export class SolveQueue {
     this.messageUpdateCallback = options.messageUpdateCallback || null;
     this.getRunningProcessesFn = options.getRunningProcesses || getRunningProcesses;
     this.getRunningIsolatedSessionsFn = options.getRunningIsolatedSessions || getRunningIsolatedSessions;
+    this.autoStart = options.autoStart !== false;
 
     // Separate queues per tool type - claude tasks never block agent tasks
     // See: https://github.com/link-assistant/hive-mind/issues/1159
@@ -241,7 +242,7 @@ export class SolveQueue {
     this.log(`Enqueued: ${item.toString()} to ${item.tool} queue, queue length: ${toolQueue.length}`);
 
     // Start consumer if not already running
-    this.ensureConsumerRunning();
+    if (this.autoStart) this.ensureConsumerRunning();
 
     return item;
   }

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+const releaseWorkflow = await readFile(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
 
 const CLI_ARGUMENT_SOURCES = ['src/hive.mjs', 'src/solve.config.lib.mjs', 'src/task.config.lib.mjs', 'src/review.mjs', 'src/configure-claude.lib.mjs', 'src/start-screen.mjs', 'src/hive-screens.lib.mjs', 'src/telegram-bot.mjs', 'src/memory-check.mjs', 'src/reviewers-hive.mjs', 'do.mjs'];
 const DISALLOWED_DIRECT_YARGS_PATTERNS = ["use('yargs", 'use("yargs', 'resolveYargsFactory'];
@@ -25,6 +26,14 @@ async function test(name, fn) {
     console.log(`  ${error.message}`);
     failed++;
   }
+}
+
+function getWorkflowJob(source, jobName) {
+  const start = source.indexOf(`  ${jobName}:`);
+  assert.notEqual(start, -1, `Missing workflow job: ${jobName}`);
+  const tail = source.slice(start + 1);
+  const nextJob = tail.search(/\n  [A-Za-z0-9_-]+:\n/);
+  return nextJob === -1 ? source.slice(start) : source.slice(start, start + 1 + nextJob);
 }
 
 await test('package depends on lino-arguments', () => {
@@ -46,6 +55,16 @@ await test('CLI argument parsers route through lino-arguments adapter', async ()
 
   assert.deepEqual(missing, []);
   assert.deepEqual(directYargs, []);
+});
+
+await test('memory-check CI installs package dependencies before CLI tests', () => {
+  const memoryCheckJob = getWorkflowJob(releaseWorkflow, 'memory-check-linux');
+  const installDependencies = memoryCheckJob.indexOf('- name: Install dependencies');
+  const runTests = memoryCheckJob.indexOf('- name: Run memory-check tests');
+
+  assert.notEqual(runTests, -1);
+  assert.notEqual(installDependencies, -1);
+  assert.ok(installDependencies < runTests);
 });
 
 console.log(`\nTotal: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);

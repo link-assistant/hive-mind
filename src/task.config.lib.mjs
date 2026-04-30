@@ -1,4 +1,5 @@
 import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
+import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 
 export const TASK_TOOL_CHOICES = ['claude', 'codex', 'opencode', 'agent'];
 
@@ -111,3 +112,11 @@ export const createYargsConfig = yargsInstance =>
     .strict()
     .help('h')
     .alias('h', 'help');
+
+export const parseTaskArguments = (argv = process.argv) =>
+  parseCliArgumentsWithLino({
+    argv,
+    commandName: 'task',
+    createYargsConfig,
+    positionalAliases: ['task-input'],
+  });

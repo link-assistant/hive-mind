@@ -15,6 +15,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 
 const execAsync = promisify(execCallback);
 
@@ -52,6 +53,9 @@ References:
 
 const ACTION_FLAGS = new Set(['--enter', '--close', '--list']);
 const SELECTION_FLAGS = new Set(['--oldest', '--newest', '--all']);
+const HIVE_SCREENS_FLAGS = new Set([...ACTION_FLAGS, ...SELECTION_FLAGS, '--help', '-h', '--verbose', '-v']);
+
+const createHiveScreensYargsConfig = yargsInstance => yargsInstance.usage('Usage: hive-screens (--list | --enter | --close) [--oldest|--newest|--all] [--verbose]').option('enter', { type: 'boolean', default: false }).option('close', { type: 'boolean', default: false }).option('list', { type: 'boolean', default: false }).option('oldest', { type: 'boolean', default: false }).option('newest', { type: 'boolean', default: false }).option('all', { type: 'boolean', default: false }).option('verbose', { type: 'boolean', alias: 'v', default: false }).option('help', { type: 'boolean', alias: 'h', default: false }).help(false).version(false).strict(false);
 
 /**
  * Parse the argv for `hive-screens`. Returns the parsed flags plus an
@@ -59,6 +63,7 @@ const SELECTION_FLAGS = new Set(['--oldest', '--newest', '--all']);
  * with a non-zero status without throwing).
  */
 export const parseHiveScreensArgs = argv => {
+  const help = argv.includes('--help') || argv.includes('-h');
   const result = {
     enter: false,
     close: false,
@@ -70,30 +75,39 @@ export const parseHiveScreensArgs = argv => {
   };
 
   for (const arg of argv) {
-    if (arg === '--help' || arg === '-h') {
-      result.help = true;
-      continue;
+    if (!HIVE_SCREENS_FLAGS.has(arg)) {
+      result.error = `Unknown option: ${arg}`;
+      return result;
     }
-    if (arg === '--verbose' || arg === '-v') {
-      result.verbose = true;
-      continue;
-    }
-    if (ACTION_FLAGS.has(arg)) {
-      if (arg === '--enter') result.enter = true;
-      else if (arg === '--close') result.close = true;
-      else result.list = true;
-      continue;
-    }
-    if (SELECTION_FLAGS.has(arg)) {
-      if (result.selection && result.selection !== arg.slice(2)) {
-        result.error = `Conflicting selection flags: --${result.selection} and ${arg}`;
-        return result;
-      }
-      result.selection = arg.slice(2);
-      continue;
-    }
-    result.error = `Unknown option: ${arg}`;
+  }
+
+  let parsed;
+  try {
+    parsed = parseCliArgumentsWithLino({
+      argv: argv.filter(arg => arg !== '--help' && arg !== '-h'),
+      commandName: 'hive-screens',
+      createYargsConfig: createHiveScreensYargsConfig,
+      lenv: { enabled: false },
+      getenv: { enabled: false },
+    });
+  } catch (err) {
+    result.error = err.message || String(err);
     return result;
+  }
+
+  result.help = help;
+  result.verbose = parsed.verbose === true || parsed.v === true;
+  result.enter = parsed.enter === true;
+  result.close = parsed.close === true;
+  result.list = parsed.list === true;
+
+  for (const selection of ['oldest', 'newest', 'all']) {
+    if (parsed[selection] !== true) continue;
+    if (result.selection && result.selection !== selection) {
+      result.error = `Conflicting selection flags: --${result.selection} and --${selection}`;
+      return result;
+    }
+    result.selection = selection;
   }
 
   if (result.help) return result;

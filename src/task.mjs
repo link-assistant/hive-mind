@@ -5,7 +5,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { buildStartAgentArgs, resolveStartAgentCommand } from './task.agent-command.lib.mjs';
-import { createYargsConfig, getDefaultTaskModel } from './task.config.lib.mjs';
+import { getDefaultTaskModel, parseTaskArguments } from './task.config.lib.mjs';
 import { validateModelName } from './models/index.mjs';
 import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseCreatedIssueUrl, parseTaskIssueUrl } from './task.split.lib.mjs';
 
@@ -42,22 +42,15 @@ if (earlyArgs.length === 0 || earlyArgs.includes('--help') || earlyArgs.includes
   process.exit(earlyArgs.length === 0 ? 1 : 0);
 }
 
-if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
-
-const yargsModule = await use('yargs@17.7.2');
-const yargs = yargsModule.default || yargsModule;
-
 let argv;
 try {
-  argv = await createYargsConfig(yargs()).parse(process.argv.slice(2));
+  argv = parseTaskArguments(process.argv);
 } catch (error) {
   console.error(error.message || String(error));
   process.exit(1);
 }
 
-const taskInput = argv['task-input'] || argv._[0];
+const taskInput = argv['task-input'] || argv.taskInput || argv._[0];
 const selectedModel = argv.model || getDefaultTaskModel(argv.tool);
 const modelValidation = validateModelName(selectedModel, argv.tool);
 if (!modelValidation.valid) {

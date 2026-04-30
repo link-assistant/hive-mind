@@ -14,22 +14,16 @@ const { lino } = await import('./lino.lib.mjs');
 const { buildUserMention } = await import('./buildUserMention.lib.mjs');
 const { reportError, initializeSentry, addBreadcrumb } = await import('./sentry.lib.mjs');
 const { loadLenvConfig } = await import('./lenv-reader.lib.mjs');
+const { getLinoYargsFactory, getenv, hideBin } = await import('./cli-arguments.lib.mjs');
 
 const dotenvxModule = await use('@dotenvx/dotenvx');
 const dotenvx = dotenvxModule.default || dotenvxModule;
-const getenvModule = await use('getenv');
-const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
-const { resolveYargsFactory } = await import('./yargs-factory.lib.mjs');
 
 // Load .env/.lenv configuration (issue #1318)
 dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
 await loadLenvConfig({ override: true, quiet: true });
 
-const yargsModule = await use('yargs@17.7.2');
-const yargs = resolveYargsFactory(yargsModule);
-const helpersModuleBot = await use('yargs@17.7.2/helpers');
-const _helpersBot = helpersModuleBot.default || helpersModuleBot;
-const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));
+const yargs = getLinoYargsFactory();
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
 const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');

@@ -75,6 +75,7 @@
     "agent-commander": "^0.4.2",
     "dayjs": "^1.11.19",
     "decimal.js-light": "^2.5.1",
+    "lino-arguments": "^0.3.0",
     "secretlint": "^11.2.5",
     "semver": "^7.7.3"
   },

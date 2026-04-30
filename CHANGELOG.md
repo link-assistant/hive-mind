@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.60.0
+
+### Minor Changes
+
+- Add issue-based task splitting with `/task` and `/split` Telegram commands.
+
 ## 1.59.7
 
 ### Patch Changes

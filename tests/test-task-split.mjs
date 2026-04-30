@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 
+/**
+ * @hive-mind-test-suite default
+ */
+
 import assert from 'assert/strict';
+import path from 'path';
+import { buildStartAgentArgs, getBundledStartAgentCandidate, resolveStartAgentCommand } from '../src/task.agent-command.lib.mjs';
 import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseTaskIssueUrl, TASK_SPLIT_MARKER_START } from '../src/task.split.lib.mjs';
 
 let passed = 0;
@@ -92,6 +98,41 @@ await test('sub-issue API helpers target GitHub relationship endpoints', () => {
   assert.equal(args.includes('repos/owner/repo/issues/123/sub_issues'), true);
   assert.equal(args.includes('X-GitHub-Api-Version: 2026-03-10'), true);
   assert.equal(args.includes('sub_issue_id=987'), true);
+});
+
+await test('start-agent args enforce read-only planning mode', () => {
+  const args = buildStartAgentArgs({
+    tool: 'codex',
+    workingDirectory: '/repo',
+    prompt: 'Split issue',
+    systemPrompt: 'Return JSON',
+    model: 'gpt-5.5',
+    isolation: 'screen',
+    screenName: 'task-split-test',
+    verbose: true,
+  });
+
+  assert.deepEqual(args.slice(0, 13), ['--tool', 'codex', '--working-directory', '/repo', '--prompt', 'Split issue', '--system-prompt', 'Return JSON', '--model', 'gpt-5.5', '--isolation', 'screen', '--read-only']);
+  assert.equal(args.includes('--screen-name'), true);
+  assert.equal(args.includes('task-split-test'), true);
+  assert.equal(args.includes('--verbose'), true);
+});
+
+await test('agent-commander dependency provides start-agent before PATH lookup', async () => {
+  const bundled = getBundledStartAgentCandidate();
+  assert.ok(bundled, 'expected bundled agent-commander start-agent path');
+  assert.equal(path.basename(bundled), 'start-agent.mjs');
+
+  let pathLookupCalled = false;
+  const resolved = await resolveStartAgentCommand({
+    runCommand: async () => {
+      pathLookupCalled = true;
+      return { code: 1, stdout: '', stderr: '' };
+    },
+  });
+
+  assert.equal(resolved, bundled);
+  assert.equal(pathLookupCalled, false);
 });
 
 console.log(`\nTotal: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);

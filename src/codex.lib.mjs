@@ -25,6 +25,7 @@ import { getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels } from './models/index.mjs';
 import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import Decimal from 'decimal.js-light';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
@@ -210,12 +211,23 @@ const unwrapCodexErrorMessage = value => {
   return text;
 };
 
+const isNonFatalCodexItemErrorMessage = message => /^in-process app-server event stream lagged; dropped \d+ events?$/i.test(message || '');
+
 export const getCodexErrorEventSummary = codexJsonState => {
   const events = [];
+  const ignoredEvents = [];
   const addEvents = (type, items = []) => {
     for (const item of items) {
       const message = unwrapCodexErrorMessage(item?.message);
-      events.push({ type, message: message || 'Codex emitted an error event' });
+      const event = { type, message: message || 'Codex emitted an error event' };
+      if (type === 'item' && isNonFatalCodexItemErrorMessage(message)) {
+        ignoredEvents.push({
+          ...event,
+          reason: 'Codex app-server backpressure warning; the turn can still complete successfully',
+        });
+        continue;
+      }
+      events.push(event);
     }
   };
 
@@ -223,11 +235,20 @@ export const getCodexErrorEventSummary = codexJsonState => {
   addEvents('turn', codexJsonState?.turnFailures);
   addEvents('stream', codexJsonState?.streamErrors);
 
+  const countByType = items => ({
+    item: items.filter(item => item.type === 'item').length,
+    turn: items.filter(item => item.type === 'turn').length,
+    stream: items.filter(item => item.type === 'stream').length,
+  });
+
   return {
     hasError: events.length > 0,
     message: events[0]?.message || null,
     events,
-    counts: {
+    ignoredEvents,
+    counts: countByType(events),
+    ignoredCounts: countByType(ignoredEvents),
+    observedCounts: {
       item: codexJsonState?.itemErrors?.length || 0,
       turn: codexJsonState?.turnFailures?.length || 0,
       stream: codexJsonState?.streamErrors?.length || 0,
@@ -721,6 +742,36 @@ export const executeCodexCommand = async params => {
     }
     codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')} --dangerously-bypass-approvals-and-sandbox`;
 
+    // Issue #1706: Append --disable-1m-context and --sub-session-size as Codex -c overrides.
+    let parsedSubSessionSize;
+    try {
+      parsedSubSessionSize = parseSubSessionSize(argv.subSessionSize);
+    } catch (parseError) {
+      await log(`⚠️  ${parseError.message}`, { level: 'warn' });
+      parsedSubSessionSize = { kind: 'default', tokens: null, percent: null, raw: '' };
+    }
+    let codexContextWindowTokens = null;
+    if (parsedSubSessionSize.kind === 'percent') {
+      try {
+        const codexModelMeta = await fetchModelInfo(mappedModel, { preferredProviderIds: ['openai'] });
+        codexContextWindowTokens = codexModelMeta?.limit?.context || null;
+      } catch {
+        codexContextWindowTokens = null;
+      }
+    }
+    const disable1mArgs = buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext);
+    for (const arg of disable1mArgs) {
+      codexArgs += ` ${shellQuote(arg)}`;
+    }
+    const subSessionSizeArgs = buildCodexSubSessionSizeConfigArgs(parsedSubSessionSize, { contextWindow: codexContextWindowTokens });
+    for (const arg of subSessionSizeArgs) {
+      codexArgs += ` ${shellQuote(arg)}`;
+    }
+    if (argv.verbose) {
+      if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });
+      if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
+    }
+
     const fullCommand = `(cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${codexPath} ${codexArgs})`;
 
     await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
@@ -928,6 +979,10 @@ export const executeCodexCommand = async params => {
       }
 
       const codexErrorSummary = getCodexErrorEventSummary(codexJsonState);
+      if (codexErrorSummary.ignoredEvents.length > 0) {
+        const ignoredMessages = [...new Set(codexErrorSummary.ignoredEvents.map(event => event.message))].join('; ');
+        await log(`⚠️ Ignoring non-fatal Codex item error event(s): ${ignoredMessages}`, { level: 'warning', verbose: true });
+      }
       if (codexErrorSummary.hasError) {
         const limitInfo = detectUsageLimit(codexErrorSummary.message || lastMessage);
         const retryableError = classifyRetryableError(codexErrorSummary.message || lastMessage);

@@ -627,6 +627,32 @@ runTest('no USD suffix in Anthropic cost line (Issue #1557)', () => {
   assertNotContains(result, 'USD', 'Should not contain USD anywhere');
 });
 
+// ==== Issue #1703: Collapse to short form when difference rounds to zero ====
+console.log('\n📋 Test Group: Issue #1703 - Collapse cost section when difference is below display precision\n');
+
+runTest('shows simplified format when difference rounds to zero at six decimals (Issue #1703)', () => {
+  // Real-world case from Issue #1703: underlying values rounded differently at toFixed(6)
+  // (11.219694 vs 11.219693), but their actual difference (~1e-7) rounds to $-0.000000.
+  const result = buildCostInfoString(11.21969355, 11.21969345, null);
+  assertEqual(result, '\n\n### 💰 Cost: **$11.219693**', 'Should collapse to simplified format');
+  assertNotContains(result, 'Difference', 'Should not show meaningless $-0.000000 difference');
+  assertNotContains(result, 'Public pricing estimate', 'Should not show breakdown for negligible difference');
+});
+
+runTest('shows simplified format when costs differ by sub-microcent rounding (Issue #1703)', () => {
+  // Difference of 4e-7 still rounds to $0.000000 at toFixed(6); should collapse.
+  const result = buildCostInfoString(2.5000004, 2.5, null);
+  assertEqual(result, '\n\n### 💰 Cost: **$2.500000**', 'Should collapse for sub-precision differences');
+});
+
+runTest('still shows full format when difference is exactly $0.000001 (Issue #1703 boundary)', () => {
+  // A real one-millionth difference is the smallest value buildCostInfoString actually displays,
+  // so it must still trigger the full breakdown.
+  const result = buildCostInfoString(5.207635, 5.207636, null);
+  assertContains(result, '### 💰 **Cost estimation:**', 'Should show full header at 1e-6 difference');
+  assertContains(result, 'Difference: $0.000001', 'Should show the actual one-millionth difference');
+});
+
 // Summary
 console.log('\n' + '='.repeat(80));
 console.log(`Test Results for buildCostInfoString (Issues #1015, #1250 & #1557):`);

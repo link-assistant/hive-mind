@@ -48,8 +48,12 @@ runTest('solve.mjs declares forkRepoName at outer scope', () => {
 runTest('solve.mjs stores forkRepoName from headRepository in auto-continue path', () => {
   const content = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
 
-  // Check for the assignment (not declaration with const)
-  if (!content.includes('forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : null;')) {
+  // After the Issue #1716 refactor, the value is read into a local
+  // `detectedForkRepoName` first and then assigned to `forkRepoName` in the
+  // non-bypass branch. Either form satisfies #1332.
+  const oldShape = content.includes('forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : null;');
+  const newShape = content.includes('detectedForkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : null;') && content.includes('forkRepoName = detectedForkRepoName;');
+  if (!oldShape && !newShape) {
     throw new Error('forkRepoName not stored from prCheckData.headRepository.name in auto-continue path');
   }
 });
@@ -58,7 +62,9 @@ runTest('solve.mjs stores forkRepoName from headRepository in auto-continue path
 runTest('solve.mjs stores forkRepoName from headRepository in PR URL path', () => {
   const content = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
 
-  if (!content.includes('forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;')) {
+  const oldShape = content.includes('forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;');
+  const newShape = content.includes('detectedForkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;') && content.includes('forkRepoName = detectedForkRepoName;');
+  if (!oldShape && !newShape) {
     throw new Error('forkRepoName not stored from prData.headRepository.name in PR URL path');
   }
 });

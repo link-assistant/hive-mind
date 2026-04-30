@@ -25,6 +25,7 @@ import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, maybeSwitchToFallbackModel } from './tool-retry.lib.mjs';
+import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 export { availableModels }; // Re-export for backward compatibility
 export { fetchModelInfo };
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -373,6 +374,9 @@ export const executeClaude = async params => {
     owner,
     repo,
     prNumber,
+    // Issue #1708: forwarded so the bidirectional handler can poll
+    // issue title/body changes and uncommitted changes during the session.
+    issueNumber,
   });
 };
 /** Check if a model supports vision (image input) using models.dev API @returns {Promise<boolean>} */
@@ -386,56 +390,10 @@ export const checkModelVisionCapability = async modelId => {
     return false;
   }
 };
-/** Calculate USD cost for a model's usage with detailed breakdown (Issue #1600: uses Decimal for precision) */
-export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) => {
-  if (!modelInfo || !modelInfo.cost) {
-    return includeBreakdown ? { total: 0, breakdown: null } : 0;
-  }
-  const cost = modelInfo.cost;
-  const million = new Decimal(1000000);
-  const breakdown = {
-    input: { tokens: 0, costPerMillion: 0, cost: 0 },
-    cacheWrite: { tokens: 0, costPerMillion: 0, cost: 0 },
-    cacheRead: { tokens: 0, costPerMillion: 0, cost: 0 },
-    output: { tokens: 0, costPerMillion: 0, cost: 0 },
-  };
-  if (usage.inputTokens && cost.input) {
-    breakdown.input = {
-      tokens: usage.inputTokens,
-      costPerMillion: cost.input,
-      cost: new Decimal(usage.inputTokens).div(million).mul(new Decimal(cost.input)).toNumber(),
-    };
-  }
-  if (usage.cacheCreationTokens && cost.cache_write) {
-    breakdown.cacheWrite = {
-      tokens: usage.cacheCreationTokens,
-      costPerMillion: cost.cache_write,
-      cost: new Decimal(usage.cacheCreationTokens).div(million).mul(new Decimal(cost.cache_write)).toNumber(),
-    };
-  }
-  if (usage.cacheReadTokens && cost.cache_read) {
-    breakdown.cacheRead = {
-      tokens: usage.cacheReadTokens,
-      costPerMillion: cost.cache_read,
-      cost: new Decimal(usage.cacheReadTokens).div(million).mul(new Decimal(cost.cache_read)).toNumber(),
-    };
-  }
-  if (usage.outputTokens && cost.output) {
-    breakdown.output = {
-      tokens: usage.outputTokens,
-      costPerMillion: cost.output,
-      cost: new Decimal(usage.outputTokens).div(million).mul(new Decimal(cost.output)).toNumber(),
-    };
-  }
-  const totalCost = new Decimal(breakdown.input.cost).plus(breakdown.cacheWrite.cost).plus(breakdown.cacheRead.cost).plus(breakdown.output.cost).toNumber();
-  if (includeBreakdown) {
-    return {
-      total: totalCost,
-      breakdown,
-    };
-  }
-  return totalCost;
-};
+// Issue #1710: calculateModelCost extracted to ./claude.cost.lib.mjs to keep
+// this file under the 1500-line repo cap (see check-file-line-limits CI job).
+import { calculateModelCost } from './claude.cost.lib.mjs';
+export { calculateModelCost };
 export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsage = null) => {
   const os = (await use('os')).default;
   const homeDir = os.homedir();
@@ -497,8 +455,14 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
           }
           accumulateModelUsage(modelUsage, entry);
           // Issue #1501: Track peak context usage per single API request
+          // Issue #1710: Exclude cache_read_input_tokens — sub-sessions and
+          // per-request peaks should reflect *new* input the model received,
+          // not cached prompt context. Cache reads remain visible in the
+          // cumulative Total line as `(X + Y cached)`. This makes the
+          // peak-request value reconcilable with the cumulative non-cached
+          // input figure (instead of mixing semantics across the two lines).
           const usage = entry.message.usage;
-          const requestContext = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+          const requestContext = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0);
           const model = entry.message.model;
           if (requestContext > (peakContextByModel[model] || 0)) {
             peakContextByModel[model] = requestContext;
@@ -633,6 +597,9 @@ export const executeClaudeCommand = async params => {
     owner,
     repo,
     prNumber,
+    // Issue #1708: enables status streaming (CI/uncommitted/PR-metadata)
+    // and issue body/title polling in setupBidirectionalHandler.
+    issueNumber,
   } = params;
   // Issue #817: Apply bidirectional-mode composition and tool-support validation before running.
   // This may enable argv.interactiveMode, argv.acceptIncommingCommentsAsInput, and
@@ -721,9 +688,11 @@ export const executeClaudeCommand = async params => {
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }
-    // Issue #817: Set up bidirectional handler when --accept-incomming-comments-as-input
-    // (or composite --bidirectional-interactive-mode) is enabled. Returns null when inactive.
-    const bidirectionalHandler = await setupBidirectionalHandler({ argv, owner, repo, prNumber, $, log });
+    // Issue #817 / #1708: Set up bidirectional handler when --accept-incomming-comments-as-input
+    // (or composite --bidirectional-interactive-mode / --auto-input-until-mergeable) is enabled.
+    // Returns null when inactive. issueNumber + tempDir are forwarded so the handler can
+    // poll issue title/body changes and uncommitted changes during the session (Issue #1708).
+    const bidirectionalHandler = await setupBidirectionalHandler({ argv, owner, repo, prNumber, issueNumber, tempDir, $, log });
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
@@ -761,9 +730,10 @@ export const executeClaudeCommand = async params => {
     }
     try {
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      // Issue #817: Streaming mode sets exitAfterStopDelayMs=60000 so the
-      // headless Claude process stays alive between NDJSON turns.
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined });
+      // Issue #1706: --sub-session-size + --disable-1m-context. Resolve here, then pass into getClaudeEnv along with the rest.
+      const { parsed: parsedSubSessionSize, contextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
+      // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens });
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
@@ -772,6 +742,9 @@ export const executeClaudeCommand = async params => {
         if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_SHOW_THINKING) await log(`📊 CLAUDE_CODE_SHOW_THINKING: ${claudeEnv.CLAUDE_CODE_SHOW_THINKING}`, { verbose: true });
+        // Issue #1706: log applied env vars (--disable-1m-context, --sub-session-size).
+        const sub1706 = ['CLAUDE_CODE_DISABLE_1M_CONTEXT', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'].filter(k => claudeEnv[k]).map(k => `${k}=${claudeEnv[k]}`);
+        if (sub1706.length) await log(`📊 ${sub1706.join(', ')}`, { verbose: true });
         if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }
       const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
@@ -920,12 +893,33 @@ export const executeClaudeCommand = async params => {
               }
               if (data.type === 'message') messageCount++;
               else if (data.type === 'tool_use') toolUseCount++;
+              // Issue #1708: signal busy/idle to the bidirectional handler so
+              // queue-comments-to-input mode can hold frames until the AI is
+              // idle. Any assistant/tool_use/system event means the AI is
+              // actively processing; a result event means the turn is done
+              // and queued frames can flush.
+              if (bidirectionalHandler) {
+                if (data.type === 'assistant' || data.type === 'tool_use' || data.type === 'tool_result') {
+                  if (typeof bidirectionalHandler.markAiBusy === 'function') {
+                    bidirectionalHandler.markAiBusy();
+                  }
+                }
+              }
               if (progressMonitor) await progressMonitor.processStreamEvent(data).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
               if (data.type === 'result') {
                 if (!resultEventReceived) {
                   resultEventReceived = true;
                   await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
                   resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
+                }
+                // Issue #1708: result event = AI is idle and waiting for next
+                // user input. Flush any frames queued by --queue-comments-to-input.
+                if (bidirectionalHandler && typeof bidirectionalHandler.markAiIdle === 'function') {
+                  try {
+                    await bidirectionalHandler.markAiIdle();
+                  } catch (idleErr) {
+                    if (argv.verbose) await log(`⚠️ Bidirectional mode: markAiIdle error: ${idleErr.message}`, { verbose: true });
+                  }
                 }
                 if (data.subtype === 'success') resultSuccessReceived = true;
                 if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
@@ -1301,7 +1295,9 @@ export const executeClaudeCommand = async params => {
               await log(`\n⚠️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries (upstream: anthropics/claude-code#6805)`, { verbose: true });
             }
             if (tokenUsage.peakContextUsage > 0) {
-              await log(`📊 Peak single-request context: ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
+              // Issue #1710: rename so the metric matches the new definition (input + cache_creation,
+              // excluding cache_read). Cache reads are still visible separately on the Total line.
+              await log(`📊 Peak single-request input (excl. cache reads): ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
             }
             await log('\n💰 Token Usage Summary:');
             // Display per-model breakdown

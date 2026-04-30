@@ -260,6 +260,9 @@ export async function registerLogCommand(bot, options) {
     // 4. Decide the destination.
     const decision = decideLogDestination({ statusResult, sessionInfo, repoVisibility, chatType });
     if (decision.destination === 'reject') {
+      // Surface enough state to diagnose false-rejections like issue #1700,
+      // where the parser missed the isolation field name reported by the host.
+      VERBOSE && console.log(`[VERBOSE] /log rejected session ${sessionId}: reason="${decision.reason}" parsedIsolation=${JSON.stringify(statusResult?.isolation)} sessionInfoBackend=${JSON.stringify(sessionInfo?.isolationBackend)} rawHead=${JSON.stringify((statusResult?.raw || '').slice(0, 240))}`);
       await ctx.reply(`❌ ${decision.reason}`, { reply_to_message_id: message.message_id });
       return;
     }

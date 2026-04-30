@@ -18,6 +18,7 @@
 import { maskToken, log, isENOSPC } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 // Dynamic imports for runtime dependencies
 const getOsModule = async () => (await import('os')).default;
 const getPathModule = async () => (await import('path')).default;

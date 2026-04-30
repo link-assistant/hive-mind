@@ -198,6 +198,15 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
     default: true,
   },
+  // Issue #1708: Stage 1 introduces this flag inert — it parses, appears in
+  // --help, and is read by validateAutoInputUntilMergeable below, but does not
+  // change the runtime loop yet. Stages 2-6 will wire it into watchUntilMergeable
+  // and the bidirectional NDJSON pipe (see docs/case-studies/issue-1708/).
+  'auto-input-until-mergeable': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Extend a single AI tool session as long as possible by streaming new input (uncommitted changes, CI/CD failures, PR/issue comments, issue title/body updates) directly into the running session, instead of restarting it. Implies --accept-incomming-comments-as-input and --queue-comments-to-input by default (comments are deferred until the AI finishes the current step and is waiting for input). Existing auto-restart/auto-resume loops remain enabled as a fallback, but the goal is to keep them dormant. The full streaming-aware watchUntilMergeable replacement and per-tool wiring is staged in subsequent PRs (see docs/case-studies/issue-1708/). Falls back gracefully on non-Claude tools and on streaming errors. Disabled by default.',
+    default: false,
+  },
   'wait-for-all-actions-in-repository-before-mergeable': {
     type: 'boolean',
     description: 'Wait for ALL active GitHub Actions workflow runs in the entire repository to complete before declaring PR mergeable. When enabled, blocks merge if ANY CI/CD run in the repository is active, regardless of branch — this is a strict safety mode for repositories with cross-branch CI/CD coupling. Disabled by default.',
@@ -259,6 +268,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     type: 'number',
     description: 'Maximum thinking budget for calculating --think level mappings (default: 31999 for Claude Code). Values: off=0, low=max/4, medium=max/2, high=max*3/4, max=max.',
     default: 31999,
+  },
+  'sub-session-size': {
+    type: 'string',
+    description: 'Cap on sub-session size between auto-compaction events. Accepts a token count (e.g. 150k, 1m, 200000), a percentage of the model context window (e.g. 50%), or "default" to keep the tool\'s built-in threshold. Default: 150k. For Claude this maps to CLAUDE_CODE_AUTO_COMPACT_WINDOW + CLAUDE_AUTOCOMPACT_PCT_OVERRIDE env vars. For Codex this maps to -c model_auto_compact_token_limit. (Issue #1706)',
+    default: '150k',
+  },
+  'disable-1m-context': {
+    type: 'boolean',
+    description: 'Disable 1M extended context window so the model uses its standard 200K-400K window. Helps preserve reasoning quality and reduces cost. Default: true. For Claude this sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1 (also forbids the [1m] model-name suffix). For Codex this sets -c model_context_window=200000. Use --no-disable-1m-context to allow the 1M window. (Issue #1706)',
+    default: true,
   },
   'fallback-model': {
     type: 'string',
@@ -367,6 +386,26 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: '[EXPERIMENTAL] Convenience flag that enables --interactive-mode, --accept-incomming-comments-as-input and --exclude-all-own-incomming-comments-from-input together. Only supported for --tool claude.',
     default: false,
   },
+  // Issue #1708: Comment delivery mode for --accept-incomming-comments-as-input.
+  // --stream-comments-to-input: forward comments immediately as they arrive
+  //   (the default for --accept-incomming-comments-as-input on its own; matches
+  //   the existing #817 behavior of pushing comments to Claude as soon as
+  //   pollIncomingComments sees them).
+  // --queue-comments-to-input: hold comments until the AI signals it is idle
+  //   (waiting for input), then flush the queue. Used by
+  //   --auto-input-until-mergeable so the model finishes the current step
+  //   before getting interrupted with new instructions.
+  // The two flags are mutually exclusive; if both are set, queue mode wins.
+  'stream-comments-to-input': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] When --accept-incomming-comments-as-input is enabled, forward each new PR/issue comment to the AI immediately as it arrives (real-time streaming). This is the default behavior for --accept-incomming-comments-as-input on its own. Mutually exclusive with --queue-comments-to-input; queue mode wins if both are set. Only supported for --tool claude.',
+    default: false,
+  },
+  'queue-comments-to-input': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] When --accept-incomming-comments-as-input is enabled, queue new PR/issue comments and only flush them once the AI signals it is idle (waiting for input). This is the default mode implied by --auto-input-until-mergeable so the AI completes the current step before being interrupted with new instructions. Mutually exclusive with --stream-comments-to-input; queue mode wins if both are set. Only supported for --tool claude.',
+    default: false,
+  },
   'prompt-explore-sub-agent': {
     type: 'boolean',
     description: 'Encourage AI to use Explore-style sub-agent workflow for codebase exploration. Supported for --tool claude and --tool codex.',
@@ -459,12 +498,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'attach-solution-summary': {
     type: 'boolean',
-    description: 'Attach the AI solution summary (from the result field) as a comment to the PR/issue after completion. The summary is extracted from the AI tool JSON output and posted under a "Solution summary" header.',
+    description: 'Attach the AI working session summary (from the result field) as a comment to the PR/issue after every working session. The summary is extracted from the AI tool JSON output and posted under a "Working session summary" header. Applies to the top-level run, auto-restart-until-mergeable iterations, and watch-mode iterations.',
     default: false,
   },
   'auto-attach-solution-summary': {
     type: 'boolean',
-    description: 'Automatically attach solution summary only if the AI did not create any comments during the session. This provides visible feedback when the AI completes silently. Enabled by default; use --no-auto-attach-solution-summary to disable.',
+    description: 'Automatically attach a "Working session summary" comment at the end of any working session in which the AI did not create any comments itself. This provides visible feedback when the AI completes silently, including inside auto-restart-until-mergeable and watch-mode iterations. Enabled by default; use --no-auto-attach-solution-summary to disable.',
     default: true,
   },
   'auto-accept-invite': {

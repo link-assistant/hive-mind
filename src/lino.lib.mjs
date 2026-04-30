@@ -2,7 +2,9 @@ if (typeof use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
 
-const linoModule = await use('links-notation');
+// Issue #1710: hosted CI npm-install flake — retry once on a corrupt install.
+const { useWithRetry } = await import('./use-with-retry.lib.mjs');
+const linoModule = await useWithRetry(globalThis.use, 'links-notation');
 const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 
 const fs = await import('fs');

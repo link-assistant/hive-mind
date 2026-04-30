@@ -478,12 +478,16 @@ export const isTransientNetworkError = error => {
 /**
  * Retry a GitHub CLI / API operation with exponential backoff on transient network errors.
  * Unlike the generic `retry()`, this function:
- * - Only retries on transient network errors (TCP reset, TLS timeout, etc.)
- * - Immediately rethrows non-transient errors (404, 403, auth failures)
+ * - Retries on transient network errors (TCP reset, TLS timeout, etc.)
+ * - Retries on GitHub API rate-limit errors, sleeping until reset + buffer + jitter
+ *   (issue #1726 — see src/github-rate-limit.lib.mjs)
+ * - Immediately rethrows non-transient errors (404, 403 non-rate-limit, auth failures)
  * - Logs stderr to the log file when a command fails (fixing terminal/log parity)
  *
  * Issue #1536: Most gh commands had no retry logic, causing solve to abort on
  * intermittent network issues.
+ * Issue #1726: Rate limit errors silently surfaced as command failure with no retry,
+ *              causing the merge subsystem to swallow them as "no workflows found".
  *
  * @param {Function} fn - Async function to execute (should call gh CLI or GitHub API)
  * @param {Object} [options] - Options
@@ -496,11 +500,20 @@ export const isTransientNetworkError = error => {
  */
 export const ghRetry = async (fn, options = {}) => {
   const { maxAttempts = 3, delay = 1000, backoff = 2, label = 'gh command' } = options;
+  const { isRateLimitError, parseRateLimitReset, fetchNextRateLimitReset, computeRateLimitWait } = await import('./github-rate-limit.lib.mjs');
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await fn();
     } catch (error) {
+      if (isRateLimitError(error) && attempt < maxAttempts) {
+        const reset = parseRateLimitReset(error) || (await fetchNextRateLimitReset());
+        const { waitMs, deadline, bufferMs, jitterMs } = computeRateLimitWait(reset);
+        const resetSummary = reset ? `reset at ${reset.toISOString()}` : 'reset time unknown';
+        await log(`⏳ ${label}: GitHub API rate limit hit (attempt ${attempt}/${maxAttempts}). Waiting ${Math.round(waitMs / 60000)} min (${resetSummary}; buffer ${Math.round(bufferMs / 60000)} min + jitter ${Math.round(jitterMs / 1000)}s) until ${deadline.toISOString()}.`, { level: 'warn' });
+        await sleep(waitMs);
+        continue;
+      }
       if (isTransientNetworkError(error) && attempt < maxAttempts) {
         const waitTime = delay * Math.pow(backoff, attempt - 1);
         await log(`⚠️ ${label}: Network error (attempt ${attempt}/${maxAttempts}), retrying in ${waitTime / 1000}s...`, { level: 'warn' });
@@ -527,6 +540,7 @@ export const ghRetry = async (fn, options = {}) => {
  */
 export const ghCmdRetry = async (cmdFn, options = {}) => {
   const { maxAttempts = 3, delay = 1000, backoff = 2, label = 'gh command' } = options;
+  const { isRateLimitError, parseRateLimitReset, fetchNextRateLimitReset, computeRateLimitWait } = await import('./github-rate-limit.lib.mjs');
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const result = await cmdFn();
@@ -541,9 +555,21 @@ export const ghCmdRetry = async (cmdFn, options = {}) => {
       return result;
     }
 
-    // Check if this is a transient network error worth retrying
     const combinedOutput = (result.stdout?.toString() || '') + ' ' + (result.stderr?.toString() || '');
-    if (isTransientNetworkError({ message: combinedOutput }) && attempt < maxAttempts) {
+    const errorLike = { message: combinedOutput, stdout: result.stdout, stderr: result.stderr };
+
+    // Issue #1726: rate-limit errors deserve a long, deterministic wait.
+    if (isRateLimitError(errorLike) && attempt < maxAttempts) {
+      const reset = parseRateLimitReset(errorLike) || (await fetchNextRateLimitReset());
+      const { waitMs, deadline, bufferMs, jitterMs } = computeRateLimitWait(reset);
+      const resetSummary = reset ? `reset at ${reset.toISOString()}` : 'reset time unknown';
+      await log(`⏳ ${label}: GitHub API rate limit hit (attempt ${attempt}/${maxAttempts}). Waiting ${Math.round(waitMs / 60000)} min (${resetSummary}; buffer ${Math.round(bufferMs / 60000)} min + jitter ${Math.round(jitterMs / 1000)}s) until ${deadline.toISOString()}.`, { level: 'warn' });
+      await sleep(waitMs);
+      continue;
+    }
+
+    // Check if this is a transient network error worth retrying
+    if (isTransientNetworkError(errorLike) && attempt < maxAttempts) {
       const waitTime = delay * Math.pow(backoff, attempt - 1);
       await log(`⚠️ ${label}: Network error (attempt ${attempt}/${maxAttempts}), retrying in ${waitTime / 1000}s...`, { level: 'warn' });
       await sleep(waitTime);

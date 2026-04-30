@@ -1,5 +1,726 @@
 # @link-assistant/hive-mind
 
+## 1.59.7
+
+### Patch Changes
+
+- 4f03aea: fix(solve): post a Working session summary at the end of every working session — issue #1728.
+
+  `--auto-attach-solution-summary` previously only ran in `solve.mjs`'s top-level flow.
+  Iterations inside `--auto-restart-until-mergeable` (`src/solve.auto-merge.lib.mjs`) and
+  `--watch` / temporary auto-restart (`src/solve.watch.lib.mjs`) called
+  `executeToolIteration()`, uploaded a log comment, and discarded the AI's
+  `toolResult.resultSummary` — so when the AI finished an iteration without posting
+  a comment, the user saw only the start (`Auto-restart triggered`) and end
+  (`Auto-restart-until-mergeable Log`) brackets with no AI conclusions in between.
+  Reproduced live on link-foundation/box PR #83 between comment ids
+  [`4345164478`](https://github.com/link-foundation/box/pull/83#issuecomment-4345164478)
+  and [`4345439482`](https://github.com/link-foundation/box/pull/83#issuecomment-4345439482).
+
+  Fix: extracted the attach-decision into a single helper
+  `maybeAttachWorkingSessionSummary` in `src/solve.results.lib.mjs` that all three
+  working-session call sites (`solve.mjs`, `solve.auto-merge.lib.mjs`,
+  `solve.watch.lib.mjs`) invoke with their own `iterationStartTime`. Each successful
+  iteration now ends with either an AI-authored comment OR an automated
+  "Working session summary" comment.
+
+  Also renamed the comment header from "Solution summary" to "Working session
+  summary" because not every working session is a solution draft — many are
+  continuation/restart iterations. CLI flag names (`--attach-solution-summary`,
+  `--auto-attach-solution-summary`, `--no-auto-attach-solution-summary`) and
+  function names are preserved for backwards compatibility. The new header is
+  registered in `TOOL_GENERATED_COMMENT_MARKERS` so a previous iteration's summary
+  is excluded from the next iteration's "did the AI post anything?" check.
+
+  Tests: extended `tests/test-solution-summary.mjs` to cover the new helper, the
+  header rename, the marker registration, and the per-iteration wiring in
+  `solve.auto-merge.lib.mjs` / `solve.watch.lib.mjs`.
+
+  Case study: `docs/case-studies/issue-1728/`.
+
+## 1.59.6
+
+### Patch Changes
+
+- d6d05a0: Fully safeguard from GitHub API rate-limit errors — issue #1726.
+
+  `/merge` merged a draft PR even though every `gh api` call had been failing
+  with `HTTP 403: API rate limit exceeded`. The merge subsystem caught those
+  errors silently in `getActiveRepoWorkflows()` and reported _"no CI checks
+  and repo has no active workflows — no CI/CD configured"_, which `/merge`
+  interpreted as _"all clear"_. Verbose log
+  ([`docs/case-studies/issue-1726/data/a4dccea2-a941-4a0c-a50e-60b1ed454e1e.log`](./docs/case-studies/issue-1726/data/a4dccea2-a941-4a0c-a50e-60b1ed454e1e.log),
+  lines 40251–40269):
+
+  ```
+  [VERBOSE] /merge: Error fetching workflows for link-foundation/relative-meta-logic:
+    Command failed: gh api "repos/link-foundation/relative-meta-logic/actions/workflows" --paginate --slurp
+  gh: API rate limit exceeded for user ID 1431904 ... (HTTP 403)
+
+  [VERBOSE] /merge: PR #100 has no CI checks and repo has no active workflows - no CI/CD configured
+  ```
+
+  Two combining root causes:
+  1. **`getActiveRepoWorkflows()` swallowed exceptions** in
+     [`src/github-merge.lib.mjs`](./src/github-merge.lib.mjs) and returned
+     `[]`. Rate-limit responses became "this repo has no workflows", which the
+     merge gate treated as "no CI configured, safe to merge".
+  2. **No gh API call site had rate-limit retry**. The existing
+     `ghCmdRetry`/`ghRetry` helpers only recognised transient TCP/TLS faults,
+     so a 403 fell straight through. ~135 raw `$gh ...` and
+     ``exec(`gh ...`)`` call sites scattered across `src/solve.*`,
+     `src/github-merge.*`, scripts, and reviewers.
+
+  Fix:
+  - **New rate-limit module**
+    [`src/github-rate-limit.lib.mjs`](./src/github-rate-limit.lib.mjs) with
+    `isRateLimitError`, `parseRateLimitReset`, `fetchNextRateLimitReset`,
+    `computeRateLimitWait`, `ghWithRateLimitRetry`, `execGhWithRetry`,
+    `wrapDollarWithGhRetry`. Applies the issue's policy:
+    `wait = (resetTime − now) + bufferMs (10 min) + random(0..jitterMs) (0..5 min)`,
+    reusing `limitReset.bufferMs` / `limitReset.jitterMs` from
+    [`src/config.lib.mjs`](./src/config.lib.mjs) (introduced in #1236).
+  - **Propagate errors instead of swallowing**. `getActiveRepoWorkflows()`
+    no longer wraps the gh call in try/catch that returns `[]`. Errors bubble
+    up; the merge gate sees the failure and stops.
+  - **Layered retry in legacy helpers**. `ghRetry` and `ghCmdRetry` in
+    [`src/lib.mjs`](./src/lib.mjs) check `isRateLimitError` first and delegate
+    to `ghWithRateLimitRetry` before applying transient-network retry.
+  - **Local `exec` shim** in 7 merge files rebound through
+    `ghWithRateLimitRetry` — converts every existing ``exec(`gh ...`)`` site
+    without per-call edits.
+  - **Wrapped `$` at every entry point** (15 files). `wrapDollarWithGhRetry`
+    routes every `$gh ...` through the retry helper while passing non-gh
+    commands unchanged.
+  - **Marker imports** in 17 callee files that receive `$` as a parameter,
+    declaring rate-limit awareness for the ESLint rule.
+  - **Queue threshold lowered** from 75% to 50% in
+    [`src/queue-config.lib.mjs`](./src/queue-config.lib.mjs).
+  - **Custom ESLint rule**
+    [`eslint-rules/no-direct-gh-exec.mjs`](./eslint-rules/no-direct-gh-exec.mjs)
+    flags any unsafe `gh` exec call site; files that import a known-safe
+    wrapper are exempted at file scope.
+
+  Tests:
+  - [`tests/github-rate-limit.test.mjs`](./tests/github-rate-limit.test.mjs)
+    — 22 unit tests covering `isRateLimitError` (primary, secondary,
+    abuse-detection, stderr, cause-chain), `parseRateLimitReset` (header
+    variants), `computeRateLimitWait` (future / null / past reset, jitter
+    bounds), `ghWithRateLimitRetry` (success, propagation, retry-then-succeed,
+    exhausted retries), `wrapDollarWithGhRetry` (passthrough, retry,
+    propagation).
+  - [`tests/test-no-direct-gh-exec-rule.mjs`](./tests/test-no-direct-gh-exec-rule.mjs)
+    — RuleTester valid/invalid cases.
+  - Updated `tests/queue-config.test.mjs` and `tests/limits-display.test.mjs`
+    for the 50% threshold.
+
+  Documentation:
+  [`docs/case-studies/issue-1726/`](./docs/case-studies/issue-1726/README.md)
+  contains the failing run logs, root-cause analysis, fix breakdown, and
+  verification commands.
+
+- bb0af8c: Fix `check-file-line-limits` CI failure on `main` after issue #1726 merge.
+
+  After PR #1726 (rate-limit safeguards) merged into `main`, the
+  `check-file-line-limits` job failed because three `.mjs` files crossed the
+  1500-line hard limit:
+  - `src/hive.mjs` — 1500 → 1504 lines
+  - `src/limits.lib.mjs` — 1497 → 1501 lines
+  - `src/solve.repository.lib.mjs` — 1500 → 1501 lines
+
+  Two root causes combined: (1) the per-file marker block PR #1726 added was 4
+  lines (2 comment lines + import + `void`), with no headroom check; (2) ESLint's
+  `max-lines` rule was configured with `skipBlankLines: true, skipComments: true`
+  while the CI script counts raw `wc -l`, so `npm run lint` passed locally even
+  though the CI script would fail. Local lint and CI line-limit had silently
+  drifted apart. See
+  [`docs/case-studies/issue-1730`](./docs/case-studies/issue-1730/README.md)
+  for the timeline, log excerpts, and template comparison.
+
+  Fix:
+  - **Synchronize ESLint `max-lines` with the CI script** in
+    [`eslint.config.mjs`](./eslint.config.mjs) by setting `skipBlankLines: false,
+skipComments: false`. Now `npm run lint` catches the failure locally before
+    push, restoring the invariant the rule's comment claimed.
+  - **Compact the rate-limit marker** introduced by #1726 from 4 lines to 1 line
+    in all 17 files. ESLint's existing `varsIgnorePattern: '^_'` means the
+    `void _wrapDollarWithGhRetry;` line was redundant; the trailing-comment form
+    preserves rate-limit awareness for `no-direct-gh-exec` while saving 3 lines
+    per file. Files: `src/hive.mjs`, `src/limits.lib.mjs`,
+    `src/{solve.session,solve.preparation,solve.progress-monitoring,solve.error-handlers,solve.feedback,solve.auto-pr,solve.branch-errors,hive.recheck,github.batch,bidirectional-interactive,token-sanitization}.lib.mjs`,
+    `src/youtrack/youtrack-sync.mjs`,
+    `scripts/{create-github-release,format-github-release,format-release-notes}.mjs`.
+  - **Compact `solve.repository.lib.mjs`** wrap pattern from 4 lines to 3 while
+    keeping the destructure form so `eslint-rules/no-direct-gh-exec.mjs` still
+    recognizes `wrapDollarWithGhRetry` in scope.
+
+  After the fix, all three previously-failing files are at or below 1500 raw
+  lines (1500 / 1498 / 1500) and `npm run lint` would now reject any
+  re-introduction of the regression.
+
+## 1.59.5
+
+### Patch Changes
+
+- bb24175: Fix `/merge` to correctly detect active CI runs on the default branch — issue
+  #1722.
+
+  The `/merge` command merged PR #1719 even though a CI/CD workflow run was
+  still in progress on `main`. The merge triggered a new run, which cancelled
+  the previous one. Verbose log:
+
+  ```
+  [VERBOSE] /merge: Checking for active CI runs on link-assistant/hive-mind branch main...
+  [VERBOSE] /merge: Error checking active runs on main: stdout maxBuffer length exceeded
+  [VERBOSE] /merge: No active CI runs on main branch. Ready to proceed.
+  ```
+
+  Two compounding root causes in
+  [`src/github-merge.lib.mjs`](./src/github-merge.lib.mjs)
+  `getActiveBranchRuns()` (and the parallel
+  [`src/github-merge-repo-actions.lib.mjs`](./src/github-merge-repo-actions.lib.mjs)
+  `getAllActiveRepoRuns()` introduced by issue #1503):
+  1. **No `maxBuffer` override on `gh api --paginate --slurp`.** Node's default
+     `child_process.exec` buffer is 1 MB; the unfiltered `actions/runs` response
+     on this repo's `main` was 12.7 MB, so `exec` rejected with
+     `stdout maxBuffer length exceeded`.
+  2. **Fetch errors became "no active runs".** The `catch` block returned
+     `hasActiveRuns: false`, which the caller (`waitForBranchCI`) interpreted as
+     "branch CI is idle, ready to merge". A transient fetch/buffer/parse error
+     was indistinguishable from genuine idleness.
+
+  Fix:
+  - **Server-side `?status=` filter**, looped over the active set
+    (`in_progress`, `queued`, `waiting`, `requested`, `pending`) with run-id
+    dedup. Response size scales with active-run count, not with historical-run
+    count — typically a few KB instead of 12+ MB.
+  - **Raise `exec` `maxBuffer` to `githubLimits.bufferMaxSize`** (10 MB, env
+    `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`) for all `gh` calls in
+    `github-merge.lib.mjs` and `github-merge-repo-actions.lib.mjs`. The existing
+    `githubLimits` infrastructure was already used in `github.batch.lib.mjs`;
+    this just wires it into the `/merge` paths.
+  - **Stop swallowing fetch errors as "idle".** Errors now propagate. The
+    surrounding `waitForBranchCI` / `waitForAllRepoActions` poll loops already
+    retry on the next tick; the timeout-final check has its own try/catch that
+    returns an explicit failure (instead of a false-positive "ready to merge").
+
+  Tests:
+  [`tests/test-active-branch-runs-buffer-1722.mjs`](./tests/test-active-branch-runs-buffer-1722.mjs)
+  shadows `gh` on `PATH` with a Node script that scripts active-run responses,
+  and asserts: (a) every call uses `?status=`, (b) duplicate runs across
+  statuses are deduplicated, (c) >1 MB responses are handled cleanly, (d)
+  `gh` failures throw rather than report idle, (e) `waitForBranchCI` keeps
+  polling on errors, (f) idle branches still resolve as ready,
+  (g) `getAllActiveRepoRuns` parity.
+
+  Documentation:
+  [`docs/case-studies/issue-1722/`](./docs/case-studies/issue-1722/README.md)
+  contains the timeline (with downloaded bot log, cancelled-run logs, run
+  metadata), facts, per-symptom root-cause analysis, and solution plan.
+  [`experiments/issue-1722-buffer-overflow.mjs`](./experiments/issue-1722-buffer-overflow.mjs)
+  is a minimal reproduction. No upstream report required — the fix lives
+  entirely in this repo.
+
+- 1a92ca1: Fix flaky CI `test-suites` job caused by `use-m`'s no-retry global npm install
+  — issue #1724.
+
+  CI run [25109962685](https://github.com/link-assistant/hive-mind/actions/runs/25109962685/job/73581228475)
+  on `main` failed in the `test-suites` job at the third test file
+  (`tests/test-active-branch-runs-buffer-1722.mjs`) with:
+
+  ```
+  Error: Failed to install command-stream@latest globally.
+    [cause]: Error: Command failed: npm install -g command-stream-v-latest@npm:command-stream@latest
+    npm error code ENOTEMPTY
+    npm error path /opt/hostedtoolcache/node/24.14.1/x64/lib/node_modules/command-stream-v-latest/js/src/commands
+  ```
+
+  Root cause: `src/github.lib.mjs` and `src/playwright-mcp.lib.mjs` call
+  `await use('command-stream')` at module top level (via `use-m`). Every test
+  file that transitively imports either module re-runs
+  `npm install -g command-stream-v-latest@npm:command-stream@latest`. `use-m`'s
+  `ensurePackageInstalled` issues a single `npm install -g` with no retry, and
+  npm intermittently fails with `ENOTEMPTY: directory not empty, rmdir` on
+  GitHub-hosted Ubuntu runners (a long-standing npm rmdir race against itself
+  when the previous global install left files behind).
+
+  Fix:
+  - New
+    [`scripts/preinstall-use-m-packages.mjs`](./scripts/preinstall-use-m-packages.mjs)
+    pre-installs every package the codebase loads through `use-m @latest`
+    (`command-stream`, `getenv`, `links-notation`, `@dotenvx/dotenvx`,
+    `telegraf`, `zx`, `yargs`) using the same alias scheme `use-m` does
+    (`<pkg-without-@-or-/>-v-latest`), with exponential-backoff retry on the
+    flake symptoms (`ENOTEMPTY` / `EBUSY` / `EPERM` / `ECONNRESET` / `ETIMEDOUT`
+    / `EAI_AGAIN` / `429` / `503`). After this step, `use-m`'s
+    `installedVersion === latestVersion` early-return path skips the install at
+    test time, so test imports never touch `npm install -g` again.
+  - The script also satisfies the case-study "verbose mode for next iteration"
+    requirement via `PREINSTALL_USE_M_VERBOSE=1` (or `RUNNER_DEBUG=1`), which
+    logs each attempt's command, stdout, stderr, and backoff delay, and
+    recognizes "package present on disk after a flake" as recovered success.
+  - Wires `node scripts/preinstall-use-m-packages.mjs` into the `test-suites`
+    and `test-execution` jobs in
+    [`.github/workflows/release.yml`](./.github/workflows/release.yml) right
+    after `npm install`, before any step that runs test files or `solve.mjs`.
+
+  Tests:
+  [`tests/test-preinstall-use-m-packages-1724.mjs`](./tests/test-preinstall-use-m-packages-1724.mjs)
+  covers the alias scheme, retryable-error matcher, exponential backoff, and
+  the four `installWithRetry` paths (first-success, retry-then-succeed,
+  non-retryable-abort, recovered-from-disk) deterministically (no real npm
+  calls). Marked `@hive-mind-test-suite default` so it runs in the same job
+  that previously flaked.
+
+  Documentation:
+  [`docs/case-studies/issue-1724/`](./docs/case-studies/issue-1724/README.md)
+  contains the timeline, verbatim error, downloaded failed-run logs, the
+  no-retry snippet from the live `use-m` source
+  (`logs/use-m-source.js`), the comparison with both pipeline templates
+  (JS/Rust — neither template uses `use-m @latest` at module load yet, so the
+  flake is hive-mind-specific until they do), and the implementation plan.
+
+## 1.59.4
+
+### Patch Changes
+
+- b2e0d12: Fix `/terminal_watch` uploading the full session log file when the watch
+  completes — addresses issue
+  [#1720](https://github.com/link-assistant/hive-mind/issues/1720).
+
+  Before this fix, `/terminal_watch` finished by calling
+  `bot.telegram.sendDocument(chatId, ...)` to attach the `<uuid>.log` file. That
+  had two unwanted effects:
+  - It duplicated work that the dedicated `/log` command already does.
+  - The bare `bot.telegram.sendDocument(chatId, ...)` call did not carry
+    `message_thread_id`, so in forum-enabled supergroups the document landed in
+    the **General** topic instead of the topic where `/terminal_watch` was
+    invoked, and it was not threaded as a reply.
+
+  `/terminal_watch` now only updates the live "✅ Terminal watch complete"
+  message at the end of the session. To download the log, use
+  `/log <uuid>` — it correctly replies in the originating topic via
+  `ctx.replyWithDocument`, which Telegraf annotates with `message_thread_id`
+  automatically.
+
+  A new regression test (`tests/test-issue-1720-terminal-watch-no-log.mjs`)
+  guards both behaviours, and `tests/test-issue-467-terminal-watch.mjs` was
+  updated to assert that no document is uploaded by the watcher.
+
+- 5c87a38: Fix `hive` to (a) stop forwarding `false` for solve options whose `type` is
+  `'string'` but whose `default` is `false`, and (b) exit non-zero when any
+  worker fails — issue #1718.
+
+  Previously, when a user ran `/hive` against several issues, every spawned
+  `solve` worker crashed with:
+
+  ```
+  Invalid --working-session-live-progress value: "false". Expected "comment" or "pr".
+  ```
+
+  …and `hive` itself still exited with code `0`, so the Telegram bot rendered a
+  green "Work session finished successfully" envelope even though zero PRs had
+  been created.
+
+  Two independent root causes:
+  1. **Auto-forwarder leaked `false` as a string.** In
+     [`src/hive.mjs`](./src/hive.mjs), the auto-forward block read:
+
+     ```js
+     } else if ((def.type === 'string' || def.type === 'number') && value !== undefined) {
+       args.push(`--${optionName}`, String(value));
+     }
+     ```
+
+     For `working-session-live-progress`, `solve.config.lib.mjs` declares
+     `type: 'string', default: false`. yargs preserves the boolean `false`
+     verbatim, so hive forwarded `--working-session-live-progress false`,
+     which `solve` rejects. The fix adds `&& value !== false` to the
+     predicate. Other `type:'string'` options whose `default` is `false`
+     are now also protected by a single defense-in-depth check.
+
+  2. **No non-zero exit on worker failures.** After `monitorWithSentry()`
+     resolved, hive returned without consulting `issueQueue.getStats()`. The
+     fix queries `finalStats = issueQueue.getStats()` and calls
+     `safeExit(1, …)` when `finalStats.failed > 0`, mirroring the exit
+     semantics solve already uses. Wrappers like `start-command`, the Telegram
+     bot, and CI now correctly observe the failure.
+
+  `--isolation screen` (R3 of the issue) was already wired through correctly;
+  no change required there. The verbose forwarder dump
+  (`📋 Command: ${solveCommand} ${args.join(' ')}`) — which is what allowed us
+  to diagnose this run in the first place — is preserved.
+
+  Tests: [`tests/test-issue-1718-hive-passthrough-false.mjs`](./tests/test-issue-1718-hive-passthrough-false.mjs)
+  locks the option shape, asserts both fixes are present in `src/hive.mjs`,
+  replays the forwarder logic on synthetic argv, and adds a defense-in-depth
+  sweep that no `type:'string'` / `default:false` option ever produces
+  `--<flag> false`.
+
+  Documentation: [`docs/case-studies/issue-1718/`](./docs/case-studies/issue-1718/README.md)
+  contains the timeline reconstructed from the user's `screen` log, the
+  distilled facts, the per-symptom root-cause analysis, the solution plan, and
+  notes confirming no upstream report (yargs / start-command) is required.
+
+## 1.59.3
+
+### Patch Changes
+
+- b0bffdc: Fix `solve` to skip fork mode when the upstream repository is private and the
+  user has direct write access — even when the existing PR was created from a
+  fork (issue #1716).
+
+  Previously, when a PR was originally created from a fork (e.g. the upstream
+  repo was public and the user without write access used `--auto-fork`), but
+  the upstream is now private and the user has direct write access, `solve`
+  still tried to clone the fork. If the fork had been renamed, deleted, or was
+  otherwise inaccessible (which is common after a public→private flip), repo
+  setup failed with `Fork not accessible`.
+
+  The auto-fork path already handled this correctly (logging
+  _"Auto-fork: Write access detected to private repository, working directly on
+  repository"_ and leaving `forkOwner = null`). The bug was that **continue
+  mode** — both the auto-continue path and the direct PR-URL path — re-set
+  `forkOwner` from the existing PR's head repository unconditionally,
+  overriding the auto-fork bypass.
+
+  Fix: in [`src/solve.mjs`](./src/solve.mjs):
+  - Hoist `detectRepositoryVisibility(owner, repo)` out of the
+    `if (argv.autoCleanup === undefined)` block so `isRepoPublic` is
+    unconditionally available.
+  - Compute one bypass flag,
+    `skipForkForPrivateUpstream = !isRepoPublic && !argv.fork && hasWriteAccess`.
+  - Gate both fork-from-PR-data branches behind it. When set, log
+    _"Issue #1716: Working directly on the private upstream repository"_ and
+    leave `forkOwner = null` so the regular non-fork code path runs.
+  - Gate the maintainer-modify auto-toggle on `forkOwner` being non-null so it
+    doesn't fire when the bypass triggered.
+
+  Explicit `--fork` still wins (the bypass requires `!argv.fork`), and users
+  with no write access on a private repo still hit the existing auto-fork
+  private-repo guard (the bypass requires `hasWriteAccess`).
+
+  Tests: [`tests/test-issue-1716-private-repo-skip-fork.mjs`](./tests/test-issue-1716-private-repo-skip-fork.mjs)
+  locks the flag declaration, the exact condition formula, both
+  fork-detection paths, and four scenario simulations
+  (private+writeAccess → bypass; public → no bypass; explicit `--fork` → no
+  bypass; no writeAccess → no bypass).
+
+  Documentation: [`docs/case-studies/issue-1716/`](./docs/case-studies/issue-1716/README.md)
+  contains the timeline reconstructed from the user's failure log, the
+  distilled facts, the per-symptom root-cause analysis, and the implementation
+  plan.
+
+## 1.59.2
+
+### Patch Changes
+
+- 9e96635: Fix Telegram `/solve` repo-not-accessible message still suggesting `--auto-accept-invite` even when that flag is already active (issue #1714). After issue #1694 flipped `--auto-accept-invite` to default-on, `src/telegram-bot.mjs` was passing `autoAcceptInvite: args.some(a => a === '--auto-accept-invite')` to `validateGitHubEntityExistence()` — but the literal flag is no longer present in the typical default-on invocation, so the suppression added by issue #1692 silently regressed. The call now reads `parsedSolveArgs?.autoAcceptInvite` (matching the auto-accept pre-check two lines above), so the hint is suppressed when the flag is active and only shown when the user explicitly opts out with `--no-auto-accept-invite`. Adds `tests/test-issue-1714-auto-accept-invite-hint.mjs` covering the parsed-argv contract and a source-level guard against the `args.some(...)` form returning, plus a case study under `docs/case-studies/issue-1714/`.
+
+## 1.59.1
+
+### Patch Changes
+
+- 65d7b99: Fix misleading `/merge` verbose logs that read as "no CI configured" when CI was actually
+  running — addresses issue [#1712](https://github.com/link-assistant/hive-mind/issues/1712)
+  where a user mistakenly Ctrl+C'd the auto-restart-until-mergeable watcher after seeing:
+
+  ```
+  [VERBOSE] /merge: PR #83 has no CI checks yet - treating as no_checks
+  [VERBOSE] /merge: PR #83 has no CI check-runs yet, but 1 workflow run(s) were triggered ...
+    ⏳ Waiting for CI:         Build and Release Docker Image
+  ```
+
+  The classification logic was correct — `/merge` was waiting on the legitimate 30-120s gap
+  between GitHub registering a `workflow_run` and publishing the corresponding `check_runs`.
+  The wording was the bug: "no CI checks yet" is parseable as "this repo has no CI", and the
+  listing showed run IDs without URLs, so the user couldn't quickly verify what `/merge` was
+  watching.
+
+  Changes:
+  - **`src/github-merge.lib.mjs`** — `getDetailedCIStatus` and `checkPRCIStatus` reword the
+    `no_checks` verbose lines to "has no check-runs or commit statuses registered yet",
+    including the short SHA. `getWorkflowRunsForSha` now appends `run.html_url` to every
+    entry. Normalized check-run / commit-status entries carry an `html_url` field
+    (falling back to `details_url` / `target_url`).
+  - **`src/solve.auto-merge-helpers.lib.mjs::getMergeBlockers`** — the `no_checks`,
+    `pending`, and `cancelled` branches now produce blocker `details` strings of the form
+    `"<name> [<status>] — <html_url>"`. The user-facing `⏳ Waiting for CI: …` line in
+    `solve.auto-merge.lib.mjs` (which joins `details` with commas) automatically picks up
+    the URLs, so the user can click through to the run.
+  - **`tests/test-misleading-merge-logs-1712.mjs`** — 13 unit tests covering the wording
+    guard, blocker enrichment for the no_checks / pending / cancelled paths, regression
+    guard for #1466, and the joined user-facing line format.
+  - **`docs/case-studies/issue-1712/README.md`** — full case study with raw logs, timeline,
+    root cause, fix description, and verification on the original PR
+    [link-foundation/box#83](https://github.com/link-foundation/box/pull/83) (which CI
+    passed for, after the user killed the watcher prematurely).
+
+  Also extends the `useWithRetry` helper (originally added in #1710 to recover from corrupt
+  hosted-CI npm-install state) with a third failure mode: `ERR_INVALID_PACKAGE_CONFIG` —
+  seen in this branch's own CI run when Node refused to parse a truncated
+  `getenv-v-latest/package.json`. `src/queue-config.lib.mjs` now loads `getenv` and
+  `links-notation` through the retry wrapper, matching `config.lib.mjs` and `lino.lib.mjs`.
+  Three new unit tests in `tests/test-use-with-retry.mjs` cover the new mode.
+
+  No upstream issue is needed — the bug was entirely in `link-assistant/hive-mind`. The
+  external workflow finished successfully (`check-runs-dfc4c14.json` shows `total_count: 22`).
+
+  **Follow-up round** (after review feedback in
+  [PR #1713 comment](https://github.com/link-assistant/hive-mind/pull/1713#issuecomment-4342387674)):
+  - **List active runs across ALL PR commits, not just HEAD.** New
+    `getActivePRWorkflowRuns()` in `src/github-merge-repo-actions.lib.mjs` walks every
+    commit on the PR (`/repos/.../pulls/N/commits`), dedupes by `run.id`, returns groups
+    marked `head` / `older`. The verbose log now lists active runs on older commits under
+    per-commit URL headers, so the GitHub Actions tab (which shows yellow dots for older
+    commits) reconciles with the log.
+  - **Eliminate duplicate logging.** `getWorkflowRunsForSha(verbose=true)` already prints
+    every run; the no_checks branch no longer re-iterates `workflowRuns`, just emits a
+    single explanatory summary line.
+  - **Commit URLs instead of short SHAs.** Verbose lines that referenced
+    `${sha.substring(0, 7)}` now use `https://github.com/${owner}/${repo}/commit/${sha}`
+    (or `/pull/N/commits/${sha}` where the PR context matters).
+  - **Inline plain-English explanations.** New `STATUS_HINTS` / `CONCLUSION_HINTS`
+    dictionaries plus `explainStatus()` helper — verbose lines read
+    `[in_progress] (currently executing)` instead of bare `in_progress`.
+  - **Multi-line user-facing waiting message.** The `⏳ Waiting for CI:` line is now
+    rendered by `renderBlocker()` — single-line for the common case (one run), but each
+    detail on its own indented line when there are multiple.
+  - 8 new tests added to `tests/test-misleading-merge-logs-1712.mjs` (Groups 5–8); 21
+    total. #1480 (31/31) and #1466 (14/14) regression suites still pass.
+
+## 1.59.0
+
+### Minor Changes
+
+- 903b10e: Add `--auto-input-until-mergeable` (issue #1708): a new experimental
+  mode that extends a single Claude session for as long as possible by
+  streaming PR/issue comments, CI/CD failures, uncommitted-changes
+  status, and PR/issue title/body updates as NDJSON `user` frames into
+  the live `claude --input-format stream-json` process — instead of
+  killing the process and restarting with the feedback prepended to a
+  fresh prompt.
+
+  What it ships:
+  - Three new flags in `src/solve.config.lib.mjs`, all defaulting to
+    `false` and marked `[EXPERIMENTAL]`:
+    - `--auto-input-until-mergeable` — top-level opt-in for the new
+      behavior. Implies `--accept-incomming-comments-as-input` and
+      defaults to `--queue-comments-to-input` so the AI can finish its
+      current step before being interrupted.
+    - `--stream-comments-to-input` — forward each comment immediately
+      as it arrives. Default for `--accept-incomming-comments-as-input`
+      on its own (preserves the existing #817 behavior).
+    - `--queue-comments-to-input` — buffer comments while the AI is
+      busy and flush them only on `result` events. Default delivery
+      mode for `--auto-input-until-mergeable`. Mutually exclusive with
+      `--stream-comments-to-input`; queue mode wins if both are set.
+  - Queue-vs-stream delivery wired into
+    `src/bidirectional-interactive.lib.mjs#createBidirectionalHandler`:
+    - New `deliveryMode` option (`'stream'` / `'queue'`) plus
+      `markAiBusy()` / `markAiIdle()` lifecycle methods exposed on the
+      handler.
+    - In queue mode, comment frames and status frames are buffered in
+      `pendingFrames` while busy and FIFO-flushed to stdin on the next
+      `result` event. In stream mode, frames go to stdin immediately as
+      today.
+  - Status streaming (only when `--auto-input-until-mergeable` is on)
+    in `src/bidirectional-interactive.lib.mjs#checkForStatusChanges`:
+    - New parallel poller emits one-shot NDJSON frames for: PR
+      title/body changes, issue title/body changes (Issue #1708 G1),
+      uncommitted local changes (`git status --porcelain`), and CI
+      blockers (via `getMergeBlockers`).
+    - Each change is keyed by a stable signature so the same failing
+      check doesn't re-emit on every poll; failures in any sub-check
+      are swallowed and logged so the poller never breaks the live
+      Claude session.
+  - Stream parser in `src/claude.lib.mjs#executeClaudeCommand` now
+    signals `markAiBusy()` on `assistant` / `tool_use` / `tool_result`
+    events and `markAiIdle()` on `result` events, so queue-mode
+    buffering tracks the actual AI lifecycle.
+  - `src/solve.auto-merge.lib.mjs#watchUntilMergeable` logs a
+    "streaming-first" banner when `--auto-input-until-mergeable` was
+    active, so it is clear the auto-restart loop is the fallback rather
+    than the primary handler.
+  - For non-Claude tools, the validator continues to warn and disable
+    all four flags — the existing #817 fallback path. The default
+    behavior of every existing flag
+    (`--auto-restart-until-mergeable`, `--auto-merge`, etc.) is
+    preserved (R4: "must not break any existing features").
+  - Tests:
+    `tests/test-auto-input-until-mergeable-1708.mjs` (59 assertions)
+    and 11 new assertions in
+    `tests/test-bidirectional-interactive.mjs` cover flag composition,
+    queue-vs-stream routing, FIFO flushing on idle, busy-flag
+    preservation across stream-mode writes, default-deliveryMode is
+    stream, status-frame stamping with the right header per kind
+    (`comment` / `ci` / `uncommitted` / `metadata`), and metadata
+    diff/snapshot helpers.
+
+  The case study at `docs/case-studies/issue-1708/` is updated to
+  reflect that R1, R2 (Claude path), R3 (PR/issue title+body, CI,
+  uncommitted, comments), R4, R5, R6, plus G1, G5, G7 are addressed
+  here. Codex/Agent/OpenCode still degrade gracefully (no mid-session
+  NDJSON channel upstream) and use the existing `watchUntilMergeable`
+  loop as documented in G4.
+
+- 6efcab4: Fix cost / token calculation correctness, unify Total / sub-session format,
+  add verbose budget trace, and case study for issue #1710
+
+  Resolves the four "strange things" the issue reported by changing both the
+  public-pricing math and the rendered output:
+  - **R1 — `$0.040000` residual eliminated.** `calculateModelCost`
+    ([`src/claude.lib.mjs`](./src/claude.lib.mjs)) now bills Anthropic
+    server-side tools. `web_search` is charged at the documented
+    $10 / 1 000 requests rate (= $0.01 / req) via the new constants module
+    [`src/anthropic-server-tool-pricing.lib.mjs`](./src/anthropic-server-tool-pricing.lib.mjs).
+    For the issue's PR #1707 run that comes out to exactly the previously-shown
+    $0.040000 / +0.16% delta, so the public-pricing total now reconciles with
+    Anthropic's reported `total_cost_usd`. `accumulateModelUsage`
+    ([`src/claude.budget-stats.lib.mjs`](./src/claude.budget-stats.lib.mjs))
+    also picks up `usage.server_tool_use.web_search_requests` from JSONL.
+  - **R2 — Haiku sub-session line includes input information.** Sub-agent
+    models never appear as the responding model in the parent JSONL, so
+    `peakContextUsage` stays at `0`. The fallback in `buildBudgetStatsString`
+    now emits the cumulative `(X new + Y cache writes [+ Z cache reads])`
+    phrase instead of dropping the input information entirely.
+  - **R3/R5 — Sub-session and Total reconcile.** The bullet line is now
+    labelled `peak request: …` so it cannot be confused with the cumulative
+    Total line. `requestContext` (the source of `peakContextByModel`) excludes
+    cache reads, so the bullet figure is `input + cache_creation` and is
+    reconcilable with the cumulative non-cached total. Cache reads remain
+    visible — and visible separately — on the Total line.
+  - **R4 — Total always splits cache reads / cache writes when present.**
+    The conditional that previously keyed on `cacheReadTokens` only is replaced
+    with a `buildCumulativeInputPhrase` helper that emits
+    `(X new + W cache writes + Y cache reads) input tokens` when both kinds of
+    cache activity exist, `(X new + W cache writes)` when only writes exist
+    (the Haiku case that triggered the issue), and the back-compat
+    `(X + Y cached)` form when only reads exist (so common Opus-only output
+    is unchanged). Cache writes are billed at 1.25× / 2× of input — fusing
+    them silently into the input figure was a real semantic bug, not a
+    cosmetic one.
+
+  Both `displayBudgetStats` (solver-log renderer) and `buildBudgetStatsString`
+  (PR-comment renderer) share the helper, so the two paths render identically.
+
+  Also adds **`dumpBudgetTrace`**
+  ([`src/claude.budget-stats.lib.mjs`](./src/claude.budget-stats.lib.mjs)),
+  a verbose-only structured per-model trace (peak request, cumulative
+  input/cache_write 5m+1h split/cache_read/output, server-tool counts with
+  implied dollar cost, public and Anthropic-reported costs, and the data
+  source) that fires from `displayBudgetStats` only when `{verbose: true}` is
+  set, so the default solver output is unchanged. The trace captures all the
+  inputs that drive the renderer in one place, so the next "calculation
+  correctness" report can be triaged from a saved log alone.
+
+  Tests:
+  - `tests/test-issue-1710-budget-trace.mjs` — 10 cases for the verbose trace.
+  - `tests/test-issue-1710-format-fixes.mjs` — 8 cases locking each requirement
+    to numbers from `docs/case-studies/issue-1710/facts.md` (the actual
+    PR #1707 result event the issue quotes).
+
+  Documentation: `docs/case-studies/issue-1710/` contains the root-cause
+  analysis (per symptom, with file:line citations), the captured facts, and
+  the (now-implemented) solution plans.
+
+  Also fixes the hosted-CI flake that surfaced while validating this PR:
+  `use-m` occasionally hands back a truncated/corrupt global package after
+  `npm install -g`, surfacing as either
+  `Failed to import module from '...': SyntaxError: Unexpected end of input`
+  or `Failed to resolve the path to '<pkg>'` when use-m loads `getenv` /
+  `links-notation` from `src/config.lib.mjs` and `src/lino.lib.mjs`. Adds
+  `src/use-with-retry.lib.mjs`, a small wrapper around `use(...)` that
+  recognises both flake modes, removes the broken alias directory, and
+  re-fetches once. Covered by `tests/test-use-with-retry.mjs` (13 cases).
+
+## 1.58.0
+
+### Minor Changes
+
+- 3616130: Add `--sub-session-size` and `--disable-1m-context` options for Claude and Codex (issue #1706)
+
+  `--sub-session-size` (default: `150k`) caps the size of each sub-session
+  between auto-compaction events. It accepts a token count (`150k`, `1m`,
+  `200000`), a percentage of the model context window (`50%`), or `default`
+  to keep the tool's built-in threshold.
+
+  `--disable-1m-context` (default: `true`) opts out of the 1M extended
+  context window so models stay on their standard 200K-400K window. This
+  preserves reasoning quality and avoids the long-context price tier.
+  Use `--no-disable-1m-context` to allow 1M.
+
+  Both options work for `--tool claude` and `--tool codex`. For Claude Code
+  the wrapper sets `CLAUDE_CODE_DISABLE_1M_CONTEXT`,
+  `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`
+  env vars (clamped per upstream's "lower-only" semantics). For Codex the
+  wrapper appends `-c model_context_window=200000` and
+  `-c model_auto_compact_token_limit=<tokens>` overrides.
+
+  Verbose mode logs the applied env vars and `-c` overrides so operators
+  can confirm they reached the spawned tool process.
+
+- b341775: Hide the cost-estimation breakdown when the public and Anthropic numbers agree to within display precision (issue #1703)
+
+  Both the live `displayCostComparison` console output and the
+  `buildCostInfoString` markdown rendered into PR/issue comments previously
+  collapsed to the short `💰 Cost: $X.XXXXXX` form only when the two values
+  matched **exactly** at six decimal places. Real-world calls regularly produce
+  underlying values that differ by ~`1e-7` and round to **adjacent** displays
+  (e.g. `$11.219694` vs `$11.219693`); the rendered difference (`$-0.000000
+(-0.00%)`) was therefore noise yet still printed three full lines. The guard
+  now triggers whenever `|public − anthropic|.toFixed(6) === '0.000000'`, which
+  preserves the existing behaviour at every meaningful (≥ `$0.000001`) delta and
+  adds short-form output for the boundary case from issue #1703. Regression
+  tests live in `tests/test-build-cost-info-string.mjs` and
+  `tests/test-display-cost-comparison.mjs`.
+
+## 1.57.3
+
+### Patch Changes
+
+- 5c65c29: Fix /log and /terminal_watch falsely rejecting real `$` isolation sessions (issue #1700)
+
+  `parseSessionStatusOutput` looked for the isolation backend at `data.isolation`
+  or `data.options.isolation`, but the published `link-foundation/start` 0.25.x
+  CLI reports it at `options.isolated` in both JSON and the default
+  `links-notation` output. As a result, replying `/log` (or `/terminal_watch`) to
+  a `Work session finished` message rejected every screen / tmux / docker session
+  with `❌ This command currently supports only sessions launched with $
+isolation`. The parser now reads `options.isolated` first and keeps the legacy
+  field names as fallbacks. The rejection site additionally emits a `[VERBOSE]`
+  diagnostic line so future contract drifts can be triaged from a single bot log
+  entry. Regression test in `tests/test-issue-1700-isolation-parsing.mjs`.
+
+## 1.57.2
+
+### Patch Changes
+
+- aff6d1d: Add a stable test runner and suite markers to avoid package.json test-script conflicts.
+
+## 1.57.1
+
+### Patch Changes
+
+- e4ece4d: Treat Codex app-server stream-lag item errors as non-fatal warnings when the turn otherwise completes successfully, preventing successful Codex runs from being reported as failed solution drafts.
+
+## 1.57.0
+
+### Minor Changes
+
+- 272a2d4: Add live terminal watch support for hive-telegram-bot
+
+  This feature adds `/terminal_watch` plus the experimental `--auto-start-screen-watch-message` option. The command watches the log reported by `$ --status <uuid>` and updates a separate Telegram message with a terminal-sized text snapshot.
+
+  Key features:
+  - Manual `/terminal_watch <uuid>` command, including reply-based usage
+  - Configurable terminal snapshot size with `--size`, `--width`, and `--height`
+  - Auto-freezes the watch message and attaches the full log when the session ends
+  - Public repository logs can update in chat; private/unknown visibility uses DM for manual watches
+  - Auto-start remains off by default and never starts for private or unknown-visibility repositories
+
+  Based on the proof-of-concept from konard/telegram-terminal-bot.
+
 ## 1.56.19
 
 ### Patch Changes

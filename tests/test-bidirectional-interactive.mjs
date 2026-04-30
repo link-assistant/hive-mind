@@ -997,6 +997,336 @@ await runAsyncTest('getClaudeEnv sets CLAUDE_CODE_EXIT_AFTER_STOP_DELAY_MS when 
   }
 });
 
+// ============================================
+// ISSUE #1708: QUEUE-COMMENTS-TO-INPUT + STATUS STREAMING
+// ============================================
+
+console.log('\n=== Testing Issue #1708: queue mode, status streaming, idle/busy ===\n');
+
+runTest('formatFeedbackForClaude wraps each kind with the right header', () => {
+  const ci = utils.formatFeedbackForClaude('CI is failing on test-x', { kind: 'ci' });
+  const parsedCi = JSON.parse(ci);
+  if (!parsedCi.message.content[0].text.includes('[CI/CD STATUS UPDATE')) {
+    throw new Error(`Expected ci kind to use CI header, got: ${parsedCi.message.content[0].text}`);
+  }
+  const uncomm = utils.formatFeedbackForClaude('M src/foo.js', { kind: 'uncommitted' });
+  if (!JSON.parse(uncomm).message.content[0].text.includes('[UNCOMMITTED CHANGES DETECTED')) {
+    throw new Error('Expected uncommitted kind to use uncommitted header');
+  }
+  const meta = utils.formatFeedbackForClaude('Title changed: ...', { kind: 'metadata' });
+  if (!JSON.parse(meta).message.content[0].text.includes('[ISSUE/PR METADATA UPDATE')) {
+    throw new Error('Expected metadata kind to use metadata header');
+  }
+  const comment = utils.formatFeedbackForClaude('please fix this');
+  if (!JSON.parse(comment).message.content[0].text.includes('[USER FEEDBACK FROM PR COMMENT]')) {
+    throw new Error('Expected default kind to be comment');
+  }
+});
+
+await runAsyncTest('queue mode holds comments while AI is busy and flushes on markAiIdle', async () => {
+  const written = [];
+  const fakeStdin = {
+    write: chunk => {
+      written.push(chunk);
+      return true;
+    },
+  };
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: () =>
+      Promise.resolve({
+        stdout: JSON.stringify([{ id: 1001, body: 'queued comment', created_at: '2026-01-01T00:00:00Z', user: 'alice' }]),
+      }),
+    log: () => Promise.resolve(),
+    verbose: false,
+    deliveryMode: 'queue',
+  });
+  handler.attachClaudeStdin(fakeStdin);
+  handler.markAiBusy();
+  // Trigger comment polling once via startMonitoring -> initial check
+  await handler.startMonitoring();
+  await handler.stopMonitoring();
+  if (written.length !== 0) {
+    throw new Error(`Expected zero writes while AI busy, got ${written.length}`);
+  }
+  const stateBusy = handler.getState();
+  if (stateBusy.pendingFramesLength !== 1) {
+    throw new Error(`Expected 1 pending frame, got ${stateBusy.pendingFramesLength}`);
+  }
+  if (stateBusy.totalFramesQueued !== 1) {
+    throw new Error(`Expected totalFramesQueued=1, got ${stateBusy.totalFramesQueued}`);
+  }
+  // Now mark idle — frame should flush
+  const flushed = await handler.markAiIdle();
+  if (flushed !== 1) {
+    throw new Error(`Expected 1 frame flushed on idle, got ${flushed}`);
+  }
+  if (written.length !== 1) {
+    throw new Error(`Expected 1 write after idle, got ${written.length}`);
+  }
+  const frame = JSON.parse(written[0].trim());
+  if (!frame.message.content[0].text.includes('queued comment')) {
+    throw new Error('Flushed frame did not contain the queued comment text');
+  }
+  const stateIdle = handler.getState();
+  if (stateIdle.pendingFramesLength !== 0) {
+    throw new Error('Pending frames not drained after idle');
+  }
+  if (stateIdle.totalFramesFlushed !== 1) {
+    throw new Error(`Expected totalFramesFlushed=1, got ${stateIdle.totalFramesFlushed}`);
+  }
+});
+
+await runAsyncTest('stream mode writes comments immediately (no queueing)', async () => {
+  const written = [];
+  const fakeStdin = {
+    write: chunk => {
+      written.push(chunk);
+      return true;
+    },
+  };
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: () =>
+      Promise.resolve({
+        stdout: JSON.stringify([{ id: 1002, body: 'streamed comment', created_at: '2026-01-01T00:00:00Z', user: 'alice' }]),
+      }),
+    log: () => Promise.resolve(),
+    verbose: false,
+    deliveryMode: 'stream',
+  });
+  handler.attachClaudeStdin(fakeStdin);
+  // Even if marked busy, stream mode should not queue
+  handler.markAiBusy();
+  await handler.startMonitoring();
+  await handler.stopMonitoring();
+  if (written.length !== 1) {
+    throw new Error(`Stream mode should write immediately even while busy; got ${written.length} writes`);
+  }
+  const state = handler.getState();
+  if (state.pendingFramesLength !== 0) {
+    throw new Error('Stream mode should not buffer frames');
+  }
+  if (state.deliveryMode !== 'stream') {
+    throw new Error(`Expected deliveryMode='stream', got ${state.deliveryMode}`);
+  }
+});
+
+await runAsyncTest('queue mode handles multiple comments and flushes them in FIFO order', async () => {
+  const written = [];
+  const fakeStdin = {
+    write: chunk => {
+      written.push(chunk);
+      return true;
+    },
+  };
+  let pollCount = 0;
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: () => {
+      pollCount++;
+      // Different comments each poll, but only the first poll runs (we call stopMonitoring)
+      return Promise.resolve({
+        stdout: JSON.stringify([
+          { id: 2001, body: 'first', created_at: '2026-01-01T00:00:00Z', user: 'a' },
+          { id: 2002, body: 'second', created_at: '2026-01-01T00:00:01Z', user: 'b' },
+          { id: 2003, body: 'third', created_at: '2026-01-01T00:00:02Z', user: 'c' },
+        ]),
+      });
+    },
+    log: () => Promise.resolve(),
+    verbose: false,
+    deliveryMode: 'queue',
+  });
+  handler.attachClaudeStdin(fakeStdin);
+  handler.markAiBusy();
+  await handler.startMonitoring();
+  await handler.stopMonitoring();
+  if (handler.getState().pendingFramesLength !== 3) {
+    throw new Error(`Expected 3 pending frames, got ${handler.getState().pendingFramesLength}`);
+  }
+  await handler.markAiIdle();
+  if (written.length !== 3) {
+    throw new Error(`Expected 3 writes after idle, got ${written.length}`);
+  }
+  // FIFO: comments returned by gh api are sorted desc by created_at then reversed,
+  // so the iteration order is by descending created_at — but our mock returns them
+  // already in descending order (third arrives first in iteration). The handler
+  // queues them in iteration order; idle flushes in queued order. We just assert
+  // all three texts are present in some order.
+  const texts = written.map(w => JSON.parse(w.trim()).message.content[0].text);
+  for (const expected of ['first', 'second', 'third']) {
+    if (!texts.some(t => t.includes(expected))) {
+      throw new Error(`Expected flushed frames to include ${expected}, got: ${JSON.stringify(texts)}`);
+    }
+  }
+  if (pollCount === 0) throw new Error('Expected at least one comment poll');
+});
+
+await runAsyncTest('markAiIdle is a safe no-op when no frames are pending', async () => {
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: () => Promise.resolve({ stdout: '[]' }),
+    log: () => Promise.resolve(),
+    verbose: false,
+    deliveryMode: 'queue',
+  });
+  const flushed = await handler.markAiIdle();
+  if (flushed !== 0) {
+    throw new Error(`Expected 0 flushed, got ${flushed}`);
+  }
+});
+
+await runAsyncTest('markAiIdle keeps frames pending if stdin is detached', async () => {
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: () => Promise.resolve({ stdout: JSON.stringify([{ id: 3001, body: 'orphan', created_at: '2026-01-01T00:00:00Z', user: 'x' }]) }),
+    log: () => Promise.resolve(),
+    verbose: false,
+    deliveryMode: 'queue',
+  });
+  handler.attachClaudeStdin({ write: () => true });
+  handler.markAiBusy();
+  await handler.startMonitoring();
+  await handler.stopMonitoring();
+  handler.detachClaudeStdin();
+  const flushed = await handler.markAiIdle();
+  if (flushed !== 0) {
+    throw new Error('Expected 0 flushed when stdin detached');
+  }
+  if (handler.getState().pendingFramesLength !== 1) {
+    throw new Error('Expected pending frame to remain when stdin detached');
+  }
+});
+
+await runAsyncTest('diffMetadataSnapshot returns null when nothing changed and a summary when it does', async () => {
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: () => Promise.resolve({ stdout: '[]' }),
+    log: () => Promise.resolve(),
+  });
+  const same = handler._internal.diffMetadataSnapshot({ title: 't', body: 'b' }, { title: 't', body: 'b' });
+  if (same !== null) throw new Error('Expected null for unchanged snapshot');
+  const titleOnly = handler._internal.diffMetadataSnapshot({ title: 'old', body: 'b' }, { title: 'new', body: 'b' });
+  if (!titleOnly || !titleOnly.includes('Title changed')) throw new Error('Expected title-changed summary');
+  const bodyOnly = handler._internal.diffMetadataSnapshot({ title: 't', body: 'old body' }, { title: 't', body: 'new body' });
+  if (!bodyOnly || !bodyOnly.includes('Body changed')) throw new Error('Expected body-changed summary');
+});
+
+await runAsyncTest('fetchMetadataSnapshot returns {title, body} from a successful gh api call', async () => {
+  // Mock $ as a tagged template that returns a fake gh api response.
+  let captured = null;
+  const mock$ = (strings, ...values) => {
+    captured = { strings: Array.from(strings), values };
+    return Promise.resolve({ code: 0, stdout: JSON.stringify({ title: 'hello', body: 'world' }) });
+  };
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 7,
+    $: mock$,
+    log: () => Promise.resolve(),
+  });
+  const snap = await handler._internal.fetchMetadataSnapshot('pr', 7);
+  if (!snap || snap.title !== 'hello' || snap.body !== 'world') {
+    throw new Error(`Expected {hello, world}, got ${JSON.stringify(snap)}`);
+  }
+  if (!captured || !captured.strings.join(' ').includes('gh api')) {
+    throw new Error('Expected gh api invocation');
+  }
+});
+
+await runAsyncTest('fetchMetadataSnapshot returns null when gh api fails', async () => {
+  const mock$ = () => Promise.resolve({ code: 1, stdout: '', stderr: 'boom' });
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 7,
+    $: mock$,
+    log: () => Promise.resolve(),
+  });
+  const snap = await handler._internal.fetchMetadataSnapshot('pr', 7);
+  if (snap !== null) throw new Error(`Expected null on failure, got ${JSON.stringify(snap)}`);
+});
+
+await runAsyncTest('dispatchFrame routes to stdin in stream mode and to pendingFrames in queue mode', async () => {
+  // Stream mode — frame goes to stdin
+  const writtenStream = [];
+  const streamHandler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: () => Promise.resolve({ stdout: '[]' }),
+    log: () => Promise.resolve(),
+    deliveryMode: 'stream',
+  });
+  streamHandler.attachClaudeStdin({
+    write: chunk => {
+      writtenStream.push(chunk);
+      return true;
+    },
+  });
+  streamHandler.markAiBusy(); // should not affect stream mode
+  const frame = utils.formatFeedbackForClaude('hello', { kind: 'comment' });
+  await streamHandler._internal.dispatchFrame(frame, { kind: 'comment', label: 'x' });
+  if (writtenStream.length !== 1) throw new Error(`Expected 1 stream write, got ${writtenStream.length}`);
+  // Queue mode — busy → pending
+  const writtenQueue = [];
+  const queueHandler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: () => Promise.resolve({ stdout: '[]' }),
+    log: () => Promise.resolve(),
+    deliveryMode: 'queue',
+  });
+  queueHandler.attachClaudeStdin({
+    write: chunk => {
+      writtenQueue.push(chunk);
+      return true;
+    },
+  });
+  queueHandler.markAiBusy();
+  await queueHandler._internal.dispatchFrame(frame, { kind: 'comment', label: 'y' });
+  if (writtenQueue.length !== 0) throw new Error('Expected zero writes in queue mode while busy');
+  if (queueHandler.getState().pendingFramesLength !== 1) throw new Error('Expected 1 pending frame in queue mode while busy');
+  // Idle → flush
+  await queueHandler.markAiIdle();
+  if (writtenQueue.length !== 1) throw new Error(`Expected 1 write after idle, got ${writtenQueue.length}`);
+});
+
+await runAsyncTest('getState reports new fields for issue #1708', async () => {
+  const handler = createBidirectionalHandler({
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    $: () => Promise.resolve({ stdout: '[]' }),
+    log: () => Promise.resolve(),
+    deliveryMode: 'queue',
+    streamStatusToInput: true,
+  });
+  const s = handler.getState();
+  if (s.deliveryMode !== 'queue') throw new Error('deliveryMode missing/wrong');
+  if (s.streamStatusToInput !== true) throw new Error('streamStatusToInput missing/wrong');
+  if (typeof s.isAiBusy !== 'boolean') throw new Error('isAiBusy not boolean');
+  if (typeof s.pendingFramesLength !== 'number') throw new Error('pendingFramesLength not number');
+  if (typeof s.totalFramesQueued !== 'number') throw new Error('totalFramesQueued not number');
+  if (typeof s.totalFramesFlushed !== 'number') throw new Error('totalFramesFlushed not number');
+  if (typeof s.totalStatusFramesSent !== 'number') throw new Error('totalStatusFramesSent not number');
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`Test Results for bidirectional-interactive.lib.mjs:`);

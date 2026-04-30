@@ -17,8 +17,9 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
@@ -57,6 +58,10 @@ const { checkForExistingComment, checkForNonBotComments, getMergeBlockers } = au
 // Issue #1625: Shared marker constants + posting/tracking helpers
 const toolComments = await import('./tool-comments.lib.mjs');
 const { READY_TO_MERGE_MARKER, AUTO_RESTART_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+
+// Issue #1728: Per-iteration working session summary attachment helper
+const resultsLib = await import('./solve.results.lib.mjs');
+const { maybeAttachWorkingSessionSummary } = resultsLib;
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
@@ -111,6 +116,11 @@ export const watchUntilMergeable = async params => {
   await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (strict repo-wide safety)' : 'No (PR-scoped CI only)', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
   await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
+  // Issue #1708: Surface that --auto-input-until-mergeable streamed feedback
+  // into the prior session, so any restart triggered here is a fallback.
+  if (argv.autoInputUntilMergeable) {
+    await log(formatAligned('', 'Streaming-first:', '--auto-input-until-mergeable was active; this loop is the fallback', 2));
+  }
   await log('');
   await log('Press Ctrl+C to stop watching manually');
   await log('');
@@ -588,6 +598,10 @@ No further AI sessions will be started automatically for this run. Please review
         // Execute the AI tool using shared utility
         await log(formatAligned('🔄', 'Restarting:', `Running ${argv.tool.toUpperCase()} to address issues...`));
 
+        // Issue #1728: Scope the AI-comment check that gates --auto-attach-solution-summary
+        // to comments posted during *this* iteration only, not across the whole watch loop.
+        const iterationStartTime = new Date();
+
         const toolResult = await executeToolIteration({
           issueUrl,
           owner,
@@ -885,6 +899,35 @@ No further AI sessions will be started automatically for this run. Please review
             }
           }
 
+          // Issue #1728: Attach a "Working session summary" comment for this
+          // iteration if the AI didn't post any comments of its own (and
+          // --auto-attach-solution-summary is enabled, which it is by default).
+          // Before this fix, only the top-level solve.mjs flow honoured this
+          // flag, so iterations inside auto-restart-until-mergeable silently
+          // dropped the AI's last message — see #1728.
+          try {
+            await maybeAttachWorkingSessionSummary({
+              argv,
+              resultSummary: toolResult.resultSummary,
+              workStartTime: iterationStartTime,
+              owner,
+              repo,
+              prNumber,
+              issueNumber,
+              success: true,
+            });
+          } catch (summaryError) {
+            reportError(summaryError, {
+              context: 'attach_auto_restart_working_session_summary',
+              prNumber,
+              owner,
+              repo,
+              iteration,
+              operation: 'attach_working_session_summary',
+            });
+            await log(formatAligned('', `⚠️  Working session summary error: ${cleanErrorMessage(summaryError)}`, '', 2));
+          }
+
           await log('');
           await log(formatAligned('✅', `${argv.tool.toUpperCase()} execution completed:`, 'Checking if PR is now mergeable...'));
         }
@@ -898,10 +941,30 @@ No further AI sessions will be started automatically for this run. Please review
         const cancelledOnly = blockers.every(b => b.type === 'ci_cancelled' || b.type === 'ci_pending');
         const cancelledBlocker = blockers.find(b => b.type === 'ci_cancelled');
 
+        // Issue #1712: When `details` contain URLs (which they now always do for ci_pending /
+        // ci_cancelled blockers), comma-joining them produces an unreadable single-line wall
+        // of text. Render the first detail inline (with the message as the header) and any
+        // additional details on their own indented lines. Each detail is already
+        // self-explanatory: "<name> [<status>] — <url>".
+        const renderBlocker = (icon, header, blocker) => {
+          if (!blocker.details || blocker.details.length === 0) {
+            return log(formatAligned(icon, header, blocker.message, 2));
+          }
+          if (blocker.details.length === 1) {
+            return log(formatAligned(icon, header, blocker.details[0], 2));
+          }
+          return (async () => {
+            await log(formatAligned(icon, header, blocker.message, 2));
+            for (const detail of blocker.details) {
+              await log(formatAligned('', '', detail, 4));
+            }
+          })();
+        };
+
         if (cancelledOnly && cancelledBlocker) {
-          await log(formatAligned('🔄', 'Waiting for re-triggered CI:', cancelledBlocker.details.join(', '), 2));
+          await renderBlocker('🔄', 'Waiting for re-triggered CI:', cancelledBlocker);
         } else if (pendingBlocker) {
-          await log(formatAligned('⏳', 'Waiting for CI:', pendingBlocker.details.length > 0 ? pendingBlocker.details.join(', ') : pendingBlocker.message, 2));
+          await renderBlocker('⏳', 'Waiting for CI:', pendingBlocker);
         } else {
           await log(formatAligned('⏳', 'Waiting for:', blockers.map(b => b.message).join(', '), 2));
         }

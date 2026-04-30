@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import path from 'path';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
+import { buildStartAgentArgs, resolveStartAgentCommand } from './task.agent-command.lib.mjs';
 import { createYargsConfig, getDefaultTaskModel } from './task.config.lib.mjs';
 import { validateModelName } from './models/index.mjs';
 import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseCreatedIssueUrl, parseTaskIssueUrl } from './task.split.lib.mjs';
@@ -32,7 +33,7 @@ if (earlyArgs.length === 0 || earlyArgs.includes('--help') || earlyArgs.includes
   console.log('  --only-decompose   Only run decomposition mode');
   console.log('  --split            Split a GitHub issue into smaller issues');
   console.log('  --split-count      Number of issues to split into [default: 2]');
-  console.log('  --tool             AI tool for agent-commander (claude, codex, opencode, agent) [default: claude]');
+  console.log('  --tool             AI tool for agent-commander read-only mode (claude, codex, opencode, agent) [default: claude]');
   console.log('  --model, -m        Model to use');
   console.log('  --isolation        agent-commander isolation mode [default: screen]');
   console.log('  --dry-run          Print split output without creating GitHub issues');
@@ -116,30 +117,29 @@ async function commandOutput(command, args, options = {}) {
   return result.stdout.trim();
 }
 
-async function findStartAgent() {
-  const result = await runCommand('which', ['start-agent']);
-  return result.code === 0 ? result.stdout.trim() : null;
-}
-
 function buildScreenName(issue) {
   const base = issue ? `task-split-${issue.owner}-${issue.repo}-${issue.number}` : 'task-agent';
   return `${base}-${crypto.randomUUID().slice(0, 8)}`.replace(/[^A-Za-z0-9_.-]/g, '-');
 }
 
 async function runAgentPrompt(prompt, systemPrompt, issue = null) {
-  const startAgent = await findStartAgent();
+  const startAgent = await resolveStartAgentCommand({ runCommand });
   if (!startAgent) {
-    throw new Error('agent-commander CLI not found. Install start-agent after https://github.com/link-assistant/agent-commander/issues/19 is resolved or install it manually from the agent-commander js package.');
+    throw new Error('agent-commander start-agent binary not found. Run npm install so the agent-commander dependency is available, or install start-agent on PATH.');
   }
 
-  const args = ['--tool', argv.tool, '--working-directory', process.cwd(), '--prompt', prompt, '--system-prompt', systemPrompt, '--model', selectedModel, '--isolation', argv.isolation];
+  const args = buildStartAgentArgs({
+    tool: argv.tool,
+    workingDirectory: process.cwd(),
+    prompt,
+    systemPrompt,
+    model: selectedModel,
+    isolation: argv.isolation,
+    screenName: argv.isolation === 'screen' ? argv.screenName || buildScreenName(issue) : null,
+    verbose: argv.verbose,
+  });
 
-  if (argv.isolation === 'screen') {
-    args.push('--screen-name', argv.screenName || buildScreenName(issue));
-  }
-  if (argv.verbose) args.push('--verbose');
-
-  await log(`Running agent-commander with tool=${argv.tool}, model=${selectedModel}, isolation=${argv.isolation}`, { verbose: true });
+  await log(`Running agent-commander with tool=${argv.tool}, model=${selectedModel}, isolation=${argv.isolation}, readOnly=true`, { verbose: true });
   const result = await runCommand(startAgent, args);
   const output = `${result.stdout || ''}${result.stderr ? `\n${result.stderr}` : ''}`.trim();
   if (result.code !== 0) {

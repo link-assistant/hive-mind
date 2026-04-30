@@ -44,6 +44,8 @@ const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFro
 const { executeStartScreen: executeStartScreenCommand } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
+const { safeReply } = await import('./telegram-safe-reply.lib.mjs');
+const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync } = await import('./session-monitor.lib.mjs');
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
@@ -113,6 +115,7 @@ const config = yargs(hideBin(process.argv))
     alias: 'v',
     default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
   })
+  .option('autoStartScreenWatchMessage', { type: 'boolean', description: 'Experimental: auto-start separate /terminal_watch messages for public /solve sessions', alias: 'auto-start-screen-watch-message', default: getenv('TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE', getenv('TELEGRAM_AUTO_WATCH_MESSAGE', 'false')) === 'true' })
   .option('isolation', { type: 'string', description: "Isolation backend (screen/tmux/docker). Defaults to 'screen' so Telegram-bot work sessions survive bot restarts; pass --isolation '' (or set TELEGRAM_ISOLATION='') to disable.", default: getenv('TELEGRAM_ISOLATION', 'screen') })
   .help('h')
   .alias('h', 'help')
@@ -130,6 +133,7 @@ if (config.configuration) {
 
 const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
 const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
+const AUTO_WATCH_MESSAGE = config.autoStartScreenWatchMessage === true;
 if (!BOT_TOKEN) {
   console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --token or TELEGRAM_BOT_TOKEN env var.');
   process.exit(1);
@@ -443,25 +447,6 @@ async function validateGitHubUrl(args, options = {}) {
   return { valid: true, parsed, normalizedUrl: url };
 }
 
-// Issue #1460/#1497: safeReply - try Markdown first, fall back to plain text on parsing errors
-async function safeReply(ctx, text, options = {}) {
-  try {
-    return await ctx.reply(text, { parse_mode: 'Markdown', ...options });
-  } catch (error) {
-    const isParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('400')));
-    if (!isParsingError) throw error;
-    console.error(`[telegram-bot] safeReply: Markdown parsing failed: ${error.message}`);
-    console.error(`[telegram-bot] safeReply: Failing message (${Buffer.byteLength(text, 'utf-8')} bytes): ${text}`);
-    const plainText = text
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
-      .replace(/\\_/g, '_')
-      .replace(/\\\*/g, '*')
-      .replace(/\*([^*]+)\*/g, '$1')
-      .replace(/`([^`]+)`/g, '$1');
-    return await ctx.reply(plainText, { ...options, parse_mode: undefined });
-  }
-}
-
 async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null) {
   const { chat, message_id: msgId } = startingMessage;
   const safeEdit = async text => {
@@ -473,18 +458,24 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
   };
   const requesterUserId = ctx.from?.id ?? null; // Issue #1688: suppress duplicate /subscribe DM
   const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
-  let result, session;
+  let result, session, sessionInfo;
   if (iso) {
     session = iso.runner.generateSessionId();
     VERBOSE && console.log(`[VERBOSE] Using isolation (${iso.backend}), session: ${session}`);
     result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, verbose: VERBOSE });
-    if (result.success) trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: iso.backend, sessionId: session, tool, infoBlock, urlContext, requesterUserId }, VERBOSE);
+    if (result.success) {
+      sessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: iso.backend, sessionId: session, tool, infoBlock, urlContext, requesterUserId };
+      trackSession(session, sessionInfo, VERBOSE);
+    }
   } else {
     result = await executeStartScreen(commandName, args);
     const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
     session = match ? match[1] : 'unknown';
     // Issue #1586: Non-isolation sessions auto-expire after 10 min — screen stays alive via `exec bash` so completion can't be detected reliably; this still blocks duplicate commands in the timeout window.
-    if (result.success && session !== 'unknown') trackSession(session, { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId }, VERBOSE);
+    if (result.success && session !== 'unknown') {
+      sessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId };
+      trackSession(session, sessionInfo, VERBOSE);
+    }
   }
   if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
   if (result.success) {
@@ -495,6 +486,7 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
         infoBlock,
       })
     );
+    if (AUTO_WATCH_MESSAGE && commandName === 'solve' && sessionInfo?.isolationBackend) await startAutoTerminalWatchForSession({ bot, ctx, sessionId: session, sessionInfo, verbose: VERBOSE });
   } else await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${infoBlock}`);
 }
 
@@ -582,11 +574,12 @@ bot.command('help', async ctx => {
   message += '*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental, #1688)\n';
   message += '*/help* - Show this help message\n';
   message += '*/stop* / */start* - Stop or resume accepting new tasks (owner only)\n';
-  message += '*/log* - Fetch isolation session log (owner only). Usage: `/log <uuid>` or reply with `/log`\n\n';
+  message += '*/log* - Fetch isolation session log (owner only). Usage: `/log <uuid>` or reply with `/log`\n';
+  message += '*/terminal\\_watch* - Live-update an isolation session log (owner only). Usage: `/terminal_watch <uuid>` or reply with `/terminal_watch`\n\n';
   message += '🔔 *Session Notifications:* Completion notifications are automatic; use /subscribe for private DM forwards.\n';
   if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
   message += '\n';
-  message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /subscribe and /unsubscribe work in private and group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /subscribe and /unsubscribe work in private and group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -895,7 +888,9 @@ async function handleSolveCommand(ctx) {
       VERBOSE && console.log(`[VERBOSE] Auto-accept invite pre-check failed: ${e.message}`);
     }
   }
-  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, verbose: VERBOSE, autoAcceptInvite: args.some(a => a === '--auto-accept-invite') });
+  // Issue #1714: read the parsed argv (default-on per #1694) instead of the raw args list,
+  // so the invite hint is suppressed on the default-on path where the literal flag is absent.
+  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, verbose: VERBOSE, autoAcceptInvite: !!parsedSolveArgs?.autoAcceptInvite });
   if (!entityCheck.valid) {
     await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
     return;
@@ -1115,6 +1110,7 @@ const { registerLogCommand } = await import('./telegram-log-command.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
 registerStartStopCommands(bot, sharedCommandOpts);
 await registerLogCommand(bot, sharedCommandOpts);
+await registerTerminalWatchCommand(bot, sharedCommandOpts);
 
 // Add message listener for verbose debugging
 if (VERBOSE) {

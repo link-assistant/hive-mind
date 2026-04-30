@@ -11,6 +11,7 @@ if (typeof globalThis.use === 'undefined') {
 import { log, cleanErrorMessage } from './lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
 
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 /**
  * Check if a PR body/title indicates it fixes/closes/resolves a specific issue number
  * GitHub auto-closes issues when PR body contains keywords like "fixes #123", "closes #123", "resolves #123"

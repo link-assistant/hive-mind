@@ -11,7 +11,20 @@
 
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
-const exec = promisify(execCallback);
+import { githubLimits } from './config.lib.mjs';
+import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+const execRaw = promisify(execCallback);
+// Issue #1722: raise exec maxBuffer above Node's 1 MB default for paginated gh
+// API responses (workflow runs can easily exceed that on busy repos).
+// Issue #1726: wrap with rate-limit retry so a 5,000/hr quota hit waits for
+// reset instead of bubbling up as a generic fetch failure.
+const exec = (cmd, opts = {}) =>
+  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts }), {
+    label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+  });
+
+// Statuses we treat as "not yet finished".
+const ACTIVE_RUN_STATUSES = ['in_progress', 'queued', 'waiting', 'requested', 'pending'];
 
 /**
  * Get ALL active workflow runs across the entire repository (no branch filter).
@@ -21,20 +34,34 @@ const exec = promisify(execCallback);
  * @returns {Promise<{runs: Array, hasActiveRuns: boolean, count: number}>}
  */
 export async function getAllActiveRepoRuns(owner, repo, verbose = false) {
-  try {
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?per_page=100" --paginate --slurp`);
-    const runs = JSON.parse(stdout.trim() || '[]')
-      .flatMap(page => page.workflow_runs || [])
-      .filter(run => ['in_progress', 'queued', 'waiting', 'requested', 'pending'].includes(run.status))
-      .map(run => ({ id: run.id, name: run.name, status: run.status, head_branch: run.head_branch, head_sha: run.head_sha?.slice(0, 7) }));
-    if (verbose && runs.length > 0) {
-      console.log(`[VERBOSE] repo-actions: ${runs.length} active run(s) in ${owner}/${repo}`);
-      for (const r of runs) console.log(`[VERBOSE] repo-actions:   ${r.name} (${r.status}) on ${r.head_branch}`);
+  // Issue #1722: filter on the server side per status to avoid pulling the full
+  // history of workflow runs (which can exceed exec maxBuffer). Also: do not
+  // swallow errors as "no active runs" — bubble them up so callers can retry
+  // instead of merging on top of a still-running CI run.
+  const seen = new Set();
+  const runs = [];
+  for (const status of ACTIVE_RUN_STATUSES) {
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?status=${status}&per_page=100" --paginate --slurp`);
+    const pages = JSON.parse(stdout.trim() || '[]');
+    for (const page of pages) {
+      for (const run of page.workflow_runs || []) {
+        if (seen.has(run.id)) continue;
+        seen.add(run.id);
+        runs.push({
+          id: run.id,
+          name: run.name,
+          status: run.status,
+          head_branch: run.head_branch,
+          head_sha: run.head_sha?.slice(0, 7),
+        });
+      }
     }
-    return { runs, hasActiveRuns: runs.length > 0, count: runs.length };
-  } catch {
-    return { runs: [], hasActiveRuns: false, count: 0 };
   }
+  if (verbose && runs.length > 0) {
+    console.log(`[VERBOSE] repo-actions: ${runs.length} active run(s) in ${owner}/${repo}`);
+    for (const r of runs) console.log(`[VERBOSE] repo-actions:   ${r.name} (${r.status}) on ${r.head_branch}`);
+  }
+  return { runs, hasActiveRuns: runs.length > 0, count: runs.length };
 }
 
 /**
@@ -52,7 +79,16 @@ export async function waitForAllRepoActions(owner, repo, options = {}, verbose =
   let peakRunCount = 0;
 
   while (Date.now() - startTime < timeout) {
-    const active = await getAllActiveRepoRuns(owner, repo, verbose);
+    let active;
+    try {
+      active = await getAllActiveRepoRuns(owner, repo, verbose);
+    } catch (error) {
+      // Issue #1722: do not silently treat fetch errors as "no active runs".
+      // Log and retry on the next poll instead.
+      console.error(`[ERROR] repo-actions: Error checking repo CI: ${error.message}`);
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      continue;
+    }
     if (onStatusUpdate) {
       try {
         await onStatusUpdate({ ...active, elapsedMs: Date.now() - startTime });
@@ -66,7 +102,15 @@ export async function waitForAllRepoActions(owner, repo, options = {}, verbose =
     peakRunCount = Math.max(peakRunCount, active.count);
     await new Promise(resolve => setTimeout(resolve, pollInterval));
   }
-  const finalRuns = await getAllActiveRepoRuns(owner, repo, verbose);
+  // Issue #1722: if the timeout-final check throws, surface that as an error
+  // rather than reporting "no remaining runs".
+  let finalRuns;
+  try {
+    finalRuns = await getAllActiveRepoRuns(owner, repo, verbose);
+  } catch (error) {
+    console.error(`[ERROR] repo-actions: Final CI check failed after timeout: ${error.message}`);
+    return { success: false, waitedForRuns: true, timedOut: true, remainingRuns: [] };
+  }
   return { success: false, waitedForRuns: true, timedOut: true, remainingRuns: finalRuns.runs };
 }
 
@@ -89,6 +133,60 @@ export async function getPRCommitShas(owner, repo, prNumber, verbose = false) {
   } catch {
     return [];
   }
+}
+
+/**
+ * Issue #1712: Collect every active (in_progress / pending / queued / waiting / requested)
+ * workflow run on the PR branch — across ALL commits, not only the head SHA.
+ *
+ * Why this exists: when the user watches `/merge`, the GitHub Actions tab shows yellow
+ * dots for every commit that ever had a run, including older commits whose runs were
+ * automatically cancelled by GitHub's concurrency group. The verbose log used to list
+ * only the head-SHA runs, so a user comparing the log to the GitHub UI would see
+ * "1 workflow run" in the log but two yellow dots on screen — looking like a bug.
+ *
+ * Returns runs grouped by SHA, deduplicated by run.id (a single run can be associated
+ * with one SHA, but the same workflow file can produce runs on multiple SHAs).
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {string} headSha - The PR head SHA (used to mark which group is "current")
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {Function} getWorkflowRunsForSha - Function to get workflow runs for a SHA
+ * @returns {Promise<{groups: Array<{sha: string, isHead: boolean, runs: Array}>, totalActive: number, headActive: number, otherActive: number}>}
+ */
+export async function getActivePRWorkflowRuns(owner, repo, prNumber, headSha, verbose, getWorkflowRunsForSha) {
+  const shas = await getPRCommitShas(owner, repo, prNumber, false);
+  if (shas.length === 0) {
+    return { groups: [], totalActive: 0, headActive: 0, otherActive: 0 };
+  }
+
+  const ACTIVE_STATUSES = new Set(['in_progress', 'pending', 'queued', 'waiting', 'requested']);
+  const groups = [];
+  const seenRunIds = new Set();
+  let totalActive = 0;
+  let headActive = 0;
+  let otherActive = 0;
+
+  for (const sha of shas) {
+    const runs = await getWorkflowRunsForSha(owner, repo, sha, false);
+    const activeRuns = runs.filter(r => ACTIVE_STATUSES.has(r.status) && !seenRunIds.has(r.id));
+    for (const r of activeRuns) seenRunIds.add(r.id);
+    if (activeRuns.length === 0) continue;
+
+    const isHead = sha === headSha;
+    groups.push({ sha, isHead, runs: activeRuns });
+    totalActive += activeRuns.length;
+    if (isHead) headActive += activeRuns.length;
+    else otherActive += activeRuns.length;
+  }
+
+  if (verbose && totalActive > 0) {
+    console.log(`[VERBOSE] pr-commits: ${totalActive} active workflow run(s) across ${groups.length} commit(s) on PR #${prNumber} (${headActive} on HEAD, ${otherActive} on older commits)`);
+  }
+
+  return { groups, totalActive, headActive, otherActive };
 }
 
 /**

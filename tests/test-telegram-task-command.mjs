@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+/**
+ * @hive-mind-test-suite default
+ */
+
 import assert from 'assert/strict';
 import { applyTaskCommandDefaults, buildTaskCommandArgs, findTaskIssueUrl, getTaskCommandNameFromText, getTaskToolFromArgs } from '../src/telegram-task-command.lib.mjs';
 

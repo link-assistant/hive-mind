@@ -81,6 +81,20 @@ export const defaultConfig: AgentConfig = {
 - [ ] 人工审查已完成
 - [ ] AI 达成共识（如果是多 agent 模式）
 
+### 测试套件入口
+
+使用 `npm test` 运行默认本地套件。应在默认套件中运行的新测试必须在测试文件本身标记：
+
+```javascript
+/**
+ * @hive-mind-test-suite default
+ */
+```
+
+对于需要外部服务或会修改真实仓库的测试，请使用专用套件标记，例如
+`github-integration`。不要把单独的 `node tests/...` 命令追加到
+`package.json` 或主 CI test-suite job 中。
+
 ### 通信协议
 
 #### 人类 → AI

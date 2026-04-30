@@ -47,7 +47,7 @@ export const createYargsConfig = yargsInstance =>
     })
     .option('tool', {
       type: 'string',
-      description: 'AI tool to use through agent-commander',
+      description: 'AI tool to use through agent-commander read-only mode',
       choices: TASK_TOOL_CHOICES,
       default: 'claude',
     })

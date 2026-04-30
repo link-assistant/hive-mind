@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
   const { getVersion } = await import('./version.lib.mjs');
@@ -28,7 +29,6 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
-    // Show help and exit
     helpYargs.showHelp();
     process.exit(0);
   } catch (error) {
@@ -798,8 +798,8 @@ if (isRunningDirectly) {
                 for (const entry of value) {
                   args.push(`--${optionName}`, String(entry));
                 }
-              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined) {
-                args.push(`--${optionName}`, String(value));
+              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined && value !== false) {
+                args.push(`--${optionName}`, String(value)); // Issue #1718: skip false (some string options have default:false)
               }
             }
             // Log the actual command being executed so users can investigate/reproduce
@@ -1483,6 +1483,9 @@ if (isRunningDirectly) {
       await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
       await safeExit(1, 'Error occurred');
     }
+
+    const finalStats = issueQueue.getStats(); // Issue #1718: surface worker failures via exit code
+    if (finalStats.failed > 0) await safeExit(1, `${finalStats.failed} task(s) failed (completed: ${finalStats.completed})`);
   } catch (fatalError) {
     // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');
@@ -1494,4 +1497,4 @@ if (isRunningDirectly) {
     console.error('\nPlease report this issue at: https://github.com/link-assistant/hive-mind/issues');
     process.exit(1);
   }
-} // End of main execution block
+}

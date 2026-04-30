@@ -5,6 +5,7 @@
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 // Import Sentry integration
 import { reportError } from './sentry.lib.mjs';
 

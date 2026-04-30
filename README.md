@@ -440,9 +440,19 @@ Want to see the Hive Mind in action? Request a free demo or get faster support b
    hive-telegram-bot 2>&1 | tee -a "logs/bot-$(date +%Y%m%d-%H%M%S).log"
    ```
 
+   **Experimental: live terminal watch**
+
+   ```bash
+   hive-telegram-bot --auto-start-screen-watch-message
+   ```
+
+   This opt-in flag starts a separate live terminal message for public `/solve`
+   sessions. Private or unknown-visibility repositories never auto-start a
+   watch message.
+
 ### Bot Commands
 
-All commands work in **group chats only** (not in private messages with the bot):
+Most operational commands work in **group chats only** (not in private messages with the bot). Commands that intentionally deliver private updates, such as `/terminal_watch`, may also be used in direct messages:
 
 #### `/solve` - Solve GitHub Issues
 
@@ -514,6 +524,22 @@ Shows:
 - Claude usage limits (session and weekly)
 ```
 
+#### `/terminal_watch` - Live Session Log
+
+```
+/terminal_watch <uuid> [--size 120x25]
+
+Examples:
+/terminal_watch 4d934f71-4cdb-4b8c-b474-582116d12c12
+/terminal_watch 4d934f71-4cdb-4b8c-b474-582116d12c12 --width 100 --height 20
+```
+
+You can also reply to a bot session message with `/terminal_watch`. The command
+updates a separate Telegram message with the latest lines from the session log
+reported by `$ --status <uuid>` and attaches the full log file when the session
+finishes. Public repository logs can be watched in the chat; private or
+unknown-visibility repository logs are delivered by direct message only.
+
 #### `/help` - Get Help and Diagnostic Info
 
 ```
@@ -528,11 +554,23 @@ Shows:
 
 ### Features
 
-- ✅ **Group Chat Only**: Commands work only in group chats (not private messages)
+- ✅ **Group Chat Execution**: `/solve` and `/hive` workflows run from authorized group chats
 - ✅ **Full Options Support**: All command-line options work in Telegram
 - ✅ **Screen Sessions**: Commands run in detached screen sessions
+- ✅ **Live Terminal Watch**: `/terminal_watch` and opt-in auto-start show live session logs
 - ✅ **Chat Restrictions**: Optional whitelist of allowed chat IDs
 - ✅ **Diagnostic Tools**: Get chat ID and configuration info
+
+#### Live Terminal Watch
+
+When enabled with `--auto-start-screen-watch-message`, the bot automatically starts a separate live terminal watch message for public `/solve` sessions:
+
+- **Manual Watch**: `/terminal_watch <uuid>` or reply with `/terminal_watch`
+- **Real-time Updates**: See live session log output as commands execute
+- **Auto-freeze**: Message freezes when command completes
+- **Log Attachment**: Full logs attached automatically when session ends
+- **Security**: Auto-start is disabled for private or unknown-visibility repositories
+- **Smart Updates**: Only updates when actual changes detected (rate-limited to avoid API limits)
 
 ### Security Notes
 

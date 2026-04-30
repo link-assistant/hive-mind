@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.61.0
+
+### Minor Changes
+
+- 728b0ed: Add Telegram `/task` issue creation from repository links and issue text while preserving `/split` behavior.
+
 ## 1.60.0
 
 ### Minor Changes

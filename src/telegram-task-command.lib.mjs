@@ -1,5 +1,6 @@
 import { buildUserMention } from './buildUserMention.lib.mjs';
 import { validateModelName } from './models/index.mjs';
+import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
@@ -16,7 +17,12 @@ export function getTaskCommandNameFromText(text) {
   return TASK_COMMAND_NAMES.includes(command) ? command : null;
 }
 
-export function applyTaskCommandDefaults(args) {
+export function hasTaskSplitFlag(args) {
+  return args.includes('--split') || args.some(arg => arg.startsWith('--split='));
+}
+
+export function applyTaskCommandDefaults(args, commandName = 'task') {
+  if (commandName !== 'split') return args;
   const hasSplit = args.includes('--split') || args.some(arg => arg.startsWith('--split='));
   return hasSplit ? args : [...args, '--split'];
 }
@@ -49,7 +55,8 @@ function validateTaskModel(args) {
 }
 
 export function buildTaskCommandArgs(text) {
-  const args = applyTaskCommandDefaults(parseCommandArgs(text));
+  const commandName = getTaskCommandNameFromText(text) || 'task';
+  const args = applyTaskCommandDefaults(parseCommandArgs(text), commandName);
   const issueUrl = findTaskIssueUrl(args);
   return {
     args: issueUrl ? moveArgumentToFront(args, issueUrl) : args,
@@ -57,8 +64,26 @@ export function buildTaskCommandArgs(text) {
   };
 }
 
+function getReplyText(message) {
+  const reply = message?.reply_to_message;
+  if (!reply || reply.forum_topic_created) return '';
+  return reply.text || reply.caption || '';
+}
+
+function buildTaskIssueCreationUsage(commandDisplay) {
+  return [`Usage: ${commandDisplay} <github-repository-url> followed by issue text.`, '', `Or reply to a message containing a repository URL and issue text with \`${commandDisplay}\`.`, '', 'To split an existing issue, use `/split <github-issue-url>` or `/task --split <github-issue-url>`.'].join('\n');
+}
+
+async function editTelegramMessage(ctx, message, text) {
+  try {
+    await ctx.telegram.editMessageText(message.chat.id, message.message_id, undefined, text, { disable_web_page_preview: true });
+  } catch (error) {
+    console.error(`[telegram-task-command] Failed to edit status message: ${error.message}`);
+  }
+}
+
 export function registerTaskCommands(bot, options) {
-  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage } = options;
+  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue } = options;
 
   async function handleTaskCommand(ctx) {
     const commandName = getTaskCommandNameFromText(ctx.message?.text) || 'task';
@@ -87,6 +112,39 @@ export function registerTaskCommands(bot, options) {
     }
     if (isChatStopped(ctx.chat.id)) {
       await safeReply(ctx, getStoppedChatRejectMessage(ctx.chat.id, 'Task'), { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
+
+    const parsedArgs = parseCommandArgs(ctx.message.text);
+    const splitMode = commandName === 'split' || hasTaskSplitFlag(parsedArgs);
+
+    if (!splitMode) {
+      const creationInput = resolveTaskIssueCreationInput({
+        commandText: ctx.message.text,
+        replyText: getReplyText(ctx.message),
+      });
+      const creation = parseTaskIssueCreationInput(creationInput);
+
+      if (!creation.valid) {
+        await safeReply(ctx, `❌ ${escapeMarkdown(creation.error)}\n\n${buildTaskIssueCreationUsage(commandDisplay)}`, { reply_to_message_id: ctx.message.message_id });
+        return;
+      }
+
+      const statusMessage = await ctx.reply(`Creating GitHub issue in ${creation.repository.fullName}...`, {
+        reply_to_message_id: ctx.message.message_id,
+        disable_web_page_preview: true,
+      });
+
+      try {
+        const createdIssue = await createTaskIssueFn({
+          repository: creation.repository,
+          title: creation.title,
+          body: creation.issueText,
+        });
+        await editTelegramMessage(ctx, statusMessage, `Created GitHub issue:\n${createdIssue.url}\n\nReply to this message with /solve to start a solution.`);
+      } catch (error) {
+        await editTelegramMessage(ctx, statusMessage, `Error creating GitHub issue:\n${error.message || String(error)}`);
+      }
       return;
     }
 

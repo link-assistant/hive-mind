@@ -539,8 +539,11 @@ bot.command('help', async ctx => {
   }
 
   if (taskEnabled) {
-    message += '*/task* / */split* - Split a GitHub issue into smaller issues\n';
-    message += 'Usage: `/split <github-issue-url> [options]`\n';
+    message += '*/task* - Create a GitHub issue from a repository link and issue text\n';
+    message += 'Usage: `/task <github-repository-url>` followed by issue text, or reply with `/task`\n';
+    message += 'Example: `/task https://github.com/owner/repo` then the issue text on following lines\n';
+    message += '*/split* - Split a GitHub issue into smaller issues\n';
+    message += 'Usage: `/split <github-issue-url> [options]` or `/task --split <github-issue-url>`\n';
     message += 'Example: `/split https://github.com/owner/repo/issues/123 --split-count 2`\n\n';
   } else {
     message += '*/task* / */split* - ❌ Disabled\n\n';

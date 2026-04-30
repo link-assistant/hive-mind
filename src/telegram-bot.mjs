@@ -6,12 +6,6 @@ if (process.argv.includes('--version')) {
   process.exit(v === 'unknown' ? 1 : 0);
 }
 
-import { spawn } from 'child_process';
-import { promisify } from 'util';
-import { exec as execCallback } from 'child_process';
-
-const exec = promisify(execCallback);
-
 if (typeof use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
@@ -20,22 +14,16 @@ const { lino } = await import('./lino.lib.mjs');
 const { buildUserMention } = await import('./buildUserMention.lib.mjs');
 const { reportError, initializeSentry, addBreadcrumb } = await import('./sentry.lib.mjs');
 const { loadLenvConfig } = await import('./lenv-reader.lib.mjs');
+const { getLinoYargsFactory, getenv, hideBin } = await import('./cli-arguments.lib.mjs');
 
 const dotenvxModule = await use('@dotenvx/dotenvx');
 const dotenvx = dotenvxModule.default || dotenvxModule;
-const getenvModule = await use('getenv');
-const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
-const { resolveYargsFactory } = await import('./yargs-factory.lib.mjs');
 
 // Load .env/.lenv configuration (issue #1318)
 dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
 await loadLenvConfig({ override: true, quiet: true });
 
-const yargsModule = await use('yargs@17.7.2');
-const yargs = resolveYargsFactory(yargsModule);
-const helpersModuleBot = await use('yargs@17.7.2/helpers');
-const _helpersBot = helpersModuleBot.default || helpersModuleBot;
-const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));
+const yargs = getLinoYargsFactory();
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
 const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');
@@ -47,6 +35,7 @@ const { getVersionInfo, formatVersionMessage } = await import('./version-info.li
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
+const { executeStartScreen: executeStartScreenCommand } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 const { safeReply } = await import('./telegram-safe-reply.lib.mjs');
@@ -102,6 +91,11 @@ const config = yargs(hideBin(process.argv))
     type: 'boolean',
     description: 'Enable /hive command (use --no-hive to disable)',
     default: getenv('TELEGRAM_HIVE', 'true') !== 'false',
+  })
+  .option('task', {
+    type: 'boolean',
+    description: 'Enable /task and /split commands (use --no-task to disable)',
+    default: getenv('TELEGRAM_TASK', 'true') !== 'false',
   })
   .option('dryRun', {
     type: 'boolean',
@@ -162,6 +156,7 @@ const hiveOverrides = resolvedHiveOverrides
   : [];
 const solveEnabled = config.solve;
 const hiveEnabled = config.hive;
+const taskEnabled = config.task;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
 const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
 let isolationRunner = null;
@@ -282,7 +277,7 @@ if (config.dryRun) {
   if (allowedTopics && allowedTopics.length > 0) {
     console.log('  Allowed topics:', lino.formatLinks(allowedTopics));
   }
-  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled });
+  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled });
   if (solveOverrides.length > 0) {
     console.log('  Solve overrides:', lino.format(solveOverrides));
   }
@@ -336,102 +331,12 @@ function isOldMessage(ctx) {
   return _isOldMessage(ctx, BOT_START_TIME, { verbose: VERBOSE });
 }
 
+async function executeStartScreen(command, args) {
+  return executeStartScreenCommand(command, args, { verbose: VERBOSE });
+}
+
 function isForwardedOrReply(ctx) {
   return _isForwardedOrReply(ctx, { verbose: VERBOSE });
-}
-
-async function findStartScreenCommand() {
-  try {
-    const { stdout } = await exec('which start-screen');
-    return stdout.trim();
-  } catch {
-    return null;
-  }
-}
-
-async function executeStartScreen(command, args) {
-  try {
-    // Check if start-screen is available BEFORE first execution
-    const whichPath = await findStartScreenCommand();
-
-    if (!whichPath) {
-      const warningMsg = '⚠️  WARNING: start-screen command not found in PATH\n' + 'Please ensure @link-assistant/hive-mind is properly installed\n' + 'You may need to run: npm install -g @link-assistant/hive-mind';
-      console.warn(warningMsg);
-
-      // Still try to execute with 'start-screen' in case it's available in PATH but 'which' failed
-      return {
-        success: false,
-        warning: warningMsg,
-        error: 'start-screen command not found in PATH',
-      };
-    }
-
-    // Use the resolved path from which
-    if (VERBOSE) {
-      console.log(`[VERBOSE] Found start-screen at: ${whichPath}`);
-    }
-
-    return await executeWithCommand(whichPath, command, args);
-  } catch (error) {
-    console.error('Error executing start-screen:', error);
-    return {
-      success: false,
-      output: '',
-      error: error.message,
-    };
-  }
-}
-
-function executeWithCommand(startScreenCmd, command, args) {
-  return new Promise(resolve => {
-    const allArgs = [command, ...args];
-
-    if (VERBOSE) {
-      console.log(`[VERBOSE] Executing: ${startScreenCmd} ${allArgs.join(' ')}`);
-    } else {
-      console.log(`Executing: ${startScreenCmd} ${allArgs.join(' ')}`);
-    }
-
-    const child = spawn(startScreenCmd, allArgs, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false,
-      env: process.env,
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', data => {
-      stdout += data.toString();
-    });
-
-    child.stderr.on('data', data => {
-      stderr += data.toString();
-    });
-
-    child.on('error', error => {
-      resolve({
-        success: false,
-        output: stdout,
-        error: error.message,
-      });
-    });
-
-    child.on('close', code => {
-      if (code === 0) {
-        resolve({
-          success: true,
-          output: stdout,
-        });
-      } else {
-        resolve({
-          success: false,
-          output: stdout,
-          error: stderr || `Command exited with code ${code}`,
-        });
-      }
-    });
-  });
 }
 
 /**
@@ -633,6 +538,14 @@ bot.command('help', async ctx => {
     message += '*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*) - ❌ Disabled\n\n';
   }
 
+  if (taskEnabled) {
+    message += '*/task* / */split* - Split a GitHub issue into smaller issues\n';
+    message += 'Usage: `/split <github-issue-url> [options]`\n';
+    message += 'Example: `/split https://github.com/owner/repo/issues/123 --split-count 2`\n\n';
+  } else {
+    message += '*/task* / */split* - ❌ Disabled\n\n';
+  }
+
   if (hiveEnabled) {
     message += '*/hive* - Run hive command\n';
     message += 'Usage: `/hive <github-url> [options]`\n';
@@ -660,7 +573,7 @@ bot.command('help', async ctx => {
   message += '🔔 *Session Notifications:* Completion notifications are automatic; use /subscribe for private DM forwards.\n';
   if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
   message += '\n';
-  message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /subscribe and /unsubscribe work in private and group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /subscribe and /unsubscribe work in private and group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -765,6 +678,8 @@ const { registerSolveQueueCommand } = await import('./telegram-solve-queue-comma
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue });
 const { registerSubscribeCommands } = await import('./telegram-subscribers.lib.mjs'); // #1688
 registerSubscribeCommands(bot, sharedCommandOpts);
+const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs');
+const { handleTaskCommand, TASK_COMMAND_NAMES } = registerTaskCommands(bot, { ...sharedCommandOpts, taskEnabled, safeReply, executeAndUpdateMessage });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
 async function handleSolveCommand(ctx) {
@@ -1255,7 +1170,8 @@ bot.on('message', async (ctx, next) => {
 
   // /subscribe + /unsubscribe (#1688) are intentionally not in the text fallback — Telegraf's bot.command() is sufficient.
   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
-  const handlers = { ...solveHandlers, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
+  const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
+  const handlers = { ...solveHandlers, ...taskHandlers, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();
@@ -1366,7 +1282,7 @@ if (allowedChats && allowedChats.length > 0) {
 if (allowedTopics && allowedTopics.length > 0) {
   console.log('Allowed topics (lino):', lino.formatLinks(allowedTopics));
 }
-console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled });
+console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled });
 if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));
 if (hiveOverrides.length > 0) console.log('Hive overrides (lino):', lino.format(hiveOverrides));
 if (VERBOSE) {

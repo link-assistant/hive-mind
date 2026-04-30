@@ -10,23 +10,13 @@
 import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
 import { defaultModels, buildModelOptionDescription, resolveDefaultFallbackModel, resolveRuntimeDefaultModel } from './models/index.mjs';
 import { validateBranchName } from './solve.branch.lib.mjs';
-import { resolveYargsFactory } from './yargs-factory.lib.mjs';
+import { getLinoYargsFactory, hideBin, parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
 
 // Export an initialization function that accepts 'use'
-export const initializeConfig = async use => {
-  // Import yargs with specific version for hideBin support
-  const yargsModule = await use('yargs@17.7.2');
-  const yargs = resolveYargsFactory(yargsModule);
-  const helpersModule = await use('yargs@17.7.2/helpers');
-  // Node 24 CJS/ESM interop may return the whole module object instead of named exports directly
-  const helpers = helpersModule.default || helpersModule;
-  const hideBin = helpers.hideBin || (argv => argv.slice(2));
-
-  return { yargs, hideBin };
-};
+export const initializeConfig = async () => ({ yargs: getLinoYargsFactory(), hideBin });
 
 // Solve option definitions as a plain data structure.
 // This is the single source of truth for all solve command options.
@@ -582,8 +572,8 @@ export const createYargsConfig = yargsInstance => {
 };
 
 // Parse command line arguments - now needs yargs and hideBin passed in
-export const parseArguments = async (yargs, hideBin) => {
-  const rawArgs = hideBin(process.argv);
+export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = hideBin) => {
+  const rawArgs = hideBinFn(process.argv);
 
   // Issue #1092: Detect malformed flag patterns BEFORE yargs parsing
   // This catches cases like "-- model" which yargs silently treats as positional arguments
@@ -621,7 +611,12 @@ export const parseArguments = async (yargs, hideBin) => {
 
     try {
       yargsInstance = createYargsConfig(yargs());
-      argv = await yargsInstance.parse(rawArgs);
+      argv = parseCliArgumentsWithLino({
+        argv: process.argv,
+        commandName: 'solve',
+        createYargsConfig,
+        positionalAliases: ['issue-url'],
+      });
     } finally {
       // Always restore stderr.write
       process.stderr.write = originalStderrWrite;

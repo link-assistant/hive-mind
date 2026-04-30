@@ -394,6 +394,9 @@ jobs:
         with:
           node-version: 24.x
 
+      - name: Install dependencies
+        run: npm install
+
       - name: System info
         run: |
           echo "=== System Information ==="

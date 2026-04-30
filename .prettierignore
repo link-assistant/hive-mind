@@ -36,3 +36,6 @@ docs/case-studies/issue-789-unrecognized-model-error/full-log.json
 
 # Local CI investigation artifacts
 ci-logs/
+
+# Generated duplication reports
+reports/

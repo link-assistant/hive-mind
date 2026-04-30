@@ -16,25 +16,48 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { REQUIRED_CLAUDE_QUIET_ENV, REQUIRED_CLAUDE_QUIET_SETTINGS, REQUIRED_CLAUDE_QUIET_ATTRIBUTION, REQUIRED_CLAUDE_QUIET_PERMISSIONS, ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
+import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 import { buildDisallowedToolsList, ensureDisallowedToolsInSettings } from './useless-tools.lib.mjs';
 
 export const resolveSettingsPath = settingsPath => settingsPath || path.join(os.homedir(), '.claude', 'settings.json');
 
+export const createConfigureClaudeYargsConfig = yargsInstance =>
+  yargsInstance
+    .usage('Usage: configure-claude [options]')
+    .option('settings-path', {
+      type: 'string',
+      description: 'Path to settings.json',
+      alias: 's',
+    })
+    .option('verify', {
+      type: 'boolean',
+      description: 'Report configuration status without writing',
+      default: false,
+    })
+    .option('help', {
+      type: 'boolean',
+      description: 'Show this help and exit',
+      alias: 'h',
+      default: false,
+    })
+    .help(false)
+    .version(false)
+    .strict();
+
 export const parseConfigureClaudeArgs = argv => {
-  const args = { settingsPath: null, verify: false, help: false };
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (arg === '--settings-path' || arg === '-s') {
-      args.settingsPath = argv[++i];
-    } else if (arg.startsWith('--settings-path=')) {
-      args.settingsPath = arg.slice('--settings-path='.length);
-    } else if (arg === '--verify') {
-      args.verify = true;
-    } else if (arg === '--help' || arg === '-h') {
-      args.help = true;
-    }
-  }
-  return args;
+  const help = argv.includes('--help') || argv.includes('-h');
+  const parsed = parseCliArgumentsWithLino({
+    argv: argv.filter(arg => arg !== '--help' && arg !== '-h'),
+    commandName: 'configure-claude',
+    createYargsConfig: createConfigureClaudeYargsConfig,
+    lenv: { enabled: false },
+    getenv: { enabled: false },
+  });
+  return {
+    settingsPath: parsed.settingsPath || parsed['settings-path'] || null,
+    verify: parsed.verify === true,
+    help,
+  };
 };
 
 export const CONFIGURE_CLAUDE_HELP = `Usage: configure-claude [options]

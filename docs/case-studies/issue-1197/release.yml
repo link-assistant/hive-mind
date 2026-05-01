@@ -1,0 +1,481 @@
+name: CI/CD and Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      release_mode:
+        description: 'Manual release mode'
+        required: true
+        type: choice
+        default: 'instant'
+        options:
+          - instant
+          - changeset-pr
+      bump_type:
+        description: 'Manual release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      description:
+        description: 'Manual release description (optional)'
+        required: false
+        type: string
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  # === DETECT CHANGES - determines which jobs should run ===
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch'
+    outputs:
+      mjs-changed: ${{ steps.changes.outputs.mjs-changed }}
+      js-changed: ${{ steps.changes.outputs.js-changed }}
+      package-changed: ${{ steps.changes.outputs.package-changed }}
+      docs-changed: ${{ steps.changes.outputs.docs-changed }}
+      workflow-changed: ${{ steps.changes.outputs.workflow-changed }}
+      any-code-changed: ${{ steps.changes.outputs.any-code-changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Detect changes
+        id: changes
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bun run scripts/detect-code-changes.mjs
+
+  # === VERSION CHANGE CHECK ===
+  version-check:
+    name: Check for Manual Version Changes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Check for version changes in package.json
+        env:
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: bun run scripts/check-version.mjs
+
+  # === CHANGESET CHECK - only runs on PRs with code changes ===
+  changeset-check:
+    name: Check for Changesets
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Check for changesets
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Skip changeset check for automated version PRs
+          if [[ "${{ github.head_ref }}" == "changeset-release/"* ]]; then
+            echo "Skipping changeset check for automated release PR"
+            exit 0
+          fi
+
+          bun run scripts/validate-changeset.mjs
+
+  # === LINT AND FORMAT CHECK ===
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: |
+      github.event_name == 'push' ||
+      needs.detect-changes.outputs.mjs-changed == 'true' ||
+      needs.detect-changes.outputs.js-changed == 'true' ||
+      needs.detect-changes.outputs.docs-changed == 'true' ||
+      needs.detect-changes.outputs.package-changed == 'true' ||
+      needs.detect-changes.outputs.workflow-changed == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Simulate fresh merge with base branch (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          echo "=== Synchronizing PR with latest $BASE_REF ==="
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git fetch origin "$BASE_REF"
+          BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
+          if [ "$BEHIND_COUNT" -gt 0 ]; then
+            if git merge origin/$BASE_REF --no-edit; then
+              echo "Fresh merge simulation successful!"
+            else
+              echo "::error::Merge conflict detected!"
+              exit 1
+            fi
+          fi
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run ESLint
+        run: bun run lint
+
+      - name: Check formatting
+        run: bun run format:check
+
+      - name: Check code duplication
+        run: bun run check:duplication
+
+  # === BUILD ===
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: |
+      github.event_name == 'push' ||
+      needs.detect-changes.outputs.mjs-changed == 'true' ||
+      needs.detect-changes.outputs.js-changed == 'true' ||
+      needs.detect-changes.outputs.package-changed == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Simulate fresh merge with base branch (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git fetch origin "$BASE_REF"
+          BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
+          if [ "$BEHIND_COUNT" -gt 0 ]; then
+            if git merge origin/$BASE_REF --no-edit; then
+              echo "Fresh merge simulation successful!"
+            else
+              echo "::error::Merge conflict detected!"
+              exit 1
+            fi
+          fi
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build with Bun
+        run: bun run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  # === TEST - Bun only (Ubuntu only for faster iteration) ===
+  test:
+    name: Test (Bun)
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check]
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Simulate fresh merge with base branch (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        shell: bash
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git fetch origin "$BASE_REF"
+          BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
+          if [ "$BEHIND_COUNT" -gt 0 ]; then
+            if git merge origin/$BASE_REF --no-edit; then
+              echo "Fresh merge simulation successful!"
+            else
+              echo "::error::Merge conflict detected!"
+              exit 1
+            fi
+          fi
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run unit tests
+        run: bun test tests/lib tests/components
+
+      - name: Run E2E tests
+        run: bun test tests/e2e
+
+  # === DEPLOY TO GITHUB PAGES ===
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: [lint, build, test]
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.lint.result == 'success' && needs.build.result == 'success' && needs.test.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build for production
+        run: bun run build
+
+      - name: Prepare deployment files
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -r dist _site/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Release - only runs on main after tests pass (for push events)
+  release:
+    name: Release
+    needs: [lint, test]
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.lint.result == 'success' && needs.test.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Update npm for OIDC trusted publishing
+        run: bun run scripts/setup-npm.mjs
+
+      - name: Check for changesets
+        id: check_changesets
+        run: bun run scripts/check-changesets.mjs
+
+      - name: Merge multiple changesets
+        if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
+        run: |
+          echo "Multiple changesets detected, merging..."
+          bun run scripts/merge-changesets.mjs
+
+      - name: Version packages and commit to main
+        if: steps.check_changesets.outputs.has_changesets == 'true'
+        id: version
+        run: bun run scripts/version-and-commit.mjs --mode changeset
+
+      - name: Publish to npm
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        id: publish
+        run: bun run scripts/publish-to-npm.mjs --should-pull
+
+      - name: Create GitHub Release
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun run scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
+
+      - name: Format GitHub release notes
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun run scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
+
+  # Manual Instant Release
+  instant-release:
+    name: Instant Release
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Update npm for OIDC trusted publishing
+        run: bun run scripts/setup-npm.mjs
+
+      - name: Version packages and commit to main
+        id: version
+        run: bun run scripts/version-and-commit.mjs --mode instant --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+
+      - name: Publish to npm
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        id: publish
+        run: bun run scripts/publish-to-npm.mjs
+
+      - name: Create GitHub Release
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun run scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
+
+      - name: Format GitHub release notes
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun run scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
+
+  # Manual Changeset PR
+  changeset-pr:
+    name: Create Changeset PR
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Create changeset file
+        run: bun run scripts/create-manual-changeset.mjs --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+
+      - name: Format changeset with Prettier
+        run: |
+          bunx prettier --write ".changeset/*.md" || true
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: add changeset for manual ${{ github.event.inputs.bump_type }} release'
+          branch: changeset-manual-release-${{ github.run_id }}
+          delete-branch: true
+          title: 'chore: manual ${{ github.event.inputs.bump_type }} release'
+          body: |
+            ## Manual Release Request
+
+            This PR was created by a manual workflow trigger to prepare a **${{ github.event.inputs.bump_type }}** release.
+
+            ### Release Details
+            - **Type:** ${{ github.event.inputs.bump_type }}
+            - **Description:** ${{ github.event.inputs.description || 'Manual release' }}
+            - **Triggered by:** @${{ github.actor }}
+
+            ### Next Steps
+            1. Review the changeset in this PR
+            2. Merge this PR to main
+            3. The automated release workflow will create a version PR
+            4. Merge the version PR to publish to npm and create a GitHub release

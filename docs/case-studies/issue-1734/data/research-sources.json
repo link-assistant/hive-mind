@@ -1,0 +1,17 @@
+[
+  {
+    "title": "GitHub CLI gh issue create manual",
+    "url": "https://cli.github.com/manual/gh_issue_create",
+    "notes": "Confirms gh issue create supports --title and --body flags and prints the created issue URL."
+  },
+  {
+    "title": "GitHub REST API issues endpoint",
+    "url": "https://docs.github.com/en/rest/issues/issues",
+    "notes": "Confirms issue creation targets POST /repos/{owner}/{repo}/issues with title and body fields."
+  },
+  {
+    "title": "Telegram Bot API sendMessage",
+    "url": "https://core.telegram.org/bots/api#sendmessage",
+    "notes": "Confirms bot messages can be sent as replies and returned as Message objects."
+  }
+]

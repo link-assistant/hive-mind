@@ -9,33 +9,33 @@ const testCases = [
   {
     name: 'URL format (new fork)',
     output: 'https://github.com/konard/Test_Canaan',
-    expected: 'konard/Test_Canaan'
+    expected: 'konard/Test_Canaan',
   },
   {
     name: 'Already exists format',
     output: 'konard/Test_Canaan already exists',
-    expected: 'konard/Test_Canaan'
+    expected: 'konard/Test_Canaan',
   },
   {
     name: 'Alternate fork name format',
     output: 'konard/netkeep80-jsonRVM already exists',
-    expected: 'konard/netkeep80-jsonRVM'
+    expected: 'konard/netkeep80-jsonRVM',
   },
   {
     name: 'Created fork message',
     output: '✓ Created fork konard/repo-name',
-    expected: 'konard/repo-name'
+    expected: 'konard/repo-name',
   },
   {
     name: 'URL with trailing content',
     output: 'https://github.com/user_name/my-repo\n',
-    expected: 'user_name/my-repo'
+    expected: 'user_name/my-repo',
   },
   {
     name: 'Fork name with underscores and dashes',
     output: 'user-name/repo_name already exists',
-    expected: 'user-name/repo_name'
-  }
+    expected: 'user-name/repo_name',
+  },
 ];
 
 // The fixed regex

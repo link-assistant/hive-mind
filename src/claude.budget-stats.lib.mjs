@@ -19,6 +19,10 @@ export const createEmptySubSessionUsage = () => ({
   peakOutputUsage: 0,
 });
 
+export const getRawRequestInputTokens = usage => (usage?.input_tokens || 0) + (usage?.cache_creation_input_tokens || 0) + (usage?.cache_read_input_tokens || 0);
+
+export const getUsageInputTokens = usage => (usage?.inputTokens || 0) + (usage?.cacheCreationTokens || 0) + (usage?.cacheReadTokens || 0);
+
 /**
  * Helper: accumulates token usage from a JSONL entry into a model usage map
  * @param {Object} modelUsageMap - Map of model ID to usage data
@@ -185,9 +189,10 @@ export const dumpBudgetTrace = async (usage, tokenUsage, log) => {
   const source = usage._sourceResultJson ? 'jsonl + result-event' : 'jsonl';
 
   await log(`\n      📊 [budget-trace] ${modelName}`, { verbose: true });
-  // Issue #1710 R5: peak request is `input + cache_creation` (cache reads
-  // tracked separately on the cumulative line).
-  await log(`         peak request:    ${formatNumber(peak)}${limit.context ? ` / ${formatNumber(limit.context)} context` : ''} (largest single-request input + cache_creation, excludes cache_read)`, { verbose: true });
+  // Issue #1737: peak input is the largest request's total input footprint:
+  // input + cache_creation + cache_read. The cumulative line still keeps those
+  // buckets split for cost and accounting review.
+  await log(`         peak input:      ${formatNumber(peak)}${limit.context ? ` / ${formatNumber(limit.context)} context` : ''} (largest request input + cache_creation + cache_read)`, { verbose: true });
   await log(`         cumulative:      input ${formatNumber(inputs)}, cache_write ${formatNumber(writes)} (5m ${formatNumber(writes5m)} / 1h ${formatNumber(writes1h)}), cache_read ${formatNumber(reads)}, output ${formatNumber(outputs)}`, { verbose: true });
   // Issue #1710 R1: web_search is now billed in calculateModelCost. The trace
   // still surfaces the implied dollar cost so the residual remains debuggable
@@ -234,17 +239,15 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
 
   if (hasMultipleSubSessions) {
     // Issue #1600: Unified format — numbered list without "Context window:" prefix.
-    // Issue #1710 R3/R5: Peak input is `input + cache_creation` (cache reads
-    // are tracked separately on the Total line), and the bullet is now
-    // labelled "peak request:" so a reader does not try to reconcile it with
-    // the cumulative Total figure.
+    // Issue #1737: Show peak input pressure per sub-session without the
+    // confusing "peak request:" label.
     for (let i = 0; i < subSessions.length; i++) {
       const sub = subSessions[i];
       const subPeak = sub.peakContextUsage || 0;
       const parts = [];
       if (contextLimit && subPeak > 0) {
         const pct = ((subPeak / contextLimit) * 100).toFixed(0);
-        parts.push(`peak request: ${formatNumber(subPeak)} / ${formatNumber(contextLimit)} (${pct}%) input tokens`);
+        parts.push(`${formatNumber(subPeak)} / ${formatNumber(contextLimit)} (${pct}%) input tokens`);
       }
       if (outputLimit) {
         const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
@@ -258,7 +261,7 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
     const parts = [];
     if (contextLimit) {
       const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-      parts.push(`peak request: ${formatNumber(peakContext)} / ${formatNumber(contextLimit)} (${pct}%) input tokens`);
+      parts.push(`${formatNumber(peakContext)} / ${formatNumber(contextLimit)} (${pct}%) input tokens`);
     }
     if (outputLimit) {
       const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
@@ -361,6 +364,17 @@ const formatTokensCompact = tokens => {
   return tokens.toLocaleString();
 };
 
+const formatInputContextPart = (inputTokens, contextLimit, format) => {
+  if (contextLimit && inputTokens > 0) {
+    const pct = ((inputTokens / contextLimit) * 100).toFixed(0);
+    return `${format(inputTokens)} / ${format(contextLimit)} (${pct}%) input tokens`;
+  }
+  if (inputTokens > 0) {
+    return `${format(inputTokens)} input tokens`;
+  }
+  return null;
+};
+
 /**
  * Issue #1710: Build the cumulative input-tokens phrase for the Total / fallback
  * lines, splitting cache writes and cache reads so neither category is ever
@@ -422,10 +436,10 @@ const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
 
 /**
  * Issue #1600: Build a single-line context + output tokens string (unified format, no "Context window:" prefix).
- * Issue #1710 R3/R5: The input figure is the peak per-request `input + cache_creation`
- * (cache reads excluded). Labelling it "peak request:" lets readers tell it apart
- * from the cumulative Total line.
- * @param {number} peakContext - Peak context usage (0 if unknown — context display skipped)
+ * Issue #1737: The input figure is the peak restored-context input for the
+ * sub-session/request (`input + cache_creation + cache_read`), without the old
+ * "peak request:" label.
+ * @param {number} peakContext - Peak input usage (0 if unknown — context display skipped)
  * @param {number} contextLimit - Context window limit (null if unknown)
  * @param {number} outputTokens - Output tokens used
  * @param {number} outputLimit - Output token limit (null if unknown)
@@ -434,9 +448,9 @@ const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
  */
 const formatContextOutputLine = (peakContext, contextLimit, outputTokens, outputLimit, prefix = '- ') => {
   const parts = [];
-  if (contextLimit && peakContext > 0) {
-    const pct = ((peakContext / contextLimit) * 100).toFixed(0);
-    parts.push(`peak request: ${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} (${pct}%) input tokens`);
+  const inputPart = formatInputContextPart(peakContext, contextLimit, formatTokensCompact);
+  if (inputPart) {
+    parts.push(inputPart);
   }
   if (outputLimit) {
     const outPct = ((outputTokens / outputLimit) * 100).toFixed(0);
@@ -547,16 +561,16 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
 
       if (isMultiModel) {
         // Issue #1590: Show sub-agent call count alongside model name
-        // Issue #1600: Show session segment count for primary model
+        // Issue #1737: Use "sub-sessions" for compactification-bounded sections.
         if (callCount > 1) {
           stats += `\n\n**${modelName}:** (${callCount} sub-agent calls)`;
         } else if (showSubSessions) {
-          stats += `\n\n**${modelName}:** (${subSessions.length} session segments)`;
+          stats += `\n\n**${modelName}:** (${subSessions.length} sub-sessions)`;
         } else {
           stats += `\n\n**${modelName}:**`;
         }
       } else if (showSubSessions) {
-        stats += `\n\n**${modelName}:** (${subSessions.length} session segments)`;
+        stats += `\n\n**${modelName}:** (${subSessions.length} sub-sessions)`;
       }
 
       const peakContext = usage.peakContextUsage || 0;
@@ -568,20 +582,25 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
         stats += formatContextOutputLine(peakContext, contextLimit, usage.outputTokens, outputLimit, '- ');
       } else if (outputLimit && callCount <= 1) {
         // Issue #1600: Sub-agent single sessions previously showed only an output line.
-        // Issue #1710 R2: Always surface the cumulative input information too — sub-agent
+        // Issue #1737: Always surface total input information too — sub-agent
         // models (e.g. Haiku) never appear as the responding model in the parent JSONL,
         // so peakContext stays at 0; without this fallback the rendered comment loses
-        // the sub-agent's input-token information entirely. Cache writes / reads are
-        // split via the same helper used for the Total line so the two lines stay
-        // arithmetically consistent.
-        const inputPhrase = buildCumulativeInputPhrase({
-          input: usage.inputTokens || 0,
-          cacheWrites: usage.cacheCreationTokens || 0,
-          cacheReads: usage.cacheReadTokens || 0,
-          format: formatTokensCompact,
-        });
+        // the sub-agent's input-token information entirely. The detail line is
+        // deliberately simple; the Total line below keeps the cache split.
+        const parts = [];
+        const isResultSingleCall = usage._sourceResultJson || callCount > 0;
+        const inputPart = isResultSingleCall
+          ? formatInputContextPart(getUsageInputTokens(usage), contextLimit, formatTokensCompact)
+          : buildCumulativeInputPhrase({
+              input: usage.inputTokens || 0,
+              cacheWrites: usage.cacheCreationTokens || 0,
+              cacheReads: usage.cacheReadTokens || 0,
+              format: formatTokensCompact,
+            });
+        if (inputPart) parts.push(inputPart);
         const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
-        stats += `\n- ${inputPhrase}, ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`;
+        parts.push(`${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} (${outPct}%) output tokens`);
+        stats += `\n- ${parts.join(', ')}`;
       }
 
       // Cumulative totals per model: input tokens + cached shown separately.

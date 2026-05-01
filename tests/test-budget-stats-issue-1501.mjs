@@ -247,9 +247,9 @@ runTest('multiple sub-sessions shows numbered list', () => {
   const result = buildBudgetStatsString(tokenUsage, null);
   // Issue #1600: Numbered sub-sessions without "Context window:" prefix
   assertNotContains(result, 'Context window:', 'Should NOT show "Context window:" prefix (removed in #1600)');
-  // Issue #1710 R3: peak request label disambiguates the bullet from the cumulative Total line
-  assertContains(result, '1. peak request: 80K / 1M (8%) input tokens', 'Should number first sub-session with content (issue #1710 R3 label)');
-  assertContains(result, '2. peak request: 45K / 1M (5%) input tokens', 'Should number second sub-session with content (issue #1710 R3 label)');
+  // Issue #1737: no obsolete "peak request:" label.
+  assertContains(result, '1. 80K / 1M (8%) input tokens', 'Should number first sub-session with content');
+  assertContains(result, '2. 45K / 1M (5%) input tokens', 'Should number second sub-session with content');
 });
 
 runTest('createEmptySubSessionUsage has peak tracking fields', () => {

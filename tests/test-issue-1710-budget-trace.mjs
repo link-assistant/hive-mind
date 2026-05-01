@@ -9,7 +9,7 @@
  * It must:
  *  1. Always log with `{verbose: true}` so the default solver output is
  *     unaffected.
- *  2. Surface the raw inputs that drive the renderer: peak request fill,
+ *  2. Surface the raw inputs that drive the renderer: peak input fill,
  *     cumulative input / cache_write (5m / 1h split) / cache_read / output,
  *     and server-tool counts (web search).
  *  3. When `webSearchRequests > 0`, print the implied dollar cost at
@@ -89,11 +89,11 @@ await runTest('every line is gated behind {verbose: true}', async () => {
   }
 });
 
-await runTest('renders peak request line with context limit when known', async () => {
+await runTest('renders peak input line with context limit when known', async () => {
   const log = makeLog();
   await dumpBudgetTrace(opusUsage, { subSessions: [] }, log);
   const joined = log.calls.map(c => c.text).join('\n');
-  assert.match(joined, /peak request:\s+278 218/, 'peak request value missing');
+  assert.match(joined, /peak input:\s+278 218/, 'peak input value missing');
   assert.match(joined, /1 000 000 context/, 'context limit missing');
 });
 

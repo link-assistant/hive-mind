@@ -245,8 +245,8 @@ test('PR#48 format: 3 Opus sessions numbered, Haiku 2 sub-agent calls, Sonnet si
 
   const result = buildBudgetStatsString(tokenUsage, doubletsPR48.haikuSubAgentCalls);
 
-  // Opus should have (3 session segments) in title
-  assert.ok(result.includes('(3 session segments)'), 'Opus should show 3 session segments');
+  // Opus should have (3 sub-sessions) in title
+  assert.ok(result.includes('(3 sub-sessions)'), 'Opus should show 3 sub-sessions');
   // Opus sub-sessions should be numbered
   assert.ok(result.includes('1. '), 'Should have numbered sub-session 1');
   assert.ok(result.includes('2. '), 'Should have numbered sub-session 2');
@@ -293,8 +293,8 @@ test('PR#55 format: all single sessions with output detalization for sub-agents'
   // Haiku should show output detalization (282 / 64K)
   assert.ok(result.includes('282 / 64K'), 'Haiku should show output detalization with raw number');
   assert.ok(result.includes('0%'), 'Small output percentages should show');
-  // No session segments for single sessions
-  assert.ok(!result.includes('session segments'), 'No session segments for single session');
+  // No sub-session heading for single sessions
+  assert.ok(!result.includes('sub-sessions'), 'No sub-session heading for single session');
 });
 
 test('PR#1621 format: Opus single session, Haiku single session', () => {
@@ -449,8 +449,8 @@ test('single model without multi-model header', () => {
 
   const result = buildBudgetStatsString(tokenUsage);
   // Single model should NOT have bold model name header (that's for multi-model)
-  // Actually in the code, single model doesn't get isMultiModel header, but may get session segments
-  assert.ok(!result.includes('**Claude Opus 4.6:**') || result.includes('session segments'), 'Single model header should only appear with session segments');
+  // Actually in the code, single model doesn't get isMultiModel header, but may get sub-sessions
+  assert.ok(!result.includes('**Claude Opus 4.6:**') || result.includes('sub-sessions'), 'Single model header should only appear with sub-sessions');
 });
 
 test('cached tokens shown in parenthesized format', () => {

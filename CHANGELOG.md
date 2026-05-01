@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.62.1
+
+### Patch Changes
+
+- a683edf: Fix budget stats restored-context input accounting so sub-session lines include cache reads, use `sub-sessions` wording, and no longer render the obsolete `peak request:` label.
+
 ## 1.62.0
 
 ### Minor Changes

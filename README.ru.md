@@ -343,7 +343,7 @@ solve <issue-url> [options]
 
 | Параметр                 | Сокр. | Описание                                                              | По умолчанию |
 | ------------------------ | ----- | --------------------------------------------------------------------- | ------------ |
-| `--tool`                 |       | Инструмент ИИ (claude, opencode, codex, agent)                        | claude       |
+| `--tool`                 |       | Инструмент ИИ (claude, opencode, codex, agent, qwen)                  | claude       |
 | `--verbose`              | `-v`  | Включить подробное логирование                                        | false        |
 | `--attach-logs`          |       | Прикрепить логи к PR (⚠️ может раскрыть конфиденциальные данные)      | false        |
 | `--auto-init-repository` |       | Автоматически инициализировать пустые репозитории (создаёт README.md) | false        |
@@ -370,7 +370,7 @@ hive <github-url> [options]
 
 | Параметр                 | Сокр. | Описание                                                          | По умолчанию |
 | ------------------------ | ----- | ----------------------------------------------------------------- | ------------ |
-| `--tool`                 |       | Инструмент ИИ (claude, opencode, agent)                           | claude       |
+| `--tool`                 |       | Инструмент ИИ (claude, opencode, codex, agent, qwen)              | claude       |
 | `--concurrency`          | `-c`  | Количество параллельных воркеров                                  | 2            |
 | `--skip-issues-with-prs` | `-s`  | Пропускать задачи с существующими PR                              | false        |
 | `--verbose`              | `-v`  | Включить подробное логирование                                    | false        |
@@ -463,11 +463,13 @@ Aliases:
 /codex эквивалентна /solve --tool codex
 /opencode эквивалентна /solve --tool opencode
 /agent эквивалентна /solve --tool agent
+/qwen эквивалентна /solve --tool qwen
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
 /opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+/qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free

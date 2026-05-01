@@ -236,7 +236,7 @@ These settings control the merge queue behavior for automated PR merging.
 
 ### 17. Playwright MCP
 
-Playwright MCP (Model Context Protocol) provides browser automation capabilities for Claude Code and Codex, enabling web scraping, UI testing, and interaction with dynamic web pages.
+Playwright MCP (Model Context Protocol) provides browser automation capabilities for supported AI tools including Claude Code, Codex, OpenCode, Agent, and Qwen Code, enabling web scraping, UI testing, and interaction with dynamic web pages.
 
 #### Installation
 
@@ -264,7 +264,7 @@ codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless
 
 #### Scope Options
 
-Claude Code and Codex do not share MCP registration automatically. Register Playwright MCP in each CLI you expect to use. A working Claude configuration does not make `codex mcp list` show the same server.
+Claude Code, Codex, and other CLIs do not share MCP registration automatically. Register Playwright MCP in each CLI you expect to use. A working Claude configuration does not make `codex mcp list` show the same server.
 
 | Scope     | Description                     | Config Location                     |
 | --------- | ------------------------------- | ----------------------------------- |
@@ -340,10 +340,10 @@ solve <issue-url> [options]
 
 | Option                                                           | Alias | Type    | Default             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ---------------------------------------------------------------- | ----- | ------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--model`                                                        | `-m`  | string  | depends on `--tool` | Model to use. Current defaults: `sonnet` for Claude, `nemotron-3-super-free` for Agent, `grok-code-fast-1` for OpenCode, and `gpt-5.5` for Codex (with runtime fallback if the local Codex catalog has not exposed it yet).                                                                                                                                                                                                                                                                                                             |
+| `--model`                                                        | `-m`  | string  | depends on `--tool` | Model to use. Current defaults: `sonnet` for Claude, `nemotron-3-super-free` for Agent, `grok-code-fast-1` for OpenCode, `gpt-5.5` for Codex (with runtime fallback if the local Codex catalog has not exposed it yet), and `qwen3-coder-plus` for Qwen Code.                                                                                                                                                                                                                                                                           |
 | `--fallback-model`                                               |       | string  |                     | Fallback model to switch to on model capacity or overload errors. When supported, retries resume the same session with this model. Defaults: Claude `opus`/`opus-4-7` falls back to `opus-4-6`; Codex `gpt-5.5` falls back to `gpt-5.4`; other tools and models stay unset unless you pass this explicitly.                                                                                                                                                                                                                             |
 | `--worker-model`                                                 |       | string  |                     | Alias for --model: execution/worker model when --plan-model is specified                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `--tool`                                                         |       | string  | claude              | AI tool (claude, opencode, codex, agent)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `--tool`                                                         |       | string  | claude              | AI tool (claude, opencode, codex, agent, qwen)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `--plan`                                                         |       | boolean | false               | Enable plan mode: opus for planning, sonnet for execution (--tool claude only)                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `--plan-model`                                                   |       | string  |                     | Model for plan mode (e.g., opus). Auto-switches to opusplan mode (--tool claude only)                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `--think`                                                        |       | string  |                     | Thinking level (off, low, medium, high, xhigh, max). If omitted, Hive Mind does not request extra reasoning by default: Claude runs without extra thinking budget/effort overrides, Codex uses reasoning `none`, and Agent/OpenCode add no thinking prompt to their default models. `max` stays `max` on supported Claude effort models; `xhigh` is native only on Opus 4.7. For Codex, `xhigh`/`max` map to `xhigh`.                                                                                                                   |
@@ -443,7 +443,7 @@ hive <github-url> [options]
 | `--concurrency`                        | `-c`  | number  | 2             | Parallel workers                                                                                                    |
 | `--pull-requests-per-issue`            | `-p`  | number  | 1             | Number of PRs per issue                                                                                             |
 | `--model`                              | `-m`  | string  | sonnet        | Model to use                                                                                                        |
-| `--tool`                               |       | string  | claude        | AI tool (claude, opencode, agent)                                                                                   |
+| `--tool`                               |       | string  | claude        | AI tool (claude, opencode, codex, agent, qwen)                                                                      |
 | `--interval`                           | `-i`  | number  | 300           | Poll interval (seconds)                                                                                             |
 | `--max-issues`                         |       | number  | 0             | Limit processed issues (0 = unlimited)                                                                              |
 | `--once`                               |       | boolean | false         | Single run (don't monitor)                                                                                          |
@@ -507,9 +507,10 @@ hive-telegram-bot [options]
 | `--isolation`                       |       | string  | `screen`   | Isolation backend (`screen`, `tmux`, `docker`). Default `screen` keeps Telegram-bot work sessions detached so they survive bot restarts. Pass `--isolation ''` (or set `TELEGRAM_ISOLATION=`) to opt out. |
 
 When `/solve` is enabled, the Telegram bot also accepts `/do` and `/continue`
-as plain `/solve` aliases. The `/claude`, `/codex`, `/opencode`, and `/agent`
+as plain `/solve` aliases. The `/claude`, `/codex`, `/opencode`, `/agent`, and `/qwen`
 commands are per-tool aliases equivalent to `/solve --tool claude`,
-`/solve --tool codex`, `/solve --tool opencode`, and `/solve --tool agent`.
+`/solve --tool codex`, `/solve --tool opencode`, `/solve --tool agent`, and
+`/solve --tool qwen`.
 
 ---
 
@@ -602,6 +603,7 @@ const dsn = sentry.dsn;
 | `codex`    | `gpt-5.5` preferred, with runtime fallback to local catalog | Codex runs with `reasoning_effort=none` unless you pass `--think` or `--thinking-budget` |
 | `opencode` | `grok-code-fast-1`                                          | No extra thinking prompt is added for the default model                                  |
 | `agent`    | `nemotron-3-super-free`                                     | No extra thinking prompt is added for the default model                                  |
+| `qwen`     | `qwen3-coder-plus`                                          | No extra thinking prompt is added for the default model                                  |
 
 Additional tool-sensitive file-passing defaults:
 

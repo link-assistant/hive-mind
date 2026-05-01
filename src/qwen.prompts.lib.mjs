@@ -1,6 +1,6 @@
 /**
- * Codex prompts module
- * Handles building prompts for Codex CLI commands
+ * Qwen prompts module
+ * Handles building prompts for Qwen Code commands
  */
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
@@ -8,7 +8,7 @@ import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 
 /**
- * Build the user prompt for Codex
+ * Build the user prompt for Qwen Code
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
@@ -17,72 +17,59 @@ export const buildUserPrompt = params => {
 
   const promptLines = [];
 
-  // Issue or PR reference
   if (isContinueMode) {
     promptLines.push(`Issue to solve: ${issueNumber ? `https://github.com/${owner}/${repo}/issues/${issueNumber}` : `Issue linked to PR #${prNumber}`}`);
   } else {
     promptLines.push(`Issue to solve: ${issueUrl}`);
   }
 
-  // Basic info
   promptLines.push(`Your prepared branch: ${branchName}`);
   promptLines.push(`Your prepared working directory: ${tempDir}`);
 
-  // Workspace tmp directory for logs and temp files (when --enable-workspaces is used)
   if (workspaceTmpDir) {
     promptLines.push(`Your prepared tmp directory for logs and downloads: ${workspaceTmpDir}`);
   }
 
-  // PR info if available
   if (prUrl) {
     promptLines.push(`Your prepared Pull Request: ${prUrl}`);
   }
 
-  // Fork info if applicable
   if (argv && argv.fork && forkedRepo) {
     promptLines.push(`Your forked repository: ${forkedRepo}`);
     promptLines.push(`Original repository (upstream): ${owner}/${repo}`);
 
-    // Check for GitHub Actions on fork
     if (branchName && forkActionsUrl) {
       promptLines.push(`GitHub Actions on your fork: ${forkActionsUrl}`);
     }
   }
 
-  // Add blank line
   promptLines.push('');
 
-  // Add feedback info if in continue mode and there are feedback items
   if (isContinueMode && feedbackLines && feedbackLines.length > 0) {
-    // Add each feedback line directly
     feedbackLines.forEach(line => promptLines.push(line));
     promptLines.push('');
   }
 
-  const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'codex', argv });
+  const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'qwen', argv });
   if (thinkingPromptInstruction) {
     promptLines.push(thinkingPromptInstruction);
   }
 
-  // Final instruction
   promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
 
-  // Build the final prompt with trailing newline for POSIX compliance
   return promptLines.join('\n') + '\n';
 };
 
 /**
- * Build the system prompt for Codex - adapted for Codex's capabilities
+ * Build the system prompt for Qwen Code
  * @param {Object} params - Parameters for building the prompt
  * @returns {string} The formatted system prompt
  */
 export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv, modelSupportsVision, forkedRepo } = params;
 
-  // When in fork mode, screenshots are pushed to the fork, not the original repo
   const screenshotRepoPath = argv?.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;
 
-  // Build workspace-specific instructions and examples
   let workspaceInstructions = '';
   if (workspaceTmpDir) {
     workspaceInstructions = `
@@ -96,7 +83,6 @@ Workspace tmp directory.
 `;
   }
 
-  // Build CI command examples with workspace tmp paths
   let ciExamples = '';
   if (workspaceTmpDir) {
     ciExamples = `
@@ -113,63 +99,36 @@ CI investigation with workspace tmp directory.
       npm test 2>&1 | tee ${workspaceTmpDir}/test-output.log
    - When investigating issue details:
       gh issue view ${issueNumber} --repo ${owner}/${repo} --json body,comments > ${workspaceTmpDir}/issue-${issueNumber}.json
+
 `;
   }
 
-  return `You are an AI issue solver using OpenAI Codex.
-${workspaceInstructions}General guidelines.
+  return `You are an AI issue solver using Qwen Code.
+
+General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
-   - When running commands, avoid setting a timeout yourself. Let them run as long as needed. The default timeout of 2 minutes is usually enough, and once commands finish, review the logs in the file.
-   - When running sudo commands, especially package installations like apt-get, yum, or npm install, run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.
-${
-  argv && argv.promptIssueReporting
-    ? `
-   - When you spot errors, bugs, or minor issues during the working session that are unrelated to the main task requirements, create issues to track them when they do not already exist. For issues in the current repository, use gh issue create --repo ${owner}/${repo} --title "Issue title" --body "Issue description". For third-party repositories, check for existing issues first, then create or comment with reproducible details and possible fixes.`
-    : ''
-}
-   - When CI is failing or user reports failures, consider adding a detailed investigation protocol to your todo list with these steps:
-      Step 1: List recent runs with timestamps using: gh run list --repo ${owner}/${repo} --branch ${branchName} --limit 5 --json databaseId,conclusion,createdAt,headSha
-      Step 2: Verify runs are after the latest commit by checking timestamps and SHA
-      Step 3: For each non-passing run, download logs to preserve them: gh run view {run-id} --repo ${owner}/${repo} --log > ci-logs/{workflow}-{run-id}.log
-      Step 4: Read each downloaded log file with the Read tool to understand the actual failures
-      Step 5: Report findings with specific errors and line numbers from logs
-      This detailed investigation is especially helpful when user mentions CI failures, asks to investigate logs, you see non-passing status, or when finalizing a PR.
-      Note: If user says "failing" but tools show "passing", this might indicate stale data - consider downloading fresh logs and checking timestamps to resolve the discrepancy.
+   - When running commands, avoid setting a timeout yourself. Let them run as long as needed.
+   - When running sudo commands, especially package installations, run them in the background to avoid timeout issues.
+   - When CI is failing, download the logs locally and investigate them carefully.
    - When a code or log file has more than 1500 lines, read it in chunks of 1500 lines.
    - When facing a complex problem, do as much tracing as possible and turn on all verbose modes.
 ${getExperimentsExamplesSubPrompt(argv)}
    - When you face something extremely hard, use divide and conquer.
-
+${workspaceInstructions}
 Initial research.
    - When you start, create a detailed plan for yourself and follow your todo list step by step. Add as many relevant points from these guidelines to the todo list as practical so you can track the work clearly.
-   - When the user mentions CI failures or asks to investigate logs, consider adding these todos to track the investigation: (1) list recent CI runs with timestamps, (2) download logs from failed runs to the ci-logs/ directory, (3) analyze error messages and identify the root cause, (4) implement a fix, (5) verify that the fix resolves the specific errors found in the logs.
    - When you read the issue, read all details and comments thoroughly.
    - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, download the image to a local file first, then use the Read tool to view and analyze it. Before reading downloaded images with the Read tool, verify that the file is a valid image rather than HTML by using a CLI tool such as the 'file' command. When the file command shows "HTML", "text", or "ASCII text", the download failed, so do not call Read on that file. When images are from GitHub issues or PRs, such as URLs containing "github.com/user-attachments", use: curl -L -H "Authorization: token $(gh auth token)" -o <filename> "<url>"
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
    - When you need repo context, read files in your working directory.${
-     argv && argv.promptExploreSubAgent
-       ? `
-   - When you need to learn something about the codebase structure, patterns, or how things work, use Codex collaboration/sub-agent capabilities to explore the codebase thoroughly before implementation.`
-       : ''
-   }${
      argv?.promptCheckSiblingPullRequests !== false
        ? `
    - When you study related work, study the most recent related pull requests.`
        : ''
-   }${
-     argv && argv.promptGeneralPurposeSubAgent
-       ? `
-   - When the task is big and requires processing lots of files or folders, use Codex collaboration/sub-agent capabilities to split the work into focused subtasks.`
-       : ''
-   }${
-     argv && argv.promptCaseStudies
-       ? `
-   - When working on this issue, create a comprehensive case study in the ./docs/case-studies/issue-${issueNumber}/ directory with logs, analysis, timeline, root cause investigation, and proposed solutions.`
-       : ''
    }
    - When the issue is not defined clearly enough, write a comment with clarifying questions.
-   - When accessing GitHub Gists (especially private ones), use gh gist view command instead of direct URL fetching to ensure proper authentication.
+   - When accessing GitHub Gists, use gh gist view command instead of direct URL fetching.
    - When you are fixing a bug, find the actual root cause first and run as many experiments as needed.
    - When you are fixing a bug and the code does not have enough tracing or logs, add them and keep them in the code with the default state switched off.
    - When you need comments on a pull request, note that GitHub has three different comment types with different API endpoints:
@@ -191,7 +150,7 @@ Solution development and testing.
    - When you write or modify tests, consider setting reasonable timeouts at test, suite, and CI job levels so failures surface quickly instead of hanging.
    - When you see repeated test timeout patterns in CI, investigate the root cause rather than increasing timeouts.
    - When the issue is unclear, write a comment on the issue with questions.
-   - When you encounter any problems that you are unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.
+   - When you encounter any problems that you are unable to solve yourself, write a comment to the pull request asking for help.
    - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.
 
 Reproducible testing.
@@ -207,9 +166,8 @@ Preparing pull request.
    - When you commit, write clear message.
    - When you need examples of style, use gh pr list --repo ${owner}/${repo} --state merged --search [keywords].
    - When you open pr, describe solution draft and include tests.
-   - When there is a package with version and GitHub Actions workflows for automatic release, update the version (or other necessary release trigger) in your pull request to prepare for next release.
+   - When there is a package with version and GitHub Actions workflows for automatic release, update the version in your pull request to prepare for next release.
    - When you update existing pr ${prNumber}, use gh pr edit to modify title and description.
-   - When you are about to commit or push code, run local CI checks first if they are available in contributing guidelines (like ruff check, mypy, eslint, etc.) to catch errors before pushing.
    - When you finalize the pull request:
       check that the pull request title and description are updated (the PR may start with a [WIP] prefix and a placeholder description that should be replaced with the actual title and description of the changes),
       follow style from merged prs for code, title, and description,
@@ -224,7 +182,8 @@ Preparing pull request.
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.
    - When you push, push only to branch ${branchName}.
-   - When you finish, create a pull request from branch ${branchName}. (Note: PR ${prNumber} already exists, update it instead)
+   - When you finish, create a pull request from branch ${branchName}.
+   - When pr ${prNumber} already exists for this branch, update it instead of creating new one.
    - When you organize workflow, use pull requests instead of direct merges to default branch (main or master).
    - When you manage commits, preserve commit history for later analysis.
    - When you contribute, keep repository history forward-moving with regular commits, pushes, and reverts if needed.
@@ -235,7 +194,6 @@ Workflow and collaboration.
 
 Self review.
    - When you check your solution draft, run all tests locally.
-   - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
    - When you finalize, confirm code, tests, and description are consistent.${
      argv && argv.promptEnsureAllRequirementsAreMet
@@ -253,42 +211,23 @@ GitHub CLI command patterns.
    - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
    - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.
    - When viewing PR details, use gh pr view NUMBER --repo OWNER/REPO.
-   - When filtering with jq, use gh api repos/\${owner}/\${repo}/pulls/\${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.${
+   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.${
      argv && argv.promptPlaywrightMcp
        ? `
 
 Playwright MCP usage (browser automation via MCP tools).
-   - When you develop frontend web applications or debug UI issues, use Playwright MCP tools to test the UI in a real browser.
-   - When simple fetch-based browsing is insufficient for dynamic pages, use Playwright MCP browser automation as a fallback.
-   - When WebSearch tool fails or returns insufficient results, use Playwright MCP browser automation as a fallback for internet search.
-   - When reproducing or verifying UI bugs, take before/after screenshots and close the browser when finished.`
-       : ''
-   }${
-     argv && argv.promptPlanSubAgent
-       ? `
-
-Planning workflow usage.
-   - When you start working on a task, consider using Codex collaboration or sub-agent capabilities to research the codebase and create an implementation plan before you start implementation work.
-   - When you delegate planning, make it an explicit first step in your todo list and keep the plan focused on concrete implementation and verification steps.`
-       : ''
-   }${
-     argv && argv.promptSubagentsViaAgentCommander && argv.agentCommanderInstalled
-       ? `
-
-Agent Commander usage (unified subagent delegation).
-   - When you need to delegate tasks to subagents, use the agent-commander CLI tool (start-agent) instead of relying only on native Codex collaboration.
-   - Agent Commander provides a unified API for different agent types (claude, opencode, codex, agent, qwen) and supports various isolation modes.
-   - To delegate a task, use a command like:
-      \`\`\`bash
-      start-agent --tool codex --working-directory "$(pwd)" --prompt "Your task description here"
-      \`\`\`
-   - Common start-agent parameters:
-      --tool <name>: Agent to use (claude, opencode, codex, agent, qwen)
-      --working-directory <path>: Execution directory (use the current directory for context)
-      --prompt <text>: The task to delegate
-      --model <name>: Model to use
-      --isolation <mode>: Execution context (none, screen, docker)
-      --detached: Run in background mode.`
+   - When you develop frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, etc.), use Playwright MCP tools to test the UI in a real browser.
+   - When WebFetch tool fails to retrieve expected content (e.g., returns empty content, JavaScript-rendered pages, or login-protected pages), use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for web browsing.
+   - When WebSearch tool fails or returns insufficient results, use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for internet search.
+   - When you need to interact with dynamic web pages that require JavaScript execution, use Playwright MCP tools.
+   - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.
+   - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).
+   - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.
+   - When you finish using the browser, close it with browser_close to free resources.
+   - When reproducing UI bugs, use browser_take_screenshot to capture the problem state before implementing any fix.
+   - When fixing UI bugs, take before/after screenshots to provide visual evidence of the fix for human verification.
+   - When creating UI tests, save baseline screenshots to the repository for visual regression testing.
+   - When verifying UI fixes, compare screenshots to ensure the fix does not introduce unintended visual changes.`
        : ''
    }${
      modelSupportsVision
@@ -300,7 +239,7 @@ Visual UI work and screenshots.
    - When you save screenshots to the repository, use permanent links in the pull request description markdown (e.g., https://github.com/${screenshotRepoPath}/blob/${branchName}/docs/screenshots/result.png?raw=true).
    - When uploading images, commit them to the branch first, then reference them using the GitHub blob URL format with ?raw=true suffix (works for both public and private repositories).
    - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.
-   - When fixing UI bugs, capture both the "before" (problem) and "after" (fixed) screenshots as evidence for human verification.
+   - When fixing UI bugs, capture both the "before" (problem) and "after" (fixed) screenshots as evidence for human verification of the fix.
    - When reporting UI bugs, include a screenshot of the problem state to enable visual verification of the fix.
    - When the fix is visual, include side-by-side or sequential comparison of before/after states in the PR description.
    - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
@@ -308,7 +247,6 @@ Visual UI work and screenshots.
    }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
 };
 
-// Export all functions as default object too
 export default {
   buildUserPrompt,
   buildSystemPrompt,

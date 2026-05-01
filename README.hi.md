@@ -343,7 +343,7 @@ solve <issue-url> [options]
 
 | विकल्प                   | संक्षिप्त | विवरण                                                       | डिफ़ॉल्ट |
 | ------------------------ | --------- | ----------------------------------------------------------- | -------- |
-| `--tool`                 |           | AI टूल (claude, opencode, codex, agent)                     | claude   |
+| `--tool`                 |           | AI टूल (claude, opencode, codex, agent, qwen)               | claude   |
 | `--verbose`              | `-v`      | विस्तृत लॉगिंग सक्षम करें                                   | false    |
 | `--attach-logs`          |           | PR में लॉग संलग्न करें (⚠️ संवेदनशील डेटा उजागर हो सकता है) | false    |
 | `--auto-init-repository` |           | खाली रेपो स्वतः-आरंभ करें (README.md बनाता है)              | false    |
@@ -370,7 +370,7 @@ hive <github-url> [options]
 
 | विकल्प                   | संक्षिप्त | विवरण                                                       | डिफ़ॉल्ट |
 | ------------------------ | --------- | ----------------------------------------------------------- | -------- |
-| `--tool`                 |           | AI टूल (claude, opencode, agent)                            | claude   |
+| `--tool`                 |           | AI टूल (claude, opencode, codex, agent, qwen)               | claude   |
 | `--concurrency`          | `-c`      | समानांतर वर्कर की संख्या                                    | 2        |
 | `--skip-issues-with-prs` | `-s`      | मौजूदा PR वाले इश्यू छोड़ें                                 | false    |
 | `--verbose`              | `-v`      | विस्तृत लॉगिंग सक्षम करें                                   | false    |
@@ -462,11 +462,13 @@ Aliases:
 /codex /solve --tool codex के बराबर है
 /opencode /solve --tool opencode के बराबर है
 /agent /solve --tool agent के बराबर है
+/qwen /solve --tool qwen के बराबर है
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
 /opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+/qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free

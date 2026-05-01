@@ -99,6 +99,9 @@ if (argv.tool === 'opencode') {
 } else if (argv.tool === 'agent') {
   const agentLib = await import('./agent.lib.mjs');
   checkForUncommittedChanges = agentLib.checkForUncommittedChanges;
+} else if (argv.tool === 'qwen') {
+  const qwenLib = await import('./qwen.lib.mjs');
+  checkForUncommittedChanges = qwenLib.checkForUncommittedChanges;
 } else {
   checkForUncommittedChanges = claudeLib.checkForUncommittedChanges;
 }
@@ -751,6 +754,36 @@ try {
       agentPath,
       $,
     });
+  } else if (argv.tool === 'qwen') {
+    const qwenLib = await import('./qwen.lib.mjs');
+    const { executeQwen, checkPlaywrightMcpAvailability: checkQwenPlaywrightMcp } = qwenLib;
+    const qwenPath = process.env.QWEN_PATH || 'qwen';
+    await resolvePlaywrightMcp(checkQwenPlaywrightMcp);
+
+    toolResult = await executeQwen({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl,
+      branchName,
+      tempDir,
+      workspaceTmpDir,
+      isContinueMode,
+      mergeStateStatus,
+      forkedRepo,
+      feedbackLines,
+      forkActionsUrl,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile,
+      getLogFile,
+      formatAligned,
+      getResourceSnapshot,
+      qwenPath,
+      $,
+    });
   } else {
     // Default to Claude
     if (argv.tool === 'claude' || !argv.tool) {
@@ -1150,6 +1183,7 @@ try {
       prNumber,
       branchName,
       tempDir,
+      workspaceTmpDir,
       mergeStateStatus,
       feedbackLines: hintLines,
       argv: {

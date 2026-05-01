@@ -370,6 +370,8 @@ export const executeToolIteration = async params => {
       qwenPath,
       $,
     });
+  } else if (argv.tool === 'gemini') {
+    throw new Error('--tool gemini is currently available through --use-agent-commander only');
   } else {
     // Use Claude (default)
     const claudeExecLib = await import('./claude.lib.mjs');

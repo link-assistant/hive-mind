@@ -1,7 +1,6 @@
 {
   "baseRefName": "main",
-  "baseRefOid": "e1349a76da02dfbac0909a3233bb9e44fc3cd637",
-  "body": "## Summary\nAdds the `--use-agent-commander` option to both `solve.mjs` and `hive.mjs`. When enabled, this experimental flag delegates tool execution to the [agent-commander](https://github.com/link-assistant/agent-commander) library instead of using the embedded tool logic in this repository.\n\nFixes #1043\n\n## Changes\n- Added `--use-agent-commander` option to `solve.config.lib.mjs` (hidden, experimental)\n- Added `--use-agent-commander` option to `hive.config.lib.mjs` (hidden, experimental)\n- Created `agent-commander.lib.mjs` wrapper library with:\n  - `isAgentCommanderAvailable()` - Checks if agent-commander is installed\n  - `validateAgentCommanderConnection()` - Validates tool connection\n  - `executeWithAgentCommander()` - Unified execution interface\n  - `checkForUncommittedChanges()` - Git status checking\n- Integrated agent-commander in `solve.mjs` tool execution flow (first priority check when flag enabled)\n- Passed `--use-agent-commander` flag through `hive.mjs` to solve workers\n- Added `agent-commander` as optional dependency in `package.json`\n- Added experiment scripts for testing the integration\n\n## Behavior\nThe option is:\n- Hidden from `--help` output (experimental feature)\n- Disabled by default (opt-in only)\n- Fails gracefully with clear error message when agent-commander is not installed\n\n## Usage\n```bash\n# Install agent-commander (required for the flag to work)\nnpm install agent-commander\n\n# Use with solve.mjs\nsolve.mjs https://github.com/owner/repo/issues/123 --use-agent-commander\n\n# Use with hive.mjs\nhive.mjs https://github.com/owner/repo --use-agent-commander\n```\n\n## Test plan\n- [x] Verify `--use-agent-commander` option is hidden from `--help`\n- [x] Verify lint and format checks pass\n- [x] Verify baseline functionality works without the flag\n- [x] Verify availability detection works (shows clear message when not installed)\n- [x] Verify graceful failure when agent-commander is not installed\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+  "body": "## Summary\n\nAdds an experimental hidden `--use-agent-commander` solve option. By default, hive-mind continues to use the existing embedded adapters for `claude`, `codex`, `opencode`, and `agent`. When the flag is explicitly set, solve and restart iterations route tool execution through `agent-commander`.\n\n## What Changed\n\n- Added `src/agent-commander.lib.mjs` as the opt-in adapter around `agent-commander@0.4.3`.\n- Added hidden `--use-agent-commander` to `SOLVE_OPTION_DEFINITIONS`; `hive` forwards it through the existing solve passthrough option map.\n- Wired the flag into initial solve execution, tool connection validation, uncommitted-change handling, and watch/auto-restart tool iterations.\n- Preserved the default embedded execution path when the flag is absent.\n- Updated `agent-commander` from `^0.4.2` to `^0.4.3` for prompt-file support needed by large hive-mind prompts.\n- Added a default-suite regression test covering option defaults, hive passthrough, controller option mapping, validation dry-run behavior, execution/result normalization, and cost/session summary extraction.\n- Added `docs/case-studies/issue-1043/` with collected issue/PR/package evidence, requirements, compatibility notes, and upstream gap tracking.\n\n## Upstream Follow-Up\n\nOpened focused issues for missing full-parity surfaces in `agent-commander`:\n\n- https://github.com/link-assistant/agent-commander/issues/29\n- https://github.com/link-assistant/agent-commander/issues/30\n\n## Verification\n\n- `npx eslint src/agent-commander.lib.mjs src/solve.mjs src/solve.restart-shared.lib.mjs src/solve.validation.lib.mjs src/solve.config.lib.mjs tests/test-agent-commander-option.mjs`\n- `npm run lint`\n- `node tests/test-agent-commander-option.mjs`\n- `node tests/test-hive-solve-option-parity.mjs`\n- `node tests/test-issue-1718-hive-passthrough-false.mjs`\n- `npm test` (all 80 selected test files passed)\n- `bash scripts/check-file-line-limits.sh` (passed; existing near-limit warnings only)\n\n\n\nFixes #1043",
   "comments": [
     { "id": "IC_kwDOPUU0qc7cqavC", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "🤖 **AI Work Session Started**\n\nStarting automated work session at 2025-12-31T12:22:51.887Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait working session to finish, and provide your feedback._", "createdAt": "2025-12-31T12:22:53Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-3702107074", "viewerDidAuthor": true },
     { "id": "IC_kwDOPUU0qc7cqf79", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n💰 **Cost estimation:**\n- Public pricing estimate: $11.491305 USD\n- Calculated by Anthropic: $8.025166 USD\n- Difference: $-3.466139 (-30.16%)\n📎 **Log file uploaded as GitHub Gist** (1937KB)\n🔗 [View complete solution draft log](https://gist.githubusercontent.com/konard/8003a42c6572876a7e8334779793153f/raw/b5c5a26f41eb8b19899ec44491b80beb7e588b15/solution-draft-log-pr-1767184590221.txt)\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*", "createdAt": "2025-12-31T12:36:35Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-3702128381", "viewerDidAuthor": true },
@@ -18,14 +17,56 @@
       "url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-4357883177",
       "viewerDidAuthor": true
     },
-    { "id": "IC_kwDOPUU0qc8AAAABA8ARHw", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "🤖 **AI Work Session Started**\n\nStarting automated work session at 2026-05-01T04:54:47.349Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._", "createdAt": "2026-05-01T04:54:48Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-4357886239", "viewerDidAuthor": true }
+    { "id": "IC_kwDOPUU0qc8AAAABA8ARHw", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "🤖 **AI Work Session Started**\n\nStarting automated work session at 2026-05-01T04:54:47.349Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._", "createdAt": "2026-05-01T04:54:48Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-4357886239", "viewerDidAuthor": true },
+    {
+      "id": "IC_kwDOPUU0qc8AAAABA8HY9w",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "## Working session summary\n\nCompleted and pushed.\n\nPR: https://github.com/link-assistant/hive-mind/pull/1044  \nCommit: `49f79f9b6d71f22ed5a2ad4374cea4979d289895`\n\nWhat changed:\n- Merged latest `main` and resolved conflicts.\n- Added hidden, default-off `--use-agent-commander`.\n- Preserved existing default embedded tool behavior when the flag is absent.\n- Routed solve/restart tool execution through `agent-commander@0.4.3` only when enabled.\n- Added regression tests and issue research under `docs/case-studies/issue-1043`.\n- Opened upstream parity follow-ups:\n  - https://github.com/link-assistant/agent-commander/issues/29\n  - https://github.com/link-assistant/agent-commander/issues/30\n\nVerification:\n- Local `npm run lint` passed.\n- Local `npm test` passed: all 80 selected test files.\n- Local line-limit check passed with existing near-limit warnings.\n- GitHub Actions run `25203627030` passed, including Docker: https://github.com/link-assistant/hive-mind/actions/runs/25203627030\n- PR is no longer draft, is `MERGEABLE`, and merge state is `CLEAN`.\n- Working tree is clean.\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+      "createdAt": "2026-05-01T05:35:46Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-4358002935",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOPUU0qc8AAAABA8HcTg",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-5.5\n- Provider: OpenAI\n- Public pricing estimate: $28.889055\n\n### 📊 **Context and tokens usage:**\n- peak request: 20.5M / 1.1M (1951%) input tokens, 59.4K / 128K (46%) output tokens\n\nTotal: (637.3K + 19.8M cached) input tokens, 59.4K output tokens, $28.889055 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-5.5`\n- **Model: GPT-5.5** (`gpt-5.5`)\n\n### 📎 **Log file uploaded as Repository** (64788KB)\n- [View complete solution draft log](https://raw.githubusercontent.com/konard/public-logs/main/log-tmp-solution-draft-log-pr-1777613754841.txt/tmp-solution-draft-log-pr-1777613754841.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+      "createdAt": "2026-05-01T05:36:05Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-4358003790",
+      "viewerDidAuthor": true
+    },
+    { "id": "IC_kwDOPUU0qc8AAAABA8H0fA", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*", "createdAt": "2026-05-01T05:38:26Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-4358009980", "viewerDidAuthor": true },
+    {
+      "id": "IC_kwDOPUU0qc8AAAABA9EKWA",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "Get latest changes from default branch, we added direct support for Qwen Coder and Gemini there.\r\n\r\nUse the latest version of agent-commander, and if anything is missing report issues at https://github.com/link-assistant/agent-commander\r\n\r\nWe need to fully support all tools we have: codex, claude, agent, opencode, qwen, gemini.\r\n\r\nWe need to ensure all changes are correct, consistent, validated, tested, logged and fully meet each and all discussed requirements in widest possible sense (check issue description and all comments in issue and in pull request, make sure each and every requirement listed before actually checking if they were addressed). Ensure all CI/CD checks pass.\r\n\r\nPlease plan and execute everything in a single pull request, you have unlimited time and context, as context autocompacts and you can continue indefinetely, do as much as possible in one go, until it is each and every requirement fully addressed, and everything is totally done. For issues use gh tool and create them directly on https://github.com/link-assistant/agent-commander if needed.",
+      "createdAt": "2026-05-01T11:03:23Z",
+      "includesCreatedEdit": true,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-4358998616",
+      "viewerDidAuthor": true
+    },
+    { "id": "IC_kwDOPUU0qc8AAAABA9ETfw", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "🤖 **AI Work Session Started**\n\nStarting automated work session at 2026-05-01T11:04:07.191Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._", "createdAt": "2026-05-01T11:04:08Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-4359000959", "viewerDidAuthor": true }
   ],
   "headRefName": "issue-1043-824a8917a5fe",
-  "headRefOid": "e6907a6d1a0cb504ac76feea531a6b811172d4c5",
+  "headRefOid": "49f79f9b6d71f22ed5a2ad4374cea4979d289895",
   "isDraft": true,
-  "mergeable": "CONFLICTING",
+  "mergeStateStatus": "CLEAN",
   "number": 1044,
   "state": "OPEN",
   "title": "feat: Add experimental --use-agent-commander option",
+  "updatedAt": "2026-05-01T11:06:32Z",
   "url": "https://github.com/link-assistant/hive-mind/pull/1044"
 }

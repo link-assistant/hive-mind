@@ -116,8 +116,12 @@ await asyncTest('formatStatus includes codex queue', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'qwen' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'gemini' });
   const status = await queue.formatStatus();
   assert.ok(status.includes('codex') && status.includes('pending: 1'), 'Should show codex queue with 1 pending');
+  assert.ok(status.includes('qwen') && status.includes('pending: 1'), 'Should show qwen queue with 1 pending');
+  assert.ok(status.includes('gemini') && status.includes('pending: 1'), 'Should show gemini queue with 1 pending');
   queue.stop();
 });
 

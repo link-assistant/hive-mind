@@ -15,7 +15,12 @@ const log = async message => {
   logs.push(String(message));
 };
 
-assert.deepEqual([...AGENT_COMMANDER_TOOLS].sort(), ['agent', 'claude', 'codex', 'opencode']);
+assert.deepEqual([...AGENT_COMMANDER_TOOLS].sort(), ['agent', 'claude', 'codex', 'gemini', 'opencode', 'qwen']);
+
+const actualAgentCommanderModule = await import('agent-commander');
+for (const toolName of AGENT_COMMANDER_TOOLS) {
+  assert.equal(actualAgentCommanderModule.isToolSupported({ toolName }), true, `agent-commander should support ${toolName}`);
+}
 
 const flagDefinition = SOLVE_OPTION_DEFINITIONS['use-agent-commander'];
 assert.equal(flagDefinition.type, 'boolean');
@@ -23,11 +28,15 @@ assert.equal(flagDefinition.default, false);
 assert.equal(flagDefinition.hidden, true);
 assert.ok(getSolvePassthroughOptionNames().includes('use-agent-commander'), 'hive should forward --use-agent-commander to solve workers');
 
-assert.deepEqual(buildAgentCommanderToolOptions({ verbose: true, fallbackModel: 'opus' }, 'claude'), {
-  verbose: true,
-  fallbackModel: 'opus',
-});
-assert.deepEqual(buildAgentCommanderToolOptions({ verbose: true, fallbackModel: 'opus' }, 'codex'), {});
+const claudeToolOptions = buildAgentCommanderToolOptions({ verbose: true, fallbackModel: 'opus' }, 'claude');
+assert.equal(claudeToolOptions.verbose, true);
+assert.equal(claudeToolOptions.fallbackModel, 'opus');
+
+const codexToolOptions = buildAgentCommanderToolOptions({ verbose: true, fallbackModel: 'opus' }, 'codex');
+assert.deepEqual(codexToolOptions.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto']);
+
+const geminiToolOptions = buildAgentCommanderToolOptions({ verbose: true }, 'gemini');
+assert.deepEqual(geminiToolOptions, { debug: true });
 
 const claudeOptions = buildAgentCommanderControllerOptions({
   tool: 'claude',
@@ -44,10 +53,11 @@ const claudeOptions = buildAgentCommanderControllerOptions({
 
 assert.equal(claudeOptions.tool, 'claude');
 assert.equal(claudeOptions.workingDirectory, '/tmp/repo');
-assert.equal(claudeOptions.model, 'sonnet');
+assert.equal(claudeOptions.model, 'claude-sonnet-4-6');
 assert.equal(claudeOptions.resume, 'session-123');
 assert.equal(claudeOptions.json, true);
-assert.deepEqual(claudeOptions.toolOptions, { verbose: true, fallbackModel: 'opus' });
+assert.equal(claudeOptions.toolOptions.verbose, true);
+assert.equal(claudeOptions.toolOptions.fallbackModel, 'opus');
 
 const agentOptions = buildAgentCommanderControllerOptions({
   tool: 'agent',
@@ -57,6 +67,26 @@ const agentOptions = buildAgentCommanderControllerOptions({
   argv: { model: 'opus' },
 });
 assert.equal(agentOptions.json, false, 'native agent output is already parsed by agent-commander');
+
+const geminiOptions = buildAgentCommanderControllerOptions({
+  tool: 'gemini',
+  tempDir: '/tmp/repo',
+  prompt: 'user prompt',
+  systemPrompt: 'system prompt',
+  argv: { model: 'gemini' },
+});
+assert.equal(geminiOptions.json, true, 'Gemini stream-json output should be parsed by agent-commander');
+assert.equal(geminiOptions.model, 'gemini-2.5-flash', 'Gemini alias should be normalized before passing to agent-commander');
+
+const qwenOptions = buildAgentCommanderControllerOptions({
+  tool: 'qwen',
+  tempDir: '/tmp/repo',
+  prompt: 'user prompt',
+  systemPrompt: 'system prompt',
+  argv: { model: 'qwen' },
+});
+assert.equal(qwenOptions.json, true, 'Qwen stream-json output should be parsed by agent-commander');
+assert.equal(qwenOptions.model, 'qwen3-coder-plus', 'Qwen alias should be normalized before passing to agent-commander');
 
 const validationCapture = {};
 const validationModule = {
@@ -81,7 +111,7 @@ assert.equal(
   true
 );
 assert.equal(validationCapture.options.tool, 'opencode');
-assert.equal(validationCapture.options.model, 'grok-code');
+assert.equal(validationCapture.options.model, 'opencode/grok-code');
 assert.deepEqual(validationCapture.start, { dryRun: true, attached: false });
 
 const executionCapture = {};
@@ -103,6 +133,24 @@ const executionModule = {
         usage: {
           inputTokens: 11,
           outputTokens: 7,
+        },
+        metadata: {
+          success: true,
+          sessionId: 'codex-session-from-metadata',
+          limitReached: false,
+          limitResetTime: null,
+          limitTimezone: null,
+          anthropicTotalCostUSD: null,
+          publicPricingEstimate: null,
+          pricingInfo: null,
+          resultSummary: 'done from metadata',
+          resultModelUsage: { modelId: 'gpt-5.5' },
+          streamTokenUsage: {
+            inputTokens: 11,
+            outputTokens: 7,
+          },
+          subAgentCalls: null,
+          errorDuringExecution: false,
         },
       }),
     };
@@ -151,8 +199,9 @@ assert.equal(executionCapture.start.dryRun, false);
 assert.equal(executionCapture.start.attached, true);
 assert.equal(typeof executionCapture.start.onOutput, 'function');
 assert.equal(result.success, true);
-assert.equal(result.sessionId, 'codex-session-1');
-assert.equal(result.resultSummary, 'done from codex');
+assert.equal(result.sessionId, 'codex-session-from-metadata');
+assert.equal(result.resultSummary, 'done from metadata');
+assert.deepEqual(result.resultModelUsage, { modelId: 'gpt-5.5' });
 assert.deepEqual(result.streamTokenUsage, { inputTokens: 11, outputTokens: 7 });
 
 const claudeSummary = summarizeAgentCommanderResult({

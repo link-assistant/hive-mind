@@ -338,6 +338,10 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
         await log('❌ Cannot proceed without Qwen Code connection', { level: 'error' });
         return false;
       }
+    } else if (argv.tool === 'gemini') {
+      await log('❌ --tool gemini is currently available through --use-agent-commander only', { level: 'error' });
+      await log('   Re-run with: --tool gemini --use-agent-commander', { level: 'error' });
+      return false;
     } else {
       // Validate Claude CLI connection (default)
       const isClaudeConnected = await validateClaudeConnection(model);

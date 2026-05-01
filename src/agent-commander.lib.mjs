@@ -7,9 +7,70 @@
  * opencode.lib.mjs, and agent.lib.mjs.
  */
 
+import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
+import { mapModelForTool } from './models/index.mjs';
+import { buildCodexDisable1mContextConfigArgs, buildCodexSubSessionSizeConfigArgs, parseSubSessionSize } from './sub-session-size.lib.mjs';
 import { detectUsageLimit } from './usage-limit.lib.mjs';
 
-export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent']);
+export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
+
+const TOOL_EXECUTABLE_CONFIG = {
+  claude: { argvKey: 'claudePath', envKey: 'CLAUDE_PATH' },
+  codex: { argvKey: 'codexPath', envKey: 'CODEX_PATH' },
+  opencode: { argvKey: 'opencodePath', envKey: 'OPENCODE_PATH' },
+  agent: { argvKey: 'agentPath', envKey: 'AGENT_PATH' },
+};
+
+const getConfiguredExecutable = (argv = {}, tool) => {
+  const config = TOOL_EXECUTABLE_CONFIG[tool];
+  if (!config) return null;
+  return argv[config.argvKey] || process.env[config.envKey] || null;
+};
+
+const appendExtraArgs = (options, args) => {
+  if (!Array.isArray(args) || args.length === 0) return;
+  options.extraArgs = [...(options.extraArgs || []), ...args];
+};
+
+const appendExtraEnv = (options, env) => {
+  const entries = Object.entries(env || {}).filter(([, value]) => value !== undefined && value !== null && value !== false);
+  if (entries.length === 0) return;
+  options.extraEnv = {
+    ...(options.extraEnv || {}),
+    ...Object.fromEntries(entries.map(([key, value]) => [key, String(value)])),
+  };
+};
+
+const buildClaudeToolOptions = (argv = {}) => {
+  const options = {};
+  options.verbose = !!argv.verbose;
+  if (argv.fallbackModel) options.fallbackModel = argv.fallbackModel;
+
+  const extraEnv = {};
+  if (argv.thinkingBudget !== undefined) extraEnv.MAX_THINKING_TOKENS = argv.thinkingBudget;
+  if (argv.disable1mContext) extraEnv.CLAUDE_CODE_DISABLE_1M_CONTEXT = '1';
+  if (argv.showThinkingContent) extraEnv.CLAUDE_CODE_SHOW_THINKING = '1';
+  if (argv.planModel) extraEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = argv.planModel;
+  appendExtraEnv(options, extraEnv);
+
+  return options;
+};
+
+const buildCodexToolOptions = (argv = {}) => {
+  const options = {};
+  const { reasoningEffort } = resolveCodexReasoningEffort(argv);
+  appendExtraArgs(options, ['-c', `model_reasoning_effort=${reasoningEffort}`, '-c', 'model_reasoning_summary=auto']);
+
+  appendExtraArgs(options, buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext));
+  try {
+    appendExtraArgs(options, buildCodexSubSessionSizeConfigArgs(parseSubSessionSize(argv.subSessionSize)));
+  } catch {
+    // The embedded Codex path logs parse warnings later. Keep agent-commander
+    // command construction permissive so validation can still run.
+  }
+
+  return options;
+};
 
 const defaultLog = async (message, options = {}) => {
   if (options.verbose && !global.verboseMode) return;
@@ -41,13 +102,17 @@ export const isAgentCommanderAvailable = async () => {
 
 export const getAgentCommanderToolName = (argv = {}) => argv.tool || 'claude';
 
-export const buildAgentCommanderToolOptions = (argv = {}, tool = getAgentCommanderToolName(argv)) => {
-  const options = {};
+const resolveAgentCommanderModel = (tool, model) => (model ? mapModelForTool(tool, model) : model);
 
-  if (tool === 'claude') {
-    options.verbose = !!argv.verbose;
-    if (argv.fallbackModel) options.fallbackModel = argv.fallbackModel;
+export const buildAgentCommanderToolOptions = (argv = {}, tool = getAgentCommanderToolName(argv)) => {
+  const options = tool === 'claude' ? buildClaudeToolOptions(argv) : tool === 'codex' ? buildCodexToolOptions(argv) : {};
+
+  const executable = getConfiguredExecutable(argv, tool);
+  if (executable) {
+    options.executable = executable;
   }
+
+  if (tool === 'gemini' && argv.verbose) options.debug = true;
 
   return options;
 };
@@ -57,7 +122,7 @@ export const buildAgentCommanderControllerOptions = ({ tool, tempDir, prompt, sy
   workingDirectory: tempDir,
   prompt,
   systemPrompt,
-  model: argv.model,
+  model: resolveAgentCommanderModel(tool, argv.model),
   json: tool !== 'agent',
   resume: argv.resume,
   toolOptions: buildAgentCommanderToolOptions(argv, tool),
@@ -78,7 +143,7 @@ export const validateAgentCommanderConnection = async ({ tool, model, log = defa
       tool: toolName,
       workingDirectory: process.cwd(),
       prompt: 'connection check',
-      model,
+      model: resolveAgentCommanderModel(toolName, model),
       json: toolName !== 'agent',
       toolOptions: buildAgentCommanderToolOptions({ model }, toolName),
     });
@@ -96,6 +161,8 @@ const getPromptModule = async tool => {
   if (tool === 'codex') return await import('./codex.prompts.lib.mjs');
   if (tool === 'opencode') return await import('./opencode.prompts.lib.mjs');
   if (tool === 'agent') return await import('./agent.prompts.lib.mjs');
+  if (tool === 'qwen') return await import('./qwen.prompts.lib.mjs');
+  if (tool === 'gemini') return await import('./gemini.prompts.lib.mjs');
   throw new Error(`Unsupported tool for agent-commander: ${tool}`);
 };
 
@@ -103,6 +170,8 @@ export const getPlaywrightMcpAvailabilityCheck = async tool => {
   if (tool === 'opencode') return (await import('./opencode.lib.mjs')).checkPlaywrightMcpAvailability;
   if (tool === 'codex') return (await import('./codex.lib.mjs')).checkPlaywrightMcpAvailability;
   if (tool === 'agent') return (await import('./agent.lib.mjs')).checkPlaywrightMcpAvailability;
+  if (tool === 'qwen') return (await import('./qwen.lib.mjs')).checkPlaywrightMcpAvailability;
+  if (tool === 'gemini') return (await import('./playwright-mcp.lib.mjs')).checkPlaywrightMcpPackageAvailability;
   return (await import('./claude.lib.mjs')).checkPlaywrightMcpAvailability;
 };
 
@@ -153,6 +222,26 @@ const hasErrorMessage = messages => messages.some(message => message?.is_error =
 
 export const summarizeAgentCommanderResult = ({ result, tool }) => {
   const plainOutput = result?.output?.plain || '';
+  if (result?.metadata && typeof result.metadata === 'object') {
+    const metadata = result.metadata;
+    return {
+      success: metadata.success === true,
+      sessionId: metadata.sessionId || result.sessionId || null,
+      limitReached: !!metadata.limitReached,
+      limitResetTime: metadata.limitResetTime || null,
+      limitTimezone: metadata.limitTimezone || null,
+      anthropicTotalCostUSD: metadata.anthropicTotalCostUSD ?? null,
+      publicPricingEstimate: metadata.publicPricingEstimate ?? metadata.pricingInfo?.totalCostUSD ?? null,
+      pricingInfo: metadata.pricingInfo || null,
+      resultSummary: metadata.resultSummary || null,
+      resultModelUsage: metadata.resultModelUsage || null,
+      streamTokenUsage: metadata.streamTokenUsage || result.usage || null,
+      subAgentCalls: metadata.subAgentCalls || null,
+      errorDuringExecution: metadata.errorDuringExecution === true || result?.exitCode !== 0,
+      result: plainOutput,
+    };
+  }
+
   const messages = getParsedMessages(result);
   const usageLimit = detectUsageLimit(plainOutput);
   const usage = result?.usage || null;

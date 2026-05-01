@@ -16,8 +16,8 @@
  */
 
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
-export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
-import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
@@ -150,6 +150,7 @@ export class SolveQueue {
       agent: [],
       codex: [],
       qwen: [],
+      gemini: [],
     };
     this.processing = new Map();
     this.completed = [];
@@ -162,6 +163,7 @@ export class SolveQueue {
       agent: null,
       codex: null,
       qwen: null,
+      gemini: null,
     };
     // Legacy: keep for compatibility with existing code that uses lastStartTime
     this.lastStartTime = null;
@@ -564,9 +566,11 @@ export class SolveQueue {
     const codexProcessCount = externalProcessing.byTool.codex || 0;
     const agentProcessCount = externalProcessing.byTool.agent || 0;
     const qwenProcessCount = externalProcessing.byTool.qwen || 0;
+    const geminiProcessCount = externalProcessing.byTool.gemini || 0;
     const hasRunningClaude = claudeProcessCount > 0;
     const hasRunningCodex = codexProcessCount > 0;
     const hasRunningQwen = qwenProcessCount > 0;
+    const hasRunningGemini = geminiProcessCount > 0;
 
     // Calculate total processing count for system resources (all tools)
     // System resources (RAM, CPU, disk) apply to all tools
@@ -579,6 +583,7 @@ export class SolveQueue {
     const claudeProcessingCount = this.getProcessingCountByTool('claude');
     const codexProcessingCount = this.getProcessingCountByTool('codex');
     const qwenProcessingCount = this.getProcessingCountByTool('qwen');
+    const geminiProcessingCount = this.getProcessingCountByTool('gemini');
 
     // Track claude_running as a metric (but don't add to reasons yet)
     if (hasRunningClaude) {
@@ -589,6 +594,9 @@ export class SolveQueue {
     }
     if (hasRunningQwen) {
       this.recordThrottle('qwen_running');
+    }
+    if (hasRunningGemini) {
+      this.recordThrottle('gemini_running');
     }
 
     // Check system resources with strategy support
@@ -612,8 +620,8 @@ export class SolveQueue {
     // This allows agent tasks to proceed when Claude limits are reached
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
-    const hasRunningToolProcess = tool === 'codex' ? hasRunningCodex : tool === 'qwen' ? hasRunningQwen : hasRunningClaude;
-    const toolProcessingCount = tool === 'codex' ? codexProcessingCount : tool === 'qwen' ? qwenProcessingCount : claudeProcessingCount;
+    const hasRunningToolProcess = tool === 'codex' ? hasRunningCodex : tool === 'qwen' ? hasRunningQwen : tool === 'gemini' ? hasRunningGemini : hasRunningClaude;
+    const toolProcessingCount = tool === 'codex' ? codexProcessingCount : tool === 'qwen' ? qwenProcessingCount : tool === 'gemini' ? geminiProcessingCount : claudeProcessingCount;
     const limitCheck = await this.checkApiLimits(hasRunningToolProcess, toolProcessingCount, tool);
     if (limitCheck.rejected) {
       rejected = true;
@@ -640,6 +648,9 @@ export class SolveQueue {
     if (tool === 'qwen' && hasRunningQwen && reasons.length > 0) {
       reasons.push(formatWaitingReason('qwen_running', qwenProcessCount, 0) + ` (${qwenProcessCount} processes)`);
     }
+    if (tool === 'gemini' && hasRunningGemini && reasons.length > 0) {
+      reasons.push(formatWaitingReason('gemini_running', geminiProcessCount, 0) + ` (${geminiProcessCount} processes)`);
+    }
 
     const canStart = reasons.length === 0 && !rejected;
 
@@ -662,11 +673,13 @@ export class SolveQueue {
       codexProcesses: codexProcessCount,
       agentProcesses: agentProcessCount,
       qwenProcesses: qwenProcessCount,
+      geminiProcesses: geminiProcessCount,
       isolatedProcesses: externalProcessing.isolatedTotal,
       totalProcessing,
       claudeProcessingCount,
       codexProcessingCount,
       qwenProcessingCount,
+      geminiProcessingCount,
     };
   }
 
@@ -1427,6 +1440,9 @@ export default {
   getRunningProcesses,
   getRunningClaudeProcesses,
   getRunningAgentProcesses,
+  getRunningCodexProcesses,
+  getRunningQwenProcesses,
+  getRunningGeminiProcesses,
   getRunningIsolatedSessions,
   createQueueExecuteCallback,
   formatDuration,

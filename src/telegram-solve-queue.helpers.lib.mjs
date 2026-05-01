@@ -7,7 +7,7 @@ const execAsync = promisify(exec);
 
 /**
  * Count running processes by name.
- * @param {string} processName - Process name to search for (e.g., 'claude', 'agent')
+ * @param {string} processName - Process name to search for (e.g., 'claude', 'agent', 'codex', 'gemini')
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{count: number, processes: string[]}>}
  */

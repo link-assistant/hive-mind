@@ -464,12 +464,13 @@ Aliases:
 /opencode эквивалентна /solve --tool opencode
 /agent эквивалентна /solve --tool agent
 /qwen эквивалентна /solve --tool qwen
-/gemini эквивалентна /solve --tool gemini --use-agent-commander
+/gemini эквивалентна /solve --tool gemini
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
 /opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+/gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
 /gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
 

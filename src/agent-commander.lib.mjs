@@ -171,7 +171,7 @@ export const getPlaywrightMcpAvailabilityCheck = async tool => {
   if (tool === 'codex') return (await import('./codex.lib.mjs')).checkPlaywrightMcpAvailability;
   if (tool === 'agent') return (await import('./agent.lib.mjs')).checkPlaywrightMcpAvailability;
   if (tool === 'qwen') return (await import('./qwen.lib.mjs')).checkPlaywrightMcpAvailability;
-  if (tool === 'gemini') return (await import('./playwright-mcp.lib.mjs')).checkPlaywrightMcpPackageAvailability;
+  if (tool === 'gemini') return (await import('./gemini.lib.mjs')).checkPlaywrightMcpAvailability;
   return (await import('./claude.lib.mjs')).checkPlaywrightMcpAvailability;
 };
 

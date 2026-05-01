@@ -509,9 +509,8 @@ hive-telegram-bot [options]
 When `/solve` is enabled, the Telegram bot also accepts `/do` and `/continue`
 as plain `/solve` aliases. The `/claude`, `/codex`, `/opencode`, `/agent`, `/qwen`,
 and `/gemini` commands are per-tool aliases equivalent to `/solve --tool claude`,
-`/solve --tool codex`, `/solve --tool opencode`, `/solve --tool agent`, and
-`/solve --tool qwen`. `/gemini` also enables `--use-agent-commander`, because
-Gemini execution currently goes through agent-commander.
+`/solve --tool codex`, `/solve --tool opencode`, `/solve --tool agent`,
+`/solve --tool qwen`, and `/solve --tool gemini`.
 
 ---
 
@@ -604,6 +603,7 @@ const dsn = sentry.dsn;
 | `codex`    | `gpt-5.5` preferred, with runtime fallback to local catalog | Codex runs with `reasoning_effort=none` unless you pass `--think` or `--thinking-budget` |
 | `opencode` | `grok-code-fast-1`                                          | No extra thinking prompt is added for the default model                                  |
 | `agent`    | `nemotron-3-super-free`                                     | No extra thinking prompt is added for the default model                                  |
+| `gemini`   | `flash`                                                     | No extra thinking prompt is added for the default model                                  |
 | `qwen`     | `qwen3-coder-plus`                                          | No extra thinking prompt is added for the default model                                  |
 | `gemini`   | `gemini-2.5-flash`                                          | No extra thinking prompt is added for the default model                                  |
 

@@ -460,12 +460,13 @@ Aliases:
 /opencode 等同于 /solve --tool opencode
 /agent 等同于 /solve --tool agent
 /qwen 等同于 /solve --tool qwen
-/gemini 等同于 /solve --tool gemini --use-agent-commander
+/gemini 等同于 /solve --tool gemini
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
 /opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+/gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
 /gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
 

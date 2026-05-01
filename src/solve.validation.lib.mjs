@@ -314,6 +314,14 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
         await log('❌ Cannot proceed without OpenCode connection', { level: 'error' });
         return false;
       }
+    } else if (argv.tool === 'gemini') {
+      // Validate Gemini connection
+      const geminiLib = await import('./gemini.lib.mjs');
+      isToolConnected = await geminiLib.validateGeminiConnection(model);
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without Gemini CLI connection', { level: 'error' });
+        return false;
+      }
     } else if (argv.tool === 'codex') {
       // Validate Codex connection
       const codexLib = await import('./codex.lib.mjs');
@@ -338,10 +346,6 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
         await log('❌ Cannot proceed without Qwen Code connection', { level: 'error' });
         return false;
       }
-    } else if (argv.tool === 'gemini') {
-      await log('❌ --tool gemini is currently available through --use-agent-commander only', { level: 'error' });
-      await log('   Re-run with: --tool gemini --use-agent-commander', { level: 'error' });
-      return false;
     } else {
       // Validate Claude CLI connection (default)
       const isClaudeConnected = await validateClaudeConnection(model);

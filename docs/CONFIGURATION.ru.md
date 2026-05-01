@@ -481,8 +481,8 @@ hive-telegram-bot [options]
 как обычные псевдонимы `/solve`. Команды `/claude`, `/codex`, `/opencode`,
 `/agent`, `/qwen` и `/gemini` являются псевдонимами для конкретных инструментов и
 эквивалентны `/solve --tool claude`, `/solve --tool codex`,
-`/solve --tool opencode`, `/solve --tool agent` и `/solve --tool qwen`.
-`/gemini` также добавляет `--use-agent-commander`.
+`/solve --tool opencode`, `/solve --tool agent`, `/solve --tool qwen`
+и `/solve --tool gemini`.
 
 ---
 

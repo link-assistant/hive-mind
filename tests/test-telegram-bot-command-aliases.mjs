@@ -69,15 +69,21 @@ const tests = [
     expectedToolAlias: 'agent',
   },
   {
+    name: '/gemini injects --tool gemini',
+    input: '/gemini https://github.com/test/repo/issues/11 --model pro',
+    expectedArgs: ['https://github.com/test/repo/issues/11', '--model', 'pro', '--tool', 'gemini'],
+    expectedToolAlias: 'gemini',
+  },
+  {
     name: '/qwen injects --tool qwen',
     input: '/qwen https://github.com/test/repo/issues/11 --model qwen3-coder-plus',
     expectedArgs: ['https://github.com/test/repo/issues/11', '--model', 'qwen3-coder-plus', '--tool', 'qwen'],
     expectedToolAlias: 'qwen',
   },
   {
-    name: '/gemini injects --tool gemini and agent-commander flag',
+    name: '/gemini with explicit --model gemini still injects --tool gemini only',
     input: '/gemini https://github.com/test/repo/issues/12 --model gemini',
-    expectedArgs: ['https://github.com/test/repo/issues/12', '--model', 'gemini', '--tool', 'gemini', '--use-agent-commander'],
+    expectedArgs: ['https://github.com/test/repo/issues/12', '--model', 'gemini', '--tool', 'gemini'],
     expectedToolAlias: 'gemini',
   },
   {

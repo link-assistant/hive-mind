@@ -470,12 +470,13 @@ Aliases:
 /opencode is equivalent to /solve --tool opencode
 /agent is equivalent to /solve --tool agent
 /qwen is equivalent to /solve --tool qwen
-/gemini is equivalent to /solve --tool gemini --use-agent-commander
+/gemini is equivalent to /solve --tool gemini
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
 /opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+/gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
 /gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
 
@@ -499,6 +500,7 @@ Current tool defaults in Hive Mind:
 | `codex`    | `gpt-5.5` preferred, with runtime fallback to local catalog | Codex runs with `reasoning_effort=none` unless you pass `--think` or `--thinking-budget` |
 | `opencode` | `grok-code-fast-1`                                          | No extra thinking prompt is added for the default model                                  |
 | `agent`    | `nemotron-3-super-free`                                     | No extra thinking prompt is added for the default model                                  |
+| `gemini`   | `flash`                                                     | No extra thinking prompt is added for the default model                                  |
 | `qwen`     | `qwen3-coder-plus`                                          | No extra thinking prompt is added for the default model                                  |
 | `gemini`   | `gemini-2.5-flash`                                          | No extra thinking prompt is added for the default model                                  |
 

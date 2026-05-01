@@ -851,7 +851,7 @@ export const createBidirectionalHandler = options => {
 /**
  * Check if bidirectional interactive mode is supported for the given tool
  *
- * @param {string} tool - Tool name (claude, opencode, codex)
+ * @param {string} tool - Tool name (claude, opencode, codex, agent, gemini)
  * @returns {boolean} Whether bidirectional interactive mode is supported
  */
 export const isBidirectionalModeSupported = tool => {

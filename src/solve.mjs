@@ -98,6 +98,9 @@ if (argv.useAgentCommander) {
 } else if (argv.tool === 'opencode') {
   const opencodeLib = await import('./opencode.lib.mjs');
   checkForUncommittedChanges = opencodeLib.checkForUncommittedChanges;
+} else if (argv.tool === 'gemini') {
+  const geminiLib = await import('./gemini.lib.mjs');
+  checkForUncommittedChanges = geminiLib.checkForUncommittedChanges;
 } else if (argv.tool === 'codex') {
   const codexLib = await import('./codex.lib.mjs');
   checkForUncommittedChanges = codexLib.checkForUncommittedChanges;
@@ -801,6 +804,36 @@ try {
       agentPath,
       $,
     });
+  } else if (argv.tool === 'gemini') {
+    const geminiLib = await import('./gemini.lib.mjs');
+    const { executeGemini, checkPlaywrightMcpAvailability: checkGeminiPlaywrightMcp } = geminiLib;
+    const geminiPath = process.env.GEMINI_PATH || 'gemini';
+    await resolvePlaywrightMcp(checkGeminiPlaywrightMcp);
+
+    toolResult = await executeGemini({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl,
+      branchName,
+      tempDir,
+      workspaceTmpDir,
+      isContinueMode,
+      mergeStateStatus,
+      forkedRepo,
+      feedbackLines,
+      forkActionsUrl,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile,
+      getLogFile,
+      formatAligned,
+      getResourceSnapshot,
+      geminiPath,
+      $,
+    });
   } else if (argv.tool === 'qwen') {
     const qwenLib = await import('./qwen.lib.mjs');
     const { executeQwen, checkPlaywrightMcpAvailability: checkQwenPlaywrightMcp } = qwenLib;
@@ -831,10 +864,6 @@ try {
       qwenPath,
       $,
     });
-  } else if (argv.tool === 'gemini') {
-    await log('❌ --tool gemini is currently available through --use-agent-commander only', { level: 'error' });
-    await log('   Re-run with: --tool gemini --use-agent-commander', { level: 'error' });
-    await safeExit(1, 'Gemini requires agent-commander');
   } else {
     // Default to Claude
     if (argv.tool === 'claude' || !argv.tool) {

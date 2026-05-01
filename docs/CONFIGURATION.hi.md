@@ -480,9 +480,8 @@ hive-telegram-bot [options]
 जब `/solve` सक्षम हो, Telegram bot `/do` और `/continue` को सामान्य `/solve`
 aliases के रूप में भी स्वीकार करता है। `/claude`, `/codex`, `/opencode`,
 `/agent`, `/qwen`, और `/gemini` per-tool aliases हैं, जो क्रमशः `/solve --tool claude`,
-`/solve --tool codex`, `/solve --tool opencode`, `/solve --tool agent`, और
-`/solve --tool qwen` के बराबर हैं।
-`/gemini` में `--use-agent-commander` भी जुड़ता है।
+`/solve --tool codex`, `/solve --tool opencode`, `/solve --tool agent`,
+`/solve --tool qwen`, और `/solve --tool gemini` के बराबर हैं।
 
 ---
 

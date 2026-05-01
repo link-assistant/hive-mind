@@ -141,8 +141,11 @@ export const qwenModels = {
   'qwen3.6-coder-plus': 'qwen3.6-coder-plus',
 };
 
-// Gemini CLI models
+// Gemini models (Google Gemini CLI)
+// Keep aliases aligned with the Gemini CLI model aliases documented in
+// docs/cli/cli-reference.md: auto, pro, flash, and flash-lite.
 export const geminiModels = {
+  auto: 'auto',
   gemini: 'gemini-2.5-flash',
   flash: 'gemini-2.5-flash',
   '2.5-flash': 'gemini-2.5-flash',
@@ -150,6 +153,7 @@ export const geminiModels = {
   '2.5-pro': 'gemini-2.5-pro',
   lite: 'gemini-2.5-flash-lite',
   '2.5-lite': 'gemini-2.5-flash-lite',
+  'flash-lite': 'gemini-2.5-flash-lite',
   '3-flash': 'gemini-3-flash-preview',
   '3-pro': 'gemini-3-pro-preview',
   'gemini-flash': 'gemini-2.5-flash',
@@ -168,7 +172,7 @@ export const defaultModels = {
   opencode: 'grok-code-fast-1',
   codex: 'gpt-5.5',
   qwen: 'qwen3-coder-plus',
-  gemini: 'gemini-2.5-flash',
+  gemini: 'flash',
 };
 
 // Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329)
@@ -300,10 +304,10 @@ export const getModelMapForTool = tool => {
       return opencodeModels;
     case 'codex':
       return codexModels;
-    case 'qwen':
-      return qwenModels;
     case 'gemini':
       return geminiModels;
+    case 'qwen':
+      return qwenModels;
     default:
       return claudeModels;
   }
@@ -378,10 +382,10 @@ export const mapModelForTool = (tool, model) => {
       return opencodeModels[model] || model;
     case 'codex':
       return codexModels[model] || model;
-    case 'qwen':
-      return qwenModels[model] || model;
     case 'gemini':
       return geminiModels[model] || model;
+    case 'qwen':
+      return qwenModels[model] || model;
     default:
       return model;
   }
@@ -405,10 +409,10 @@ export const isModelCompatibleWithTool = (tool, model) => {
       return mappedModel.includes('/') || Object.keys(opencodeModels).includes(model);
     case 'codex':
       return Object.keys(codexModels).includes(model) || mappedModel.startsWith('gpt-');
-    case 'qwen':
-      return Object.keys(qwenModels).includes(model) || mappedModel.startsWith('qwen');
     case 'gemini':
       return Object.keys(geminiModels).includes(model) || mappedModel.startsWith('gemini-');
+    case 'qwen':
+      return Object.keys(qwenModels).includes(model) || mappedModel.startsWith('qwen');
     default:
       return true;
   }
@@ -429,10 +433,10 @@ export const getValidModelsForTool = tool => {
       return Object.keys(opencodeModels);
     case 'codex':
       return Object.keys(codexModels);
-    case 'qwen':
-      return Object.keys(qwenModels);
     case 'gemini':
       return Object.keys(geminiModels);
+    case 'qwen':
+      return Object.keys(qwenModels);
     default:
       return [];
   }
@@ -444,6 +448,7 @@ export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan'],
   opencode: ['grok', 'gpt4o'],
   codex: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark'],
+  gemini: ['flash', 'pro', 'flash-lite', 'auto'],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
   qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash'],
   gemini: ['gemini', 'flash', 'pro', '3-pro'],
@@ -495,12 +500,12 @@ const getValidationModelMapForTool = tool => {
       return OPENCODE_MODELS;
     case 'codex':
       return CODEX_MODELS;
+    case 'gemini':
+      return GEMINI_MODELS;
     case 'agent':
       return AGENT_MODELS;
     case 'qwen':
       return QWEN_MODELS;
-    case 'gemini':
-      return GEMINI_MODELS;
     case 'claude':
     default:
       return CLAUDE_MODELS;
@@ -770,10 +775,10 @@ export const getToolDisplayName = tool => {
       return 'OpenCode';
     case 'agent':
       return 'Agent CLI';
+    case 'gemini':
+      return 'Google Gemini CLI';
     case 'qwen':
       return 'Qwen Code';
-    case 'gemini':
-      return 'Gemini CLI';
     default:
       return 'AI tool';
   }

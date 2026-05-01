@@ -158,6 +158,5 @@ export function applySolveToolAlias(args, toolAlias) {
     filteredArgs.push(arg);
   }
 
-  const agentCommanderArgs = toolAlias === 'gemini' ? ['--use-agent-commander'] : [];
-  return [...filteredArgs, '--tool', toolAlias, ...agentCommanderArgs];
+  return [...filteredArgs, '--tool', toolAlias];
 }

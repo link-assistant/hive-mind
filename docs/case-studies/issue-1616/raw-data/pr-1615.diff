@@ -1,0 +1,65 @@
+diff --git a/.changeset/clever-rings-relax.md b/.changeset/clever-rings-relax.md
+new file mode 100644
+index 000000000..9d7dbe154
+--- /dev/null
++++ b/.changeset/clever-rings-relax.md
+@@ -0,0 +1,5 @@
++---
++'@link-assistant/hive-mind': patch
++---
++
++Fix auto-resume reset time parsing when usage-limit output includes a month/day prefix such as `Apr 17, 4:00 AM`.
+diff --git a/src/solve.validation.lib.mjs b/src/solve.validation.lib.mjs
+index 362022a1b..6bd9e96a6 100644
+--- a/src/solve.validation.lib.mjs
++++ b/src/solve.validation.lib.mjs
+@@ -371,10 +371,12 @@ export const parseUrlComponents = issueUrl => {
+ export const parseResetTime = timeStr => {
+   // Normalize and parse time formats like:
+   // "5:30am", "11:45pm", "12:16 PM", "07:05 Am", "5am", "5 AM"
++  // Also accepts date+time forms like "Apr 17, 4:00 AM" and ignores the date portion.
+   const normalized = (timeStr || '').toString().trim();
++  const timePortion = normalized.replace(/^(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2},\s+/i, '');
+
+   // Accept both HH:MM am/pm and HH am/pm
+-  let match = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
++  let match = timePortion.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
+   if (!match) {
+     throw new Error(`Invalid time format: ${timeStr}`);
+   }
+diff --git a/tests/test-solve-validation-reset-time.mjs b/tests/test-solve-validation-reset-time.mjs
+new file mode 100644
+index 000000000..b470ac2ad
+--- /dev/null
++++ b/tests/test-solve-validation-reset-time.mjs
+@@ -0,0 +1,30 @@
++#!/usr/bin/env node
++
++import process from 'node:process';
++
++import { parseResetTime, calculateWaitTime } from '../src/solve.validation.lib.mjs';
++import { test, printSummary, getFailCount } from './test-helpers.mjs';
++
++test('parseResetTime accepts time-only format', () => {
++  const result = parseResetTime('5:30 AM');
++  if (result.hour !== 5 || result.minute !== 30) {
++    throw new Error(`Expected 05:30, got ${JSON.stringify(result)}`);
++  }
++});
++
++test('parseResetTime accepts date+time format from usage-limit output', () => {
++  const result = parseResetTime('Apr 17, 4:00 AM');
++  if (result.hour !== 4 || result.minute !== 0) {
++    throw new Error(`Expected 04:00, got ${JSON.stringify(result)}`);
++  }
++});
++
++test('calculateWaitTime accepts date+time format from usage-limit output', () => {
++  const waitMs = calculateWaitTime('Apr 17, 4:00 AM');
++  if (!Number.isFinite(waitMs) || waitMs <= 0) {
++    throw new Error(`Expected positive wait time, got ${waitMs}`);
++  }
++});
++
++printSummary();
++process.exit(getFailCount() > 0 ? 1 : 0);

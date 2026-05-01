@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Hive Mind issue 1698",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1698",
+    "localArtifact": "raw/issue-1698.json"
+  },
+  {
+    "name": "Hive Mind PR 553",
+    "url": "https://github.com/link-assistant/hive-mind/pull/553",
+    "localArtifact": "raw/pr-553.json"
+  },
+  {
+    "name": "test-anywhere repository",
+    "url": "https://github.com/link-foundation/test-anywhere",
+    "localArtifact": "template-research/test-anywhere-files.txt"
+  },
+  {
+    "name": "JavaScript AI-driven development pipeline template",
+    "url": "https://github.com/link-foundation/js-ai-driven-development-pipeline-template",
+    "localArtifact": "template-research/js-template-files.txt"
+  },
+  {
+    "name": "Rust AI-driven development pipeline template",
+    "url": "https://github.com/link-foundation/rust-ai-driven-development-pipeline-template",
+    "localArtifact": "template-research/rust-template-files.txt"
+  }
+]

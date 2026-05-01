@@ -1,0 +1,10 @@
+{
+  "author": "konard",
+  "body": "https://gist.githubusercontent.com/konard/826e832c782a6313d5c06fa03d385598/raw/ea34862d0e5809fd93ff6553252037ccb9db449e/solve-2026-04-24T08-07-15-732Z.log\n\nCheck starting from this comment: https://github.com/konard/p-vs-np/pull/548#issuecomment-4311633075\nAnd up to https://github.com/konard/p-vs-np/pull/548#issuecomment-4311753351\n\nWe need to find root cause why our Hive Mind harness does not work as expected. I expected it to have for each separate restart/resume to have its own completion log, as we do in other pull requests.\n\nAlso we should by default set limit up to 5 resumes/restarts, with configurable options for all models and tools. So nothing is stuck indefinitely like it was here, and I was forced to interrupt manually.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.",
+  "created_at": "2026-04-24T08:33:59Z",
+  "labels": ["bug"],
+  "state": "open",
+  "title": "Auto restart sessions didn't post solution log per session",
+  "updated_at": "2026-04-24T08:33:59Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1664"
+}

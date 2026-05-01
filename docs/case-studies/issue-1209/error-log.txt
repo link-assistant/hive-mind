@@ -1,0 +1,30 @@
+hive@vmi2955137:~$ hive-telegram-bot --configuration "
+TELEGRAM_BOT_TOKEN: '849....55:AAG...rgk_YZkGIBi...aPU'
+TELEGRAM_ALLOWED_CHATS:
+  -1002975819706
+  -1002861722681
+TELEGRAM_HIVE_OVERRIDES:
+  --all-issues
+  --once
+  --skip-issues-with-prs
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-resume-on-limit-reset
+  --tokens-budget-stats
+  --getkeep-file
+TELEGRAM_SOLVE_OVERRIDES:
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-resume-on-limit-reset
+  --tokens-budget-stats
+  --getkeep-file
+TELEGRAM_BOT_VERBOSE: true
+" 2>&1 | tee /hive-telegram-bot.log
+tee: /hive-telegram-bot.log: Permission denied
+[MISSING_ENV_FILE] missing .env file (/home/hive/.env)
+[MISSING_ENV_FILE] https://github.com/dotenvx/dotenvx/issues/484
+Validating solve overrides...
+❌ Invalid solve-overrides: Unknown arguments: getkeep-file, getkeepFile
+   Overrides: --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats --getkeep-file

@@ -3,12 +3,12 @@
 
 // Check if Sentry should be disabled
 const shouldDisableSentry = () => {
-  // Check for --no-sentry flag
+  // Check for --no-sentry flag (explicit opt-out)
   if (process.argv.includes('--no-sentry')) {
     return true;
   }
 
-  // Check for environment variable
+  // Check for environment variable disable flags
   if (process.env.HIVE_MIND_NO_SENTRY === 'true' || process.env.DISABLE_SENTRY === 'true') {
     return true;
   }
@@ -30,6 +30,12 @@ const shouldDisableSentry = () => {
     return true;
   }
 
+  // Sentry is disabled by default for user privacy.
+  // It must be explicitly enabled with the --sentry flag or HIVE_MIND_SENTRY=true env var.
+  if (!process.argv.includes('--sentry') && process.env.HIVE_MIND_SENTRY !== 'true') {
+    return true;
+  }
+
   return false;
 };
 
@@ -46,17 +52,15 @@ if (!shouldDisableSentry()) {
     const { sentry, version } = await import('./config.lib.mjs');
 
     // Dynamically import Sentry packages only when needed
-    const sentryModule = await import("@sentry/node");
+    const sentryModule = await import('@sentry/node');
     Sentry = sentryModule;
-    const profilingModule = await import("@sentry/profiling-node");
+    const profilingModule = await import('@sentry/profiling-node');
     nodeProfilingIntegration = profilingModule.nodeProfilingIntegration;
 
     // Initialize Sentry with configuration
     Sentry.init({
       dsn: sentry.dsn,
-      integrations: [
-        nodeProfilingIntegration(),
-      ],
+      integrations: [nodeProfilingIntegration()],
 
       // Application name
       environment: process.env.NODE_ENV || 'production',
@@ -81,7 +85,7 @@ if (!shouldDisableSentry()) {
       debug: process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development',
 
       // Before send hook to filter out sensitive data
-      beforeSend(event, hint) {
+      beforeSend(event) {
         // Filter out sensitive environment variables
         if (event.contexts && event.contexts.runtime && event.contexts.runtime.env) {
           const sensitiveKeys = ['API_KEY', 'TOKEN', 'SECRET', 'PASSWORD', 'ANTHROPIC'];
@@ -123,7 +127,7 @@ if (!shouldDisableSentry()) {
         }
         context.name = `hive-mind.${context.name || 'unknown'}`;
         return context;
-      }
+      },
     });
 
     // Log that Sentry has been initialized
@@ -155,7 +159,7 @@ export const isSentryEnabled = () => Sentry !== null && Sentry.getClient() !== u
 export const captureException = (error, context = {}) => {
   if (isSentryEnabled()) {
     Sentry.captureException(error, {
-      extra: context
+      extra: context,
     });
   }
 };
@@ -164,7 +168,7 @@ export const captureException = (error, context = {}) => {
 export const captureMessage = (message, level = 'info', context = {}) => {
   if (isSentryEnabled()) {
     Sentry.captureMessage(message, level, {
-      extra: context
+      extra: context,
     });
   }
 };

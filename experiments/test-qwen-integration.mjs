@@ -10,14 +10,7 @@ try {
   // Test qwen.lib.mjs imports
   console.log('1. Testing qwen.lib.mjs imports...');
   const qwenLib = await import('../src/qwen.lib.mjs');
-  const {
-    mapModelToId,
-    validateQwenConnection,
-    handleQwenRuntimeSwitch,
-    executeQwen,
-    executeQwenCommand,
-    checkForUncommittedChanges
-  } = qwenLib;
+  const { mapModelToId, validateQwenConnection, handleQwenRuntimeSwitch, executeQwen, executeQwenCommand, checkForUncommittedChanges } = qwenLib;
 
   if (!mapModelToId || !validateQwenConnection || !executeQwen || !executeQwenCommand || !checkForUncommittedChanges) {
     throw new Error('Missing required exports from qwen.lib.mjs');
@@ -27,11 +20,11 @@ try {
   // Test model mapping
   console.log('\n2. Testing model mapping...');
   const testModels = {
-    'qwen': 'qwen-coder',
+    qwen: 'qwen-coder',
     'qwen-coder': 'qwen-coder',
-    'qwen3': 'qwen3-coder',
+    qwen3: 'qwen3-coder',
     'qwen3-coder': 'qwen3-coder',
-    'some-other-model': 'some-other-model'
+    'some-other-model': 'some-other-model',
   };
 
   for (const [input, expected] of Object.entries(testModels)) {
@@ -64,7 +57,7 @@ try {
     isContinueMode: false,
     owner: 'owner',
     repo: 'repo',
-    argv: { think: 'medium' }
+    argv: { think: 'medium' },
   };
 
   const userPrompt = buildUserPrompt(testParams);

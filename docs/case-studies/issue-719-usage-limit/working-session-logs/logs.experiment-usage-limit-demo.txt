@@ -1,0 +1,31 @@
+---
+
+⏳ Usage Limit Reached!
+
+Your Claude usage limit has been reached.
+The limit will reset at: 5:00 AM
+
+📌 Session ID: 64652bfd-65f5-460f-bb16-fa89fa8fc778
+
+To resume this session after the limit resets, run:
+   node src/solve.mjs <issue-url> --resume 64652bfd-65f5-460f-bb16-fa89fa8fc778
+
+---
+
+⏳ Usage Limit Reached!
+
+Your Codex usage limit has been reached.
+The limit will reset at: 12:16 PM
+
+📌 Session ID: 019a77e4-0716-7152-8396-b642e26c3e20
+
+To resume this session after the limit resets, run:
+   node src/solve.mjs <issue-url> --resume 019a77e4-0716-7152-8396-b642e26c3e20
+
+---
+
+⏳ Usage Limit Reached!
+
+Your OpenCode usage limit has been reached.
+Please wait for the limit to reset.
+

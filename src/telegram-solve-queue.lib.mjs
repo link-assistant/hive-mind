@@ -16,8 +16,8 @@
  */
 
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
-export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses } from './telegram-solve-queue.helpers.lib.mjs';
-import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningGeminiProcesses, getRunningProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
@@ -128,7 +128,7 @@ class SolveQueueItem {
  * Solve Queue - Producer/Consumer queue for /solve commands
  *
  * Uses separate queues for each tool type to ensure:
- * - Claude tasks never block agent, codex, or gemini tasks (and vice versa)
+ * - Claude tasks never block agent, codex, gemini, or qwen tasks (and vice versa)
  * - Each tool queue maintains FIFO order
  * - Each tool has independent rate limiting
  *
@@ -150,6 +150,7 @@ export class SolveQueue {
       agent: [],
       codex: [],
       gemini: [],
+      qwen: [],
     };
     this.processing = new Map();
     this.completed = [];
@@ -162,6 +163,7 @@ export class SolveQueue {
       agent: null,
       codex: null,
       gemini: null,
+      qwen: null,
     };
     // Legacy: keep for compatibility with existing code that uses lastStartTime
     this.lastStartTime = null;
@@ -524,7 +526,7 @@ export class SolveQueue {
    *
    * Logic per issue #1159:
    * - Different tools have different limits. Claude limits only apply to 'claude' tool.
-   * - Processing count for Claude limits only includes Claude items, not agent/codex/gemini items.
+   * - Processing count for Claude limits only includes Claude items, not agent/codex/gemini/qwen items.
    * - This allows non-Claude tasks to run in parallel when Claude limits are reached.
    *
    * Logic per issue #1253:
@@ -534,7 +536,7 @@ export class SolveQueue {
    * - 'dequeue-one-at-a-time' allows one command while blocking subsequent
    *
    * @param {Object} options - Options for the check
-   * @param {string} options.tool - The tool being used ('claude', 'agent', 'codex', 'gemini', etc.)
+   * @param {string} options.tool - The tool being used ('claude', 'agent', 'codex', 'gemini', 'qwen', etc.)
    * @returns {Promise<{canStart: boolean, rejected?: boolean, rejectReason?: string, reason?: string, reasons?: string[], oneAtATime?: boolean}>}
    */
   async canStartCommand(options = {}) {
@@ -565,9 +567,11 @@ export class SolveQueue {
     const codexProcessCount = externalProcessing.byTool.codex || 0;
     const agentProcessCount = externalProcessing.byTool.agent || 0;
     const geminiProcessCount = externalProcessing.byTool.gemini || 0;
+    const qwenProcessCount = externalProcessing.byTool.qwen || 0;
     const hasRunningClaude = claudeProcessCount > 0;
     const hasRunningCodex = codexProcessCount > 0;
     const hasRunningGemini = geminiProcessCount > 0;
+    const hasRunningQwen = qwenProcessCount > 0;
 
     // Calculate total processing count for system resources (all tools)
     // System resources (RAM, CPU, disk) apply to all tools
@@ -580,6 +584,7 @@ export class SolveQueue {
     const claudeProcessingCount = this.getProcessingCountByTool('claude');
     const codexProcessingCount = this.getProcessingCountByTool('codex');
     const geminiProcessingCount = this.getProcessingCountByTool('gemini');
+    const qwenProcessingCount = this.getProcessingCountByTool('qwen');
 
     // Track claude_running as a metric (but don't add to reasons yet)
     if (hasRunningClaude) {
@@ -590,6 +595,9 @@ export class SolveQueue {
     }
     if (hasRunningGemini) {
       this.recordThrottle('gemini_running');
+    }
+    if (hasRunningQwen) {
+      this.recordThrottle('qwen_running');
     }
 
     // Check system resources with strategy support
@@ -613,15 +621,8 @@ export class SolveQueue {
     // This allows non-Claude tasks to proceed when Claude limits are reached
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
-    let hasRunningToolProcess = hasRunningClaude;
-    let toolProcessingCount = claudeProcessingCount;
-    if (tool === 'codex') {
-      hasRunningToolProcess = hasRunningCodex;
-      toolProcessingCount = codexProcessingCount;
-    } else if (tool === 'gemini') {
-      hasRunningToolProcess = hasRunningGemini;
-      toolProcessingCount = geminiProcessingCount;
-    }
+    const hasRunningToolProcess = (externalProcessing.byTool[tool] || 0) > 0;
+    const toolProcessingCount = this.getProcessingCountByTool(tool);
     const limitCheck = await this.checkApiLimits(hasRunningToolProcess, toolProcessingCount, tool);
     if (limitCheck.rejected) {
       rejected = true;
@@ -648,6 +649,9 @@ export class SolveQueue {
     if (tool === 'gemini' && hasRunningGemini && reasons.length > 0) {
       reasons.push(formatWaitingReason('gemini_running', geminiProcessCount, 0) + ` (${geminiProcessCount} processes)`);
     }
+    if (tool === 'qwen' && hasRunningQwen && reasons.length > 0) {
+      reasons.push(formatWaitingReason('qwen_running', qwenProcessCount, 0) + ` (${qwenProcessCount} processes)`);
+    }
 
     const canStart = reasons.length === 0 && !rejected;
 
@@ -670,11 +674,13 @@ export class SolveQueue {
       codexProcesses: codexProcessCount,
       agentProcesses: agentProcessCount,
       geminiProcesses: geminiProcessCount,
+      qwenProcesses: qwenProcessCount,
       isolatedProcesses: externalProcessing.isolatedTotal,
       totalProcessing,
       claudeProcessingCount,
       codexProcessingCount,
       geminiProcessingCount,
+      qwenProcessingCount,
     };
   }
 
@@ -808,9 +814,9 @@ export class SolveQueue {
    * - GitHub threshold blocks unconditionally when exceeded (ultimate restriction)
    *
    * Logic per issue #1159:
-   * - When tool is 'agent' or 'gemini', skip Claude-specific limits entirely since these tools use
+   * - When tool is 'agent', 'gemini', or 'qwen', skip Claude-specific limits entirely since these tools use
    *   different rate limiting backends. Only system resources and GitHub limits apply.
-   * - For Claude limits, only count Claude-specific processing items, not agent/codex/gemini items.
+   * - For Claude limits, only count Claude-specific processing items, not agent/codex/gemini/qwen items.
    *   This allows non-Claude tasks to run in parallel even when Claude limits are reached.
    *
    * Logic per issue #1253:
@@ -819,7 +825,7 @@ export class SolveQueue {
    *
    * @param {boolean} hasRunningToolProcess - Whether matching tool processes are running (from pgrep)
    * @param {number} toolProcessingCount - Count of matching tool items being processed in queue
-   * @param {string} tool - The tool being used ('claude', 'agent', 'codex', 'gemini', etc.)
+   * @param {string} tool - The tool being used ('claude', 'agent', 'codex', 'gemini', 'qwen', etc.)
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean, rejected: boolean, rejectReason: string|null}>}
    */
   async checkApiLimits(hasRunningToolProcess = false, toolProcessingCount = 0, tool = 'claude') {
@@ -829,7 +835,7 @@ export class SolveQueue {
     let rejectReason = null;
 
     // Apply Claude-specific limits only when tool is 'claude'
-    // Other tools (like 'agent' and 'gemini') use different rate limiting backends and are not
+    // Other tools (like 'agent', 'gemini', and 'qwen') use different rate limiting backends and are not
     // affected by Claude API limits (5-hour session, weekly limits)
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     const applyClaudeLimits = tool === 'claude';
@@ -1435,7 +1441,9 @@ export default {
   getRunningProcesses,
   getRunningClaudeProcesses,
   getRunningAgentProcesses,
+  getRunningCodexProcesses,
   getRunningGeminiProcesses,
+  getRunningQwenProcesses,
   getRunningIsolatedSessions,
   createQueueExecuteCallback,
   formatDuration,

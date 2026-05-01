@@ -167,7 +167,7 @@ export const getUncommittedChangesDetails = async tempDir => {
 };
 
 /**
- * Execute the AI tool (Claude, OpenCode, Codex, Agent, Gemini) for a restart iteration
+ * Execute the AI tool (Claude, OpenCode, Codex, Agent, Gemini, Qwen) for a restart iteration
  * This is the shared tool execution logic used by both watch mode and auto-restart-until-mergeable mode
  * @param {Object} params - Execution parameters
  * @returns {Promise<Object>} - Tool execution result
@@ -344,6 +344,48 @@ export const executeToolIteration = async params => {
       formatAligned,
       getResourceSnapshot,
       geminiPath,
+      $,
+    });
+  } else if (argv.tool === 'qwen') {
+    // Use Qwen Code
+    const qwenExecLib = await import('./qwen.lib.mjs');
+    const { executeQwen, checkPlaywrightMcpAvailability } = qwenExecLib;
+    const qwenPath = argv.qwenPath || 'qwen';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
+
+    toolResult = await executeQwen({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+      branchName,
+      tempDir,
+      workspaceTmpDir,
+      isContinueMode: true,
+      mergeStateStatus,
+      forkedRepo: argv.fork,
+      feedbackLines,
+      forkActionsUrl: null,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile: () => {},
+      getLogFile: () => '',
+      formatAligned,
+      getResourceSnapshot,
+      qwenPath,
       $,
     });
   } else {

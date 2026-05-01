@@ -53,6 +53,7 @@ export const timeouts = {
   opencodeCli: parseIntWithDefault('HIVE_MIND_OPENCODE_TIMEOUT_SECONDS', 60) * 1000,
   geminiCli: parseIntWithDefault('HIVE_MIND_GEMINI_TIMEOUT_SECONDS', 60) * 1000,
   codexCli: parseIntWithDefault('HIVE_MIND_CODEX_TIMEOUT_SECONDS', 60) * 1000,
+  qwenCli: parseIntWithDefault('HIVE_MIND_QWEN_TIMEOUT_SECONDS', 60) * 1000,
   githubApiDelay: parseIntWithDefault('HIVE_MIND_GITHUB_API_DELAY_MS', 5000),
   githubRepoDelay: parseIntWithDefault('HIVE_MIND_GITHUB_REPO_DELAY_MS', 2000),
   retryBaseDelay: parseIntWithDefault('HIVE_MIND_RETRY_BASE_DELAY_MS', 5000),

@@ -58,6 +58,10 @@ test('getToolDisplayName returns "Google Gemini CLI" for gemini', () => {
   assert.equal(getToolDisplayName('gemini'), 'Google Gemini CLI');
 });
 
+test('getToolDisplayName returns "Qwen Code" for qwen', () => {
+  assert.equal(getToolDisplayName('qwen'), 'Qwen Code');
+});
+
 test('getToolDisplayName returns "AI tool" for unknown', () => {
   assert.equal(getToolDisplayName('unknown'), 'AI tool');
 });
@@ -315,6 +319,10 @@ test('resolveModelId returns model as-is when not in map for agent tool', () => 
   assert.equal(result, 'custom-model-123');
 });
 
+test('resolveModelId resolves "qwen" for qwen tool', () => {
+  assert.equal(resolveModelId('qwen', 'qwen'), 'qwen3-coder-plus');
+});
+
 // ============================================================================
 // buildModelInfoString - Per-tool coverage for all supported tools
 // ============================================================================
@@ -359,6 +367,16 @@ test('buildModelInfoString shows "Gemini" tool name for gemini', () => {
   });
   assert.ok(result.includes('Tool: Google Gemini CLI'), `Expected "Tool: Google Gemini CLI" but got: ${result}`);
   assert.ok(result.includes('Gemini 2.5 Flash'), `Expected Gemini model name but got: ${result}`);
+});
+
+test('buildModelInfoString shows "Qwen Code" tool name for qwen', () => {
+  const result = buildModelInfoString({
+    tool: 'qwen',
+    requestedModel: 'qwen3-coder-plus',
+    modelsUsed: [{ modelId: 'qwen3-coder-plus', modelInfo: { name: 'Qwen3 Coder Plus', provider: 'Alibaba Cloud' } }],
+  });
+  assert.ok(result.includes('Tool: Qwen Code'), `Expected "Tool: Qwen Code" but got: ${result}`);
+  assert.ok(result.includes('Qwen3 Coder Plus'), `Expected Qwen model name but got: ${result}`);
 });
 
 test('buildModelInfoString shows warning for codex when actual model does not match requested', () => {
@@ -525,6 +543,16 @@ await asyncTest('getModelInfoForComment with opencode tool and actual model IDs'
   });
   assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
   assert.ok(result.includes('OpenCode') || result.includes('grok'), `Expected opencode/grok in output but got: ${result}`);
+});
+
+await asyncTest('getModelInfoForComment with qwen tool and actual model IDs', async () => {
+  const result = await getModelInfoForComment({
+    requestedModel: 'qwen3-coder-plus',
+    tool: 'qwen',
+    actualModelIds: ['qwen3-coder-plus'],
+  });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  assert.ok(result.includes('Qwen Code') || result.includes('qwen3-coder-plus'), `Expected qwen model in output but got: ${result}`);
 });
 
 await asyncTest('getModelInfoForComment with multiple actual models (main + supporting)', async () => {

@@ -142,6 +142,18 @@ export const geminiModels = {
   'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
 };
 
+// Qwen Code models
+export const qwenModels = {
+  qwen: 'qwen3-coder-plus',
+  'qwen-coder': 'qwen3-coder-plus',
+  qwen3: 'qwen3-coder-plus',
+  'qwen3-coder': 'qwen3-coder',
+  'qwen3-coder-plus': 'qwen3-coder-plus',
+  'qwen3-coder-flash': 'qwen3-coder-flash',
+  'qwen3.6-plus': 'qwen3.6-plus',
+  'qwen3.6-coder-plus': 'qwen3.6-coder-plus',
+};
+
 // Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
 export const defaultModels = {
   claude: 'sonnet',
@@ -149,6 +161,7 @@ export const defaultModels = {
   opencode: 'grok-code-fast-1',
   codex: 'gpt-5.5',
   gemini: 'flash',
+  qwen: 'qwen3-coder-plus',
 };
 
 // Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329)
@@ -232,6 +245,15 @@ export const GEMINI_MODELS = {
   ...geminiModels,
 };
 
+export const QWEN_MODELS = {
+  ...qwenModels,
+  'qwen3-coder': 'qwen3-coder',
+  'qwen3-coder-plus': 'qwen3-coder-plus',
+  'qwen3-coder-flash': 'qwen3-coder-flash',
+  'qwen3.6-plus': 'qwen3.6-plus',
+  'qwen3.6-coder-plus': 'qwen3.6-coder-plus',
+};
+
 export const AGENT_MODELS = {
   ...agentModels,
   'opencode/grok-code': 'opencode/grok-code',
@@ -253,7 +275,7 @@ export const AGENT_MODELS = {
 
 /**
  * Get the model map object for a given tool
- * @param {string} tool - The tool name (claude, agent, opencode, codex, gemini)
+ * @param {string} tool - The tool name (claude, agent, opencode, codex, gemini, qwen)
  * @returns {Object} The model mapping for the tool
  */
 export const getModelMapForTool = tool => {
@@ -268,6 +290,8 @@ export const getModelMapForTool = tool => {
       return codexModels;
     case 'gemini':
       return geminiModels;
+    case 'qwen':
+      return qwenModels;
     default:
       return claudeModels;
   }
@@ -275,7 +299,7 @@ export const getModelMapForTool = tool => {
 
 /**
  * Get the default model for a given tool
- * @param {string} tool - The tool name (claude, agent, opencode, codex, gemini)
+ * @param {string} tool - The tool name (claude, agent, opencode, codex, gemini, qwen)
  * @returns {string} The default model alias for the tool
  */
 export const getDefaultModelForTool = tool => {
@@ -328,7 +352,7 @@ export const resolveRuntimeDefaultModel = async (tool, options = {}) => {
 
 /**
  * Map model name to full model ID for a specific tool
- * @param {string} tool - The tool name (claude, agent, opencode, codex, gemini)
+ * @param {string} tool - The tool name (claude, agent, opencode, codex, gemini, qwen)
  * @param {string} model - The model name or alias
  * @returns {string} The full model ID
  */
@@ -344,6 +368,8 @@ export const mapModelForTool = (tool, model) => {
       return codexModels[model] || model;
     case 'gemini':
       return geminiModels[model] || model;
+    case 'qwen':
+      return qwenModels[model] || model;
     default:
       return model;
   }
@@ -351,7 +377,7 @@ export const mapModelForTool = (tool, model) => {
 
 /**
  * Validate if a model is compatible with a tool
- * @param {string} tool - The tool name (claude, agent, opencode, codex, gemini)
+ * @param {string} tool - The tool name (claude, agent, opencode, codex, gemini, qwen)
  * @param {string} model - The model name or alias
  * @returns {boolean} True if the model is compatible with the tool
  */
@@ -369,6 +395,8 @@ export const isModelCompatibleWithTool = (tool, model) => {
       return Object.keys(codexModels).includes(model) || mappedModel.startsWith('gpt-');
     case 'gemini':
       return Object.keys(geminiModels).includes(model) || mappedModel.startsWith('gemini-');
+    case 'qwen':
+      return Object.keys(qwenModels).includes(model) || mappedModel.startsWith('qwen');
     default:
       return true;
   }
@@ -391,6 +419,8 @@ export const getValidModelsForTool = tool => {
       return Object.keys(codexModels);
     case 'gemini':
       return Object.keys(geminiModels);
+    case 'qwen':
+      return Object.keys(qwenModels);
     default:
       return [];
   }
@@ -404,6 +434,7 @@ export const primaryModelNames = {
   codex: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark'],
   gemini: ['flash', 'pro', 'flash-lite', 'auto'],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
+  qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash'],
 };
 
 /**
@@ -443,7 +474,7 @@ export const validateToolModelCompatibility = (tool, model) => {
 
 /**
  * Get the model map for a given tool (validation-extended version with full ID entries)
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'gemini')
+ * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'gemini', 'qwen')
  * @returns {Object} The model mapping for the tool
  */
 const getValidationModelMapForTool = tool => {
@@ -456,6 +487,8 @@ const getValidationModelMapForTool = tool => {
       return GEMINI_MODELS;
     case 'agent':
       return AGENT_MODELS;
+    case 'qwen':
+      return QWEN_MODELS;
     case 'claude':
     default:
       return CLAUDE_MODELS;
@@ -464,7 +497,7 @@ const getValidationModelMapForTool = tool => {
 
 /**
  * Get the list of available model names for a tool (for display in help/error messages)
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'gemini')
+ * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'gemini', 'qwen')
  * @returns {string[]} Array of available model short names
  */
 export const getAvailableModelNames = tool => {
@@ -603,7 +636,7 @@ export const supports1mContext = (model, tool = 'claude') => {
  * Validate a model name against the available models for a tool
  * Supports [1m] suffix for 1 million token context (Issue #1221)
  * @param {string} model - The model name to validate (e.g., "opus", "opus[1m]", "claude-opus-4-6[1m]")
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'gemini')
+ * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'gemini', 'qwen')
  * @returns {{ valid: boolean, message?: string, suggestions?: string[], mappedModel?: string, has1mSuffix?: boolean }}
  */
 export const validateModelName = (model, tool = 'claude') => {
@@ -676,7 +709,7 @@ export const validateModelName = (model, tool = 'claude') => {
  * Validate model name and exit with error if invalid
  * This is the main entry point for model validation in solve.mjs, hive.mjs, etc.
  * @param {string} model - The model name to validate
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex')
+ * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'qwen')
  * @param {Function} exitFn - Function to call for exiting (default: process.exit)
  * @returns {Promise<boolean>} True if valid, exits process if invalid
  */
@@ -711,7 +744,7 @@ export const formatAvailableModelsForHelp = (tool = 'claude') => {
 
 /**
  * Map tool identifier to user-friendly display name.
- * @param {string|null} tool - The tool identifier (claude, codex, opencode, agent)
+ * @param {string|null} tool - The tool identifier (claude, codex, opencode, agent, gemini, qwen)
  * @returns {string} User-friendly display name
  */
 export const getToolDisplayName = tool => {
@@ -727,6 +760,8 @@ export const getToolDisplayName = tool => {
       return 'Agent CLI';
     case 'gemini':
       return 'Google Gemini CLI';
+    case 'qwen':
+      return 'Qwen Code';
     default:
       return 'AI tool';
   }
@@ -848,7 +883,7 @@ const doesRequestedMatchActual = (requestedModel, actualModelId, tool) => {
  *
  * @param {Object} options - Model info options
  * @param {string|null} options.requestedModel - The model requested via --model flag
- * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex)
+ * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex, qwen)
  * @param {Object|null} options.pricingInfo - Pricing info from tool result
  * @param {Object|null} options.modelInfo - Pre-fetched model metadata from models.dev
  * @param {Array<{modelId: string, modelInfo: Object|null}>|null} options.modelsUsed - Actual models used from CLI JSON output
@@ -959,7 +994,7 @@ export const resolveDefaultFallbackModel = (tool, model) => {
  *
  * @param {Object} options
  * @param {string|null} options.requestedModel - The --model flag value
- * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex)
+ * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex, qwen)
  * @param {Object|null} options.pricingInfo - Pricing info from tool result
  * @param {Array<string>|null} options.actualModelIds - Actual model IDs from CLI JSON output
  * @returns {Promise<string>} Formatted markdown model info section

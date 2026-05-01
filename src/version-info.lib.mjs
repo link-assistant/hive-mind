@@ -554,7 +554,7 @@ const VERSION_COMMANDS = [
   { key: 'agent', command: 'agent --version 2>&1' },
   { key: 'codex', command: 'codex --version 2>&1' },
   { key: 'opencode', command: 'opencode --version 2>&1' },
-  { key: 'qwenCode', command: 'qwen-code --version 2>&1' },
+  { key: 'qwenCode', command: 'qwen --version 2>&1' },
   { key: 'gemini', command: 'gemini --version 2>&1' },
   { key: 'copilot', command: 'copilot --version 2>&1' },
 

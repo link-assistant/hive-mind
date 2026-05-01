@@ -327,7 +327,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   tool: {
     type: 'string',
     description: 'AI tool to use for solving issues',
-    choices: ['claude', 'opencode', 'codex', 'agent', 'gemini'],
+    choices: ['claude', 'opencode', 'codex', 'agent', 'gemini', 'qwen'],
     default: 'claude',
   },
   plan: {
@@ -352,7 +352,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'enable-workspaces': {
     type: 'boolean',
-    description: 'Use separate workspace directory structure with repository/ and tmp/ folders. Works with all tools (claude, opencode, codex, agent, gemini). Experimental feature.',
+    description: 'Use separate workspace directory structure with repository/ and tmp/ folders. Works with all tools (claude, opencode, codex, agent, gemini, qwen). Experimental feature.',
     default: false,
   },
   'interactive-mode': {
@@ -428,7 +428,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'prompt-playwright-mcp': {
     type: 'boolean',
-    description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, and --tool gemini.',
+    description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, --tool gemini, and --tool qwen.',
     default: true,
   },
   'prompt-check-sibling-pull-requests': {
@@ -448,7 +448,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'playwright-mcp': {
     type: 'boolean',
-    description: 'Enable Playwright MCP server connection for this session (enabled by default). Use --no-playwright-mcp to physically disable the Playwright MCP server without affecting the global MCP registration. When disabled, also disables --prompt-playwright-mcp and --playwright-mcp-auto-cleanup. Supported for --tool claude, --tool codex, --tool opencode, and --tool agent; for --tool gemini this controls prompt hints and cleanup only.',
+    description: 'Enable Playwright MCP server connection for this session (enabled by default). Use --no-playwright-mcp to physically disable the Playwright MCP server without affecting the global MCP registration. When disabled, also disables --prompt-playwright-mcp and --playwright-mcp-auto-cleanup. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, and --tool qwen; for --tool gemini this controls prompt hints and cleanup only.',
     default: true,
   },
   'playwright-mcp-auto-cleanup': {
@@ -468,7 +468,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'prompt-subagents-via-agent-commander': {
     type: 'boolean',
-    description: 'Guide AI to use agent-commander CLI (start-agent) instead of native tool-specific delegation for subagent work. Allows using any supported agent type (claude, opencode, codex, agent) with a unified API. Supported for --tool claude and --tool codex and requires agent-commander to be installed.',
+    description: 'Guide AI to use agent-commander CLI (start-agent) instead of native tool-specific delegation for subagent work. Allows using any supported agent type (claude, opencode, codex, agent, qwen) with a unified API. Supported for --tool claude and --tool codex and requires agent-commander to be installed.',
     default: false,
   },
   'auto-init-repository': {

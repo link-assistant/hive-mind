@@ -99,7 +99,15 @@ runTest('--tool gemini defaults to .gitkeep', () => {
   }
 });
 
-// Test 8: Verify explicit --claude-file overrides default for --tool agent
+// Test 8: Verify --tool qwen with --dry-run shows .gitkeep creation
+runTest('--tool qwen defaults to .gitkeep', () => {
+  const output = execCommand(`${solvePath} https://github.com/test/test/issues/1 --tool qwen --dry-run --skip-tool-connection-check 2>&1`);
+  if (output.includes('Creating:') && output.includes('CLAUDE.md') && !output.includes('.gitkeep')) {
+    throw new Error('--tool qwen should default to .gitkeep, not CLAUDE.md');
+  }
+});
+
+// Test 9: Verify explicit --claude-file overrides default for --tool agent
 runTest('explicit --claude-file overrides --tool agent default', () => {
   const output = execCommand(`${solvePath} https://github.com/test/test/issues/1 --tool agent --claude-file --dry-run --skip-tool-connection-check 2>&1`);
   // When --claude-file is explicitly provided, it should be used even with --tool agent
@@ -109,7 +117,7 @@ runTest('explicit --claude-file overrides --tool agent default', () => {
   }
 });
 
-// Test 9: Verify explicit --gitkeep-file overrides default for --tool claude
+// Test 10: Verify explicit --gitkeep-file overrides default for --tool claude
 runTest('explicit --gitkeep-file overrides --tool claude default', () => {
   const output = execCommand(`${solvePath} https://github.com/test/test/issues/1 --tool claude --gitkeep-file --dry-run --skip-tool-connection-check 2>&1`);
   // When --gitkeep-file is explicitly provided, it should be used even with --tool claude
@@ -118,7 +126,7 @@ runTest('explicit --gitkeep-file overrides --tool claude default', () => {
   }
 });
 
-// Test 10: Verify mutual exclusivity still works when both are explicit
+// Test 11: Verify mutual exclusivity still works when both are explicit
 runTest('mutual exclusivity enforced when both explicitly set', () => {
   const output = execCommand(`${solvePath} https://github.com/test/test/issues/1 --claude-file --gitkeep-file --dry-run --skip-tool-connection-check 2>&1`);
   // The error message contains "mutually exclusive"
@@ -127,7 +135,7 @@ runTest('mutual exclusivity enforced when both explicitly set', () => {
   }
 });
 
-// Test 11: Verify both cannot be disabled
+// Test 12: Verify both cannot be disabled
 runTest('cannot disable both claude-file and gitkeep-file', () => {
   const output = execCommand(`${solvePath} https://github.com/test/test/issues/1 --no-claude-file --no-gitkeep-file --dry-run --skip-tool-connection-check 2>&1`);
   // The error message says "Cannot disable both"

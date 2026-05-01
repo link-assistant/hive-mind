@@ -350,13 +350,13 @@ solve <issue-url> [options]
 
 **Other useful options:**
 
-| Option                   | Alias | Description                                      | Default |
-| ------------------------ | ----- | ------------------------------------------------ | ------- |
-| `--tool`                 |       | AI tool (claude, opencode, codex, agent)         | claude  |
-| `--verbose`              | `-v`  | Enable verbose logging                           | false   |
-| `--attach-logs`          |       | Attach logs to PR (⚠️ may expose sensitive data) | false   |
-| `--auto-init-repository` |       | Auto-initialize empty repos (creates README.md)  | false   |
-| `--help`                 | `-h`  | Show all available options                       | -       |
+| Option                   | Alias | Description                                            | Default |
+| ------------------------ | ----- | ------------------------------------------------------ | ------- |
+| `--tool`                 |       | AI tool (claude, opencode, codex, agent, gemini, qwen) | claude  |
+| `--verbose`              | `-v`  | Enable verbose logging                                 | false   |
+| `--attach-logs`          |       | Attach logs to PR (⚠️ may expose sensitive data)       | false   |
+| `--auto-init-repository` |       | Auto-initialize empty repos (creates README.md)        | false   |
+| `--help`                 | `-h`  | Show all available options                             | -       |
 
 > **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options) for all available options including forking, auto-continue, watch mode, and experimental features.
 
@@ -377,14 +377,14 @@ hive <github-url> [options]
 
 **Other useful options:**
 
-| Option                   | Alias | Description                                       | Default |
-| ------------------------ | ----- | ------------------------------------------------- | ------- |
-| `--tool`                 |       | AI tool (claude, opencode, agent)                 | claude  |
-| `--concurrency`          | `-c`  | Number of parallel workers                        | 2       |
-| `--skip-issues-with-prs` | `-s`  | Skip issues with existing PRs                     | false   |
-| `--verbose`              | `-v`  | Enable verbose logging                            | false   |
-| `--attach-logs`          |       | Attach logs to PRs (⚠️ may expose sensitive data) | false   |
-| `--help`                 | `-h`  | Show all available options                        | -       |
+| Option                   | Alias | Description                                            | Default |
+| ------------------------ | ----- | ------------------------------------------------------ | ------- |
+| `--tool`                 |       | AI tool (claude, opencode, codex, agent, gemini, qwen) | claude  |
+| `--concurrency`          | `-c`  | Number of parallel workers                             | 2       |
+| `--skip-issues-with-prs` | `-s`  | Skip issues with existing PRs                          | false   |
+| `--verbose`              | `-v`  | Enable verbose logging                                 | false   |
+| `--attach-logs`          |       | Attach logs to PRs (⚠️ may expose sensitive data)      | false   |
+| `--help`                 | `-h`  | Show all available options                             | -       |
 
 > **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#hive-options) for all available options including project monitoring, YouTrack integration, and experimental features.
 
@@ -469,11 +469,15 @@ Aliases:
 /codex is equivalent to /solve --tool codex
 /opencode is equivalent to /solve --tool opencode
 /agent is equivalent to /solve --tool agent
+/gemini is equivalent to /solve --tool gemini
+/qwen is equivalent to /solve --tool qwen
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
 /opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+/gemini https://github.com/owner/repo/issues/123 --model flash
+/qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
@@ -495,6 +499,8 @@ Current tool defaults in Hive Mind:
 | `codex`    | `gpt-5.5` preferred, with runtime fallback to local catalog | Codex runs with `reasoning_effort=none` unless you pass `--think` or `--thinking-budget` |
 | `opencode` | `grok-code-fast-1`                                          | No extra thinking prompt is added for the default model                                  |
 | `agent`    | `nemotron-3-super-free`                                     | No extra thinking prompt is added for the default model                                  |
+| `gemini`   | `flash`                                                     | No extra thinking prompt is added for the default model                                  |
+| `qwen`     | `qwen3-coder-plus`                                          | No extra thinking prompt is added for the default model                                  |
 
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 

@@ -714,13 +714,18 @@ try {
       getResourceSnapshot,
       $,
     });
-  } else if (argv.tool === 'opencode') {
-    const opencodeLib = await import('./opencode.lib.mjs');
-    const { executeOpenCode, checkPlaywrightMcpAvailability: checkOpenCodePlaywrightMcp } = opencodeLib;
-    const opencodePath = process.env.OPENCODE_PATH || 'opencode';
-    await resolvePlaywrightMcp(checkOpenCodePlaywrightMcp);
+  } else if (['opencode', 'codex', 'agent', 'gemini', 'qwen'].includes(argv.tool)) {
+    const toolDispatch = {
+      opencode: { lib: './opencode.lib.mjs', execFn: 'executeOpenCode', envVar: 'OPENCODE_PATH', defaultBin: 'opencode', pathKey: 'opencodePath' },
+      codex: { lib: './codex.lib.mjs', execFn: 'executeCodex', envVar: 'CODEX_PATH', defaultBin: 'codex', pathKey: 'codexPath' },
+      agent: { lib: './agent.lib.mjs', execFn: 'executeAgent', envVar: 'AGENT_PATH', defaultBin: 'agent', pathKey: 'agentPath' },
+      gemini: { lib: './gemini.lib.mjs', execFn: 'executeGemini', envVar: 'GEMINI_PATH', defaultBin: 'gemini', pathKey: 'geminiPath' },
+      qwen: { lib: './qwen.lib.mjs', execFn: 'executeQwen', envVar: 'QWEN_PATH', defaultBin: 'qwen', pathKey: 'qwenPath' },
+    }[argv.tool];
+    const toolLib = await import(toolDispatch.lib);
+    await resolvePlaywrightMcp(toolLib.checkPlaywrightMcpAvailability);
 
-    toolResult = await executeOpenCode({
+    toolResult = await toolLib[toolDispatch.execFn]({
       issueUrl,
       issueNumber,
       prNumber,
@@ -741,127 +746,7 @@ try {
       getLogFile,
       formatAligned,
       getResourceSnapshot,
-      opencodePath,
-      $,
-    });
-  } else if (argv.tool === 'codex') {
-    const codexLib = await import('./codex.lib.mjs');
-    const { executeCodex, checkPlaywrightMcpAvailability } = codexLib;
-    const codexPath = process.env.CODEX_PATH || 'codex';
-    await resolvePlaywrightMcp(checkPlaywrightMcpAvailability);
-
-    toolResult = await executeCodex({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      workspaceTmpDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      codexPath,
-      $,
-    });
-  } else if (argv.tool === 'agent') {
-    const agentLib = await import('./agent.lib.mjs');
-    const { executeAgent, checkPlaywrightMcpAvailability: checkAgentPlaywrightMcp } = agentLib;
-    const agentPath = process.env.AGENT_PATH || 'agent';
-    await resolvePlaywrightMcp(checkAgentPlaywrightMcp);
-
-    toolResult = await executeAgent({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      workspaceTmpDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      agentPath,
-      $,
-    });
-  } else if (argv.tool === 'gemini') {
-    const geminiLib = await import('./gemini.lib.mjs');
-    const { executeGemini, checkPlaywrightMcpAvailability: checkGeminiPlaywrightMcp } = geminiLib;
-    const geminiPath = process.env.GEMINI_PATH || 'gemini';
-    await resolvePlaywrightMcp(checkGeminiPlaywrightMcp);
-
-    toolResult = await executeGemini({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      workspaceTmpDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      geminiPath,
-      $,
-    });
-  } else if (argv.tool === 'qwen') {
-    const qwenLib = await import('./qwen.lib.mjs');
-    const { executeQwen, checkPlaywrightMcpAvailability: checkQwenPlaywrightMcp } = qwenLib;
-    const qwenPath = process.env.QWEN_PATH || 'qwen';
-    await resolvePlaywrightMcp(checkQwenPlaywrightMcp);
-
-    toolResult = await executeQwen({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      workspaceTmpDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      qwenPath,
+      [toolDispatch.pathKey]: process.env[toolDispatch.envVar] || toolDispatch.defaultBin,
       $,
     });
   } else {

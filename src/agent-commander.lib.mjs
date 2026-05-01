@@ -19,6 +19,8 @@ const TOOL_EXECUTABLE_CONFIG = {
   codex: { argvKey: 'codexPath', envKey: 'CODEX_PATH' },
   opencode: { argvKey: 'opencodePath', envKey: 'OPENCODE_PATH' },
   agent: { argvKey: 'agentPath', envKey: 'AGENT_PATH' },
+  qwen: { argvKey: 'qwenPath', envKey: 'QWEN_PATH' },
+  gemini: { argvKey: 'geminiPath', envKey: 'GEMINI_PATH' },
 };
 
 const getConfiguredExecutable = (argv = {}, tool) => {

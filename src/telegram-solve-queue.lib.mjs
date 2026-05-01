@@ -149,7 +149,6 @@ export class SolveQueue {
       claude: [],
       agent: [],
       codex: [],
-      gemini: [],
       qwen: [],
       gemini: [],
     };
@@ -163,7 +162,6 @@ export class SolveQueue {
       claude: null,
       agent: null,
       codex: null,
-      gemini: null,
       qwen: null,
       gemini: null,
     };
@@ -675,14 +673,12 @@ export class SolveQueue {
       claudeProcesses: claudeProcessCount,
       codexProcesses: codexProcessCount,
       agentProcesses: agentProcessCount,
-      geminiProcesses: geminiProcessCount,
       qwenProcesses: qwenProcessCount,
       geminiProcesses: geminiProcessCount,
       isolatedProcesses: externalProcessing.isolatedTotal,
       totalProcessing,
       claudeProcessingCount,
       codexProcessingCount,
-      geminiProcessingCount,
       qwenProcessingCount,
       geminiProcessingCount,
     };

@@ -448,10 +448,9 @@ export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan'],
   opencode: ['grok', 'gpt4o'],
   codex: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark'],
-  gemini: ['flash', 'pro', 'flash-lite', 'auto'],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
   qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash'],
-  gemini: ['gemini', 'flash', 'pro', '3-pro'],
+  gemini: ['flash', 'pro', 'flash-lite', 'auto'],
 };
 
 /**

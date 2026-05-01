@@ -2,15 +2,19 @@
 /**
  * Interactive Mode Library
  *
- * [EXPERIMENTAL] This module provides real-time PR comment updates during Claude execution.
- * It parses Claude CLI's NDJSON output and posts relevant events as GitHub PR comments.
+ * [EXPERIMENTAL] This module provides real-time PR comment updates during tool execution.
+ * It parses Claude or Codex JSON output and posts relevant events as GitHub PR comments.
  *
- * Supported JSON event types:
+ * Supported Claude JSON event types:
  * - system.init: Session initialization
+ * - system.task_started: Agent subtask started (Issue #1450)
+ * - system.task_progress: Agent subtask progress update (Issue #1450)
+ * - system.task_notification: Agent subtask completed/failed (Issue #1450)
  * - assistant (text): AI text responses
  * - assistant (tool_use): Tool invocations
  * - user (tool_result): Tool execution results
  * - result: Session completion
+ * - rate_limit_event: Rate limit info (silently logged, Issue #1450)
  * - unrecognized: Any unknown event types
  *
  * Features:
@@ -28,181 +32,15 @@
  * @experimental
  */
 
-// Configuration constants
-const CONFIG = {
-  // Minimum time between comments to avoid rate limiting (in ms)
-  MIN_COMMENT_INTERVAL: 5000,
-  // Maximum lines to show before truncation kicks in
-  MAX_LINES_BEFORE_TRUNCATION: 50,
-  // Lines to keep at start when truncating
-  LINES_TO_KEEP_START: 20,
-  // Lines to keep at end when truncating
-  LINES_TO_KEEP_END: 20,
-  // Maximum JSON depth for raw JSON display
-  MAX_JSON_DEPTH: 10,
-};
+import { CONFIG, createCollapsible, createRawJsonSection, escapeMarkdown, execFileAsync, formatCost, formatDuration, getToolIcon, safeJsonStringify, sanitizeUnicode, truncateMiddle } from './interactive-mode.shared.lib.mjs';
+// Issue #1625: track interactive-mode comment IDs so they're excluded from
+// the "did the AI post anything?" check in checkForAiCreatedComments().
+// Use the session-started marker as the single source of truth for the
+// header string, keeping posting and filtering in lock-step.
+import { INTERACTIVE_SESSION_STARTED_MARKER, trackToolCommentId } from './tool-comments.lib.mjs';
 
 /**
- * Truncate content in the middle, keeping start and end
- * This helps show context while reducing size for large outputs
- *
- * @param {string} content - Content to potentially truncate
- * @param {Object} options - Truncation options
- * @param {number} [options.maxLines=50] - Maximum lines before truncation
- * @param {number} [options.keepStart=20] - Lines to keep at start
- * @param {number} [options.keepEnd=20] - Lines to keep at end
- * @returns {string} Truncated content with ellipsis indicator
- */
-const truncateMiddle = (content, options = {}) => {
-  const { maxLines = CONFIG.MAX_LINES_BEFORE_TRUNCATION, keepStart = CONFIG.LINES_TO_KEEP_START, keepEnd = CONFIG.LINES_TO_KEEP_END } = options;
-
-  if (!content || typeof content !== 'string') {
-    return content || '';
-  }
-
-  const lines = content.split('\n');
-  if (lines.length <= maxLines) {
-    return content;
-  }
-
-  const startLines = lines.slice(0, keepStart);
-  const endLines = lines.slice(-keepEnd);
-  const removedCount = lines.length - keepStart - keepEnd;
-
-  return [...startLines, '', `... [${removedCount} lines truncated] ...`, '', ...endLines].join('\n');
-};
-
-/**
- * Safely stringify JSON with depth limit and circular reference handling
- *
- * @param {any} obj - Object to stringify
- * @param {number} [indent=2] - Indentation spaces
- * @returns {string} Formatted JSON string
- */
-const safeJsonStringify = (obj, indent = 2) => {
-  const seen = new WeakSet();
-  return JSON.stringify(
-    obj,
-    (key, value) => {
-      if (typeof value === 'object' && value !== null) {
-        if (seen.has(value)) {
-          return '[Circular]';
-        }
-        seen.add(value);
-      }
-      return value;
-    },
-    indent
-  );
-};
-
-/**
- * Create a collapsible section in GitHub markdown
- *
- * @param {string} summary - Summary text shown when collapsed
- * @param {string} content - Content shown when expanded
- * @param {boolean} [startOpen=false] - Whether to start expanded
- * @returns {string} GitHub markdown details block
- */
-const createCollapsible = (summary, content, startOpen = false) => {
-  const openAttr = startOpen ? ' open' : '';
-  return `<details${openAttr}>
-<summary>${summary}</summary>
-
-${content}
-
-</details>`;
-};
-
-/**
- * Create a collapsible raw JSON section
- * Always wraps data in an array for consistent merging
- *
- * @param {Object|Array} data - JSON data to display (will be wrapped in array if not already)
- * @returns {string} Collapsible JSON block
- */
-const createRawJsonSection = data => {
-  // Ensure data is always an array at root level for easier merging
-  const dataArray = Array.isArray(data) ? data : [data];
-  const jsonContent = truncateMiddle(safeJsonStringify(dataArray, 2), {
-    maxLines: 100,
-    keepStart: 40,
-    keepEnd: 40,
-  });
-  return createCollapsible('📄 Raw JSON', '```json\n' + jsonContent + '\n```');
-};
-
-/**
- * Format duration from milliseconds to human-readable string
- *
- * @param {number} ms - Duration in milliseconds
- * @returns {string} Formatted duration (e.g., "12m 7s")
- */
-const formatDuration = ms => {
-  if (!ms || ms < 0) return 'unknown';
-
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
-  }
-};
-
-/**
- * Format cost to USD string
- *
- * @param {number} cost - Cost in USD
- * @returns {string} Formatted cost (e.g., "$1.60")
- */
-const formatCost = cost => {
-  if (typeof cost !== 'number' || isNaN(cost)) return 'unknown';
-  return `$${cost.toFixed(2)}`;
-};
-
-/**
- * Escape special markdown characters in text
- *
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
- */
-const escapeMarkdown = text => {
-  if (!text || typeof text !== 'string') return '';
-  // Escape backticks that would break code blocks
-  return text.replace(/```/g, '\\`\\`\\`');
-};
-
-/**
- * Get tool icon based on tool name
- *
- * @param {string} toolName - Name of the tool
- * @returns {string} Emoji icon
- */
-const getToolIcon = toolName => {
-  const icons = {
-    Bash: '💻',
-    Read: '📖',
-    Write: '✏️',
-    Edit: '📝',
-    Glob: '🔍',
-    Grep: '🔎',
-    WebFetch: '🌐',
-    WebSearch: '🔍',
-    TodoWrite: '📋',
-    Task: '🎯',
-    NotebookEdit: '📓',
-    default: '🔧',
-  };
-  return icons[toolName] || icons.default;
-};
-
-/**
- * Creates an interactive mode handler for processing Claude CLI events
+ * Creates an interactive mode handler for processing Claude/Codex CLI events
  *
  * @param {Object} options - Handler configuration
  * @param {string} options.owner - Repository owner
@@ -214,7 +52,9 @@ const getToolIcon = toolName => {
  * @returns {Object} Handler object with event processing methods
  */
 export const createInteractiveHandler = options => {
-  const { owner, repo, prNumber, $, log, verbose = false } = options;
+  const { owner, repo, prNumber, log, verbose = false, execFile: execFileFn } = options;
+  // Use injected execFile for testability, or the real one by default
+  const runGhApi = execFileFn || execFileAsync;
 
   // State tracking for the handler
   const state = {
@@ -235,16 +75,28 @@ export const createInteractiveHandler = options => {
     // Simple map of tool_use_id -> { toolName, toolIcon } for standalone tool results
     // This is preserved even after pendingToolCalls entry is deleted
     toolUseRegistry: new Map(),
+    // Track active agent tasks for progress update deduplication
+    // Map of task_id -> { commentId, toolUseId, description, commentIdPromise, resolveCommentId }
+    pendingTasks: new Map(),
+    // Issue #1472: Diagnostic counters for tracking comment posting success/failure
+    eventsProcessed: 0,
+    commentsAttempted: 0,
+    commentsPosted: 0,
+    commentsFailed: 0,
+    editsAttempted: 0,
+    editsSucceeded: 0,
+    editsFailed: 0,
   };
 
   /**
    * Post a comment to the PR (with rate limiting)
    * @param {string} body - Comment body
    * @param {string} [toolId] - Optional tool ID for tracking pending tool calls
+   * @param {string} [taskId] - Optional task ID for tracking pending agent tasks
    * @returns {Promise<string|null>} Comment ID if successful, null if queued or failed
    * @private
    */
-  const postComment = async (body, toolId = null) => {
+  const postComment = async (body, toolId = null, taskId = null) => {
     if (!prNumber || !owner || !repo) {
       if (verbose) {
         await log('⚠️ Interactive mode: Cannot post comment - missing PR info', { verbose: true });
@@ -256,34 +108,52 @@ export const createInteractiveHandler = options => {
     const timeSinceLastComment = now - state.lastCommentTime;
 
     if (timeSinceLastComment < CONFIG.MIN_COMMENT_INTERVAL) {
-      // Queue the comment for later with toolId for tracking
-      state.commentQueue.push({ body, toolId });
+      // Queue the comment for later with toolId/taskId for tracking
+      state.commentQueue.push({ body, toolId, taskId });
       if (verbose) {
-        await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)${toolId ? ` [tool: ${toolId}]` : ''}`, { verbose: true });
+        await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)${toolId ? ` [tool: ${toolId}]` : ''}${taskId ? ` [task: ${taskId}]` : ''}`, { verbose: true });
       }
       return null;
     }
 
+    state.commentsAttempted++;
     try {
-      // Post comment and capture the output to get the comment URL/ID
-      const result = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${body}`;
+      // Post comment via gh api with stdin to avoid shell quoting issues
+      // with complex markdown bodies containing backticks, quotes, etc.
+      // See: https://github.com/link-assistant/hive-mind/issues/1458
+      const apiUrl = `repos/${owner}/${repo}/issues/${prNumber}/comments`;
+      const jsonPayload = JSON.stringify({ body });
+      const { stdout } = await runGhApi('gh', ['api', apiUrl, '-X', 'POST', '--input', '-'], {
+        input: jsonPayload,
+        maxBuffer: 10 * 1024 * 1024, // 10MB
+      });
       state.lastCommentTime = Date.now();
+      state.commentsPosted++;
 
-      // Extract comment ID from the result (gh outputs the comment URL)
-      // Format: https://github.com/owner/repo/pull/123#issuecomment-1234567890
-      // Note: command-stream returns stdout as a Buffer, so we need to call .toString()
-      const output = result.stdout?.toString() || result.toString() || '';
-      const match = output.match(/issuecomment-(\d+)/);
-      const commentId = match ? match[1] : null;
+      // Extract comment ID from the API response JSON
+      let commentId = null;
+      try {
+        const response = JSON.parse(stdout);
+        commentId = response.id ? String(response.id) : null;
+      } catch {
+        // Fallback: try to extract from URL pattern
+        const match = stdout.match(/issuecomment-(\d+)|"id":\s*(\d+)/);
+        commentId = match ? match[1] || match[2] : null;
+      }
+
+      // Issue #1625: register this comment ID in the shared in-memory tracking
+      // set so --auto-attach-solution-summary correctly excludes it from the
+      // AI-authored-comment check. Tracking is a no-op when commentId is null.
+      trackToolCommentId(commentId);
 
       if (verbose) {
-        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''}`, { verbose: true });
+        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''} (body: ${body.length} chars)`, { verbose: true });
       }
       return commentId;
     } catch (error) {
-      if (verbose) {
-        await log(`⚠️ Interactive mode: Failed to post comment: ${error.message}`, { verbose: true });
-      }
+      state.commentsFailed++;
+      // Issue #1472: Always log comment failures (not just verbose) — silent failures cause zero-comment bugs
+      await log(`⚠️ Interactive mode: Failed to post comment: ${error.message} (body: ${body.length} chars)`);
       return null;
     }
   };
@@ -303,16 +173,25 @@ export const createInteractiveHandler = options => {
       return false;
     }
 
+    state.editsAttempted++;
     try {
-      await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} -X PATCH -f body=${body}`;
+      // Edit comment via gh api with stdin to avoid shell quoting issues
+      // with complex markdown bodies containing backticks, quotes, etc.
+      // See: https://github.com/link-assistant/hive-mind/issues/1458
+      const apiUrl = `repos/${owner}/${repo}/issues/comments/${commentId}`;
+      const jsonPayload = JSON.stringify({ body });
+      await runGhApi('gh', ['api', apiUrl, '-X', 'PATCH', '--input', '-'], {
+        input: jsonPayload,
+        maxBuffer: 10 * 1024 * 1024, // 10MB
+      });
+      state.editsSucceeded++;
       if (verbose) {
-        await log(`✅ Interactive mode: Comment ${commentId} updated`, { verbose: true });
+        await log(`✅ Interactive mode: Comment ${commentId} updated (body: ${body.length} chars, payload: ${jsonPayload.length} chars)`, { verbose: true });
       }
       return true;
     } catch (error) {
-      if (verbose) {
-        await log(`⚠️ Interactive mode: Failed to edit comment: ${error.message}`, { verbose: true });
-      }
+      state.editsFailed++;
+      await log(`⚠️ Interactive mode: Failed to edit comment ${commentId}: ${error.message} (body: ${body.length} chars)`);
       return false;
     }
   };
@@ -341,8 +220,8 @@ export const createInteractiveHandler = options => {
 
       const queueItem = state.commentQueue.shift();
       if (queueItem) {
-        const { body, toolId } = queueItem;
-        // Post the comment (don't pass toolId to avoid re-queueing)
+        const { body, toolId, taskId } = queueItem;
+        // Post the comment (don't pass toolId/taskId to avoid re-queueing)
         const commentId = await postComment(body);
 
         // If this was a tool use comment, update the pending call with the comment ID
@@ -361,6 +240,25 @@ export const createInteractiveHandler = options => {
             }
           }
         }
+
+        // If this was a task comment, update the pending task with the comment ID
+        // Fix: task comments previously lost their commentId when queued, causing
+        // task_notification edits to fail and leaving tasks stuck at "⏳ Running..."
+        // See: https://github.com/link-assistant/hive-mind/issues/1576
+        if (taskId && commentId) {
+          const pendingTask = state.pendingTasks.get(taskId);
+          if (pendingTask) {
+            pendingTask.commentId = commentId;
+            if (pendingTask.resolveCommentId) {
+              pendingTask.resolveCommentId(commentId);
+            }
+            if (verbose) {
+              await log(`📋 Interactive mode: Updated pending task ${taskId} with comment ID ${commentId}`, {
+                verbose: true,
+              });
+            }
+          }
+        }
       }
     }
 
@@ -372,6 +270,16 @@ export const createInteractiveHandler = options => {
    * @param {Object} data - Event data
    */
   const handleSystemInit = async data => {
+    // Guard against duplicate init events (e.g., when a late task_notification
+    // arrives after the result event and triggers a new conversation turn)
+    // See: https://github.com/link-assistant/hive-mind/issues/1458
+    if (state.sessionId) {
+      if (verbose) {
+        await log(`⚠️ Interactive mode: Ignoring duplicate system.init event (session already initialized: ${state.sessionId})`, { verbose: true });
+      }
+      return;
+    }
+
     state.sessionId = data.session_id;
     state.startTime = Date.now();
 
@@ -390,7 +298,7 @@ export const createInteractiveHandler = options => {
     const agents = data.agents || [];
     const agentsList = agents.length > 0 ? agents.map(a => `\`${a}\``).join(', ') : '_None_';
 
-    const comment = `## 🚀 Interactive session started
+    const comment = `## 🚀 ${INTERACTIVE_SESSION_STARTED_MARKER}
 
 | Property | Value |
 |----------|-------|
@@ -483,26 +391,26 @@ ${createRawJsonSection(data)}`;
           keepStart: 12,
           keepEnd: 12,
         });
-        // Format content as diff with + prefix for added lines
+        // Format content as diff with + prefix and line numbers for added lines
         const diffContent = truncatedContent
           .split('\n')
-          .map(line => `+ ${line}`)
+          .map((line, i) => `+${String(i + 1).padStart(4)} | ${line}`)
           .join('\n');
-        inputDisplay += '\n\n' + createCollapsible('📄 Content', '```diff\n' + escapeMarkdown(diffContent) + '\n```');
+        inputDisplay += '\n\n' + createCollapsible('📄 Change', '```diff\n' + escapeMarkdown(diffContent) + '\n```', true);
       }
     } else if (toolName === 'Edit' && input.file_path) {
       inputDisplay = `**File:** \`${input.file_path}\``;
       if (input.old_string && input.new_string) {
         const truncatedOld = truncateMiddle(input.old_string, { maxLines: 15, keepStart: 6, keepEnd: 6 });
         const truncatedNew = truncateMiddle(input.new_string, { maxLines: 15, keepStart: 6, keepEnd: 6 });
-        // Format as unified diff with - for removed lines and + for added lines
+        // Format as unified diff with - for removed lines and + for added lines, with line numbers
         const diffOld = truncatedOld
           .split('\n')
-          .map(line => `- ${line}`)
+          .map((line, i) => `-${String(i + 1).padStart(4)} | ${line}`)
           .join('\n');
         const diffNew = truncatedNew
           .split('\n')
-          .map(line => `+ ${line}`)
+          .map((line, i) => `+${String(i + 1).padStart(4)} | ${line}`)
           .join('\n');
         inputDisplay += '\n\n' + createCollapsible('🔄 Change', '```diff\n' + escapeMarkdown(diffOld + '\n' + diffNew) + '\n```', true);
       }
@@ -535,13 +443,17 @@ ${createRawJsonSection(data)}`;
         todosPreview = [...startTodos, `- _...and ${skipped} more_`, ...endTodos].join('\n');
       }
 
-      inputDisplay = createCollapsible(`📋 Todos (${todos.length} items)`, todosPreview, true);
+      const completedCount = todos.filter(t => t.status === 'completed').length;
+      inputDisplay = createCollapsible(`📋 Todos (${completedCount}/${todos.length} items)`, todosPreview, true);
     } else if (toolName === 'Task') {
       inputDisplay = `**Description:** ${input.description || 'N/A'}`;
       if (input.prompt) {
         const truncatedPrompt = truncateMiddle(input.prompt, { maxLines: 20, keepStart: 8, keepEnd: 8 });
-        inputDisplay += '\n\n' + createCollapsible('📝 Prompt', truncatedPrompt);
+        inputDisplay += '\n\n' + createCollapsible('📝 Prompt', truncatedPrompt, true);
       }
+    } else if (toolName === 'ToolSearch') {
+      inputDisplay = `**Query:** \`${input.query || 'N/A'}\``;
+      if (input.max_results) inputDisplay += `\n**Max Results:** ${input.max_results}`;
     } else {
       // Generic input display
       const inputJson = truncateMiddle(safeJsonStringify(input, 2), {
@@ -646,20 +558,43 @@ ${createRawJsonSection(data)}`;
       // If comment ID is not yet available (comment was queued), wait for it
       // But use a timeout to avoid blocking forever
       if (!commentId && commentIdPromise) {
-        if (verbose) {
-          await log(`⏳ Interactive mode: Waiting for tool use comment to be posted (tool: ${toolUseId})`, {
-            verbose: true,
-          });
+        // First, try to flush the queue — the tool_use comment may still be
+        // waiting for rate-limit clearance. Processing it here avoids the 30s
+        // timeout that previously caused many comments to stay stuck on
+        // "Waiting for result...".
+        // See: https://github.com/link-assistant/hive-mind/issues/1458
+        if (state.commentQueue.length > 0) {
+          if (verbose) {
+            await log(`🔄 Interactive mode: Flushing comment queue (${state.commentQueue.length} items) before waiting for tool use comment`, {
+              verbose: true,
+            });
+          }
+          // Temporarily reset isProcessing to allow processQueue to run
+          const wasProcessing = state.isProcessing;
+          state.isProcessing = false;
+          await processQueue();
+          state.isProcessing = wasProcessing;
         }
-        // Wait for the comment to be posted (with 30 second timeout)
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 30000));
-        commentId = await Promise.race([commentIdPromise, timeoutPromise]);
+
+        // Check again after queue flush
+        commentId = pendingCall.commentId;
 
         if (!commentId) {
           if (verbose) {
-            await log('⚠️ Interactive mode: Timeout waiting for tool use comment, posting result separately', {
+            await log(`⏳ Interactive mode: Waiting for tool use comment to be posted (tool: ${toolUseId})`, {
               verbose: true,
             });
+          }
+          // Wait for the comment to be posted (with 30 second timeout)
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 30000));
+          commentId = await Promise.race([commentIdPromise, timeoutPromise]);
+
+          if (!commentId) {
+            if (verbose) {
+              await log('⚠️ Interactive mode: Timeout waiting for tool use comment, posting result separately', {
+                verbose: true,
+              });
+            }
           }
         }
       }
@@ -732,7 +667,7 @@ ${createRawJsonSection(data)}`;
   const handleResult = async data => {
     const isError = data.is_error || false;
     const statusIcon = isError ? '❌' : '✅';
-    const statusText = isError ? 'Session Failed' : 'Session Complete';
+    const statusText = isError ? 'Interactive session failed' : 'Interactive session completed';
 
     // Format result text
     const resultText = data.result || '_No result message_';
@@ -760,9 +695,22 @@ ${createRawJsonSection(data)}`;
       statsTable += `| **Cost** | ${formatCost(data.total_cost_usd)} |\n`;
     }
 
-    // Usage breakdown if available
+    // Usage breakdown — prefer modelUsage (cumulative per-model totals including sub-agents)
+    // over usage (which only contains last-iteration tokens and is misleading).
+    // See: https://github.com/link-assistant/hive-mind/issues/1576
     let usageSection = '';
-    if (data.usage) {
+    if (data.modelUsage && Object.keys(data.modelUsage).length > 0) {
+      usageSection = '\n### 📊 Token Usage (by model)\n\n';
+      for (const [model, mu] of Object.entries(data.modelUsage)) {
+        usageSection += `**${model}:**\n\n| Type | Count |\n|------|-------|\n`;
+        if (mu.inputTokens) usageSection += `| Input | ${mu.inputTokens.toLocaleString()} |\n`;
+        if (mu.outputTokens) usageSection += `| Output | ${mu.outputTokens.toLocaleString()} |\n`;
+        if (mu.cacheCreationInputTokens) usageSection += `| Cache Creation | ${mu.cacheCreationInputTokens.toLocaleString()} |\n`;
+        if (mu.cacheReadInputTokens) usageSection += `| Cache Read | ${mu.cacheReadInputTokens.toLocaleString()} |\n`;
+        if (typeof mu.costUSD === 'number') usageSection += `| Cost | ${formatCost(mu.costUSD)} |\n`;
+        usageSection += '\n';
+      }
+    } else if (data.usage) {
       const u = data.usage;
       usageSection = '\n### 📊 Token Usage\n\n| Type | Count |\n|------|-------|\n';
       if (u.input_tokens) usageSection += `| Input | ${u.input_tokens.toLocaleString()} |\n`;
@@ -792,6 +740,405 @@ ${createRawJsonSection(data)}`;
   };
 
   /**
+   * Handle system.task_started event (Agent subtask started)
+   * Creates a progress comment that will be updated by task_progress events
+   * @param {Object} data - Event data
+   */
+  const handleTaskStarted = async data => {
+    const taskId = data.task_id;
+    const toolUseId = data.tool_use_id || '';
+    const description = data.description || 'Agent task';
+    const taskType = data.task_type || 'unknown';
+    const agentId = data.agent_id || taskId;
+
+    // Create a promise for the comment ID (handles queued comments)
+    let resolveCommentId;
+    const commentIdPromise = new Promise(resolve => {
+      resolveCommentId = resolve;
+    });
+
+    // Build prompt preview if available
+    let promptSection = '';
+    if (data.prompt) {
+      const truncatedPrompt = truncateMiddle(data.prompt, { maxLines: 15, keepStart: 6, keepEnd: 6 });
+      promptSection = '\n\n' + createCollapsible('📝 Task prompt', truncatedPrompt, true);
+    }
+
+    const comment = `## 🤖🔀 Agent task: ${escapeMarkdown(description)}
+
+| Property | Value |
+|----------|-------|
+| **Agent ID** | \`${agentId}\` |
+| **Task ID** | \`${taskId || 'unknown'}\` |
+| **Type** | \`${taskType}\` |
+| **Status** | ⏳ Running... |
+${promptSection}
+
+---
+
+${createRawJsonSection(data)}`;
+
+    // Track this task BEFORE posting
+    state.pendingTasks.set(taskId, {
+      commentId: null,
+      commentIdPromise,
+      resolveCommentId,
+      toolUseId,
+      description,
+      agentId,
+      lastProgressDescription: description,
+      progressCount: 0,
+      allEvents: [data],
+    });
+
+    const commentId = await postComment(comment, null, taskId);
+
+    if (commentId) {
+      const pendingTask = state.pendingTasks.get(taskId);
+      if (pendingTask) {
+        pendingTask.commentId = commentId;
+        resolveCommentId(commentId);
+      }
+    }
+
+    if (verbose) {
+      await log(`🤖 Interactive mode: Agent task started - ${description} (task: ${taskId})`, { verbose: true });
+    }
+  };
+
+  /**
+   * Handle system.task_progress event (Agent subtask progress update)
+   * Updates the existing task comment instead of creating a new one
+   * @param {Object} data - Event data
+   */
+  const handleTaskProgress = async data => {
+    const taskId = data.task_id;
+    const description = data.description || 'Working...';
+    const lastToolName = data.last_tool_name || '';
+    const usage = data.usage || {};
+
+    const pendingTask = state.pendingTasks.get(taskId);
+
+    if (pendingTask) {
+      pendingTask.progressCount++;
+      pendingTask.lastProgressDescription = description;
+      pendingTask.allEvents.push(data);
+
+      let commentId = pendingTask.commentId;
+
+      // Wait for comment ID if not yet available — flush queue first to avoid timeout
+      if (!commentId && pendingTask.commentIdPromise) {
+        if (state.commentQueue.length > 0) {
+          const wasProcessing = state.isProcessing;
+          state.isProcessing = false;
+          await processQueue();
+          state.isProcessing = wasProcessing;
+        }
+        commentId = pendingTask.commentId;
+        if (!commentId) {
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 15000));
+          commentId = await Promise.race([pendingTask.commentIdPromise, timeoutPromise]);
+        }
+      }
+
+      if (commentId) {
+        // Build progress steps list from accumulated events, marking with agent ID
+        const agentTag = pendingTask.agentId ? `\`[${pendingTask.agentId}]\`` : '';
+        const progressSteps = pendingTask.allEvents
+          .filter(e => e.subtype === 'task_progress')
+          .map(e => {
+            const toolIcon = e.last_tool_name ? getToolIcon(e.last_tool_name) : '🔄';
+            return `- 🔀 ${agentTag} ${toolIcon} ${e.description || 'Working...'}`;
+          })
+          .join('\n');
+
+        const durationText = usage.duration_ms ? formatDuration(usage.duration_ms) : '';
+        const toolUsesText = usage.tool_uses ? `${usage.tool_uses} tool calls` : '';
+        const statsText = [durationText, toolUsesText].filter(Boolean).join(' | ');
+
+        const updatedComment = `## 🤖🔀 Agent task: ${escapeMarkdown(pendingTask.description)}
+
+| Property | Value |
+|----------|-------|
+| **Agent ID** | \`${pendingTask.agentId || taskId}\` |
+| **Task ID** | \`${taskId}\` |
+| **Status** | ⏳ Running... |
+| **Progress** | ${pendingTask.progressCount} updates |
+${statsText ? `| **Stats** | ${statsText} |\n` : ''}
+${createCollapsible(`📋 Progress steps (${pendingTask.progressCount})`, progressSteps, true)}
+
+---
+
+${createRawJsonSection(pendingTask.allEvents.slice(-3))}`;
+
+        await editComment(commentId, updatedComment);
+      }
+    } else {
+      // No pending task found - this can happen if task_started was missed
+      // Just log it silently rather than creating an unrecognized comment
+      if (verbose) {
+        await log(`🤖 Interactive mode: Task progress for unknown task ${taskId}: ${description}`, { verbose: true });
+      }
+    }
+
+    if (verbose) {
+      await log(`🤖 Interactive mode: Task progress - ${description} (task: ${taskId}, tool: ${lastToolName})`, { verbose: true });
+    }
+  };
+
+  /**
+   * Handle system.task_notification event (Agent subtask completed/failed)
+   * Updates the existing task comment with final status
+   * @param {Object} data - Event data
+   */
+  const handleTaskNotification = async data => {
+    const taskId = data.task_id;
+    const status = data.status || 'unknown';
+    const summary = data.summary || data.description || 'Task finished';
+    const usage = data.usage || {};
+    const isCompleted = status === 'completed';
+    const statusIcon = isCompleted ? '✅' : '❌';
+    const statusText = isCompleted ? 'Completed' : status.charAt(0).toUpperCase() + status.slice(1);
+
+    const pendingTask = state.pendingTasks.get(taskId);
+
+    if (pendingTask) {
+      pendingTask.allEvents.push(data);
+
+      let commentId = pendingTask.commentId;
+
+      // Wait for comment ID if not yet available — flush queue first to avoid timeout
+      if (!commentId && pendingTask.commentIdPromise) {
+        if (state.commentQueue.length > 0) {
+          const wasProcessing = state.isProcessing;
+          state.isProcessing = false;
+          await processQueue();
+          state.isProcessing = wasProcessing;
+        }
+        commentId = pendingTask.commentId;
+        if (!commentId) {
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 15000));
+          commentId = await Promise.race([pendingTask.commentIdPromise, timeoutPromise]);
+        }
+      }
+
+      if (commentId) {
+        // Build final progress steps list, marking with agent ID
+        const agentTag = pendingTask.agentId ? `\`[${pendingTask.agentId}]\`` : '';
+        const progressSteps = pendingTask.allEvents
+          .filter(e => e.subtype === 'task_progress')
+          .map(e => {
+            const toolIcon = e.last_tool_name ? getToolIcon(e.last_tool_name) : '🔄';
+            return `- 🔀 ${agentTag} ${toolIcon} ${e.description || 'Working...'}`;
+          })
+          .join('\n');
+
+        const durationText = usage.duration_ms ? formatDuration(usage.duration_ms) : '';
+        const toolUsesText = usage.tool_uses ? `${usage.tool_uses} tool calls` : '';
+        const tokensText = usage.total_tokens ? `${usage.total_tokens.toLocaleString()} tokens` : '';
+        const statsText = [durationText, toolUsesText, tokensText].filter(Boolean).join(' | ');
+
+        const updatedComment = `## 🤖🔀 Agent task: ${escapeMarkdown(pendingTask.description)}
+
+| Property | Value |
+|----------|-------|
+| **Agent ID** | \`${pendingTask.agentId || taskId}\` |
+| **Task ID** | \`${taskId}\` |
+| **Status** | ${statusIcon} ${statusText} |
+| **Summary** | ${escapeMarkdown(summary)} |
+${statsText ? `| **Stats** | ${statsText} |\n` : ''}
+${progressSteps ? createCollapsible(`📋 Progress steps (${pendingTask.progressCount})`, progressSteps) : ''}
+
+---
+
+${createRawJsonSection([pendingTask.allEvents[0], data])}`;
+
+        await editComment(commentId, updatedComment);
+      }
+
+      // Clean up
+      state.pendingTasks.delete(taskId);
+    } else {
+      // Post as standalone if no pending task
+      const agentId = data.agent_id || taskId;
+      const comment = `## 🤖🔀 Agent task ${statusIcon} ${statusText}
+
+| **Agent ID** | \`${agentId}\` |
+|---|---|
+**Summary:** ${escapeMarkdown(summary)}
+
+---
+
+${createRawJsonSection(data)}`;
+
+      await postComment(comment);
+    }
+
+    if (verbose) {
+      await log(`🤖 Interactive mode: Task ${statusText.toLowerCase()} - ${summary} (task: ${taskId})`, {
+        verbose: true,
+      });
+    }
+  };
+
+  /**
+   * Handle rate_limit_event (silently logged, no comment created)
+   * @param {Object} data - Event data
+   */
+  const handleRateLimitEvent = async data => {
+    // Rate limit events are internal/informational - log but don't create a PR comment
+    if (verbose) {
+      const info = data.rate_limit_info || {};
+      await log(`⏱️ Interactive mode: Rate limit event - status: ${info.status || 'unknown'}, type: ${info.rateLimitType || 'unknown'}`, { verbose: true });
+    }
+  };
+
+  const handleCodexThreadStarted = async data => {
+    if (state.sessionId) return;
+
+    state.sessionId = data.thread_id || data.session_id || null;
+    state.startTime = Date.now();
+
+    const comment = `## 🚀 ${INTERACTIVE_SESSION_STARTED_MARKER}
+
+| Property | Value |
+|----------|-------|
+| **Session ID** | \`${state.sessionId || 'unknown'}\` |
+| **Model** | \`${data.model || 'unknown'}\` |
+| **Tool** | \`codex\` |
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
+  };
+
+  const handleCodexAgentMessage = async data => {
+    const text = data.item?.text;
+    if (typeof text !== 'string' || !text.trim()) return;
+    await handleAssistantText(data, text);
+  };
+
+  const handleCodexTodoList = async data => {
+    const items = Array.isArray(data.item?.items) ? data.item.items : [];
+    const todosPreview = items.length > 0 ? items.map(todo => `- [${todo?.completed ? 'x' : ' '}] ${todo?.text || ''}`).join('\n') : '_No tasks_';
+    const completedCount = items.filter(todo => todo?.completed).length;
+
+    const comment = `## 📋 Codex todo list
+
+${createCollapsible(`📋 Todos (${completedCount}/${items.length} items)`, todosPreview, true)}
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
+  };
+
+  const handleCodexCommandExecution = async data => {
+    const item = data.item || {};
+    const command = item.command || '';
+    const output = item.aggregated_output || '';
+    const status = item.status || (data.type === 'item.completed' ? 'completed' : data.type === 'item.updated' ? 'updated' : 'started');
+    const body = `## 💻 Codex command execution
+
+**Status:** \`${status}\`
+${command ? '\n' + createCollapsible('📋 Executed command', '```bash\n' + escapeMarkdown(command) + '\n```', true) : ''}
+${output ? '\n\n' + createCollapsible('📤 Output', '```\n' + escapeMarkdown(truncateMiddle(output, { maxLines: 60, keepStart: 25, keepEnd: 25 })) + '\n```', true) : ''}
+
+---
+
+${createRawJsonSection(data)}`;
+    await postComment(body);
+  };
+
+  const handleCodexMcpToolCall = async data => {
+    const item = data.item || {};
+    const summary = [`**Server:** \`${item.server || 'unknown'}\``, `**Tool:** \`${item.tool || 'unknown'}\``, `**Status:** \`${item.status || 'unknown'}\``].join('\n');
+    const details = item.arguments != null ? createCollapsible('📥 Arguments', '```json\n' + safeJsonStringify(item.arguments, 2) + '\n```', true) : '';
+    const resultSection = item.result != null ? '\n\n' + createCollapsible('📤 Result', '```json\n' + safeJsonStringify(item.result, 2) + '\n```', false) : '';
+    const errorSection = item.error != null ? '\n\n' + createCollapsible('❌ Error', '```json\n' + safeJsonStringify(item.error, 2) + '\n```', true) : '';
+
+    await postComment(`## 🔌 Codex MCP tool call
+
+${summary}
+${details}${resultSection}${errorSection}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexWebSearch = async data => {
+    const item = data.item || {};
+    await postComment(`## 🌐 Codex web search
+
+**Query:** ${escapeMarkdown(item.query || 'unknown')}
+${item.action ? `\n**Action:** \`${item.action}\`` : ''}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexFileChange = async data => {
+    const item = data.item || {};
+    const changes = Array.isArray(item.changes) ? item.changes.map(change => `- \`${change?.kind || 'change'}\` ${change?.path || ''}`).join('\n') : '_No changes listed_';
+    await postComment(`## 📝 Codex file changes
+
+**Status:** \`${item.status || 'unknown'}\`
+${createCollapsible('📄 Files', changes, true)}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexCollabToolCall = async data => {
+    const item = data.item || {};
+    const prompt = item.prompt || item.description || `${item.tool || 'collab_tool_call'} via codex`;
+    await postComment(`## 🤝 Codex collab/sub-agent call
+
+**Tool:** \`${item.tool || 'unknown'}\`
+**Status:** \`${item.status || 'unknown'}\`
+${createCollapsible('📝 Prompt', escapeMarkdown(truncateMiddle(prompt, { maxLines: 30, keepStart: 12, keepEnd: 12 })), true)}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexTurnCompleted = async data => {
+    const usage = data.usage || {};
+    let usageSection = '| Type | Count |\n|------|-------|\n';
+    usageSection += `| Input | ${(usage.input_tokens || 0).toLocaleString()} |\n`;
+    usageSection += `| Cache Read | ${(usage.cached_input_tokens || 0).toLocaleString()} |\n`;
+    usageSection += `| Output | ${(usage.output_tokens || 0).toLocaleString()} |\n`;
+
+    await postComment(`## ✅ Codex turn completed
+
+### 📊 Token Usage
+
+${usageSection}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  const handleCodexError = async data => {
+    const message = data.message || data.error?.message || 'Unknown Codex error';
+    await postComment(`## ❌ Codex error
+
+${createCollapsible('View error', escapeMarkdown(message), true)}
+
+---
+
+${createRawJsonSection(data)}`);
+  };
+
+  /**
    * Handle unrecognized event types
    * @param {Object} data - Event data
    */
@@ -813,7 +1160,7 @@ ${createRawJsonSection(data)}`;
   };
 
   /**
-   * Process a single JSON event from Claude CLI
+   * Process a single JSON event from Claude or Codex CLI
    *
    * @param {Object} data - Parsed JSON object from Claude CLI output
    * @returns {Promise<void>}
@@ -822,6 +1169,7 @@ ${createRawJsonSection(data)}`;
     if (!data || typeof data !== 'object') {
       return;
     }
+    state.eventsProcessed++;
 
     // Handle events without type as unrecognized
     if (!data.type) {
@@ -833,10 +1181,20 @@ ${createRawJsonSection(data)}`;
       case 'system':
         if (data.subtype === 'init') {
           await handleSystemInit(data);
+        } else if (data.subtype === 'task_started') {
+          await handleTaskStarted(data);
+        } else if (data.subtype === 'task_progress') {
+          await handleTaskProgress(data);
+        } else if (data.subtype === 'task_notification') {
+          await handleTaskNotification(data);
         } else {
           // Unknown system subtype
           await handleUnrecognized(data);
         }
+        break;
+
+      case 'rate_limit_event':
+        await handleRateLimitEvent(data);
         break;
 
       case 'assistant':
@@ -868,6 +1226,42 @@ ${createRawJsonSection(data)}`;
       case 'result':
         await handleResult(data);
         break;
+
+      case 'thread.started':
+        await handleCodexThreadStarted(data);
+        break;
+
+      case 'turn.completed':
+        await handleCodexTurnCompleted(data);
+        break;
+
+      case 'error':
+        await handleCodexError(data);
+        break;
+
+      case 'item.started':
+      case 'item.updated':
+      case 'item.completed': {
+        const itemType = data.item?.type;
+        if (itemType === 'agent_message') {
+          await handleCodexAgentMessage(data);
+        } else if (itemType === 'todo_list') {
+          await handleCodexTodoList(data);
+        } else if (itemType === 'command_execution') {
+          await handleCodexCommandExecution(data);
+        } else if (itemType === 'mcp_tool_call') {
+          await handleCodexMcpToolCall(data);
+        } else if (itemType === 'web_search') {
+          await handleCodexWebSearch(data);
+        } else if (itemType === 'file_change') {
+          await handleCodexFileChange(data);
+        } else if (itemType === 'collab_tool_call') {
+          await handleCodexCollabToolCall(data);
+        } else if (itemType === 'error') {
+          await handleCodexError(data.item);
+        }
+        break;
+      }
 
       default:
         await handleUnrecognized(data);
@@ -905,7 +1299,21 @@ ${createRawJsonSection(data)}`;
       handleToolUse,
       handleToolResult,
       handleResult,
+      handleTaskStarted,
+      handleTaskProgress,
+      handleTaskNotification,
+      handleRateLimitEvent,
       handleUnrecognized,
+      handleCodexThreadStarted,
+      handleCodexAgentMessage,
+      handleCodexTodoList,
+      handleCodexCommandExecution,
+      handleCodexMcpToolCall,
+      handleCodexWebSearch,
+      handleCodexFileChange,
+      handleCodexCollabToolCall,
+      handleCodexTurnCompleted,
+      handleCodexError,
     },
   };
 };
@@ -917,8 +1325,7 @@ ${createRawJsonSection(data)}`;
  * @returns {boolean} Whether interactive mode is supported
  */
 export const isInteractiveModeSupported = tool => {
-  // Currently only supported for Claude
-  return tool === 'claude';
+  return tool === 'claude' || tool === 'codex';
 };
 
 /**
@@ -935,7 +1342,7 @@ export const validateInteractiveModeConfig = async (argv, log) => {
 
   // Check tool support
   if (!isInteractiveModeSupported(argv.tool)) {
-    await log(`⚠️ --interactive-mode is only supported for --tool claude (current: ${argv.tool})`, {
+    await log(`⚠️ --interactive-mode is only supported for --tool claude and --tool codex (current: ${argv.tool})`, {
       level: 'warning',
     });
     await log('   Interactive mode will be disabled for this session.', { level: 'warning' });
@@ -947,13 +1354,14 @@ export const validateInteractiveModeConfig = async (argv, log) => {
   // The actual PR number check happens during execution
 
   await log('🔌 Interactive mode: ENABLED (experimental)', { level: 'info' });
-  await log('   Claude output will be posted as PR comments in real-time.', { level: 'info' });
+  await log(`   ${argv.tool || 'claude'} output will be posted as PR comments in real-time.`, { level: 'info' });
 
   return true;
 };
 
 // Export utilities for testing
 export const utils = {
+  sanitizeUnicode,
   truncateMiddle,
   safeJsonStringify,
   createCollapsible,
@@ -962,6 +1370,7 @@ export const utils = {
   formatCost,
   escapeMarkdown,
   getToolIcon,
+  execFileAsync,
   CONFIG,
 };
 

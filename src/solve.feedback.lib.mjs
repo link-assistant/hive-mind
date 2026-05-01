@@ -6,6 +6,7 @@
 // Import Sentry integration
 import { reportError } from './sentry.lib.mjs';
 
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 export const detectAndCountFeedback = async params => {
   const { prNumber, branchName, owner, repo, issueNumber, isContinueMode, argv, mergeStateStatus, prState, workStartTime, log, formatAligned, cleanErrorMessage, $ } = params;
 
@@ -329,10 +330,12 @@ export const detectAndCountFeedback = async params => {
 
           // 6. Check for failed PR checks
           try {
-            const checksResult = await $`gh api repos/${owner}/${repo}/commits/$(gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.head.sha')/check-runs --paginate`;
-            if (checksResult.code === 0) {
-              const checksData = JSON.parse(checksResult.stdout.toString());
-              const failedChecks = checksData.check_runs?.filter(check => check.conclusion === 'failure' && new Date(check.completed_at) > lastCommitTime) || [];
+            const prHeadResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.head.sha'`;
+            if (prHeadResult.code === 0) {
+              const prHeadSha = prHeadResult.stdout.toString().trim();
+              const checksResult = await $`gh api repos/${owner}/${repo}/commits/${prHeadSha}/check-runs --paginate --slurp`;
+              const checkRuns = checksResult.code === 0 ? JSON.parse(checksResult.stdout.toString() || '[]').flatMap(page => page.check_runs || []) : [];
+              const failedChecks = checkRuns.filter(check => check.conclusion === 'failure' && new Date(check.completed_at) > lastCommitTime);
 
               if (failedChecks.length > 0) {
                 feedbackLines.push(`Failed pull request checks: ${failedChecks.length}`);

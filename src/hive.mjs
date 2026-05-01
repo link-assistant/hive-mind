@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
   const { getVersion } = await import('./version.lib.mjs');
@@ -16,16 +17,12 @@ if (earlyArgs.includes('--version')) {
 if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   try {
     // Load minimal modules needed for help
-    const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
-    globalThis.use = use;
-    const yargsModule = await use('yargs@17.7.2');
-    const yargs = yargsModule.default || yargsModule;
-    const { hideBin } = await use('yargs@17.7.2/helpers');
+    const { getLinoYargsFactory, hideBin } = await import('./cli-arguments.lib.mjs');
+    const yargs = getLinoYargsFactory();
     const rawArgs = hideBin(process.argv);
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
-    // Show help and exit
     helpYargs.showHelp();
     process.exit(0);
   } catch (error) {
@@ -37,23 +34,13 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   }
 }
 export { createYargsConfig } from './hive.config.lib.mjs';
-// Only execute main logic if this module is being run directly (not imported)
-// This prevents heavy module loading when hive.mjs is imported by other modules
-// Check if we're being executed (not imported) by looking at various indicators:
-// 1. process.argv[1] is the executed file path
-// 2. import.meta.url is this file's URL
-// 3. For global installs, argv[1] might be a symlink, so we check if it contains 'hive'
-import { fileURLToPath } from 'url';
-const isDirectExecution = process.argv[1] === fileURLToPath(import.meta.url) || (process.argv[1] && (process.argv[1].includes('/hive') || process.argv[1].endsWith('hive')));
-if (isDirectExecution) {
+import { isDirectExecution, withTimeout } from './hive.bootstrap.lib.mjs';
+const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
+if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
   console.log('   Initializing...');
   try {
     console.log('   Loading dependencies (this may take a moment)...');
-    // Helper function to add timeout to async operations
-    const withTimeout = (promise, timeoutMs, operation) => {
-      return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs))]);
-    };
     // Use use-m to dynamically import modules for cross-runtime compatibility
     if (typeof use === 'undefined') {
       try {
@@ -78,21 +65,19 @@ if (isDirectExecution) {
       30000, // 30 second timeout
       'loading command-stream'
     );
-    const yargsModule = await withTimeout(use('yargs@17.7.2'), 30000, 'loading yargs');
-    const yargs = yargsModule.default || yargsModule;
-    const { hideBin } = await withTimeout(use('yargs@17.7.2/helpers'), 30000, 'loading yargs helpers');
+    const { parseCliArgumentsWithLino, hideBin } = await import('./cli-arguments.lib.mjs');
     const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions
     const lib = await import('./lib.mjs');
-    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories } = lib;
+    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
     const yargsConfigLib = await import('./hive.config.lib.mjs');
     const { createYargsConfig } = yargsConfigLib;
     const claudeLib = await import('./claude.lib.mjs');
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
-    const modelValidation = await import('./model-validation.lib.mjs');
-    const { validateAndExitOnInvalidModel } = modelValidation;
+    const modelValidation = await import('./models/index.mjs');
+    const { validateAndExitOnInvalidModel, defaultModels, resolveRuntimeDefaultModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
     // Import YouTrack-related functions
@@ -110,6 +95,8 @@ if (isDirectExecution) {
     const { tryFetchIssuesWithGraphQL } = graphqlLib;
     const solutionDraftsLib = await import('./list-solution-drafts.lib.mjs');
     const { listSolutionDrafts } = solutionDraftsLib;
+    const recheckLib = await import('./hive.recheck.lib.mjs');
+    const { recheckIssueConditions } = recheckLib;
     const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
     const isLocalScript = commandName.endsWith('.mjs');
     const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
@@ -140,9 +127,7 @@ if (isDirectExecution) {
         // Strategy 2: Fallback to gh api --paginate approach (comprehensive but slower)
         await log('   📋 Using gh api --paginate approach for comprehensive coverage...', { verbose: true });
 
-        // First, get list of ALL repositories using gh api with --paginate for unlimited pagination
-        // This approach uses the GitHub API directly to fetch all repositories without any limits
-        // Include isArchived field to filter out archived repositories
+        // Get list of ALL repositories using gh api with --paginate (includes isArchived for filtering)
         let repoListCmd;
         if (scope === 'organization') {
           repoListCmd = `gh api orgs/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
@@ -262,7 +247,12 @@ if (isDirectExecution) {
     };
 
     try {
-      argv = await createYargsConfig(yargs()).parse(rawArgs);
+      argv = parseCliArgumentsWithLino({
+        argv: process.argv,
+        commandName: 'hive',
+        createYargsConfig,
+        positionalAliases: ['github-url'],
+      });
       // Restore stderr if parsing succeeded
       process.stderr.write = originalStderrWrite;
     } catch (error) {
@@ -295,8 +285,13 @@ if (isDirectExecution) {
     }
 
     let githubUrl = argv['github-url'];
+
     // Set global verbose mode
     global.verboseMode = argv.verbose;
+
+    setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
+    setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
+
     // Use the universal GitHub URL parser
     if (githubUrl) {
       const parsedUrl = parseGitHubUrl(githubUrl);
@@ -419,8 +414,6 @@ if (isDirectExecution) {
     initializeExitHandler(getAbsoluteLogPath, log);
     installGlobalExitHandlers();
 
-    // Unhandled error handlers are now managed by exit-handler.lib.mjs
-
     // Validate GitHub URL requirement
     if (!githubUrl) {
       await log('❌ GitHub URL is required', { level: 'error' });
@@ -453,18 +446,36 @@ if (isDirectExecution) {
       }
     }
 
-    // Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
-    // Model validation is a simple string check and should always be performed
+    // --plan flag expansion: shortcut for --plan-model opus --worker-model sonnet (Issue #1223)
+    if (argv.plan) {
+      if (!rawArgs.includes('--plan-model')) argv.planModel = 'opus';
+      if (!rawArgs.includes('--model') && !rawArgs.includes('-m') && !rawArgs.includes('--worker-model')) argv.model = 'sonnet';
+    }
+
+    const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
+    if (argv.tool && !modelExplicitlyProvided && defaultModels[argv.tool]) {
+      argv.model = await resolveRuntimeDefaultModel(argv.tool);
+    }
+
+    // Validate model names EARLY (simple string check, always runs)
     const tool = argv.tool || 'claude';
     await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+    if (argv.fallbackModel) {
+      await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit);
+    }
+    if (argv.planModel) {
+      if (tool !== 'claude') {
+        await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+        await safeExit(1, '--plan-model requires --tool claude');
+      }
+      await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+    }
 
     // Handle -s (--skip-issues-with-prs) and --auto-continue interaction
-    // Detect if user explicitly passed --auto-continue or --no-auto-continue
     const hasExplicitAutoContinue = rawArgs.includes('--auto-continue');
     const hasExplicitNoAutoContinue = rawArgs.includes('--no-auto-continue');
 
     if (argv.skipIssuesWithPrs) {
-      // If user explicitly passed --auto-continue with -s, that's a conflict
       if (hasExplicitAutoContinue) {
         await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', {
           level: 'error',
@@ -475,8 +486,7 @@ if (isDirectExecution) {
         await safeExit(1, 'Error occurred');
       }
 
-      // If user didn't explicitly set auto-continue, disable it when -s is used
-      // This is because -s means "skip issues with PRs" which conflicts with auto-continue
+      // -s implies disabling auto-continue unless explicitly set
       if (!hasExplicitNoAutoContinue) {
         argv.autoContinue = false;
       }
@@ -711,6 +721,16 @@ if (isDirectExecution) {
 
         await log(`\n👷 Worker ${workerId} processing: ${issueUrl}`);
 
+        // Recheck conditions before processing to avoid wasted work
+        const recheckResult = await recheckIssueConditions(issueUrl, argv);
+        if (!recheckResult.shouldProcess) {
+          await log(`   ⏭️  Skipping issue: ${recheckResult.reason}`);
+          issueQueue.markCompleted(issueUrl);
+          const stats = issueQueue.getStats();
+          await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
+          continue;
+        }
+
         // Track if this issue failed
         let issueFailed = false;
 
@@ -729,82 +749,55 @@ if (isDirectExecution) {
             }
 
             const startTime = Date.now();
-            const forkFlag = argv.fork ? ' --fork' : '';
-            const autoForkFlag = argv.autoFork ? ' --auto-fork' : '';
-            const verboseFlag = argv.verbose ? ' --verbose' : '';
-            const attachLogsFlag = argv.attachLogs ? ' --attach-logs' : '';
-            const targetBranchFlag = argv.targetBranch ? ` --target-branch ${argv.targetBranch}` : '';
-            const logDirFlag = argv.logDir ? ` --log-dir "${argv.logDir}"` : '';
-            const dryRunFlag = argv.dryRun ? ' --dry-run' : '';
-            const skipToolConnectionCheckFlag = argv.skipToolConnectionCheck || argv.toolConnectionCheck === false ? ' --skip-tool-connection-check' : '';
-            const toolFlag = argv.tool ? ` --tool ${argv.tool}` : '';
-            const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : ' --no-auto-continue';
-            const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
-            const promptPlanSubAgentFlag = argv.promptPlanSubAgent ? ' --prompt-plan-sub-agent' : '';
-            const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
-            const watchFlag = argv.watch ? ' --watch' : '';
-            const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
-            const interactiveModeFlag = argv.interactiveMode ? ' --interactive-mode' : '';
-            const promptExploreSubAgentFlag = argv.promptExploreSubAgent ? ' --prompt-explore-sub-agent' : '';
-            const promptIssueReportingFlag = argv.promptIssueReporting ? ' --prompt-issue-reporting' : '';
-            const promptCaseStudiesFlag = argv.promptCaseStudies ? ' --prompt-case-studies' : '';
-            const promptPlaywrightMcpFlag = argv.promptPlaywrightMcp === true ? ' --prompt-playwright-mcp' : argv.promptPlaywrightMcp === false ? ' --no-prompt-playwright-mcp' : '';
-            const useAgentCommanderFlag = argv.useAgentCommander ? ' --use-agent-commander' : '';
             // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
             const { spawn } = await import('child_process');
-
-            // Build arguments array to avoid shell parsing issues
+            // Auto-forward all solve-passthrough options from hive argv to solve.
+            // New options added to SOLVE_OPTION_DEFINITIONS are automatically forwarded.
+            // See: https://github.com/link-assistant/hive-mind/issues/1209
+            const { getSolvePassthroughOptionNames } = await import('./hive.config.lib.mjs');
+            const { SOLVE_OPTION_DEFINITIONS } = await import('./solve.config.lib.mjs');
+            const kebabToCamel = str => str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
             const args = [issueUrl, '--model', argv.model];
-            if (argv.tool) {
-              args.push('--tool', argv.tool);
+            // Special handling for options with different semantics in hive vs solve
+            // Validate branch name before forwarding (issue #1482: reject URLs used as branch names)
+            const branchValue = argv.baseBranch || argv.targetBranch;
+            if (branchValue) {
+              const { validateBranchName } = await import('./solve.branch.lib.mjs');
+              const branchValidation = validateBranchName(branchValue);
+              if (!branchValidation.valid) {
+                throw new Error(`Invalid branch name for --base-branch/--target-branch: ${branchValidation.reason}`);
+              }
+              args.push('--base-branch', branchValue);
             }
-            if (argv.fork) {
-              args.push('--fork');
+            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
+            if (argv.dryRun) args.push('--dry-run');
+            if (argv.autoCleanup) args.push('--auto-cleanup');
+            const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
+
+            for (const optionName of getSolvePassthroughOptionNames()) {
+              if (SKIP_AUTO_FORWARD.has(optionName)) continue;
+              const camelName = kebabToCamel(optionName);
+              const value = argv[camelName];
+              const def = SOLVE_OPTION_DEFINITIONS[optionName];
+              if (!def) continue;
+              if (def.type === 'boolean') {
+                if (value === undefined) continue;
+                // For booleans with default true or undefined, forward both --flag and --no-flag
+                if (def.default === true || def.default === undefined) {
+                  args.push(value ? `--${optionName}` : `--no-${optionName}`);
+                } else if (value) {
+                  args.push(`--${optionName}`); // Default false: only forward when truthy
+                }
+              } else if (def.type === 'array' && Array.isArray(value) && value.length > 0) {
+                for (const entry of value) {
+                  args.push(`--${optionName}`, String(entry));
+                }
+              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined && value !== false) {
+                args.push(`--${optionName}`, String(value)); // Issue #1718: skip false (some string options have default:false)
+              }
             }
-            if (argv.autoFork) {
-              args.push('--auto-fork');
-            }
-            if (argv.verbose) {
-              args.push('--verbose');
-            }
-            if (argv.attachLogs) {
-              args.push('--attach-logs');
-            }
-            if (argv.targetBranch) {
-              args.push('--target-branch', argv.targetBranch);
-            }
-            if (argv.logDir) {
-              args.push('--log-dir', argv.logDir);
-            }
-            if (argv.dryRun) {
-              args.push('--dry-run');
-            }
-            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
-              args.push('--skip-tool-connection-check');
-            }
-            if (argv.autoContinue) {
-              args.push('--auto-continue');
-            } else {
-              args.push('--no-auto-continue');
-            }
-            if (argv.think) {
-              args.push('--think', argv.think);
-            }
-            if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
-            if (!argv.sentry) {
-              args.push('--no-sentry');
-            }
-            if (argv.watch) args.push('--watch');
-            if (argv.prefixForkNameWithOwnerName) args.push('--prefix-fork-name-with-owner-name');
-            if (argv.interactiveMode) args.push('--interactive-mode');
-            if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
-            if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
-            if (argv.promptCaseStudies) args.push('--prompt-case-studies');
-            if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
-            if (argv.useAgentCommander) args.push('--use-agent-commander');
             // Log the actual command being executed so users can investigate/reproduce
-            const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}${promptCaseStudiesFlag}${promptPlaywrightMcpFlag}${useAgentCommanderFlag}`;
-            await log(`   📋 Command: ${command}`);
+            await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
 
             let exitCode = 0;
             // Create promise to handle async spawn process
@@ -1433,8 +1426,7 @@ if (isDirectExecution) {
       await safeExit(0, 'Process completed');
     }
 
-    // Function to validate Claude CLI connection
-    // validateClaudeConnection is now imported from lib.mjs
+    // validateClaudeConnection is imported from lib.mjs
 
     // Handle graceful shutdown
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
@@ -1485,9 +1477,11 @@ if (isDirectExecution) {
       await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
       await safeExit(1, 'Error occurred');
     }
+
+    const finalStats = issueQueue.getStats(); // Issue #1718: surface worker failures via exit code
+    if (finalStats.failed > 0) await safeExit(1, `${finalStats.failed} task(s) failed (completed: ${finalStats.completed})`);
   } catch (fatalError) {
-    // Handle any errors that occurred during initialization or execution
-    // This prevents silent failures when the script hangs or crashes
+    // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');
     console.error(`   ${fatalError.message || fatalError}`);
     if (fatalError.stack) {
@@ -1497,4 +1491,4 @@ if (isDirectExecution) {
     console.error('\nPlease report this issue at: https://github.com/link-assistant/hive-mind/issues');
     process.exit(1);
   }
-} // End of main execution block
+}

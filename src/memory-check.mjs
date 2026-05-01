@@ -6,6 +6,7 @@ if (typeof globalThis.use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
 const use = globalThis.use;
+const { getLinoYargsFactory, hideBin, parseCliArgumentsWithLino } = await import('./cli-arguments.lib.mjs');
 
 // Temporarily unset CI to avoid command-stream trace logs
 const originalCI = process.env.CI;
@@ -17,9 +18,6 @@ const { $ } = await use('command-stream');
 // These are filtered out by consuming code when parsing JSON
 const $silent = $({ mirror: false, capture: true });
 
-const yargsModule = await use('yargs@17.7.2');
-const yargs = yargsModule.default || yargsModule;
-const { hideBin } = await use('yargs@17.7.2/helpers');
 const fs = (await use('fs')).promises;
 
 // Import log function from lib.mjs
@@ -321,9 +319,8 @@ export const checkSystem = async (requirements = {}, options = {}) => {
 };
 
 // CLI interface when run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  // Create yargs instance with all options
-  const yargsInstance = yargs(hideBin(process.argv))
+const createMemoryCheckYargsConfig = yargsInstance =>
+  yargsInstance
     .scriptName('memory-check.mjs')
     .usage('Usage: $0 [options]')
     .option('min-memory', {
@@ -364,13 +361,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     .help('h')
     .alias('h', 'help');
 
+if (import.meta.url === `file://${process.argv[1]}`) {
   // Check for help before parsing
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    const yargsInstance = createMemoryCheckYargsConfig(getLinoYargsFactory()(hideBin(process.argv)));
     yargsInstance.showHelp();
     process.exit(0);
   }
 
-  const argv = await yargsInstance.parseAsync();
+  const argv = parseCliArgumentsWithLino({
+    argv: process.argv,
+    commandName: 'memory-check.mjs',
+    createYargsConfig: createMemoryCheckYargsConfig,
+  });
 
   // If we get here, help wasn't requested or yargs didn't handle it
   // Set up logging based on options

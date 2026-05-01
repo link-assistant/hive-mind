@@ -4,9 +4,10 @@
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
-const yargs = (await use('yargs@latest')).default;
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
+const { getLinoYargsFactory, hideBin, parseCliArgumentsWithLino } = await import('./cli-arguments.lib.mjs');
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
 
@@ -45,97 +46,113 @@ const log = async (message, options = {}) => {
 };
 
 // Configure command line arguments
-const argv = yargs(process.argv.slice(2))
-  .usage('Usage: $0 <github-url> [options]')
-  .positional('github-url', {
-    type: 'string',
-    description: 'GitHub organization, repository, or user URL to monitor for pull requests',
-  })
-  .option('review-label', {
-    type: 'string',
-    description: 'GitHub label to identify PRs needing review',
-    default: 'needs-review',
-    alias: 'l',
-  })
-  .option('all-prs', {
-    type: 'boolean',
-    description: 'Review all open pull requests regardless of labels',
-    default: false,
-    alias: 'a',
-  })
-  .option('skip-draft', {
-    type: 'boolean',
-    description: 'Skip draft pull requests',
-    default: true,
-    alias: 'd',
-  })
-  .option('skip-approved', {
-    type: 'boolean',
-    description: 'Skip pull requests that already have approvals',
-    default: true,
-  })
-  .option('concurrency', {
-    type: 'number',
-    description: 'Number of concurrent review.mjs instances',
-    default: 2,
-    alias: 'c',
-  })
-  .option('reviews-per-pr', {
-    type: 'number',
-    description: 'Number of reviews to generate per PR (for diverse perspectives)',
-    default: 1,
-    alias: 'r',
-  })
-  .option('model', {
-    type: 'string',
-    description: 'Model to use for review.mjs (opus or sonnet)',
-    alias: 'm',
-    default: 'opus',
-    choices: ['opus', 'sonnet'],
-  })
-  .option('focus', {
-    type: 'string',
-    description: 'Focus areas for reviews (security, performance, logic, style, tests, all)',
-    default: 'all',
-    alias: 'f',
-  })
-  .option('auto-approve', {
-    type: 'boolean',
-    description: 'Auto-approve PRs that pass review criteria',
-    default: false,
-  })
-  .option('interval', {
-    type: 'number',
-    description: 'Polling interval in seconds',
-    default: 300, // 5 minutes
-    alias: 'i',
-  })
-  .option('max-prs', {
-    type: 'number',
-    description: 'Maximum number of PRs to process (0 = unlimited)',
-    default: 0,
-  })
-  .option('dry-run', {
-    type: 'boolean',
-    description: 'List PRs that would be reviewed without actually reviewing them',
-    default: false,
-  })
-  .option('verbose', {
-    type: 'boolean',
-    description: 'Enable verbose logging',
-    alias: 'v',
-    default: false,
-  })
-  .option('once', {
-    type: 'boolean',
-    description: 'Run once and exit instead of continuous monitoring',
-    default: false,
-  })
-  .demandCommand(1, 'GitHub URL is required')
-  .help('h')
-  .alias('h', 'help').argv;
+const createReviewersHiveYargsConfig = yargsInstance =>
+  yargsInstance
+    .usage('Usage: $0 <github-url> [options]')
+    .command('$0 <github-url>', 'Monitor pull requests for review', yargs =>
+      yargs.positional('github-url', {
+        type: 'string',
+        description: 'GitHub organization, repository, or user URL to monitor for pull requests',
+      })
+    )
+    .option('review-label', {
+      type: 'string',
+      description: 'GitHub label to identify PRs needing review',
+      default: 'needs-review',
+      alias: 'l',
+    })
+    .option('all-prs', {
+      type: 'boolean',
+      description: 'Review all open pull requests regardless of labels',
+      default: false,
+      alias: 'a',
+    })
+    .option('skip-draft', {
+      type: 'boolean',
+      description: 'Skip draft pull requests',
+      default: true,
+      alias: 'd',
+    })
+    .option('skip-approved', {
+      type: 'boolean',
+      description: 'Skip pull requests that already have approvals',
+      default: true,
+    })
+    .option('concurrency', {
+      type: 'number',
+      description: 'Number of concurrent review.mjs instances',
+      default: 2,
+      alias: 'c',
+    })
+    .option('reviews-per-pr', {
+      type: 'number',
+      description: 'Number of reviews to generate per PR (for diverse perspectives)',
+      default: 1,
+      alias: 'r',
+    })
+    .option('model', {
+      type: 'string',
+      description: 'Model to use for review.mjs (opus or sonnet)',
+      alias: 'm',
+      default: 'opus',
+      choices: ['opus', 'sonnet'],
+    })
+    .option('focus', {
+      type: 'string',
+      description: 'Focus areas for reviews (security, performance, logic, style, tests, all)',
+      default: 'all',
+      alias: 'f',
+    })
+    .option('auto-approve', {
+      type: 'boolean',
+      description: 'Auto-approve PRs that pass review criteria',
+      default: false,
+    })
+    .option('interval', {
+      type: 'number',
+      description: 'Polling interval in seconds',
+      default: 300, // 5 minutes
+      alias: 'i',
+    })
+    .option('max-prs', {
+      type: 'number',
+      description: 'Maximum number of PRs to process (0 = unlimited)',
+      default: 0,
+    })
+    .option('dry-run', {
+      type: 'boolean',
+      description: 'List PRs that would be reviewed without actually reviewing them',
+      default: false,
+    })
+    .option('verbose', {
+      type: 'boolean',
+      description: 'Enable verbose logging',
+      alias: 'v',
+      default: false,
+    })
+    .option('once', {
+      type: 'boolean',
+      description: 'Run once and exit instead of continuous monitoring',
+      default: false,
+    })
+    .demandCommand(1, 'GitHub URL is required')
+    .help('h')
+    .alias('h', 'help');
 
-const githubUrl = argv['github-url'] || argv._[0];
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  const helpYargs = createReviewersHiveYargsConfig(getLinoYargsFactory()(hideBin(process.argv)));
+  helpYargs.showHelp();
+  process.exit(0);
+}
+
+const argv = parseCliArgumentsWithLino({
+  argv: process.argv,
+  commandName: 'reviewers-hive',
+  createYargsConfig: createReviewersHiveYargsConfig,
+  positionalAliases: ['github-url'],
+});
+
+const githubUrl = argv['github-url'] || argv.githubUrl || argv._[0];
 
 // Set global verbose mode
 global.verboseMode = argv.verbose;

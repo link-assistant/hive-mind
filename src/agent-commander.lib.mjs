@@ -1,85 +1,89 @@
 #!/usr/bin/env node
 /**
- * Agent Commander Integration Library
+ * Experimental agent-commander execution adapter.
  *
- * This module provides a wrapper around the agent-commander library
- * (https://github.com/link-assistant/agent-commander) for executing
- * AI tools (claude, codex, opencode, agent) in hive-mind.
- *
- * This is an EXPERIMENTAL feature enabled via --use-agent-commander flag.
- * When enabled, it delegates tool execution to agent-commander instead of
- * using the embedded logic in claude.lib.mjs, codex.lib.mjs, etc.
+ * This module is only used when solve is called with --use-agent-commander.
+ * Default tool execution remains in claude.lib.mjs, codex.lib.mjs,
+ * opencode.lib.mjs, and agent.lib.mjs.
  */
 
-// If globalThis.use is not defined, fetch it (when running standalone)
-if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
+import { detectUsageLimit } from './usage-limit.lib.mjs';
 
-import { log as defaultLog } from './lib.mjs';
+export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent']);
 
-/**
- * Check if agent-commander is available
- * @returns {Promise<boolean>} True if agent-commander is available
- */
-export const isAgentCommanderAvailable = async () => {
-  try {
-    // Try to import agent-commander
-    await import('agent-commander');
-    return true;
-  } catch {
-    // agent-commander not installed
-    return false;
+const defaultLog = async (message, options = {}) => {
+  if (options.verbose && !global.verboseMode) return;
+  if (options.level === 'error') {
+    console.error(message);
+  } else if (options.level === 'warning' || options.level === 'warn') {
+    console.warn(message);
+  } else {
+    console.log(message);
   }
 };
 
-/**
- * Get the agent-commander library
- * @returns {Promise<Object>} The agent-commander module
- * @throws {Error} If agent-commander is not installed
- */
 const getAgentCommander = async () => {
   try {
     return await import('agent-commander');
   } catch (error) {
-    throw new Error('agent-commander is not installed. Please install it with: npm install agent-commander\n' + 'Or disable the --use-agent-commander flag to use embedded tool logic.\n' + `Original error: ${error.message}`);
+    throw new Error(`agent-commander is not installed or cannot be loaded. Install it with: npm install agent-commander\nOriginal error: ${error.message}`);
   }
 };
 
-/**
- * Validate agent-commander connection for a specific tool
- * @param {Object} options - Options
- * @param {string} options.tool - Tool name (claude, codex, opencode, agent)
- * @param {string} options.model - Model to use
- * @param {Function} [options.log] - Logging function
- * @returns {Promise<boolean>} True if connection is valid
- */
-export const validateAgentCommanderConnection = async options => {
-  const { tool, model, log = defaultLog } = options;
-
+export const isAgentCommanderAvailable = async () => {
   try {
-    const { agent, isToolSupported } = await getAgentCommander();
+    await getAgentCommander();
+    return true;
+  } catch {
+    return false;
+  }
+};
 
-    // Check if tool is supported
-    if (!isToolSupported({ toolName: tool })) {
-      await log(`[agent-commander] Tool '${tool}' is not supported`, { level: 'error' });
+export const getAgentCommanderToolName = (argv = {}) => argv.tool || 'claude';
+
+export const buildAgentCommanderToolOptions = (argv = {}, tool = getAgentCommanderToolName(argv)) => {
+  const options = {};
+
+  if (tool === 'claude') {
+    options.verbose = !!argv.verbose;
+    if (argv.fallbackModel) options.fallbackModel = argv.fallbackModel;
+  }
+
+  return options;
+};
+
+export const buildAgentCommanderControllerOptions = ({ tool, tempDir, prompt, systemPrompt, argv = {} }) => ({
+  tool,
+  workingDirectory: tempDir,
+  prompt,
+  systemPrompt,
+  model: argv.model,
+  json: tool !== 'agent',
+  resume: argv.resume,
+  toolOptions: buildAgentCommanderToolOptions(argv, tool),
+});
+
+export const validateAgentCommanderConnection = async ({ tool, model, log = defaultLog, agentCommanderModule = null }) => {
+  try {
+    const module = agentCommanderModule || (await getAgentCommander());
+    const { agent, isToolSupported } = module;
+    const toolName = tool || 'claude';
+
+    if (!AGENT_COMMANDER_TOOLS.has(toolName) || !isToolSupported({ toolName })) {
+      await log(`[agent-commander] Tool '${toolName}' is not supported`, { level: 'error' });
       return false;
     }
 
-    await log(`[agent-commander] Validating ${tool} connection...`);
-
-    // Create a minimal agent instance to validate connection
-    const agentController = agent({
-      tool,
+    const controller = agent({
+      tool: toolName,
       workingDirectory: process.cwd(),
-      prompt: 'hi',
+      prompt: 'connection check',
       model,
+      json: toolName !== 'agent',
+      toolOptions: buildAgentCommanderToolOptions({ model }, toolName),
     });
-
-    // Start in dry-run mode to validate command building
-    await agentController.start({ dryRun: true });
-
-    await log(`[agent-commander] ${tool} connection validated successfully`);
+    await controller.start({ dryRun: true, attached: false });
+    await log(`[agent-commander] ${toolName} command construction validated`, { verbose: true });
     return true;
   } catch (error) {
     await log(`[agent-commander] Connection validation failed: ${error.message}`, { level: 'error' });
@@ -87,279 +91,180 @@ export const validateAgentCommanderConnection = async options => {
   }
 };
 
-/**
- * Execute a tool using agent-commander
- * This function provides a compatible interface with executeClaude, executeCodex, etc.
- *
- * @param {Object} params - Execution parameters (same as executeClaude/executeCodex/etc.)
- * @returns {Promise<Object>} Result object with success, sessionId, limitReached, etc.
- */
+const getPromptModule = async tool => {
+  if (tool === 'claude') return await import('./claude.prompts.lib.mjs');
+  if (tool === 'codex') return await import('./codex.prompts.lib.mjs');
+  if (tool === 'opencode') return await import('./opencode.prompts.lib.mjs');
+  if (tool === 'agent') return await import('./agent.prompts.lib.mjs');
+  throw new Error(`Unsupported tool for agent-commander: ${tool}`);
+};
+
+export const getPlaywrightMcpAvailabilityCheck = async tool => {
+  if (tool === 'opencode') return (await import('./opencode.lib.mjs')).checkPlaywrightMcpAvailability;
+  if (tool === 'codex') return (await import('./codex.lib.mjs')).checkPlaywrightMcpAvailability;
+  if (tool === 'agent') return (await import('./agent.lib.mjs')).checkPlaywrightMcpAvailability;
+  return (await import('./claude.lib.mjs')).checkPlaywrightMcpAvailability;
+};
+
+export const resolvePlaywrightMcpForAgentCommander = async ({ argv, log = defaultLog, tool = getAgentCommanderToolName(argv) }) => {
+  if (argv.playwrightMcp === false) return;
+  if (!argv.promptPlaywrightMcp) {
+    await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    return;
+  }
+
+  const checkFn = await getPlaywrightMcpAvailabilityCheck(tool);
+  const available = await checkFn();
+  if (available) {
+    await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+  } else {
+    await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+    argv.promptPlaywrightMcp = false;
+  }
+};
+
+const getParsedMessages = result => {
+  const parsed = result?.output?.parsed;
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === 'object') return [parsed];
+  return [];
+};
+
+const extractResultSummary = (messages, plainOutput) => {
+  for (const message of [...messages].reverse()) {
+    if (typeof message?.result === 'string' && message.result.trim()) return message.result.trim();
+    if (typeof message?.summary === 'string' && message.summary.trim()) return message.summary.trim();
+    if (typeof message?.text === 'string' && message.text.trim()) return message.text.trim();
+    if (typeof message?.message === 'string' && message.message.trim()) return message.message.trim();
+    if (typeof message?.item?.content === 'string' && message.item.content.trim()) return message.item.content.trim();
+    if (Array.isArray(message?.item?.content)) {
+      const text = message.item.content
+        .map(part => part?.text || '')
+        .join('')
+        .trim();
+      if (text) return text;
+    }
+  }
+
+  return plainOutput?.trim() ? plainOutput.trim().slice(-4000) : null;
+};
+
+const hasErrorMessage = messages => messages.some(message => message?.is_error === true || message?.type === 'error' || message?.type === 'step_error' || message?.error);
+
+export const summarizeAgentCommanderResult = ({ result, tool }) => {
+  const plainOutput = result?.output?.plain || '';
+  const messages = getParsedMessages(result);
+  const usageLimit = detectUsageLimit(plainOutput);
+  const usage = result?.usage || null;
+  const resultMessage = [...messages].reverse().find(message => message?.type === 'result') || null;
+  const totalCost = typeof resultMessage?.total_cost_usd === 'number' ? resultMessage.total_cost_usd : null;
+  const publicPricingEstimate = tool === 'agent' && typeof usage?.totalCost === 'number' ? usage.totalCost : null;
+
+  return {
+    success: result?.exitCode === 0 && !usageLimit.isUsageLimit && !hasErrorMessage(messages),
+    sessionId: result?.sessionId || resultMessage?.session_id || null,
+    limitReached: usageLimit.isUsageLimit,
+    limitResetTime: usageLimit.resetTime,
+    limitTimezone: usageLimit.timezone,
+    anthropicTotalCostUSD: tool === 'claude' ? totalCost : null,
+    publicPricingEstimate,
+    pricingInfo: publicPricingEstimate !== null ? { totalCostUSD: publicPricingEstimate, source: 'agent-commander' } : null,
+    resultSummary: extractResultSummary(messages, plainOutput),
+    resultModelUsage: null,
+    streamTokenUsage: usage,
+    subAgentCalls: null,
+    errorDuringExecution: result?.exitCode !== 0 || hasErrorMessage(messages),
+    result: plainOutput,
+  };
+};
+
 export const executeWithAgentCommander = async params => {
-  // Note: setLogFile, getLogFile, formatAligned, getResourceSnapshot, and $ are kept for API compatibility
-  // with executeClaude/executeCodex/etc. but not currently used by agent-commander
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    mergeStateStatus,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv,
-    log = defaultLog,
-    // eslint-disable-next-line no-unused-vars
-    setLogFile: _setLogFile,
-    // eslint-disable-next-line no-unused-vars
-    getLogFile: _getLogFile,
-    // eslint-disable-next-line no-unused-vars
-    formatAligned: _formatAligned,
-    // eslint-disable-next-line no-unused-vars
-    getResourceSnapshot: _getResourceSnapshot,
-    // eslint-disable-next-line no-unused-vars
-    $: _$,
-  } = params;
+  const { agentCommanderModule = null, promptModule = null, log = defaultLog, argv, tempDir, workspaceTmpDir, ...promptParams } = params;
+  const tool = getAgentCommanderToolName(argv);
+  const module = agentCommanderModule || (await getAgentCommander());
 
-  const tool = argv.tool || 'claude';
+  if (!AGENT_COMMANDER_TOOLS.has(tool) || !module.isToolSupported({ toolName: tool })) {
+    throw new Error(`agent-commander does not support tool '${tool}'`);
+  }
 
-  try {
-    const { agent } = await getAgentCommander();
+  const prompts = promptModule || (await getPromptModule(tool));
+  const promptBuilderParams = { ...promptParams, tempDir, workspaceTmpDir, argv };
+  const prompt = prompts.buildUserPrompt(promptBuilderParams);
+  const systemPrompt = prompts.buildSystemPrompt(promptBuilderParams);
+  const controllerOptions = buildAgentCommanderControllerOptions({ tool, tempDir, prompt, systemPrompt, argv });
 
-    // Import prompt building functions based on tool
-    let buildUserPrompt, buildSystemPrompt;
-    if (tool === 'claude') {
-      const claudePrompts = await import('./claude.prompts.lib.mjs');
-      buildUserPrompt = claudePrompts.buildUserPrompt;
-      buildSystemPrompt = claudePrompts.buildSystemPrompt;
-    } else if (tool === 'opencode') {
-      const opencodeLib = await import('./opencode.lib.mjs');
-      buildUserPrompt = opencodeLib.buildUserPrompt;
-      buildSystemPrompt = opencodeLib.buildSystemPrompt;
-    } else if (tool === 'codex') {
-      const codexLib = await import('./codex.lib.mjs');
-      buildUserPrompt = codexLib.buildUserPrompt;
-      buildSystemPrompt = codexLib.buildSystemPrompt;
-    } else if (tool === 'agent') {
-      const agentLib = await import('./agent.lib.mjs');
-      buildUserPrompt = agentLib.buildUserPrompt;
-      buildSystemPrompt = agentLib.buildSystemPrompt;
-    } else {
-      throw new Error(`Unknown tool: ${tool}`);
-    }
+  if (argv.verbose) {
+    await log('\n[agent-commander] Final prompt structure:', { verbose: true });
+    await log(`   Tool: ${tool}`, { verbose: true });
+    await log(`   User prompt characters: ${prompt.length}`, { verbose: true });
+    await log(`   System prompt characters: ${systemPrompt.length}`, { verbose: true });
+  }
 
-    // Build prompts using existing prompt building logic
-    const prompt = buildUserPrompt({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-    });
+  const controller = module.agent(controllerOptions);
+  const dryRun = !!(argv.dryRun || argv.onlyPrepareCommand);
+  await log(`\n[agent-commander] Starting ${tool} execution${dryRun ? ' (dry-run)' : ''}...`);
+  await controller.start({
+    dryRun,
+    attached: true,
+    onOutput: chunk => {
+      if (chunk.type === 'stderr') process.stderr.write(chunk.data);
+      else process.stdout.write(chunk.data);
+    },
+  });
 
-    const systemPrompt = buildSystemPrompt({
-      owner,
-      repo,
-      issueNumber,
-      issueUrl,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      isContinueMode,
-      forkedRepo,
-      argv,
-    });
-
-    // Log prompt details in verbose mode
-    if (argv.verbose) {
-      await log('\n[agent-commander] Final prompt structure:', { verbose: true });
-      await log(`   Characters: ${prompt.length}`, { verbose: true });
-      await log(`   System prompt characters: ${systemPrompt.length}`, { verbose: true });
-    }
-
-    // Handle dry-run mode
-    if (argv.dryRun || argv.onlyPrepareCommand) {
-      await log('\n[agent-commander] Dry-run mode - command that would be executed:');
-
-      const agentController = agent({
-        tool,
-        workingDirectory: tempDir,
-        prompt,
-        systemPrompt,
-        model: argv.model,
-        json: tool === 'claude', // Claude supports JSON mode
-        resume: argv.resume,
-      });
-
-      await agentController.start({ dryRun: true });
-
-      return {
-        success: true,
-        sessionId: null,
-        limitReached: false,
-        anthropicTotalCostUSD: null,
-        publicPricingEstimate: null,
-        pricingInfo: null,
-      };
-    }
-
-    // Create agent controller
-    const agentController = agent({
-      tool,
-      workingDirectory: tempDir,
-      prompt,
-      systemPrompt,
-      model: argv.model,
-      json: tool === 'claude', // Claude supports JSON mode
-      resume: argv.resume,
-    });
-
-    await log(`\n[agent-commander] Starting ${tool} execution...`);
-
-    // Track start time
-    const startTime = Date.now();
-
-    // Start the agent
-    await agentController.start({
-      attached: true,
-      onOutput: async chunk => {
-        // Stream output to console/log
-        if (chunk.type === 'stdout') {
-          process.stdout.write(chunk.data);
-        } else if (chunk.type === 'stderr') {
-          process.stderr.write(chunk.data);
-        }
-      },
-    });
-
-    // Wait for completion and get result
-    const result = await agentController.stop();
-
-    const endTime = Date.now();
-    const durationSeconds = Math.round((endTime - startTime) / 1000);
-
-    await log(`\n[agent-commander] Execution completed in ${durationSeconds}s with exit code ${result.exitCode}`);
-
-    // Check for limit reached in output
-    const limitReached = checkForLimitReached(result.output?.plain || '');
-    const limitResetTime = extractLimitResetTime(result.output?.plain || '');
-
-    // Extract session info
-    const sessionId = result.sessionId || agentController.getSessionId();
-
-    // Extract usage info if available
-    const usage = result.usage;
-    let anthropicTotalCostUSD = null;
-    let publicPricingEstimate = null;
-    let pricingInfo = null;
-
-    if (usage && tool === 'claude') {
-      // Calculate cost based on usage (simplified - full calculation in claude.lib.mjs)
-      const inputTokens = usage.inputTokens || 0;
-      const outputTokens = usage.outputTokens || 0;
-      // Using approximate Claude pricing
-      anthropicTotalCostUSD = (inputTokens * 0.003 + outputTokens * 0.015) / 1000;
-    }
-
+  if (dryRun) {
     return {
-      success: result.exitCode === 0 && !limitReached,
-      sessionId,
-      limitReached,
-      limitResetTime,
-      anthropicTotalCostUSD,
-      publicPricingEstimate,
-      pricingInfo,
-    };
-  } catch (error) {
-    await log(`\n[agent-commander] Execution failed: ${error.message}`, { level: 'error' });
-
-    return {
-      success: false,
+      success: true,
       sessionId: null,
       limitReached: false,
+      limitResetTime: null,
+      limitTimezone: null,
       anthropicTotalCostUSD: null,
       publicPricingEstimate: null,
       pricingInfo: null,
-      error: error.message,
+      resultSummary: null,
     };
   }
+
+  const result = await controller.stop();
+  await log(`[agent-commander] ${tool} exited with code ${result.exitCode}`);
+  return summarizeAgentCommanderResult({ result, tool });
 };
 
-/**
- * Check if output indicates usage limit was reached
- * @param {string} output - Tool output
- * @returns {boolean} True if limit was reached
- */
-const checkForLimitReached = output => {
-  if (!output) return false;
+export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log = defaultLog, autoCommit = false, autoRestartEnabled = true) => {
+  await log('\n🔍 Checking for uncommitted changes...');
+  const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+  const statusOutput = gitStatusResult.stdout?.toString().trim() || '';
 
-  const limitPatterns = [/usage limit/i, /rate limit/i, /limit reached/i, /exceeded.*limit/i, /too many requests/i, /quota exceeded/i];
-
-  return limitPatterns.some(pattern => pattern.test(output));
-};
-
-/**
- * Extract limit reset time from output
- * @param {string} output - Tool output
- * @returns {string|null} Reset time or null
- */
-const extractLimitResetTime = output => {
-  if (!output) return null;
-
-  // Look for patterns like "resets at 10:00 AM" or "reset in 2 hours"
-  const resetPatterns = [/resets?\s+(?:at\s+)?(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i, /reset\s+in\s+(\d+\s*(?:hour|minute|min|hr)s?)/i];
-
-  for (const pattern of resetPatterns) {
-    const match = output.match(pattern);
-    if (match) {
-      return match[1];
-    }
+  if (!statusOutput) {
+    await log('✅ No uncommitted changes found');
+    return false;
   }
 
-  return null;
-};
+  await log('📝 Found uncommitted changes');
+  await log('Changes:');
+  for (const line of statusOutput.split('\n')) await log(`   ${line}`);
 
-/**
- * Check for uncommitted changes (compatible with tool-specific checkForUncommittedChanges)
- * @param {Object} options - Options
- * @param {string} options.tempDir - Working directory
- * @param {Object} options.$ - Command stream
- * @param {Function} options.log - Logging function
- * @returns {Promise<Object>} Result with hasChanges and details
- */
-export const checkForUncommittedChanges = async options => {
-  const { tempDir, $, log = defaultLog } = options;
-
-  try {
-    const result = await $`cd "${tempDir}" && git status --porcelain`;
-    const output = result.stdout?.toString().trim() || '';
-
-    if (!output) {
-      return { hasChanges: false };
+  if (autoCommit) {
+    await log('💾 Auto-committing changes (--auto-commit-uncommitted-changes is enabled)...');
+    const addResult = await $({ cwd: tempDir })`git add -A`;
+    if (addResult.code === 0) {
+      const commitResult = await $({ cwd: tempDir })`git commit -m ${'Auto-commit: Changes made through agent-commander during problem-solving session'}`;
+      if (commitResult.code === 0) {
+        const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+        await log(pushResult.code === 0 ? '✅ Changes pushed successfully' : `⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim() || pushResult.stdout?.toString().trim()}`, { level: pushResult.code === 0 ? 'info' : 'warning' });
+      }
     }
-
-    const lines = output.split('\n').filter(line => line.trim());
-    return {
-      hasChanges: lines.length > 0,
-      files: lines,
-      count: lines.length,
-    };
-  } catch (error) {
-    await log(`[agent-commander] Failed to check for uncommitted changes: ${error.message}`, { level: 'warning' });
-    return { hasChanges: false };
+    return false;
   }
+
+  if (autoRestartEnabled) {
+    await log('\n⚠️  IMPORTANT: Uncommitted changes detected!');
+    await log('   The agent-commander controlled tool made changes that were not committed.');
+    await log('\n🔄 AUTO-RESTART: Restarting the tool to handle uncommitted changes...\n');
+    return true;
+  }
+
+  await log('\n⚠️  Uncommitted changes detected but auto-restart is disabled.');
+  return false;
 };

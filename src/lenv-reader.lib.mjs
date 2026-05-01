@@ -38,6 +38,43 @@ const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 
 const fs = await import('fs');
 
+function isCliOptionToken(value) {
+  return /^--[a-zA-Z0-9][a-zA-Z0-9=_.-]*$/.test(value) || /^-[a-zA-Z]$/.test(value);
+}
+
+function collectStringValues(value, result = []) {
+  if (value && typeof value === 'object' && Array.isArray(value.values)) {
+    if (value.id !== null && value.id !== undefined) {
+      result.push(String(value.id));
+    }
+    for (const child of value.values) {
+      collectStringValues(child, result);
+    }
+  } else if (value !== null && value !== undefined) {
+    result.push(String(value));
+  }
+  return result;
+}
+
+function validateNoBareSameLineOptions(content) {
+  let currentVar = 'configuration';
+
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed === '(' || trimmed === ')') continue;
+
+    const topLevelMatch = !/^\s/.test(line) ? trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*):(?:\s*(.*))?$/) : null;
+    const valueText = topLevelMatch ? (topLevelMatch[2] || '').trim() : trimmed;
+    if (topLevelMatch) currentVar = topLevelMatch[1];
+    if (!valueText || valueText === '(' || valueText === ')' || valueText.startsWith('(')) continue;
+
+    const parts = valueText.split(/\s+/).filter(Boolean);
+    if (parts.length > 1 && isCliOptionToken(parts[0])) {
+      throw new Error(`Invalid LINO format in "${currentVar}": Multiple values on the same line are not supported.\n` + `Found: "${parts.join(' ')}"\n` + `Each value must be on its own line with proper indentation, or grouped explicitly as a parenthesized link.`);
+    }
+  }
+}
+
 /**
  * LenvReader - Reads and parses .lenv files using LINO notation
  */
@@ -59,6 +96,8 @@ export class LenvReader {
     const result = {};
 
     try {
+      validateNoBareSameLineOptions(content);
+
       // Parse the entire content as LINO
       const parsed = this.parser.parse(content);
 
@@ -77,8 +116,22 @@ export class LenvReader {
 
         // The values are the variable value
         if (link.values && link.values.length > 0) {
+          // Check for invalid characters in option-like values
+          for (const valueStr of link.values.flatMap(v => collectStringValues(v))) {
+            // Options should match pattern: --option-name or -o (with optional =value)
+            if (typeof valueStr === 'string' && valueStr.startsWith('-')) {
+              // This looks like a command-line option, validate it
+              // Valid option pattern: -x, --option-name, --option-name=value
+              // Invalid characters: ?, !, @, #, $, %, ^, &, *, etc.
+              const invalidCharMatch = valueStr.match(/[^a-zA-Z0-9=_.-]/);
+              if (invalidCharMatch) {
+                throw new Error(`Invalid LINO format in "${varName}": Unrecognized character "${invalidCharMatch[0]}" in option.\n` + `Found: "${valueStr}"\n` + `Options should only contain letters, numbers, hyphens, underscores, and equals signs.`);
+              }
+            }
+          }
+
           // If there are multiple values, format them as LINO notation
-          const values = link.values.map(v => v.id || v);
+          const values = link.values.flatMap(v => collectStringValues(v));
 
           // If it's a single value, just use it as-is
           if (values.length === 1) {
@@ -98,6 +151,11 @@ export class LenvReader {
 
       return result;
     } catch (error) {
+      // Re-throw validation errors so users can correct their configuration
+      if (error.message.includes('Invalid LINO format')) {
+        throw error;
+      }
+      // For other parsing errors, log and return empty
       console.error(`Error parsing LINO configuration: ${error.message}`);
       return {};
     }

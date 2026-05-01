@@ -1,0 +1,8 @@
+{
+  "body": "During hive-mind PR https://github.com/link-assistant/hive-mind/pull/1044 for issue https://github.com/link-assistant/hive-mind/issues/1043, the experimental `--use-agent-commander` adapter had to best-effort parse raw/plain output from `agent-commander@0.4.3` to populate hive-mind's solve result fields.\n\nHive-mind currently consumes normalized metadata from its embedded adapters, including:\n\n- success / non-zero exit classification\n- session id\n- usage-limit detection and reset time/timezone\n- human-readable result summary\n- Anthropic total cost where available\n- public pricing estimate where available\n- detailed model usage\n- stream token usage\n- sub-agent call summaries\n- execution error classification\n\nThe current agent-commander result object has useful `exitCode`, `output.plain`, `output.parsed`, `sessionId`, and `usage` fields, but hive-mind still needs adapter-specific parsing to derive the complete normalized result shape.\n\nRequest:\n\nExpose a stable normalized result metadata object from agent-commander for each supported tool (`claude`, `codex`, `opencode`, `agent`) so callers like hive-mind can avoid parsing tool-specific output while still reporting costs, usage limits, summaries, and failures consistently.",
+  "createdAt": "2026-05-01T05:12:38Z",
+  "number": 30,
+  "state": "OPEN",
+  "title": "Expose normalized result metadata for hive-mind solve sessions",
+  "url": "https://github.com/link-assistant/agent-commander/issues/30"
+}

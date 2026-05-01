@@ -1,0 +1,58 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3702107074",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-3702107074",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1044",
+    "id": 3702107074,
+    "node_id": "IC_kwDOPUU0qc7cqavC",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2025-12-31T12:22:53Z",
+    "updated_at": "2025-12-31T12:22:53Z",
+    "body": "🤖 **AI Work Session Started**\n\nStarting automated work session at 2025-12-31T12:22:51.887Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait working session to finish, and provide your feedback._",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3702107074/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3702128381",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-3702128381",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1044",
+    "id": 3702128381,
+    "node_id": "IC_kwDOPUU0qc7cqf79",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2025-12-31T12:36:35Z",
+    "updated_at": "2025-12-31T12:36:35Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n💰 **Cost estimation:**\n- Public pricing estimate: $11.491305 USD\n- Calculated by Anthropic: $8.025166 USD\n- Difference: $-3.466139 (-30.16%)\n📎 **Log file uploaded as GitHub Gist** (1937KB)\n🔗 [View complete solution draft log](https://gist.githubusercontent.com/konard/8003a42c6572876a7e8334779793153f/raw/b5c5a26f41eb8b19899ec44491b80beb7e588b15/solution-draft-log-pr-1767184590221.txt)\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3702128381/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4357883177",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-4357883177",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1044",
+    "id": 4357883177,
+    "node_id": "IC_kwDOPUU0qc8AAAABA8AFKQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-05-01T04:53:35Z",
+    "updated_at": "2026-05-01T04:54:01Z",
+    "body": "Get latest changes from default branch, note that codex support and claude support has changed significantly.\r\n\r\nWe need to carefully double check, that we don't break any existing code, and without `--use-agent-commander` everything will work as it was working before.\r\n\r\nYet with `--use-agent-commander` we should use latest version of https://github.com/link-assistant/agent-commander for all tools - claude, codex, agent, opencode, but only if this option selected. Also we need to make sure that when  `--use-agent-commander` we support each and every feature we have, but control tools (claude, codex, agent, opencode) only via our https://github.com/link-assistant/agent-commander, not directly. But only if `--use-agent-commander` is enabled.\r\n\r\nPlease also carefully list all the features we need in hive-mind, and we have in agent-commander, and if any feature is missing, make a code draft, but also report the issue to https://github.com/link-assistant/agent-commander, so I can pause this pull request, to fix all issues and add all missing features.\r\n\r\nSo we fully support `--use-agent-commander` when it is enabled.\r\n\r\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\r\n\r\nPlease plan and execute everything in a single pull request, you have unlimited time and context, as context autocompacts and you can continue indefinetely, do as much as possible in one go, until it is each and every requirement fully addressed, and everything is totally done. For issues use gh tool and create them directly on https://github.com/link-assistant/agent-commander if needed.",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4357883177/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4357886239",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1044#issuecomment-4357886239",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1044",
+    "id": 4357886239,
+    "node_id": "IC_kwDOPUU0qc8AAAABA8ARHw",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-05-01T04:54:48Z",
+    "updated_at": "2026-05-01T04:54:48Z",
+    "body": "🤖 **AI Work Session Started**\n\nStarting automated work session at 2026-05-01T04:54:47.349Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4357886239/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  }
+]

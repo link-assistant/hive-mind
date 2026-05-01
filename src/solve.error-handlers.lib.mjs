@@ -5,11 +5,12 @@
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 // Import Sentry integration
 import { reportError } from './sentry.lib.mjs';
 
-// Import GitHub issue creator
-import { handleErrorWithIssueCreation } from './github-issue-creator.lib.mjs';
+// Import GitHub error reporter
+import { handleErrorWithIssueCreation } from './github-error-reporter.lib.mjs';
 
 /**
  * Handles log attachment and PR closing on failure
@@ -30,6 +31,8 @@ export const handleFailure = async options => {
         errorType,
       },
       skipPrompt: !process.stdin.isTTY || argv.noIssueCreation,
+      autoReport: argv.autoReportIssue,
+      disableReport: argv.disableReportIssue,
     });
   } catch (issueError) {
     reportError(issueError, {
@@ -40,32 +43,46 @@ export const handleFailure = async options => {
   }
 
   // If --attach-logs is enabled, try to attach failure logs
-  if (shouldAttachLogs && getLogFile() && global.createdPR && global.createdPR.number) {
-    await log('\n📄 Attempting to attach failure logs...');
-    try {
-      const logUploadSuccess = await attachLogToGitHub({
-        logFile: getLogFile(),
-        targetType: 'pr',
-        targetNumber: global.createdPR.number,
-        owner: global.owner || owner,
-        repo: global.repo || repo,
-        $,
-        log,
-        sanitizeLogContent,
-        verbose: argv.verbose,
-        errorMessage: cleanErrorMessage(error),
-      });
-      if (logUploadSuccess) {
-        await log('📎 Failure log attached to Pull Request');
+  if (shouldAttachLogs && getLogFile()) {
+    // Issues #1212, #1462: Upload logs to PR if available, otherwise fall back to the issue
+    const hasPR = global.createdPR && global.createdPR.number;
+    const hasIssue = global.issueNumber;
+    const targetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
+    const targetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
+    const targetLabel = hasPR ? 'Pull Request' : 'Issue';
+
+    if (targetType && targetNumber) {
+      await log(`\n📄 Attempting to attach failure logs to ${targetLabel}...`);
+      try {
+        const logUploadSuccess = await attachLogToGitHub({
+          logFile: getLogFile(),
+          targetType,
+          targetNumber,
+          owner: global.owner || owner,
+          repo: global.repo || repo,
+          $,
+          log,
+          sanitizeLogContent,
+          verbose: argv.verbose,
+          errorMessage: cleanErrorMessage(error),
+          // Issue #1225: Pass model and tool info for PR comments
+          requestedModel: argv.originalModel || argv.model,
+          tool: argv.tool || 'claude',
+        });
+        if (logUploadSuccess) {
+          await log(`📎 Failure log attached to ${targetLabel}`);
+          if (!hasPR && hasIssue) global.prePullRequestFailureNotificationPosted = true;
+        }
+      } catch (attachError) {
+        reportError(attachError, {
+          context: 'attach_failure_log',
+          targetType,
+          targetNumber,
+          errorType,
+          operation: `attach_log_to_${targetType}`,
+        });
+        await log(`⚠️  Could not attach failure log to ${targetLabel}: ${attachError.message}`, { level: 'warning' });
       }
-    } catch (attachError) {
-      reportError(attachError, {
-        context: 'attach_failure_log',
-        prNumber: global.createdPR?.number,
-        errorType,
-        operation: 'attach_log_to_pr',
-      });
-      await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
     }
   }
 
@@ -150,6 +167,45 @@ export const createUnhandledRejectionHandler = options => {
 
     await safeExit(1, 'Error occurred');
   };
+};
+
+/**
+ * Handles the case where no PR is available when one is required
+ */
+export const handleNoPrAvailableError = async ({ isContinueMode, tempDir, issueNumber, issueUrl, log, formatAligned }) => {
+  await log('');
+  await log(formatAligned('❌', 'FATAL ERROR:', 'No pull request available'), { level: 'error' });
+  await log('');
+  await log('  🔍 What happened:');
+  if (isContinueMode) {
+    await log('     Continue mode is active but no PR number is available.');
+    await log('     This usually means PR creation failed or was skipped incorrectly.');
+  } else {
+    await log('     Auto-PR creation is enabled but no PR was created.');
+    await log('     PR creation may have failed without throwing an error.');
+  }
+  await log('');
+  await log('  💡 Why this is critical:');
+  await log('     The solve command requires a PR for:');
+  await log('     • Tracking work progress');
+  await log('     • Receiving and processing feedback');
+  await log('     • Managing code changes');
+  await log('     • Auto-merging when complete');
+  await log('');
+  await log('  🔧 How to fix:');
+  await log('');
+  await log('  Option 1: Create PR manually and use --continue');
+  await log(`     cd ${tempDir}`);
+  await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
+  await log('     # Then use the PR URL with solve.mjs');
+  await log('');
+  await log('  Option 2: Start fresh without continue mode');
+  await log(`     ./solve.mjs "${issueUrl}" --auto-pull-request-creation`);
+  await log('');
+  await log('  Option 3: Disable auto-PR creation (Claude will create it)');
+  await log(`     ./solve.mjs "${issueUrl}" --no-auto-pull-request-creation`);
+  await log('');
+  await safeExit(1, 'No PR available');
 };
 
 /**

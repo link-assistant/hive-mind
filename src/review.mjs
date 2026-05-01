@@ -19,14 +19,15 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   // Show help and exit
   console.log('Usage: review.mjs <pr-url> [options]');
   console.log('\nOptions:');
-  console.log('  --version          Show version number');
-  console.log('  --help, -h         Show help');
-  console.log('  --resume, -r       Resume from a previous session ID');
-  console.log('  --dry-run, -n      Prepare everything but do not execute Claude');
-  console.log('  --model, -m        Model to use (opus, sonnet, or full model ID) [default: opus]');
-  console.log('  --focus, -f        Focus areas for review [default: all]');
-  console.log('  --approve          If review passes, approve the PR');
-  console.log('  --verbose, -v      Enable verbose logging');
+  console.log('  --version               Show version number');
+  console.log('  --help, -h              Show help');
+  console.log('  --resume, -r            Resume from a previous session ID');
+  console.log('  --dry-run, -n           Prepare everything but do not execute Claude');
+  console.log('  --model, -m             Model to use (opus, sonnet, or full model ID) [default: opus]');
+  console.log('  --focus, -f             Focus areas for review [default: all]');
+  console.log('  --approve               If review passes, approve the PR');
+  console.log('  --verbose, -v           Enable verbose logging');
+  console.log('  --execute-tool-with-bun Execute the AI tool using bunx (experimental) [default: false]');
   process.exit(0);
 }
 
@@ -34,75 +35,95 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
-const yargs = (await use('yargs@latest')).default;
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 const os = (await use('os')).default;
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
 
 // Import shared functions from lib.mjs to follow DRY principle
 import { log, setLogFile, getLogFile, formatAligned } from './lib.mjs';
+import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import * as memoryCheck from './memory-check.mjs';
 
 // Import Claude execution functions
 import { executeClaudeCommand } from './claude.lib.mjs';
+import { defaultModels, getClaudeModelChoices, buildModelOptionDescription } from './models/index.mjs';
 
 // Configure command line arguments - GitHub PR URL as positional argument
-// Use yargs().parse(args) instead of yargs(args).argv to ensure .strict() mode works
-const argv = yargs()
-  .usage('Usage: $0 <pr-url> [options]')
-  .positional('pr-url', {
-    type: 'string',
-    description: 'The GitHub pull request URL to review',
-  })
-  .option('resume', {
-    type: 'string',
-    description: 'Resume from a previous session ID (when limit was reached)',
-    alias: 'r',
-  })
-  .option('dry-run', {
-    type: 'boolean',
-    description: 'Prepare everything but do not execute Claude',
-    alias: 'n',
-  })
-  .option('model', {
-    type: 'string',
-    description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
-    alias: 'm',
-    default: 'opus',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
-  })
-  .option('focus', {
-    type: 'string',
-    description: 'Focus areas for review (security, performance, logic, style, tests)',
-    alias: 'f',
-    default: 'all',
-  })
-  .option('approve', {
-    type: 'boolean',
-    description: 'If review passes, approve the PR',
-    default: false,
-  })
-  .option('verbose', {
-    type: 'boolean',
-    description: 'Enable verbose logging for debugging',
-    alias: 'v',
-    default: false,
-  })
-  .demandCommand(1, 'The GitHub pull request URL is required')
-  .parserConfiguration({
-    'boolean-negation': true,
-  })
-  .help('h')
-  .alias('h', 'help')
-  // Use yargs built-in strict mode to reject unrecognized options
-  // This prevents issues like #453 and #482 where unknown options are silently ignored
-  .strict()
-  .parse(process.argv.slice(2));
+const createReviewYargsConfig = yargsInstance =>
+  yargsInstance
+    .usage('Usage: $0 <pr-url> [options]')
+    .command('$0 <pr-url>', 'Review a GitHub pull request', yargs =>
+      yargs.positional('pr-url', {
+        type: 'string',
+        description: 'The GitHub pull request URL to review',
+      })
+    )
+    .option('resume', {
+      type: 'string',
+      description: 'Resume from a previous session ID (when limit was reached)',
+      alias: 'r',
+    })
+    .option('dry-run', {
+      type: 'boolean',
+      description: 'Prepare everything but do not execute Claude',
+      alias: 'n',
+    })
+    .option('model', {
+      type: 'string',
+      description: buildModelOptionDescription(),
+      alias: 'm',
+      default: defaultModels.claude,
+      choices: getClaudeModelChoices(),
+    })
+    .option('focus', {
+      type: 'string',
+      description: 'Focus areas for review (security, performance, logic, style, tests)',
+      alias: 'f',
+      default: 'all',
+    })
+    .option('approve', {
+      type: 'boolean',
+      description: 'If review passes, approve the PR',
+      default: false,
+    })
+    .option('verbose', {
+      type: 'boolean',
+      description: 'Enable verbose logging for debugging',
+      alias: 'v',
+      default: false,
+    })
+    .option('execute-tool-with-bun', {
+      type: 'boolean',
+      description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
+      default: false,
+    })
+    .check(parsed => {
+      if (!parsed['pr-url'] && !parsed.prUrl && !parsed._?.[0]) {
+        throw new Error('The GitHub pull request URL is required');
+      }
+      return true;
+    })
+    .parserConfiguration({
+      'boolean-negation': true,
+    })
+    .help('h')
+    .alias('h', 'help')
+    // Use yargs built-in strict mode to reject unrecognized options
+    // This prevents issues like #453 and #482 where unknown options are silently ignored
+    .strict();
 
-const prUrl = argv['pr-url'] || argv._[0];
+const argv = parseCliArgumentsWithLino({
+  argv: process.argv,
+  commandName: 'review',
+  createYargsConfig: createReviewYargsConfig,
+  positionalAliases: ['pr-url'],
+});
+
+const prUrl = argv['pr-url'] || argv.prUrl || argv._[0];
 
 // Set global verbose mode for log function
 global.verboseMode = argv.verbose;
@@ -126,7 +147,9 @@ if (!prUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/)) {
   process.exit(1);
 }
 
-const claudePath = process.env.CLAUDE_PATH || 'claude';
+// Determine claude command path based on --execute-tool-with-bun option
+// When enabled, uses 'bunx claude' which may improve speed and memory usage
+const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
 
 // Extract repository and PR number from URL
 const urlParts = prUrl.split('/');

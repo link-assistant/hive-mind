@@ -14,8 +14,10 @@
  *   ./cleanup-test-repos.mjs                    # Interactive mode - asks for confirmation
  *   ./cleanup-test-repos.mjs --force            # Force mode - deletes without confirmation
  *   ./cleanup-test-repos.mjs --dry-run          # Dry run - shows what would be deleted
- *   ./cleanup-test-repos.mjs --skip-archived    # Skip archived repositories (preserve them)
- *   ./cleanup-test-repos.mjs --force --skip-archived  # Combine flags
+ *   ./cleanup-test-repos.mjs --include-archived # Include archived repositories (delete them too)
+ *   ./cleanup-test-repos.mjs --force --include-archived  # Combine flags
+ *
+ * Note: Archived repositories are preserved by default. Use --include-archived to delete them.
  */
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
@@ -28,7 +30,8 @@ const { $ } = await use('command-stream');
 const args = process.argv.slice(2);
 const forceMode = args.includes('--force') || args.includes('-f');
 const dryRun = args.includes('--dry-run') || args.includes('-n');
-const skipArchived = args.includes('--skip-archived') || args.includes('-s');
+const includeArchived = args.includes('--include-archived');
+const skipArchived = !includeArchived;
 
 console.log('🧹 Test Repository Cleanup Tool');
 console.log('================================\n');
@@ -39,13 +42,15 @@ if (dryRun) {
   console.log('⚠️  FORCE MODE - Repositories will be deleted without confirmation\n');
 }
 
-if (skipArchived) {
-  console.log('🔒 SKIP ARCHIVED MODE - Archived repositories will be preserved\n');
+if (includeArchived) {
+  console.log('⚠️  INCLUDE ARCHIVED MODE - Archived repositories will also be deleted\n');
+} else {
+  console.log('🔒 Archived repositories will be preserved (use --include-archived to delete them)\n');
 }
 
 try {
   // Import child_process once
-  const { execSync } = await import('child_process');
+  const { execSync, spawnSync } = await import('child_process');
 
   // Check GitHub authentication and permissions
   console.log('🔐 Checking GitHub permissions...');
@@ -93,14 +98,30 @@ try {
   const githubUser = execSync('gh api user --jq .login', { encoding: 'utf8' }).trim();
   console.log(`👤 User: ${githubUser}`);
 
-  // List all repositories for the user
+  // List all repositories for the user — paginate via GraphQL to fetch everything
   process.stdout.write('🔍 Searching for test repositories... ');
 
-  // Get all repos (up to 100, adjust if needed) - include isArchived field
-  const reposJson = execSync(`gh repo list ${githubUser} --limit 100 --json name,url,createdAt,isPrivate,isArchived`, {
-    encoding: 'utf8',
-  });
-  const repos = JSON.parse(reposJson);
+  const repos = [];
+  let endCursor = null;
+  let hasNextPage = true;
+  const query = `query($login: String!, $after: String) { repositoryOwner(login: $login) { repositories(first: 100, after: $after, ownerAffiliations: OWNER) { pageInfo { hasNextPage endCursor } nodes { name url createdAt isPrivate isArchived } } } }`;
+
+  while (hasNextPage) {
+    const afterArgs = endCursor ? ['-f', `after=${endCursor}`] : [];
+    const ghArgs = ['api', 'graphql', '-f', `login=${githubUser}`, ...afterArgs, '-f', `query=${query}`];
+    const result = spawnSync('gh', ghArgs, {
+      encoding: 'utf8',
+      maxBuffer: 50 * 1024 * 1024,
+    });
+    if (result.status !== 0) {
+      throw new Error(`gh api graphql failed: ${result.stderr || result.stdout}`);
+    }
+    const data = JSON.parse(result.stdout);
+    const page = data.data.repositoryOwner.repositories;
+    repos.push(...page.nodes);
+    hasNextPage = page.pageInfo.hasNextPage;
+    endCursor = page.pageInfo.endCursor;
+  }
 
   // Filter for test repositories matching the pattern with valid UUIDv7
   const allTestRepos = repos.filter(repo => {
@@ -174,9 +195,9 @@ try {
     }
     console.log('');
     console.log('To actually delete:');
-    console.log('  ./cleanup-test-repos.mjs                   # With confirmation');
-    console.log('  ./cleanup-test-repos.mjs --force            # Without confirmation');
-    console.log('  ./cleanup-test-repos.mjs --skip-archived    # Preserve archived repos');
+    console.log('  ./cleanup-test-repos.mjs                      # With confirmation (preserves archived)');
+    console.log('  ./cleanup-test-repos.mjs --force              # Without confirmation');
+    console.log('  ./cleanup-test-repos.mjs --include-archived   # Also delete archived repos');
     process.exit(0);
   }
 
@@ -277,11 +298,11 @@ try {
     }
 
     // Show tip about archiving
-    if (!skipArchived && deletedCount > 0) {
+    if (deletedCount > 0) {
       console.log('');
-      console.log('💡 Tip: To preserve specific test repositories in the future:');
-      console.log('   1. Archive them on GitHub (Settings → Archive this repository)');
-      console.log('   2. Use --skip-archived flag when running cleanup');
+      console.log('💡 Tip: Archived repositories are preserved by default.');
+      console.log('   Archive a repo on GitHub (Settings → Archive this repository) to keep it safe.');
+      console.log('   Use --include-archived to delete archived repos too.');
     }
   }
 } catch (error) {

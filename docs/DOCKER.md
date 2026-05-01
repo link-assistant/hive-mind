@@ -1,4 +1,4 @@
-# Docker Support for Hive Mind
+# Docker Support for Hive Mind (languages: en • [zh](DOCKER.zh.md) • [hi](DOCKER.hi.md) • [ru](DOCKER.ru.md))
 
 This document explains how to run Hive Mind in Docker containers.
 
@@ -10,12 +10,20 @@ This document explains how to run Hive Mind in Docker containers.
 # Pull the latest image
 docker pull konard/hive-mind:latest
 
-# Run an interactive session
-docker run -it konard/hive-mind:latest
+# Create persistent host directories used by the current Docker workflow
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
 
-# IMPORTANT: Authentication is done AFTER the Docker image is installed
-# The installation script does NOT run gh auth login to avoid build timeouts
-# This allows the Docker build to complete successfully without interactive prompts
+# Run the container in detached mode with the same mounts we use locally
+docker run -dit --user box --name hive-mind --restart unless-stopped \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
+
+# Open a shell in the running container
+docker exec -it hive-mind bash
 
 # Inside the container, authenticate with GitHub
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
@@ -23,8 +31,21 @@ gh auth login -h github.com -s repo,workflow,user,read:org,gist
 # Authenticate with Claude
 claude
 
-# Now you can use hive and solve commands
-solve https://github.com/owner/repo/issues/123
+# Install or update Codex CLI
+bun install -g @openai/codex@latest
+
+# Log in to Codex using the current device auth flow
+codex login --device-auth
+
+# Verify Codex after login succeeds with "Successfully logged in"
+codex exec --model gpt-5.4-mini "hi"
+
+# Verify Playwright MCP registration in both CLIs
+claude mcp list | grep playwright
+codex mcp list | grep playwright
+
+# Exit the shell when setup is complete
+exit
 ```
 
 ### Option 2: Building Locally
@@ -47,16 +68,16 @@ docker build -t hive-mind-dev .
 
 # Run with credential mounts
 docker run --rm -it \
-    -v ~/.config/gh:/workspace/.persisted-configs/gh:ro \
-    -v ~/.local/share/claude-profiles:/workspace/.persisted-configs/claude:ro \
-    -v ~/.config/claude-code:/workspace/.persisted-configs/claude-code:ro \
-    -v "$(pwd)/output:/workspace/output" \
+    -v ~/.config/gh:/home/box/.persisted-configs/gh:ro \
+    -v ~/.local/share/claude-profiles:/home/box/.persisted-configs/claude:ro \
+    -v ~/.config/claude-code:/home/box/.persisted-configs/claude-code:ro \
+    -v "$(pwd)/output:/home/box/output" \
     hive-mind-dev
 ```
 
 ## Authentication
 
-The production Docker image (`Dockerfile`) uses Ubuntu 24.04 and the official installation script. **IMPORTANT:** Authentication is performed **inside the container AFTER** the Docker image is fully installed and running.
+The production Docker image (`Dockerfile`) extends the pinned full `konard/box` image, which provides Ubuntu 24.04 plus the general development toolchain. **IMPORTANT:** Authentication is performed **inside the container AFTER** the Docker image is fully installed and running.
 
 **Why Authentication Happens After Installation:**
 
@@ -81,13 +102,72 @@ gh auth login -h github.com -s repo,workflow,user,read:org,gist
 claude
 ```
 
+### Codex Authentication
+
+Install or update Codex CLI inside the running container:
+
+```bash
+bun install -g @openai/codex@latest
+```
+
+Log in with the device auth flow we currently use:
+
+```bash
+codex login --device-auth
+```
+
+The command should finish with:
+
+```text
+Successfully logged in
+```
+
+Then run the current smoke test:
+
+```bash
+codex exec --model gpt-5.4-mini "hi"
+```
+
 This approach allows:
 
 - ✅ Multiple Docker instances with different GitHub accounts
 - ✅ Multiple Docker instances with different Claude subscriptions
+- ✅ Persistent Codex authentication and session data when `/home/box/.codex` is mounted
 - ✅ No credential leakage between containers
 - ✅ Each container has its own isolated authentication
 - ✅ Successful Docker builds without interactive authentication
+
+## Playwright MCP State in Docker
+
+The image build now registers Playwright MCP for both Claude and Codex:
+
+- `claude mcp add playwright -s user -- ...`
+- `codex mcp add playwright -- ...`
+
+The CI workflow also builds the Docker image and verifies that both `claude mcp list` and `codex mcp list` contain `playwright`.
+
+If you still reproduce `codex mcp list` showing `No MCP servers configured yet` in a running container, the most likely root cause is a mounted `/home/box/.codex` directory from the host. In this image `HOME=/home/box`, so mounting `/home/box/.codex` replaces the image-baked Codex config, including any preconfigured MCP entries.
+
+That means:
+
+- the published image can be correct,
+- the runtime container can still show Codex as unconfigured,
+- and the difference is caused by persisted host state overriding the container defaults.
+
+To confirm that quickly, compare these two cases:
+
+```bash
+# Fresh container without host-mounted Codex state
+docker run --rm -it konard/hive-mind:latest bash -lc 'codex mcp list'
+
+# Container with persisted Codex state from host
+docker run --rm -it \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  konard/hive-mind:latest \
+  bash -lc 'codex mcp list'
+```
+
+If the first command shows `playwright` and the second does not, the host-mounted Codex directory is the source of the mismatch.
 
 ## Prerequisites
 
@@ -98,12 +178,12 @@ This approach allows:
 
 ```
 .
-├── Dockerfile                    # Production image using Ubuntu 24.04
+├── Dockerfile                    # Production image based on konard/box
 ├── experiments/
 │   └── solve-dockerize/
 │       └── Dockerfile            # Legacy Gitpod-compatible image (archived)
 ├── scripts/
-│   └── ubuntu-24-server-install.sh  # Installation script used by Dockerfile
+│   └── verify-docker-image.sh    # Docker image verification script
 └── docs/
     └── DOCKER.md                 # This file
 ```
@@ -112,26 +192,55 @@ This approach allows:
 
 ### Running with Persistent Storage
 
-To persist authentication and work between container restarts:
+To persist authentication and work between container restarts, mount the actual per-tool directories instead of a generic `/home/box` volume. In our Docker images `HOME=/home/box`, so Codex stores its data in `/home/box/.codex`.
 
 ```bash
-# Create a volume for the hive user's home directory
-docker volume create hive-home
+# Host directories used by the current local Docker workflow
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
 
-# Run with the volume mounted
-docker run -it -v hive-home:/home/hive konard/hive-mind:latest
+# Run with persistent mounts
+docker run -dit --user box --name hive-mind --restart unless-stopped \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
+
+# Fix ownership after the container starts
+BOX_UID=$(docker exec hive-mind id -u box)
+chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+chown $BOX_UID:$BOX_UID /root/.hive-mind/claude.json
+```
+
+The mounted Codex directory keeps the files we rely on:
+
+- `/home/box/.codex/auth.json`
+- `/home/box/.codex/config.toml`
+- `/home/box/.codex/sessions/`
+
+Because this mount fully overrides the image's `/home/box/.codex` directory, it can also preserve an older `config.toml` that does not include the Playwright MCP registration added by newer images. After starting a container with an older persisted Codex directory, re-run:
+
+```bash
+codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
 ```
 
 ### Running in Detached Mode
 
 ```bash
-# Start a detached container
-docker run -d --name hive-worker -v hive-home:/home/hive konard/hive-mind:latest sleep infinity
+# Start a detached container with persistent auth mounts
+docker run -dit --user box --name hive-worker --restart unless-stopped \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
 
 # Execute commands in the running container
 docker exec -it hive-worker bash
 
 # Inside the container, run your commands
+codex exec --model gpt-5.4-mini "hi"
 solve https://github.com/owner/repo/issues/123
 ```
 
@@ -145,12 +254,12 @@ services:
   hive-mind:
     image: konard/hive-mind:latest
     volumes:
-      - hive-home:/home/hive
+      - box-home:/home/box
     stdin_open: true
     tty: true
 
 volumes:
-  hive-home:
+  box-home:
 ```
 
 Then run:

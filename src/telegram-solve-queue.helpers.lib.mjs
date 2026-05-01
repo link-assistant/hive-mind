@@ -76,6 +76,15 @@ export async function getRunningCodexProcesses(verbose = false) {
 }
 
 /**
+ * Count running qwen processes.
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, processes: string[]}>}
+ */
+export async function getRunningQwenProcesses(verbose = false) {
+  return getRunningProcesses('qwen', verbose);
+}
+
+/**
  * Format a threshold as percentage for display.
  * @param {number} ratio - Ratio (0.0 - 1.0)
  * @returns {string} Formatted percentage
@@ -145,6 +154,8 @@ export function formatWaitingReason(metric, currentValue, threshold) {
       return 'Claude process is already running';
     case 'codex_running':
       return 'Codex process is already running';
+    case 'qwen_running':
+      return 'Qwen Code process is already running';
     default:
       return `${metric} threshold exceeded`;
   }

@@ -352,7 +352,7 @@ solve <issue-url> [options]
 
 | Option                   | Alias | Description                                      | Default |
 | ------------------------ | ----- | ------------------------------------------------ | ------- |
-| `--tool`                 |       | AI tool (claude, opencode, codex, agent)         | claude  |
+| `--tool`                 |       | AI tool (claude, opencode, codex, agent, qwen)   | claude  |
 | `--verbose`              | `-v`  | Enable verbose logging                           | false   |
 | `--attach-logs`          |       | Attach logs to PR (⚠️ may expose sensitive data) | false   |
 | `--auto-init-repository` |       | Auto-initialize empty repos (creates README.md)  | false   |
@@ -379,7 +379,7 @@ hive <github-url> [options]
 
 | Option                   | Alias | Description                                       | Default |
 | ------------------------ | ----- | ------------------------------------------------- | ------- |
-| `--tool`                 |       | AI tool (claude, opencode, agent)                 | claude  |
+| `--tool`                 |       | AI tool (claude, opencode, codex, agent, qwen)    | claude  |
 | `--concurrency`          | `-c`  | Number of parallel workers                        | 2       |
 | `--skip-issues-with-prs` | `-s`  | Skip issues with existing PRs                     | false   |
 | `--verbose`              | `-v`  | Enable verbose logging                            | false   |
@@ -469,11 +469,13 @@ Aliases:
 /codex is equivalent to /solve --tool codex
 /opencode is equivalent to /solve --tool opencode
 /agent is equivalent to /solve --tool agent
+/qwen is equivalent to /solve --tool qwen
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
 /opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+/qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
@@ -495,6 +497,7 @@ Current tool defaults in Hive Mind:
 | `codex`    | `gpt-5.5` preferred, with runtime fallback to local catalog | Codex runs with `reasoning_effort=none` unless you pass `--think` or `--thinking-budget` |
 | `opencode` | `grok-code-fast-1`                                          | No extra thinking prompt is added for the default model                                  |
 | `agent`    | `nemotron-3-super-free`                                     | No extra thinking prompt is added for the default model                                  |
+| `qwen`     | `qwen3-coder-plus`                                          | No extra thinking prompt is added for the default model                                  |
 
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 

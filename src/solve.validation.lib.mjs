@@ -330,6 +330,14 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
         await log('❌ Cannot proceed without Agent connection', { level: 'error' });
         return false;
       }
+    } else if (argv.tool === 'qwen') {
+      // Validate Qwen Code connection
+      const qwenLib = await import('./qwen.lib.mjs');
+      isToolConnected = await qwenLib.validateQwenConnection(model);
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without Qwen Code connection', { level: 'error' });
+        return false;
+      }
     } else {
       // Validate Claude CLI connection (default)
       const isClaudeConnected = await validateClaudeConnection(model);

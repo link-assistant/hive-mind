@@ -97,6 +97,8 @@ if (isRunningDirectly) {
     const { listSolutionDrafts } = solutionDraftsLib;
     const recheckLib = await import('./hive.recheck.lib.mjs');
     const { recheckIssueConditions } = recheckLib;
+    const toolConnectionValidationLib = await import('./tool-connection-validation.lib.mjs');
+    const { validateToolConnection } = toolConnectionValidationLib;
     const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
     const isLocalScript = commandName.endsWith('.mjs');
     const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
@@ -1426,8 +1428,6 @@ if (isRunningDirectly) {
       await safeExit(0, 'Process completed');
     }
 
-    // validateClaudeConnection is imported from lib.mjs
-
     // Handle graceful shutdown
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
     process.on('SIGTERM', () => gracefulShutdown('termination'));
@@ -1437,7 +1437,7 @@ if (isRunningDirectly) {
       await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', {
         verbose: true,
       });
-      await log('⏩ Skipping Claude CLI connection check (dry-run mode or skip-tool-connection-check enabled)', {
+      await log('⏩ Skipping AI tool connection check (dry-run mode or skip-tool-connection-check enabled)', {
         verbose: true,
       });
     } else {
@@ -1454,10 +1454,10 @@ if (isRunningDirectly) {
         await safeExit(1, 'Error occurred');
       }
 
-      // Validate Claude CLI connection before starting monitoring with the same model that will be used
-      const isClaudeConnected = await validateClaudeConnection(argv.model);
-      if (!isClaudeConnected) {
-        await log('❌ Cannot start monitoring without Claude CLI connection', { level: 'error' });
+      // Validate the selected AI tool connection before starting monitoring with the same model that will be used
+      const isToolConnected = await validateToolConnection({ tool: argv.tool, model: argv.model, verbose: argv.verbose, validateClaudeConnection });
+      if (!isToolConnected) {
+        await log(`❌ Cannot start monitoring without ${argv.tool || 'claude'} connection`, { level: 'error' });
         await safeExit(1, 'Error occurred');
       }
     }

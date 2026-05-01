@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.62.0
+
+### Minor Changes
+
+- Add direct Qwen Code CLI support for solve and hive workflows.
+
 ## 1.61.0
 
 ### Minor Changes

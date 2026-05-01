@@ -16,7 +16,7 @@
  */
 
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
-export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
 import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningProcesses } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
@@ -149,6 +149,7 @@ export class SolveQueue {
       claude: [],
       agent: [],
       codex: [],
+      qwen: [],
     };
     this.processing = new Map();
     this.completed = [];
@@ -160,6 +161,7 @@ export class SolveQueue {
       claude: null,
       agent: null,
       codex: null,
+      qwen: null,
     };
     // Legacy: keep for compatibility with existing code that uses lastStartTime
     this.lastStartTime = null;
@@ -561,8 +563,10 @@ export class SolveQueue {
     const claudeProcessCount = externalProcessing.byTool.claude || 0;
     const codexProcessCount = externalProcessing.byTool.codex || 0;
     const agentProcessCount = externalProcessing.byTool.agent || 0;
+    const qwenProcessCount = externalProcessing.byTool.qwen || 0;
     const hasRunningClaude = claudeProcessCount > 0;
     const hasRunningCodex = codexProcessCount > 0;
+    const hasRunningQwen = qwenProcessCount > 0;
 
     // Calculate total processing count for system resources (all tools)
     // System resources (RAM, CPU, disk) apply to all tools
@@ -574,6 +578,7 @@ export class SolveQueue {
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     const claudeProcessingCount = this.getProcessingCountByTool('claude');
     const codexProcessingCount = this.getProcessingCountByTool('codex');
+    const qwenProcessingCount = this.getProcessingCountByTool('qwen');
 
     // Track claude_running as a metric (but don't add to reasons yet)
     if (hasRunningClaude) {
@@ -581,6 +586,9 @@ export class SolveQueue {
     }
     if (hasRunningCodex) {
       this.recordThrottle('codex_running');
+    }
+    if (hasRunningQwen) {
+      this.recordThrottle('qwen_running');
     }
 
     // Check system resources with strategy support
@@ -604,8 +612,8 @@ export class SolveQueue {
     // This allows agent tasks to proceed when Claude limits are reached
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
-    const hasRunningToolProcess = tool === 'codex' ? hasRunningCodex : hasRunningClaude;
-    const toolProcessingCount = tool === 'codex' ? codexProcessingCount : claudeProcessingCount;
+    const hasRunningToolProcess = tool === 'codex' ? hasRunningCodex : tool === 'qwen' ? hasRunningQwen : hasRunningClaude;
+    const toolProcessingCount = tool === 'codex' ? codexProcessingCount : tool === 'qwen' ? qwenProcessingCount : claudeProcessingCount;
     const limitCheck = await this.checkApiLimits(hasRunningToolProcess, toolProcessingCount, tool);
     if (limitCheck.rejected) {
       rejected = true;
@@ -629,6 +637,9 @@ export class SolveQueue {
     if (tool === 'codex' && hasRunningCodex && reasons.length > 0) {
       reasons.push(formatWaitingReason('codex_running', codexProcessCount, 0) + ` (${codexProcessCount} processes)`);
     }
+    if (tool === 'qwen' && hasRunningQwen && reasons.length > 0) {
+      reasons.push(formatWaitingReason('qwen_running', qwenProcessCount, 0) + ` (${qwenProcessCount} processes)`);
+    }
 
     const canStart = reasons.length === 0 && !rejected;
 
@@ -650,10 +661,12 @@ export class SolveQueue {
       claudeProcesses: claudeProcessCount,
       codexProcesses: codexProcessCount,
       agentProcesses: agentProcessCount,
+      qwenProcesses: qwenProcessCount,
       isolatedProcesses: externalProcessing.isolatedTotal,
       totalProcessing,
       claudeProcessingCount,
       codexProcessingCount,
+      qwenProcessingCount,
     };
   }
 

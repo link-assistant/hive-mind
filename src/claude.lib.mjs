@@ -26,6 +26,7 @@ import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, maybeSwitchToFallbackModel } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
+import { createStuckWatchSessionState, observeSessionEvent, reportStuckWatchAtResult } from './claude.background-tasks.lib.mjs'; // Issue #1739
 export { availableModels }; // Re-export for backward compatibility
 export { fetchModelInfo };
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -666,6 +667,9 @@ export const executeClaudeCommand = async params => {
     let errorDuringExecution = false;
     let resultSummary = null;
     let resultModelUsage = null;
+    // Issue #1739: Track run_in_background Bash tasks so we can diagnose
+    // orphaned watcher sessions when the result event arrives.
+    const stuckWatchState = createStuckWatchSessionState();
     // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
     const subAgentCalls = [];
     // Issue #1590: Map tool_use_id -> subAgentCalls index for accumulating per-call usage from parent_tool_use_id events
@@ -891,6 +895,7 @@ export const executeClaudeCommand = async params => {
               }
               if (data.type === 'message') messageCount++;
               else if (data.type === 'tool_use') toolUseCount++;
+              observeSessionEvent(stuckWatchState, data); // Issue #1739
               // Issue #1708: signal busy/idle to the bidirectional handler so
               // queue-comments-to-input mode can hold frames until the AI is
               // idle. Any assistant/tool_use/system event means the AI is
@@ -909,6 +914,7 @@ export const executeClaudeCommand = async params => {
                   resultEventReceived = true;
                   await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
                   resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
+                  await reportStuckWatchAtResult(stuckWatchState, log); // Issue #1739
                 }
                 // Issue #1708: result event = AI is idle and waiting for next
                 // user input. Flush any frames queued by --queue-comments-to-input.

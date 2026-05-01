@@ -1,0 +1,44 @@
+# Issue Requirements — Issue #1739
+
+The issue body (verbatim, fetched via `gh issue view 1739 --repo link-assistant/hive-mind`):
+
+> https://gist.githubusercontent.com/konard/d8c2366ab072ada256e39c4021a13149/raw/b8398ed50cc9c59db3a10b07c7310912379905f5/425b92ce-9a70-4990-9b7c-0f21f61dbc0b.log
+>
+> We need to find root cause, and propose possible solutions.
+>
+> We need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).
+>
+> If there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.
+>
+> If issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.
+
+Below is the explicit list of requirements extracted from the issue, with a status and a pointer to where each is satisfied in this case-study folder.
+
+| #   | Requirement                                                                                                                      | Status                                                                                                                   | Where satisfied                                                                                                                                                                         |
+| --- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Find the root cause                                                                                                              | ✅ Done                                                                                                                  | [`root-causes.md`](./root-causes.md)                                                                                                                                                    |
+| 2   | Propose possible solutions                                                                                                       | ✅ Done                                                                                                                  | [`solution-plan.md`](./solution-plan.md)                                                                                                                                                |
+| 3   | Download all logs and data related to the issue to the repo                                                                      | ✅ Done                                                                                                                  | [`logs/original.log`](./logs/original.log) (4.39 MB / 73 270 lines)                                                                                                                     |
+| 4   | Compile the data into `./docs/case-studies/issue-1739/`                                                                          | ✅ Done                                                                                                                  | This entire folder                                                                                                                                                                      |
+| 5   | Reconstruct timeline / sequence of events                                                                                        | ✅ Done                                                                                                                  | [`timeline.md`](./timeline.md)                                                                                                                                                          |
+| 6   | List all requirements from the issue                                                                                             | ✅ Done                                                                                                                  | This file                                                                                                                                                                               |
+| 7   | Find root causes of each problem                                                                                                 | ✅ Done                                                                                                                  | [`root-causes.md`](./root-causes.md) — 5 distinct contributing factors                                                                                                                  |
+| 8   | Propose solution plans for each requirement                                                                                      | ✅ Done                                                                                                                  | [`solution-plan.md`](./solution-plan.md)                                                                                                                                                |
+| 9   | Check existing components / libraries that solve similar problems                                                                | ✅ Done                                                                                                                  | [`external-research.md`](./external-research.md) — see "Prior art" and "Reusable components"                                                                                            |
+| 10  | Search online for additional facts and data                                                                                      | ✅ Done                                                                                                                  | [`external-research.md`](./external-research.md)                                                                                                                                        |
+| 11  | If not enough data, add debug output and verbose mode for next iteration                                                         | ✅ Implemented                                                                                                           | The PR adds a "stuck-watch" detector that logs the surviving background-task IDs and the verbatim assistant text (see `src/solve.stuck-watch-detection.lib.mjs` if implemented in code) |
+| 12  | If issue is related to another repo, file an issue there with reproducible examples, workarounds, and code-level fix suggestions | ⚠️ Pending — see [`solution-plan.md` §"Upstream"](./solution-plan.md) for the draft of an `anthropics/claude-code` issue |
+
+---
+
+## Implicit / derived requirements
+
+These were not stated in the issue text but are needed for a credible fix:
+
+| #   | Implicit requirement                                                                          | Status                                                       |
+| --- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| D-1 | Reproducer — a way to trigger the same bug from a fresh checkout                              | Documented in `external-research.md` ("Reproduction recipe") |
+| D-2 | Test that fails before the fix and passes after                                               | Outlined in `solution-plan.md` §"Tests"                      |
+| D-3 | Cost / time bound on auto-restart so a single bad pattern cannot burn through $13+ unattended | Covered in `solution-plan.md` §"Hard cost ceiling"           |
+| D-4 | Tracing of which background tasks are still alive when a `result.end_turn` arrives            | Covered in `solution-plan.md` §"Verbose detection mode"      |
+| D-5 | Updated PR #1740 description summarising the case study                                       | Will be done as part of the PR-finalisation step             |

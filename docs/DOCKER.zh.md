@@ -37,7 +37,31 @@ docker build -t hive-mind:local .
 docker run -it hive-mind:local
 ```
 
-### 选项 3：开发模式（Gitpod 风格）
+### 选项 3：Docker-in-Docker 镜像
+
+当代理需要在 Hive Mind 容器内运行 Docker、Docker Compose 或 Testcontainers 时，请使用 `konard/hive-mind-dind:latest`。
+
+```bash
+# 拉取 Docker-in-Docker 镜像
+docker pull konard/hive-mind-dind:latest
+
+# 默认运行方式：privileged 容器会启动内部 dockerd
+docker run --rm --privileged -it konard/hive-mind-dind:latest bash
+
+# 在容器内验证嵌套 Docker
+docker info
+docker run hello-world
+```
+
+如果宿主机支持 Sysbox，优先使用 Sysbox runtime：
+
+```bash
+docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
+```
+
+DinD 镜像与 `konard/hive-mind:latest` 分开发布，因此不需要嵌套 Docker 的用户可以继续使用现有的低权限镜像。
+
+### 选项 4：开发模式（Gitpod 风格）
 
 出于开发目的，旧版 `Dockerfile` 提供了一个 Gitpod 兼容的环境：
 

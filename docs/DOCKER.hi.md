@@ -37,7 +37,31 @@ docker build -t hive-mind:local .
 docker run -it hive-mind:local
 ```
 
-### विकल्प 3: Development Mode (Gitpod-style)
+### विकल्प 3: Docker-in-Docker Image
+
+जब agent को Hive Mind container के अंदर Docker commands, Docker Compose, या Testcontainers चलाने हों, तो `konard/hive-mind-dind:latest` उपयोग करें।
+
+```bash
+# Docker-in-Docker image pull करें
+docker pull konard/hive-mind-dind:latest
+
+# Default runtime: privileged container अंदर dockerd शुरू करता है
+docker run --rm --privileged -it konard/hive-mind-dind:latest bash
+
+# Container के अंदर nested Docker verify करें
+docker info
+docker run hello-world
+```
+
+Shared hosts पर, उपलब्ध हो तो Sysbox runtime को प्राथमिकता दें:
+
+```bash
+docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
+```
+
+DinD image `konard/hive-mind:latest` से अलग publish होती है, इसलिए जिन्हें nested Docker नहीं चाहिए वे existing lower-privilege image इस्तेमाल कर सकते हैं।
+
+### विकल्प 4: Development Mode (Gitpod-style)
 
 Development उद्देश्यों के लिए, legacy `Dockerfile` एक Gitpod-compatible वातावरण प्रदान करता है:
 

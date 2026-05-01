@@ -58,7 +58,33 @@ docker build -t hive-mind:local .
 docker run -it hive-mind:local
 ```
 
-### Option 3: Development Mode (Gitpod-style)
+### Option 3: Docker-in-Docker Image
+
+Use `konard/hive-mind-dind:latest` when the agent must run Docker commands,
+Docker Compose, or Testcontainers inside the Hive Mind container.
+
+```bash
+# Pull the Docker-in-Docker image
+docker pull konard/hive-mind-dind:latest
+
+# Default runtime: privileged container starts an inner dockerd
+docker run --rm --privileged -it konard/hive-mind-dind:latest bash
+
+# Inside the container, verify nested Docker
+docker info
+docker run hello-world
+```
+
+On shared hosts, prefer a Sysbox runtime when it is available:
+
+```bash
+docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
+```
+
+The DinD image is published separately from `konard/hive-mind:latest` so users
+who do not need nested Docker keep the existing lower-privilege image.
+
+### Option 4: Development Mode (Gitpod-style)
 
 For development purposes, the legacy `Dockerfile` provides a Gitpod-compatible environment:
 

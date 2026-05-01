@@ -53,6 +53,8 @@ docker info
 docker run hello-world
 ```
 
+该镜像默认将内部 Docker daemon 设置为 `DIND_STORAGE_DRIVER=vfs`，以兼容 overlay-backed 宿主机。如果宿主机支持嵌套 overlay mount，可传入 `-e DIND_STORAGE_DRIVER=overlay2` 获得更快的本地运行速度。
+
 如果宿主机支持 Sysbox，优先使用 Sysbox runtime：
 
 ```bash

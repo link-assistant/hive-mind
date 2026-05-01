@@ -105,14 +105,17 @@ because that is the practical portable verification path.
 3. End the DinD image as `USER root` with
    `ENTRYPOINT ["/usr/local/bin/dind-entrypoint.sh"]`, matching the upstream
    Box contract that starts `dockerd` and then drops to `box`.
-4. Update release workflow PR checks to build both Dockerfiles and run nested
+4. Default the inner daemon to `DIND_STORAGE_DRIVER=vfs` so the smoke path works
+   on overlay-backed hosts where nested `overlay2` returns `invalid argument`;
+   callers can still opt into `overlay2` or `fuse-overlayfs` at runtime.
+5. Update release workflow PR checks to build both Dockerfiles and run nested
    `docker run hello-world` inside the DinD image.
-5. Add Docker Hub publish jobs for `konard/hive-mind-dind` in both normal and
+6. Add Docker Hub publish jobs for `konard/hive-mind-dind` in both normal and
    instant release paths, using the same published npm version as the standard
    image.
-6. Update change detection so `Dockerfile.dind` triggers Docker checks.
-7. Document the image and runtime requirements in Docker docs.
-8. Add `tests/test-docker-dind-variant.mjs` to lock the Dockerfile, docs, change
+7. Update change detection so `Dockerfile.dind` triggers Docker checks.
+8. Document the image and runtime requirements in Docker docs.
+9. Add `tests/test-docker-dind-variant.mjs` to lock the Dockerfile, docs, change
    detection, PR verification, and release publishing contract.
 
 ## Verification Notes
@@ -129,6 +132,12 @@ docker run --rm --privileged konard/hive-mind-dind:test bash -lc 'docker info &&
 The reproducing local test first failed with `Dockerfile.dind should exist`;
 after the implementation it validates the new image, docs, change detection,
 and release workflow wiring.
+
+The first PR CI Docker smoke run built both images but failed nested Docker
+startup because upstream auto-detection selected `overlay2` and dockerd logged
+`failed to mount overlay: invalid argument`. The image now defaults
+`DIND_STORAGE_DRIVER=vfs`, preserving a runtime override for hosts that support
+faster nested overlay drivers.
 
 ## Source Links
 

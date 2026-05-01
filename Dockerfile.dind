@@ -16,6 +16,9 @@ ARG HIVE_MIND_VERSION=latest
 # --- Environment variables ---
 ENV HOME=/home/box
 ENV HIVE_MIND_IMAGE_VARIANT=dind
+# Prefer compatibility for nested Docker. overlay2 can fail on common
+# overlay-backed hosts; users can override this to overlay2 or fuse-overlayfs.
+ENV DIND_STORAGE_DRIVER="vfs"
 ENV NVM_DIR="/home/box/.nvm"
 ENV PYENV_ROOT="/home/box/.pyenv"
 ENV BUN_INSTALL="/home/box/.bun"

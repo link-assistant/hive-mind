@@ -53,6 +53,8 @@ docker info
 docker run hello-world
 ```
 
+Образ по умолчанию запускает внутренний Docker daemon с `DIND_STORAGE_DRIVER=vfs` для совместимости с overlay-backed хостами. Для более быстрых локальных запусков на хостах с поддержкой nested overlay mounts передайте `-e DIND_STORAGE_DRIVER=overlay2`.
+
 На общих хостах лучше использовать Sysbox runtime, если он доступен:
 
 ```bash

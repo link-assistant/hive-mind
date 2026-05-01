@@ -75,6 +75,10 @@ docker info
 docker run hello-world
 ```
 
+The image defaults the inner Docker daemon to `DIND_STORAGE_DRIVER=vfs` for
+compatibility with overlay-backed hosts. For faster local runs on hosts that
+support nested overlay mounts, pass `-e DIND_STORAGE_DRIVER=overlay2`.
+
 On shared hosts, prefer a Sysbox runtime when it is available:
 
 ```bash

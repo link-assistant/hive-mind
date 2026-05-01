@@ -53,6 +53,8 @@ docker info
 docker run hello-world
 ```
 
+यह image overlay-backed hosts के साथ compatibility के लिए inner Docker daemon को default रूप से `DIND_STORAGE_DRIVER=vfs` पर चलाती है। जिन hosts पर nested overlay mounts supported हैं, वहां faster local runs के लिए `-e DIND_STORAGE_DRIVER=overlay2` pass करें।
+
 Shared hosts पर, उपलब्ध हो तो Sysbox runtime को प्राथमिकता दें:
 
 ```bash

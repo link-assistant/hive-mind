@@ -127,6 +127,8 @@ test('SolveQueue initializes with empty state', () => {
   assert.ok(stats.queuedByTool !== undefined, 'queuedByTool should exist in stats');
   assert.equal(stats.queuedByTool.claude, 0, 'Claude queue should be empty');
   assert.equal(stats.queuedByTool.agent, 0, 'Agent queue should be empty');
+  assert.equal(stats.queuedByTool.codex, 0, 'Codex queue should be empty');
+  assert.equal(stats.queuedByTool.gemini, 0, 'Gemini queue should be empty');
 
   queue.stop();
 });
@@ -1240,6 +1242,8 @@ test('queue item has correct tool property', () => {
   assert.equal(item1.tool, 'claude');
   const item2 = queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
   assert.equal(item2.tool, 'codex');
+  const item3 = queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'gemini' });
+  assert.equal(item3.tool, 'gemini');
   queue.stop();
 });
 
@@ -1275,6 +1279,17 @@ test('checkApiLimits with tool agent should not block on Claude limits', async (
   // Test with tool = 'claude' (default)
   const resultClaude = await queue.checkApiLimits(false, 0, 'claude');
   assert.ok(resultClaude !== undefined, 'Should work with tool = claude');
+
+  queue.stop();
+});
+
+test('checkApiLimits with tool gemini should not block on Claude limits', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  const resultGemini = await queue.checkApiLimits(false, 0, 'gemini');
+  assert.ok(resultGemini !== undefined, 'Should work with tool = gemini');
+  assert.ok(resultGemini.ok, 'Gemini should skip Claude-specific limits');
 
   queue.stop();
 });
@@ -1387,6 +1402,26 @@ test('queue item tool property is used by consumer', () => {
   // Verify item is in agent queue
   assert.equal(queue.getToolQueue('agent')[0].tool, 'agent', 'Agent queue should have agent item');
   assert.equal(queue.getToolQueue('agent').length, 1, 'Agent queue should have 1 item');
+  assert.equal(queue.getToolQueue('claude').length, 0, 'Claude queue should be empty');
+
+  queue.stop();
+});
+
+test('gemini queue item tool property is used by consumer', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  const geminiItem = queue.enqueue({
+    url: 'https://github.com/test/repo/issues/2',
+    args: '--tool gemini',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+    tool: 'gemini',
+  });
+
+  assert.equal(geminiItem.tool, 'gemini', 'Gemini tool should be preserved');
+  assert.equal(queue.getToolQueue('gemini')[0].tool, 'gemini', 'Gemini queue should have gemini item');
+  assert.equal(queue.getToolQueue('gemini').length, 1, 'Gemini queue should have 1 item');
   assert.equal(queue.getToolQueue('claude').length, 0, 'Claude queue should be empty');
 
   queue.stop();

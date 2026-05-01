@@ -341,13 +341,13 @@ solve <issue-url> [options]
 
 **其他常用选项：**
 
-| 选项                     | 简写 | 描述                                            | 默认值 |
-| ------------------------ | ---- | ----------------------------------------------- | ------ |
-| `--tool`                 |      | AI 工具（claude、opencode、codex、agent、qwen） | claude |
-| `--verbose`              | `-v` | 启用详细日志                                    | false  |
-| `--attach-logs`          |      | 将日志附加到 PR（⚠️ 可能暴露敏感数据）          | false  |
-| `--auto-init-repository` |      | 自动初始化空仓库（创建 README.md）              | false  |
-| `--help`                 | `-h` | 显示所有可用选项                                | -      |
+| 选项                     | 简写 | 描述                                                    | 默认值 |
+| ------------------------ | ---- | ------------------------------------------------------- | ------ |
+| `--tool`                 |      | AI 工具（claude、opencode、codex、agent、gemini、qwen） | claude |
+| `--verbose`              | `-v` | 启用详细日志                                            | false  |
+| `--attach-logs`          |      | 将日志附加到 PR（⚠️ 可能暴露敏感数据）                  | false  |
+| `--auto-init-repository` |      | 自动初始化空仓库（创建 README.md）                      | false  |
+| `--help`                 | `-h` | 显示所有可用选项                                        | -      |
 
 > **📖 完整选项列表**：包含 Fork、自动续行、监视模式及实验性功能在内的所有可用选项，请参见 [docs/CONFIGURATION.zh.md](./docs/CONFIGURATION.zh.md#solve-options)。
 
@@ -368,14 +368,14 @@ hive <github-url> [options]
 
 **其他常用选项：**
 
-| 选项                     | 简写 | 描述                                            | 默认值 |
-| ------------------------ | ---- | ----------------------------------------------- | ------ |
-| `--tool`                 |      | AI 工具（claude、opencode、codex、agent、qwen） | claude |
-| `--concurrency`          | `-c` | 并行工作进程数量                                | 2      |
-| `--skip-issues-with-prs` | `-s` | 跳过已有 PR 的 Issue                            | false  |
-| `--verbose`              | `-v` | 启用详细日志                                    | false  |
-| `--attach-logs`          |      | 将日志附加到 PR（⚠️ 可能暴露敏感数据）          | false  |
-| `--help`                 | `-h` | 显示所有可用选项                                | -      |
+| 选项                     | 简写 | 描述                                                    | 默认值 |
+| ------------------------ | ---- | ------------------------------------------------------- | ------ |
+| `--tool`                 |      | AI 工具（claude、opencode、codex、agent、gemini、qwen） | claude |
+| `--concurrency`          | `-c` | 并行工作进程数量                                        | 2      |
+| `--skip-issues-with-prs` | `-s` | 跳过已有 PR 的 Issue                                    | false  |
+| `--verbose`              | `-v` | 启用详细日志                                            | false  |
+| `--attach-logs`          |      | 将日志附加到 PR（⚠️ 可能暴露敏感数据）                  | false  |
+| `--help`                 | `-h` | 显示所有可用选项                                        | -      |
 
 > **📖 完整选项列表**：包含项目监控、YouTrack 集成及实验性功能在内的所有可用选项，请参见 [docs/CONFIGURATION.zh.md](./docs/CONFIGURATION.zh.md#hive-options)。
 
@@ -459,12 +459,14 @@ Aliases:
 /codex 等同于 /solve --tool codex
 /opencode 等同于 /solve --tool opencode
 /agent 等同于 /solve --tool agent
+/gemini 等同于 /solve --tool gemini
 /qwen 等同于 /solve --tool qwen
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
 /opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+/gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
 
 Free Models (with --tool agent):

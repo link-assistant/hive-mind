@@ -303,6 +303,14 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
         await log('❌ Cannot proceed without OpenCode connection', { level: 'error' });
         return false;
       }
+    } else if (argv.tool === 'gemini') {
+      // Validate Gemini connection
+      const geminiLib = await import('./gemini.lib.mjs');
+      isToolConnected = await geminiLib.validateGeminiConnection(model);
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without Gemini CLI connection', { level: 'error' });
+        return false;
+      }
     } else if (argv.tool === 'codex') {
       // Validate Codex connection
       const codexLib = await import('./codex.lib.mjs');

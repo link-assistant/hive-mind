@@ -13,6 +13,7 @@ export const TOOL_SOLVE_COMMAND_ALIASES = Object.freeze({
   codex: 'codex',
   opencode: 'opencode',
   agent: 'agent',
+  gemini: 'gemini',
   qwen: 'qwen',
 });
 

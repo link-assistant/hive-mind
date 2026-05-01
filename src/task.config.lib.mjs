@@ -1,7 +1,7 @@
 import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 
-export const TASK_TOOL_CHOICES = ['claude', 'codex', 'opencode', 'agent'];
+export const TASK_TOOL_CHOICES = ['claude', 'codex', 'opencode', 'agent', 'gemini', 'qwen'];
 
 export function getDefaultTaskModel(tool) {
   return defaultModels[tool] || defaultModels.claude;

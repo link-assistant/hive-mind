@@ -183,10 +183,10 @@ runTest('multi sub-sessions shown only once in multi-model', () => {
   });
   const result = buildBudgetStatsString(tokenUsage);
   // Issue #1600: Sub-sessions shown as numbered lines without "Context window:" prefix, appearing once globally
-  // Issue #1710 R3: peak request label disambiguates the bullet from the cumulative Total line
+  // Issue #1737: no obsolete "peak request:" label.
   assertNotContains(result, 'Context window:', 'Should NOT show "Context window:" prefix (removed in #1600)');
-  assertEqual(countOccurrences(result, '1. peak request: 60K / 1M'), 1, 'Sub-session 1 should appear once');
-  assertEqual(countOccurrences(result, '2. peak request: 71.9K / 1M'), 1, 'Sub-session 2 should appear once');
+  assertEqual(countOccurrences(result, '1. 60K / 1M'), 1, 'Sub-session 1 should appear once');
+  assertEqual(countOccurrences(result, '2. 71.9K / 1M'), 1, 'Sub-session 2 should appear once');
 });
 
 runTest('single-model multi sub-sessions still shown under that model', () => {
@@ -215,10 +215,10 @@ runTest('single-model multi sub-sessions still shown under that model', () => {
   };
   const result = buildBudgetStatsString(tokenUsage);
   // Issue #1600: Sub-sessions shown as numbered lines without "Context window:" prefix
-  // Issue #1710 R3: peak request label disambiguates the bullet from the cumulative Total line
+  // Issue #1737: no obsolete "peak request:" label.
   assertNotContains(result, 'Context window:', 'Should NOT show "Context window:" prefix (removed in #1600)');
-  assertContains(result, '1. peak request: 80K / 1M (8%) input tokens', 'Should show sub-session 1');
-  assertContains(result, '2. peak request: 45K / 1M (5%) input tokens', 'Should show sub-session 2');
+  assertContains(result, '1. 80K / 1M (8%) input tokens', 'Should show sub-session 1');
+  assertContains(result, '2. 45K / 1M (5%) input tokens', 'Should show sub-session 2');
 });
 
 // ==== Test Group: accumulateModelUsage with multi-model ====
@@ -335,9 +335,8 @@ runTest('multi-model multi sub-sessions shows global sub-sessions AND per-model 
   const result = buildBudgetStatsString(tokenUsage);
   // Issue #1600: Global sub-sessions shown as numbered lines without "Context window:" prefix
   assertNotContains(result, 'Context window:', 'Should NOT show "Context window:" prefix (removed in #1600)');
-  // Issue #1710 R3: peak request label disambiguates the bullet from the cumulative Total line
-  assertContains(result, '1. peak request: 60K / 1M', 'Sub-session 1 shown globally');
-  assertContains(result, '2. peak request: 71.9K / 1M', 'Sub-session 2 shown globally');
+  assertContains(result, '1. 60K / 1M', 'Sub-session 1 shown globally');
+  assertContains(result, '2. 71.9K / 1M', 'Sub-session 2 shown globally');
   // Per-model headings
   assertContains(result, '**Claude Opus 4.6:**', 'Should show Opus heading');
   assertContains(result, '**Claude Haiku 4.5:**', 'Should show Haiku heading');

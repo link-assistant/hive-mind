@@ -3,7 +3,7 @@
  * Tests for Issue #1600: Calculation bugs and format unification
  *
  * Tests:
- * 1. Session segment count in model title
+ * 1. Sub-session count in model title
  * 2. Removed "Context window:" prefix (unified format)
  * 3. Sub-agent single session detalization (output-only line)
  * 4. Decimal precision in cost calculations
@@ -30,10 +30,10 @@ function test(name, fn) {
   }
 }
 
-// === Test: Session segment count in title ===
-console.log('\n📋 Session segment count in model title\n');
+// === Test: Sub-session count in title ===
+console.log('\n📋 Sub-session count in model title\n');
 
-test('shows session segment count for primary model with multiple sub-sessions', () => {
+test('shows sub-session count for primary model with multiple sub-sessions', () => {
   const tokenUsage = {
     modelUsage: {
       'claude-opus-4-6': {
@@ -55,10 +55,10 @@ test('shows session segment count for primary model with multiple sub-sessions',
   };
 
   const result = buildBudgetStatsString(tokenUsage);
-  assert.ok(result.includes('(3 session segments)'), `Should show session segment count. Got: ${result}`);
+  assert.ok(result.includes('(3 sub-sessions)'), `Should show sub-session count. Got: ${result}`);
 });
 
-test('does not show session segment count for single sub-session', () => {
+test('does not show sub-session count for single sub-session', () => {
   const tokenUsage = {
     modelUsage: {
       'claude-opus-4-6': {
@@ -76,7 +76,7 @@ test('does not show session segment count for single sub-session', () => {
   };
 
   const result = buildBudgetStatsString(tokenUsage);
-  assert.ok(!result.includes('session segments'), `Should not show session segment count for single session. Got: ${result}`);
+  assert.ok(!result.includes('sub-sessions'), `Should not show sub-session count for single session. Got: ${result}`);
 });
 
 // === Test: Removed "Context window:" prefix ===
@@ -291,8 +291,8 @@ test('multi-model output with sub-agent calls and single sessions', () => {
 
   const result = buildBudgetStatsString(tokenUsage, subAgentCalls);
 
-  // Primary model should show session segments
-  assert.ok(result.includes('(3 session segments)'), 'Should show session segment count for primary model');
+  // Primary model should show sub-sessions
+  assert.ok(result.includes('(3 sub-sessions)'), 'Should show sub-session count for primary model');
   // Haiku should show sub-agent calls
   assert.ok(result.includes('(2 sub-agent calls)'), 'Should show sub-agent call count for Haiku');
   // No "Context window:" prefix

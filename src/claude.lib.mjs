@@ -15,7 +15,7 @@ import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidire
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
-import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage } from './claude.budget-stats.lib.mjs';
+import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage, getRawRequestInputTokens } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
@@ -394,9 +394,10 @@ export const checkModelVisionCapability = async modelId => {
 // this file under the 1500-line repo cap (see check-file-line-limits CI job).
 import { calculateModelCost } from './claude.cost.lib.mjs';
 export { calculateModelCost };
-export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsage = null) => {
+export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsage = null, options = {}) => {
   const os = (await use('os')).default;
-  const homeDir = os.homedir();
+  const homeDir = options.homeDir || os.homedir();
+  const fetchModelInfoForUsage = options.fetchModelInfo || fetchModelInfo;
   // Construct the path to the session JSONL file
   // Format: ~/.claude/projects/<project-dir>/<session-id>.jsonl
   // The project directory name is the full path with slashes replaced by dashes
@@ -454,15 +455,12 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
             seenMessageIds.add(msgId);
           }
           accumulateModelUsage(modelUsage, entry);
-          // Issue #1501: Track peak context usage per single API request
-          // Issue #1710: Exclude cache_read_input_tokens — sub-sessions and
-          // per-request peaks should reflect *new* input the model received,
-          // not cached prompt context. Cache reads remain visible in the
-          // cumulative Total line as `(X + Y cached)`. This makes the
-          // peak-request value reconcilable with the cumulative non-cached
-          // input figure (instead of mixing semantics across the two lines).
+          // Issue #1737: Track peak restored-context input per request.
+          // Anthropic splits a request's input into input_tokens,
+          // cache_creation_input_tokens, and cache_read_input_tokens; all three
+          // count toward "how much context will be restored if I resume here".
           const usage = entry.message.usage;
-          const requestContext = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0);
+          const requestContext = getRawRequestInputTokens(usage);
           const model = entry.message.model;
           if (requestContext > (peakContextByModel[model] || 0)) {
             peakContextByModel[model] = requestContext;
@@ -500,7 +498,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
     }
     // Fetch model information for each model
     const modelInfoPromises = Object.keys(modelUsage).map(async modelId => {
-      const modelInfo = await fetchModelInfo(modelId);
+      const modelInfo = await fetchModelInfoForUsage(modelId);
       return { modelId, modelInfo };
     });
     const modelInfoResults = await Promise.all(modelInfoPromises);
@@ -1295,9 +1293,7 @@ export const executeClaudeCommand = async params => {
               await log(`\n⚠️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries (upstream: anthropics/claude-code#6805)`, { verbose: true });
             }
             if (tokenUsage.peakContextUsage > 0) {
-              // Issue #1710: rename so the metric matches the new definition (input + cache_creation,
-              // excluding cache_read). Cache reads are still visible separately on the Total line.
-              await log(`📊 Peak single-request input (excl. cache reads): ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
+              await log(`📊 Peak restored-context input: ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
             }
             await log('\n💰 Token Usage Summary:');
             // Display per-model breakdown

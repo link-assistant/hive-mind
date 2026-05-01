@@ -342,7 +342,7 @@ function isForwardedOrReply(ctx) {
 /**
  * Validates the model name in the args array and returns an error message if invalid
  * @param {string[]} args - Array of command arguments
- * @param {string} tool - The tool to validate against ('claude' or 'opencode')
+ * @param {string} tool - The tool to validate against ('claude', 'opencode', 'codex', 'agent', or 'gemini')
  * @returns {string|null} Error message if invalid, null if valid or no model specified
  */
 function validateModelInArgs(args, tool = 'claude') {
@@ -525,7 +525,7 @@ bot.command('help', async ctx => {
   message += '📝 *Available Commands:*\n\n';
 
   if (solveEnabled) {
-    message += '*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*) - Solve a GitHub issue\n';
+    message += '*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*) - Solve a GitHub issue\n';
     message += 'Usage: `/solve <github-url> [options]`\n';
     message += 'Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`\n';
     message += 'Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`\n';
@@ -535,7 +535,7 @@ bot.command('help', async ctx => {
     }
     message += '\n';
   } else {
-    message += '*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*) - ❌ Disabled\n\n';
+    message += '*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*) - ❌ Disabled\n\n';
   }
 
   if (taskEnabled) {
@@ -576,7 +576,7 @@ bot.command('help', async ctx => {
   message += '🔔 *Session Notifications:* Completion notifications are automatic; use /subscribe for private DM forwards.\n';
   if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
   message += '\n';
-  message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /subscribe and /unsubscribe work in private and group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /subscribe and /unsubscribe work in private and group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';

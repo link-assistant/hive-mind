@@ -352,7 +352,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'enable-workspaces': {
     type: 'boolean',
-    description: 'Use separate workspace directory structure with repository/ and tmp/ folders. Works with all tools (claude, opencode, codex, agent). Experimental feature.',
+    description: 'Use separate workspace directory structure with repository/ and tmp/ folders. Works with all tools (claude, opencode, codex, agent, gemini). Experimental feature.',
     default: false,
   },
   'interactive-mode': {
@@ -428,7 +428,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'prompt-playwright-mcp': {
     type: 'boolean',
-    description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Supported for --tool claude, --tool codex, --tool opencode, and --tool agent.',
+    description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, and --tool gemini.',
     default: true,
   },
   'prompt-check-sibling-pull-requests': {
@@ -448,7 +448,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'playwright-mcp': {
     type: 'boolean',
-    description: 'Enable Playwright MCP server connection for this session (enabled by default). Use --no-playwright-mcp to physically disable the Playwright MCP server without affecting the global MCP registration. When disabled, also disables --prompt-playwright-mcp and --playwright-mcp-auto-cleanup. Supported for --tool claude, --tool codex, --tool opencode, and --tool agent.',
+    description: 'Enable Playwright MCP server connection for this session (enabled by default). Use --no-playwright-mcp to physically disable the Playwright MCP server without affecting the global MCP registration. When disabled, also disables --prompt-playwright-mcp and --playwright-mcp-auto-cleanup. Supported for --tool claude, --tool codex, --tool opencode, and --tool agent; for --tool gemini this controls prompt hints and cleanup only.',
     default: true,
   },
   'playwright-mcp-auto-cleanup': {

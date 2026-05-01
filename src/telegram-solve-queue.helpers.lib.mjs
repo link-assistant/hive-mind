@@ -7,7 +7,7 @@ const execAsync = promisify(exec);
 
 /**
  * Count running processes by name.
- * @param {string} processName - Process name to search for (e.g., 'claude', 'agent')
+ * @param {string} processName - Process name to search for (e.g., 'claude', 'agent', 'codex', 'gemini')
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{count: number, processes: string[]}>}
  */
@@ -73,6 +73,15 @@ export async function getRunningAgentProcesses(verbose = false) {
  */
 export async function getRunningCodexProcesses(verbose = false) {
   return getRunningProcesses('codex', verbose);
+}
+
+/**
+ * Count running gemini processes.
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, processes: string[]}>}
+ */
+export async function getRunningGeminiProcesses(verbose = false) {
+  return getRunningProcesses('gemini', verbose);
 }
 
 /**
@@ -145,6 +154,8 @@ export function formatWaitingReason(metric, currentValue, threshold) {
       return 'Claude process is already running';
     case 'codex_running':
       return 'Codex process is already running';
+    case 'gemini_running':
+      return 'Gemini process is already running';
     default:
       return `${metric} threshold exceeded`;
   }

@@ -321,9 +321,9 @@ solve <issue-url> [options]
 
 | 选项                                                             | 别名 | 类型    | 默认值        | 描述                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------- | ---- | ------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--model`                                                        | `-m` | string  | sonnet        | 模型（claude 使用 opus、sonnet、haiku；opencode 使用 grok-code-fast-1；codex 使用 gpt-5）                                                                                                                                                                                                                                                                                                               |
+| `--model`                                                        | `-m` | string  | sonnet        | 模型（claude 使用 opus、sonnet、haiku；opencode 使用 grok-code-fast-1；codex 使用 gpt-5；gemini 使用 flash）                                                                                                                                                                                                                                                                                            |
 | `--worker-model`                                                 |      | string  |               | --model 的别名：当指定 --plan-model 时的执行/工作模型                                                                                                                                                                                                                                                                                                                                                   |
-| `--tool`                                                         |      | string  | claude        | AI 工具（claude、opencode、codex、agent）                                                                                                                                                                                                                                                                                                                                                               |
+| `--tool`                                                         |      | string  | claude        | AI 工具（claude、opencode、codex、agent、gemini）                                                                                                                                                                                                                                                                                                                                                       |
 | `--plan`                                                         |      | boolean | false         | 启用计划模式：opus 用于规划，sonnet 用于执行（仅限 --tool claude）                                                                                                                                                                                                                                                                                                                                      |
 | `--plan-model`                                                   |      | string  |               | 计划模式的模型（例如 opus）。自动切换到 opusplan 模式（仅限 --tool claude）                                                                                                                                                                                                                                                                                                                             |
 | `--think`                                                        |      | string  |               | 思考级别（off、low、medium、high、max）                                                                                                                                                                                                                                                                                                                                                                 |
@@ -478,9 +478,9 @@ hive-telegram-bot [options]
 | `--isolation`                       |      | string  | `screen` | 隔离后端（`screen`、`tmux`、`docker`）。默认 `screen`，使 Telegram-bot 工作会话保持分离，从而能够在 bot 重启后继续运行。要禁用，请传递 `--isolation ''`（或设置 `TELEGRAM_ISOLATION=`）。 |
 
 启用 `/solve` 时，Telegram bot 也接受 `/do` 和 `/continue` 作为普通
-`/solve` 别名。`/claude`、`/codex`、`/opencode` 和 `/agent` 是按工具划分的别名，
+`/solve` 别名。`/claude`、`/codex`、`/opencode`、`/agent` 和 `/gemini` 是按工具划分的别名，
 分别等同于 `/solve --tool claude`、`/solve --tool codex`、
-`/solve --tool opencode` 和 `/solve --tool agent`。
+`/solve --tool opencode`、`/solve --tool agent` 和 `/solve --tool gemini`。
 
 ---
 
@@ -567,11 +567,11 @@ const dsn = sentry.dsn;
 
 某些选项根据所选 `--tool` 具有不同的默认值：
 
-| 选项             | `--tool claude` | `--tool agent/opencode/codex`              |
-| ---------------- | --------------- | ------------------------------------------ |
-| `--model`        | `sonnet`        | `grok-code` / `grok-code-fast-1` / `gpt-5` |
-| `--claude-file`  | `false`         | `false`                                    |
-| `--gitkeep-file` | `true`          | `true`                                     |
+| 选项             | `--tool claude` | `--tool agent/opencode/codex/gemini`                               |
+| ---------------- | --------------- | ------------------------------------------------------------------ |
+| `--model`        | `sonnet`        | `nemotron-3-super-free` / `grok-code-fast-1` / `gpt-5.5` / `flash` |
+| `--claude-file`  | `false`         | `false`                                                            |
+| `--gitkeep-file` | `true`          | `true`                                                             |
 
 **`--gitkeep-file` 默认值的原因：**
 

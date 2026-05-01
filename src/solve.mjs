@@ -756,8 +756,9 @@ try {
     });
   } else if (argv.tool === 'gemini') {
     const geminiLib = await import('./gemini.lib.mjs');
-    const { executeGemini } = geminiLib;
+    const { executeGemini, checkPlaywrightMcpAvailability: checkGeminiPlaywrightMcp } = geminiLib;
     const geminiPath = process.env.GEMINI_PATH || 'gemini';
+    await resolvePlaywrightMcp(checkGeminiPlaywrightMcp);
 
     toolResult = await executeGemini({
       issueUrl,
@@ -766,6 +767,7 @@ try {
       prUrl,
       branchName,
       tempDir,
+      workspaceTmpDir,
       isContinueMode,
       mergeStateStatus,
       forkedRepo,
@@ -780,7 +782,7 @@ try {
       formatAligned,
       getResourceSnapshot,
       geminiPath,
-      $
+      $,
     });
   } else {
     // Default to Claude

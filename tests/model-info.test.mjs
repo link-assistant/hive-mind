@@ -54,6 +54,10 @@ test('getToolDisplayName returns "Agent CLI" for agent', () => {
   assert.equal(getToolDisplayName('agent'), 'Agent CLI');
 });
 
+test('getToolDisplayName returns "Google Gemini CLI" for gemini', () => {
+  assert.equal(getToolDisplayName('gemini'), 'Google Gemini CLI');
+});
+
 test('getToolDisplayName returns "AI tool" for unknown', () => {
   assert.equal(getToolDisplayName('unknown'), 'AI tool');
 });
@@ -108,6 +112,10 @@ test('resolveModelId resolves "gpt5" for codex tool', () => {
 
 test('resolveModelId resolves "gpt-5.5" for codex tool', () => {
   assert.equal(resolveModelId('gpt-5.5', 'codex'), 'gpt-5.5');
+});
+
+test('resolveModelId resolves "flash" for gemini tool', () => {
+  assert.equal(resolveModelId('flash', 'gemini'), 'gemini-2.5-flash');
 });
 
 test('resolveModelId strips [1m] suffix', () => {
@@ -341,6 +349,16 @@ test('buildModelInfoString shows "Agent" tool name for agent', () => {
     modelsUsed: [{ modelId: 'opencode/grok-code', modelInfo: { name: 'Grok Code', provider: 'OpenCode Zen' } }],
   });
   assert.ok(result.includes('Tool: Agent CLI'), `Expected "Tool: Agent CLI" but got: ${result}`);
+});
+
+test('buildModelInfoString shows "Gemini" tool name for gemini', () => {
+  const result = buildModelInfoString({
+    tool: 'gemini',
+    requestedModel: 'flash',
+    modelsUsed: [{ modelId: 'gemini-2.5-flash', modelInfo: { name: 'Gemini 2.5 Flash', provider: 'Google' } }],
+  });
+  assert.ok(result.includes('Tool: Google Gemini CLI'), `Expected "Tool: Google Gemini CLI" but got: ${result}`);
+  assert.ok(result.includes('Gemini 2.5 Flash'), `Expected Gemini model name but got: ${result}`);
 });
 
 test('buildModelInfoString shows warning for codex when actual model does not match requested', () => {

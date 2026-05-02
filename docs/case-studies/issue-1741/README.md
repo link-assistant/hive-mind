@@ -103,9 +103,10 @@ cache_read`. PR #1738 lands and changes `peakContextUsage` accordingly.
 - OpenAI prompt-caching docs likewise expose cached prompt tokens through
   `usage.prompt_tokens_details.cached_tokens` as a _per-request_ field.
   Source: <https://developers.openai.com/api/docs/guides/prompt-caching>
-- Codex CLI internally already chose the
-  `input + cache_write` (no cache_read) shape for `peakContextUsage`
-  (`src/codex.lib.mjs:345`), independently arriving at the same conclusion.
+- OpenAI docs also confirm prompt caching is automatic on recent models and
+  that cached prompt tokens are reported separately from total prompt tokens;
+  the Codex parser therefore keeps `cached_input_tokens` in totals while using
+  a separate no-cache-read `contextFillInputTokens` for display.
 
 ## Root Causes
 
@@ -124,9 +125,14 @@ cacheReadTokens`. For sub-agent rows the totals are summed across many
 3. **R3 — Inconsistent per-tool semantics.**
    - Claude (JSONL parsing): per-request `input + cache_creation +
 cache_read` (correct for a _single_ request's restored context).
-   - Codex: per-turn `input + cache_write` (no cache_read).
+   - Codex: raw turn peak used the restored prompt value, while budget display
+     had no separate no-cache-read field.
    - agent-token-usage: per-step `input + cache.read` (no cache_write).
    - Gemini: `tokens.total`.
+   - Qwen: no usage was parsed even when structured events included it.
+   - agent-commander: fallback summaries passed `streamTokenUsage` but could
+     drop `pricingInfo.tokenUsage`, so `verifyResults` could not build budget
+     stats for non-Claude tools.
      The choice of formula is not derived from a single source of truth, so
      later-added tools risk drifting again.
 
@@ -171,6 +177,30 @@ Therefore:
 The distinction is small but important; we encode both in named helpers so
 future contributors can pick the right one without re-deriving the math.
 
+## Implementation Completed
+
+The PR now separates two concepts everywhere budget stats are rendered:
+
+- `peakContextUsage`: restored prompt size for a concrete request/turn, used
+  for diagnostics and pricing decisions that need the full request pressure.
+- `contextFillInputTokens`: display numerator for cumulative session or
+  sub-session rows, calculated by the shared `src/context-fill.lib.mjs` helper
+  as `input + cache_write` with cache reads excluded.
+
+Cross-tool audit result:
+
+| Tool / path      | Direct CLI support                                                                                   | agent-commander support                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Claude           | Keeps request peaks for JSONL sub-sessions; result-event-only sub-agent rows use shared no-read fill | Metadata path is preserved; fallback Claude result cost remains unchanged              |
+| Codex            | Adds `contextFillInputTokens` from non-cached input + cache writes while preserving restored peak    | Metadata/fallback token usage is normalized into `pricingInfo.tokenUsage`              |
+| Agent / OpenCode | `agent-token-usage` records no-read context fill for every `step_finish` event                       | Fallback summaries keep token usage and render the same budget row                     |
+| Gemini           | Structured `stats.models[*].tokens` now expose context fill and optional context/output limits       | Metadata/fallback token usage is normalized before `verifyResults` builds budget stats |
+| Qwen             | Structured `usage` / `stats.models` events now populate token usage, result model usage, and limits  | Metadata/fallback token usage is normalized before budget rendering                    |
+
+No new upstream issue was filed. The only upstream blocker identified remains
+Claude Code's lack of per-call sub-agent JSONL records; this PR fixes the local
+renderer and parser behavior for the telemetry that is available today.
+
 ### Worked example (issue body figures)
 
 For Haiku in the linked PR comment:
@@ -200,7 +230,12 @@ output        = 6_600
 - Unit tests added in `tests/test-issue-1741-haiku-context.mjs` covering:
   - Haiku result-event-only single-call rendering (regression for #1741).
   - Multi-call sub-agent estimator using the new formula.
-  - The new helper returns `input + cacheCreation` (no cache_read).
-- Existing tests `tests/test-issue-1737-budget-stats.mjs` and
-  `tests/test-issue-1710-format-fixes.mjs` are updated where they assert the
-  pre-fix Haiku output and adjusted to the new shape.
+  - The shared helper returns `input + cacheCreation/cacheWrite` (no
+    cache_read) for Claude and non-Claude token shapes.
+- Cross-tool regression coverage added/updated in:
+  - `tests/test-agent-token-usage.mjs` for Agent/OpenCode direct parsing.
+  - `tests/test-codex-support.mjs` for Codex `contextFillInputTokens`.
+  - `tests/test-gemini-support.mjs` for Gemini structured stats.
+  - `tests/test-qwen-support.mjs` for Qwen structured usage parsing.
+  - `tests/test-agent-commander-option.mjs` for agent-commander fallback
+    budget rendering.

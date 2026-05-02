@@ -33,6 +33,7 @@ const HAIKU_MODEL_INFO = { limit: { context: 200_000, output: 64_000 } };
 
 await test('getCumulativeContextInputTokens excludes cache reads', () => {
   assert.equal(getCumulativeContextInputTokens({ inputTokens: 94, cacheCreationTokens: 61_200, cacheReadTokens: 1_100_000 }), 61_294, 'must equal input + cache_creation (no cache_read)');
+  assert.equal(getCumulativeContextInputTokens({ inputTokens: 94, cacheWriteTokens: 61_200, cacheReadTokens: 1_100_000 }), 61_294, 'must support non-Claude cacheWriteTokens with the same formula');
   assert.equal(getCumulativeContextInputTokens(null), 0);
   assert.equal(getCumulativeContextInputTokens({}), 0);
   assert.equal(getCumulativeContextInputTokens({ inputTokens: 100 }), 100);

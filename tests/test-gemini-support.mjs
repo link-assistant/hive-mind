@@ -138,6 +138,17 @@ test('parseGeminiJsonOutput extracts session, messages, tools, result, and usage
   assert.equal(chunkedState.resultSummary, 'done');
 });
 
+test('Gemini budget usage exposes issue #1741 context fill separately from cache reads', () => {
+  const output = '{"type":"result","response":"completed","stats":{"models":{"gemini-2.5-flash":{"tokens":{"input":94,"cacheWrite":61200,"cacheRead":1100000,"output":6600,"total":1161294,"contextLimit":200000,"outputLimit":64000}}}}}';
+  const parsed = parseGeminiJsonOutput(output, {}, 'gemini-2.5-flash');
+  const usage = parsed.resultModelUsage['gemini-2.5-flash'];
+
+  assert.equal(usage.contextFillInputTokens, 61_294);
+  assert.equal(usage.peakContextUsage, 1_161_294);
+  assert.equal(usage.cacheReadTokens, 1_100_000);
+  assert.deepEqual(usage.modelInfo, { limit: { context: 200_000, output: 64_000 } });
+});
+
 await asyncTest('executeGeminiCommand uses structured headless stream-json invocation', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gemini-support-test-'));
   const logs = [];

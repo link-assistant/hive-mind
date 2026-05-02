@@ -185,6 +185,7 @@ test('Codex exec JSON parser does not mark cache write as available when CLI doe
   assert.equal(parsed.tokenUsage.cacheReadTokens, 388480);
   assert.equal(parsed.tokenUsage.outputTokens, 3031);
   assert.equal(parsed.tokenUsage.peakContextUsage, 433303);
+  assert.equal(parsed.tokenUsage.contextFillInputTokens, 44823);
   assert.deepEqual(parsed.observedUsageFieldSets, [['input_tokens', 'cached_input_tokens', 'output_tokens']]);
   assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheReadTokens, true);
   assert.equal(parsed.tokenUsage.tokenFieldAvailability.cacheWriteTokens, false);
@@ -626,6 +627,7 @@ test('Codex result model usage uses parsed token usage in shared budget-stats sh
       outputTokens: 50,
       modelName: 'gpt-5.4',
       modelInfo: null,
+      contextFillInputTokens: 1000,
       peakContextUsage: 0,
       costUSD: null,
     },

@@ -9,6 +9,7 @@ import { stdout } from 'node:process';
 import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 import { getSolvePassthroughOptionNames } from '../src/hive.config.lib.mjs';
 import { AGENT_COMMANDER_TOOLS, buildAgentCommanderControllerOptions, buildAgentCommanderToolOptions, executeWithAgentCommander, summarizeAgentCommanderResult, validateAgentCommanderConnection } from '../src/agent-commander.lib.mjs';
+import { buildAgentBudgetStats, buildBudgetStatsString } from '../src/claude.budget-stats.lib.mjs';
 
 const logs = [];
 const log = async message => {
@@ -217,5 +218,31 @@ const claudeSummary = summarizeAgentCommanderResult({
 assert.equal(claudeSummary.sessionId, 'claude-session-1');
 assert.equal(claudeSummary.anthropicTotalCostUSD, 0.12);
 assert.equal(claudeSummary.resultSummary, 'done from claude');
+
+const agentUsageSummary = summarizeAgentCommanderResult({
+  tool: 'agent',
+  result: {
+    exitCode: 0,
+    output: {
+      plain: 'done',
+      parsed: [{ type: 'result', result: 'done' }],
+    },
+    usage: {
+      inputTokens: 94,
+      outputTokens: 6600,
+      cacheReadTokens: 1_100_000,
+      cacheWriteTokens: 61_200,
+      totalCost: 0.219954,
+      contextLimit: 200_000,
+      outputLimit: 64_000,
+      respondedModelId: 'opencode/claude-haiku-4-5',
+    },
+  },
+});
+assert.equal(agentUsageSummary.pricingInfo.tokenUsage.contextFillInputTokens, 61_294);
+const agentBudgetStats = buildAgentBudgetStats(agentUsageSummary.pricingInfo.tokenUsage, agentUsageSummary.pricingInfo);
+const agentBudgetComment = buildBudgetStatsString(agentBudgetStats);
+assert.ok(agentBudgetComment.includes('- 61.3K / 200K (31%) input tokens, 6.6K / 64K (10%) output tokens'), agentBudgetComment);
+assert.ok(agentBudgetComment.includes('Total: (94 new + 61.2K cache writes + 1.1M cache reads) input tokens'), agentBudgetComment);
 
 stdout.write('agent-commander option tests passed\n');

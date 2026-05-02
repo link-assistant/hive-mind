@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.64.0
+
+### Minor Changes
+
+- 2ffb808: Add experimental `--use-agent-commander` option to delegate supported tool execution to the agent-commander library, including Claude, Codex, OpenCode, Agent, Qwen, and Gemini.
+
 ## 1.63.0
 
 ### Minor Changes

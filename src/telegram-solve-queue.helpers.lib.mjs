@@ -76,21 +76,21 @@ export async function getRunningCodexProcesses(verbose = false) {
 }
 
 /**
- * Count running gemini processes.
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{count: number, processes: string[]}>}
- */
-export async function getRunningGeminiProcesses(verbose = false) {
-  return getRunningProcesses('gemini', verbose);
-}
-
-/**
  * Count running qwen processes.
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{count: number, processes: string[]}>}
  */
 export async function getRunningQwenProcesses(verbose = false) {
   return getRunningProcesses('qwen', verbose);
+}
+
+/**
+ * Count running gemini processes.
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, processes: string[]}>}
+ */
+export async function getRunningGeminiProcesses(verbose = false) {
+  return getRunningProcesses('gemini', verbose);
 }
 
 /**
@@ -163,10 +163,10 @@ export function formatWaitingReason(metric, currentValue, threshold) {
       return 'Claude process is already running';
     case 'codex_running':
       return 'Codex process is already running';
-    case 'gemini_running':
-      return 'Gemini process is already running';
     case 'qwen_running':
       return 'Qwen Code process is already running';
+    case 'gemini_running':
+      return 'Gemini CLI process is already running';
     default:
       return `${metric} threshold exceeded`;
   }

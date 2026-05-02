@@ -47,7 +47,7 @@ const HIVE_CUSTOM_SOLVE_OPTIONS = {
   tool: {
     type: 'string',
     description: 'AI tool to use for solving issues',
-    choices: ['claude', 'opencode', 'codex', 'agent', 'gemini', 'qwen'],
+    choices: ['claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini'],
     default: 'claude',
   },
 };

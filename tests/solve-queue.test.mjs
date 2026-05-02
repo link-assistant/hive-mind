@@ -128,6 +128,7 @@ test('SolveQueue initializes with empty state', () => {
   assert.equal(stats.queuedByTool.claude, 0, 'Claude queue should be empty');
   assert.equal(stats.queuedByTool.agent, 0, 'Agent queue should be empty');
   assert.equal(stats.queuedByTool.codex, 0, 'Codex queue should be empty');
+  assert.equal(stats.queuedByTool.qwen, 0, 'Qwen queue should be empty');
   assert.equal(stats.queuedByTool.gemini, 0, 'Gemini queue should be empty');
 
   queue.stop();

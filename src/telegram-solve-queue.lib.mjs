@@ -149,8 +149,8 @@ export class SolveQueue {
       claude: [],
       agent: [],
       codex: [],
-      gemini: [],
       qwen: [],
+      gemini: [],
     };
     this.processing = new Map();
     this.completed = [];
@@ -162,8 +162,8 @@ export class SolveQueue {
       claude: null,
       agent: null,
       codex: null,
-      gemini: null,
       qwen: null,
+      gemini: null,
     };
     // Legacy: keep for compatibility with existing code that uses lastStartTime
     this.lastStartTime = null;
@@ -566,12 +566,12 @@ export class SolveQueue {
     const claudeProcessCount = externalProcessing.byTool.claude || 0;
     const codexProcessCount = externalProcessing.byTool.codex || 0;
     const agentProcessCount = externalProcessing.byTool.agent || 0;
-    const geminiProcessCount = externalProcessing.byTool.gemini || 0;
     const qwenProcessCount = externalProcessing.byTool.qwen || 0;
+    const geminiProcessCount = externalProcessing.byTool.gemini || 0;
     const hasRunningClaude = claudeProcessCount > 0;
     const hasRunningCodex = codexProcessCount > 0;
-    const hasRunningGemini = geminiProcessCount > 0;
     const hasRunningQwen = qwenProcessCount > 0;
+    const hasRunningGemini = geminiProcessCount > 0;
 
     // Calculate total processing count for system resources (all tools)
     // System resources (RAM, CPU, disk) apply to all tools
@@ -583,8 +583,8 @@ export class SolveQueue {
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     const claudeProcessingCount = this.getProcessingCountByTool('claude');
     const codexProcessingCount = this.getProcessingCountByTool('codex');
-    const geminiProcessingCount = this.getProcessingCountByTool('gemini');
     const qwenProcessingCount = this.getProcessingCountByTool('qwen');
+    const geminiProcessingCount = this.getProcessingCountByTool('gemini');
 
     // Track claude_running as a metric (but don't add to reasons yet)
     if (hasRunningClaude) {
@@ -593,11 +593,11 @@ export class SolveQueue {
     if (hasRunningCodex) {
       this.recordThrottle('codex_running');
     }
-    if (hasRunningGemini) {
-      this.recordThrottle('gemini_running');
-    }
     if (hasRunningQwen) {
       this.recordThrottle('qwen_running');
+    }
+    if (hasRunningGemini) {
+      this.recordThrottle('gemini_running');
     }
 
     // Check system resources with strategy support
@@ -646,11 +646,11 @@ export class SolveQueue {
     if (tool === 'codex' && hasRunningCodex && reasons.length > 0) {
       reasons.push(formatWaitingReason('codex_running', codexProcessCount, 0) + ` (${codexProcessCount} processes)`);
     }
-    if (tool === 'gemini' && hasRunningGemini && reasons.length > 0) {
-      reasons.push(formatWaitingReason('gemini_running', geminiProcessCount, 0) + ` (${geminiProcessCount} processes)`);
-    }
     if (tool === 'qwen' && hasRunningQwen && reasons.length > 0) {
       reasons.push(formatWaitingReason('qwen_running', qwenProcessCount, 0) + ` (${qwenProcessCount} processes)`);
+    }
+    if (tool === 'gemini' && hasRunningGemini && reasons.length > 0) {
+      reasons.push(formatWaitingReason('gemini_running', geminiProcessCount, 0) + ` (${geminiProcessCount} processes)`);
     }
 
     const canStart = reasons.length === 0 && !rejected;
@@ -673,14 +673,14 @@ export class SolveQueue {
       claudeProcesses: claudeProcessCount,
       codexProcesses: codexProcessCount,
       agentProcesses: agentProcessCount,
-      geminiProcesses: geminiProcessCount,
       qwenProcesses: qwenProcessCount,
+      geminiProcesses: geminiProcessCount,
       isolatedProcesses: externalProcessing.isolatedTotal,
       totalProcessing,
       claudeProcessingCount,
       codexProcessingCount,
-      geminiProcessingCount,
       qwenProcessingCount,
+      geminiProcessingCount,
     };
   }
 
@@ -1442,8 +1442,8 @@ export default {
   getRunningClaudeProcesses,
   getRunningAgentProcesses,
   getRunningCodexProcesses,
-  getRunningGeminiProcesses,
   getRunningQwenProcesses,
+  getRunningGeminiProcesses,
   getRunningIsolatedSessions,
   createQueueExecuteCallback,
   formatDuration,

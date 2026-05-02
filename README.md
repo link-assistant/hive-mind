@@ -352,7 +352,7 @@ solve <issue-url> [options]
 
 | Option                   | Alias | Description                                            | Default |
 | ------------------------ | ----- | ------------------------------------------------------ | ------- |
-| `--tool`                 |       | AI tool (claude, opencode, codex, agent, gemini, qwen) | claude  |
+| `--tool`                 |       | AI tool (claude, opencode, codex, agent, qwen, gemini) | claude  |
 | `--verbose`              | `-v`  | Enable verbose logging                                 | false   |
 | `--attach-logs`          |       | Attach logs to PR (⚠️ may expose sensitive data)       | false   |
 | `--auto-init-repository` |       | Auto-initialize empty repos (creates README.md)        | false   |
@@ -379,7 +379,7 @@ hive <github-url> [options]
 
 | Option                   | Alias | Description                                            | Default |
 | ------------------------ | ----- | ------------------------------------------------------ | ------- |
-| `--tool`                 |       | AI tool (claude, opencode, codex, agent, gemini, qwen) | claude  |
+| `--tool`                 |       | AI tool (claude, opencode, codex, agent, qwen, gemini) | claude  |
 | `--concurrency`          | `-c`  | Number of parallel workers                             | 2       |
 | `--skip-issues-with-prs` | `-s`  | Skip issues with existing PRs                          | false   |
 | `--verbose`              | `-v`  | Enable verbose logging                                 | false   |
@@ -469,8 +469,8 @@ Aliases:
 /codex is equivalent to /solve --tool codex
 /opencode is equivalent to /solve --tool opencode
 /agent is equivalent to /solve --tool agent
-/gemini is equivalent to /solve --tool gemini
 /qwen is equivalent to /solve --tool qwen
+/gemini is equivalent to /solve --tool gemini
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
@@ -478,6 +478,7 @@ Tool alias examples:
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
+/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
@@ -501,6 +502,7 @@ Current tool defaults in Hive Mind:
 | `agent`    | `nemotron-3-super-free`                                     | No extra thinking prompt is added for the default model                                  |
 | `gemini`   | `flash`                                                     | No extra thinking prompt is added for the default model                                  |
 | `qwen`     | `qwen3-coder-plus`                                          | No extra thinking prompt is added for the default model                                  |
+| `gemini`   | `gemini-2.5-flash`                                          | No extra thinking prompt is added for the default model                                  |
 
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 

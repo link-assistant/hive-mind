@@ -72,7 +72,7 @@
     "@secretlint/secretlint-rule-preset-recommend": "^11.2.5",
     "@sentry/node": "^10.15.0",
     "@sentry/profiling-node": "^10.15.0",
-    "agent-commander": "^0.4.2",
+    "agent-commander": "^0.6.1",
     "dayjs": "^1.11.19",
     "decimal.js-light": "^2.5.1",
     "lino-arguments": "^0.3.0",

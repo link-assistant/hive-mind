@@ -183,7 +183,34 @@ export const executeToolIteration = async params => {
   await cascadePlaywrightMcpDisable(argv, log);
 
   let toolResult;
-  if (argv.tool === 'opencode') {
+  if (argv.useAgentCommander) {
+    const agentCommanderLib = await import('./agent-commander.lib.mjs');
+    await agentCommanderLib.resolvePlaywrightMcpForAgentCommander({ argv, log, tool: argv.tool || 'claude' });
+
+    toolResult = await agentCommanderLib.executeWithAgentCommander({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+      branchName,
+      tempDir,
+      workspaceTmpDir: params.workspaceTmpDir,
+      isContinueMode: true,
+      mergeStateStatus,
+      forkedRepo: argv.fork,
+      feedbackLines,
+      forkActionsUrl: null,
+      owner,
+      repo,
+      argv,
+      log,
+      formatAligned,
+      getResourceSnapshot,
+      setLogFile: () => {},
+      getLogFile: () => '',
+      $,
+    });
+  } else if (argv.tool === 'opencode') {
     // Use OpenCode
     const opencodeExecLib = await import('./opencode.lib.mjs');
     const { executeOpenCode, checkPlaywrightMcpAvailability } = opencodeExecLib;

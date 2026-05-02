@@ -295,7 +295,18 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
   // Skip tool connection validation if in dry-run mode or explicitly requested
   if (!skipToolConnection) {
     let isToolConnected = false;
-    if (argv.tool === 'opencode') {
+    if (argv.useAgentCommander) {
+      const agentCommanderLib = await import('./agent-commander.lib.mjs');
+      isToolConnected = await agentCommanderLib.validateAgentCommanderConnection({
+        tool: argv.tool || 'claude',
+        model,
+        log,
+      });
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without agent-commander tool connection', { level: 'error' });
+        return false;
+      }
+    } else if (argv.tool === 'opencode') {
       // Validate OpenCode connection
       const opencodeLib = await import('./opencode.lib.mjs');
       isToolConnected = await opencodeLib.validateOpenCodeConnection(model);

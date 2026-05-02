@@ -343,7 +343,7 @@ solve <issue-url> [options]
 
 | Параметр                 | Сокр. | Описание                                                              | По умолчанию |
 | ------------------------ | ----- | --------------------------------------------------------------------- | ------------ |
-| `--tool`                 |       | Инструмент ИИ (claude, opencode, codex, agent, gemini, qwen)          | claude       |
+| `--tool`                 |       | Инструмент ИИ (claude, opencode, codex, agent, qwen, gemini)          | claude       |
 | `--verbose`              | `-v`  | Включить подробное логирование                                        | false        |
 | `--attach-logs`          |       | Прикрепить логи к PR (⚠️ может раскрыть конфиденциальные данные)      | false        |
 | `--auto-init-repository` |       | Автоматически инициализировать пустые репозитории (создаёт README.md) | false        |
@@ -370,7 +370,7 @@ hive <github-url> [options]
 
 | Параметр                 | Сокр. | Описание                                                          | По умолчанию |
 | ------------------------ | ----- | ----------------------------------------------------------------- | ------------ |
-| `--tool`                 |       | Инструмент ИИ (claude, opencode, codex, agent, gemini, qwen)      | claude       |
+| `--tool`                 |       | Инструмент ИИ (claude, opencode, codex, agent, qwen, gemini)      | claude       |
 | `--concurrency`          | `-c`  | Количество параллельных воркеров                                  | 2            |
 | `--skip-issues-with-prs` | `-s`  | Пропускать задачи с существующими PR                              | false        |
 | `--verbose`              | `-v`  | Включить подробное логирование                                    | false        |
@@ -463,8 +463,8 @@ Aliases:
 /codex эквивалентна /solve --tool codex
 /opencode эквивалентна /solve --tool opencode
 /agent эквивалентна /solve --tool agent
-/gemini эквивалентна /solve --tool gemini
 /qwen эквивалентна /solve --tool qwen
+/gemini эквивалентна /solve --tool gemini
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
@@ -472,6 +472,7 @@ Tool alias examples:
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
+/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free

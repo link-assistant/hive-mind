@@ -277,13 +277,13 @@ Planning workflow usage.
 
 Agent Commander usage (unified subagent delegation).
    - When you need to delegate tasks to subagents, use the agent-commander CLI tool (start-agent) instead of relying only on native Codex collaboration.
-   - Agent Commander provides a unified API for different agent types (claude, opencode, codex, agent, qwen) and supports various isolation modes.
+   - Agent Commander provides a unified API for different agent types (claude, opencode, codex, agent, qwen, gemini) and supports various isolation modes.
    - To delegate a task, use a command like:
       \`\`\`bash
       start-agent --tool codex --working-directory "$(pwd)" --prompt "Your task description here"
       \`\`\`
    - Common start-agent parameters:
-      --tool <name>: Agent to use (claude, opencode, codex, agent, qwen)
+      --tool <name>: Agent to use (claude, opencode, codex, agent, qwen, gemini)
       --working-directory <path>: Execution directory (use the current directory for context)
       --prompt <text>: The task to delegate
       --model <name>: Model to use

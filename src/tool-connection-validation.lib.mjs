@@ -11,6 +11,9 @@ export const validateToolConnection = async ({ tool = 'claude', model, verbose =
   if (tool === 'qwen') {
     return (await import('./qwen.lib.mjs')).validateQwenConnection(model);
   }
+  if (tool === 'gemini') {
+    return (await import('./gemini.lib.mjs')).validateGeminiConnection(model);
+  }
   const validateClaude = validateClaudeConnection || (await import('./claude.lib.mjs')).validateClaudeConnection;
   return validateClaude(model);
 };

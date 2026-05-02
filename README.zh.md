@@ -343,7 +343,7 @@ solve <issue-url> [options]
 
 | 选项                     | 简写 | 描述                                                    | 默认值 |
 | ------------------------ | ---- | ------------------------------------------------------- | ------ |
-| `--tool`                 |      | AI 工具（claude、opencode、codex、agent、gemini、qwen） | claude |
+| `--tool`                 |      | AI 工具（claude、opencode、codex、agent、qwen、gemini） | claude |
 | `--verbose`              | `-v` | 启用详细日志                                            | false  |
 | `--attach-logs`          |      | 将日志附加到 PR（⚠️ 可能暴露敏感数据）                  | false  |
 | `--auto-init-repository` |      | 自动初始化空仓库（创建 README.md）                      | false  |
@@ -370,7 +370,7 @@ hive <github-url> [options]
 
 | 选项                     | 简写 | 描述                                                    | 默认值 |
 | ------------------------ | ---- | ------------------------------------------------------- | ------ |
-| `--tool`                 |      | AI 工具（claude、opencode、codex、agent、gemini、qwen） | claude |
+| `--tool`                 |      | AI 工具（claude、opencode、codex、agent、qwen、gemini） | claude |
 | `--concurrency`          | `-c` | 并行工作进程数量                                        | 2      |
 | `--skip-issues-with-prs` | `-s` | 跳过已有 PR 的 Issue                                    | false  |
 | `--verbose`              | `-v` | 启用详细日志                                            | false  |
@@ -459,8 +459,8 @@ Aliases:
 /codex 等同于 /solve --tool codex
 /opencode 等同于 /solve --tool opencode
 /agent 等同于 /solve --tool agent
-/gemini 等同于 /solve --tool gemini
 /qwen 等同于 /solve --tool qwen
+/gemini 等同于 /solve --tool gemini
 
 Tool alias examples:
 /codex https://github.com/owner/repo/issues/123 --model gpt-5.5
@@ -468,6 +468,7 @@ Tool alias examples:
 /agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 /gemini https://github.com/owner/repo/issues/123 --model flash
 /qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
+/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free

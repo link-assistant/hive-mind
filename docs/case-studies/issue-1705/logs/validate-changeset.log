@@ -1,0 +1,9 @@
+Validating changesets added by this PR...
+Warning: Could not determine PR diff, checking all changesets in directory
+Found 1 changeset file(s) added by this PR
+Added changesets:
+  - docker-dind-image.md
+Validating changeset: .changeset/docker-dind-image.md
+Changeset validation passed
+   Type: patch
+   Description: Add a separate `konard/hive-mind-dind` Docker image for nested Docker testing.

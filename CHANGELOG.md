@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.64.1
+
+### Patch Changes
+
+- 51a8721: Add a separate `konard/hive-mind-dind` Docker image for nested Docker testing.
+
 ## 1.64.0
 
 ### Minor Changes

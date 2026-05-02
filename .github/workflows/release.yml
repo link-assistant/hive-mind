@@ -494,6 +494,7 @@ jobs:
     env:
       REGISTRY: docker.io
       IMAGE_NAME: konard/hive-mind
+      DIND_IMAGE_NAME: konard/hive-mind-dind
 
     steps:
       - name: Checkout repository
@@ -513,19 +514,22 @@ jobs:
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
 
-      - name: Show Box base image version
+      - name: Show Box base image versions
         run: |
           BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
+          BOX_DIND_VERSION=$(grep '^FROM konard/box-dind:' Dockerfile.dind | sed 's/FROM konard\/box-dind://')
           echo "Box base image version: konard/box:${BOX_VERSION}"
+          echo "Box DinD base image version: konard/box-dind:${BOX_DIND_VERSION}"
           echo "This pinned version ensures stable, reproducible builds."
 
-      - name: Build Docker image
+      - name: Build Docker images
         # PR builds install @link-assistant/hive-mind@latest (the currently
         # published version on npm, which may pre-date this PR). The Dockerfile
         # tolerates a missing configure-claude bin in that case. Release builds
         # install the exact version just published and enforce the bin strictly.
         run: |
           BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
+          BOX_DIND_VERSION=$(grep '^FROM konard/box-dind:' Dockerfile.dind | sed 's/FROM konard\/box-dind://')
           echo "Building Docker image from konard/box:${BOX_VERSION} base..."
           echo "Note: General-purpose tools are inherited from pinned konard/box:${BOX_VERSION}"
           echo "This image adds AI-specific tools on top of the Box base."
@@ -538,24 +542,29 @@ jobs:
           docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
 
           echo ""
-          echo "Docker image built successfully"
-          docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
+          echo "Building Docker-in-Docker image from konard/box-dind:${BOX_DIND_VERSION} base..."
+          docker build --progress=plain -f Dockerfile.dind -t ${{ env.DIND_IMAGE_NAME }}:test . 2>&1 | tee build-dind-output.log
+
+          echo ""
+          echo "Docker images built successfully"
+          docker images | grep -E "${{ env.IMAGE_NAME }}|${{ env.DIND_IMAGE_NAME }}|REPOSITORY"
 
       - name: Verify build completed without errors
         run: |
           echo "Checking build logs for critical errors..."
 
-          if grep -E 'unbound variable' build-output.log; then
+          if grep -E 'unbound variable' build-output.log build-dind-output.log; then
             echo "ERROR: Unbound variable error detected in Docker build"
-            grep -E 'unbound variable' build-output.log || true
+            grep -E 'unbound variable' build-output.log build-dind-output.log || true
             exit 1
           fi
 
           echo "Build log check completed"
 
-      - name: Verify system & development tools in running container
+      - name: Verify system & development tools in running containers
         run: |
           BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
+          BOX_DIND_VERSION=$(grep '^FROM konard/box-dind:' Dockerfile.dind | sed 's/FROM konard\/box-dind://')
           echo "=== Verifying hive-mind Docker image ==="
           echo "Base: konard/box:${BOX_VERSION} (pinned) + AI-specific tools"
           echo ""
@@ -569,7 +578,19 @@ jobs:
             bash /verify-docker-image.sh
 
           echo ""
-          echo "All system & development tools verification checks passed!"
+          echo "=== Verifying hive-mind Docker-in-Docker image ==="
+          echo "Base: konard/box-dind:${BOX_DIND_VERSION} (pinned) + AI-specific tools"
+          docker run --rm --privileged \
+            -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \
+            ${{ env.DIND_IMAGE_NAME }}:test \
+            bash /verify-docker-image.sh
+
+          docker run --rm --privileged \
+            ${{ env.DIND_IMAGE_NAME }}:test \
+            bash -lc 'docker info && docker run hello-world'
+
+          echo ""
+          echo "All system, development, and nested Docker verification checks passed!"
 
   # === HELM PR CHECK (FAST) ===
   helm-pr-check:
@@ -850,13 +871,152 @@ jobs:
           echo "Image: ${{ env.IMAGE_NAME }}"
           echo "Tags: ${{ steps.meta.outputs.tags }}"
 
+  docker-publish-dind:
+    name: Docker Publish DinD (${{ matrix.platform }})
+    needs: [release]
+    if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            cache_suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            cache_suffix: arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind-dind
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Wait for NPM package availability
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile.dind
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            HIVE_MIND_VERSION=${{ needs.release.outputs.published_version }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }}
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-dind-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-publish-dind-merge:
+    name: Docker Publish DinD (Merge)
+    needs: [release, docker-publish-dind]
+    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-dind.result == 'success' && needs.release.outputs.published == 'true'"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind-dind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digests-dind-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.release.outputs.published_version }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
+
+      - name: Verify published image
+        run: |
+          echo "Docker DinD image published successfully"
+          echo "Image: ${{ env.IMAGE_NAME }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+
   # === HELM CHART RELEASE ===
   helm-release:
     name: Helm Release
-    needs: [release, docker-publish-merge]
+    needs: [release, docker-publish-merge, docker-publish-dind-merge]
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
-    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.release.outputs.published == 'true'"
+    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.docker-publish-dind-merge.result == 'success' && needs.release.outputs.published == 'true'"
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -1096,13 +1256,152 @@ jobs:
           echo "Image: ${{ env.IMAGE_NAME }}"
           echo "Tags: ${{ steps.meta.outputs.tags }}"
 
+  docker-publish-dind-instant:
+    name: Docker Publish DinD Instant (${{ matrix.platform }})
+    needs: [instant-release]
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            cache_suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            cache_suffix: arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind-dind
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Wait for NPM package availability
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile.dind
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            HIVE_MIND_VERSION=${{ needs.instant-release.outputs.published_version }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }}
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-dind-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-publish-dind-instant-merge:
+    name: Docker Publish DinD Instant (Merge)
+    needs: [instant-release, docker-publish-dind-instant]
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-dind-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind-dind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digests-dind-instant-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.instant-release.outputs.published_version }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
+
+      - name: Verify published image
+        run: |
+          echo "Docker DinD image published successfully"
+          echo "Image: ${{ env.IMAGE_NAME }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+
   # === HELM CHART RELEASE FOR INSTANT RELEASE ===
   helm-release-instant:
     name: Helm Release (Instant)
-    needs: [instant-release, docker-publish-instant-merge]
+    needs: [instant-release, docker-publish-instant-merge, docker-publish-dind-instant-merge]
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
-    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.docker-publish-dind-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
     runs-on: ubuntu-latest
     permissions:
       contents: write

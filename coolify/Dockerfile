@@ -17,7 +17,7 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-FROM konard/box:2.0.1
+FROM konard/box:2.1.1
 ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---
@@ -121,7 +121,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g gh-upload-log
 
 # --- Playwright MCP Setup ---
-# Box 2.0.1 pre-installs Playwright browsers and @playwright/test.
+# Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
 # We only add @playwright/mcp (AI-specific MCP server for Claude/Codex).
 # --force handles the shared 'playwright' binary conflict between packages.
 RUN npm install -g @playwright/mcp@latest --no-fund --force

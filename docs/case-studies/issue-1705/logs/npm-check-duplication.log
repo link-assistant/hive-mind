@@ -1,0 +1,3298 @@
+
+> @link-assistant/hive-mind@1.61.0 check:duplication
+> jscpd .
+
+Clone found (javascript):
+ - [1m[32msrc/youtrack/youtrack.lib.mjs[39m[22m [255:7 - 260:2] (5 lines, 138 tokens)
+   [1m[32msrc/youtrack/youtrack.lib.mjs[39m[22m [194:7 - 199:2]
+
+Clone found (javascript):
+ - [1m[32msrc/models/index.mjs[39m[22m [200:12 - 213:8] (13 lines, 87 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [112:8 - 125:10]
+
+Clone found (javascript):
+ - [1m[32mtests/useless-tools.test.mjs[39m[22m [38:5 - 48:6] (10 lines, 73 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [26:2 - 36:9]
+
+Clone found (javascript):
+ - [1m[32mtests/useless-tools.test.mjs[39m[22m [145:2 - 151:2] (6 lines, 85 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [96:2 - 102:2]
+
+Clone found (javascript):
+ - [1m[32mtests/useless-tools.test.mjs[39m[22m [171:5 - 176:11] (5 lines, 76 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [142:5 - 147:25]
+
+Clone found (javascript):
+ - [1m[32mtests/useless-tools.test.mjs[39m[22m [175:2 - 184:18] (9 lines, 113 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [148:2 - 158:4]
+
+Clone found (javascript):
+ - [1m[32mtests/useless-tools.test.mjs[39m[22m [188:7 - 195:64] (7 lines, 80 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [163:7 - 170:70]
+
+Clone found (javascript):
+ - [1m[32mtests/useless-tools.test.mjs[39m[22m [196:22 - 201:6] (5 lines, 60 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [153:6 - 159:3]
+
+Clone found (javascript):
+ - [1m[32mtests/useless-tools.test.mjs[39m[22m [201:49 - 208:80] (7 lines, 59 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [163:2 - 170:6]
+
+Clone found (javascript):
+ - [1m[32mtests/useless-tools.test.mjs[39m[22m [265:14 - 272:65] (7 lines, 73 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [163:11 - 170:70]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [45:2 - 54:8] (9 lines, 57 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [34:5 - 43:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [150:57 - 156:8] (6 lines, 77 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [139:73 - 145:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [286:6 - 308:15] (22 lines, 163 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [226:8 - 248:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [417:48 - 424:12] (7 lines, 82 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [406:57 - 413:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [429:53 - 436:10] (7 lines, 85 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [406:57 - 424:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [441:59 - 450:10] (9 lines, 100 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [406:57 - 438:12]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [579:73 - 587:18] (8 lines, 65 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [532:75 - 540:14]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [644:83 - 651:7] (7 lines, 58 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [560:62 - 567:11]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [717:14 - 723:46] (6 lines, 49 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [570:2 - 576:49]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [726:62 - 734:14] (8 lines, 65 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [560:62 - 568:18]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [737:2 - 744:41] (7 lines, 54 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [659:2 - 666:43]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [840:2 - 847:41] (7 lines, 55 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [659:2 - 666:43]
+
+Clone found (javascript):
+ - [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [966:86 - 971:13] (5 lines, 70 tokens)
+   [1m[32mtests/test-working-session-live-progress.mjs[39m[22m [139:73 - 144:15]
+
+Clone found (javascript):
+ - [1m[32mtests/test-version-info.mjs[39m[22m [233:52 - 240:8] (7 lines, 61 tokens)
+   [1m[32mtests/test-version-info.mjs[39m[22m [99:38 - 106:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-use-with-retry.mjs[39m[22m [136:61 - 142:17] (6 lines, 69 tokens)
+   [1m[32mtests/test-use-with-retry.mjs[39m[22m [117:58 - 123:16]
+
+Clone found (javascript):
+ - [1m[32mtests/test-use-with-retry.mjs[39m[22m [155:81 - 161:30] (6 lines, 69 tokens)
+   [1m[32mtests/test-use-with-retry.mjs[39m[22m [117:58 - 123:16]
+
+Clone found (javascript):
+ - [1m[32mtests/test-use-with-retry.mjs[39m[22m [161:36 - 170:74] (9 lines, 89 tokens)
+   [1m[32mtests/test-use-with-retry.mjs[39m[22m [123:32 - 132:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [137:5 - 146:44] (9 lines, 79 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [111:5 - 120:56]
+
+Clone found (javascript):
+ - [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [618:46 - 626:17] (8 lines, 60 tokens)
+   [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [598:92 - 606:17]
+
+Clone found (javascript):
+ - [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [10:1 - 15:10] (5 lines, 60 tokens)
+   [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [14:1 - 20:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [17:1 - 24:11] (7 lines, 62 tokens)
+   [1m[32mtests/test-usage-limit.mjs[39m[22m [21:1 - 28:31]
+
+Clone found (javascript):
+ - [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [23:5 - 32:12] (9 lines, 58 tokens)
+   [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [28:2 - 37:12]
+
+Clone found (javascript):
+ - [1m[32mtests/test-token-sanitization.mjs[39m[22m [19:1 - 34:6] (15 lines, 108 tokens)
+   [1m[32mtests/test-usage-limit.mjs[39m[22m [21:1 - 37:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-token-sanitization.mjs[39m[22m [34:13 - 46:8] (12 lines, 98 tokens)
+   [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [25:8 - 37:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [21:1 - 33:80] (12 lines, 91 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [36:1 - 36:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [173:36 - 182:43] (9 lines, 60 tokens)
+   [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [163:46 - 172:25]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [183:33 - 191:2] (8 lines, 53 tokens)
+   [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [163:46 - 171:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [207:41 - 214:59] (7 lines, 53 tokens)
+   [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [196:43 - 203:60]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [218:2 - 225:58] (7 lines, 53 tokens)
+   [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [196:43 - 203:60]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [276:1 - 285:2] (9 lines, 72 tokens)
+   [1m[32mtests/test-url-hash-fragment.mjs[39m[22m [163:1 - 172:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-url-extraction.mjs[39m[22m [166:11 - 174:23] (8 lines, 64 tokens)
+   [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [236:13 - 244:22]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-url-extraction.mjs[39m[22m [201:18 - 214:2] (13 lines, 86 tokens)
+   [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [272:17 - 172:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [12:3 - 20:28] (8 lines, 62 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:16 - 20:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [26:14 - 34:6] (8 lines, 56 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:12 - 27:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [46:5 - 54:13] (8 lines, 54 tokens)
+   [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [29:5 - 34:13]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [54:13 - 66:66] (12 lines, 88 tokens)
+   [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [25:8 - 37:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [189:2 - 198:7] (9 lines, 59 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [161:3 - 170:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [238:24 - 245:6] (7 lines, 69 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [182:15 - 189:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [243:3 - 254:8] (11 lines, 91 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [159:3 - 170:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [280:34 - 294:8] (14 lines, 99 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [156:32 - 170:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [394:35 - 401:4] (7 lines, 69 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [182:15 - 189:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [429:40 - 438:2] (9 lines, 94 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [182:15 - 191:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [500:3 - 506:7] (6 lines, 63 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [363:3 - 369:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-options-before-url.mjs[39m[22m [23:46 - 40:6] (17 lines, 117 tokens)
+   [1m[32mtests/test-telegram-task-command.mjs[39m[22m [9:37 - 26:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-formatting-issue-1460.mjs[39m[22m [13:35 - 34:71] (21 lines, 189 tokens)
+   [1m[32mtests/test-telegram-safe-reply-issue-1497.mjs[39m[22m [14:34 - 46:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-formatting-issue-1460.mjs[39m[22m [116:3 - 121:7] (5 lines, 86 tokens)
+   [1m[32mtests/test-telegram-message-formatting-issue-1460.mjs[39m[22m [95:3 - 99:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-formatting-issue-1460.mjs[39m[22m [130:3 - 138:7] (8 lines, 142 tokens)
+   [1m[32mtests/test-telegram-message-formatting-issue-1460.mjs[39m[22m [93:3 - 101:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [20:53 - 31:12] (11 lines, 90 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [14:64 - 25:10]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [322:80 - 327:17] (5 lines, 61 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [189:73 - 194:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [10:1 - 20:4] (10 lines, 84 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [10:1 - 20:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [18:11 - 58:67] (40 lines, 296 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:12 - 37:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [105:3 - 114:47] (9 lines, 63 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [189:3 - 170:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [141:3 - 148:33] (7 lines, 86 tokens)
+   [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [72:3 - 79:27]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [151:5 - 158:22] (7 lines, 54 tokens)
+   [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [83:5 - 90:32]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [166:2 - 179:5] (13 lines, 74 tokens)
+   [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [101:2 - 170:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [201:49 - 209:19] (8 lines, 63 tokens)
+   [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [137:57 - 145:21]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [229:3 - 240:54] (11 lines, 87 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [189:3 - 181:20]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [290:3 - 306:3] (16 lines, 107 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [187:2 - 184:25]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [319:46 - 327:71] (8 lines, 43 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [552:2 - 560:49]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [327:71 - 332:11] (5 lines, 41 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 138:30]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-message-edit-error-handling.mjs[39m[22m [329:12 - 342:2] (13 lines, 81 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [563:9 - 576:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-markdown-escaping.mjs[39m[22m [102:54 - 109:4] (7 lines, 43 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [14:64 - 21:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-markdown-escaping.mjs[39m[22m [166:4 - 175:54] (9 lines, 94 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [261:2 - 270:81]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-markdown-escaping.mjs[39m[22m [178:45 - 185:2] (7 lines, 56 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [274:37 - 281:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-branch-validation.mjs[39m[22m [8:30 - 17:16] (9 lines, 65 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:2 - 28:31]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-version.mjs[39m[22m [21:58 - 48:4] (27 lines, 199 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [14:64 - 45:41]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-version.mjs[39m[22m [144:1 - 159:2] (15 lines, 118 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [444:1 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-launcher.mjs[39m[22m [15:61 - 40:6] (25 lines, 199 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [14:64 - 45:41]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-launcher.mjs[39m[22m [42:2 - 58:42] (16 lines, 132 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [29:2 - 45:41]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-launcher.mjs[39m[22m [462:2 - 478:2] (16 lines, 120 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [443:5 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [5:2 - 11:12] (6 lines, 67 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:2 - 20:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [7:7 - 13:74] (6 lines, 51 tokens)
+   [1m[32mtests/test-telegram-bot-version.mjs[39m[22m [14:6 - 20:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-dry-run.mjs[39m[22m [5:1 - 13:43] (8 lines, 91 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [5:1 - 20:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-dry-run.mjs[39m[22m [13:43 - 22:6] (9 lines, 115 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [13:74 - 22:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-dry-run.mjs[39m[22m [22:6 - 38:40] (16 lines, 127 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [22:6 - 38:40]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-dry-run.mjs[39m[22m [39:6 - 54:113] (15 lines, 157 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [39:6 - 54:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-dry-run.mjs[39m[22m [57:32 - 66:73] (9 lines, 91 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [56:44 - 65:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-dry-run.mjs[39m[22m [67:9 - 97:45] (30 lines, 271 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [65:9 - 95:65]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-dry-run.mjs[39m[22m [187:12 - 209:71] (22 lines, 219 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [186:7 - 208:78]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-dry-run.mjs[39m[22m [210:105 - 221:2] (11 lines, 78 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [211:78 - 222:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-bot-configuration-isolation-links-notation.mjs[39m[22m [9:1 - 17:6] (8 lines, 87 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [5:1 - 20:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-allowed-topics.mjs[39m[22m [9:11 - 27:6] (18 lines, 131 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:2 - 47:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-allowed-topics.mjs[39m[22m [58:55 - 65:37] (7 lines, 59 tokens)
+   [1m[32mtests/test-telegram-allowed-topics.mjs[39m[22m [50:51 - 57:37]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-allowed-topics.mjs[39m[22m [128:2 - 133:58] (5 lines, 63 tokens)
+   [1m[32mtests/test-telegram-allowed-topics.mjs[39m[22m [122:5 - 127:44]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-allowed-topics.mjs[39m[22m [141:7 - 146:49] (5 lines, 60 tokens)
+   [1m[32mtests/test-telegram-allowed-topics.mjs[39m[22m [122:5 - 127:44]
+
+Clone found (javascript):
+ - [1m[32mtests/test-telegram-allowed-topics.mjs[39m[22m [147:2 - 153:46] (6 lines, 79 tokens)
+   [1m[32mtests/test-telegram-allowed-topics.mjs[39m[22m [140:2 - 139:55]
+
+Clone found (javascript):
+ - [1m[32mtests/test-task-split.mjs[39m[22m [10:28 - 27:61] (17 lines, 121 tokens)
+   [1m[32mtests/test-telegram-task-command.mjs[39m[22m [9:37 - 40:42]
+
+Clone found (javascript):
+ - [1m[32mtests/test-start-screen.mjs[39m[22m [141:7 - 149:56] (8 lines, 48 tokens)
+   [1m[32mtests/test-start-screen.mjs[39m[22m [133:11 - 139:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-start-screen.mjs[39m[22m [165:4 - 170:52] (5 lines, 59 tokens)
+   [1m[32mtests/test-start-screen.mjs[39m[22m [136:77 - 141:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-start-screen.mjs[39m[22m [172:55 - 178:51] (6 lines, 63 tokens)
+   [1m[32mtests/test-start-screen.mjs[39m[22m [158:32 - 164:52]
+
+Clone found (javascript):
+ - [1m[32mtests/test-start-screen.mjs[39m[22m [187:88 - 192:42] (5 lines, 60 tokens)
+   [1m[32mtests/test-start-screen.mjs[39m[22m [152:101 - 157:43]
+
+Clone found (javascript):
+ - [1m[32mtests/test-start-screen.mjs[39m[22m [199:60 - 207:63] (8 lines, 93 tokens)
+   [1m[32mtests/test-start-screen.mjs[39m[22m [164:52 - 172:55]
+
+Clone found (javascript):
+ - [1m[32mtests/test-start-screen.mjs[39m[22m [207:63 - 213:59] (6 lines, 72 tokens)
+   [1m[32mtests/test-start-screen.mjs[39m[22m [193:40 - 199:60]
+
+Clone found (javascript):
+ - [1m[32mtests/test-start-screen.mjs[39m[22m [222:96 - 228:40] (6 lines, 80 tokens)
+   [1m[32mtests/test-start-screen.mjs[39m[22m [152:101 - 193:40]
+
+Clone found (javascript):
+ - [1m[32mtests/test-start-screen.mjs[39m[22m [234:60 - 242:63] (8 lines, 93 tokens)
+   [1m[32mtests/test-start-screen.mjs[39m[22m [164:52 - 172:55]
+
+Clone found (javascript):
+ - [1m[32mtests/test-start-screen.mjs[39m[22m [242:63 - 248:59] (6 lines, 63 tokens)
+   [1m[32mtests/test-start-screen.mjs[39m[22m [228:40 - 234:60]
+
+Clone found (javascript):
+ - [1m[32mtests/test-solve.mjs[39m[22m [8:1 - 40:55] (32 lines, 280 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:1 - 41:68]
+
+Clone found (javascript):
+ - [1m[32mtests/test-solve.mjs[39m[22m [271:30 - 277:2] (6 lines, 61 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 139:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-solve-reply-with-options.mjs[39m[22m [81:2 - 86:7] (5 lines, 46 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [30:2 - 35:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-solve-reply-with-options.mjs[39m[22m [200:7 - 216:2] (16 lines, 120 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [443:5 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-solve-queue-command.mjs[39m[22m [17:1 - 32:10] (15 lines, 114 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [18:1 - 48:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-solve-queue-command.mjs[39m[22m [32:1 - 44:48] (12 lines, 95 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [24:1 - 36:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-solve-queue-command.mjs[39m[22m [225:48 - 232:67] (7 lines, 92 tokens)
+   [1m[32mtests/test-solve-queue-command.mjs[39m[22m [164:25 - 181:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-solve-queue-command.mjs[39m[22m [255:5 - 260:57] (5 lines, 48 tokens)
+   [1m[32mtests/test-solve-queue-command.mjs[39m[22m [177:2 - 181:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-solution-summary.mjs[39m[22m [11:1 - 44:8] (33 lines, 250 tokens)
+   [1m[32mtests/test-usage-limit.mjs[39m[22m [21:1 - 54:35]
+
+Clone found (javascript):
+ - [1m[32mtests/test-sentry.mjs[39m[22m [10:5 - 16:21] (6 lines, 47 tokens)
+   [1m[32mtests/test-telegram-bot-version.mjs[39m[22m [14:6 - 20:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-sentry.mjs[39m[22m [93:12 - 108:55] (15 lines, 99 tokens)
+   [1m[32mtests/test-sentry.mjs[39m[22m [74:11 - 89:89]
+
+Clone found (javascript):
+ - [1m[32mtests/test-request-timeout-retry.mjs[39m[22m [10:54 - 18:6] (8 lines, 56 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [12:58 - 20:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-request-timeout-retry.mjs[39m[22m [232:42 - 248:2] (16 lines, 115 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [278:41 - 294:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [115:74 - 123:54] (8 lines, 127 tokens)
+   [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [101:65 - 109:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [215:51 - 220:4] (5 lines, 55 tokens)
+   [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [145:46 - 146:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [253:48 - 258:17] (5 lines, 67 tokens)
+   [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [145:46 - 235:15]
+
+Clone found (javascript):
+ - [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [268:46 - 273:6] (5 lines, 75 tokens)
+   [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [145:46 - 236:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [290:92 - 295:6] (5 lines, 145 tokens)
+   [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [279:86 - 284:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [316:34 - 322:6] (6 lines, 67 tokens)
+   [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [303:35 - 309:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [331:10 - 337:43] (6 lines, 82 tokens)
+   [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [318:10 - 324:52]
+
+Clone found (javascript):
+ - [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [341:54 - 347:2] (6 lines, 59 tokens)
+   [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [303:35 - 309:12]
+
+Clone found (javascript):
+ - [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [363:53 - 368:5] (5 lines, 55 tokens)
+   [1m[32mtests/test-repo-actions-consensus-1503.mjs[39m[22m [303:35 - 308:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-ready-to-merge-pagination-1645.mjs[39m[22m [29:6 - 40:6] (11 lines, 64 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [31:2 - 42:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-ready-to-merge-pagination-1645.mjs[39m[22m [117:8 - 122:8] (5 lines, 47 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [317:10 - 322:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-ready-to-merge-cross-session-1389.mjs[39m[22m [29:1 - 56:69] (27 lines, 219 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-ready-to-merge-cross-session-1389.mjs[39m[22m [304:32 - 316:2] (12 lines, 136 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [315:32 - 327:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-ready-to-merge-after-solution-draft-1584.mjs[39m[22m [34:1 - 66:4] (32 lines, 207 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 42:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-ready-to-merge-after-solution-draft-1584.mjs[39m[22m [392:32 - 404:2] (12 lines, 136 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [315:32 - 327:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-queue-display-1267.mjs[39m[22m [14:2 - 43:11] (29 lines, 215 tokens)
+   [1m[32mtests/test-solve-queue-command.mjs[39m[22m [15:2 - 36:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-queue-display-1267.mjs[39m[22m [236:3 - 241:3] (5 lines, 47 tokens)
+   [1m[32mtests/test-queue-display-1267.mjs[39m[22m [184:3 - 189:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-queue-display-1267.mjs[39m[22m [241:3 - 255:3] (14 lines, 111 tokens)
+   [1m[32mtests/test-queue-display-1267.mjs[39m[22m [189:3 - 203:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-queue-display-1267.mjs[39m[22m [282:32 - 288:2] (6 lines, 73 tokens)
+   [1m[32mtests/test-solve-queue-command.mjs[39m[22m [328:41 - 334:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-prompt-explore-sub-agent.mjs[39m[22m [4:1 - 10:20] (6 lines, 59 tokens)
+   [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [14:1 - 20:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-prompt-explore-sub-agent.mjs[39m[22m [5:7 - 23:39] (18 lines, 136 tokens)
+   [1m[32mtests/test-prompt-file-location.mjs[39m[22m [8:16 - 26:28]
+
+Clone found (javascript):
+ - [1m[32mtests/test-prompt-explore-sub-agent.mjs[39m[22m [23:39 - 41:30] (18 lines, 132 tokens)
+   [1m[32mtests/test-prompt-file-location.mjs[39m[22m [26:28 - 44:49]
+
+Clone found (javascript):
+ - [1m[32mtests/test-prompt-explore-sub-agent.mjs[39m[22m [114:1 - 133:2] (19 lines, 208 tokens)
+   [1m[32mtests/test-prompt-file-location.mjs[39m[22m [120:1 - 139:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-premature-finish-signaling-1516.mjs[39m[22m [16:2 - 23:17] (7 lines, 55 tokens)
+   [1m[32mtests/test-telegram-safe-reply-issue-1497.mjs[39m[22m [14:34 - 21:12]
+
+Clone found (javascript):
+ - [1m[32mtests/test-preinstall-use-m-packages-1724.mjs[39m[22m [85:54 - 93:3] (8 lines, 74 tokens)
+   [1m[32mtests/test-preinstall-use-m-packages-1724.mjs[39m[22m [70:47 - 78:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-preinstall-use-m-packages-1724.mjs[39m[22m [107:61 - 115:6] (8 lines, 74 tokens)
+   [1m[32mtests/test-preinstall-use-m-packages-1724.mjs[39m[22m [70:47 - 78:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-pr-finalization.mjs[39m[22m [35:7 - 40:8] (5 lines, 43 tokens)
+   [1m[32mtests/test-pr-finalization.mjs[39m[22m [21:10 - 26:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-pr-finalization.mjs[39m[22m [47:2 - 59:8] (12 lines, 96 tokens)
+   [1m[32mtests/test-pr-finalization.mjs[39m[22m [34:9 - 46:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-owner-fork-detection.mjs[39m[22m [12:1 - 18:7] (6 lines, 73 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:1 - 20:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-owner-fork-detection.mjs[39m[22m [18:6 - 35:69] (17 lines, 112 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:12 - 37:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-owner-fork-detection.mjs[39m[22m [100:51 - 106:14] (6 lines, 84 tokens)
+   [1m[32mtests/test-owner-fork-detection.mjs[39m[22m [72:55 - 94:29]
+
+Clone found (javascript):
+ - [1m[32mtests/test-owner-fork-detection.mjs[39m[22m [112:53 - 118:11] (6 lines, 84 tokens)
+   [1m[32mtests/test-owner-fork-detection.mjs[39m[22m [72:55 - 94:29]
+
+Clone found (javascript):
+ - [1m[32mtests/test-owner-fork-detection.mjs[39m[22m [176:55 - 182:2] (6 lines, 61 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 139:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opusplan-support.mjs[39m[22m [12:49 - 30:35] (18 lines, 122 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [12:58 - 30:59]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opusplan-support.mjs[39m[22m [350:45 - 366:2] (16 lines, 115 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [278:41 - 294:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [11:56 - 29:71] (18 lines, 122 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [12:58 - 30:59]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [45:61 - 51:44] (6 lines, 67 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [263:81 - 269:44]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [88:47 - 94:5] (6 lines, 65 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [275:47 - 281:64]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [106:48 - 112:26] (6 lines, 67 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [46:65 - 52:48]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [112:26 - 118:64] (6 lines, 65 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [269:44 - 275:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [148:44 - 153:41] (5 lines, 50 tokens)
+   [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [141:33 - 146:48]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [155:37 - 160:51] (5 lines, 50 tokens)
+   [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [141:33 - 146:48]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [642:1 - 655:2] (13 lines, 107 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [281:1 - 294:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [7:1 - 12:27] (5 lines, 76 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [5:1 - 9:16]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [14:73 - 32:96] (18 lines, 122 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [12:58 - 30:59]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [34:69 - 60:36] (26 lines, 224 tokens)
+   [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [31:54 - 57:45]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [64:53 - 70:56] (6 lines, 67 tokens)
+   [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [94:39 - 100:57]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [78:44 - 86:49] (8 lines, 74 tokens)
+   [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [98:2 - 106:48]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [92:65 - 98:44] (6 lines, 67 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [46:65 - 52:48]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [95:41 - 105:40] (10 lines, 78 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [266:37 - 119:45]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [122:11 - 127:61] (5 lines, 44 tokens)
+   [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [110:11 - 115:80]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [163:73 - 170:48] (7 lines, 84 tokens)
+   [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [139:56 - 146:48]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [271:44 - 278:57] (7 lines, 60 tokens)
+   [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [245:43 - 252:59]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [276:2 - 283:56] (7 lines, 60 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [213:43 - 220:51]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [293:41 - 299:50] (6 lines, 67 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [275:47 - 94:39]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [303:2 - 311:52] (8 lines, 74 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [87:57 - 95:61]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [324:37 - 331:49] (7 lines, 84 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [173:29 - 180:38]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [344:45 - 351:64] (7 lines, 45 tokens)
+   [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [232:51 - 239:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [356:67 - 362:71] (6 lines, 67 tokens)
+   [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [230:63 - 236:49]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [362:71 - 369:11] (7 lines, 67 tokens)
+   [1m[32mtests/test-opus-47-model-support.mjs[39m[22m [236:49 - 243:42]
+
+Clone found (javascript):
+ - [1m[32mtests/test-opus-46-model-support.mjs[39m[22m [365:45 - 381:2] (16 lines, 115 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [278:41 - 294:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-direct-gh-exec-rule.mjs[39m[22m [8:40 - 19:16] (11 lines, 54 tokens)
+   [1m[32mtests/test-require-gh-paginate-rule.mjs[39m[22m [4:42 - 15:18]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [29:1 - 56:71] (27 lines, 219 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [155:2 - 160:9] (5 lines, 71 tokens)
+   [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [128:2 - 133:15]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [160:8 - 165:106] (5 lines, 44 tokens)
+   [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [132:5 - 137:74]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [169:5 - 174:6] (5 lines, 50 tokens)
+   [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [141:6 - 146:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [219:80 - 227:15] (8 lines, 59 tokens)
+   [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [137:74 - 145:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [263:12 - 270:8] (7 lines, 57 tokens)
+   [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [247:10 - 254:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [306:3 - 313:47] (7 lines, 56 tokens)
+   [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [289:3 - 296:28]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [333:32 - 345:2] (12 lines, 136 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [315:32 - 327:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-ci-checks-1345.mjs[39m[22m [17:1 - 44:81] (27 lines, 219 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-no-ci-checks-1345.mjs[39m[22m [295:32 - 307:2] (12 lines, 136 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [315:32 - 327:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [37:1 - 63:70] (26 lines, 217 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [17:1 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [256:55 - 268:6] (12 lines, 91 tokens)
+   [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [144:66 - 157:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [287:30 - 292:2] (5 lines, 47 tokens)
+   [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [264:66 - 269:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-merge-queue-cancel-1588.mjs[39m[22m [13:38 - 43:8] (30 lines, 210 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [15:32 - 36:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-merge-queue-cancel-1588.mjs[39m[22m [142:43 - 154:2] (12 lines, 70 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [239:63 - 251:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-merge-changesets-1452.mjs[39m[22m [128:3 - 135:11] (7 lines, 89 tokens)
+   [1m[32mtests/test-merge-changesets-1452.mjs[39m[22m [101:3 - 108:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-merge-changesets-1452.mjs[39m[22m [148:3 - 156:2] (8 lines, 107 tokens)
+   [1m[32mtests/test-merge-changesets-1452.mjs[39m[22m [101:3 - 109:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-memory-check.mjs[39m[22m [12:1 - 18:16] (6 lines, 73 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:1 - 20:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-memory-check.mjs[39m[22m [18:19 - 44:44] (26 lines, 191 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:12 - 41:68]
+
+Clone found (javascript):
+ - [1m[32mtests/test-memory-check.mjs[39m[22m [108:41 - 127:4] (19 lines, 140 tokens)
+   [1m[32mtests/test-memory-check.mjs[39m[22m [76:22 - 95:28]
+
+Clone found (javascript):
+ - [1m[32mtests/test-memory-check.mjs[39m[22m [143:37 - 164:4] (21 lines, 166 tokens)
+   [1m[32mtests/test-memory-check.mjs[39m[22m [76:22 - 129:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-memory-check.mjs[39m[22m [200:38 - 222:50] (22 lines, 183 tokens)
+   [1m[32mtests/test-memory-check.mjs[39m[22m [75:35 - 129:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-memory-check.mjs[39m[22m [257:37 - 263:28] (6 lines, 55 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [560:49 - 566:11]
+
+Clone found (javascript):
+ - [1m[32mtests/test-memory-check.mjs[39m[22m [261:2 - 269:2] (8 lines, 53 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [568:2 - 576:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-malformed-flags.mjs[39m[22m [14:36 - 23:9] (9 lines, 66 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:12 - 28:31]
+
+Clone found (javascript):
+ - [1m[32mtests/test-log-upload.mjs[39m[22m [46:2 - 52:6] (6 lines, 69 tokens)
+   [1m[32mtests/test-log-upload.mjs[39m[22m [32:9 - 38:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-log-upload.mjs[39m[22m [60:10 - 66:2] (6 lines, 68 tokens)
+   [1m[32mtests/test-log-upload.mjs[39m[22m [32:9 - 38:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-log-upload.mjs[39m[22m [72:2 - 83:8] (11 lines, 93 tokens)
+   [1m[32mtests/test-log-upload.mjs[39m[22m [60:2 - 71:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-log-upload.mjs[39m[22m [153:2 - 159:16] (6 lines, 77 tokens)
+   [1m[32mtests/test-log-upload.mjs[39m[22m [92:2 - 98:12]
+
+Clone found (javascript):
+ - [1m[32mtests/test-log-upload.mjs[39m[22m [178:3 - 187:6] (9 lines, 90 tokens)
+   [1m[32mtests/test-log-upload.mjs[39m[22m [92:3 - 101:55]
+
+Clone found (javascript):
+ - [1m[32mtests/test-log-upload.mjs[39m[22m [429:3 - 437:2] (8 lines, 59 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [451:3 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-log-upload-output-1678.mjs[39m[22m [92:21 - 102:38] (10 lines, 83 tokens)
+   [1m[32mtests/test-log-upload-output-1682.mjs[39m[22m [66:16 - 76:38]
+
+Clone found (javascript):
+ - [1m[32mtests/test-lino.mjs[39m[22m [19:2 - 29:2] (10 lines, 80 tokens)
+   [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [25:2 - 37:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-lino.mjs[39m[22m [32:1 - 42:8] (10 lines, 94 tokens)
+   [1m[32mtests/test-telegram-allowed-topics.mjs[39m[22m [24:1 - 34:32]
+
+Clone found (javascript):
+ - [1m[32mtests/test-lino.mjs[39m[22m [344:33 - 350:2] (6 lines, 61 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 139:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-lino-arguments-cli.mjs[39m[22m [14:2 - 31:9] (17 lines, 117 tokens)
+   [1m[32mtests/test-telegram-task-command.mjs[39m[22m [9:37 - 26:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-limit-reset-config.mjs[39m[22m [15:29 - 40:31] (25 lines, 201 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:2 - 44:25]
+
+Clone found (javascript):
+ - [1m[32mtests/test-limit-reset-config.mjs[39m[22m [138:1 - 148:2] (10 lines, 76 tokens)
+   [1m[32mtests/test-usage-limit.mjs[39m[22m [569:1 - 579:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-lenv-reader.mjs[39m[22m [17:17 - 39:40] (22 lines, 162 tokens)
+   [1m[32mtests/test-lino.mjs[39m[22m [12:11 - 34:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-lenv-reader.mjs[39m[22m [413:13 - 425:66] (12 lines, 87 tokens)
+   [1m[32mtests/test-lenv-reader.mjs[39m[22m [388:24 - 400:64]
+
+Clone found (javascript):
+ - [1m[32mtests/test-lenv-reader.mjs[39m[22m [437:17 - 449:66] (12 lines, 87 tokens)
+   [1m[32mtests/test-lenv-reader.mjs[39m[22m [388:24 - 400:64]
+
+Clone found (javascript):
+ - [1m[32mtests/test-lenv-reader.mjs[39m[22m [480:26 - 488:31] (8 lines, 57 tokens)
+   [1m[32mtests/test-lenv-reader.mjs[39m[22m [462:13 - 470:15]
+
+Clone found (javascript):
+ - [1m[32mtests/test-lenv-reader.mjs[39m[22m [583:2 - 591:40] (8 lines, 45 tokens)
+   [1m[32mtests/test-lino.mjs[39m[22m [336:44 - 344:33]
+
+Clone found (javascript):
+ - [1m[32mtests/test-lenv-reader.mjs[39m[22m [591:40 - 597:2] (6 lines, 61 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 139:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1720-terminal-watch-no-log.mjs[39m[22m [22:38 - 38:8] (16 lines, 123 tokens)
+   [1m[32mtests/test-issue-467-terminal-watch.mjs[39m[22m [12:49 - 28:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1720-terminal-watch-no-log.mjs[39m[22m [52:2 - 58:9] (6 lines, 84 tokens)
+   [1m[32mtests/test-issue-467-terminal-watch.mjs[39m[22m [87:2 - 93:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1720-terminal-watch-no-log.mjs[39m[22m [65:5 - 79:63] (14 lines, 186 tokens)
+   [1m[32mtests/test-issue-467-terminal-watch.mjs[39m[22m [100:4 - 113:58]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1720-terminal-watch-no-log.mjs[39m[22m [110:2 - 115:2] (5 lines, 77 tokens)
+   [1m[32mtests/test-issue-467-terminal-watch.mjs[39m[22m [71:2 - 76:27]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1720-terminal-watch-no-log.mjs[39m[22m [149:11 - 155:2] (6 lines, 83 tokens)
+   [1m[32mtests/test-issue-467-terminal-watch.mjs[39m[22m [118:8 - 124:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1716-private-repo-skip-fork.mjs[39m[22m [18:1 - 41:6] (23 lines, 198 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:1 - 37:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1714-auto-accept-invite-hint.mjs[39m[22m [33:40 - 42:4] (9 lines, 79 tokens)
+   [1m[32mtests/test-telegram-options-before-url.mjs[39m[22m [13:31 - 22:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [35:2 - 42:5] (7 lines, 60 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [36:2 - 31:12]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [141:3 - 153:2] (12 lines, 87 tokens)
+   [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [105:3 - 117:28]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [168:7 - 182:7] (14 lines, 100 tokens)
+   [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [117:7 - 132:71]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [189:3 - 205:80] (16 lines, 123 tokens)
+   [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [105:3 - 157:30]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [219:4 - 226:47] (7 lines, 50 tokens)
+   [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [150:5 - 157:30]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [236:3 - 245:4] (9 lines, 71 tokens)
+   [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [105:3 - 114:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1710-budget-trace.mjs[39m[22m [29:2 - 41:56] (12 lines, 84 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [24:2 - 47:79]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1706-sub-session-size.mjs[39m[22m [43:2 - 48:13] (5 lines, 51 tokens)
+   [1m[32mtests/test-issue-1706-sub-session-size.mjs[39m[22m [37:9 - 42:11]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1706-sub-session-size.mjs[39m[22m [216:1 - 222:2] (6 lines, 42 tokens)
+   [1m[32mtests/test-issue-1714-auto-accept-invite-hint.mjs[39m[22m [163:1 - 169:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [19:2 - 30:11] (11 lines, 116 tokens)
+   [1m[32mtests/test-telegram-options-before-url.mjs[39m[22m [11:2 - 22:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [28:2 - 34:4] (6 lines, 47 tokens)
+   [1m[32mtests/test-telegram-bot-version.mjs[39m[22m [14:6 - 20:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [32:5 - 55:42] (23 lines, 187 tokens)
+   [1m[32mtests/test-issue-1714-auto-accept-invite-hint.mjs[39m[22m [40:12 - 63:72]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [79:2 - 84:2] (5 lines, 56 tokens)
+   [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [68:2 - 73:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [95:22 - 102:45] (7 lines, 59 tokens)
+   [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [68:23 - 75:46]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [143:1 - 149:4] (6 lines, 90 tokens)
+   [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [109:1 - 116:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [151:3 - 162:48] (11 lines, 127 tokens)
+   [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [116:12 - 127:56]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [162:48 - 168:28] (6 lines, 51 tokens)
+   [1m[32mtests/test-issue-1694-stabilized-defaults.mjs[39m[22m [127:56 - 133:36]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1686-log-command.mjs[39m[22m [24:5 - 35:6] (11 lines, 97 tokens)
+   [1m[32mtests/test-issue-467-terminal-watch.mjs[39m[22m [18:10 - 29:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1686-log-command.mjs[39m[22m [36:5 - 41:8] (5 lines, 43 tokens)
+   [1m[32mtests/test-issue-467-terminal-watch.mjs[39m[22m [18:10 - 23:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1686-log-command.mjs[39m[22m [40:5 - 47:83] (7 lines, 52 tokens)
+   [1m[32mtests/test-issue-1700-isolation-parsing.mjs[39m[22m [29:6 - 36:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1684-message-formatting.mjs[39m[22m [78:20 - 86:2] (8 lines, 55 tokens)
+   [1m[32mtests/test-issue-1684-message-formatting.mjs[39m[22m [48:39 - 56:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1670-screen-status-monitoring.mjs[39m[22m [98:2 - 106:14] (8 lines, 81 tokens)
+   [1m[32mtests/test-issue-1670-screen-status-monitoring.mjs[39m[22m [87:2 - 95:14]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1616-pr-issue-link-preservation.mjs[39m[22m [12:1 - 17:8] (5 lines, 52 tokens)
+   [1m[32mtests/test-pr-finalization.mjs[39m[22m [17:1 - 22:10]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1616-pr-issue-link-preservation.mjs[39m[22m [20:8 - 30:7] (10 lines, 73 tokens)
+   [1m[32mtests/test-pr-finalization.mjs[39m[22m [25:10 - 35:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-log-fixtures.mjs[39m[22m [9:37 - 17:7] (8 lines, 55 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [12:2 - 20:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [13:24 - 30:64] (17 lines, 113 tokens)
+   [1m[32mtests/test-solve-queue-command.mjs[39m[22m [15:38 - 36:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [310:15 - 321:33] (11 lines, 81 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [278:15 - 289:62]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [456:46 - 474:7] (18 lines, 141 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [433:42 - 451:80]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [483:2 - 488:4] (5 lines, 54 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [439:8 - 444:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [499:51 - 510:2] (11 lines, 100 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [477:38 - 488:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [520:59 - 530:2] (10 lines, 96 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [433:42 - 443:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [717:57 - 725:15] (8 lines, 62 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [687:59 - 692:24]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [816:6 - 822:28] (6 lines, 55 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [484:6 - 490:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [842:48 - 853:4] (11 lines, 103 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [809:47 - 820:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [863:71 - 880:55] (17 lines, 128 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [809:47 - 494:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [940:2 - 946:2] (6 lines, 49 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [453:2 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [16:2 - 33:48] (17 lines, 118 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [13:2 - 36:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [36:75 - 46:7] (10 lines, 96 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [433:42 - 443:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [48:2 - 55:2] (7 lines, 140 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [55:9 - 62:19]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [61:61 - 71:7] (10 lines, 96 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [433:42 - 443:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [85:63 - 96:5] (11 lines, 103 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [433:42 - 47:10]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [96:5 - 102:2] (6 lines, 99 tokens)
+   [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [47:10 - 60:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [111:59 - 122:4] (11 lines, 103 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [433:42 - 72:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [125:2 - 130:2] (5 lines, 43 tokens)
+   [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [102:5 - 107:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [169:60 - 182:20] (13 lines, 111 tokens)
+   [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [135:74 - 148:28]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [232:62 - 243:9] (11 lines, 103 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [809:47 - 820:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [263:7 - 269:28] (6 lines, 55 tokens)
+   [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [43:6 - 49:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [277:8 - 287:14] (10 lines, 151 tokens)
+   [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [47:10 - 57:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [303:22 - 314:2] (11 lines, 96 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [935:36 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1572-push-sync.mjs[39m[22m [16:1 - 24:4] (8 lines, 99 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [20:1 - 23:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1572-push-sync.mjs[39m[22m [22:8 - 40:64] (18 lines, 124 tokens)
+   [1m[32mtests/test-issue-1616-pr-issue-link-preservation.mjs[39m[22m [10:34 - 33:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1572-push-sync.mjs[39m[22m [177:11 - 182:2] (5 lines, 46 tokens)
+   [1m[32mtests/test-usage-limit.mjs[39m[22m [574:16 - 579:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1354-multiline-stderr-false-positive.mjs[39m[22m [130:3 - 137:51] (7 lines, 68 tokens)
+   [1m[32mtests/test-pr-finalization.mjs[39m[22m [304:3 - 311:25]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1354-multiline-stderr-false-positive.mjs[39m[22m [137:51 - 142:2] (5 lines, 40 tokens)
+   [1m[32mtests/test-pr-finalization.mjs[39m[22m [311:25 - 316:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1337-stderr-warning-detection.mjs[39m[22m [19:1 - 37:8] (18 lines, 153 tokens)
+   [1m[32mtests/test-issue-1354-multiline-stderr-false-positive.mjs[39m[22m [21:1 - 45:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1337-stderr-warning-detection.mjs[39m[22m [108:1 - 115:51] (7 lines, 81 tokens)
+   [1m[32mtests/test-pr-finalization.mjs[39m[22m [304:1 - 311:25]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1337-stderr-warning-detection.mjs[39m[22m [115:51 - 120:2] (5 lines, 40 tokens)
+   [1m[32mtests/test-pr-finalization.mjs[39m[22m [311:25 - 316:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1332-fork-name-from-pr-data.mjs[39m[22m [15:1 - 38:58] (23 lines, 198 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:1 - 37:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1332-fork-name-from-pr-data.mjs[39m[22m [227:57 - 232:2] (5 lines, 59 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 177:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1228-options-deduplication.mjs[39m[22m [5:1 - 12:67] (7 lines, 78 tokens)
+   [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [14:1 - 20:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1228-options-deduplication.mjs[39m[22m [200:32 - 206:25] (6 lines, 45 tokens)
+   [1m[32mtests/test-issue-1228-options-deduplication.mjs[39m[22m [134:62 - 141:29]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1228-options-deduplication.mjs[39m[22m [247:2 - 253:25] (6 lines, 45 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [451:2 - 457:24]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1209-overrides.mjs[39m[22m [6:1 - 14:55] (8 lines, 91 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [5:1 - 20:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1209-overrides.mjs[39m[22m [14:55 - 20:6] (6 lines, 47 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [13:74 - 18:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1209-overrides.mjs[39m[22m [18:6 - 38:40] (20 lines, 180 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [18:2 - 38:40]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1209-overrides.mjs[39m[22m [39:6 - 46:19] (7 lines, 75 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [39:6 - 46:18]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1209-overrides.mjs[39m[22m [46:17 - 54:32] (8 lines, 74 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [48:28 - 56:44]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1209-overrides.mjs[39m[22m [52:9 - 93:94] (41 lines, 402 tokens)
+   [1m[32mtests/test-telegram-bot-dry-run.mjs[39m[22m [55:9 - 95:65]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1209-overrides.mjs[39m[22m [191:3 - 204:11] (13 lines, 93 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [184:28 - 197:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1102-fix.mjs[39m[22m [25:2 - 34:60] (9 lines, 55 tokens)
+   [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [23:2 - 32:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1102-fix.mjs[39m[22m [43:3 - 48:11] (5 lines, 50 tokens)
+   [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [41:3 - 46:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1102-fix.mjs[39m[22m [85:3 - 92:13] (7 lines, 65 tokens)
+   [1m[32mtests/test-url-hash-fragment.mjs[39m[22m [26:7 - 33:13]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1102-fix.mjs[39m[22m [92:13 - 101:57] (9 lines, 64 tokens)
+   [1m[32mtests/test-url-hash-fragment.mjs[39m[22m [33:13 - 42:58]
+
+Clone found (javascript):
+ - [1m[32mtests/test-issue-1102-fix.mjs[39m[22m [215:2 - 227:38] (12 lines, 78 tokens)
+   [1m[32mtests/test-url-hash-fragment.mjs[39m[22m [160:2 - 172:22]
+
+Clone found (javascript):
+ - [1m[32mtests/test-isolation-screen-fallback-1545.mjs[39m[22m [49:8 - 57:8] (8 lines, 55 tokens)
+   [1m[32mtests/test-session-monitor-isolation.mjs[39m[22m [22:14 - 30:14]
+
+Clone found (javascript):
+ - [1m[32mtests/test-invalid-workflow-file-1690.mjs[39m[22m [32:1 - 41:6] (9 lines, 70 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [17:1 - 26:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-invalid-workflow-file-1690.mjs[39m[22m [54:5 - 70:72] (16 lines, 141 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [27:5 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-internal-server-error-retry.mjs[39m[22m [10:62 - 28:42] (18 lines, 122 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [12:58 - 28:48]
+
+Clone found (javascript):
+ - [1m[32mtests/test-internal-server-error-retry.mjs[39m[22m [173:18 - 179:61] (6 lines, 66 tokens)
+   [1m[32mtests/test-request-timeout-retry.mjs[39m[22m [199:22 - 205:72]
+
+Clone found (javascript):
+ - [1m[32mtests/test-internal-server-error-retry.mjs[39m[22m [180:5 - 187:47] (7 lines, 66 tokens)
+   [1m[32mtests/test-request-timeout-retry.mjs[39m[22m [192:39 - 213:69]
+
+Clone found (javascript):
+ - [1m[32mtests/test-internal-server-error-retry.mjs[39m[22m [208:71 - 224:2] (16 lines, 115 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [278:41 - 294:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [14:1 - 34:71] (20 lines, 178 tokens)
+   [1m[32mtests/test-premature-finish-signaling-1516.mjs[39m[22m [12:1 - 30:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [91:56 - 97:38] (6 lines, 51 tokens)
+   [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [56:67 - 62:44]
+
+Clone found (javascript):
+ - [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [120:55 - 126:50] (6 lines, 51 tokens)
+   [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [56:67 - 62:44]
+
+Clone found (javascript):
+ - [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [220:67 - 226:33] (6 lines, 48 tokens)
+   [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [37:58 - 43:41]
+
+Clone found (javascript):
+ - [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [261:71 - 267:62] (6 lines, 51 tokens)
+   [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [56:67 - 62:44]
+
+Clone found (javascript):
+ - [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [355:79 - 364:31] (9 lines, 85 tokens)
+   [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [307:80 - 316:59]
+
+Clone found (javascript):
+ - [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [396:49 - 402:39] (6 lines, 51 tokens)
+   [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [56:67 - 62:44]
+
+Clone found (javascript):
+ - [1m[32mtests/test-interactive-mode-signal-1472.mjs[39m[22m [418:8 - 424:2] (6 lines, 48 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [451:2 - 458:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive.mjs[39m[22m [9:1 - 15:9] (6 lines, 73 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:1 - 20:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive.mjs[39m[22m [15:11 - 32:2] (17 lines, 117 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:12 - 32:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive.mjs[39m[22m [124:2 - 131:32] (7 lines, 59 tokens)
+   [1m[32mtests/test-solve.mjs[39m[22m [114:7 - 121:33]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive.mjs[39m[22m [132:2 - 138:28] (6 lines, 55 tokens)
+   [1m[32mtests/test-solve.mjs[39m[22m [122:17 - 128:54]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive.mjs[39m[22m [158:2 - 164:41] (6 lines, 49 tokens)
+   [1m[32mtests/test-solve.mjs[39m[22m [149:17 - 155:67]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive.mjs[39m[22m [174:27 - 181:39] (7 lines, 58 tokens)
+   [1m[32mtests/test-hive.mjs[39m[22m [139:28 - 146:32]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive.mjs[39m[22m [201:2 - 210:65] (9 lines, 66 tokens)
+   [1m[32mtests/test-solve.mjs[39m[22m [199:14 - 208:51]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive.mjs[39m[22m [212:2 - 221:43] (9 lines, 66 tokens)
+   [1m[32mtests/test-solve.mjs[39m[22m [176:14 - 185:70]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive.mjs[39m[22m [289:29 - 295:2] (6 lines, 61 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 139:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive-solve-option-parity.mjs[39m[22m [14:40 - 31:17] (17 lines, 114 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:12 - 41:13]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive-screens.mjs[39m[22m [207:53 - 213:21] (6 lines, 59 tokens)
+   [1m[32mtests/test-hive-screens.mjs[39m[22m [139:53 - 145:16]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive-screens.mjs[39m[22m [213:12 - 218:12] (5 lines, 56 tokens)
+   [1m[32mtests/test-hive-screens.mjs[39m[22m [145:16 - 150:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive-screens.mjs[39m[22m [331:11 - 336:11] (5 lines, 43 tokens)
+   [1m[32mtests/test-hive-screens.mjs[39m[22m [260:11 - 265:11]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive-no-silent-failure.mjs[39m[22m [17:1 - 24:6] (7 lines, 89 tokens)
+   [1m[32mtests/test-telegram-bot-hero-links-notation.mjs[39m[22m [5:1 - 20:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive-no-silent-failure.mjs[39m[22m [172:16 - 177:3] (5 lines, 41 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 177:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-hive-no-silent-failure.mjs[39m[22m [175:2 - 183:2] (8 lines, 58 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [938:2 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-helpers.mjs[39m[22m [28:2 - 40:7] (12 lines, 91 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [36:1 - 36:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-helpers.mjs[39m[22m [40:2 - 52:9] (12 lines, 97 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [24:1 - 40:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-github-pages-workflow-filter-1399.mjs[39m[22m [24:1 - 53:4] (29 lines, 207 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 42:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-github-pages-workflow-filter-1399.mjs[39m[22m [313:32 - 325:2] (12 lines, 136 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [315:32 - 327:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-github-linking.mjs[39m[22m [15:32 - 46:46] (31 lines, 251 tokens)
+   [1m[32mtests/test-issue-1616-pr-issue-link-preservation.mjs[39m[22m [10:34 - 59:51]
+
+Clone found (javascript):
+ - [1m[32mtests/test-github-linking.mjs[39m[22m [180:1 - 193:2] (13 lines, 124 tokens)
+   [1m[32mtests/test-pr-finalization.mjs[39m[22m [303:1 - 316:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-git-identity.mjs[39m[22m [11:21 - 18:7] (7 lines, 50 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:2 - 26:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-git-identity.mjs[39m[22m [111:5 - 116:5] (5 lines, 47 tokens)
+   [1m[32mtests/test-git-identity.mjs[39m[22m [99:12 - 104:12]
+
+Clone found (javascript):
+ - [1m[32mtests/test-git-identity.mjs[39m[22m [111:5 - 117:5] (6 lines, 59 tokens)
+   [1m[32mtests/test-git-identity.mjs[39m[22m [87:19 - 93:19]
+
+Clone found (javascript):
+ - [1m[32mtests/test-git-identity.mjs[39m[22m [176:42 - 181:25] (5 lines, 47 tokens)
+   [1m[32mtests/test-git-identity.mjs[39m[22m [74:40 - 79:20]
+
+Clone found (javascript):
+ - [1m[32mtests/test-git-identity.mjs[39m[22m [265:5 - 270:19] (5 lines, 51 tokens)
+   [1m[32mtests/test-git-identity.mjs[39m[22m [245:6 - 250:16]
+
+Clone found (javascript):
+ - [1m[32mtests/test-git-identity.mjs[39m[22m [276:5 - 281:16] (5 lines, 48 tokens)
+   [1m[32mtests/test-git-identity.mjs[39m[22m [245:6 - 250:16]
+
+Clone found (javascript):
+ - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [19:53 - 26:6] (7 lines, 43 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [14:64 - 21:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [21:2 - 29:6] (8 lines, 59 tokens)
+   [1m[32mtests/test-use-with-retry.mjs[39m[22m [16:32 - 24:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [28:2 - 39:44] (11 lines, 76 tokens)
+   [1m[32mtests/test-request-timeout-retry.mjs[39m[22m [17:5 - 28:48]
+
+Clone found (javascript):
+ - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [148:27 - 154:2] (6 lines, 61 tokens)
+   [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [131:22 - 137:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [186:2 - 191:12] (5 lines, 48 tokens)
+   [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [117:2 - 122:16]
+
+Clone found (javascript):
+ - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [207:52 - 212:24] (5 lines, 60 tokens)
+   [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [194:63 - 199:22]
+
+Clone found (javascript):
+ - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [275:8 - 284:40] (9 lines, 99 tokens)
+   [1m[32mtests/test-telegram-markdown-escaping.mjs[39m[22m [165:7 - 269:15]
+
+Clone found (javascript):
+ - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [290:65 - 297:2] (7 lines, 56 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [274:37 - 281:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-free-models.mjs[39m[22m [48:17 - 55:59] (7 lines, 75 tokens)
+   [1m[32mtests/test-free-models.mjs[39m[22m [39:21 - 46:60]
+
+Clone found (javascript):
+ - [1m[32mtests/test-free-models.mjs[39m[22m [75:29 - 82:49] (7 lines, 89 tokens)
+   [1m[32mtests/test-free-models.mjs[39m[22m [57:23 - 73:76]
+
+Clone found (javascript):
+ - [1m[32mtests/test-free-models.mjs[39m[22m [103:51 - 108:54] (5 lines, 54 tokens)
+   [1m[32mtests/test-free-models.mjs[39m[22m [97:36 - 102:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-free-models.mjs[39m[22m [124:17 - 130:19] (6 lines, 64 tokens)
+   [1m[32mtests/test-free-models.mjs[39m[22m [110:21 - 116:23]
+
+Clone found (javascript):
+ - [1m[32mtests/test-free-models.mjs[39m[22m [130:19 - 136:4] (6 lines, 58 tokens)
+   [1m[32mtests/test-free-models.mjs[39m[22m [116:23 - 122:54]
+
+Clone found (javascript):
+ - [1m[32mtests/test-free-models.mjs[39m[22m [188:13 - 195:75] (7 lines, 68 tokens)
+   [1m[32mtests/test-free-models.mjs[39m[22m [177:17 - 184:57]
+
+Clone found (javascript):
+ - [1m[32mtests/test-fork-screenshot-url-1561.mjs[39m[22m [17:1 - 43:17] (26 lines, 222 tokens)
+   [1m[32mtests/test-private-repo-screenshots-1349.mjs[39m[22m [17:1 - 43:13]
+
+Clone found (javascript):
+ - [1m[32mtests/test-fork-parent-validation.mjs[39m[22m [11:1 - 46:53] (35 lines, 291 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:1 - 37:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-fork-parent-validation.mjs[39m[22m [442:43 - 448:2] (6 lines, 61 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 139:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-feedback-lines-simple.mjs[39m[22m [111:36 - 123:57] (12 lines, 103 tokens)
+   [1m[32mtests/test-feedback-lines-simple.mjs[39m[22m [60:45 - 72:48]
+
+Clone found (javascript):
+ - [1m[32mtests/test-feedback-lines-integration.mjs[39m[22m [28:2 - 46:35] (18 lines, 128 tokens)
+   [1m[32mtests/test-feedback-lines-simple.mjs[39m[22m [17:2 - 35:70]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [27:1 - 54:70] (27 lines, 219 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [84:5 - 92:69] (8 lines, 160 tokens)
+   [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [238:3 - 92:89]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [93:5 - 98:23] (5 lines, 63 tokens)
+   [1m[32mtests/test-invalid-workflow-file-1690.mjs[39m[22m [109:3 - 114:14]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [187:2 - 195:87] (8 lines, 93 tokens)
+   [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [176:2 - 184:63]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [474:6 - 481:56] (7 lines, 58 tokens)
+   [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [436:5 - 443:70]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [541:2 - 548:68] (7 lines, 48 tokens)
+   [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [436:2 - 443:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [580:3 - 588:11] (8 lines, 81 tokens)
+   [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [150:3 - 158:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [25:1 - 52:63] (27 lines, 219 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [62:23 - 68:74] (6 lines, 65 tokens)
+   [1m[32mtests/test-github-pages-workflow-filter-1399.mjs[39m[22m [71:18 - 77:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [71:9 - 77:52] (6 lines, 59 tokens)
+   [1m[32mtests/test-github-pages-workflow-filter-1399.mjs[39m[22m [78:9 - 84:15]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [84:7 - 95:5] (11 lines, 62 tokens)
+   [1m[32mtests/test-github-pages-workflow-filter-1399.mjs[39m[22m [88:7 - 99:92]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [187:63 - 193:2] (6 lines, 78 tokens)
+   [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [166:69 - 172:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [219:2 - 224:49] (5 lines, 57 tokens)
+   [1m[32mtests/test-no-ci-checks-1345.mjs[39m[22m [99:2 - 104:33]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [264:7 - 273:64] (9 lines, 107 tokens)
+   [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [106:7 - 115:80]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [282:61 - 289:3] (7 lines, 91 tokens)
+   [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [166:69 - 194:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ready-to-merge-1363.mjs[39m[22m [339:32 - 351:2] (12 lines, 136 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [315:32 - 327:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [29:1 - 55:19] (26 lines, 209 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 40:18]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [211:3 - 219:11] (8 lines, 61 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [193:3 - 200:15]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [292:46 - 298:40] (6 lines, 115 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [250:52 - 254:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [392:3 - 399:4] (7 lines, 57 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [193:3 - 200:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [412:3 - 420:3] (8 lines, 64 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [193:3 - 400:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [429:3 - 437:2] (8 lines, 64 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [193:3 - 400:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [458:2 - 465:3] (7 lines, 53 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [446:2 - 453:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [31:1 - 57:48] (26 lines, 207 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 42:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [68:13 - 76:61] (8 lines, 45 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [61:3 - 69:78]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [100:2 - 107:42] (7 lines, 60 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [76:3 - 83:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [108:11 - 113:15] (5 lines, 135 tokens)
+   [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [238:3 - 89:14]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [161:5 - 166:26] (5 lines, 72 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [116:5 - 119:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [183:5 - 189:10] (6 lines, 57 tokens)
+   [1m[32mtests/test-no-ci-checks-timeout-1442.mjs[39m[22m [107:5 - 113:10]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [224:5 - 229:14] (5 lines, 43 tokens)
+   [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [210:5 - 215:17]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [271:89 - 277:5] (6 lines, 53 tokens)
+   [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [245:95 - 251:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [284:86 - 291:2] (7 lines, 60 tokens)
+   [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [245:95 - 278:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [302:27 - 309:47] (7 lines, 53 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [392:22 - 400:11]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [319:3 - 327:14] (8 lines, 61 tokens)
+   [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [302:3 - 400:11]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [335:83 - 345:2] (10 lines, 81 tokens)
+   [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [318:67 - 328:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [352:68 - 358:6] (6 lines, 53 tokens)
+   [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [318:67 - 324:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [369:66 - 377:3] (8 lines, 67 tokens)
+   [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [318:67 - 360:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [385:59 - 392:6] (7 lines, 60 tokens)
+   [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [318:67 - 359:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [476:5 - 482:38] (6 lines, 47 tokens)
+   [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [223:2 - 215:17]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [488:5 - 496:30] (8 lines, 81 tokens)
+   [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [221:2 - 215:17]
+
+Clone found (javascript):
+ - [1m[32mtests/test-false-positive-ci-success-1480.mjs[39m[22m [496:32 - 506:2] (10 lines, 64 tokens)
+   [1m[32mtests/test-false-positive-iteration-count-1503.mjs[39m[22m [552:48 - 562:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-extract-isolation-from-args.mjs[39m[22m [9:36 - 24:9] (15 lines, 92 tokens)
+   [1m[32mtests/test-isolation-runner.mjs[39m[22m [11:34 - 26:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-extract-isolation-from-args.mjs[39m[22m [27:12 - 32:8] (5 lines, 43 tokens)
+   [1m[32mtests/test-isolation-runner.mjs[39m[22m [17:10 - 22:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-extract-isolation-from-args.mjs[39m[22m [140:26 - 152:2] (12 lines, 108 tokens)
+   [1m[32mtests/test-isolation-runner.mjs[39m[22m [56:18 - 68:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [20:50 - 30:4] (10 lines, 43 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [14:64 - 21:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [143:2 - 148:2] (5 lines, 100 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [131:3 - 136:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [155:2 - 160:2] (5 lines, 100 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [109:2 - 124:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [200:2 - 206:51] (6 lines, 73 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [190:2 - 196:65]
+
+Clone found (javascript):
+ - [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [235:2 - 241:102] (6 lines, 85 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [109:2 - 115:61]
+
+Clone found (javascript):
+ - [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [245:2 - 251:20] (6 lines, 82 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [109:2 - 115:14]
+
+Clone found (javascript):
+ - [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [255:15 - 261:28] (6 lines, 98 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [109:19 - 115:61]
+
+Clone found (javascript):
+ - [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [264:89 - 271:21] (7 lines, 116 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [254:69 - 251:23]
+
+Clone found (javascript):
+ - [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [330:1 - 343:40] (13 lines, 149 tokens)
+   [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [271:1 - 269:15]
+
+Clone found (javascript):
+ - [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [352:72 - 359:2] (7 lines, 56 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [274:37 - 281:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-docs-options-sync.mjs[39m[22m [16:47 - 33:68] (17 lines, 112 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:12 - 37:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-docs-options-sync.mjs[39m[22m [123:61 - 130:8] (7 lines, 43 tokens)
+   [1m[32mtests/test-hive-solve-option-parity.mjs[39m[22m [133:2 - 141:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-docs-language-sync.mjs[39m[22m [24:3 - 33:4] (9 lines, 57 tokens)
+   [1m[32mtests/test-unicode-sanitization.mjs[39m[22m [28:7 - 37:12]
+
+Clone found (javascript):
+ - [1m[32mtests/test-docker-dind-variant.mjs[39m[22m [58:1 - 64:15] (6 lines, 64 tokens)
+   [1m[32mtests/test-docker-release-order.mjs[39m[22m [30:1 - 35:71]
+
+Clone found (javascript):
+ - [1m[32mtests/test-docker-box-migration.mjs[39m[22m [3:1 - 15:15] (12 lines, 125 tokens)
+   [1m[32mtests/test-docker-dind-variant.mjs[39m[22m [11:1 - 23:17]
+
+Clone found (javascript):
+ - [1m[32mtests/test-display-cost-comparison.mjs[39m[22m [14:37 - 22:7] (8 lines, 62 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:2 - 19:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-display-cost-comparison.mjs[39m[22m [23:5 - 33:9] (10 lines, 66 tokens)
+   [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [37:9 - 46:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-display-cost-comparison.mjs[39m[22m [35:13 - 41:2] (6 lines, 70 tokens)
+   [1m[32mtests/test-token-sanitization.mjs[39m[22m [48:11 - 54:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-display-cost-comparison.mjs[39m[22m [41:3 - 47:2] (6 lines, 60 tokens)
+   [1m[32mtests/test-token-sanitization.mjs[39m[22m [54:6 - 60:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-display-cost-comparison.mjs[39m[22m [93:65 - 98:8] (5 lines, 41 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 856:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [23:2 - 37:2] (14 lines, 103 tokens)
+   [1m[32mtests/test-usage-limit.mjs[39m[22m [22:2 - 46:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [337:11 - 343:11] (6 lines, 54 tokens)
+   [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [316:11 - 322:11]
+
+Clone found (javascript):
+ - [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [361:5 - 369:4] (8 lines, 99 tokens)
+   [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [78:3 - 85:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [367:7 - 374:14] (7 lines, 71 tokens)
+   [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [85:7 - 91:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [372:14 - 378:4] (6 lines, 53 tokens)
+   [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [91:7 - 96:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [387:59 - 395:19] (8 lines, 61 tokens)
+   [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [328:59 - 336:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-detect-code-changes-1528.mjs[39m[22m [398:7 - 405:2] (7 lines, 49 tokens)
+   [1m[32mtests/test-issue-1600-comprehensive.mjs[39m[22m [938:2 - 945:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-configure-claude-bin.mjs[39m[22m [29:5 - 42:33] (13 lines, 137 tokens)
+   [1m[32mtests/test-hive-screens.mjs[39m[22m [359:2 - 372:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [11:34 - 19:4] (8 lines, 56 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [12:58 - 20:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [14:2 - 20:7] (6 lines, 48 tokens)
+   [1m[32mtests/test-issue-1710-format-fixes.mjs[39m[22m [33:2 - 39:12]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [18:5 - 23:8] (5 lines, 56 tokens)
+   [1m[32mtests/test-use-with-retry.mjs[39m[22m [23:2 - 28:7]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [28:2 - 40:28] (12 lines, 99 tokens)
+   [1m[32mtests/test-use-with-retry.mjs[39m[22m [21:2 - 28:10]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [259:2 - 266:6] (7 lines, 52 tokens)
+   [1m[32mtests/test-issue-1600-log-fixtures.mjs[39m[22m [127:5 - 134:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [336:2 - 345:60] (9 lines, 71 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [301:2 - 310:28]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [387:103 - 398:18] (11 lines, 130 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [345:4 - 356:18]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [401:10 - 417:5] (16 lines, 182 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [359:15 - 375:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [458:2 - 469:18] (11 lines, 132 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [362:5 - 373:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [482:2 - 493:61] (11 lines, 102 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [425:2 - 436:63]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [493:4 - 501:61] (8 lines, 61 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [436:108 - 444:63]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [501:117 - 511:18] (10 lines, 87 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [444:108 - 454:18]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [511:18 - 530:21] (19 lines, 224 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [454:18 - 473:23]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [555:20 - 561:13] (6 lines, 105 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [457:10 - 367:10]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [572:73 - 586:20] (14 lines, 132 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [536:82 - 550:23]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [586:20 - 591:21] (5 lines, 50 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [550:23 - 555:20]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [591:21 - 597:10] (6 lines, 105 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [457:10 - 367:10]
+
+Clone found (javascript):
+ - [1m[32mtests/test-codex-support.mjs[39m[22m [597:8 - 603:73] (6 lines, 48 tokens)
+   [1m[32mtests/test-codex-support.mjs[39m[22m [561:11 - 567:84]
+
+Clone found (javascript):
+ - [1m[32mtests/test-claude-think-prompt-gating.mjs[39m[22m [12:39 - 23:10] (11 lines, 85 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [12:58 - 23:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-claude-think-prompt-gating.mjs[39m[22m [87:9 - 93:100] (6 lines, 58 tokens)
+   [1m[32mtests/test-claude-think-prompt-gating.mjs[39m[22m [61:10 - 67:96]
+
+Clone found (javascript):
+ - [1m[32mtests/test-claude-think-prompt-gating.mjs[39m[22m [161:2 - 166:8] (5 lines, 46 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [284:2 - 289:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-claude-revert-conflict.mjs[39m[22m [16:1 - 22:2] (6 lines, 66 tokens)
+   [1m[32mtests/test-issue-1572-push-sync.mjs[39m[22m [15:1 - 21:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-claude-revert-conflict.mjs[39m[22m [28:2 - 46:38] (18 lines, 124 tokens)
+   [1m[32mtests/test-issue-1616-pr-issue-link-preservation.mjs[39m[22m [10:34 - 33:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-claude-revert-conflict.mjs[39m[22m [130:11 - 137:37] (7 lines, 79 tokens)
+   [1m[32mtests/test-claude-revert-conflict.mjs[39m[22m [85:16 - 92:47]
+
+Clone found (javascript):
+ - [1m[32mtests/test-claude-revert-conflict.mjs[39m[22m [173:8 - 180:48] (7 lines, 79 tokens)
+   [1m[32mtests/test-claude-revert-conflict.mjs[39m[22m [85:16 - 92:47]
+
+Clone found (javascript):
+ - [1m[32mtests/test-claude-revert-conflict.mjs[39m[22m [187:5 - 196:46] (9 lines, 114 tokens)
+   [1m[32mtests/test-claude-revert-conflict.mjs[39m[22m [144:5 - 153:49]
+
+Clone found (javascript):
+ - [1m[32mtests/test-claude-revert-conflict.mjs[39m[22m [212:4 - 218:8] (6 lines, 60 tokens)
+   [1m[32mtests/test-issue-1616-pr-issue-link-preservation.mjs[39m[22m [105:4 - 111:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-claude-quiet-config.mjs[39m[22m [27:3 - 32:13] (5 lines, 48 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [224:5 - 225:18]
+
+Clone found (javascript):
+ - [1m[32mtests/test-build-resume-command.mjs[39m[22m [14:40 - 43:9] (29 lines, 215 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:2 - 44:38]
+
+Clone found (javascript):
+ - [1m[32mtests/test-build-resume-command.mjs[39m[22m [230:32 - 241:2] (11 lines, 79 tokens)
+   [1m[32mtests/test-usage-limit.mjs[39m[22m [568:44 - 579:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [17:34 - 53:8] (36 lines, 309 tokens)
+   [1m[32mtests/test-token-sanitization.mjs[39m[22m [16:17 - 51:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [174:38 - 180:16] (6 lines, 54 tokens)
+   [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [163:26 - 169:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [186:34 - 192:16] (6 lines, 54 tokens)
+   [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [163:26 - 169:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [218:43 - 224:2] (6 lines, 57 tokens)
+   [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [163:26 - 180:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [230:48 - 236:2] (6 lines, 57 tokens)
+   [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [163:26 - 192:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [463:81 - 470:16] (7 lines, 61 tokens)
+   [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [243:62 - 250:16]
+
+Clone found (javascript):
+ - [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [658:70 - 663:30] (5 lines, 41 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 856:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats.mjs[39m[22m [11:37 - 47:24] (36 lines, 309 tokens)
+   [1m[32mtests/test-token-sanitization.mjs[39m[22m [16:17 - 51:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1590.mjs[39m[22m [15:1 - 28:17] (13 lines, 103 tokens)
+   [1m[32mtests/test-budget-stats.mjs[39m[22m [11:1 - 20:17]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1590.mjs[39m[22m [29:3 - 45:75] (16 lines, 133 tokens)
+   [1m[32mtests/test-token-sanitization.mjs[39m[22m [48:2 - 51:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1590.mjs[39m[22m [94:27 - 101:6] (7 lines, 87 tokens)
+   [1m[32mtests/test-budget-stats-issue-1590.mjs[39m[22m [81:25 - 88:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1590.mjs[39m[22m [335:25 - 346:11] (11 lines, 135 tokens)
+   [1m[32mtests/test-budget-stats-issue-1590.mjs[39m[22m [322:27 - 333:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [17:2 - 47:54] (30 lines, 243 tokens)
+   [1m[32mtests/test-budget-stats.mjs[39m[22m [11:2 - 51:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [115:7 - 126:8] (11 lines, 72 tokens)
+   [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [66:7 - 76:27]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [236:58 - 244:6] (8 lines, 95 tokens)
+   [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [202:75 - 210:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [244:6 - 255:6] (11 lines, 139 tokens)
+   [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [210:2 - 221:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [292:67 - 301:7] (9 lines, 111 tokens)
+   [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [269:68 - 278:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [301:7 - 308:15] (7 lines, 57 tokens)
+   [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [278:2 - 285:18]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [315:1 - 321:8] (6 lines, 71 tokens)
+   [1m[32mtests/test-token-sanitization.mjs[39m[22m [46:1 - 52:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [347:3 - 360:38] (13 lines, 99 tokens)
+   [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [322:2 - 335:46]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [377:59 - 386:2] (9 lines, 71 tokens)
+   [1m[32mtests/test-budget-stats.mjs[39m[22m [238:54 - 247:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1508.mjs[39m[22m [13:21 - 31:12] (18 lines, 124 tokens)
+   [1m[32mtests/test-budget-stats-issue-1539.mjs[39m[22m [17:19 - 33:15]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1508.mjs[39m[22m [26:17 - 49:48] (23 lines, 216 tokens)
+   [1m[32mtests/test-token-sanitization.mjs[39m[22m [41:12 - 51:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1508.mjs[39m[22m [198:7 - 203:11] (5 lines, 107 tokens)
+   [1m[32mtests/test-budget-stats.mjs[39m[22m [125:6 - 130:18]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1508.mjs[39m[22m [328:88 - 336:93] (8 lines, 143 tokens)
+   [1m[32mtests/test-budget-stats-issue-1508.mjs[39m[22m [177:52 - 185:111]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1508.mjs[39m[22m [347:52 - 356:2] (9 lines, 71 tokens)
+   [1m[32mtests/test-budget-stats.mjs[39m[22m [238:54 - 247:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1501.mjs[39m[22m [15:2 - 51:6] (36 lines, 314 tokens)
+   [1m[32mtests/test-budget-stats.mjs[39m[22m [11:2 - 51:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1501.mjs[39m[22m [147:2 - 152:3] (5 lines, 58 tokens)
+   [1m[32mtests/test-budget-stats-issue-1501.mjs[39m[22m [127:2 - 131:19]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1501.mjs[39m[22m [213:3 - 221:2] (8 lines, 154 tokens)
+   [1m[32mtests/test-budget-stats-issue-1501.mjs[39m[22m [62:3 - 78:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1501.mjs[39m[22m [231:44 - 243:11] (12 lines, 186 tokens)
+   [1m[32mtests/test-budget-stats-issue-1508.mjs[39m[22m [192:63 - 131:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1501.mjs[39m[22m [263:53 - 273:2] (10 lines, 220 tokens)
+   [1m[32mtests/test-budget-stats.mjs[39m[22m [157:36 - 167:18]
+
+Clone found (javascript):
+ - [1m[32mtests/test-budget-stats-issue-1501.mjs[39m[22m [287:8 - 292:18] (5 lines, 132 tokens)
+   [1m[32mtests/test-budget-stats-issue-1501.mjs[39m[22m [68:7 - 224:64]
+
+Clone found (javascript):
+ - [1m[32mtests/test-branch-name-validation.mjs[39m[22m [8:2 - 25:7] (17 lines, 118 tokens)
+   [1m[32mtests/test-telegram-branch-validation.mjs[39m[22m [8:2 - 37:12]
+
+Clone found (javascript):
+ - [1m[32mtests/test-branch-name-validation.mjs[39m[22m [20:12 - 31:9] (11 lines, 63 tokens)
+   [1m[32mtests/test-telegram-branch-validation.mjs[39m[22m [20:17 - 31:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-branch-name-validation.mjs[39m[22m [23:1 - 37:9] (14 lines, 103 tokens)
+   [1m[32mtests/test-git-identity.mjs[39m[22m [28:1 - 42:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-branch-name-validation.mjs[39m[22m [33:2 - 40:4] (7 lines, 59 tokens)
+   [1m[32mtests/test-extract-isolation-from-args.mjs[39m[22m [20:3 - 27:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-branch-ci-health-1425.mjs[39m[22m [14:21 - 45:62] (31 lines, 212 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [15:32 - 34:47]
+
+Clone found (javascript):
+ - [1m[32mtests/test-branch-ci-health-1425.mjs[39m[22m [177:39 - 182:63] (5 lines, 46 tokens)
+   [1m[32mtests/test-branch-ci-health-1425.mjs[39m[22m [166:20 - 171:88]
+
+Clone found (javascript):
+ - [1m[32mtests/test-branch-ci-health-1425.mjs[39m[22m [214:49 - 219:58] (5 lines, 48 tokens)
+   [1m[32mtests/test-branch-ci-health-1425.mjs[39m[22m [126:40 - 131:62]
+
+Clone found (javascript):
+ - [1m[32mtests/test-branch-ci-health-1425.mjs[39m[22m [260:49 - 272:2] (12 lines, 70 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [239:63 - 251:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-billing-limit-detection.mjs[39m[22m [14:30 - 45:46] (31 lines, 212 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [15:32 - 34:47]
+
+Clone found (javascript):
+ - [1m[32mtests/test-billing-limit-detection.mjs[39m[22m [322:2 - 327:7] (5 lines, 65 tokens)
+   [1m[32mtests/test-billing-limit-detection.mjs[39m[22m [293:2 - 296:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-billing-limit-detection.mjs[39m[22m [344:2 - 350:2] (6 lines, 79 tokens)
+   [1m[32mtests/test-billing-limit-detection.mjs[39m[22m [321:2 - 327:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-base-branch-validation.mjs[39m[22m [9:2 - 32:50] (23 lines, 163 tokens)
+   [1m[32mtests/test-telegram-branch-validation.mjs[39m[22m [8:2 - 31:68]
+
+Clone found (javascript):
+ - [1m[32mtests/test-base-branch-validation.mjs[39m[22m [156:32 - 168:2] (12 lines, 73 tokens)
+   [1m[32mtests/test-branch-name-validation.mjs[39m[22m [132:30 - 144:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-resume-limit-reset.mjs[39m[22m [17:1 - 50:50] (33 lines, 250 tokens)
+   [1m[32mtests/test-usage-limit.mjs[39m[22m [21:1 - 54:35]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-resume-comment-ordering-1571.mjs[39m[22m [20:1 - 53:46] (33 lines, 250 tokens)
+   [1m[32mtests/test-usage-limit.mjs[39m[22m [21:1 - 54:35]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-resume-comment-ordering-1571.mjs[39m[22m [194:51 - 204:68] (10 lines, 75 tokens)
+   [1m[32mtests/test-auto-resume-limit-reset.mjs[39m[22m [142:46 - 152:63]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-restart-usage-limit-1356.mjs[39m[22m [13:38 - 42:74] (29 lines, 222 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [14:29 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-restart-usage-limit-1356.mjs[39m[22m [307:32 - 319:2] (12 lines, 136 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [315:32 - 327:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-restart-counter-1323.mjs[39m[22m [11:1 - 38:82] (27 lines, 219 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-restart-counter-1323.mjs[39m[22m [194:32 - 206:2] (12 lines, 136 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [315:32 - 327:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-restart-consistency-1567.mjs[39m[22m [17:1 - 44:62] (27 lines, 219 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-restart-consistency-1567.mjs[39m[22m [319:32 - 331:2] (12 lines, 136 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [315:32 - 327:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-report-issue.mjs[39m[22m [8:39 - 43:45] (35 lines, 251 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [15:2 - 31:68]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-report-issue.mjs[39m[22m [60:55 - 67:5] (7 lines, 69 tokens)
+   [1m[32mtests/test-auto-report-issue.mjs[39m[22m [47:62 - 54:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-report-issue.mjs[39m[22m [77:3 - 84:6] (7 lines, 64 tokens)
+   [1m[32mtests/test-auto-report-issue.mjs[39m[22m [48:3 - 55:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-report-issue.mjs[39m[22m [89:35 - 95:5] (6 lines, 62 tokens)
+   [1m[32mtests/test-auto-report-issue.mjs[39m[22m [47:62 - 53:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-merge-permissions.mjs[39m[22m [14:2 - 45:40] (31 lines, 217 tokens)
+   [1m[32mtests/test-billing-limit-detection.mjs[39m[22m [14:2 - 34:47]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-merge-permissions.mjs[39m[22m [159:1 - 166:2] (7 lines, 52 tokens)
+   [1m[32mtests/test-billing-limit-detection.mjs[39m[22m [739:1 - 746:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-input-until-mergeable-1708.mjs[39m[22m [50:43 - 65:9] (15 lines, 133 tokens)
+   [1m[32mtests/test-issue-1700-isolation-parsing.mjs[39m[22m [20:38 - 36:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-input-until-mergeable-1708.mjs[39m[22m [250:2 - 256:2] (6 lines, 58 tokens)
+   [1m[32mtests/test-auto-input-until-mergeable-1708.mjs[39m[22m [221:2 - 227:13]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-input-until-mergeable-1708.mjs[39m[22m [258:39 - 264:2] (6 lines, 53 tokens)
+   [1m[32mtests/test-issue-1700-isolation-parsing.mjs[39m[22m [137:61 - 143:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-init-repository.mjs[39m[22m [8:1 - 13:7] (5 lines, 64 tokens)
+   [1m[32mtests/test-docs-options-sync.mjs[39m[22m [9:1 - 14:14]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-init-repository.mjs[39m[22m [12:2 - 36:48] (24 lines, 177 tokens)
+   [1m[32mtests/test-owner-fork-detection.mjs[39m[22m [17:11 - 31:68]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-accept-invite-1373.mjs[39m[22m [18:44 - 25:7] (7 lines, 45 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [14:64 - 21:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-accept-invite-1373.mjs[39m[22m [199:5 - 230:40] (31 lines, 282 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [312:5 - 269:15]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-accept-invite-1373.mjs[39m[22m [236:59 - 243:2] (7 lines, 56 tokens)
+   [1m[32mtests/test-telegram-special-char-handling.mjs[39m[22m [274:37 - 281:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-agent-token-usage.mjs[39m[22m [15:1 - 39:8] (24 lines, 195 tokens)
+   [1m[32mtests/test-build-cost-info-string.mjs[39m[22m [17:1 - 52:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-agent-token-usage.mjs[39m[22m [762:66 - 768:2] (6 lines, 61 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [133:43 - 664:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-agent-model-validation.mjs[39m[22m [11:52 - 23:12] (12 lines, 98 tokens)
+   [1m[32mtests/test-sonnet-46-model-support.mjs[39m[22m [12:58 - 28:5]
+
+Clone found (javascript):
+ - [1m[32mtests/test-agent-model-validation.mjs[39m[22m [155:3 - 163:2] (8 lines, 59 tokens)
+   [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [451:3 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-agent-error-detection.mjs[39m[22m [436:2 - 442:23] (6 lines, 74 tokens)
+   [1m[32mtests/test-agent-error-detection.mjs[39m[22m [171:2 - 177:3]
+
+Clone found (javascript):
+ - [1m[32mtests/test-agent-error-detection.mjs[39m[22m [554:2 - 561:21] (7 lines, 93 tokens)
+   [1m[32mtests/test-agent-error-detection.mjs[39m[22m [171:2 - 178:23]
+
+Clone found (javascript):
+ - [1m[32mtests/test-agent-budget-stats-1526.mjs[39m[22m [14:23 - 50:87] (36 lines, 313 tokens)
+   [1m[32mtests/test-token-sanitization.mjs[39m[22m [16:17 - 53:63]
+
+Clone found (javascript):
+ - [1m[32mtests/test-agent-budget-stats-1526.mjs[39m[22m [101:6 - 107:6] (6 lines, 71 tokens)
+   [1m[32mtests/test-agent-budget-stats-1526.mjs[39m[22m [92:5 - 98:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-agent-budget-stats-1526.mjs[39m[22m [276:28 - 285:2] (9 lines, 71 tokens)
+   [1m[32mtests/test-budget-stats.mjs[39m[22m [238:54 - 247:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-activity-timeout-1510.mjs[39m[22m [15:1 - 36:48] (21 lines, 180 tokens)
+   [1m[32mtests/test-premature-finish-signaling-1516.mjs[39m[22m [12:1 - 33:54]
+
+Clone found (javascript):
+ - [1m[32mtests/test-activity-timeout-1510.mjs[39m[22m [63:72 - 69:74] (6 lines, 51 tokens)
+   [1m[32mtests/test-premature-finish-signaling-1516.mjs[39m[22m [35:82 - 41:39]
+
+Clone found (javascript):
+ - [1m[32mtests/test-activity-timeout-1510.mjs[39m[22m [85:70 - 91:69] (6 lines, 51 tokens)
+   [1m[32mtests/test-premature-finish-signaling-1516.mjs[39m[22m [35:82 - 41:39]
+
+Clone found (javascript):
+ - [1m[32mtests/test-activity-timeout-1510.mjs[39m[22m [105:72 - 111:51] (6 lines, 51 tokens)
+   [1m[32mtests/test-premature-finish-signaling-1516.mjs[39m[22m [35:82 - 41:39]
+
+Clone found (javascript):
+ - [1m[32mtests/test-activity-timeout-1510.mjs[39m[22m [131:70 - 137:50] (6 lines, 51 tokens)
+   [1m[32mtests/test-premature-finish-signaling-1516.mjs[39m[22m [35:82 - 41:39]
+
+Clone found (javascript):
+ - [1m[32mtests/test-active-branch-runs-buffer-1722.mjs[39m[22m [122:2 - 134:7] (12 lines, 100 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [19:31 - 42:8]
+
+Clone found (javascript):
+ - [1m[32mtests/test-active-branch-runs-buffer-1722.mjs[39m[22m [205:6 - 210:61] (5 lines, 58 tokens)
+   [1m[32mtests/test-active-branch-runs-buffer-1722.mjs[39m[22m [146:2 - 152:48]
+
+Clone found (javascript):
+ - [1m[32mtests/test-action-required-ci-stuck-1466.mjs[39m[22m [27:1 - 54:68] (27 lines, 219 tokens)
+   [1m[32mtests/test-usage-limit-comment-auto-restart-1570.mjs[39m[22m [16:1 - 43:73]
+
+Clone found (javascript):
+ - [1m[32mtests/test-action-required-ci-stuck-1466.mjs[39m[22m [68:3 - 74:80] (6 lines, 112 tokens)
+   [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [82:3 - 88:6]
+
+Clone found (javascript):
+ - [1m[32mtests/test-action-required-ci-stuck-1466.mjs[39m[22m [75:7 - 80:2] (5 lines, 61 tokens)
+   [1m[32mtests/test-invalid-workflow-file-1690.mjs[39m[22m [88:5 - 89:2]
+
+Clone found (javascript):
+ - [1m[32mtests/test-action-required-ci-stuck-1466.mjs[39m[22m [85:5 - 93:43] (8 lines, 82 tokens)
+   [1m[32mtests/test-invalid-workflow-file-1690.mjs[39m[22m [109:3 - 101:67]
+
+Clone found (javascript):
+ - [1m[32mtests/test-action-required-ci-stuck-1466.mjs[39m[22m [162:2 - 168:2] (6 lines, 64 tokens)
+   [1m[32mtests/test-action-required-ci-stuck-1466.mjs[39m[22m [134:2 - 140:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-action-required-ci-stuck-1466.mjs[39m[22m [272:1 - 281:2] (9 lines, 86 tokens)
+   [1m[32mtests/test-invalid-workflow-file-1690.mjs[39m[22m [242:1 - 251:2]
+
+Clone found (javascript):
+ - [1m[32mtests/solve-queue-tool-tracking.test.mjs[39m[22m [13:24 - 44:16] (31 lines, 223 tokens)
+   [1m[32mtests/test-solve-queue-command.mjs[39m[22m [15:38 - 45:2]
+
+Clone found (javascript):
+ - [1m[32mtests/solve-queue-tool-tracking.test.mjs[39m[22m [94:2 - 99:6] (5 lines, 116 tokens)
+   [1m[32mtests/solve-queue-tool-tracking.test.mjs[39m[22m [66:2 - 71:7]
+
+Clone found (javascript):
+ - [1m[32mtests/solve-queue-tool-tracking.test.mjs[39m[22m [177:1 - 188:2] (11 lines, 101 tokens)
+   [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [303:1 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/solve-queue-reject.test.mjs[39m[22m [15:24 - 51:76] (36 lines, 235 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [15:32 - 48:52]
+
+Clone found (javascript):
+ - [1m[32mtests/solve-queue-reject.test.mjs[39m[22m [211:24 - 226:2] (15 lines, 116 tokens)
+   [1m[32mtests/solve-queue-tool-tracking.test.mjs[39m[22m [173:2 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/queue-config.test.mjs[39m[22m [16:30 - 35:22] (19 lines, 117 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [15:32 - 34:47]
+
+Clone found (javascript):
+ - [1m[32mtests/queue-config.test.mjs[39m[22m [289:1 - 300:2] (11 lines, 101 tokens)
+   [1m[32mtests/test-issue-1600-budget-stats.mjs[39m[22m [303:1 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/pr-closes-issue.test.mjs[39m[22m [14:30 - 33:23] (19 lines, 117 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [15:32 - 34:47]
+
+Clone found (javascript):
+ - [1m[32mtests/pr-closes-issue.test.mjs[39m[22m [273:5 - 291:2] (18 lines, 116 tokens)
+   [1m[32mtests/queue-config.test.mjs[39m[22m [282:43 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-prompts.test.mjs[39m[22m [16:32 - 33:6] (17 lines, 117 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [19:31 - 36:9]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-prompts.test.mjs[39m[22m [265:11 - 275:36] (10 lines, 66 tokens)
+   [1m[32mtests/playwright-mcp-prompts.test.mjs[39m[22m [244:14 - 254:24]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-prompts.test.mjs[39m[22m [359:67 - 367:6] (8 lines, 85 tokens)
+   [1m[32mtests/playwright-mcp-prompts.test.mjs[39m[22m [344:66 - 352:5]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-prompts.test.mjs[39m[22m [374:31 - 388:64] (14 lines, 120 tokens)
+   [1m[32mtests/playwright-mcp-prompts.test.mjs[39m[22m [345:34 - 359:67]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-prompts.test.mjs[39m[22m [388:64 - 402:80] (14 lines, 127 tokens)
+   [1m[32mtests/playwright-mcp-prompts.test.mjs[39m[22m [373:63 - 373:6]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [20:1 - 35:37] (15 lines, 114 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [21:1 - 36:9]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [138:7 - 146:33] (8 lines, 83 tokens)
+   [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [114:7 - 122:28]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [166:7 - 174:37] (8 lines, 83 tokens)
+   [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [114:7 - 122:28]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [188:49 - 196:81] (8 lines, 96 tokens)
+   [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [153:44 - 108:6]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [199:9 - 206:2] (7 lines, 82 tokens)
+   [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [114:7 - 122:28]
+
+Clone found (javascript):
+ - [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [234:45 - 252:2] (18 lines, 117 tokens)
+   [1m[32mtests/playwright-mcp-prompts.test.mjs[39m[22m [419:46 - 437:2]
+
+Clone found (javascript):
+ - [1m[32mtests/model-info.test.mjs[39m[22m [17:26 - 36:28] (19 lines, 117 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [15:32 - 34:47]
+
+Clone found (javascript):
+ - [1m[32mtests/model-info.test.mjs[39m[22m [161:42 - 166:26] (5 lines, 63 tokens)
+   [1m[32mtests/model-info.test.mjs[39m[22m [153:48 - 158:20]
+
+Clone found (javascript):
+ - [1m[32mtests/model-info.test.mjs[39m[22m [214:70 - 221:2] (7 lines, 66 tokens)
+   [1m[32mtests/model-info.test.mjs[39m[22m [200:47 - 205:2]
+
+Clone found (javascript):
+ - [1m[32mtests/model-info.test.mjs[39m[22m [246:71 - 251:27] (5 lines, 63 tokens)
+   [1m[32mtests/model-info.test.mjs[39m[22m [153:48 - 158:20]
+
+Clone found (javascript):
+ - [1m[32mtests/model-info.test.mjs[39m[22m [351:2 - 356:90] (5 lines, 52 tokens)
+   [1m[32mtests/model-info.test.mjs[39m[22m [195:2 - 200:47]
+
+Clone found (javascript):
+ - [1m[32mtests/model-info.test.mjs[39m[22m [365:80 - 371:2] (6 lines, 79 tokens)
+   [1m[32mtests/model-info.test.mjs[39m[22m [337:57 - 343:7]
+
+Clone found (javascript):
+ - [1m[32mtests/model-info.test.mjs[39m[22m [433:68 - 440:2] (7 lines, 101 tokens)
+   [1m[32mtests/model-info.test.mjs[39m[22m [169:81 - 408:2]
+
+Clone found (javascript):
+ - [1m[32mtests/model-info.test.mjs[39m[22m [453:2 - 467:49] (14 lines, 98 tokens)
+   [1m[32mtests/useless-tools.test.mjs[39m[22m [22:2 - 36:9]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [18:2 - 36:14] (18 lines, 122 tokens)
+   [1m[32mtests/solve-queue-reject.test.mjs[39m[22m [15:2 - 36:5]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [255:4 - 260:4] (5 lines, 47 tokens)
+   [1m[32mtests/test-queue-display-1267.mjs[39m[22m [184:3 - 189:3]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [260:4 - 265:4] (5 lines, 47 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [233:3 - 238:3]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [264:11 - 269:2] (5 lines, 47 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [259:10 - 264:11]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [265:4 - 273:80] (8 lines, 57 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [238:3 - 246:55]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [363:3 - 368:3] (5 lines, 47 tokens)
+   [1m[32mtests/test-queue-display-1267.mjs[39m[22m [184:3 - 189:3]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [367:10 - 372:11] (5 lines, 47 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [237:11 - 242:2]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [368:3 - 373:3] (5 lines, 47 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [233:3 - 238:3]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [373:3 - 381:34] (8 lines, 57 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [238:3 - 246:55]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [542:2 - 547:8] (5 lines, 63 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [514:5 - 519:8]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [573:3 - 582:3] (9 lines, 107 tokens)
+   [1m[32mtests/test-queue-display-1267.mjs[39m[22m [184:3 - 548:3]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [621:33 - 641:16] (20 lines, 159 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [418:2 - 438:8]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [661:68 - 680:5] (19 lines, 179 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [360:52 - 202:2]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [711:81 - 718:12] (7 lines, 155 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [570:62 - 700:8]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [748:54 - 753:76] (5 lines, 49 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [724:48 - 729:59]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [761:27 - 768:17] (7 lines, 155 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [570:62 - 700:8]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [777:3 - 782:6] (5 lines, 60 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [420:3 - 426:7]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [782:3 - 788:2] (6 lines, 152 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [571:3 - 700:2]
+
+Clone found (javascript):
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [888:44 - 906:2] (18 lines, 116 tokens)
+   [1m[32mtests/queue-config.test.mjs[39m[22m [282:43 - 459:2]
+
+Clone found (javascript):
+ - [1m[32mtests/interruptible-sleep.test.mjs[39m[22m [90:14 - 97:20] (7 lines, 59 tokens)
+   [1m[32mtests/interruptible-sleep.test.mjs[39m[22m [77:9 - 82:8]
+
+Clone found (javascript):
+ - [1m[32mtests/github-rate-limit.test.mjs[39m[22m [17:2 - 26:12] (9 lines, 91 tokens)
+   [1m[32mtests/test-preinstall-use-m-packages-1724.mjs[39m[22m [26:2 - 34:7]
+
+Clone found (javascript):
+ - [1m[32mtests/github-rate-limit.test.mjs[39m[22m [24:9 - 30:5] (6 lines, 60 tokens)
+   [1m[32mtests/interruptible-sleep.test.mjs[39m[22m [23:5 - 29:12]
+
+Clone found (javascript):
+ - [1m[32mtests/github-rate-limit.test.mjs[39m[22m [36:10 - 41:7] (5 lines, 51 tokens)
+   [1m[32mtests/test-use-with-retry.mjs[39m[22m [25:3 - 136:2]
+
+Clone found (javascript):
+ - [1m[32mtests/github-rate-limit.test.mjs[39m[22m [225:3 - 231:6] (6 lines, 59 tokens)
+   [1m[32mtests/github-rate-limit.test.mjs[39m[22m [193:3 - 199:6]
+
+Clone found (javascript):
+ - [1m[32mtests/github-rate-limit.test.mjs[39m[22m [267:42 - 273:9] (6 lines, 63 tokens)
+   [1m[32mtests/github-rate-limit.test.mjs[39m[22m [224:59 - 230:6]
+
+Clone found (javascript):
+ - [1m[32msrc/usage-limit.lib.mjs[39m[22m [280:9 - 289:38] (9 lines, 81 tokens)
+   [1m[32msrc/usage-limit.lib.mjs[39m[22m [255:9 - 264:61]
+
+Clone found (javascript):
+ - [1m[32msrc/usage-limit.lib.mjs[39m[22m [350:2 - 355:3] (5 lines, 73 tokens)
+   [1m[32msrc/work-session-formatting.lib.mjs[39m[22m [33:2 - 38:2]
+
+Clone found (javascript):
+ - [1m[32msrc/token-sanitization.lib.mjs[39m[22m [161:11 - 168:2] (7 lines, 64 tokens)
+   [1m[32msrc/token-sanitization.lib.mjs[39m[22m [151:13 - 159:6]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-top-command.lib.mjs[39m[22m [207:7 - 214:43] (7 lines, 68 tokens)
+   [1m[32msrc/telegram-top-command.lib.mjs[39m[22m [191:12 - 198:8]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-subscribers.lib.mjs[39m[22m [213:23 - 218:11] (5 lines, 59 tokens)
+   [1m[32msrc/telegram-subscribers.lib.mjs[39m[22m [199:8 - 204:14]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-start-stop-command.lib.mjs[39m[22m [137:2 - 142:2] (5 lines, 56 tokens)
+   [1m[32msrc/telegram-top-command.lib.mjs[39m[22m [118:7 - 123:2]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-solve-queue.helpers.lib.mjs[39m[22m [103:2 - 109:8] (6 lines, 94 tokens)
+   [1m[32msrc/work-session-formatting.lib.mjs[39m[22m [33:2 - 39:17]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-solve-queue-command.lib.mjs[39m[22m [39:32 - 44:43] (5 lines, 68 tokens)
+   [1m[32msrc/telegram-task-command.lib.mjs[39m[22m [95:19 - 100:3]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-solve-queue-command.lib.mjs[39m[22m [58:109 - 66:8] (8 lines, 69 tokens)
+   [1m[32msrc/telegram-top-command.lib.mjs[39m[22m [88:48 - 96:3]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-safe-reply.lib.mjs[39m[22m [11:2 - 17:7] (6 lines, 54 tokens)
+   [1m[32mtests/test-telegram-safe-reply-issue-1497.mjs[39m[22m [248:2 - 254:2]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-message-filters.lib.mjs[39m[22m [193:3 - 218:2] (25 lines, 250 tokens)
+   [1m[32mtests/test-telegram-url-extraction.mjs[39m[22m [24:3 - 49:2]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-merge-queue.lib.mjs[39m[22m [685:3 - 690:12] (5 lines, 56 tokens)
+   [1m[32msrc/telegram-merge-queue.lib.mjs[39m[22m [665:2 - 670:7]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-merge-queue.lib.mjs[39m[22m [853:22 - 859:22] (6 lines, 91 tokens)
+   [1m[32msrc/telegram-merge-queue.lib.mjs[39m[22m [838:19 - 844:19]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-merge-command.lib.mjs[39m[22m [70:4 - 76:2] (6 lines, 75 tokens)
+   [1m[32msrc/telegram-solve-command.lib.mjs[39m[22m [39:4 - 45:4]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-markdown.lib.mjs[39m[22m [12:2 - 29:4] (17 lines, 69 tokens)
+   [1m[32mtests/test-telegram-markdown-escaping.mjs[39m[22m [22:1 - 31:14]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-log-command.lib.mjs[39m[22m [157:19 - 162:6] (5 lines, 83 tokens)
+   [1m[32msrc/telegram-terminal-watch-command.lib.mjs[39m[22m [293:2 - 298:17]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-log-command.lib.mjs[39m[22m [227:43 - 232:3] (5 lines, 56 tokens)
+   [1m[32msrc/telegram-terminal-watch-command.lib.mjs[39m[22m [342:54 - 347:2]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-log-command.lib.mjs[39m[22m [265:34 - 270:49] (5 lines, 100 tokens)
+   [1m[32msrc/telegram-terminal-watch-command.lib.mjs[39m[22m [357:45 - 362:6]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-log-command.lib.mjs[39m[22m [271:5 - 276:3] (5 lines, 65 tokens)
+   [1m[32msrc/telegram-terminal-watch-command.lib.mjs[39m[22m [362:5 - 368:4]
+
+Clone found (javascript):
+ - [1m[32msrc/telegram-accept-invitations.lib.mjs[39m[22m [107:19 - 147:76] (40 lines, 46 tokens)
+   [1m[32mtests/test-accept-invites-output.mjs[39m[22m [73:19 - 254:22]
+
+Clone found (javascript):
+ - [1m[32msrc/task.mjs[39m[22m [85:8 - 96:5] (11 lines, 112 tokens)
+   [1m[32msrc/telegram-command-execution.lib.mjs[39m[22m [29:4 - 45:8]
+
+Clone found (javascript):
+ - [1m[32msrc/task.issue-creation.lib.mjs[39m[22m [142:2 - 170:7] (28 lines, 268 tokens)
+   [1m[32msrc/task.mjs[39m[22m [77:2 - 104:6]
+
+Clone found (javascript):
+ - [1m[32msrc/start-screen.mjs[39m[22m [246:3 - 257:4] (11 lines, 151 tokens)
+   [1m[32msrc/start-screen.mjs[39m[22m [211:5 - 222:6]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.watch.lib.mjs[39m[22m [11:1 - 17:64] (6 lines, 64 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [19:1 - 21:6]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.watch.lib.mjs[39m[22m [389:6 - 401:16] (12 lines, 70 tokens)
+   [1m[32msrc/solve.watch.lib.mjs[39m[22m [299:14 - 311:11]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.validation.lib.mjs[39m[22m [7:1 - 14:5] (7 lines, 68 tokens)
+   [1m[32msrc/solve.watch.lib.mjs[39m[22m [10:1 - 21:3]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.validation.lib.mjs[39m[22m [271:30 - 277:20] (6 lines, 73 tokens)
+   [1m[32msrc/solve.validation.lib.mjs[39m[22m [247:6 - 253:29]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.validation.lib.mjs[39m[22m [280:29 - 286:67] (6 lines, 53 tokens)
+   [1m[32msrc/solve.validation.lib.mjs[39m[22m [256:61 - 262:67]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.session.lib.mjs[39m[22m [117:7 - 122:21] (5 lines, 54 tokens)
+   [1m[32msrc/solve.session.lib.mjs[39m[22m [94:7 - 99:22]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.session.lib.mjs[39m[22m [150:44 - 156:19] (6 lines, 75 tokens)
+   [1m[32msrc/solve.session.lib.mjs[39m[22m [116:46 - 99:22]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.session.lib.mjs[39m[22m [180:27 - 187:22] (7 lines, 65 tokens)
+   [1m[32msrc/solve.session.lib.mjs[39m[22m [92:24 - 99:22]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [15:1 - 26:45] (11 lines, 119 tokens)
+   [1m[32msrc/solve.watch.lib.mjs[39m[22m [10:1 - 21:35]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [101:2 - 108:6] (7 lines, 82 tokens)
+   [1m[32mtests/playwright-mcp-cleanup.test.mjs[39m[22m [198:2 - 120:2]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [150:2 - 155:3] (5 lines, 66 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [125:2 - 131:7]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [228:8 - 242:13] (14 lines, 132 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [190:11 - 204:16]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [242:13 - 253:15] (11 lines, 67 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [204:16 - 215:6]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [269:8 - 283:13] (14 lines, 132 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [190:11 - 204:16]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [283:13 - 299:14] (16 lines, 90 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [204:16 - 258:11]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [312:7 - 323:2] (11 lines, 121 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [192:5 - 204:11]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [325:14 - 342:11] (17 lines, 91 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [204:16 - 221:13]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.repo-setup.lib.mjs[39m[22m [166:73 - 172:71] (6 lines, 52 tokens)
+   [1m[32msrc/solve.repo-setup.lib.mjs[39m[22m [144:62 - 150:46]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.preparation.lib.mjs[39m[22m [112:66 - 118:6] (6 lines, 76 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [125:5 - 156:8]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.preparation.lib.mjs[39m[22m [128:2 - 139:5] (11 lines, 84 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [375:8 - 387:2]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.fork-detection.lib.mjs[39m[22m [16:1 - 22:4] (6 lines, 82 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [20:1 - 23:3]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.feedback.lib.mjs[39m[22m [143:2 - 152:70] (9 lines, 138 tokens)
+   [1m[32msrc/solve.feedback.lib.mjs[39m[22m [110:2 - 119:64]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.execution.lib.mjs[39m[22m [4:1 - 18:6] (14 lines, 124 tokens)
+   [1m[32msrc/solve.validation.lib.mjs[39m[22m [4:1 - 21:35]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.error-handlers.lib.mjs[39m[22m [66:8 - 73:29] (7 lines, 62 tokens)
+   [1m[32msrc/solve.execution.lib.mjs[39m[22m [196:6 - 204:42]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.error-handlers.lib.mjs[39m[22m [84:3 - 93:13] (9 lines, 74 tokens)
+   [1m[32msrc/solve.execution.lib.mjs[39m[22m [212:36 - 221:7]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.error-handlers.lib.mjs[39m[22m [154:21 - 174:4] (20 lines, 72 tokens)
+   [1m[32msrc/solve.error-handlers.lib.mjs[39m[22m [124:20 - 144:4]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.error-handlers.lib.mjs[39m[22m [239:12 - 254:2] (15 lines, 65 tokens)
+   [1m[32msrc/solve.error-handlers.lib.mjs[39m[22m [124:20 - 139:2]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.branch.lib.mjs[39m[22m [333:41 - 340:7] (7 lines, 56 tokens)
+   [1m[32msrc/solve.branch.lib.mjs[39m[22m [324:51 - 329:5]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.branch-errors.lib.mjs[39m[22m [105:11 - 117:2] (12 lines, 61 tokens)
+   [1m[32msrc/solve.branch-errors.lib.mjs[39m[22m [55:11 - 68:59]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.branch-errors.lib.mjs[39m[22m [231:19 - 237:74] (6 lines, 50 tokens)
+   [1m[32msrc/solve.branch-errors.lib.mjs[39m[22m [136:26 - 141:2]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.bootstrap.lib.mjs[39m[22m [10:3 - 21:9] (11 lines, 97 tokens)
+   [1m[32msrc/task.mjs[39m[22m [14:1 - 25:7]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [16:1 - 29:14] (13 lines, 142 tokens)
+   [1m[32msrc/solve.watch.lib.mjs[39m[22m [10:1 - 23:18]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [26:2 - 35:33] (9 lines, 65 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [28:9 - 44:4]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [45:1 - 53:17] (8 lines, 55 tokens)
+   [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [394:3 - 402:14]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [62:49 - 67:6] (5 lines, 69 tokens)
+   [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [400:11 - 405:7]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [70:1 - 75:76] (5 lines, 72 tokens)
+   [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [104:1 - 108:9]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [364:15 - 369:80] (5 lines, 58 tokens)
+   [1m[32mtests/test-invalid-workflow-file-1690.mjs[39m[22m [100:5 - 105:7]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [494:13 - 499:5] (5 lines, 46 tokens)
+   [1m[32mtests/test-false-positive-workflow-run-race-1480.mjs[39m[22m [118:7 - 124:7]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [635:5 - 646:69] (11 lines, 96 tokens)
+   [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [609:5 - 619:69]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [673:3 - 683:2] (10 lines, 105 tokens)
+   [1m[32msrc/solve.auto-merge-helpers.lib.mjs[39m[22m [370:15 - 380:2]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-ensure.lib.mjs[39m[22m [13:1 - 26:2] (13 lines, 141 tokens)
+   [1m[32msrc/solve.watch.lib.mjs[39m[22m [10:1 - 23:2]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-continue.lib.mjs[39m[22m [5:1 - 21:2] (16 lines, 149 tokens)
+   [1m[32msrc/solve.validation.lib.mjs[39m[22m [4:1 - 23:2]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-continue.lib.mjs[39m[22m [488:5 - 499:53] (11 lines, 112 tokens)
+   [1m[32msrc/solve.auto-continue.lib.mjs[39m[22m [450:9 - 461:48]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-continue.lib.mjs[39m[22m [519:3 - 550:6] (31 lines, 367 tokens)
+   [1m[32msrc/solve.auto-continue.lib.mjs[39m[22m [244:5 - 275:73]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-continue.lib.mjs[39m[22m [550:13 - 556:94] (6 lines, 90 tokens)
+   [1m[32msrc/solve.auto-continue.lib.mjs[39m[22m [276:15 - 282:87]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.auto-continue.lib.mjs[39m[22m [576:8 - 585:2] (9 lines, 60 tokens)
+   [1m[32msrc/solve.auto-continue.lib.mjs[39m[22m [560:2 - 569:3]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.accept-invite.lib.mjs[39m[22m [17:1 - 28:38] (11 lines, 127 tokens)
+   [1m[32msrc/telegram-accept-invitations.lib.mjs[39m[22m [19:1 - 34:4]
+
+Clone found (javascript):
+ - [1m[32msrc/solve.accept-invite.lib.mjs[39m[22m [78:2 - 84:4] (6 lines, 66 tokens)
+   [1m[32mtests/test-auto-accept-invite-1373.mjs[39m[22m [47:10 - 51:10]
+
+Clone found (javascript):
+ - [1m[32msrc/session-monitor.lib.mjs[39m[22m [504:3 - 519:4] (15 lines, 50 tokens)
+   [1m[32msrc/session-monitor.lib.mjs[39m[22m [450:3 - 470:4]
+
+Clone found (javascript):
+ - [1m[32msrc/sentry.lib.mjs[39m[22m [194:2 - 201:8] (7 lines, 54 tokens)
+   [1m[32msrc/sentry.lib.mjs[39m[22m [179:2 - 186:14]
+
+Clone found (javascript):
+ - [1m[32msrc/sentry.lib.mjs[39m[22m [210:2 - 217:9] (7 lines, 54 tokens)
+   [1m[32msrc/sentry.lib.mjs[39m[22m [179:2 - 186:14]
+
+Clone found (javascript):
+ - [1m[32msrc/sentry.lib.mjs[39m[22m [225:2 - 232:8] (7 lines, 54 tokens)
+   [1m[32msrc/sentry.lib.mjs[39m[22m [179:2 - 186:14]
+
+Clone found (javascript):
+ - [1m[32msrc/sentry.lib.mjs[39m[22m [266:2 - 276:79] (10 lines, 73 tokens)
+   [1m[32msrc/sentry.lib.mjs[39m[22m [241:2 - 251:4]
+
+Clone found (javascript):
+ - [1m[32msrc/reviewers-hive.mjs[39m[22m [4:2 - 10:2] (6 lines, 58 tokens)
+   [1m[32msrc/solve.watch.lib.mjs[39m[22m [15:4 - 18:3]
+
+Clone found (javascript):
+ - [1m[32msrc/reviewers-hive.mjs[39m[22m [124:66 - 133:7] (9 lines, 58 tokens)
+   [1m[32msrc/task.config.lib.mjs[39m[22m [72:71 - 81:16]
+
+Clone found (javascript):
+ - [1m[32msrc/review.mjs[39m[22m [4:1 - 9:6] (5 lines, 55 tokens)
+   [1m[32msrc/task.mjs[39m[22m [12:1 - 17:8]
+
+Clone found (javascript):
+ - [1m[32msrc/review.mjs[39m[22m [10:8 - 19:22] (9 lines, 66 tokens)
+   [1m[32msrc/task.mjs[39m[22m [17:2 - 22:48]
+
+Clone found (javascript):
+ - [1m[32msrc/review.mjs[39m[22m [34:1 - 45:64] (11 lines, 140 tokens)
+   [1m[32msrc/reviewers-hive.mjs[39m[22m [3:1 - 21:50]
+
+Clone found (javascript):
+ - [1m[32msrc/review.mjs[39m[22m [161:1 - 175:24] (14 lines, 127 tokens)
+   [1m[32msrc/solve.execution.lib.mjs[39m[22m [40:3 - 54:25]
+
+Clone found (javascript):
+ - [1m[32msrc/review.mjs[39m[22m [175:24 - 180:24] (5 lines, 74 tokens)
+   [1m[32msrc/solve.execution.lib.mjs[39m[22m [54:25 - 59:23]
+
+Clone found (javascript):
+ - [1m[32msrc/review.mjs[39m[22m [184:5 - 189:17] (5 lines, 92 tokens)
+   [1m[32msrc/review.mjs[39m[22m [175:5 - 69:18]
+
+Clone found (javascript):
+ - [1m[32msrc/review.mjs[39m[22m [439:13 - 446:19] (7 lines, 79 tokens)
+   [1m[32msrc/solve.execution.lib.mjs[39m[22m [243:2 - 250:25]
+
+Clone found (javascript):
+ - [1m[32msrc/review.mjs[39m[22m [448:8 - 454:2] (6 lines, 56 tokens)
+   [1m[32msrc/solve.execution.lib.mjs[39m[22m [252:18 - 258:3]
+
+Clone found (javascript):
+ - [1m[32msrc/protect-branch.mjs[39m[22m [17:1 - 24:32] (7 lines, 85 tokens)
+   [1m[32msrc/reviewers-hive.mjs[39m[22m [3:1 - 21:35]
+
+Clone found (javascript):
+ - [1m[32msrc/playwright-mcp.lib.mjs[39m[22m [108:2 - 115:3] (7 lines, 90 tokens)
+   [1m[32msrc/playwright-mcp.lib.mjs[39m[22m [67:2 - 74:6]
+
+Clone found (javascript):
+ - [1m[32msrc/playwright-mcp.lib.mjs[39m[22m [114:6 - 132:4] (18 lines, 157 tokens)
+   [1m[32msrc/playwright-mcp.lib.mjs[39m[22m [74:2 - 92:4]
+
+Clone found (javascript):
+ - [1m[32msrc/playwright-mcp.lib.mjs[39m[22m [270:2 - 277:5] (7 lines, 113 tokens)
+   [1m[32msrc/useless-tools.lib.mjs[39m[22m [92:2 - 99:23]
+
+Clone found (javascript):
+ - [1m[32msrc/option-suggestions.lib.mjs[39m[22m [32:2 - 44:2] (12 lines, 146 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [485:7 - 497:7]
+
+Clone found (javascript):
+ - [1m[32msrc/opencode.lib.mjs[39m[22m [4:1 - 12:5] (8 lines, 93 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [18:1 - 8:3]
+
+Clone found (javascript):
+ - [1m[32msrc/opencode.lib.mjs[39m[22m [10:1 - 15:31] (5 lines, 73 tokens)
+   [1m[32mtests/test-claude-revert-conflict.mjs[39m[22m [22:1 - 27:37]
+
+Clone found (javascript):
+ - [1m[32msrc/opencode.lib.mjs[39m[22m [117:2 - 133:2] (16 lines, 63 tokens)
+   [1m[32msrc/opencode.lib.mjs[39m[22m [111:2 - 111:4]
+
+Clone found (javascript):
+ - [1m[32msrc/opencode.lib.mjs[39m[22m [383:12 - 388:3] (5 lines, 66 tokens)
+   [1m[32msrc/opencode.lib.mjs[39m[22m [340:7 - 345:41]
+
+Clone found (javascript):
+ - [1m[32msrc/opencode.lib.mjs[39m[22m [388:17 - 415:2] (27 lines, 334 tokens)
+   [1m[32msrc/opencode.lib.mjs[39m[22m [347:15 - 375:3]
+
+Clone found (javascript):
+ - [1m[32msrc/opencode.lib.mjs[39m[22m [518:9 - 527:2] (9 lines, 123 tokens)
+   [1m[32msrc/opencode.lib.mjs[39m[22m [455:9 - 464:2]
+
+Clone found (javascript):
+ - [1m[32msrc/opencode.lib.mjs[39m[22m [606:43 - 614:31] (8 lines, 82 tokens)
+   [1m[32msrc/solve.restart-shared.lib.mjs[39m[22m [125:5 - 118:52]
+
+Clone found (javascript):
+ - [1m[32msrc/model-info.lib.mjs[39m[22m [29:3 - 38:8] (9 lines, 89 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [717:2 - 726:15]
+
+Clone found (javascript):
+ - [1m[32msrc/memory-check.mjs[39m[22m [3:1 - 9:20] (6 lines, 69 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [18:1 - 22:2]
+
+Clone found (javascript):
+ - [1m[32msrc/memory-check.mjs[39m[22m [221:16 - 229:10] (8 lines, 61 tokens)
+   [1m[32msrc/memory-check.mjs[39m[22m [124:2 - 132:2]
+
+Clone found (javascript):
+ - [1m[32msrc/memory-check.mjs[39m[22m [235:64 - 244:31] (9 lines, 114 tokens)
+   [1m[32msrc/memory-check.mjs[39m[22m [134:88 - 143:31]
+
+Clone found (javascript):
+ - [1m[32msrc/log-upload.lib.mjs[39m[22m [6:1 - 13:2] (7 lines, 72 tokens)
+   [1m[32mtests/test-log-upload.mjs[39m[22m [15:1 - 18:2]
+
+Clone found (javascript):
+ - [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [8:1 - 20:4] (12 lines, 106 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [20:1 - 25:6]
+
+Clone found (javascript):
+ - [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [168:21 - 173:6] (5 lines, 48 tokens)
+   [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [162:15 - 167:5]
+
+Clone found (javascript):
+ - [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [174:19 - 179:7] (5 lines, 48 tokens)
+   [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [162:15 - 167:5]
+
+Clone found (javascript):
+ - [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [187:9 - 192:11] (5 lines, 46 tokens)
+   [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [162:15 - 167:7]
+
+Clone found (javascript):
+ - [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [200:10 - 205:5] (5 lines, 46 tokens)
+   [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [162:15 - 167:7]
+
+Clone found (javascript):
+ - [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [214:9 - 219:4] (5 lines, 48 tokens)
+   [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [162:15 - 167:5]
+
+Clone found (javascript):
+ - [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [220:6 - 225:5] (5 lines, 48 tokens)
+   [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [162:15 - 192:9]
+
+Clone found (javascript):
+ - [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [226:7 - 231:10] (5 lines, 48 tokens)
+   [1m[32msrc/local-ci-checks.lib.mjs[39m[22m [162:15 - 205:7]
+
+Clone found (javascript):
+ - [1m[32msrc/lino.lib.mjs[39m[22m [57:16 - 64:4] (7 lines, 74 tokens)
+   [1m[32msrc/lino.lib.mjs[39m[22m [34:6 - 41:7]
+
+Clone found (javascript):
+ - [1m[32msrc/lino.lib.mjs[39m[22m [88:18 - 95:6] (7 lines, 74 tokens)
+   [1m[32msrc/lino.lib.mjs[39m[22m [34:6 - 41:7]
+
+Clone found (javascript):
+ - [1m[32msrc/lib.mjs[39m[22m [32:1 - 40:66] (8 lines, 74 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [18:1 - 23:6]
+
+Clone found (javascript):
+ - [1m[32msrc/lib.mjs[39m[22m [77:2 - 86:70] (9 lines, 81 tokens)
+   [1m[32msrc/reviewers-hive.mjs[39m[22m [18:1 - 27:3]
+
+Clone found (javascript):
+ - [1m[32msrc/lib.mjs[39m[22m [110:5 - 123:8] (13 lines, 81 tokens)
+   [1m[32msrc/reviewers-hive.mjs[39m[22m [33:3 - 46:2]
+
+Clone found (javascript):
+ - [1m[32msrc/lib.mjs[39m[22m [314:9 - 321:12] (7 lines, 90 tokens)
+   [1m[32msrc/lib.mjs[39m[22m [290:9 - 297:12]
+
+Clone found (javascript):
+ - [1m[32msrc/lib.mjs[39m[22m [321:12 - 330:2] (9 lines, 63 tokens)
+   [1m[32msrc/lib.mjs[39m[22m [297:12 - 307:8]
+
+Clone found (javascript):
+ - [1m[32msrc/lib.mjs[39m[22m [503:2 - 509:3] (6 lines, 56 tokens)
+   [1m[32msrc/lib.mjs[39m[22m [438:8 - 444:45]
+
+Clone found (javascript):
+ - [1m[32msrc/lib.mjs[39m[22m [541:6 - 546:6] (5 lines, 109 tokens)
+   [1m[32msrc/lib.mjs[39m[22m [501:3 - 506:4]
+
+Clone found (javascript):
+ - [1m[32msrc/lib.mjs[39m[22m [563:10 - 571:61] (8 lines, 162 tokens)
+   [1m[32msrc/lib.mjs[39m[22m [510:6 - 517:3]
+
+Clone found (javascript):
+ - [1m[32msrc/lib.mjs[39m[22m [572:10 - 579:65] (7 lines, 95 tokens)
+   [1m[32msrc/lib.mjs[39m[22m [517:6 - 523:6]
+
+Clone found (javascript):
+ - [1m[32msrc/lenv-reader.lib.mjs[39m[22m [45:1 - 59:9] (14 lines, 168 tokens)
+   [1m[32msrc/lino.lib.mjs[39m[22m [14:1 - 28:7]
+
+Clone found (javascript):
+ - [1m[32msrc/isolation-runner.lib.mjs[39m[22m [15:9 - 23:28] (8 lines, 71 tokens)
+   [1m[32mtests/test-telegram-options-before-url.mjs[39m[22m [13:31 - 7:6]
+
+Clone found (javascript):
+ - [1m[32msrc/hive.config.lib.mjs[39m[22m [45:6 - 53:2] (8 lines, 55 tokens)
+   [1m[32msrc/solve.config.lib.mjs[39m[22m [325:5 - 333:5]
+
+Clone found (javascript):
+ - [1m[32msrc/github.graphql.lib.mjs[39m[22m [97:4 - 102:4] (5 lines, 64 tokens)
+   [1m[32msrc/github.graphql.lib.mjs[39m[22m [15:18 - 385:47]
+
+Clone found (javascript):
+ - [1m[32msrc/github.batch.lib.mjs[39m[22m [4:1 - 10:23] (6 lines, 55 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [18:1 - 10:51]
+
+Clone found (javascript):
+ - [1m[32msrc/github.batch.lib.mjs[39m[22m [192:6 - 197:4] (5 lines, 63 tokens)
+   [1m[32msrc/reviewers-hive.mjs[39m[22m [379:6 - 439:2]
+
+Clone found (javascript):
+ - [1m[32msrc/github.batch.lib.mjs[39m[22m [265:8 - 287:6] (22 lines, 199 tokens)
+   [1m[32msrc/github.batch.lib.mjs[39m[22m [118:8 - 140:4]
+
+Clone found (javascript):
+ - [1m[32msrc/github.batch.lib.mjs[39m[22m [295:16 - 302:5] (7 lines, 80 tokens)
+   [1m[32msrc/github.batch.lib.mjs[39m[22m [185:10 - 192:9]
+
+Clone found (javascript):
+ - [1m[32msrc/github.batch.lib.mjs[39m[22m [302:2 - 307:5] (5 lines, 72 tokens)
+   [1m[32msrc/github.batch.lib.mjs[39m[22m [192:2 - 197:6]
+
+Clone found (javascript):
+ - [1m[32msrc/github-rate-limit.lib.mjs[39m[22m [190:10 - 195:10] (5 lines, 55 tokens)
+   [1m[32msrc/lib.mjs[39m[22m [438:8 - 444:45]
+
+Clone found (javascript):
+ - [1m[32msrc/github-merge-repo-actions.lib.mjs[39m[22m [165:3 - 172:4] (7 lines, 90 tokens)
+   [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [304:3 - 310:2]
+
+Clone found (javascript):
+ - [1m[32msrc/github-merge-repo-actions.lib.mjs[39m[22m [174:5 - 185:3] (11 lines, 156 tokens)
+   [1m[32mtests/test-misleading-merge-logs-1712.mjs[39m[22m [311:5 - 320:7]
+
+Clone found (javascript):
+ - [1m[32msrc/github-merge-ready-sync.lib.mjs[39m[22m [12:1 - 23:7] (11 lines, 127 tokens)
+   [1m[32msrc/telegram-accept-invitations.lib.mjs[39m[22m [19:1 - 34:4]
+
+Clone found (javascript):
+ - [1m[32msrc/github-merge-ci.lib.mjs[39m[22m [12:1 - 17:55] (5 lines, 56 tokens)
+   [1m[32msrc/telegram-accept-invitations.lib.mjs[39m[22m [19:1 - 24:44]
+
+Clone found (javascript):
+ - [1m[32msrc/github-merge-ci.lib.mjs[39m[22m [18:1 - 36:4] (18 lines, 69 tokens)
+   [1m[32msrc/telegram-accept-invitations.lib.mjs[39m[22m [25:1 - 34:4]
+
+Clone found (javascript):
+ - [1m[32msrc/github-merge-ci.lib.mjs[39m[22m [119:11 - 124:14] (5 lines, 42 tokens)
+   [1m[32mtests/test-branch-ci-health-1425.mjs[39m[22m [96:2 - 101:7]
+
+Clone found (javascript):
+ - [1m[32msrc/github-merge-ci.lib.mjs[39m[22m [250:6 - 255:2] (5 lines, 55 tokens)
+   [1m[32msrc/github-merge-ci.lib.mjs[39m[22m [175:9 - 181:3]
+
+Clone found (javascript):
+ - [1m[32msrc/github-merge-ci-signals.lib.mjs[39m[22m [14:1 - 34:4] (20 lines, 127 tokens)
+   [1m[32msrc/telegram-accept-invitations.lib.mjs[39m[22m [19:1 - 34:4]
+
+Clone found (javascript):
+ - [1m[32msrc/github-error-reporter.lib.mjs[39m[22m [11:1 - 16:2] (5 lines, 71 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [20:1 - 23:3]
+
+Clone found (javascript):
+ - [1m[32msrc/github-error-reporter.lib.mjs[39m[22m [167:7 - 172:8] (5 lines, 45 tokens)
+   [1m[32msrc/github-error-reporter.lib.mjs[39m[22m [34:5 - 41:3]
+
+Clone found (javascript):
+ - [1m[32msrc/github-entity-validation.lib.mjs[39m[22m [58:12 - 69:8] (11 lines, 100 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [48:2 - 59:2]
+
+Clone found (javascript):
+ - [1m[32msrc/github-entity-validation.lib.mjs[39m[22m [92:13 - 99:8] (7 lines, 52 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [70:9 - 77:2]
+
+Clone found (javascript):
+ - [1m[32msrc/github-entity-validation.lib.mjs[39m[22m [120:13 - 127:8] (7 lines, 52 tokens)
+   [1m[32mtests/test-entity-validation-1552.mjs[39m[22m [84:9 - 91:2]
+
+Clone found (javascript):
+ - [1m[32msrc/git.lib.mjs[39m[22m [52:29 - 62:60] (10 lines, 55 tokens)
+   [1m[32msrc/git.lib.mjs[39m[22m [26:41 - 36:41]
+
+Clone found (javascript):
+ - [1m[32msrc/git.lib.mjs[39m[22m [269:11 - 285:7] (16 lines, 127 tokens)
+   [1m[32msrc/solve.validation.lib.mjs[39m[22m [275:7 - 266:2]
+
+Clone found (javascript):
+ - [1m[32msrc/exit-handler.lib.mjs[39m[22m [313:4 - 322:4] (9 lines, 94 tokens)
+   [1m[32msrc/exit-handler.lib.mjs[39m[22m [292:4 - 301:4]
+
+Clone found (javascript):
+ - [1m[32msrc/exit-handler.lib.mjs[39m[22m [337:2 - 346:2] (9 lines, 94 tokens)
+   [1m[32msrc/exit-handler.lib.mjs[39m[22m [292:4 - 301:4]
+
+Clone found (javascript):
+ - [1m[32msrc/exit-handler.lib.mjs[39m[22m [361:31 - 372:2] (11 lines, 106 tokens)
+   [1m[32msrc/exit-handler.lib.mjs[39m[22m [337:30 - 349:31]
+
+Clone found (javascript):
+ - [1m[32msrc/contributing-guidelines.lib.mjs[39m[22m [12:1 - 17:4] (5 lines, 51 tokens)
+   [1m[32msrc/solve.watch.lib.mjs[39m[22m [18:1 - 21:35]
+
+Clone found (javascript):
+ - [1m[32msrc/config.lib.mjs[39m[22m [8:1 - 13:63] (5 lines, 71 tokens)
+   [1m[32msrc/queue-config.lib.mjs[39m[22m [26:1 - 31:69]
+
+Clone found (javascript):
+ - [1m[32msrc/config.lib.mjs[39m[22m [13:63 - 21:81] (8 lines, 51 tokens)
+   [1m[32msrc/queue-config.lib.mjs[39m[22m [31:69 - 39:81]
+
+Clone found (javascript):
+ - [1m[32msrc/config.lib.mjs[39m[22m [24:1 - 29:63] (5 lines, 69 tokens)
+   [1m[32msrc/queue-config.lib.mjs[39m[22m [43:1 - 47:6]
+
+Clone found (javascript):
+ - [1m[32msrc/config.lib.mjs[39m[22m [34:2 - 43:56] (9 lines, 76 tokens)
+   [1m[32msrc/queue-config.lib.mjs[39m[22m [184:2 - 193:71]
+
+Clone found (javascript):
+ - [1m[32msrc/config.lib.mjs[39m[22m [43:1 - 50:44] (7 lines, 73 tokens)
+   [1m[32msrc/queue-config.lib.mjs[39m[22m [179:1 - 186:58]
+
+Clone found (javascript):
+ - [1m[32msrc/config.lib.mjs[39m[22m [508:9 - 513:2] (5 lines, 74 tokens)
+   [1m[32msrc/sub-session-size.lib.mjs[39m[22m [125:5 - 130:7]
+
+Clone found (javascript):
+ - [1m[32msrc/config.lib.mjs[39m[22m [515:15 - 520:2] (5 lines, 46 tokens)
+   [1m[32msrc/sub-session-size.lib.mjs[39m[22m [137:7 - 142:7]
+
+Clone found (javascript):
+ - [1m[32msrc/codex.prompts.lib.mjs[39m[22m [15:1 - 62:8] (47 lines, 427 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [15:1 - 62:11]
+
+Clone found (javascript):
+ - [1m[32msrc/codex.prompts.lib.mjs[39m[22m [62:8 - 78:4] (16 lines, 73 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [62:11 - 78:4]
+
+Clone found (javascript):
+ - [1m[32msrc/codex.prompts.lib.mjs[39m[22m [79:1 - 116:2] (37 lines, 255 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [79:1 - 117:2]
+
+Clone found (javascript):
+ - [1m[32msrc/codex.prompts.lib.mjs[39m[22m [176:66 - 195:50] (19 lines, 47 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [149:66 - 168:50]
+
+Clone found (javascript):
+ - [1m[32msrc/codex.prompts.lib.mjs[39m[22m [243:4 - 256:48] (13 lines, 101 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [215:4 - 228:47]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.runtime-switch.lib.mjs[39m[22m [6:1 - 12:7] (6 lines, 88 tokens)
+   [1m[32msrc/models/index.mjs[39m[22m [19:1 - 8:6]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.runtime-switch.lib.mjs[39m[22m [101:60 - 120:84] (19 lines, 165 tokens)
+   [1m[32msrc/claude.runtime-switch.lib.mjs[39m[22m [28:69 - 47:81]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.runtime-switch.lib.mjs[39m[22m [120:84 - 131:7] (11 lines, 125 tokens)
+   [1m[32msrc/claude.runtime-switch.lib.mjs[39m[22m [47:81 - 58:6]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.runtime-switch.lib.mjs[39m[22m [153:38 - 159:45] (6 lines, 68 tokens)
+   [1m[32msrc/claude.runtime-switch.lib.mjs[39m[22m [73:42 - 79:41]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.prompts.lib.mjs[39m[22m [17:2 - 47:68] (30 lines, 245 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [16:2 - 46:36]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.prompts.lib.mjs[39m[22m [57:3 - 69:9] (12 lines, 90 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [50:3 - 62:11]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.prompts.lib.mjs[39m[22m [69:2 - 85:4] (16 lines, 69 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [62:2 - 78:4]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.prompts.lib.mjs[39m[22m [86:1 - 127:64] (41 lines, 263 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [79:1 - 120:7]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.prompts.lib.mjs[39m[22m [156:72 - 161:4] (5 lines, 55 tokens)
+   [1m[32msrc/codex.prompts.lib.mjs[39m[22m [148:72 - 153:6]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.prompts.lib.mjs[39m[22m [166:9 - 180:11] (14 lines, 49 tokens)
+   [1m[32msrc/codex.prompts.lib.mjs[39m[22m [168:10 - 168:50]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.prompts.lib.mjs[39m[22m [315:8 - 338:2] (23 lines, 67 tokens)
+   [1m[32msrc/codex.prompts.lib.mjs[39m[22m [292:8 - 315:2]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.command-builder.lib.mjs[39m[22m [78:3 - 85:43] (7 lines, 46 tokens)
+   [1m[32msrc/claude.command-builder.lib.mjs[39m[22m [48:3 - 70:4]
+
+Clone found (javascript):
+ - [1m[32msrc/claude.budget-stats.lib.mjs[39m[22m [591:7 - 598:99] (7 lines, 63 tokens)
+   [1m[32msrc/claude.budget-stats.lib.mjs[39m[22m [276:3 - 583:6]
+
+Clone found (javascript):
+ - [1m[32msrc/claude-quiet-config.lib.mjs[39m[22m [69:2 - 77:20] (8 lines, 82 tokens)
+   [1m[32msrc/useless-tools.lib.mjs[39m[22m [160:2 - 167:9]
+
+Clone found (javascript):
+ - [1m[32msrc/claude-quiet-config.lib.mjs[39m[22m [128:2 - 135:5] (7 lines, 62 tokens)
+   [1m[32msrc/useless-tools.lib.mjs[39m[22m [181:2 - 186:6]
+
+Clone found (javascript):
+ - [1m[32msrc/agent.prompts.lib.mjs[39m[22m [15:1 - 62:8] (47 lines, 427 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [15:1 - 62:11]
+
+Clone found (javascript):
+ - [1m[32msrc/agent.prompts.lib.mjs[39m[22m [62:8 - 78:4] (16 lines, 73 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [62:11 - 78:4]
+
+Clone found (javascript):
+ - [1m[32msrc/agent.prompts.lib.mjs[39m[22m [79:1 - 120:1] (41 lines, 265 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [79:1 - 120:1]
+
+Clone found (javascript):
+ - [1m[32msrc/agent.prompts.lib.mjs[39m[22m [134:72 - 165:50] (31 lines, 93 tokens)
+   [1m[32msrc/opencode.prompts.lib.mjs[39m[22m [136:72 - 168:50]
+
+Clone found (javascript):
+ - [1m[32msrc/agent.prompts.lib.mjs[39m[22m [203:74 - 267:2] (64 lines, 1206 tokens)
+   [1m[32msrc/codex.prompts.lib.mjs[39m[22m [232:74 - 268:2]
+
+Clone found (javascript):
+ - [1m[32mscripts/version-and-commit.mjs[39m[22m [15:5 - 25:6] (10 lines, 76 tokens)
+   [1m[32mscripts/wait-for-npm.mjs[39m[22m [18:28 - 28:108]
+
+Clone found (javascript):
+ - [1m[32mscripts/validate-changeset.mjs[39m[22m [79:9 - 87:3] (8 lines, 84 tokens)
+   [1m[32mscripts/validate-changeset.mjs[39m[22m [47:2 - 55:67]
+
+Clone found (javascript):
+ - [1m[32mscripts/validate-changeset.mjs[39m[22m [87:9 - 93:33] (6 lines, 93 tokens)
+   [1m[32mscripts/validate-changeset.mjs[39m[22m [56:9 - 62:38]
+
+Clone found (javascript):
+ - [1m[32mscripts/upload-sourcemaps.mjs[39m[22m [12:5 - 18:8] (6 lines, 62 tokens)
+   [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:16 - 20:2]
+
+Clone found (javascript):
+ - [1m[32mscripts/upload-sourcemaps.mjs[39m[22m [85:36 - 90:46] (5 lines, 50 tokens)
+   [1m[32mscripts/upload-sourcemaps.mjs[39m[22m [55:31 - 60:58]
+
+Clone found (javascript):
+ - [1m[32mscripts/publish-to-npm.mjs[39m[22m [16:1 - 28:14] (12 lines, 115 tokens)
+   [1m[32mscripts/wait-for-npm.mjs[39m[22m [18:1 - 28:7]
+
+Clone found (javascript):
+ - [1m[32mscripts/publish-to-npm.mjs[39m[22m [44:2 - 64:6] (20 lines, 131 tokens)
+   [1m[32mscripts/version-and-commit.mjs[39m[22m [85:2 - 107:4]
+
+Clone found (javascript):
+ - [1m[32mscripts/instant-version-bump.mjs[39m[22m [15:2 - 28:12] (13 lines, 115 tokens)
+   [1m[32mscripts/version-and-commit.mjs[39m[22m [15:2 - 28:7]
+
+Clone found (javascript):
+ - [1m[32mscripts/instant-version-bump.mjs[39m[22m [108:37 - 113:2] (5 lines, 47 tokens)
+   [1m[32mscripts/validate-changeset.mjs[39m[22m [205:37 - 210:2]
+
+Clone found (javascript):
+ - [1m[32mscripts/helm-release.mjs[39m[22m [17:1 - 34:31] (17 lines, 155 tokens)
+   [1m[32mscripts/instant-version-bump.mjs[39m[22m [15:1 - 35:43]
+
+Clone found (javascript):
+ - [1m[32mscripts/format-release-notes.mjs[39m[22m [26:1 - 43:33] (17 lines, 148 tokens)
+   [1m[32mscripts/wait-for-npm.mjs[39m[22m [18:1 - 35:43]
+
+Clone found (javascript):
+ - [1m[32mscripts/format-github-release.mjs[39m[22m [17:1 - 34:13] (17 lines, 149 tokens)
+   [1m[32mscripts/wait-for-npm.mjs[39m[22m [20:1 - 36:16]
+
+Clone found (javascript):
+ - [1m[32mscripts/format-github-release.mjs[39m[22m [32:31 - 46:2] (14 lines, 94 tokens)
+   [1m[32mscripts/format-release-notes.mjs[39m[22m [48:20 - 62:10]
+
+Clone found (javascript):
+ - [1m[32mscripts/create-manual-changeset.mjs[39m[22m [14:9 - 38:32] (24 lines, 204 tokens)
+   [1m[32mscripts/publish-to-npm.mjs[39m[22m [14:5 - 37:35]
+
+Clone found (javascript):
+ - [1m[32mscripts/create-manual-changeset.mjs[39m[22m [77:28 - 82:2] (5 lines, 47 tokens)
+   [1m[32mscripts/validate-changeset.mjs[39m[22m [205:37 - 210:2]
+
+Clone found (javascript):
+ - [1m[32mscripts/create-github-release.mjs[39m[22m [18:1 - 39:2] (21 lines, 184 tokens)
+   [1m[32mscripts/wait-for-npm.mjs[39m[22m [20:1 - 39:2]
+
+Clone found (javascript):
+ - [1m[32mscripts/check-version.mjs[39m[22m [26:16 - 46:4] (20 lines, 89 tokens)
+   [1m[32mscripts/detect-code-changes.mjs[39m[22m [50:5 - 71:4]
+
+Clone found (javascript):
+ - [1m[32mdo.mjs[39m[22m [1:1 - 6:2] (5 lines, 51 tokens)
+   [1m[32msrc/reviewers-hive.mjs[39m[22m [1:1 - 7:2]
+
+Clone found (javascript):
+ - [1m[32mdo.mjs[39m[22m [19:25 - 24:20] (5 lines, 54 tokens)
+   [1m[32msrc/reviewers-hive.mjs[39m[22m [138:25 - 143:31]
+
+Clone found (javascript):
+ - [1m[32mdo.mjs[39m[22m [24:20 - 31:9] (7 lines, 58 tokens)
+   [1m[32msrc/reviewers-hive.mjs[39m[22m [143:31 - 150:17]
+
+Clone found (javascript):
+ - [1m[32mcreate-test-repo.mjs[39m[22m [1:1 - 8:7] (7 lines, 66 tokens)
+   [1m[32msrc/reviewers-hive.mjs[39m[22m [1:1 - 7:2]
+
+Clone found (javascript):
+ - [1m[32mcleanup-test-repos.mjs[39m[22m [23:1 - 29:32] (6 lines, 53 tokens)
+   [1m[32mdo.mjs[39m[22m [2:1 - 7:6]
+
+Clone found (javascript):
+ - [1m[32mcleanup-test-repos.mjs[39m[22m [214:7 - 225:50] (11 lines, 102 tokens)
+   [1m[32mcleanup-test-repos.mjs[39m[22m [72:11 - 83:8]
+
+Clone found (javascript):
+ - [1m[32mcleanup-test-repos.mjs[39m[22m [308:1 - 314:2] (6 lines, 65 tokens)
+   [1m[32msrc/protect-branch.mjs[39m[22m [153:1 - 159:2]
+
+Clone found (javascript):
+ - [1m[32mclaude-runtime.mjs[39m[22m [15:1 - 20:12] (5 lines, 69 tokens)
+   [1m[32msrc/youtrack/youtrack.lib.mjs[39m[22m [6:1 - 20:20]
+
+[90m┌────────────[39m[90m┬────────────────[39m[90m┬─────────────[39m[90m┬──────────────[39m[90m┬──────────────[39m[90m┬──────────────────[39m[90m┬───────────────────┐[39m
+[90m│[39m[31m Format     [39m[90m│[39m[31m Files analyzed [39m[90m│[39m[31m Total lines [39m[90m│[39m[31m Total tokens [39m[90m│[39m[31m Clones found [39m[90m│[39m[31m Duplicated lines [39m[90m│[39m[31m Duplicated tokens [39m[90m│[39m
+[90m├────────────[39m[90m┼────────────────[39m[90m┼─────────────[39m[90m┼──────────────[39m[90m┼──────────────[39m[90m┼──────────────────[39m[90m┼───────────────────┤[39m
+[90m│[39m javascript [90m│[39m 344            [90m│[39m 86255       [90m│[39m 741620       [90m│[39m 821          [90m│[39m 8739 (10.13%)    [90m│[39m 78570 (10.59%)    [90m│[39m
+[90m├────────────[39m[90m┼────────────────[39m[90m┼─────────────[39m[90m┼──────────────[39m[90m┼──────────────[39m[90m┼──────────────────[39m[90m┼───────────────────┤[39m
+[90m│[39m [1mTotal:[22m     [90m│[39m 344            [90m│[39m 86255       [90m│[39m 741620       [90m│[39m 821          [90m│[39m 8739 (10.13%)    [90m│[39m 78570 (10.59%)    [90m│[39m
+[90m└────────────[39m[90m┴────────────────[39m[90m┴─────────────[39m[90m┴──────────────[39m[90m┴──────────────[39m[90m┴──────────────────[39m[90m┴───────────────────┘[39m
+[90mFound 821 clones.[39m
+[32mHTML report saved to reports/jscpd/html/[39m
+[3m[90mDetection time:[39m[23m: 18.949s

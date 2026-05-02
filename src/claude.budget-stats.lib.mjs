@@ -24,6 +24,24 @@ export const getRawRequestInputTokens = usage => (usage?.input_tokens || 0) + (u
 export const getUsageInputTokens = usage => (usage?.inputTokens || 0) + (usage?.cacheCreationTokens || 0) + (usage?.cacheReadTokens || 0);
 
 /**
+ * Issue #1741: Cumulative context-fill estimate that excludes cache reads.
+ *
+ * For a single API request, restored context = `input + cache_creation +
+ * cache_read` (see issue #1737, getRawRequestInputTokens). For *cumulative*
+ * totals across many requests (e.g. a sub-agent that doesn't appear in the
+ * parent JSONL, only in the result event's per-model usage), summing
+ * `cache_read` double-counts the same cached prefix on every replay and
+ * inflates the displayed percentage past the model's context window. The
+ * cumulative-only proxy is therefore `input + cache_creation`.
+ *
+ * Use this whenever you need a single-number "how full was the context"
+ * estimate from cumulative usage, e.g. for sub-agent rows. Use
+ * `getRawRequestInputTokens` (or `peakContextUsage`) when the source is one
+ * API request.
+ */
+export const getCumulativeContextInputTokens = usage => (usage?.inputTokens || 0) + (usage?.cacheCreationTokens || 0);
+
+/**
  * Helper: accumulates token usage from a JSONL entry into a model usage map
  * @param {Object} modelUsageMap - Map of model ID to usage data
  * @param {Object} entry - Parsed JSONL entry with message.usage and message.model
@@ -194,6 +212,13 @@ export const dumpBudgetTrace = async (usage, tokenUsage, log) => {
   // buckets split for cost and accounting review.
   await log(`         peak input:      ${formatNumber(peak)}${limit.context ? ` / ${formatNumber(limit.context)} context` : ''} (largest request input + cache_creation + cache_read)`, { verbose: true });
   await log(`         cumulative:      input ${formatNumber(inputs)}, cache_write ${formatNumber(writes)} (5m ${formatNumber(writes5m)} / 1h ${formatNumber(writes1h)}), cache_read ${formatNumber(reads)}, output ${formatNumber(outputs)}`, { verbose: true });
+  // Issue #1741: when peak is 0 (sub-agent only seen via result event), the
+  // detail row falls back to the cumulative-context proxy `input + cache_write`
+  // (cache_read is excluded because it represents the same cached prefix replayed
+  // across calls and would inflate the percentage past 100%).
+  if (peak === 0) {
+    await log(`         cumulative-fill: ${formatNumber(inputs + writes)}${limit.context ? ` / ${formatNumber(limit.context)} context` : ''} (input + cache_write; cache_read excluded — issue #1741)`, { verbose: true });
+  }
   // Issue #1710 R1: web_search is now billed in calculateModelCost. The trace
   // still surfaces the implied dollar cost so the residual remains debuggable
   // from the saved log even if a future model lacks pricing data.
@@ -587,10 +612,14 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
         // so peakContext stays at 0; without this fallback the rendered comment loses
         // the sub-agent's input-token information entirely. The detail line is
         // deliberately simple; the Total line below keeps the cache split.
+        // Issue #1741: For result-event-only rows we have cumulative totals, not a
+        // per-request peak, so the detail-line numerator must exclude cache_reads
+        // (which are the same cached prefix replayed across calls and would inflate
+        // the percentage past 100%). The Total line keeps the full split.
         const parts = [];
         const isResultSingleCall = usage._sourceResultJson || callCount > 0;
         const inputPart = isResultSingleCall
-          ? formatInputContextPart(getUsageInputTokens(usage), contextLimit, formatTokensCompact)
+          ? formatInputContextPart(getCumulativeContextInputTokens(usage), contextLimit, formatTokensCompact)
           : buildCumulativeInputPhrase({
               input: usage.inputTokens || 0,
               cacheWrites: usage.cacheCreationTokens || 0,
@@ -636,7 +665,12 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
           for (let i = 0; i < matchingCalls.length; i++) {
             const call = matchingCalls[i];
             const cu = call.usage || {};
-            const callInput = (cu.inputTokens || 0) + (cu.cacheCreationTokens || 0) + (cu.cacheReadTokens || 0);
+            // Issue #1741: per-call usage is itself cumulative across the
+            // sub-agent's internal API requests (each Anthropic Agent call
+            // can run a tool loop), so cache_reads grow with the loop length
+            // and would push the displayed fill past 100%. Use the same
+            // input + cache_creation proxy as the result-event-only fallback.
+            const callInput = getCumulativeContextInputTokens(cu);
             const callOutput = cu.outputTokens || 0;
             const parts = [];
             if (contextLimit) {
@@ -655,9 +689,13 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
           }
         } else {
           // Estimated per-call breakdown when sub-agent stream tracking did not capture
-          // per-call usage. Includes everything the model actually saw:
-          // input + cache_creation (writes) + cache_read.
-          const aggregateInput = (usage.inputTokens || 0) + (usage.cacheCreationTokens || 0) + (usage.cacheReadTokens || 0);
+          // per-call usage. Issue #1741: cumulative cache_read tokens grow without
+          // bound across calls (the same cached prefix is replayed on every call),
+          // so we mustn't add them when projecting an average per-call fill —
+          // doing so would routinely exceed 100% of the context window. The
+          // estimate uses input + cache_creation (cache reads stay in the Total
+          // line below).
+          const aggregateInput = getCumulativeContextInputTokens(usage);
           const avgInput = Math.round(aggregateInput / callCount);
           const avgOutput = Math.round(usage.outputTokens / callCount);
           for (let i = 0; i < matchingCalls.length; i++) {

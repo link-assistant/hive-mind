@@ -334,12 +334,12 @@ export const setupStdioLogInterceptor = () => {
  * @param {string} token - Token to mask
  * @param {Object} options - Masking options
  * @param {number} [options.minLength=12] - Minimum length to mask
- * @param {number} [options.startChars=5] - Number of characters to show at start
- * @param {number} [options.endChars=5] - Number of characters to show at end
+ * @param {number} [options.startChars=3] - Number of characters to show at start
+ * @param {number} [options.endChars=3] - Number of characters to show at end
  * @returns {string} Masked token
  */
 export const maskToken = (token, options = {}) => {
-  const { minLength = 12, startChars = 5, endChars = 5 } = options;
+  const { minLength = 12, startChars = 3, endChars = 3 } = options;
 
   if (!token || token.length < minLength) {
     return token; // Don't mask very short strings

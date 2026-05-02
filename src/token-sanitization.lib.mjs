@@ -558,6 +558,167 @@ export const sanitizeLogContent = async (logContent, options = {}) => {
 // Export detection functions for testing and visibility
 export { detectSecretsWithSecretlint, detectSecretsWithCustomPatterns, compareDetectionResults };
 
+// ============================================================================
+// Issue #1745 — known-local-token registry
+// ============================================================================
+// We mask all known LOCAL tokens (env vars + tokens we discovered via gh/etc.)
+// even when our regex/secretlint patterns miss them. This is the
+// "defense-in-depth" layer for the leak documented in case-studies/issue-1745.
+// ============================================================================
+
+/**
+ * Names of environment variables that hold local tokens. Order is irrelevant
+ * but we list AI-CLI tools first since those are the most common leak vectors
+ * (claude, codex, opencode, gemini, qwen + telegram + gh).
+ *
+ * Adding a name here means: any process.env value at this key will be masked
+ * in every comment body / log line the bridge emits.
+ */
+export const KNOWN_LOCAL_TOKEN_ENV_VARS = Object.freeze([
+  // Telegram bridge
+  'TELEGRAM_BOT_TOKEN',
+  'TELEGRAM_OWNER_CHAT_ID',
+  // GitHub CLI / API
+  'GH_TOKEN',
+  'GITHUB_TOKEN',
+  'GITHUB_PAT',
+  // Claude / Anthropic
+  'ANTHROPIC_API_KEY',
+  'CLAUDE_API_KEY',
+  'CLAUDE_CODE_OAUTH_TOKEN',
+  // OpenAI / Codex
+  'OPENAI_API_KEY',
+  'CODEX_API_KEY',
+  // Open-source agent CLIs
+  'OPENCODE_API_KEY',
+  'AGENT_CLI_TOKEN',
+  // Google Gemini / Qwen
+  'GEMINI_API_KEY',
+  'GOOGLE_API_KEY',
+  'QWEN_API_KEY',
+  'DASHSCOPE_API_KEY',
+  // Misc
+  'HUGGINGFACE_TOKEN',
+  'HF_TOKEN',
+]);
+
+/**
+ * Read every known local-token env var that is currently set.
+ *
+ * @returns {Array<{name: string, value: string}>} entries with non-empty values
+ */
+export const getEnvironmentTokens = () => {
+  const out = [];
+  for (const name of KNOWN_LOCAL_TOKEN_ENV_VARS) {
+    const value = process.env[name];
+    if (typeof value === 'string' && value.length >= 12) {
+      out.push({ name, value });
+    }
+  }
+  return out;
+};
+
+/**
+ * Build the union of every known-local token: env vars + GitHub tokens we
+ * already discover via `gh auth status` / hosts.yml (existing helpers).
+ *
+ * Each entry is `{ source, name, value }` where `source` is 'env' | 'gh-files'
+ * | 'gh-command'. The `name` field is human-readable for debug logs but is
+ * NEVER printed alongside the token to avoid creating a secondary leak.
+ *
+ * @returns {Promise<Array<{source: string, name: string, value: string}>>}
+ */
+export const getAllKnownLocalTokens = async () => {
+  const tokens = [];
+
+  for (const { name, value } of getEnvironmentTokens()) {
+    tokens.push({ source: 'env', name, value });
+  }
+
+  try {
+    const fileTokens = await getGitHubTokensFromFiles();
+    for (const value of fileTokens) {
+      tokens.push({ source: 'gh-files', name: 'github', value });
+    }
+  } catch {
+    /* swallow — best-effort */
+  }
+
+  try {
+    const commandTokens = await getGitHubTokensFromCommand();
+    for (const value of commandTokens) {
+      tokens.push({ source: 'gh-command', name: 'github', value });
+    }
+  } catch {
+    /* swallow — best-effort */
+  }
+
+  // Deduplicate by exact value
+  const seen = new Set();
+  return tokens.filter(({ value }) => {
+    if (seen.has(value)) return false;
+    seen.add(value);
+    return true;
+  });
+};
+
+/**
+ * Test whether `text` contains any known-local token verbatim.
+ * Used to decide whether to fire the Telegram leak-warning DM.
+ *
+ * @param {string} text
+ * @param {Array<{value: string, name?: string, source?: string}>} [tokens]
+ *   Pre-fetched token list (if you already called getAllKnownLocalTokens).
+ *   Pass an explicit list to avoid re-running `gh auth status` per check.
+ * @returns {Promise<Array<{name: string, source: string}>>} list of token
+ *   identifiers that were found in the text (NOT the values themselves).
+ */
+export const containsKnownToken = async (text, tokens) => {
+  if (typeof text !== 'string' || text.length === 0) return [];
+  const list = tokens || (await getAllKnownLocalTokens());
+  const hits = [];
+  for (const t of list) {
+    if (t.value && text.includes(t.value)) {
+      hits.push({ name: t.name, source: t.source });
+    }
+  }
+  return hits;
+};
+
+/**
+ * Mask every known-local token inside `body` and then run `sanitizeLogContent`
+ * for the regex/secretlint sweep. This is the wrapper that comment-posting
+ * paths must call before publishing anything to GitHub.
+ *
+ * Env-token masking runs FIRST so that even if our regex misses the shape
+ * (custom token formats from new AI tools, etc.) the local secret never
+ * leaves the process. The regex/secretlint pass then catches anything else.
+ *
+ * @param {string} body
+ * @param {Object} [options]
+ * @param {Array<{value: string}>} [options.knownTokens] pre-fetched token list
+ * @returns {Promise<string>} sanitized body
+ */
+export const sanitizeCommentBody = async (body, options = {}) => {
+  if (typeof body !== 'string' || body.length === 0) return body;
+
+  let sanitized = body;
+
+  // Pass 1: mask known-local tokens verbatim. This is the defense-in-depth
+  // layer that closes the gap from issue #1745.
+  const knownTokens = options.knownTokens || (await getAllKnownLocalTokens());
+  for (const { value } of knownTokens) {
+    if (value && value.length >= 12 && sanitized.includes(value)) {
+      sanitized = sanitized.split(value).join(maskToken(value));
+    }
+  }
+
+  // Pass 2: regex + secretlint sweep for anything else.
+  sanitized = await sanitizeLogContent(sanitized, { warnOnMismatch: false });
+
+  return sanitized;
+};
+
 // Default export for convenience
 export default {
   isSafeToken,
@@ -568,4 +729,9 @@ export default {
   detectSecretsWithSecretlint,
   detectSecretsWithCustomPatterns,
   compareDetectionResults,
+  getEnvironmentTokens,
+  getAllKnownLocalTokens,
+  containsKnownToken,
+  sanitizeCommentBody,
+  KNOWN_LOCAL_TOKEN_ENV_VARS,
 };

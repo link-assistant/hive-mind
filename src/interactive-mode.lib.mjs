@@ -38,6 +38,13 @@ import { CONFIG, createCollapsible, createRawJsonSection, escapeMarkdown, execFi
 // Use the session-started marker as the single source of truth for the
 // header string, keeping posting and filtering in lock-step.
 import { INTERACTIVE_SESSION_STARTED_MARKER, trackToolCommentId } from './tool-comments.lib.mjs';
+// Issue #1745: every comment body posted by the AI bridge MUST flow through
+// sanitizeCommentBody() before leaving the process. The leak in
+// xlab2016/space_db_private#20 happened because raw bash-tool stdout
+// (including TELEGRAM_BOT_TOKEN=...) was published verbatim. See
+// docs/case-studies/issue-1745/analysis.md for the full timeline.
+import { containsKnownToken, getAllKnownLocalTokens, sanitizeCommentBody } from './token-sanitization.lib.mjs';
+import { reportInteractiveLeak } from './telegram-leak-notifier.lib.mjs';
 
 /**
  * Creates an interactive mode handler for processing Claude/Codex CLI events
@@ -89,6 +96,66 @@ export const createInteractiveHandler = options => {
   };
 
   /**
+   * Sanitize a comment body and warn the chat owner when a known-local token
+   * was about to be published. Issue #1745. The returned string is what we
+   * actually send to GitHub.
+   *
+   * @param {string} body
+   * @returns {Promise<string>} sanitized body
+   * @private
+   */
+  const sanitizeAndWarn = async body => {
+    if (typeof body !== 'string' || body.length === 0) return body;
+
+    let knownTokens;
+    try {
+      knownTokens = await getAllKnownLocalTokens();
+    } catch (err) {
+      // Best-effort: if token lookup fails, fall back to regex/secretlint only.
+      knownTokens = [];
+      if (verbose) {
+        await log(`⚠️ Interactive mode: getAllKnownLocalTokens failed: ${err.message}`, { verbose: true });
+      }
+    }
+
+    let hits = [];
+    try {
+      hits = await containsKnownToken(body, knownTokens);
+    } catch {
+      hits = [];
+    }
+
+    let sanitized = body;
+    try {
+      sanitized = await sanitizeCommentBody(body, { knownTokens });
+    } catch (err) {
+      await log(`⚠️ Interactive mode: sanitizeCommentBody failed: ${err.message} — falling back to raw body MASKED`);
+      // Fail closed: if sanitization fails entirely, drop the body to a safe
+      // placeholder rather than leaking. Better to lose detail than secrets.
+      sanitized = '[redacted: sanitization failed]';
+    }
+
+    if (hits.length > 0) {
+      await log(`🚨 Interactive mode: known-local token(s) detected in outbound comment — sanitizer masked them. Sources: ${hits.map(h => h.source).join(', ')}`);
+      try {
+        await reportInteractiveLeak({
+          owner,
+          repo,
+          prNumber,
+          tokenHits: hits,
+          log,
+        });
+      } catch (err) {
+        if (verbose) {
+          await log(`⚠️ Interactive mode: leak notifier failed: ${err.message}`, { verbose: true });
+        }
+      }
+    }
+
+    return sanitized;
+  };
+
+  /**
    * Post a comment to the PR (with rate limiting)
    * @param {string} body - Comment body
    * @param {string} [toolId] - Optional tool ID for tracking pending tool calls
@@ -104,12 +171,16 @@ export const createInteractiveHandler = options => {
       return null;
     }
 
+    // Issue #1745: sanitize BEFORE rate-limit queuing so queued bodies are
+    // also safe (the queue persists across reconnects).
+    const safeBody = await sanitizeAndWarn(body);
+
     const now = Date.now();
     const timeSinceLastComment = now - state.lastCommentTime;
 
     if (timeSinceLastComment < CONFIG.MIN_COMMENT_INTERVAL) {
       // Queue the comment for later with toolId/taskId for tracking
-      state.commentQueue.push({ body, toolId, taskId });
+      state.commentQueue.push({ body: safeBody, toolId, taskId });
       if (verbose) {
         await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)${toolId ? ` [tool: ${toolId}]` : ''}${taskId ? ` [task: ${taskId}]` : ''}`, { verbose: true });
       }
@@ -122,7 +193,7 @@ export const createInteractiveHandler = options => {
       // with complex markdown bodies containing backticks, quotes, etc.
       // See: https://github.com/link-assistant/hive-mind/issues/1458
       const apiUrl = `repos/${owner}/${repo}/issues/${prNumber}/comments`;
-      const jsonPayload = JSON.stringify({ body });
+      const jsonPayload = JSON.stringify({ body: safeBody });
       const { stdout } = await runGhApi('gh', ['api', apiUrl, '-X', 'POST', '--input', '-'], {
         input: jsonPayload,
         maxBuffer: 10 * 1024 * 1024, // 10MB
@@ -147,13 +218,13 @@ export const createInteractiveHandler = options => {
       trackToolCommentId(commentId);
 
       if (verbose) {
-        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''} (body: ${body.length} chars)`, { verbose: true });
+        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''} (body: ${safeBody.length} chars)`, { verbose: true });
       }
       return commentId;
     } catch (error) {
       state.commentsFailed++;
       // Issue #1472: Always log comment failures (not just verbose) — silent failures cause zero-comment bugs
-      await log(`⚠️ Interactive mode: Failed to post comment: ${error.message} (body: ${body.length} chars)`);
+      await log(`⚠️ Interactive mode: Failed to post comment: ${error.message} (body: ${safeBody.length} chars)`);
       return null;
     }
   };
@@ -173,25 +244,29 @@ export const createInteractiveHandler = options => {
       return false;
     }
 
+    // Issue #1745: sanitize before sending. editComment is the path that
+    // leaked TELEGRAM_BOT_TOKEN in xlab2016/space_db_private#20.
+    const safeBody = await sanitizeAndWarn(body);
+
     state.editsAttempted++;
     try {
       // Edit comment via gh api with stdin to avoid shell quoting issues
       // with complex markdown bodies containing backticks, quotes, etc.
       // See: https://github.com/link-assistant/hive-mind/issues/1458
       const apiUrl = `repos/${owner}/${repo}/issues/comments/${commentId}`;
-      const jsonPayload = JSON.stringify({ body });
+      const jsonPayload = JSON.stringify({ body: safeBody });
       await runGhApi('gh', ['api', apiUrl, '-X', 'PATCH', '--input', '-'], {
         input: jsonPayload,
         maxBuffer: 10 * 1024 * 1024, // 10MB
       });
       state.editsSucceeded++;
       if (verbose) {
-        await log(`✅ Interactive mode: Comment ${commentId} updated (body: ${body.length} chars, payload: ${jsonPayload.length} chars)`, { verbose: true });
+        await log(`✅ Interactive mode: Comment ${commentId} updated (body: ${safeBody.length} chars, payload: ${jsonPayload.length} chars)`, { verbose: true });
       }
       return true;
     } catch (error) {
       state.editsFailed++;
-      await log(`⚠️ Interactive mode: Failed to edit comment ${commentId}: ${error.message} (body: ${body.length} chars)`);
+      await log(`⚠️ Interactive mode: Failed to edit comment ${commentId}: ${error.message} (body: ${safeBody.length} chars)`);
       return false;
     }
   };

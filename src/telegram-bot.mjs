@@ -1109,6 +1109,46 @@ registerStartStopCommands(bot, sharedCommandOpts);
 await registerLogCommand(bot, sharedCommandOpts);
 await registerTerminalWatchCommand(bot, sharedCommandOpts);
 
+// Issue #1745: hidden /tokens command for chat owners (private DMs only,
+// undocumented, masked output). Lets operators audit which local tokens are
+// live in the bot's environment so they can search for accidental leaks.
+const { registerTokensCommand } = await import('./telegram-tokens-command.lib.mjs');
+registerTokensCommand(bot, { ...sharedCommandOpts, allowedChats });
+
+// Issue #1745: register the leak-warning DM hook. The interactive bridge
+// fires reportInteractiveLeak() whenever it has to mask a known-local token
+// in an outbound PR comment. We DM every operator (chat creator) of every
+// allowlisted chat so at least one of them sees it quickly.
+const { registerLeakNotifier } = await import('./telegram-leak-notifier.lib.mjs');
+registerLeakNotifier(async ({ owner, repo, prNumber, tokenHits = [] }) => {
+  if (!allowedChats || allowedChats.length === 0) return;
+  const where = prNumber ? `${owner}/${repo}#${prNumber}` : `${owner}/${repo}`;
+  const sources = tokenHits.length ? tokenHits.map(h => `${h.name} (${h.source})`).join(', ') : 'unknown';
+  const text = `🚨 *Token-leak event*\n\nA known local token was about to be published in *${where}* and was masked by the sanitizer just in time.\n\nTokens detected: ${sources}\n\nRotate the affected secret(s) now and check public surfaces (GitHub comments, gists, Slack) for any prior copies.`;
+  for (const chatId of allowedChats) {
+    try {
+      const member = await bot.telegram.getChatMember(chatId, chatId).catch(() => null);
+      // For groups, getChatMember(chatId, chatId) returns the chat itself; we
+      // really want the creator. Fall back to getChatAdministrators.
+      let ownerUserId = null;
+      if (member && member.status === 'creator' && member.user?.id) {
+        ownerUserId = member.user.id;
+      } else {
+        const admins = await bot.telegram.getChatAdministrators(chatId).catch(() => []);
+        const creator = (admins || []).find(a => a.status === 'creator');
+        if (creator && creator.user?.id) ownerUserId = creator.user.id;
+      }
+      if (ownerUserId) {
+        await bot.telegram.sendMessage(ownerUserId, text, { parse_mode: 'Markdown' }).catch(err => {
+          console.warn(`[telegram-leak-notifier] DM to user ${ownerUserId} (chat ${chatId}) failed: ${err.message}`);
+        });
+      }
+    } catch (err) {
+      console.warn(`[telegram-leak-notifier] could not notify owner of chat ${chatId}: ${err.message}`);
+    }
+  }
+});
+
 // Add message listener for verbose debugging
 if (VERBOSE) {
   bot.on('message', (ctx, next) => {

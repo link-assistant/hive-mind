@@ -399,20 +399,22 @@ const compareDetectionResults = async (secretlintSecrets, customSecrets) => {
 };
 
 /**
- * Sanitize log content by masking sensitive tokens while avoiding false positives
+ * Sanitize arbitrary outbound output by masking sensitive tokens while avoiding false positives
  * Uses DUAL APPROACH: Both secretlint AND custom patterns run independently
  *
  * If only secretlint detects a secret (but our custom patterns miss it),
  * a warning is logged so we can improve our patterns.
  *
- * @param {string} logContent - The log content to sanitize
+ * @param {string} output - The output to sanitize
  * @param {Object} options - Optional configuration
  * @param {boolean} options.warnOnMismatch - Log warnings when detection approaches differ (default: true in verbose mode)
- * @returns {Promise<string>} Sanitized log content with tokens masked
+ * @param {boolean} options.skipOutputSanitization - Skip pattern-based output sanitization. Does not skip known active-token masking.
+ * @param {boolean} options.skipActiveTokensOutputSanitization - Also skip known active-token masking. Dangerous; intended only for explicit debugging.
+ * @returns {Promise<string>} Sanitized output with tokens masked
  */
-export const sanitizeLogContent = async (logContent, options = {}) => {
-  let sanitized = logContent;
-  const { warnOnMismatch = global.verboseMode } = options;
+export const sanitizeOutput = async (output, options = {}) => {
+  let sanitized = output;
+  const { warnOnMismatch = global.verboseMode, skipOutputSanitization = false, skipActiveTokensOutputSanitization = false } = options;
 
   // Statistics for dual approach
   const stats = {
@@ -424,18 +426,24 @@ export const sanitizeLogContent = async (logContent, options = {}) => {
   };
 
   try {
-    // Step 1: Get known tokens from files and commands
-    const fileTokens = await getGitHubTokensFromFiles();
-    const commandTokens = await getGitHubTokensFromCommand();
-    const allKnownTokens = [...new Set([...fileTokens, ...commandTokens])];
+    if (!skipActiveTokensOutputSanitization) {
+      // Step 1: Get known tokens from files and commands
+      const fileTokens = await getGitHubTokensFromFiles();
+      const commandTokens = await getGitHubTokensFromCommand();
+      const allKnownTokens = [...new Set([...fileTokens, ...commandTokens])];
 
-    // Mask known tokens first
-    for (const token of allKnownTokens) {
-      if (token && token.length >= 12) {
-        const maskedToken = maskToken(token);
-        sanitized = sanitized.split(token).join(maskedToken);
-        stats.knownTokens++;
+      // Mask known tokens first
+      for (const token of allKnownTokens) {
+        if (token && token.length >= 12) {
+          const maskedToken = maskToken(token);
+          sanitized = sanitized.split(token).join(maskedToken);
+          stats.knownTokens++;
+        }
       }
+    }
+
+    if (skipOutputSanitization) {
+      return sanitized;
     }
 
     // Step 2: DUAL APPROACH - Run both detection methods independently
@@ -557,6 +565,12 @@ export const sanitizeLogContent = async (logContent, options = {}) => {
 
 // Export detection functions for testing and visibility
 export { detectSecretsWithSecretlint, detectSecretsWithCustomPatterns, compareDetectionResults };
+
+/**
+ * Backward-compatible alias for older log-specific call sites.
+ * New output paths should call sanitizeOutput().
+ */
+export const sanitizeLogContent = sanitizeOutput;
 
 // ============================================================================
 // Issue #1745 — known-local-token registry
@@ -686,7 +700,7 @@ export const containsKnownToken = async (text, tokens) => {
 };
 
 /**
- * Mask every known-local token inside `body` and then run `sanitizeLogContent`
+ * Mask every known-local token inside `body` and then run `sanitizeOutput`
  * for the regex/secretlint sweep. This is the wrapper that comment-posting
  * paths must call before publishing anything to GitHub.
  *
@@ -706,15 +720,21 @@ export const sanitizeCommentBody = async (body, options = {}) => {
 
   // Pass 1: mask known-local tokens verbatim. This is the defense-in-depth
   // layer that closes the gap from issue #1745.
-  const knownTokens = options.knownTokens || (await getAllKnownLocalTokens());
-  for (const { value } of knownTokens) {
-    if (value && value.length >= 12 && sanitized.includes(value)) {
-      sanitized = sanitized.split(value).join(maskToken(value));
+  if (!options.skipActiveTokensOutputSanitization) {
+    const knownTokens = options.knownTokens || (await getAllKnownLocalTokens());
+    for (const { value } of knownTokens) {
+      if (value && value.length >= 12 && sanitized.includes(value)) {
+        sanitized = sanitized.split(value).join(maskToken(value));
+      }
     }
   }
 
   // Pass 2: regex + secretlint sweep for anything else.
-  sanitized = await sanitizeLogContent(sanitized, { warnOnMismatch: false });
+  sanitized = await sanitizeOutput(sanitized, {
+    warnOnMismatch: false,
+    skipOutputSanitization: options.skipOutputSanitization,
+    skipActiveTokensOutputSanitization: true,
+  });
 
   return sanitized;
 };
@@ -725,6 +745,7 @@ export default {
   isHexInSafeContext,
   getGitHubTokensFromFiles,
   getGitHubTokensFromCommand,
+  sanitizeOutput,
   sanitizeLogContent,
   detectSecretsWithSecretlint,
   detectSecretsWithCustomPatterns,

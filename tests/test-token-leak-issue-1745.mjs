@@ -23,7 +23,7 @@
  * @see docs/case-studies/issue-1745/analysis.md
  */
 
-import { containsKnownToken, getAllKnownLocalTokens, getEnvironmentTokens, KNOWN_LOCAL_TOKEN_ENV_VARS, sanitizeCommentBody } from '../src/token-sanitization.lib.mjs';
+import { containsKnownToken, getAllKnownLocalTokens, getEnvironmentTokens, KNOWN_LOCAL_TOKEN_ENV_VARS, sanitizeCommentBody, sanitizeLogContent, sanitizeOutput } from '../src/token-sanitization.lib.mjs';
 import { maskToken } from '../src/lib.mjs';
 import { reportInteractiveLeak, registerLeakNotifier, clearLeakNotifierForTests } from '../src/telegram-leak-notifier.lib.mjs';
 import { formatTokenList } from '../src/telegram-tokens-command.lib.mjs';
@@ -97,6 +97,51 @@ await runAsyncTest('sanitizeCommentBody masks env-injected TELEGRAM_BOT_TOKEN', 
     assertContains(maskToken(SYNTHETIC_BOT_TOKEN), '849', 'first 3 chars preserved');
     assertContains(maskToken(SYNTHETIC_BOT_TOKEN), 'EST', 'last 3 chars preserved');
     assertContains(maskToken(SYNTHETIC_BOT_TOKEN), '*', 'asterisks present');
+  } finally {
+    if (ORIGINAL_TELEGRAM_BOT_TOKEN === undefined) {
+      delete process.env.TELEGRAM_BOT_TOKEN;
+    } else {
+      process.env.TELEGRAM_BOT_TOKEN = ORIGINAL_TELEGRAM_BOT_TOKEN;
+    }
+  }
+});
+
+await runAsyncTest('sanitizeOutput is the canonical sanitizer and sanitizeLogContent remains compatible', async () => {
+  const text = `token=${SYNTHETIC_BOT_TOKEN}`;
+  const sanitizedOutput = await sanitizeOutput(text);
+  const sanitizedLog = await sanitizeLogContent(text);
+  assertNotContains(sanitizedOutput, SYNTHETIC_BOT_TOKEN, 'sanitizeOutput must mask token-shaped output');
+  assertContains(sanitizedOutput, maskToken(SYNTHETIC_BOT_TOKEN), 'sanitizeOutput should preserve masked comparison form');
+  assert(sanitizedOutput === sanitizedLog, 'sanitizeLogContent alias should match sanitizeOutput');
+});
+
+await runAsyncTest('dangerous pattern skip still keeps active local token masking enabled', async () => {
+  process.env.TELEGRAM_BOT_TOKEN = SYNTHETIC_BOT_TOKEN;
+  try {
+    const body = `active=${SYNTHETIC_BOT_TOKEN}`;
+    const sanitized = await sanitizeCommentBody(body, { skipOutputSanitization: true });
+    assertNotContains(sanitized, SYNTHETIC_BOT_TOKEN, 'active token must still be masked when only pattern sanitization is skipped');
+    assertContains(sanitized, maskToken(SYNTHETIC_BOT_TOKEN), 'masked active token must remain visible for comparison');
+  } finally {
+    if (ORIGINAL_TELEGRAM_BOT_TOKEN === undefined) {
+      delete process.env.TELEGRAM_BOT_TOKEN;
+    } else {
+      process.env.TELEGRAM_BOT_TOKEN = ORIGINAL_TELEGRAM_BOT_TOKEN;
+    }
+  }
+});
+
+await runAsyncTest('active-token skip is separate and explicit', async () => {
+  process.env.TELEGRAM_BOT_TOKEN = SYNTHETIC_BOT_TOKEN;
+  try {
+    const inertActiveToken = ['active-token-value-', '12345678901234567890'].join('');
+    process.env.TELEGRAM_BOT_TOKEN = inertActiveToken;
+    const body = `active=${inertActiveToken}`;
+    const sanitized = await sanitizeCommentBody(body, {
+      skipOutputSanitization: true,
+      skipActiveTokensOutputSanitization: true,
+    });
+    assertContains(sanitized, inertActiveToken, 'active token survives only when active-token sanitization is explicitly skipped too');
   } finally {
     if (ORIGINAL_TELEGRAM_BOT_TOKEN === undefined) {
       delete process.env.TELEGRAM_BOT_TOKEN;

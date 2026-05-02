@@ -208,7 +208,9 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body })
   // We use the /issues/<n>/comments endpoint because it works identically
   // for both PRs and issues (a PR is an issue at this endpoint).
   const apiPath = `repos/${owner}/${repo}/issues/${targetNumber}/comments`;
-  const payload = JSON.stringify({ body });
+  const { sanitizeOutput } = await import('./token-sanitization.lib.mjs');
+  const sanitizedBody = await sanitizeOutput(body);
+  const payload = JSON.stringify({ body: sanitizedBody });
 
   // command-stream's options key is `stdin`, not `input` — unknown keys are
   // silently ignored, which previously left stdin inherited from the parent

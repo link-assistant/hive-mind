@@ -1122,7 +1122,7 @@ try {
   });
 
   // Search for newly created pull requests and comments
-  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage, subAgentCalls);
+  let verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage, subAgentCalls);
   const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
   // Issue #1162: Auto-restart when PR title/description still has placeholder content
@@ -1171,9 +1171,56 @@ try {
 
     // Re-verify results after restart (without auto-restart flag to prevent recursion)
     const reVerifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, { ...argv, autoRestartOnNonUpdatedPullRequestDescription: false }, shouldAttachLogs, false, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage, subAgentCalls);
+    verifyResult = reVerifyResult;
 
     if (reVerifyResult?.prTitleHasPlaceholder || reVerifyResult?.prBodyHasPlaceholder) {
       await log('⚠️  PR title/description still not updated after restart');
+    }
+  }
+
+  // Issue #1743: Auto-restart once when --requirements-tracking is enabled but docs/requirements/*.md was not updated
+  if (argv.requirementsTracking && verifyResult?.requirementsDocsChecked && !verifyResult?.requirementsDocsUpdated) {
+    const { buildRequirementsDocsNotUpdatedHint } = results;
+    const hintLines = buildRequirementsDocsNotUpdatedHint();
+
+    await log('');
+    await log('🔄 AUTO-RESTART: Requirements tracking docs not updated');
+    for (const line of hintLines) {
+      await log(`   ${line}`);
+    }
+    await log('   Restarting tool to give agent another chance to update requirements documentation...');
+    await log('');
+
+    const { executeToolIteration } = await import('./solve.restart-shared.lib.mjs');
+
+    const restartResult = await executeToolIteration({
+      issueUrl,
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      branchName,
+      tempDir,
+      workspaceTmpDir,
+      mergeStateStatus,
+      feedbackLines: hintLines,
+      argv,
+    });
+
+    if (restartResult) {
+      if (restartResult.sessionId) sessionId = restartResult.sessionId;
+      if (restartResult.anthropicTotalCostUSD) anthropicTotalCostUSD = restartResult.anthropicTotalCostUSD;
+      if (restartResult.publicPricingEstimate) publicPricingEstimate = restartResult.publicPricingEstimate;
+      if (restartResult.pricingInfo) pricingInfo = restartResult.pricingInfo;
+    }
+
+    await cleanupClaudeFile(tempDir, branchName, null, argv);
+
+    const reVerifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, { ...argv, autoRestartOnNonUpdatedPullRequestDescription: false }, shouldAttachLogs, false, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage, subAgentCalls);
+    verifyResult = reVerifyResult;
+
+    if (reVerifyResult?.requirementsDocsChecked && !reVerifyResult?.requirementsDocsUpdated) {
+      await log('⚠️  Requirements tracking docs still not updated after restart');
     }
   }
 

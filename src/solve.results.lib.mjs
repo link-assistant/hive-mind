@@ -133,6 +133,56 @@ export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) =>
   return lines;
 };
 
+export const REQUIREMENTS_TRACKING_DOCS_DIRECTORY = 'docs/requirements/';
+
+export const normalizeChangedFilePath = filePath => {
+  return String(filePath || '')
+    .replaceAll('\\', '/')
+    .replace(/^\.\//, '');
+};
+
+export const isRequirementsTrackingDocumentPath = filePath => {
+  const normalized = normalizeChangedFilePath(filePath);
+  return normalized.startsWith(REQUIREMENTS_TRACKING_DOCS_DIRECTORY) && normalized.endsWith('.md');
+};
+
+export const hasRequirementsTrackingDocumentChange = filePaths => {
+  return Array.isArray(filePaths) && filePaths.some(isRequirementsTrackingDocumentPath);
+};
+
+export const parseChangedFilesOutput = output => {
+  return String(output || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+};
+
+export const getPullRequestChangedFiles = async ({ prNumber, owner, repo, command = $, logger = log } = {}) => {
+  if (!prNumber || !owner || !repo) {
+    return { checked: false, files: [], error: 'missing_pull_request_context' };
+  }
+
+  try {
+    const diffFilesResult = await command`gh pr diff ${prNumber} --repo ${owner}/${repo} --name-only`;
+    if (diffFilesResult.code !== 0) {
+      const stderr = diffFilesResult.stderr ? diffFilesResult.stderr.toString().trim() : '';
+      if (logger) await logger(`  ⚠️  Could not list pull request files for requirements tracking${stderr ? `: ${stderr}` : ''}`);
+      return { checked: false, files: [], error: stderr || 'gh_pr_diff_failed' };
+    }
+
+    return {
+      checked: true,
+      files: parseChangedFilesOutput(diffFilesResult.stdout?.toString()),
+      error: null,
+    };
+  } catch (error) {
+    if (logger) await logger(`  ⚠️  Could not list pull request files for requirements tracking: ${error.message}`);
+    return { checked: false, files: [], error: error.message };
+  }
+};
+
+export const buildRequirementsDocsNotUpdatedHint = () => ['Requirements tracking is enabled, but this pull request does not modify docs/requirements/*.md.', 'Read docs/requirements/README.md if it exists, then create or update docs/requirements/*.md to reflect repository requirements from the issue and pull request discussion.', 'If no repository requirement changed, update the pull request description with that justification.'];
+
 /**
  * Ensure an existing pull request body contains a GitHub closing keyword for the issue.
  *
@@ -703,6 +753,9 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         // Declare placeholder detection variables outside block scopes for use in return value
         let prTitleHasPlaceholder = false;
         let prBodyHasPlaceholder = false;
+        let requirementsDocsChecked = false;
+        let requirementsDocsUpdated = false;
+        let requirementsChangedFiles = [];
 
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
@@ -791,6 +844,26 @@ Fixes ${issueRef}
             }
           }
 
+          if (argv.requirementsTracking) {
+            await log('  🔍 Checking requirements tracking documentation updates...');
+            const changedFilesResult = await getPullRequestChangedFiles({
+              prNumber: pr.number,
+              owner,
+              repo,
+              command: $,
+              logger: log,
+            });
+            requirementsDocsChecked = changedFilesResult.checked;
+            requirementsChangedFiles = changedFilesResult.files;
+            requirementsDocsUpdated = hasRequirementsTrackingDocumentChange(requirementsChangedFiles);
+
+            if (requirementsDocsChecked && requirementsDocsUpdated) {
+              await log('  ✅ Requirements tracking documentation changed in this pull request');
+            } else if (requirementsDocsChecked) {
+              await log('  ⚠️  Requirements tracking is enabled, but docs/requirements/*.md was not changed');
+            }
+          }
+
           // Check if PR is ready for review (convert from draft if necessary)
           if (pr.isDraft) {
             await log('  🔄 Converting PR from draft to ready for review...');
@@ -854,16 +927,20 @@ Fixes ${issueRef}
         if (shouldAutoRestartForPlaceholder) {
           await log('\n🔄 Placeholder detected in PR title/description - auto-restart will be triggered');
         }
+        const shouldAutoRestartForRequirementsTracking = argv.requirementsTracking && requirementsDocsChecked && !requirementsDocsUpdated;
+        if (shouldAutoRestartForRequirementsTracking) {
+          await log('\n🔄 Requirements tracking docs missing from PR - auto-restart will be triggered');
+        }
         const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergeable;
         if (shouldWaitForAutoMerge) {
           await log('\n🔄 Auto-merge mode enabled - will attempt to merge after verification');
         }
-        if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldWaitForAutoMerge) {
+        if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldAutoRestartForRequirementsTracking && !shouldWaitForAutoMerge) {
           await safeExit(0, 'Process completed successfully');
         }
         // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
         // Issue #1162: Return placeholder detection status for auto-restart
-        return { logUploadSuccess, prTitleHasPlaceholder, prBodyHasPlaceholder }; // Return for watch mode or auto-restart
+        return { logUploadSuccess, prTitleHasPlaceholder, prBodyHasPlaceholder, requirementsDocsChecked, requirementsDocsUpdated, requirementsChangedFiles }; // Return for watch mode or auto-restart
       } else {
         await log(`  ℹ️  Found pull request #${pr.number} but it appears to be from a different session`);
       }

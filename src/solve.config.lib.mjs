@@ -421,6 +421,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: '[EXPERIMENTAL] Include guidance for managing REQUIREMENTS.md and ARCHITECTURE.md files. When enabled, agents will update these documentation files when changes affect requirements or architecture.',
     default: false,
   },
+  'requirements-tracking': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Ask agents to maintain repository requirements in docs/requirements/*.md and auto-restart once if a pull request does not update them.',
+    default: false,
+  },
   'prompt-case-studies': {
     type: 'boolean',
     description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Supported for --tool claude and --tool codex.',

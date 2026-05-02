@@ -20,6 +20,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { qwenModels, defaultModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -63,6 +64,59 @@ const findFirstValue = (object, paths) => {
   return null;
 };
 
+const createQwenTokenFieldAvailability = () => ({
+  inputTokens: false,
+  outputTokens: false,
+  reasoningTokens: false,
+  cacheReadTokens: false,
+  cacheWriteTokens: false,
+});
+
+const createQwenTokenUsage = modelId => ({
+  inputTokens: 0,
+  outputTokens: 0,
+  reasoningTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  totalTokens: 0,
+  stepCount: 0,
+  requestedModelId: modelId || null,
+  respondedModelId: modelId || null,
+  contextLimit: null,
+  outputLimit: null,
+  contextFillInputTokens: 0,
+  peakContextUsage: 0,
+  tokenFieldAvailability: createQwenTokenFieldAvailability(),
+});
+
+const cloneQwenTokenUsage = usage => {
+  if (!usage) return createQwenTokenUsage();
+  return {
+    ...usage,
+    tokenFieldAvailability: {
+      ...createQwenTokenFieldAvailability(),
+      ...(usage.tokenFieldAvailability || {}),
+    },
+  };
+};
+
+const getQwenUsageField = (usage, paths) => {
+  const value = findFirstValue(usage, paths);
+  if (value === null) return { observed: false, value: 0 };
+  return { observed: true, value: toTokenCount(value) };
+};
+
+const QWEN_USAGE_PATHS = {
+  input: [['inputTokens'], ['input_tokens'], ['input'], ['promptTokens'], ['prompt_tokens'], ['prompt']],
+  output: [['outputTokens'], ['output_tokens'], ['output'], ['completionTokens'], ['completion_tokens'], ['completion']],
+  reasoning: [['reasoningTokens'], ['reasoning_tokens'], ['thoughtsTokens'], ['thoughts_tokens']],
+  cacheRead: [['cacheReadTokens'], ['cache_read_tokens'], ['cache_read_input_tokens'], ['cachedInputTokens'], ['cached_input_tokens'], ['prompt_tokens_details', 'cached_tokens'], ['cache', 'read']],
+  cacheWrite: [['cacheWriteTokens'], ['cache_write_tokens'], ['cache_creation_input_tokens'], ['cacheCreationTokens'], ['cacheCreationInputTokens'], ['cache', 'write']],
+  contextLimit: [['contextLimit'], ['context_limit'], ['limit', 'context'], ['limits', 'context']],
+  outputLimit: [['outputLimit'], ['output_limit'], ['limit', 'output'], ['limits', 'output']],
+  model: [['model'], ['model_id'], ['modelId'], ['name']],
+};
+
 const extractTextFragments = value => {
   if (typeof value === 'string') return [value];
   if (!value || typeof value !== 'object') return [];
@@ -89,7 +143,138 @@ const createQwenParserState = state => ({
   errors: Array.isArray(state?.errors) ? [...state.errors] : [],
   sessionId: state?.sessionId || null,
   lastTextContent: state?.lastTextContent || '',
+  tokenUsage: cloneQwenTokenUsage(state?.tokenUsage),
+  resultModelUsage: state?.resultModelUsage ? { ...state.resultModelUsage } : null,
 });
+
+const buildQwenResultModelUsage = tokenUsage => {
+  if (!tokenUsage || tokenUsage.stepCount === 0) return null;
+  const modelId = tokenUsage.respondedModelId || tokenUsage.requestedModelId || 'qwen';
+  const modelInfo = tokenUsage.contextLimit || tokenUsage.outputLimit ? { limit: { context: tokenUsage.contextLimit || null, output: tokenUsage.outputLimit || null } } : null;
+  return {
+    [modelId]: {
+      inputTokens: tokenUsage.inputTokens,
+      cacheCreationTokens: tokenUsage.cacheWriteTokens,
+      cacheReadTokens: tokenUsage.cacheReadTokens,
+      outputTokens: tokenUsage.outputTokens,
+      modelName: modelId,
+      modelInfo,
+      contextFillInputTokens: tokenUsage.contextFillInputTokens,
+      peakContextUsage: tokenUsage.peakContextUsage,
+      costUSD: null,
+    },
+  };
+};
+
+const applyQwenUsageObject = (state, rawUsage, fallbackModelId = null) => {
+  if (!rawUsage || typeof rawUsage !== 'object') return;
+
+  const model = findFirstValue(rawUsage, QWEN_USAGE_PATHS.model) || fallbackModelId;
+  if (model) {
+    state.tokenUsage.requestedModelId ||= String(model);
+    state.tokenUsage.respondedModelId = String(model);
+  }
+
+  const input = getQwenUsageField(rawUsage, QWEN_USAGE_PATHS.input);
+  const output = getQwenUsageField(rawUsage, QWEN_USAGE_PATHS.output);
+  const reasoning = getQwenUsageField(rawUsage, QWEN_USAGE_PATHS.reasoning);
+  const cacheRead = getQwenUsageField(rawUsage, QWEN_USAGE_PATHS.cacheRead);
+  const cacheWrite = getQwenUsageField(rawUsage, QWEN_USAGE_PATHS.cacheWrite);
+  const contextLimit = getQwenUsageField(rawUsage, QWEN_USAGE_PATHS.contextLimit);
+  const outputLimit = getQwenUsageField(rawUsage, QWEN_USAGE_PATHS.outputLimit);
+
+  const observedTokenField = input.observed || output.observed || reasoning.observed || cacheRead.observed || cacheWrite.observed;
+  if (!observedTokenField) return;
+
+  state.tokenUsage.stepCount += 1;
+  if (input.observed) {
+    state.tokenUsage.tokenFieldAvailability.inputTokens = true;
+    state.tokenUsage.inputTokens += input.value;
+  }
+  if (output.observed) {
+    state.tokenUsage.tokenFieldAvailability.outputTokens = true;
+    state.tokenUsage.outputTokens += output.value;
+  }
+  if (reasoning.observed) {
+    state.tokenUsage.tokenFieldAvailability.reasoningTokens = true;
+    state.tokenUsage.reasoningTokens += reasoning.value;
+  }
+  if (cacheRead.observed) {
+    state.tokenUsage.tokenFieldAvailability.cacheReadTokens = true;
+    state.tokenUsage.cacheReadTokens += cacheRead.value;
+  }
+  if (cacheWrite.observed) {
+    state.tokenUsage.tokenFieldAvailability.cacheWriteTokens = true;
+    state.tokenUsage.cacheWriteTokens += cacheWrite.value;
+  }
+  if (contextLimit.observed) state.tokenUsage.contextLimit = contextLimit.value;
+  if (outputLimit.observed) state.tokenUsage.outputLimit = outputLimit.value;
+
+  const stepContextFill = getCumulativeContextInputTokens({
+    inputTokens: input.value,
+    cacheWriteTokens: cacheWrite.value,
+  });
+  if (stepContextFill > (state.tokenUsage.contextFillInputTokens || 0)) {
+    state.tokenUsage.contextFillInputTokens = stepContextFill;
+  }
+
+  const stepRestoredContext = getRestoredContextInputTokens({
+    inputTokens: input.value,
+    cacheWriteTokens: cacheWrite.value,
+    cacheReadTokens: cacheRead.value,
+  });
+  if (stepRestoredContext > (state.tokenUsage.peakContextUsage || 0)) {
+    state.tokenUsage.peakContextUsage = stepRestoredContext;
+  }
+
+  state.tokenUsage.totalTokens = state.tokenUsage.inputTokens + state.tokenUsage.cacheReadTokens + state.tokenUsage.cacheWriteTokens + state.tokenUsage.outputTokens;
+  state.resultModelUsage = buildQwenResultModelUsage(state.tokenUsage);
+};
+
+const applyQwenUsageToState = (state, event) => {
+  const rawUsage = event?.usage || event?.stats || event?.tokenUsage || null;
+  if (!rawUsage || typeof rawUsage !== 'object') return;
+
+  const modelStats = rawUsage.models && typeof rawUsage.models === 'object' ? rawUsage.models : null;
+  if (modelStats) {
+    for (const [modelId, data] of Object.entries(modelStats)) {
+      applyQwenUsageObject(state, data?.tokens || data?.usage || data, modelId);
+    }
+    return;
+  }
+
+  applyQwenUsageObject(state, rawUsage, findFirstValue(event, QWEN_USAGE_PATHS.model));
+};
+
+const buildQwenPricingInfo = (state, mappedModel) => {
+  const tokenUsage = cloneQwenTokenUsage(state?.tokenUsage);
+  if (!tokenUsage || tokenUsage.stepCount === 0) {
+    return {
+      pricingInfo: null,
+      publicPricingEstimate: null,
+      tokenUsage: null,
+      resultModelUsage: null,
+    };
+  }
+
+  tokenUsage.requestedModelId ||= mappedModel || 'qwen';
+  tokenUsage.respondedModelId ||= tokenUsage.requestedModelId;
+  const modelId = tokenUsage.respondedModelId || tokenUsage.requestedModelId;
+
+  return {
+    pricingInfo: {
+      provider: 'Qwen Code',
+      modelId,
+      modelName: modelId,
+      totalCostUSD: null,
+      source: 'qwen-stream-json',
+      tokenUsage,
+    },
+    publicPricingEstimate: null,
+    tokenUsage,
+    resultModelUsage: buildQwenResultModelUsage(tokenUsage),
+  };
+};
 
 const addQwenEventToState = (state, rawEvent) => {
   const event = sanitizeObjectStrings(rawEvent);
@@ -118,6 +303,8 @@ const addQwenEventToState = (state, rawEvent) => {
       isAuthError: isQwenAuthError(errorMessage),
     });
   }
+
+  applyQwenUsageToState(state, event);
 };
 
 export const parseQwenStreamJsonOutput = (output, state = {}) => {
@@ -377,6 +564,7 @@ export const executeQwenCommand = async params => {
         .join('\n');
       const combinedErrorText = `${allOutput}\n${errorMessage}`.trim();
       const limitInfo = detectUsageLimit(combinedErrorText);
+      const usageResult = buildQwenPricingInfo(qwenState, mappedModel);
 
       if (limitInfo.isUsageLimit) {
         const messageLines = formatUsageLimitMessage({
@@ -394,9 +582,7 @@ export const executeQwenCommand = async params => {
           sessionId,
           limitReached: true,
           limitResetTime: limitInfo.resetTime,
-          pricingInfo: null,
-          publicPricingEstimate: null,
-          tokenUsage: null,
+          ...usageResult,
           resultSummary,
         };
       }
@@ -444,9 +630,7 @@ export const executeQwenCommand = async params => {
           sessionId,
           limitReached: false,
           limitResetTime: null,
-          pricingInfo: null,
-          publicPricingEstimate: null,
-          tokenUsage: null,
+          ...usageResult,
           resultSummary,
         };
       }
@@ -461,9 +645,7 @@ export const executeQwenCommand = async params => {
         sessionId,
         limitReached: false,
         limitResetTime: null,
-        pricingInfo: null,
-        publicPricingEstimate: null,
-        tokenUsage: null,
+        ...usageResult,
         resultSummary,
       };
     } catch (error) {

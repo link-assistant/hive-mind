@@ -20,6 +20,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { defaultModels, geminiModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
@@ -46,20 +47,34 @@ const extractGeminiTextContent = value => {
   return '';
 };
 
-const buildGeminiResultModelUsage = (modelId, stats = null) => {
+const pickTokenValue = (...values) => {
+  for (const value of values) {
+    if (value !== undefined && value !== null) return toTokenCount(value);
+  }
+  return 0;
+};
+
+export const buildGeminiResultModelUsage = (modelId, stats = null) => {
   const modelStats = stats?.models && typeof stats.models === 'object' ? stats.models : null;
   if (modelStats) {
     const usage = {};
     for (const [id, data] of Object.entries(modelStats)) {
       const tokens = data?.tokens || {};
+      const inputTokens = pickTokenValue(tokens.input, tokens.prompt);
+      const cacheCreationTokens = pickTokenValue(tokens.cacheWrite, tokens.cache_write, tokens.cacheCreationTokens);
+      const cacheReadTokens = pickTokenValue(tokens.cacheRead, tokens.cache_read, tokens.cacheReadTokens);
+      const outputTokens = pickTokenValue(tokens.output, tokens.completion);
+      const contextLimit = pickTokenValue(tokens.contextLimit, tokens.context_limit, data?.contextLimit, data?.limit?.context);
+      const outputLimit = pickTokenValue(tokens.outputLimit, tokens.output_limit, data?.outputLimit, data?.limit?.output);
       usage[id] = {
-        inputTokens: tokens.input || tokens.prompt || 0,
-        cacheCreationTokens: tokens.cacheWrite || 0,
-        cacheReadTokens: tokens.cacheRead || 0,
-        outputTokens: tokens.output || tokens.completion || 0,
+        inputTokens,
+        cacheCreationTokens,
+        cacheReadTokens,
+        outputTokens,
         modelName: data?.name || id,
-        modelInfo: null,
-        peakContextUsage: tokens.total || 0,
+        modelInfo: contextLimit || outputLimit ? { limit: { context: contextLimit || null, output: outputLimit || null } } : null,
+        contextFillInputTokens: getCumulativeContextInputTokens({ inputTokens, cacheCreationTokens }),
+        peakContextUsage: pickTokenValue(tokens.total),
         costUSD: null,
       };
     }

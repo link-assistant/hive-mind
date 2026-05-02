@@ -52,6 +52,27 @@ runTest('parses single step_finish event', () => {
   assertEqual(result.reasoningTokens, 10, 'Should sum reasoning tokens');
   assertEqual(result.cacheReadTokens, 200, 'Should sum cache read tokens');
   assertEqual(result.cacheWriteTokens, 100, 'Should sum cache write tokens');
+  assertEqual(result.contextFillInputTokens, 200, 'Context fill should use input + cache write');
+});
+
+runTest('Issue #1741: context fill excludes cache reads for Agent/OpenCode steps', () => {
+  const usage = createAgentTokenUsage();
+  accumulateAgentStepFinishUsage(usage, {
+    type: 'step_finish',
+    part: {
+      type: 'step-finish',
+      context: { contextLimit: 200_000, outputLimit: 64_000 },
+      tokens: {
+        input: 94,
+        output: 6_600,
+        cache: { read: 1_100_000, write: 61_200 },
+      },
+    },
+  });
+
+  assertEqual(usage.contextFillInputTokens, 61_294, 'Displayed context fill should be input + cache write');
+  assertEqual(usage.peakContextUsage, 1_161_294, 'Restored per-step peak remains available for diagnostics');
+  assertEqual(usage.cacheReadTokens, 1_100_000, 'Total usage should still preserve cache reads');
 });
 
 runTest('sums tokens from multiple step_finish events', () => {

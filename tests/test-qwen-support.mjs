@@ -106,6 +106,18 @@ await test('Qwen stream-json parser extracts session, result, and error events',
   assert.equal(state.errors[0].message, 'boom');
 });
 
+await test('Qwen stream-json parser extracts issue #1741 context-fill usage when emitted', async () => {
+  const state = parseQwenStreamJsonOutput('{"type":"result","result":"fixed","usage":{"model":"qwen3-coder-plus","inputTokens":94,"cacheWriteTokens":61200,"cacheReadTokens":1100000,"outputTokens":6600,"contextLimit":200000,"outputLimit":64000}}\n');
+
+  assert.equal(state.tokenUsage.stepCount, 1);
+  assert.equal(state.tokenUsage.inputTokens, 94);
+  assert.equal(state.tokenUsage.cacheWriteTokens, 61_200);
+  assert.equal(state.tokenUsage.cacheReadTokens, 1_100_000);
+  assert.equal(state.tokenUsage.contextFillInputTokens, 61_294);
+  assert.equal(state.tokenUsage.peakContextUsage, 1_161_294);
+  assert.equal(state.resultModelUsage['qwen3-coder-plus'].contextFillInputTokens, 61_294);
+});
+
 await test('executeQwenCommand invokes qwen with stream-json and prompt files', async () => {
   const logs = [];
   const fakeDollar = buildFakeDollar([
@@ -113,7 +125,7 @@ await test('executeQwenCommand invokes qwen with stream-json and prompt files', 
       chunks: [
         {
           type: 'stdout',
-          data: Buffer.from('{"type":"session.started","session_id":"session-513"}\n{"type":"result","result":"Final answer."}\n'),
+          data: Buffer.from('{"type":"session.started","session_id":"session-513"}\n{"type":"result","result":"Final answer.","usage":{"model":"qwen3-coder-plus","inputTokens":94,"cacheWriteTokens":61200,"cacheReadTokens":1100000,"outputTokens":6600,"contextLimit":200000,"outputLimit":64000}}\n'),
         },
       ],
       code: 0,
@@ -128,6 +140,8 @@ await test('executeQwenCommand invokes qwen with stream-json and prompt files', 
     assert.equal(result.success, true);
     assert.equal(result.sessionId, 'session-513');
     assert.equal(result.resultSummary, 'Final answer.');
+    assert.equal(result.pricingInfo.tokenUsage.contextFillInputTokens, 61_294);
+    assert.equal(result.resultModelUsage['qwen3-coder-plus'].contextFillInputTokens, 61_294);
     assert.match(commandScript, /qwen/);
     assert.match(commandScript, /--model 'qwen3-coder-plus'/);
     assert.match(commandScript, /--output-format stream-json/);

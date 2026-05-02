@@ -2,6 +2,7 @@
 
 import Decimal from 'decimal.js-light';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import { getCumulativeContextInputTokens, getRestoredContextInputTokens } from './context-fill.lib.mjs';
 
 export const createTokenFieldAvailability = () => ({
   inputTokens: false,
@@ -23,6 +24,7 @@ export const createAgentTokenUsage = () => ({
   respondedModelId: null,
   contextLimit: null,
   outputLimit: null,
+  contextFillInputTokens: 0,
   peakContextUsage: 0,
   tokenFieldAvailability: createTokenFieldAvailability(),
 });
@@ -61,10 +63,22 @@ export const accumulateAgentStepFinishUsage = (usage, data) => {
     if (data.part.model.respondedModelID) usage.respondedModelId = data.part.model.respondedModelID;
   }
 
+  const stepContextFill = getCumulativeContextInputTokens({
+    inputTokens: getTokenCount(tokens.input),
+    cacheWriteTokens: getTokenCount(tokens.cache?.write),
+  });
+  if (stepContextFill > (usage.contextFillInputTokens || 0)) {
+    usage.contextFillInputTokens = stepContextFill;
+  }
+
   if (data.part.context) {
     if (data.part.context.contextLimit) usage.contextLimit = data.part.context.contextLimit;
     if (data.part.context.outputLimit) usage.outputLimit = data.part.context.outputLimit;
-    const stepContextUsage = getTokenCount(tokens.input) + getTokenCount(tokens.cache?.read);
+    const stepContextUsage = getRestoredContextInputTokens({
+      inputTokens: getTokenCount(tokens.input),
+      cacheWriteTokens: getTokenCount(tokens.cache?.write),
+      cacheReadTokens: getTokenCount(tokens.cache?.read),
+    });
     if (stepContextUsage > (usage.peakContextUsage || 0)) {
       usage.peakContextUsage = stepContextUsage;
     }

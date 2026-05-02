@@ -26,6 +26,7 @@ import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels } from './models/index.mjs';
 import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
+import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import Decimal from 'decimal.js-light';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
@@ -85,6 +86,7 @@ export const createCodexTokenUsage = requestedModelId => ({
   respondedModelId: requestedModelId || null,
   contextLimit: null,
   outputLimit: null,
+  contextFillInputTokens: 0,
   peakContextUsage: 0,
   tokenFieldAvailability: createCodexTokenFieldAvailability(),
 });
@@ -346,6 +348,13 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
       if (turnContextUsage > (nextState.tokenUsage.peakContextUsage || 0)) {
         nextState.tokenUsage.peakContextUsage = turnContextUsage;
       }
+      const turnContextFill = getCumulativeContextInputTokens({
+        inputTokens: nonCachedInputTokens,
+        cacheWriteTokens,
+      });
+      if (turnContextFill > (nextState.tokenUsage.contextFillInputTokens || 0)) {
+        nextState.tokenUsage.contextFillInputTokens = turnContextFill;
+      }
 
       const usageFieldSet = CODEX_USAGE_FIELD_NAMES.filter(fieldName => hasOwnPath(data.usage, fieldName));
       if (usageFieldSet.length > 0) nextState.observedUsageFieldSets.push(usageFieldSet);
@@ -407,6 +416,7 @@ export const buildCodexResultModelUsage = (modelId, tokenUsage, pricingInfo = nu
       outputTokens: tokenUsage.outputTokens || 0,
       modelName: pricingInfo?.modelName || modelId,
       modelInfo: pricingInfo?.modelInfo || null,
+      contextFillInputTokens: tokenUsage.contextFillInputTokens || getCumulativeContextInputTokens(tokenUsage),
       peakContextUsage: tokenUsage.peakContextUsage || 0,
       costUSD: pricingInfo?.totalCostUSD ?? null,
     },

@@ -4,6 +4,9 @@
 
 import { formatNumber } from './claude.lib.mjs';
 import Decimal from 'decimal.js-light';
+import { getCacheReadTokenCount, getCacheWriteTokenCount, getCumulativeContextInputTokens, getDisplayContextInputTokens, getExplicitContextFillInputTokens, getInputTokenCount, getOutputTokenCount, getRestoredContextInputTokens } from './context-fill.lib.mjs';
+
+export { getCumulativeContextInputTokens, getRestoredContextInputTokens };
 
 /**
  * Helper: creates a fresh sub-session usage object for tracking tokens between compactification events
@@ -19,9 +22,9 @@ export const createEmptySubSessionUsage = () => ({
   peakOutputUsage: 0,
 });
 
-export const getRawRequestInputTokens = usage => (usage?.input_tokens || 0) + (usage?.cache_creation_input_tokens || 0) + (usage?.cache_read_input_tokens || 0);
+export const getRawRequestInputTokens = usage => getRestoredContextInputTokens(usage);
 
-export const getUsageInputTokens = usage => (usage?.inputTokens || 0) + (usage?.cacheCreationTokens || 0) + (usage?.cacheReadTokens || 0);
+export const getUsageInputTokens = usage => getRestoredContextInputTokens(usage);
 
 /**
  * Helper: accumulates token usage from a JSONL entry into a model usage map
@@ -184,6 +187,7 @@ export const dumpBudgetTrace = async (usage, tokenUsage, log) => {
   const reads = usage.cacheReadTokens || 0;
   const inputs = usage.inputTokens || 0;
   const outputs = usage.outputTokens || 0;
+  const explicitContextFill = getExplicitContextFillInputTokens(usage);
   const webSearches = usage.webSearchRequests || 0;
   const subSessionCount = (tokenUsage?.subSessions || []).length;
   const source = usage._sourceResultJson ? 'jsonl + result-event' : 'jsonl';
@@ -194,6 +198,14 @@ export const dumpBudgetTrace = async (usage, tokenUsage, log) => {
   // buckets split for cost and accounting review.
   await log(`         peak input:      ${formatNumber(peak)}${limit.context ? ` / ${formatNumber(limit.context)} context` : ''} (largest request input + cache_creation + cache_read)`, { verbose: true });
   await log(`         cumulative:      input ${formatNumber(inputs)}, cache_write ${formatNumber(writes)} (5m ${formatNumber(writes5m)} / 1h ${formatNumber(writes1h)}), cache_read ${formatNumber(reads)}, output ${formatNumber(outputs)}`, { verbose: true });
+  // Issue #1741: when peak is 0 (sub-agent only seen via result event), the
+  // detail row falls back to the cumulative-context proxy `input + cache_write`
+  // (cache_read is excluded because it represents the same cached prefix replayed
+  // across calls and would inflate the percentage past 100%).
+  if (explicitContextFill !== null || peak === 0) {
+    const contextFill = explicitContextFill ?? getCumulativeContextInputTokens(usage);
+    await log(`         context fill:    ${formatNumber(contextFill)}${limit.context ? ` / ${formatNumber(limit.context)} context` : ''} (input + cache_write; cache_read excluded — issue #1741)`, { verbose: true });
+  }
   // Issue #1710 R1: web_search is now billed in calculateModelCost. The trace
   // still surfaces the implied dollar cost so the residual remains debuggable
   // from the saved log even if a future model lacks pricing data.
@@ -305,17 +317,25 @@ export const mergeResultModelUsage = (modelUsage, resultModelUsage) => {
   if (!resultModelUsage || typeof resultModelUsage !== 'object') return;
   for (const [modelId, resultUsage] of Object.entries(resultModelUsage)) {
     if (modelId.startsWith('<') && modelId.endsWith('>')) continue;
+    const inputTokens = getInputTokenCount(resultUsage);
+    const cacheCreationTokens = getCacheWriteTokenCount(resultUsage);
+    const cacheReadTokens = getCacheReadTokenCount(resultUsage);
+    const outputTokens = getOutputTokenCount(resultUsage);
+    const explicitContextFill = getExplicitContextFillInputTokens(resultUsage);
     if (!modelUsage[modelId]) {
       modelUsage[modelId] = {
-        inputTokens: resultUsage.inputTokens || 0,
-        cacheCreationTokens: resultUsage.cacheCreationInputTokens || 0,
+        inputTokens,
+        cacheCreationTokens,
         cacheCreation5mTokens: 0,
         cacheCreation1hTokens: 0,
-        cacheReadTokens: resultUsage.cacheReadInputTokens || 0,
-        outputTokens: resultUsage.outputTokens || 0,
+        cacheReadTokens,
+        outputTokens,
         webSearchRequests: resultUsage.webSearchRequests || 0,
         _sourceResultJson: true,
       };
+      if (explicitContextFill !== null) {
+        modelUsage[modelId].contextFillInputTokens = explicitContextFill;
+      }
       if (resultUsage.costUSD != null) {
         modelUsage[modelId]._resultCostUSD = resultUsage.costUSD;
       }
@@ -331,13 +351,16 @@ export const mergeResultModelUsage = (modelUsage, resultModelUsage) => {
     } else {
       const jsonlUsage = modelUsage[modelId];
       const jsonlTotal = jsonlUsage.inputTokens + jsonlUsage.cacheCreationTokens + jsonlUsage.cacheReadTokens + jsonlUsage.outputTokens;
-      const resultTotal = (resultUsage.inputTokens || 0) + (resultUsage.cacheCreationInputTokens || 0) + (resultUsage.cacheReadInputTokens || 0) + (resultUsage.outputTokens || 0);
+      const resultTotal = inputTokens + cacheCreationTokens + cacheReadTokens + outputTokens;
       if (resultTotal > jsonlTotal) {
-        jsonlUsage.inputTokens = resultUsage.inputTokens || 0;
-        jsonlUsage.cacheCreationTokens = resultUsage.cacheCreationInputTokens || 0;
-        jsonlUsage.cacheReadTokens = resultUsage.cacheReadInputTokens || 0;
-        jsonlUsage.outputTokens = resultUsage.outputTokens || 0;
+        jsonlUsage.inputTokens = inputTokens;
+        jsonlUsage.cacheCreationTokens = cacheCreationTokens;
+        jsonlUsage.cacheReadTokens = cacheReadTokens;
+        jsonlUsage.outputTokens = outputTokens;
         jsonlUsage._sourceResultJson = true;
+        if (explicitContextFill !== null) {
+          jsonlUsage.contextFillInputTokens = explicitContextFill;
+        }
       }
       if (resultUsage.costUSD != null) {
         jsonlUsage._resultCostUSD = resultUsage.costUSD;
@@ -573,7 +596,7 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
         stats += `\n\n**${modelName}:** (${subSessions.length} sub-sessions)`;
       }
 
-      const peakContext = usage.peakContextUsage || 0;
+      const peakContext = getDisplayContextInputTokens(usage);
 
       if (showSubSessions) {
         // Issue #1600: Unified format — no "Context window:" prefix, same format as sub-agent calls
@@ -587,10 +610,14 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
         // so peakContext stays at 0; without this fallback the rendered comment loses
         // the sub-agent's input-token information entirely. The detail line is
         // deliberately simple; the Total line below keeps the cache split.
+        // Issue #1741: For result-event-only rows we have cumulative totals, not a
+        // per-request peak, so the detail-line numerator must exclude cache_reads
+        // (which are the same cached prefix replayed across calls and would inflate
+        // the percentage past 100%). The Total line keeps the full split.
         const parts = [];
         const isResultSingleCall = usage._sourceResultJson || callCount > 0;
         const inputPart = isResultSingleCall
-          ? formatInputContextPart(getUsageInputTokens(usage), contextLimit, formatTokensCompact)
+          ? formatInputContextPart(getCumulativeContextInputTokens(usage), contextLimit, formatTokensCompact)
           : buildCumulativeInputPhrase({
               input: usage.inputTokens || 0,
               cacheWrites: usage.cacheCreationTokens || 0,
@@ -636,7 +663,12 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
           for (let i = 0; i < matchingCalls.length; i++) {
             const call = matchingCalls[i];
             const cu = call.usage || {};
-            const callInput = (cu.inputTokens || 0) + (cu.cacheCreationTokens || 0) + (cu.cacheReadTokens || 0);
+            // Issue #1741: per-call usage is itself cumulative across the
+            // sub-agent's internal API requests (each Anthropic Agent call
+            // can run a tool loop), so cache_reads grow with the loop length
+            // and would push the displayed fill past 100%. Use the same
+            // input + cache_creation proxy as the result-event-only fallback.
+            const callInput = getCumulativeContextInputTokens(cu);
             const callOutput = cu.outputTokens || 0;
             const parts = [];
             if (contextLimit) {
@@ -655,9 +687,13 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
           }
         } else {
           // Estimated per-call breakdown when sub-agent stream tracking did not capture
-          // per-call usage. Includes everything the model actually saw:
-          // input + cache_creation (writes) + cache_read.
-          const aggregateInput = (usage.inputTokens || 0) + (usage.cacheCreationTokens || 0) + (usage.cacheReadTokens || 0);
+          // per-call usage. Issue #1741: cumulative cache_read tokens grow without
+          // bound across calls (the same cached prefix is replayed on every call),
+          // so we mustn't add them when projecting an average per-call fill —
+          // doing so would routinely exceed 100% of the context window. The
+          // estimate uses input + cache_creation (cache reads stay in the Total
+          // line below).
+          const aggregateInput = getCumulativeContextInputTokens(usage);
           const avgInput = Math.round(aggregateInput / callCount);
           const avgOutput = Math.round(usage.outputTokens / callCount);
           for (let i = 0; i < matchingCalls.length; i++) {
@@ -696,7 +732,14 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
  * @returns {Object|null} Budget stats data compatible with buildBudgetStatsString, or null if no data
  */
 export const buildAgentBudgetStats = (tokenUsage, pricingInfo) => {
-  if (!tokenUsage || tokenUsage.stepCount === 0) return null;
+  if (!tokenUsage) return null;
+
+  const inputTokens = getInputTokenCount(tokenUsage);
+  const cacheWriteTokens = getCacheWriteTokenCount(tokenUsage);
+  const cacheReadTokens = getCacheReadTokenCount(tokenUsage);
+  const outputTokens = getOutputTokenCount(tokenUsage);
+  const hasTokens = inputTokens > 0 || cacheWriteTokens > 0 || cacheReadTokens > 0 || outputTokens > 0;
+  if ((tokenUsage.stepCount || 0) === 0 && !hasTokens) return null;
 
   const modelName = pricingInfo?.modelName || tokenUsage.respondedModelId || tokenUsage.requestedModelId || 'Unknown';
   const modelId = tokenUsage.respondedModelId || tokenUsage.requestedModelId || pricingInfo?.modelId || 'unknown';
@@ -704,14 +747,16 @@ export const buildAgentBudgetStats = (tokenUsage, pricingInfo) => {
   // Use context limits from step_finish events if available, otherwise from pricing model info
   const contextLimit = tokenUsage.contextLimit || pricingInfo?.modelInfo?.limit?.context || null;
   const outputLimit = tokenUsage.outputLimit || pricingInfo?.modelInfo?.limit?.output || null;
+  const contextFillInputTokens = getExplicitContextFillInputTokens(tokenUsage) ?? getCumulativeContextInputTokens({ inputTokens, cacheWriteTokens });
 
   const modelUsageEntry = {
-    inputTokens: tokenUsage.inputTokens,
-    cacheCreationTokens: tokenUsage.cacheWriteTokens || 0,
-    cacheReadTokens: tokenUsage.cacheReadTokens || 0,
-    outputTokens: tokenUsage.outputTokens,
+    inputTokens,
+    cacheCreationTokens: cacheWriteTokens,
+    cacheReadTokens,
+    outputTokens,
     modelName,
     modelInfo: contextLimit || outputLimit ? { limit: { context: contextLimit, output: outputLimit } } : null,
+    contextFillInputTokens,
     peakContextUsage: tokenUsage.peakContextUsage || 0,
     costUSD: pricingInfo?.totalCostUSD ?? null,
   };
@@ -719,11 +764,11 @@ export const buildAgentBudgetStats = (tokenUsage, pricingInfo) => {
   return {
     modelUsage: { [modelId]: modelUsageEntry },
     subSessions: [],
-    inputTokens: tokenUsage.inputTokens,
-    cacheCreationTokens: tokenUsage.cacheWriteTokens || 0,
-    cacheReadTokens: tokenUsage.cacheReadTokens || 0,
-    outputTokens: tokenUsage.outputTokens,
-    totalTokens: tokenUsage.inputTokens + (tokenUsage.cacheWriteTokens || 0) + tokenUsage.outputTokens,
+    inputTokens,
+    cacheCreationTokens: cacheWriteTokens,
+    cacheReadTokens,
+    outputTokens,
+    totalTokens: inputTokens + cacheWriteTokens + outputTokens,
   };
 };
 

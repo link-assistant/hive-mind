@@ -6,6 +6,7 @@ import noUnderscorePassthroughWrapper from './eslint-rules/no-underscore-passthr
 import noLeakedTimers from './eslint-rules/no-leaked-timers.mjs';
 import noLeakedStreams from './eslint-rules/no-leaked-streams.mjs';
 import noDirectGhExec from './eslint-rules/no-direct-gh-exec.mjs';
+import requireSanitizedOutput from './eslint-rules/require-sanitized-output.mjs';
 
 // Create custom plugin for gh paginate rule
 const ghPaginatePlugin = {
@@ -42,6 +43,12 @@ const ghRateLimitPlugin = {
   },
 };
 
+const outputSanitizationPlugin = {
+  rules: {
+    'require-sanitized-output': requireSanitizedOutput,
+  },
+};
+
 export default [
   js.configs.recommended,
   prettierConfig,
@@ -53,6 +60,7 @@ export default [
       timers: timerPlugin,
       streams: streamsPlugin,
       'gh-rate-limit': ghRateLimitPlugin,
+      'output-sanitization': outputSanitizationPlugin,
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -131,6 +139,7 @@ export default [
       // Files that import ghWithRateLimitRetry / execGhWithRetry / ghRetry / ghCmdRetry are exempt.
       // See: https://github.com/link-assistant/hive-mind/issues/1726
       'gh-rate-limit/no-direct-gh-exec': 'error',
+      'output-sanitization/require-sanitized-output': 'error',
       // Enforce max 1500 lines per file to match CI workflow check.
       // Counts blank lines and comments (skipBlankLines/skipComments=false) so
       // this rule and scripts/check-file-line-limits.sh (raw `wc -l`) agree —

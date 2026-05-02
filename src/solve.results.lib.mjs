@@ -28,6 +28,14 @@ import { safeExit } from './exit-handler.lib.mjs';
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
+// Issue #1745: process-wide sanitization counters used to print a one-line
+// "we masked N secrets" summary at the end of each run.
+const { formatSanitizationSummary } = await import('./token-sanitization.lib.mjs');
+// Issue #1745: post-finish retroactive sanitization of bot-authored PR
+// comments and the PR description. Runs by default; can be skipped via
+// --dangerously-skip-output-sanitization.
+const { runPostFinishSweep } = await import('./post-finish-sanitization-sweep.lib.mjs');
+
 // Import continuation functions (session resumption, PR detection)
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { autoContinueWhenLimitResets } = autoContinue;
@@ -556,6 +564,17 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
 export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
   await log('\n=== Session Summary ===');
 
+  // Issue #1745: report how many tokens were masked during this run, with the
+  // "use --dangerously-skip-output-sanitization to skip" hint when > 0.
+  try {
+    const sanitizationSummary = formatSanitizationSummary();
+    if (sanitizationSummary) {
+      await log(sanitizationSummary);
+    }
+  } catch {
+    /* never fail the summary because of this */
+  }
+
   if (sessionId) {
     await log(`✅ Session ID: ${sessionId}`);
     // Always use absolute path for log file display
@@ -621,6 +640,39 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     // Always use absolute path for log file display
     const logFilePath = path.resolve(getLogFile());
     await log(`📁 Log file available: ${logFilePath}`);
+  }
+
+  // Issue #1745: post-finish retroactive sanitization sweep. Re-reads
+  // bot-authored PR comments and the PR description, runs them through
+  // sanitizeOutput, and edits in place if a leak slipped past the live
+  // sanitizer. Honors --dangerously-skip-output-sanitization and the related
+  // active-tokens flag.
+  try {
+    const owner = argv.owner;
+    const repo = argv.repo;
+    const prNumber = argv.prNumber;
+    const skipOutputSanitization = argv['dangerously-skip-output-sanitization'] === true;
+    const skipActiveTokensOutputSanitization = argv['dangerously-skip-active-tokens-output-sanitization'] === true;
+    if (owner && repo && prNumber && !skipOutputSanitization) {
+      const sweepResult = await runPostFinishSweep({
+        $,
+        owner,
+        repo,
+        prNumber,
+        log,
+        sanitizationOptions: {
+          warnOnMismatch: false,
+          skipActiveTokensOutputSanitization,
+        },
+      });
+      if (sweepResult.totalEdited > 0) {
+        await log(`🔒 Post-finish sweep: edited ${sweepResult.totalEdited} bot-authored item(s) to mask leaked tokens.`);
+        const followup = formatSanitizationSummary(sweepResult.sanitizationStatsAfter);
+        if (followup) await log(followup);
+      }
+    }
+  } catch (sweepErr) {
+    await log(`⚠️ Post-finish sanitization sweep failed: ${sweepErr.message || sweepErr}`);
   }
 };
 

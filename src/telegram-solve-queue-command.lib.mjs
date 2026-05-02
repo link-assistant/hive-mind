@@ -6,7 +6,7 @@
  *
  * Features:
  * - Shows pending, processing, completed, and failed queue items
- * - Per-tool queue breakdown (claude, opencode, etc.)
+ * - Per-tool queue breakdown (claude, opencode, codex, agent, gemini, etc.)
  * - Lists currently processing and waiting items
  * - Running Claude process count
  *

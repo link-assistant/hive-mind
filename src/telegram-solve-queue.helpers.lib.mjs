@@ -7,7 +7,7 @@ const execAsync = promisify(exec);
 
 /**
  * Count running processes by name.
- * @param {string} processName - Process name to search for (e.g., 'claude', 'agent')
+ * @param {string} processName - Process name to search for (e.g., 'claude', 'agent', 'codex', 'gemini')
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{count: number, processes: string[]}>}
  */
@@ -85,6 +85,15 @@ export async function getRunningQwenProcesses(verbose = false) {
 }
 
 /**
+ * Count running gemini processes.
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, processes: string[]}>}
+ */
+export async function getRunningGeminiProcesses(verbose = false) {
+  return getRunningProcesses('gemini', verbose);
+}
+
+/**
  * Format a threshold as percentage for display.
  * @param {number} ratio - Ratio (0.0 - 1.0)
  * @returns {string} Formatted percentage
@@ -156,6 +165,8 @@ export function formatWaitingReason(metric, currentValue, threshold) {
       return 'Codex process is already running';
     case 'qwen_running':
       return 'Qwen Code process is already running';
+    case 'gemini_running':
+      return 'Gemini CLI process is already running';
     default:
       return `${metric} threshold exceeded`;
   }

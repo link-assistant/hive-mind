@@ -1321,7 +1321,7 @@ ${createRawJsonSection(data)}`;
 /**
  * Check if interactive mode is supported for the given tool
  *
- * @param {string} tool - Tool name (claude, opencode, codex)
+ * @param {string} tool - Tool name (claude, opencode, codex, agent, gemini)
  * @returns {boolean} Whether interactive mode is supported
  */
 export const isInteractiveModeSupported = tool => {

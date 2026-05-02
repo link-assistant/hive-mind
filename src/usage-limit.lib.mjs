@@ -391,7 +391,7 @@ export function formatResetTimeWithRelative(resetTime, timezone = null) {
  * Format usage limit error message for console output
  *
  * @param {Object} options - Formatting options
- * @param {string} options.tool - Tool name (claude, codex, opencode)
+ * @param {string} options.tool - Tool name (claude, codex, opencode, agent, gemini)
  * @param {string|null} options.resetTime - Time when limit resets
  * @param {string|null} options.sessionId - Session ID for resuming
  * @param {string|null} options.resumeCommand - Command to resume session

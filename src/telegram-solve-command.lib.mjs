@@ -14,6 +14,7 @@ export const TOOL_SOLVE_COMMAND_ALIASES = Object.freeze({
   opencode: 'opencode',
   agent: 'agent',
   qwen: 'qwen',
+  gemini: 'gemini',
 });
 
 export const SOLVE_COMMAND_NAMES = Object.freeze(['solve', 'do', 'continue', ...Object.keys(TOOL_SOLVE_COMMAND_ALIASES)]);

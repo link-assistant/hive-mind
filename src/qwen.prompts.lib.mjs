@@ -13,7 +13,7 @@ import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, tool = 'qwen' } = params;
 
   const promptLines = [];
 
@@ -50,7 +50,7 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
-  const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'qwen', argv });
+  const thinkingPromptInstruction = getThinkingPromptInstruction({ tool, argv });
   if (thinkingPromptInstruction) {
     promptLines.push(thinkingPromptInstruction);
   }

@@ -116,14 +116,27 @@ await asyncTest('formatStatus includes codex queue', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'qwen' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'gemini' });
   const status = await queue.formatStatus();
   assert.ok(status.includes('codex') && status.includes('pending: 1'), 'Should show codex queue with 1 pending');
+  assert.ok(status.includes('qwen') && status.includes('pending: 1'), 'Should show qwen queue with 1 pending');
+  assert.ok(status.includes('gemini') && status.includes('pending: 1'), 'Should show gemini queue with 1 pending');
+  queue.stop();
+});
+
+await asyncTest('formatStatus includes gemini queue', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'gemini' });
+  const status = await queue.formatStatus();
+  assert.ok(status.includes('gemini') && status.includes('pending: 1'), 'Should show gemini queue with 1 pending');
   queue.stop();
 });
 
 await asyncTest('findStartableItem and findStartableItems work correctly', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  const queue = new SolveQueue({ verbose: false, autoStart: false });
   let result = await queue.findStartableItem();
   assert.equal(result.item, null);
   queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
@@ -140,9 +153,11 @@ test('new tool queues are created dynamically and mixed tools work', () => {
   const queue = new SolveQueue({ verbose: false });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
   assert.equal(queue.getToolQueue('codex').length, 1);
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/4', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'gemini' });
+  assert.equal(queue.getToolQueue('gemini').length, 1);
   queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
-  assert.equal(queue.getTotalQueueLength(), 3);
+  assert.equal(queue.getTotalQueueLength(), 4);
   assert.equal(queue.getToolQueue('claude').length, 2);
   queue.stop();
 });
@@ -163,6 +178,9 @@ await asyncTest('checkApiLimits uses claudeProcessingCount correctly', async () 
   assert.ok(result1.ok);
   const result2 = await queue.checkApiLimits(false, 5, 'agent');
   assert.ok(result2 !== undefined);
+  const result3 = await queue.checkApiLimits(false, 5, 'gemini');
+  assert.ok(result3 !== undefined);
+  assert.ok(result3.ok, 'Gemini should skip Claude-specific API limits');
   queue.stop();
 });
 

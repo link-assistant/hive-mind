@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 
 // Import the unified model mapping
-import { mapModelForTool, isModelCompatibleWithTool, validateToolModelCompatibility, getValidModelsForTool, claudeModels, agentModels, opencodeModels, codexModels, qwenModels } from '../src/models/index.mjs';
+import { mapModelForTool, isModelCompatibleWithTool, validateToolModelCompatibility, getValidModelsForTool, claudeModels, agentModels, opencodeModels, codexModels, qwenModels, geminiModels } from '../src/models/index.mjs';
 
 test('Model mapping - Agent tool should map grok-code correctly', () => {
   const mapped = mapModelForTool('agent', 'grok-code');
@@ -65,6 +65,10 @@ test('Model mapping - Valid models list should be non-empty for each tool', () =
   const qwenValidModels = getValidModelsForTool('qwen');
   assert.ok(qwenValidModels.length > 0, 'Qwen should have valid models');
   assert.ok(qwenValidModels.includes('qwen3-coder-plus'), 'Qwen valid models should include qwen3-coder-plus');
+
+  const geminiValidModels = getValidModelsForTool('gemini');
+  assert.ok(geminiValidModels.length > 0, 'Gemini should have valid models');
+  assert.ok(geminiValidModels.includes('gemini'), 'Gemini valid models should include gemini');
 });
 
 test('Model mapping - OpenCode should handle grok-code correctly', () => {
@@ -91,6 +95,14 @@ test('Model mapping - Qwen should handle qwen alias correctly', () => {
   assert.strictEqual(isCompatible, true, 'qwen3-coder-plus should be compatible with qwen tool');
 });
 
+test('Model mapping - Gemini should handle gemini alias correctly', () => {
+  const mapped = mapModelForTool('gemini', 'gemini');
+  assert.strictEqual(mapped, 'gemini-2.5-flash', 'gemini should map to gemini-2.5-flash for gemini');
+
+  const isCompatible = isModelCompatibleWithTool('gemini', 'gemini-2.5-pro');
+  assert.strictEqual(isCompatible, true, 'gemini-2.5-pro should be compatible with gemini tool');
+});
+
 test('Model mapping - Each tool has distinct model maps', () => {
   // Verify that each tool maintains its own model mapping
   const claudeSonnet = mapModelForTool('claude', 'sonnet');
@@ -105,6 +117,7 @@ test('Model mapping - Export model maps are objects', () => {
   assert.strictEqual(typeof opencodeModels, 'object', 'opencodeModels should be an object');
   assert.strictEqual(typeof codexModels, 'object', 'codexModels should be an object');
   assert.strictEqual(typeof qwenModels, 'object', 'qwenModels should be an object');
+  assert.strictEqual(typeof geminiModels, 'object', 'geminiModels should be an object');
 });
 
 console.log('✅ All tests for issue #882 fixes passed!');

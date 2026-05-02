@@ -46,7 +46,7 @@ export const { buildClaudeResumeCommand, buildClaudeInitialCommand } = claudeCom
  * @param {Object} options
  * @param {string} options.issueUrl - The issue URL passed to solve.mjs
  * @param {string} options.sessionId - The session ID to resume
- * @param {string|null} [options.tool] - Tool name (codex, opencode, agent)
+ * @param {string|null} [options.tool] - Tool name (codex, opencode, agent, gemini)
  * @param {string|null} [options.model] - Model name to preserve
  * @param {string|null} [options.fallbackModel] - Explicit fallback model to preserve
  * @param {string|null} [options.tempDir] - Working directory to preserve

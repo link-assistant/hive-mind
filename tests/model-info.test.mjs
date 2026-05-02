@@ -54,8 +54,16 @@ test('getToolDisplayName returns "Agent CLI" for agent', () => {
   assert.equal(getToolDisplayName('agent'), 'Agent CLI');
 });
 
+test('getToolDisplayName returns "Google Gemini CLI" for gemini', () => {
+  assert.equal(getToolDisplayName('gemini'), 'Google Gemini CLI');
+});
+
 test('getToolDisplayName returns "Qwen Code" for qwen', () => {
   assert.equal(getToolDisplayName('qwen'), 'Qwen Code');
+});
+
+test('getToolDisplayName returns "Gemini CLI" for gemini', () => {
+  assert.equal(getToolDisplayName('gemini'), 'Gemini CLI');
 });
 
 test('getToolDisplayName returns "AI tool" for unknown', () => {
@@ -112,6 +120,10 @@ test('resolveModelId resolves "gpt5" for codex tool', () => {
 
 test('resolveModelId resolves "gpt-5.5" for codex tool', () => {
   assert.equal(resolveModelId('gpt-5.5', 'codex'), 'gpt-5.5');
+});
+
+test('resolveModelId resolves "flash" for gemini tool', () => {
+  assert.equal(resolveModelId('flash', 'gemini'), 'gemini-2.5-flash');
 });
 
 test('resolveModelId strips [1m] suffix', () => {
@@ -315,6 +327,10 @@ test('resolveModelId resolves "qwen" for qwen tool', () => {
   assert.equal(resolveModelId('qwen', 'qwen'), 'qwen3-coder-plus');
 });
 
+test('resolveModelId resolves "gemini" for gemini tool', () => {
+  assert.equal(resolveModelId('gemini', 'gemini'), 'gemini-2.5-flash');
+});
+
 // ============================================================================
 // buildModelInfoString - Per-tool coverage for all supported tools
 // ============================================================================
@@ -351,6 +367,16 @@ test('buildModelInfoString shows "Agent" tool name for agent', () => {
   assert.ok(result.includes('Tool: Agent CLI'), `Expected "Tool: Agent CLI" but got: ${result}`);
 });
 
+test('buildModelInfoString shows "Gemini" tool name for gemini', () => {
+  const result = buildModelInfoString({
+    tool: 'gemini',
+    requestedModel: 'flash',
+    modelsUsed: [{ modelId: 'gemini-2.5-flash', modelInfo: { name: 'Gemini 2.5 Flash', provider: 'Google' } }],
+  });
+  assert.ok(result.includes('Tool: Google Gemini CLI'), `Expected "Tool: Google Gemini CLI" but got: ${result}`);
+  assert.ok(result.includes('Gemini 2.5 Flash'), `Expected Gemini model name but got: ${result}`);
+});
+
 test('buildModelInfoString shows "Qwen Code" tool name for qwen', () => {
   const result = buildModelInfoString({
     tool: 'qwen',
@@ -359,6 +385,16 @@ test('buildModelInfoString shows "Qwen Code" tool name for qwen', () => {
   });
   assert.ok(result.includes('Tool: Qwen Code'), `Expected "Tool: Qwen Code" but got: ${result}`);
   assert.ok(result.includes('Qwen3 Coder Plus'), `Expected Qwen model name but got: ${result}`);
+});
+
+test('buildModelInfoString shows "Gemini CLI" tool name for gemini', () => {
+  const result = buildModelInfoString({
+    tool: 'gemini',
+    requestedModel: 'gemini',
+    modelsUsed: [{ modelId: 'gemini-2.5-flash', modelInfo: { name: 'Gemini 2.5 Flash', provider: 'Google' } }],
+  });
+  assert.ok(result.includes('Tool: Gemini CLI'), `Expected "Tool: Gemini CLI" but got: ${result}`);
+  assert.ok(result.includes('Gemini 2.5 Flash'), `Expected Gemini model name but got: ${result}`);
 });
 
 test('buildModelInfoString shows warning for codex when actual model does not match requested', () => {
@@ -535,6 +571,16 @@ await asyncTest('getModelInfoForComment with qwen tool and actual model IDs', as
   });
   assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
   assert.ok(result.includes('Qwen Code') || result.includes('qwen3-coder-plus'), `Expected qwen model in output but got: ${result}`);
+});
+
+await asyncTest('getModelInfoForComment with gemini tool and actual model IDs', async () => {
+  const result = await getModelInfoForComment({
+    requestedModel: 'gemini',
+    tool: 'gemini',
+    actualModelIds: ['gemini-2.5-flash'],
+  });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  assert.ok(result.includes('Gemini CLI') || result.includes('gemini-2.5-flash'), `Expected gemini model in output but got: ${result}`);
 });
 
 await asyncTest('getModelInfoForComment with multiple actual models (main + supporting)', async () => {

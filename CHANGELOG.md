@@ -1,5 +1,17 @@
 # @link-assistant/hive-mind
 
+## 1.64.0
+
+### Minor Changes
+
+- 2ffb808: Add experimental `--use-agent-commander` option to delegate supported tool execution to the agent-commander library, including Claude, Codex, OpenCode, Agent, Qwen, and Gemini.
+
+## 1.63.0
+
+### Minor Changes
+
+- b7b0721: Add direct Google Gemini CLI support for solve, hive, queueing, model validation, structured stream JSON parsing, and Telegram `/gemini` aliases.
+
 ## 1.62.1
 
 ### Patch Changes

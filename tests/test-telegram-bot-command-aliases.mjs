@@ -4,7 +4,7 @@
  * Tests for Telegram /solve aliases.
  *
  * /do and /continue are plain /solve aliases.
- * /claude, /codex, /opencode, /agent, and /qwen are per-tool aliases equivalent to
+ * /claude, /codex, /opencode, /agent, /qwen, and /gemini are per-tool aliases equivalent to
  * /solve --tool <tool>.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/525
@@ -69,10 +69,22 @@ const tests = [
     expectedToolAlias: 'agent',
   },
   {
+    name: '/gemini injects --tool gemini',
+    input: '/gemini https://github.com/test/repo/issues/11 --model pro',
+    expectedArgs: ['https://github.com/test/repo/issues/11', '--model', 'pro', '--tool', 'gemini'],
+    expectedToolAlias: 'gemini',
+  },
+  {
     name: '/qwen injects --tool qwen',
     input: '/qwen https://github.com/test/repo/issues/11 --model qwen3-coder-plus',
     expectedArgs: ['https://github.com/test/repo/issues/11', '--model', 'qwen3-coder-plus', '--tool', 'qwen'],
     expectedToolAlias: 'qwen',
+  },
+  {
+    name: '/gemini with explicit --model gemini still injects --tool gemini only',
+    input: '/gemini https://github.com/test/repo/issues/12 --model gemini',
+    expectedArgs: ['https://github.com/test/repo/issues/12', '--model', 'gemini', '--tool', 'gemini'],
+    expectedToolAlias: 'gemini',
   },
   {
     name: '/codex command wins over explicit --tool value',

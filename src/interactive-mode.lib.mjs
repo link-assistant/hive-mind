@@ -59,7 +59,23 @@ import { reportInteractiveLeak } from './telegram-leak-notifier.lib.mjs';
  * @returns {Object} Handler object with event processing methods
  */
 export const createInteractiveHandler = options => {
-  const { owner, repo, prNumber, log, verbose = false, execFile: execFileFn } = options;
+  const {
+    owner,
+    repo,
+    prNumber,
+    log,
+    verbose = false,
+    execFile: execFileFn,
+    // Issue #1745: dangerous-skip flags. All default to false; passing them
+    // through lets the operator opt out of pattern-based sanitization (for
+    // controlled debugging in private repos) while keeping active-token
+    // masking on by default.
+    skipOutputSanitization = false,
+    skipActiveTokensOutputSanitization = false,
+    // Pre-existing user content carve-out (issue body / non-bot comments /
+    // pre-existing code). When provided, sanitizer leaves these tokens untouched.
+    excludeTokens = [],
+  } = options;
   // Use injected execFile for testability, or the real one by default
   const runGhApi = execFileFn || execFileAsync;
 
@@ -127,7 +143,12 @@ export const createInteractiveHandler = options => {
 
     let sanitized = body;
     try {
-      sanitized = await sanitizeCommentBody(body, { knownTokens });
+      sanitized = await sanitizeCommentBody(body, {
+        knownTokens,
+        skipOutputSanitization,
+        skipActiveTokensOutputSanitization,
+        excludeTokens,
+      });
     } catch (err) {
       await log(`⚠️ Interactive mode: sanitizeCommentBody failed: ${err.message} — falling back to raw body MASKED`);
       // Fail closed: if sanitization fails entirely, drop the body to a safe

@@ -37,7 +37,33 @@ docker build -t hive-mind:local .
 docker run -it hive-mind:local
 ```
 
-### Вариант 3: Режим разработки (в стиле Gitpod)
+### Вариант 3: Docker-in-Docker образ
+
+Используйте `konard/hive-mind-dind:latest`, когда агенту нужно запускать Docker, Docker Compose или Testcontainers внутри контейнера Hive Mind.
+
+```bash
+# Pull the Docker-in-Docker image
+docker pull konard/hive-mind-dind:latest
+
+# Default runtime: privileged container starts an inner dockerd
+docker run --rm --privileged -it konard/hive-mind-dind:latest bash
+
+# Inside the container, verify nested Docker
+docker info
+docker run hello-world
+```
+
+Образ по умолчанию запускает внутренний Docker daemon с `DIND_STORAGE_DRIVER=vfs` для совместимости с overlay-backed хостами. Для более быстрых локальных запусков на хостах с поддержкой nested overlay mounts передайте `-e DIND_STORAGE_DRIVER=overlay2`.
+
+На общих хостах лучше использовать Sysbox runtime, если он доступен:
+
+```bash
+docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
+```
+
+DinD-образ публикуется отдельно от `konard/hive-mind:latest`, поэтому пользователи без необходимости во вложенном Docker могут продолжать использовать существующий образ с меньшими привилегиями.
+
+### Вариант 4: Режим разработки (в стиле Gitpod)
 
 Для целей разработки устаревший `Dockerfile` предоставляет Gitpod-совместимую среду:
 

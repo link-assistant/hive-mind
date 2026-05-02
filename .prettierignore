@@ -26,6 +26,7 @@ docs/case-studies/**/raw-data/**/*.json
 docs/case-studies/**/source-data/**/*.json
 docs/case-studies/**/working-session-logs/**/*.json
 docs/case-studies/**/logs/**/*.md
+docs/case-studies/issue-1705/data/
 docs/case-studies/issue-1639/data/
 docs/case-studies/issue-1724/data/use-m-source.js
 docs/case-studies/issue-731-unable-to-solve-space-compiler/commits-response.json

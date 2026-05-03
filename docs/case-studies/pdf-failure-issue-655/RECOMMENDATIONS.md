@@ -14,6 +14,7 @@ This document provides actionable recommendations for preventing PDF processing 
 
 ```markdown
 When working with PDF files:
+
 - Before using the Read tool on PDFs, check file sizes using ls -lh or stat
 - If a single PDF exceeds 2MB, or total PDFs exceed 5MB, process them sequentially or in chunks
 - Consider extracting specific pages or sections instead of reading entire large PDFs
@@ -57,6 +58,7 @@ exit 0
 ```
 
 **Usage in solver**:
+
 ```bash
 # Before reading PDF
 ./scripts/safe-pdf-read.sh "Manual.pdf"
@@ -83,11 +85,13 @@ fi
 ## Known Limitations
 
 ### PDF Processing
+
 - **Maximum single PDF size**: 2MB (recommended)
 - **Maximum total PDFs per request**: 5MB (recommended)
 - **Workaround**: For larger PDFs, extract text first using `pdftotext` or process page-by-page
 
 ### Large File Handling
+
 - Files exceeding context window limits cannot be processed in a single request
 - Use chunking or streaming approaches for files >1MB
 ```
@@ -107,19 +111,19 @@ fi
 ```javascript
 // In solve.mjs or similar
 async function safePdfRead(pdfPath) {
-    const stats = await fs.stat(pdfPath);
-    const sizeMB = stats.size / (1024 * 1024);
+  const stats = await fs.stat(pdfPath);
+  const sizeMB = stats.size / (1024 * 1024);
 
-    if (sizeMB > 2) {
-        console.log(`PDF is ${sizeMB.toFixed(1)}MB, using text extraction instead`);
-        // Use pdftotext or similar
-        const textPath = pdfPath.replace('.pdf', '.txt');
-        await exec(`pdftotext "${pdfPath}" "${textPath}"`);
-        return await fs.readFile(textPath, 'utf-8');
-    }
+  if (sizeMB > 2) {
+    console.log(`PDF is ${sizeMB.toFixed(1)}MB, using text extraction instead`);
+    // Use pdftotext or similar
+    const textPath = pdfPath.replace('.pdf', '.txt');
+    await exec(`pdftotext "${pdfPath}" "${textPath}"`);
+    return await fs.readFile(textPath, 'utf-8');
+  }
 
-    // Use normal Read tool
-    return await claudeRead(pdfPath);
+  // Use normal Read tool
+  return await claudeRead(pdfPath);
 }
 ```
 
@@ -136,35 +140,35 @@ async function safePdfRead(pdfPath) {
 ```javascript
 // Before executing Claude
 async function validateWorkingDirectory(dir) {
-    const issues = [];
+  const issues = [];
 
-    // Find all PDFs
-    const pdfs = await glob('**/*.pdf', { cwd: dir });
+  // Find all PDFs
+  const pdfs = await glob('**/*.pdf', { cwd: dir });
 
-    let totalSize = 0;
-    for (const pdf of pdfs) {
-        const stats = await fs.stat(path.join(dir, pdf));
-        totalSize += stats.size;
+  let totalSize = 0;
+  for (const pdf of pdfs) {
+    const stats = await fs.stat(path.join(dir, pdf));
+    totalSize += stats.size;
 
-        if (stats.size > 2 * 1024 * 1024) {
-            issues.push({
-                type: 'large_pdf',
-                file: pdf,
-                size: stats.size,
-                recommendation: 'Extract text first using pdftotext'
-            });
-        }
+    if (stats.size > 2 * 1024 * 1024) {
+      issues.push({
+        type: 'large_pdf',
+        file: pdf,
+        size: stats.size,
+        recommendation: 'Extract text first using pdftotext',
+      });
     }
+  }
 
-    if (totalSize > 5 * 1024 * 1024) {
-        issues.push({
-            type: 'total_pdf_size',
-            totalSize,
-            recommendation: 'Process PDFs sequentially instead of simultaneously'
-        });
-    }
+  if (totalSize > 5 * 1024 * 1024) {
+    issues.push({
+      type: 'total_pdf_size',
+      totalSize,
+      recommendation: 'Process PDFs sequentially instead of simultaneously',
+    });
+  }
 
-    return issues;
+  return issues;
 }
 ```
 
@@ -182,6 +186,7 @@ async function validateWorkingDirectory(dir) {
 ## PDF Processing Agent
 
 Specialized agent for handling PDF files safely:
+
 - Checks file sizes before processing
 - Automatically chunks large PDFs
 - Extracts text when full PDF reading isn't possible
@@ -202,25 +207,28 @@ Specialized agent for handling PDF files safely:
 **Action**: Create feature request for PDF handling improvements:
 
 **Proposed Features**:
+
 1. **Size validation before reading**:
    - Check file size before attempting to read
    - Return clear error if file exceeds limits
    - Suggest alternatives (chunking, text extraction)
 
 2. **Paginated PDF reading**:
+
    ```javascript
    Read({
-     file_path: "large.pdf",
-     pdf_pages: "1-10"  // Read only pages 1-10
-   })
+     file_path: 'large.pdf',
+     pdf_pages: '1-10', // Read only pages 1-10
+   });
    ```
 
 3. **Automatic text extraction option**:
+
    ```javascript
    Read({
-     file_path: "large.pdf",
-     extract_text_only: true  // Skip images, formatting
-   })
+     file_path: 'large.pdf',
+     extract_text_only: true, // Skip images, formatting
+   });
    ```
 
 4. **Size limit documentation**:
@@ -239,21 +247,22 @@ Specialized agent for handling PDF files safely:
 **Action**: Support streaming/chunked PDF processing:
 
 **Concept**:
+
 ```javascript
 // Process PDF in chunks
 async function* streamPdfPages(pdfPath, chunkSize = 5) {
-    const pageCount = await getPdfPageCount(pdfPath);
+  const pageCount = await getPdfPageCount(pdfPath);
 
-    for (let i = 0; i < pageCount; i += chunkSize) {
-        const endPage = Math.min(i + chunkSize, pageCount);
-        yield await extractPdfPages(pdfPath, i, endPage);
-    }
+  for (let i = 0; i < pageCount; i += chunkSize) {
+    const endPage = Math.min(i + chunkSize, pageCount);
+    yield await extractPdfPages(pdfPath, i, endPage);
+  }
 }
 
 // Usage
 for await (const chunk of streamPdfPages('large.pdf')) {
-    const analysis = await claude.analyze(chunk);
-    results.push(analysis);
+  const analysis = await claude.analyze(chunk);
+  results.push(analysis);
 }
 ```
 
@@ -267,26 +276,31 @@ for await (const chunk of streamPdfPages('large.pdf')) {
 
 **Action**: Add section to CONTRIBUTING.md:
 
-```markdown
+````markdown
 ## Working with PDF Files
 
 ### Size Limits
+
 - Single PDF: Max 2MB (recommended)
 - Multiple PDFs: Max 5MB total (recommended)
 - If exceeded: Process sequentially or extract text
 
 ### Best Practices
+
 1. Check PDF size before processing:
    ```bash
    ls -lh *.pdf
    ```
+````
 
 2. For large PDFs, extract text first:
+
    ```bash
    pdftotext large.pdf large.txt
    ```
 
 3. Process PDFs one at a time:
+
    ```bash
    for pdf in *.pdf; do
        process_pdf "$pdf"
@@ -299,13 +313,16 @@ for await (const chunk of streamPdfPages('large.pdf')) {
    ```
 
 ### Tools Available
+
 - `pdftotext`: Extract plain text
 - `pdftk`: Split, merge, rotate PDFs
 - `pdfinfo`: Get PDF metadata
 - `gs` (ghostscript): Compress PDFs
 
 ### Examples
+
 See `examples/pdf-processing/` for working examples.
+
 ```
 
 **Priority**: MEDIUM
@@ -376,3 +393,4 @@ The recommended approach is to implement solutions at all levels:
 - Long-term: Tool enhancement (next quarter)
 
 This layered approach provides immediate relief while working toward a comprehensive solution.
+```

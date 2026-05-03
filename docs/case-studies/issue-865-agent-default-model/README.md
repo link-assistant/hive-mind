@@ -23,6 +23,7 @@ Add a case for the `agent` tool in the default model selection to use `'grok-cod
 **File**: `src/solve.config.lib.mjs`, lines 86-94
 
 **Change**:
+
 ```diff
   default: (currentParsedArgs) => {
     // Dynamic default based on tool selection

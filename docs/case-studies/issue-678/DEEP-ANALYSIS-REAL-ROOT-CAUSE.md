@@ -5,6 +5,7 @@
 **Why does the solve command need a Compare API check at all?**
 
 Before v0.29.7, the code did NOT have a Compare API check. It just:
+
 1. Created CLAUDE.md
 2. Committed it
 3. Pushed the branch
@@ -15,9 +16,10 @@ Before v0.29.7, the code did NOT have a Compare API check. It just:
 ## Tracing the Problem Back to Its Source
 
 Looking at commit history:
+
 - v0.29.5: No Compare API check exists
 - v0.29.7: Compare API check added with comment "CRITICAL: Wait for GitHub to process the push before creating PR"
--v0.29.8: Added timestamp to CLAUDE.md
+  -v0.29.8: Added timestamp to CLAUDE.md
 - v0.29.9: Fixed Compare API for fork mode
 
 The Compare API check was added as a fix for a problem. But **what was the original problem?**
@@ -25,12 +27,14 @@ The Compare API check was added as a fix for a problem. But **what was the origi
 ## The Original Problem: "No Commits Between Branches"
 
 From the v0.29.5 logs:
+
 ```
 [2025-11-05T07:02:59.201Z] ✅ Branch pushed: Successfully to remote
 [2025-11-05T07:03:12.223Z] GraphQL: No commits between master and issue-1-b53fe3666f91
 ```
 
 The error happens EVEN THOUGH:
+
 - Git commit was created locally
 - Git push succeeded
 - GitHub accepted the push
@@ -62,11 +66,13 @@ Let me look at this from first principles:
 GitHub's GraphQL error: `No commits between master and issue-1-b53fe3666f91`
 
 This error occurs when:
+
 1. Both branches exist
 2. Both branches point to commits
 3. **BUT**: The branches have the same commit history
 
 This can happen if:
+
 - Branch is created from master
 - No commits are added to branch
 - Attempt to create PR from branch to master
@@ -74,6 +80,7 @@ This can happen if:
 ### But We DID Create a Commit!
 
 From logs:
+
 ```
 [2025-11-05T07:02:57.822Z] ✅ Commit created: Successfully with CLAUDE.md
 [2025-11-05T07:02:57.823Z]    Commit output: [issue-1-b53fe3666f91 8ee8459] Initial commit...
@@ -85,6 +92,7 @@ Commit 8ee8459 was created and pushed. So why does GitHub say no commits?
 ### The Critical Insight: CLAUDE.md in the Repository
 
 Wait... look at this line from the logs:
+
 ```
 [2025-11-05T07:02:57.704Z] Issue URL from argv['issue-url']: https://github.com/40Think/AgogeDigitalTwin/issues/1
 [2025-11-05T07:02:57.707Z] CLAUDE.md already exists, appending task info...
@@ -110,6 +118,7 @@ If CLAUDE.md exists in the repository (committed to master), then:
 ### Testing This Hypothesis
 
 From the logs, we can see:
+
 ```
 [2025-11-05T07:02:57.778Z] Git status after add: M  CLAUDE.md
 ```
@@ -119,6 +128,7 @@ The file shows as "M" (modified), not "A" (added). This confirms CLAUDE.md alrea
 ### Why Does This Happen with --auto-continue?
 
 The --auto-continue workflow:
+
 1. First run: Creates branch, adds CLAUDE.md, commits, pushes, **attempts PR creation**
 2. PR creation fails for some reason (maybe network, maybe permissions, etc.)
 3. **CLAUDE.md is still in the branch** (it was committed but PR creation failed)
@@ -133,6 +143,7 @@ The --auto-continue workflow:
 ## The Core Issue: CLAUDE.md Persistence
 
 CLAUDE.md is supposed to be temporary:
+
 - Added at start of session
 - Used to give Claude context
 - **Removed at end of session**
@@ -144,6 +155,7 @@ When --auto-continue reuses that branch, CLAUDE.md is already there with potenti
 ## Why the Timestamp Fix Works
 
 Adding a timestamp ensures that even if the task info is identical, the file content changes:
+
 ```javascript
 Run timestamp: 2025-11-05T10:00:15.118Z  // Different every run
 ```
@@ -153,6 +165,7 @@ This makes Git see an actual content change, creating a real commit with a diffe
 ## Why the Compare API Check Helps (Sometimes)
 
 The Compare API check helps catch a DIFFERENT problem:
+
 - If there's an actual GitHub sync delay (rare but possible)
 - The check waits for GitHub to index the push
 - Prevents racing between push completion and PR creation
@@ -164,10 +177,11 @@ But this is NOT the root cause of the "no commits" error. It's a separate issue.
 Instead of working around the problem with timestamps and API checks, we should:
 
 ### Option 1: Don't Reuse CLAUDE.md Content
+
 ```javascript
 if (claudeMdExists) {
   // Don't append - replace entirely with fresh content
-  finalContent = taskInfo;  // No timestamp needed
+  finalContent = taskInfo; // No timestamp needed
 } else {
   finalContent = taskInfo;
 }
@@ -193,6 +207,7 @@ if (claudeMdExists && branchHasOtherCommits) {
 ### Option 3: Always Remove CLAUDE.md from Branches
 
 Before checking out an existing branch:
+
 ```javascript
 if (branchExistsRemotely) {
   // Fetch and checkout
@@ -213,6 +228,7 @@ if (branchExistsRemotely) {
 ## Why None of These Were Implemented
 
 The timestamp fix is a **quick workaround** that:
+
 - ✅ Works immediately
 - ✅ Doesn't require understanding the branch state
 - ✅ Doesn't risk breaking existing workflows
@@ -221,6 +237,7 @@ The timestamp fix is a **quick workaround** that:
 - ❌ Clutters the commit history
 
 The Compare API fix is a **different workaround** that:
+
 - ✅ Handles actual GitHub sync delays
 - ✅ Prevents racing conditions
 - ❌ Adds complexity and wait time
@@ -233,6 +250,7 @@ The Compare API fix is a **different workaround** that:
 2. **Keep the Compare API check** (it handles a real edge case)
 3. **Fix the Compare API for fork mode** (already done in v0.29.9)
 4. **Add proper CLAUDE.md handling**:
+
    ```javascript
    if (reusingExistingBranch && claudeMdExists) {
      // Check if branch has meaningful work beyond CLAUDE.md
@@ -241,7 +259,7 @@ The Compare API fix is a **different workaround** that:
 
      if (commitCount === 1) {
        // Only CLAUDE.md commit exists - replace it entirely
-       finalContent = taskInfo;  // No timestamp
+       finalContent = taskInfo; // No timestamp
      } else {
        // Branch has real work - don't modify CLAUDE.md
        skipClaudeMdUpdate = true;
@@ -253,6 +271,7 @@ The Compare API fix is a **different workaround** that:
    ```
 
 This approach:
+
 - ✅ Handles branch reuse correctly
 - ✅ Doesn't clutter CLAUDE.md with timestamps
 - ✅ Preserves real work on branches
@@ -265,11 +284,13 @@ This approach:
 CLAUDE.md persists in branches when sessions fail, and reusing branches with --auto-continue causes content duplication issues.
 
 **Current Fixes**:
+
 - Timestamp workaround (treats symptom)
 - Compare API check (handles different issue)
 - Fork mode fix (correct)
 
 **Proper Solution**:
+
 - Detect branch state before modifying CLAUDE.md
 - Replace vs append based on branch history
 - Only create commits when content actually changes

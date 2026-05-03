@@ -46,10 +46,12 @@ brew link --overwrite --force shivammathur/php/php@8.3
 #### Phase 1: Homebrew Installation (Lines 1101-1930)
 
 1. **Tap Addition** (Line 1102-1103):
+
    ```
    ==> Tapping shivammathur/php
    Cloning into '/home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/shivammathur/homebrew-php'...
    ```
+
    ✅ **Success**: Tap successfully added
 
 2. **Dependency Resolution** (Line 1115):
@@ -58,13 +60,16 @@ brew link --overwrite --force shivammathur/php/php@8.3
    - Major dependencies included: OpenSSL 3, curl, ICU, libxml2, GD, various image libraries, etc.
 
 3. **PHP 8.3 Installation** (Lines 1496-1930):
+
    ```
    ==> Installing php@8.3 from shivammathur/php
    🍺 /home/linuxbrew/.linuxbrew/Cellar/php@8.3/8.3.27_1: 523 files, 114.3MB
    ```
+
    ✅ **Success**: PHP 8.3.27_1 installed with 523 files (114.3MB)
 
 4. **Important Caveat** (Line 1914-1919):
+
    ```
    php@8.3 is keg-only, which means it was not symlinked into /home/linuxbrew/.linuxbrew,
    because this is an alternate version of another formula.
@@ -116,9 +121,11 @@ The PHP installation suffers from a **PATH visibility problem** with multiple co
    - Been overridden by Homebrew's keg-only policy
 
 3. **Missing PATH Export**: Unlike the script's Homebrew installation which explicitly runs:
+
    ```bash
    eval "$(brew shellenv)"
    ```
+
    The PHP installation does not re-evaluate the shell environment after linking
 
 4. **Current Session vs Future Sessions**: The script adds `switch-php` function to `.bashrc` for future sessions but doesn't update the current session's PATH
@@ -139,13 +146,13 @@ This check runs **after** all installations but doesn't account for the need to 
 
 ## Expected vs Actual Behavior
 
-| Aspect | Expected | Actual | Status |
-|--------|----------|--------|--------|
-| Homebrew Installation | PHP 8.3 installed | PHP 8.3.27_1 installed (523 files, 114.3MB) | ✅ |
-| Binary Location | In Cellar | `/home/linuxbrew/.linuxbrew/Cellar/php@8.3/8.3.27_1/` | ✅ |
-| PATH Linking | Available in PATH | Not accessible via `php` command | ❌ |
-| Verification | Shows PHP version | Shows "PHP: not found" | ❌ |
-| Future Sessions | PHP available after shell restart | Likely YES (switch-php function added) | ⚠️ |
+| Aspect                | Expected                          | Actual                                                | Status |
+| --------------------- | --------------------------------- | ----------------------------------------------------- | ------ |
+| Homebrew Installation | PHP 8.3 installed                 | PHP 8.3.27_1 installed (523 files, 114.3MB)           | ✅     |
+| Binary Location       | In Cellar                         | `/home/linuxbrew/.linuxbrew/Cellar/php@8.3/8.3.27_1/` | ✅     |
+| PATH Linking          | Available in PATH                 | Not accessible via `php` command                      | ❌     |
+| Verification          | Shows PHP version                 | Shows "PHP: not found"                                | ❌     |
+| Future Sessions       | PHP available after shell restart | Likely YES (switch-php function added)                | ⚠️     |
 
 ## Installation Success Metrics
 
@@ -242,6 +249,7 @@ log_note "Run 'source ~/.bashrc' or restart your shell to activate all tools"
 **Priority**: Low
 
 Add integration test to verify:
+
 1. PHP binary exists at expected location
 2. PHP is in PATH after fresh shell login
 3. PHP version matches expected version (8.3.x)

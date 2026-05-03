@@ -89,10 +89,10 @@ The `telegram-bot.mjs` file loaded heavy dependencies (Sentry, Telegraf) **befor
 
 ### Performance Improvement
 
-| Mode | Before | After |
-|------|--------|-------|
-| `--dry-run` | ~10-15 seconds (timeout!) | ~6-7 seconds |
-| Normal | ~10-12 seconds | ~10-12 seconds (unchanged) |
+| Mode        | Before                    | After                      |
+| ----------- | ------------------------- | -------------------------- |
+| `--dry-run` | ~10-15 seconds (timeout!) | ~6-7 seconds               |
+| Normal      | ~10-12 seconds            | ~10-12 seconds (unchanged) |
 
 ## Files Changed
 
@@ -109,6 +109,7 @@ The `telegram-bot.mjs` file loaded heavy dependencies (Sentry, Telegraf) **befor
 ## CI Logs
 
 The original CI logs are preserved in:
+
 - `ci-logs/run-19912262064-full.log` - Full run logs
 - `ci-logs/run-19912262064-failed.log` - Failed step logs
 - `ci-logs/job-57083420891-test-execution.log` - Specific job logs

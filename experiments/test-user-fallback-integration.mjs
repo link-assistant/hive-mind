@@ -8,7 +8,7 @@ import { execSync } from 'child_process';
 
 async function testUserFallbackIntegration() {
   console.log('Integration Test: User Target Rate Limit Fallback\n');
-  console.log('=' .repeat(50));
+  console.log('='.repeat(50));
 
   try {
     // Test 1: Verify we can detect user type
@@ -40,19 +40,18 @@ async function testUserFallbackIntegration() {
     console.log('\nTest 3: Simulating fallback flow...');
     console.log('When the search API hits rate limits:');
     console.log('1. fetchAllIssuesWithPagination will now throw the error (after our fix)');
-    console.log('2. hive.mjs catches the error and checks if it\'s a rate limit error');
+    console.log("2. hive.mjs catches the error and checks if it's a rate limit error");
     console.log('3. If it\'s a rate limit and scope is "user", it calls fetchIssuesFromRepositories');
     console.log('4. fetchIssuesFromRepositories lists all user repos and fetches issues from each');
     console.log('✅ This fallback mechanism now works correctly for users!');
 
-    console.log('\n' + '=' .repeat(50));
+    console.log('\n' + '='.repeat(50));
     console.log('\n✅ Integration test completed successfully!');
     console.log('\nSummary of the fix:');
     console.log('- Modified fetchAllIssuesWithPagination to throw errors instead of returning empty array');
     console.log('- This allows proper rate limit detection in hive.mjs');
     console.log('- The existing fallback mechanism now works for user targets');
     console.log('- Organizations already had working fallback, now users do too');
-
   } catch (error) {
     console.error('\n❌ Integration test failed:', error.message);
     process.exit(1);

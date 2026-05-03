@@ -1,0 +1,63 @@
+{
+  "workflow_run": {
+    "databaseId": 20506901536,
+    "name": "Checks and release",
+    "status": "in_progress",
+    "conclusion": "",
+    "createdAt": "2025-12-25T15:00:18Z",
+    "updatedAt": "2025-12-25T15:06:38Z",
+    "headSha": "3467a36c0af2794cc6c80daaeb3699c5aa1e8d72",
+    "headBranch": "main",
+    "event": "push",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/20506901536"
+  },
+  "stuck_job": {
+    "name": "Docker Publish (linux/arm64)",
+    "databaseId": 58922966646,
+    "status": "in_progress",
+    "startedAt": "2025-12-25T15:06:38Z",
+    "runner": "ubuntu-24.04-arm",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/20506901536/job/58922966646",
+    "steps": {
+      "completed": ["Set up job", "Checkout repository", "Free up disk space", "Wait for NPM package availability (skipped)", "Set up Docker Buildx", "Log in to Docker Hub", "Extract metadata (tags, labels) for Docker"],
+      "in_progress": "Build and push by digest",
+      "pending": ["Export digest", "Upload digest", "Post Build and push by digest", "Post Log in to Docker Hub", "Post Set up Docker Buildx", "Post Checkout repository"]
+    }
+  },
+  "completed_job": {
+    "name": "Docker Publish (linux/amd64)",
+    "databaseId": 58922966647,
+    "status": "completed",
+    "conclusion": "success",
+    "startedAt": "2025-12-25T15:06:35Z",
+    "completedAt": "2025-12-25T15:38:50Z",
+    "duration_minutes": 32,
+    "runner": "ubuntu-latest"
+  },
+  "analysis": {
+    "time_elapsed_at_report": "1h 38m 30s",
+    "time_elapsed_current": ">1h 50m",
+    "stuck_on": "Homebrew bottle downloads for PHP dependencies",
+    "bottles_observed": ["icu4c@78 (78.1)", "libpq (18.1)", "libsodium (1.0.20)", "gmp (6.3.0)", "libzip (1.11.4)", "aspell (0.60.8.1_1)", "oniguruma (6.9.10)", "pcre2 (10.47)", "tidy-html5 (5.8.0)", "libxml2 (2.15.1_1)", "libgpg-error (1.58)", "libgcrypt (1.11.2)", "libxslt (1.1.45)", "php@8.3 (8.3.29)"]
+  },
+  "related_issues": [
+    {
+      "repo": "actions/runner-images",
+      "number": 11790,
+      "title": "Ubuntu 24.04 CI runs taking significantly longer than Ubuntu 22.04 CI runs",
+      "url": "https://github.com/actions/runner-images/issues/11790"
+    },
+    {
+      "repo": "actions/partner-runner-images",
+      "number": 101,
+      "title": "[ubuntu2{2,4}.04-arm] docker commands unexpectedly slow to execute",
+      "url": "https://github.com/actions/partner-runner-images/issues/101"
+    },
+    {
+      "repo": "Homebrew/brew",
+      "number": 19208,
+      "title": "ARM64 Linux support",
+      "url": "https://github.com/Homebrew/brew/issues/19208"
+    }
+  ]
+}

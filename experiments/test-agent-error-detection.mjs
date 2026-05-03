@@ -14,7 +14,7 @@
  */
 
 // Simplified error detection function - matches agent.lib.mjs
-const detectAgentErrors = (stdoutOutput) => {
+const detectAgentErrors = stdoutOutput => {
   const lines = stdoutOutput.split('\n');
 
   for (const line of lines) {
@@ -42,25 +42,25 @@ const testCases = [
     name: 'Issue #886: Shell warnings in bash output (false positive before fix)',
     input: `{"type":"tool_use","part":{"type":"tool","state":{"status":"completed","output":"/bin/sh: 1: src/main.rs: Permission denied\\nhttps://github.com/repo/pull/2\\n","metadata":{"exit":0}}}}`,
     expected: { detected: false },
-    comment: 'Should NOT detect - exit code 0, just shell warning'
+    comment: 'Should NOT detect - exit code 0, just shell warning',
   },
   {
     name: 'Issue #873: Source code containing error strings',
     input: `{"type":"tool","state":{"status":"completed","output":"if (err.includes('Permission denied')) { ... }"}}`,
     expected: { detected: false },
-    comment: 'Should NOT detect - just source code content'
+    comment: 'Should NOT detect - just source code content',
   },
   {
     name: 'Explicit JSON error message',
     input: '{"type":"error","message":"Rate limit exceeded"}',
     expected: { detected: true, type: 'AgentError' },
-    comment: 'Should detect - explicit error from agent'
+    comment: 'Should detect - explicit error from agent',
   },
   {
     name: 'step_error message',
     input: '{"type":"step_error","message":"Tool execution failed"}',
     expected: { detected: true, type: 'AgentError' },
-    comment: 'Should detect - explicit step_error'
+    comment: 'Should detect - explicit step_error',
   },
   {
     name: 'Stack trace in non-JSON output (now ignored)',
@@ -68,26 +68,26 @@ const testCases = [
       at myFunction (/path/to/file.js:123:45)
       at Object.<anonymous> (/path/to/other.js:10:20)`,
     expected: { detected: false },
-    comment: 'Should NOT detect - trust exit code instead of pattern matching'
+    comment: 'Should NOT detect - trust exit code instead of pattern matching',
   },
   {
     name: 'TypeError in output (now ignored)',
     input: 'TypeError: Cannot read properties of undefined (reading "foo")',
     expected: { detected: false },
-    comment: 'Should NOT detect - trust exit code instead'
+    comment: 'Should NOT detect - trust exit code instead',
   },
   {
     name: 'ENOENT error text (now ignored)',
     input: "Error: ENOENT: no such file or directory, open '/tmp/test.txt'",
     expected: { detected: false },
-    comment: 'Should NOT detect - trust exit code instead'
+    comment: 'Should NOT detect - trust exit code instead',
   },
   {
     name: 'Clean successful output',
     input: `{"type":"step_start","snapshot":"abc123"}
 {"type":"step_finish","reason":"stop"}`,
     expected: { detected: false },
-    comment: 'Should NOT detect - normal successful execution'
+    comment: 'Should NOT detect - normal successful execution',
   },
   {
     name: 'Error among other JSON messages',
@@ -95,8 +95,8 @@ const testCases = [
 {"type":"error","message":"API connection failed"}
 {"type":"step_finish","reason":"error"}`,
     expected: { detected: true, type: 'AgentError' },
-    comment: 'Should detect - has explicit error message'
-  }
+    comment: 'Should detect - has explicit error message',
+  },
 ];
 
 console.log('🧪 Testing simplified agent error detection...\n');
@@ -107,8 +107,7 @@ let failed = 0;
 
 for (const testCase of testCases) {
   const result = detectAgentErrors(testCase.input);
-  const success = result.detected === testCase.expected.detected &&
-    (!testCase.expected.type || result.type === testCase.expected.type);
+  const success = result.detected === testCase.expected.detected && (!testCase.expected.type || result.type === testCase.expected.type);
 
   if (success) {
     console.log(`✅ PASS: ${testCase.name}`);

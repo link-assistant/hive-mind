@@ -1,0 +1,140 @@
+# Example GitHub Actions workflow with proper timeout configuration
+# This demonstrates best practices for test timeouts in CI/CD
+
+name: CI/CD with Proper Timeouts
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Fast feedback - lint and type check
+  quality-checks:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10  # Should complete quickly
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        timeout-minutes: 5
+        run: npm run lint
+
+      - name: Type check
+        timeout-minutes: 5
+        run: npm run typecheck
+
+  # Unit tests - relatively fast
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        timeout-minutes: 10
+        run: npm test -- --timeout 30000
+
+  # E2E tests - slower, run after unit tests pass
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [quality-checks, unit-tests]  # Wait for fast checks
+    timeout-minutes: 30  # E2E tests need more time
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        timeout-minutes: 5
+        run: npx playwright install --with-deps chromium
+
+      - name: Build application
+        timeout-minutes: 5
+        run: npm run build
+
+      - name: Start server
+        run: |
+          npm run serve &
+          # Wait for server to be ready
+          npx wait-on http://localhost:3000 --timeout 30000
+
+      - name: Health check
+        timeout-minutes: 1
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
+          if [ "$response" != "200" ]; then
+            echo "Server health check failed with status $response"
+            exit 1
+          fi
+          echo "Server is healthy"
+
+      - name: Run E2E tests
+        timeout-minutes: 20
+        run: npm run test:e2e
+        env:
+          CI: true
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # Build verification
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        timeout-minutes: 10
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1

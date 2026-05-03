@@ -33,6 +33,7 @@ Testing solve.mjs with --dry-run and --skip-claude-check flags…
 ```
 
 Fixed by commits (examples from PR comments):
+
 - Map `--skip-claude-check` alias to `--skip-tool-check` in solve and hive; propagate to child solve invocation.
 
 ## Usage Limit Evidence (From Issue Logs)
@@ -45,6 +46,7 @@ User-provided logs demonstrate Anthropic usage limit pattern including reset tim
 ```
 
 Implemented handling across tools now:
+
 - Detects usage limit via `detectUsageLimit(message)` with reset time extraction.
 - Returns `{ success: false, limitReached: true, limitResetTime }` from tool executors.
 - Captures `global.limitResetTime` in `solve.mjs` for auto-continue and cleanup decisions.
@@ -73,4 +75,3 @@ Implemented handling across tools now:
 
 - Add minimal unit tests for `usage-limit.lib.mjs` (regex/time extraction) when a test harness is introduced.
 - Extend examples/experiments to simulate usage-limit scenarios for smoke validation.
-

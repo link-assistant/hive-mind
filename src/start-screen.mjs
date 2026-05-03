@@ -3,12 +3,79 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 
 const execAsync = promisify(exec);
 
 // Import the shared parseGitHubUrl function from github.lib.mjs
 // This ensures consistent URL validation across all commands (hive, solve, start-screen)
 const { parseGitHubUrl } = await import('./github.lib.mjs');
+
+const START_SCREEN_USAGE = ['Usage: start-screen [--auto-terminate] <solve|hive> <github-url> [additional-args...]', '', 'Options:', '  --auto-terminate    Session terminates after command completes (old behavior)', '                      By default, session stays alive for review and reattachment', '', 'Examples:', '  start-screen solve https://github.com/user/repo/issues/123 --dry-run', '  start-screen --auto-terminate solve https://github.com/user/repo/issues/456', '  start-screen hive https://github.com/user/repo --flag value'];
+
+const printUsage = (log = console.error) => {
+  for (const line of START_SCREEN_USAGE) {
+    log(line);
+  }
+};
+
+const createStartScreenYargsConfig = yargsInstance =>
+  yargsInstance
+    .usage(START_SCREEN_USAGE[0])
+    .command('$0 <command> <github-url> [additional-args..]', 'Launch solve or hive in a GNU screen session', yargs =>
+      yargs
+        .positional('command', {
+          type: 'string',
+          description: 'Command to run',
+        })
+        .positional('github-url', {
+          type: 'string',
+          description: 'GitHub repository or issue URL',
+        })
+        .positional('additional-args', {
+          array: true,
+          type: 'string',
+          description: 'Arguments to pass through to the command',
+        })
+    )
+    .option('auto-terminate', {
+      type: 'boolean',
+      description: 'Session terminates after command completes',
+      default: false,
+    })
+    .option('help', {
+      type: 'boolean',
+      description: 'Show help',
+      alias: 'h',
+      default: false,
+    })
+    .parserConfiguration({
+      'boolean-negation': true,
+      'unknown-options-as-args': true,
+    })
+    .help(false)
+    .version(false)
+    .strict(false);
+
+const parseStartScreenArgs = args => {
+  const help = args.includes('--help') || args.includes('-h');
+  const parsed = parseCliArgumentsWithLino({
+    argv: args.filter(arg => arg !== '--help' && arg !== '-h'),
+    commandName: 'start-screen',
+    createYargsConfig: createStartScreenYargsConfig,
+    positionalAliases: ['command', 'github-url', 'additional-args'],
+    lenv: { enabled: false },
+    getenv: { enabled: false },
+  });
+  const additionalArgs = parsed.additionalArgs || parsed['additional-args'] || [];
+  return {
+    autoTerminate: parsed.autoTerminate === true || parsed['auto-terminate'] === true,
+    help,
+    command: parsed.command,
+    githubUrl: parsed.githubUrl || parsed['github-url'],
+    commandArgs: Array.isArray(additionalArgs) ? additionalArgs : [additionalArgs],
+  };
+};
 
 /**
  * Generate a screen session name based on the command and GitHub URL
@@ -88,7 +155,7 @@ async function waitForSessionReady(sessionName, maxWaitSeconds = 5) {
           if (code === 0) {
             // Marker file exists, session is ready!
             // Clean up the marker file
-            await execAsync(`rm -f ${markerFile}`).catch(() => { });
+            await execAsync(`rm -f ${markerFile}`).catch(() => {});
             return true;
           }
         } catch {
@@ -101,7 +168,7 @@ async function waitForSessionReady(sessionName, maxWaitSeconds = 5) {
 
       // Marker file didn't appear, session is still busy
       // Clean up any leftover marker file from the queued command
-      await execAsync(`rm -f ${markerFile}`).catch(() => { });
+      await execAsync(`rm -f ${markerFile}`).catch(() => {});
     } catch {
       // Error sending test command or checking marker
     }
@@ -141,16 +208,16 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
     console.log('Sending command to existing session...');
 
     // Build the full command to send to the existing session
-    const quotedArgs = args.map(arg => {
-      // If arg contains spaces or special chars, wrap in single quotes
-      if (arg.includes(' ') || arg.includes('&') || arg.includes('|') ||
-          arg.includes(';') || arg.includes('$') || arg.includes('*') ||
-          arg.includes('?') || arg.includes('(') || arg.includes(')')) {
-        // Escape single quotes within the argument
-        return `'${arg.replace(/'/g, "'\\''")}'`;
-      }
-      return arg;
-    }).join(' ');
+    const quotedArgs = args
+      .map(arg => {
+        // If arg contains spaces or special chars, wrap in single quotes
+        if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
+          // Escape single quotes within the argument
+          return `'${arg.replace(/'/g, "'\\''")}'`;
+        }
+        return arg;
+      })
+      .join(' ');
 
     const fullCommand = `${command} ${quotedArgs}`;
 
@@ -163,7 +230,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
       // The \n at the end simulates pressing Enter
       await execAsync(`screen -S ${sessionName} -X stuff '${escapedCommand}\n'`);
       console.log(`Command sent to session '${sessionName}' successfully.`);
-      console.log(`To attach and view the session, run: screen -r ${sessionName}`);
+      console.log(`To attach and view the session, run: screen -R ${sessionName}`);
     } catch (error) {
       console.error('Failed to send command to existing screen session:', error.message);
       console.error('You may need to terminate the old session and try again.');
@@ -176,16 +243,16 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
 
   // Create a detached session with the command
   // Quote arguments properly to preserve spaces and special characters
-  const quotedArgs = args.map(arg => {
-    // If arg contains spaces or special chars, wrap in single quotes
-    if (arg.includes(' ') || arg.includes('&') || arg.includes('|') ||
-        arg.includes(';') || arg.includes('$') || arg.includes('*') ||
-        arg.includes('?') || arg.includes('(') || arg.includes(')')) {
-      // Escape single quotes within the argument
-      return `'${arg.replace(/'/g, "'\\''")}'`;
-    }
-    return arg;
-  }).join(' ');
+  const quotedArgs = args
+    .map(arg => {
+      // If arg contains spaces or special chars, wrap in single quotes
+      if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
+        // Escape single quotes within the argument
+        return `'${arg.replace(/'/g, "'\\''")}'`;
+      }
+      return arg;
+    })
+    .join(' ');
 
   let screenCommand;
   if (autoTerminate) {
@@ -208,7 +275,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
     } else {
       console.log('Session will remain active after command completes');
     }
-    console.log(`To attach to this session, run: screen -r ${sessionName}`);
+    console.log(`To attach to this session, run: screen -R ${sessionName}`);
   } catch (error) {
     console.error('Failed to create screen session:', error.message);
     process.exit(1);
@@ -221,23 +288,18 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
 async function main() {
   const args = process.argv.slice(2);
 
+  if (args.includes('--help') || args.includes('-h')) {
+    printUsage(console.log);
+    process.exit(0);
+  }
+
   if (args.length < 2) {
-    console.error('Usage: start-screen [--auto-terminate] <solve|hive> <github-url> [additional-args...]');
-    console.error('');
-    console.error('Options:');
-    console.error('  --auto-terminate    Session terminates after command completes (old behavior)');
-    console.error('                      By default, session stays alive for review and reattachment');
-    console.error('');
-    console.error('Examples:');
-    console.error('  start-screen solve https://github.com/user/repo/issues/123 --dry-run');
-    console.error('  start-screen --auto-terminate solve https://github.com/user/repo/issues/456');
-    console.error('  start-screen hive https://github.com/user/repo --flag value');
+    printUsage(console.error);
     process.exit(1);
   }
 
   // Check for --auto-terminate flag at the beginning
   // Also validate that first arg is not an unrecognized option with em-dash or other invalid dash
-  let autoTerminate = false;
   let argsOffset = 0;
 
   // Check for various dash characters in first argument (em-dash \u2014, en-dash \u2013, etc.)
@@ -249,7 +311,6 @@ async function main() {
   }
 
   if (args[0] === '--auto-terminate') {
-    autoTerminate = true;
     argsOffset = 1;
 
     if (args.length < 3) {
@@ -277,9 +338,7 @@ async function main() {
     }
   }
 
-  const command = args[argsOffset];
-  const githubUrl = args[argsOffset + 1];
-  const commandArgs = args.slice(argsOffset + 2);
+  const { autoTerminate, command, githubUrl, commandArgs } = parseStartScreenArgs(args);
 
   // Validate command
   if (command !== 'solve' && command !== 'hive') {
@@ -318,7 +377,7 @@ async function main() {
 }
 
 // Run the main function
-main().catch((error) => {
+main().catch(error => {
   console.error('Unexpected error:', error);
   process.exit(1);
 });

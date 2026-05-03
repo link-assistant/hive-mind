@@ -75,7 +75,7 @@ spec:
             command:
             - /bin/bash
             - -c
-            - "test -f /home/hive/.claude.json"
+            - "test -f /home/box/.claude.json"
           initialDelaySeconds: 30
           periodSeconds: 10
         {{- end }}
@@ -85,7 +85,7 @@ spec:
             command:
             - /bin/bash
             - -c
-            - "test -f /home/hive/.claude.json"
+            - "test -f /home/box/.claude.json"
           initialDelaySeconds: 5
           periodSeconds: 5
         {{- end }}
@@ -94,7 +94,7 @@ spec:
         volumeMounts:
         {{- if .Values.persistence.enabled }}
         - name: data
-          mountPath: /home/hive
+          mountPath: /home/box
         {{- end }}
         {{- with .Values.volumeMounts }}
         {{- toYaml . | nindent 12 }}

@@ -155,7 +155,7 @@ runTest('solve.mjs module imports', () => {
 // Test 11: Check that runtime switching options have been removed
 runTest('solve.mjs no runtime switching', () => {
   const output = execCommand(`${solvePath} 2>&1`);
-  
+
   // Verify runtime switching options have been removed (they're now in claude-runtime.mjs)
   if (output.includes('--force-claude-bun-run') || output.includes('--force-claude-nodejs-run')) {
     throw new Error('Runtime switching options should not be in solve.mjs (moved to claude-runtime.mjs)');

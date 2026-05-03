@@ -12,23 +12,23 @@ const tests = [
   {
     name: 'Valid: PR URL with --continue-only-on-feedback',
     command: './solve.mjs https://github.com/link-assistant/hive-mind/pull/153 --continue-only-on-feedback --dry-run',
-    shouldSucceed: true
+    shouldSucceed: true,
   },
   {
     name: 'Valid: Issue URL with --auto-continue and --continue-only-on-feedback',
     command: './solve.mjs https://github.com/link-assistant/hive-mind/issues/144 --auto-continue --continue-only-on-feedback --dry-run',
-    shouldSucceed: true
+    shouldSucceed: true,
   },
   {
     name: 'Invalid: Issue URL without --auto-continue but with --continue-only-on-feedback',
     command: './solve.mjs https://github.com/link-assistant/hive-mind/issues/144 --continue-only-on-feedback --dry-run',
-    shouldSucceed: false
+    shouldSucceed: false,
   },
   {
     name: 'Valid: Issue URL without any special options (baseline)',
     command: './solve.mjs https://github.com/link-assistant/hive-mind/issues/144 --dry-run',
-    shouldSucceed: true
-  }
+    shouldSucceed: true,
+  },
 ];
 
 let passedTests = 0;

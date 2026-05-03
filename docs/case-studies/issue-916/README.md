@@ -28,23 +28,27 @@ Add two new hints to system messages in both prompt libraries:
 2. **Git Status Check**: In self review section, add "When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes"
 
 **Files Modified**:
+
 - `src/agent.prompts.lib.mjs`
 - `src/claude.prompts.lib.mjs`
 
 ## Key Findings
 
 ### Temporal Workflow Gap
+
 - Current prompts assume linear workflow (research → implement → finalize)
 - Reality is dynamic: feedback can arrive during implementation
 - Missing explicit re-check creates risk of ignored feedback
 
 ### Industry Best Practices (2025)
+
 - PR reviews should happen within 2 hours
 - All comment statuses should be tracked (Active/Pending/Resolved)
 - Git status should be checked before finalization
 - GitHub Actions exist for automated uncommitted changes checks
 
 ### Style Consistency
+
 - All hints follow "When x do y." pattern
 - Gentle guidance, not commands
 - Consistent across both prompt libraries
@@ -52,11 +56,13 @@ Add two new hints to system messages in both prompt libraries:
 ## Impact
 
 **Before Fix**:
+
 - Risk of missing reviewer feedback that arrived during work
 - Possible uncommitted changes left behind
 - Inconsistent with industry best practices
 
 **After Fix**:
+
 - Agents check for new feedback before declaring done
 - Working tree verified clean before finalization
 - Better collaboration between AI and human reviewers
@@ -65,12 +71,14 @@ Add two new hints to system messages in both prompt libraries:
 ## External References
 
 ### PR Comment Best Practices
+
 - [Pull Request Best Practices - Codacy](https://blog.codacy.com/pull-request-best-practices)
 - [Pull Request Best Practices - Crystallize](https://crystallize.com/blog/pull-request-best-practices)
 - [6 Pull Request Best Practices - Aikido](https://www.aikido.dev/blog/pull-request-best-practices)
 - [8 Essential Pull Request Best Practices for 2025 - Sopa](https://www.heysopa.com/post/pull-request-best-practices)
 
 ### Git Workflow Best Practices
+
 - [Git Best Practices 2025 - ScriptBinary](https://scriptbinary.com/git/git-best-practices-improving-workflow-2025)
 - [Check Uncommitted Changes - GitHub Marketplace](https://github.com/marketplace/actions/check-uncommitted-changes)
 - [47 Git Best Practices - aCompiler](https://acompiler.com/git-best-practices/)
@@ -86,6 +94,7 @@ Add two new hints to system messages in both prompt libraries:
 ## Testing
 
 Recommended tests after implementation:
+
 1. Create issue with existing comments, add new comment during agent work, verify agent checks before finalizing
 2. Create scenario with uncommitted changes, verify agent detects and handles appropriately
 3. Verify style consistency with existing prompt patterns

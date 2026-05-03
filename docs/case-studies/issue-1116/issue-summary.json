@@ -1,0 +1,98 @@
+{
+  "issue_number": 1116,
+  "issue_url": "https://github.com/link-assistant/hive-mind/issues/1116",
+  "pr_number": 1117,
+  "pr_url": "https://github.com/link-assistant/hive-mind/pull/1117",
+  "title": "`/solve https://github.com/kg-ar288/egida-test/issues/21 -m opus -b feat/new-alert-page` failed",
+  "labels": ["bug"],
+  "author": "konard",
+  "created_at": "2026-01-12T18:10:44Z",
+  "state": "OPEN",
+  "target_issue": {
+    "url": "https://github.com/kg-ar288/egida-test/issues/21",
+    "number": 21,
+    "repository": "kg-ar288/egida-test",
+    "visibility": "private"
+  },
+  "command": {
+    "full": "/solve https://github.com/kg-ar288/egida-test/issues/21 -m opus -b feat/new-alert-page",
+    "options": {
+      "model": "opus",
+      "base_branch": "feat/new-alert-page",
+      "attach_logs": true,
+      "verbose": true,
+      "no_tool_check": true,
+      "auto_resume_on_limit_reset": true,
+      "tokens_budget_stats": true
+    }
+  },
+  "error": {
+    "type": "PR_CREATION_FAILED",
+    "message": "Failed to add CLAUDE.md",
+    "cause": "CLAUDE.md is listed in .gitignore on the target branch",
+    "stack_trace": "Error: PR creation failed: Failed to add CLAUDE.md\n    at handleAutoPrCreation (solve.auto-pr.lib.mjs:1489:11)\n    at async solve.mjs:605:24"
+  },
+  "timeline": [
+    {
+      "timestamp": "2026-01-12T18:10:44Z",
+      "event": "command_started",
+      "details": "Session solve-kg-ar288-egida-test-21 started"
+    },
+    {
+      "timestamp": "2026-01-12T18:10:54Z",
+      "event": "repository_validated",
+      "details": "Write access confirmed to private repository"
+    },
+    {
+      "timestamp": "2026-01-12T18:10:55Z",
+      "event": "branch_created",
+      "details": "issue-21-8bd966db2649 from feat/new-alert-page"
+    },
+    {
+      "timestamp": "2026-01-12T18:10:56Z",
+      "event": "file_created",
+      "details": "CLAUDE.md created"
+    },
+    {
+      "timestamp": "2026-01-12T18:10:56Z",
+      "event": "git_add_failed",
+      "details": "CLAUDE.md rejected - in .gitignore"
+    },
+    {
+      "timestamp": "2026-01-12T18:10:56Z",
+      "event": "fatal_error",
+      "details": "Process aborted"
+    }
+  ],
+  "root_cause": {
+    "primary": "Missing error handling for git add failure when file is in .gitignore",
+    "secondary": "Target repository has CLAUDE.md in .gitignore on feat/new-alert-page branch",
+    "code_location": "src/solve.auto-pr.lib.mjs:152-158"
+  },
+  "solutions_proposed": [
+    {
+      "id": 1,
+      "title": "Move fallback logic to handle git add failures",
+      "description": "Check error message for gitignore pattern and trigger fallback",
+      "recommended": false
+    },
+    {
+      "id": 2,
+      "title": "Pre-check for .gitignore before creating CLAUDE.md",
+      "description": "Use git check-ignore before attempting to add file",
+      "recommended": true
+    },
+    {
+      "id": 3,
+      "title": "Use git add -f (force add)",
+      "description": "Always force add CLAUDE.md regardless of .gitignore",
+      "recommended": false
+    },
+    {
+      "id": 4,
+      "title": "Auto-switch to .gitkeep mode for problematic repos",
+      "description": "Detect gitignored CLAUDE.md and switch to .gitkeep automatically",
+      "recommended": true
+    }
+  ]
+}

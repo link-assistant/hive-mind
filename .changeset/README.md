@@ -16,6 +16,7 @@ npx changeset
 ```
 
 This will prompt you to:
+
 1. Select the packages that have changed (for single-package repos, it will auto-select)
 2. Choose the type of change: major, minor, or patch
 3. Write a summary of the changes
@@ -25,6 +26,7 @@ The changeset will be saved as a markdown file in this folder.
 ## How releases work
 
 When changesets are merged to the main branch, the release workflow will:
+
 1. Create a "Version Packages" PR with version bumps and changelog updates
 2. When that PR is merged, it will publish to npm using Trusted Publishing (OIDC)
 

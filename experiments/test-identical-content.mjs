@@ -95,8 +95,12 @@ Proceed.`;
     // Show commit history
     console.log('\n6. Commit history:');
     const log = execSync('git log --oneline', { cwd: testDir, encoding: 'utf8' });
-    console.log(log.split('\n').map(l => `   ${l}`).join('\n'));
-
+    console.log(
+      log
+        .split('\n')
+        .map(l => `   ${l}`)
+        .join('\n')
+    );
   } finally {
     // Cleanup
     await fs.rm(testDir, { recursive: true, force: true });

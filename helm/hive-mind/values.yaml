@@ -72,7 +72,7 @@ resources:
     cpu: 500m
     memory: 1Gi
 
-# Persistent volume for storing hive user data, configurations, and workspace
+# Persistent volume for storing box user data and configurations
 persistence:
   enabled: true
   accessMode: ReadWriteOnce

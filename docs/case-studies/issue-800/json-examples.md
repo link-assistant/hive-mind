@@ -12,21 +12,12 @@ The first event in every Claude CLI session.
   "subtype": "init",
   "cwd": "/tmp/gh-issue-solver-1764803505742",
   "session_id": "faa32ca1-82fb-42ea-8e5b-04bbdfc74d25",
-  "tools": [
-    "Read",
-    "Edit",
-    "Write",
-    "Bash",
-    "Glob",
-    "Grep",
-    "WebFetch",
-    "TodoWrite",
-    "Task"
-  ]
+  "tools": ["Read", "Edit", "Write", "Bash", "Glob", "Grep", "WebFetch", "TodoWrite", "Task"]
 }
 ```
 
 **Key fields:**
+
 - `session_id` - Unique identifier for the session, can be used to resume
 - `cwd` - Working directory
 - `tools` - List of available tools
@@ -92,6 +83,7 @@ Assistant responses, can contain text and/or tool uses.
 ```
 
 **Key fields:**
+
 - `message.content[].type` - Either "text" or "tool_use"
 - `message.content[].name` - Tool name (for tool_use)
 - `message.content[].input` - Tool input parameters (for tool_use)
@@ -118,6 +110,7 @@ Contains results from tool executions.
 ```
 
 **Key fields:**
+
 - `message.content[].tool_use_id` - References the tool_use that triggered this result
 - `message.content[].content` - The actual result (often truncated for large outputs)
 
@@ -160,6 +153,7 @@ Final event indicating session completion.
 ```
 
 **Key fields:**
+
 - `is_error` - Whether the session ended with an error
 - `result` - Human-readable summary or error message
 - `total_cost_usd` - Anthropic's official cost calculation
@@ -174,7 +168,7 @@ Typical session event sequence:
 2. `assistant` (text) - Initial response/planning
 3. `assistant` (tool_use) - Tool invocation
 4. `user` (tool_result) - Tool result
-5. *... repeat 3-4 for each tool use ...*
+5. _... repeat 3-4 for each tool use ..._
 6. `assistant` (text) - Final summary
 7. `result` - Session complete
 
@@ -190,6 +184,7 @@ When implementing interactive mode, consider:
 ### Rate Limiting
 
 GitHub API has rate limits. Consider:
+
 - Batching multiple events into single comments
 - Minimum time between comments
 - Collapsible sections for large outputs

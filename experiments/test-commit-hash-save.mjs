@@ -58,9 +58,7 @@ Proceed.`;
     execSync('git commit -m "Initial commit with task details for issue #468"', { cwd: testDir });
 
     // Get the commit hash we just created (simulating what auto-pr does now)
-    const claudeCommitHash = execSync('git log --format=%H -1', { cwd: testDir })
-      .toString()
-      .trim();
+    const claudeCommitHash = execSync('git log --format=%H -1', { cwd: testDir }).toString().trim();
 
     console.log(`✅ Created CLAUDE.md task commit: ${claudeCommitHash.substring(0, 7)}...`);
     console.log(`   This is commit #7 in the repository (not the first commit overall)`);
@@ -75,10 +73,7 @@ Proceed.`;
 
     // Now test the OLD way (getting first commit - WRONG!)
     console.log('\n❌ OLD METHOD: Getting first commit from entire history');
-    const firstCommitOld = execSync('git log --format=%H --reverse', { cwd: testDir })
-      .toString()
-      .trim()
-      .split('\n')[0];
+    const firstCommitOld = execSync('git log --format=%H --reverse', { cwd: testDir }).toString().trim().split('\n')[0];
     console.log(`   First commit overall: ${firstCommitOld.substring(0, 7)}...`);
     console.log(`   This is WRONG - it's the first commit of the repo, not the CLAUDE.md commit!`);
 
@@ -122,7 +117,6 @@ Proceed.`;
     console.log('   • Faster: No need to list all commits');
     console.log('   • Safer: Always reverts the correct commit');
     console.log('   • Simpler: Direct hash lookup instead of array operations');
-
   } catch (error) {
     console.error('\n❌ TEST FAILED:', error.message);
     console.error(error.stack);

@@ -13,11 +13,7 @@ import { fetchModelInfo } from '../src/claude.lib.mjs';
 async function testProviderSelection() {
   console.log('Testing provider selection for Claude models...\n');
 
-  const testModels = [
-    'claude-sonnet-4-5-20250929',
-    'claude-opus-4-5-20251101',
-    'claude-3-5-sonnet-20241022'
-  ];
+  const testModels = ['claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101', 'claude-3-5-sonnet-20241022'];
 
   for (const modelId of testModels) {
     console.log(`Testing model: ${modelId}`);

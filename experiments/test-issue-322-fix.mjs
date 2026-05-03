@@ -6,7 +6,7 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 const { $ } = await use('command-stream');
 
-const log = async (msg) => console.log(msg);
+const log = async msg => console.log(msg);
 
 const owner = 'link-assistant';
 const repo = 'hive-mind';
@@ -18,7 +18,7 @@ const argv = {
   verbose: true,
   model: 'opus',
   think: 'max',
-  'attach-logs': true
+  'attach-logs': true,
 };
 
 console.log('\n=== Testing Issue #322 Fix ===\n');
@@ -33,7 +33,7 @@ try {
     console.log('✅ GraphQL error detected correctly\n');
 
     if (prOutput.includes('Could not resolve to a PullRequest')) {
-      console.log('Step 2: Checking if it\'s an issue...');
+      console.log("Step 2: Checking if it's an issue...");
 
       try {
         const issueCheckResult = await $`gh issue view ${prNumber} --repo ${owner}/${repo} --json number,title`;

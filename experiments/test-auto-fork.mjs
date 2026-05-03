@@ -15,20 +15,20 @@ function simulateAutoFork(isPublic, hasWriteAccess) {
   console.log(`\n--- Test Case ---`);
   console.log(`Repository: ${isPublic ? 'PUBLIC' : 'PRIVATE'}`);
   console.log(`Write Access: ${hasWriteAccess ? 'YES' : 'NO'}`);
-  
+
   // Simulate the --auto-fork logic
   if (!isPublic) {
     console.log('Result: ❌ FAIL - Private repository');
     console.log('Expected: Should exit with error');
     return { success: false, fork: false };
   }
-  
+
   if (!hasWriteAccess) {
     console.log('Result: ✅ FORK MODE ENABLED');
     console.log('Expected: Should automatically enable fork mode');
     return { success: true, fork: true };
   }
-  
+
   console.log('Result: ✅ DIRECT ACCESS');
   console.log('Expected: Should work directly on repository');
   return { success: true, fork: false };

@@ -7,6 +7,7 @@
 **Problem**: The system messages guide AI agents on what to do at the START of work but don't explicitly remind them to check for feedback received DURING work before finishing.
 
 **Why This Matters**:
+
 - Issues and PRs are collaborative spaces where feedback can arrive at any time
 - An agent might start work at T0, work for hours, and feedback arrives at T1, T2, T3
 - Current system messages only encourage checking comments at T0 (initial research phase)
@@ -16,6 +17,7 @@
 **Evidence from Code Analysis**:
 
 In `agent.prompts.lib.mjs`:
+
 ```
 Lines 119-132: Initial research section
   - "When you need latest comments on pull request, use gh api..."
@@ -28,6 +30,7 @@ Lines 153-161: Preparing pull request - finalization checklist
 ```
 
 In `claude.prompts.lib.mjs`:
+
 ```
 Lines 133-147: Initial research section
   - "When you need latest comments on pull request (sorted newest first)..."
@@ -45,6 +48,7 @@ Lines 169-177: Preparing pull request - finalization checklist
 **Problem**: No guidance for checking uncommitted changes before finalizing work.
 
 **Why This Matters**:
+
 - Uncommitted changes represent incomplete work
 - Industry best practice is to check `git status` before declaring work complete
 - AI agents might consider work "done" while having uncommitted files
@@ -53,6 +57,7 @@ Lines 169-177: Preparing pull request - finalization checklist
 **Evidence from Code Analysis**:
 
 In `claude.prompts.lib.mjs` line 171:
+
 ```
 "make sure no uncommitted changes corresponding to the original requirements are left behind"
 ```
@@ -60,6 +65,7 @@ In `claude.prompts.lib.mjs` line 171:
 This hint exists but focuses on ensuring work IS committed, not on CHECKING for uncommitted changes as a verification step.
 
 **What's Missing**:
+
 - No explicit "When you finalize" hint to run `git status` and verify clean working tree
 - No guidance on what to do if uncommitted changes are found (commit or discard)
 
@@ -68,11 +74,13 @@ This hint exists but focuses on ensuring work IS committed, not on CHECKING for 
 **Root Issue**: The guidelines structure follows a linear workflow (Initial → Development → Finalization) but doesn't account for the dynamic nature of collaborative development.
 
 **Linear Assumption**:
+
 ```
 Start → Research (check comments) → Implement → Finalize (check CI, code)
 ```
 
 **Reality**:
+
 ```
 Start → Research (check comments at T0) → Implement (T1-T3) → [Comments arrive at T1, T2, T3] → Finalize (should re-check comments)
 ```
@@ -80,21 +88,26 @@ Start → Research (check comments at T0) → Implement (T1-T3) → [Comments ar
 ### Contributing Factors
 
 #### 1. Implicit vs Explicit Instructions
+
 - The system messages prefer gentle hints ("When x do y")
 - Some checks are explicit (CI passing, merge main branch)
 - Others are implicit (check comments is only in initial research)
 - Finalization phase needs equally explicit reminders
 
 #### 2. Mental Model Gap
+
 The current mental model is:
+
 - "Initial research" = gather information once at start
 - "Finalization" = verify technical correctness
 
 Should be:
+
 - "Initial research" = gather information to understand requirements
 - "Finalization" = verify technical correctness AND check for new information
 
 #### 3. Workflow Assumption
+
 Current assumption: Work is isolated once started
 Reality: Work is continuous collaboration with potential feedback loops
 
@@ -115,12 +128,14 @@ From external research, industry best practices recommend:
 ### Impact Assessment
 
 **Without the fix**:
+
 - Agents might mark PRs ready while missing critical feedback
 - Work may be "complete" with uncommitted changes left behind
 - Reviewers frustrated by agents ignoring their feedback
 - Need to re-open PRs or create follow-up issues
 
 **With the fix**:
+
 - Agents check for feedback before declaring work complete
 - Ensures working tree is clean before finalizing
 - Aligns with industry best practices
@@ -129,6 +144,7 @@ From external research, industry best practices recommend:
 ## Summary
 
 The root causes are:
+
 1. **Temporal workflow gap**: Comments are only checked at start, not before finish
 2. **Missing git status check**: No verification of clean working tree
 3. **Implicit vs explicit guidance**: Finalization lacks explicit collaborative checks

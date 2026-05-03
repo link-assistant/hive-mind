@@ -51,19 +51,21 @@ expected <block end>, but found '<block sequence start>'
 The error was introduced in commit `fb7f53df` when modifying the "Commit and push to gh-pages" step in the `helm-release` job. The indentation of the step was accidentally changed:
 
 **Before (Correct - 6 spaces):**
+
 ```yaml
-      - name: Commit and push to gh-pages
-        if: steps.should-run.outputs.should_run == 'true'
-        run: |
-          git add *.tgz index.yaml
+- name: Commit and push to gh-pages
+  if: steps.should-run.outputs.should_run == 'true'
+  run: |
+    git add *.tgz index.yaml
 ```
 
 **After (Incorrect - 7 spaces):**
+
 ```yaml
-       - name: Commit and push to gh-pages
-         if: steps.should-run.outputs.should_run == 'true'
-         run: |
-           git add -f *.tgz index.yaml
+- name: Commit and push to gh-pages
+  if: steps.should-run.outputs.should_run == 'true'
+  run: |
+    git add -f *.tgz index.yaml
 ```
 
 Notice the extra space before the hyphen (`-`) character on line 1277.
@@ -71,6 +73,7 @@ Notice the extra space before the hyphen (`-`) character on line 1277.
 ### Why This Caused an Error
 
 In YAML:
+
 - Indentation determines structure and nesting levels
 - All items in a sequence (list) must have the same indentation
 - The `steps:` array in GitHub Actions expects all step items (`- name: ...`) to be at the same indentation level
@@ -101,13 +104,13 @@ The workflow file has this structure:
 
 ```yaml
 jobs:
-  helm-release:              # Job definition (2 spaces)
-    runs-on: ubuntu-latest   # Job properties (4 spaces)
-    steps:                   # Steps array start (4 spaces)
-      - name: Step 1         # First step (6 spaces before -)
-        run: |               # Step properties (8 spaces)
-      - name: Step 2         # Second step (6 spaces before -)
-        run: |               # Step properties (8 spaces)
+  helm-release: # Job definition (2 spaces)
+    runs-on: ubuntu-latest # Job properties (4 spaces)
+    steps: # Steps array start (4 spaces)
+      - name: Step 1 # First step (6 spaces before -)
+        run: | # Step properties (8 spaces)
+      - name: Step 2 # Second step (6 spaces before -)
+        run: | # Step properties (8 spaces)
 ```
 
 All steps must maintain the same 6-space indentation before the `-` character.
@@ -137,6 +140,7 @@ Research into similar YAML syntax errors in GitHub Actions revealed:
    - Use linters in CI/CD pipelines
 
 Sources:
+
 - [Problem with YAML syntax · community · Discussion #25495](https://github.com/orgs/community/discussions/25495)
 - [GitHub Actions Invalid syntax in workflow file](https://drdroid.io/stack-diagnosis/github-actions-invalid-syntax-in-workflow-file)
 - [Troubleshoot Common GitHub Actions Errors Solutions Guide](https://astconsulting.in/github-actions/troubleshoot-github-actions-errors)
@@ -152,6 +156,7 @@ The specific error "expected <block end>, but found '<block sequence start>'" oc
 4. This violates the expected structure, causing a parsing failure
 
 Sources:
+
 - [YAML ERROR expected <block end>, but found BlockSequenceStart](https://bukkit.org/threads/yaml-error-expected-block-end-but-found-blocksequencestart-and-while-parsing-a-block-collection.429173/)
 - [Expected <block end>, but found '-'](https://community.home-assistant.io/t/expected-block-end-but-found/139454)
 
@@ -162,11 +167,13 @@ Sources:
 **Approach**: Correct the indentation by removing the extra space on line 1277
 
 **Pros**:
+
 - Simple and direct fix
 - Addresses the root cause immediately
 - No additional dependencies
 
 **Cons**:
+
 - Doesn't prevent future occurrences
 - Requires manual verification
 
@@ -177,11 +184,13 @@ Sources:
 **Approach**: Add pre-commit hooks or CI checks to validate YAML syntax
 
 **Pros**:
+
 - Prevents similar errors in the future
 - Catches errors before they reach main branch
 - Can be automated
 
 **Cons**:
+
 - Requires setup and configuration
 - Adds to development workflow
 - May slow down commits
@@ -193,11 +202,13 @@ Sources:
 **Approach**: Configure development editors to show whitespace and enforce consistent indentation
 
 **Pros**:
+
 - Helps developers spot issues visually
 - Can auto-format on save
 - Improves overall code quality
 
 **Cons**:
+
 - Requires each developer to configure their editor
 - Doesn't enforce at CI level
 - May conflict with personal preferences
@@ -218,6 +229,7 @@ The fix involves changing this line:
 **Line**: 1277
 
 **Change**:
+
 ```diff
 -       - name: Commit and push to gh-pages
 -         if: steps.should-run.outputs.should_run == 'true'
@@ -236,9 +248,11 @@ This restores the correct 6-space indentation for the step and its properties.
 After applying the fix, verification steps include:
 
 1. **Local YAML Validation**:
+
    ```bash
    python3 -c "import yaml; yaml.safe_load(open('.github/workflows/main.yml'))"
    ```
+
    Expected: No errors
 
 2. **GitHub Actions Validation**: Push to the branch and verify workflow parsing succeeds
@@ -256,16 +270,19 @@ After applying the fix, verification steps include:
 ## Recommendations
 
 ### Immediate Actions
+
 - ✅ Fix the indentation error on line 1277
 - ✅ Validate the corrected YAML syntax
 - ✅ Commit and push the fix
 
 ### Short-term Improvements
+
 - Consider adding YAML linting to the development workflow
 - Document YAML editing best practices for the team
 - Configure editors to show whitespace characters
 
 ### Long-term Improvements
+
 - Implement pre-commit hooks with YAML validation
 - Add `actionlint` or similar tools to CI pipeline
 - Create a contributing guide section on workflow editing
@@ -279,6 +296,7 @@ After applying the fix, verification steps include:
 ## Conclusion
 
 This case demonstrates the importance of:
+
 1. Careful attention to whitespace in YAML files
 2. Local validation before committing changes
 3. Understanding how YAML parsers interpret structure

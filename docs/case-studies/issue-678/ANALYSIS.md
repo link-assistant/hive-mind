@@ -46,6 +46,7 @@ if (fileExisted && existingContent) {
 ```
 
 The `taskInfo` is deterministic - it's the same for every run of the same issue. When CLAUDE.md already contains this exact content (from a previous run), the append operation results in:
+
 - The file gets written with the same content
 - `git add` sees a modification (file timestamp changed)
 - `git commit` succeeds (it doesn't validate semantic changes)
@@ -89,11 +90,13 @@ if (fileExisted && existingContent) {
 ## Impact
 
 This fix specifically addresses:
+
 - ✅ `--auto-continue` mode failures when reusing branches
 - ✅ PR creation errors in repositories with previous failed attempts
 - ✅ Race conditions where content appears identical across runs
 
 No impact on:
+
 - First-time branch creation (no CLAUDE.md exists yet)
 - Normal PR creation flow
 - CLAUDE.md cleanup (timestamp is removed with the file)

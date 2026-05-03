@@ -5,10 +5,12 @@ This directory contains documentation and reproducible test cases for issues enc
 ## Reporting Claude Code Issues
 
 If you encounter issues with the Claude Code CLI, please report them to the official repository:
+
 - **GitHub Issues**: https://github.com/anthropics/claude-code/issues
 - **Repository**: https://github.com/anthropics/claude-code
 
 This includes:
+
 - Installation errors (e.g., module not found)
 - Command execution failures
 - Authentication problems
@@ -22,6 +24,7 @@ This includes:
 ## Critical Issues
 
 ⚠️ **Issue #1 - Kill EPERM on Timeout**: When a command times out (default 2 minutes), the Claude CLI attempts to kill the running process. On some systems, this results in an `EPERM` (permission error) when calling `process.kill()`. This error is logged to stderr but doesn't properly fail the command, leading to:
+
 - "✅ Claude command completed" shown despite the error
 - messageCount: 0, toolUseCount: 0 (no actual work done)
 - Pull requests marked as ready for review when they should fail
@@ -30,6 +33,7 @@ This includes:
 ## Impact
 
 This issue affects automated issue solving workflows where:
+
 - Commands may timeout during long-running operations (apt-get, compilation, etc.)
 - The system incorrectly reports success when the command actually failed
 - Users receive misleading PR comments indicating success
@@ -38,6 +42,7 @@ This issue affects automated issue solving workflows where:
 ## Root Cause Analysis
 
 ### Timeline of Events
+
 1. Command is executed with 120000ms (2 minute) timeout
 2. Command runs longer than timeout period
 3. Claude CLI attempts to kill the process using `process.kill()`
@@ -51,6 +56,7 @@ This issue affects automated issue solving workflows where:
 ### Technical Details
 
 **Error Stack Trace:**
+
 ```
 [2025-10-01T22:25:49.285Z] [INFO] Error: kill EPERM
     at process.kill (node:internal/process/per_thread:225:13)
@@ -62,6 +68,7 @@ This issue affects automated issue solving workflows where:
 ```
 
 **Evidence of False Success:**
+
 ```
 ✅ Claude command completed
 📊 Total messages: 0, Tool uses: 0
@@ -84,11 +91,13 @@ The EPERM error when killing processes can occur due to:
 ### System Context
 
 From the logs, the command that timed out was:
+
 ```bash
 sudo apt-get update -qq && sudo apt-get install -y fp-utils-3.2.2
 ```
 
 This explains the EPERM issue:
+
 - The command uses `sudo` which elevates privileges
 - The child process runs as root
 - The parent Node.js process runs as a regular user
@@ -100,13 +109,16 @@ This explains the EPERM issue:
 Until this is fixed in Claude Code CLI:
 
 ### 1. Increase Timeout
+
 For commands that may run long, increase the timeout:
+
 ```javascript
 // Instead of default 120000ms (2 minutes)
-timeout: 240000  // 4 minutes
+timeout: 240000; // 4 minutes
 ```
 
 ### 2. Run Sudo Commands in Background (RECOMMENDED)
+
 **This is the primary workaround for the EPERM timeout issue.**
 
 When executing sudo commands (especially package installations), run them in the background to avoid timeout-related kill EPERM errors:
@@ -123,6 +135,7 @@ sudo apt-get update && sudo apt-get install -y package &
 ```
 
 **Why this works:**
+
 - Background processes don't trigger the timeout kill mechanism
 - Avoids the EPERM error when trying to kill privileged processes
 - Process can complete naturally without interference
@@ -130,10 +143,13 @@ sudo apt-get update && sudo apt-get install -y package &
 
 **System Prompt Integration:**
 Our system prompt now instructs Claude to:
+
 > "When running sudo commands (especially package installations like apt-get, yum, npm install, etc.), always run them in the background to avoid timeout issues and permission errors when the process needs to be killed."
 
 ### 3. Avoid Sudo in Commands
+
 When possible, avoid using sudo in commands executed by Claude:
+
 ```bash
 # Instead of:
 sudo apt-get install package
@@ -144,7 +160,9 @@ apt-get install package  # If container already has privileges
 ```
 
 ### 4. Better Failure Detection (Our Fix)
+
 Track stderr errors and detect silent failures:
+
 ```javascript
 // Track stderr errors
 const stderrErrors = [];
@@ -192,18 +210,20 @@ if (!commandFailed && messageCount === 0 && toolUseCount === 0 && stderrErrors.l
 ## Testing
 
 To reproduce this issue:
+
 1. Run a command that requires sudo and takes > 2 minutes
 2. Observe the EPERM error when Claude CLI tries to kill it
 3. Note that command is marked as successful despite the error
 
 Example command that reproduces the issue:
+
 ```bash
 claude-code --timeout 120000 "sudo apt-get update && sudo apt-get install -y some-large-package"
 ```
 
 ## Related Issues
 
-- Original issue: https://github.com/deep-assistant/hive-mind/issues/371
+- Original issue: https://github.com/link-assistant/hive-mind/issues/371
 - Related PR: https://github.com/zamtmn/fpdwg/pull/11
 
 ## Status

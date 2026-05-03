@@ -31,6 +31,7 @@ This case study documents the investigation and resolution of PR creation failur
 **Root Cause**: When reusing a branch, the code appends task information to CLAUDE.md. If the task info is identical to what's already there, the file content doesn't actually change. Git creates a commit (with a new SHA) but the tree (content) remains identical. GitHub's PR creation checks tree differences, not commit differences, so it rejects the PR.
 
 **Evidence**:
+
 - [log1.txt](./log1.txt) - First run creates commit 8ee8459
 - [log2.txt](./log2.txt) - Second run creates commit 9d8c4fc, but push shows "No commits between branches"
 
@@ -52,6 +53,7 @@ finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${tim
 - ✅ Should use: `repos/xlabtg/anti-corruption/compare/main...konard:issue-6-01d3f376c347`
 
 **Evidence**:
+
 - [log3.txt](./log3.txt) - Shows v0.29.7 failing with 404 errors in fork mode
 
 **Solution (v0.29.9)**: Construct correct head reference based on mode.
@@ -60,9 +62,9 @@ finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${tim
 let headRef;
 if (argv.fork && forkedRepo) {
   const forkUser = forkedRepo.split('/')[0];
-  headRef = `${forkUser}:${branchName}`;  // Fork mode: "konard:branch"
+  headRef = `${forkUser}:${branchName}`; // Fork mode: "konard:branch"
 } else {
-  headRef = branchName;  // Non-fork mode: "branch"
+  headRef = branchName; // Non-fork mode: "branch"
 }
 ```
 
@@ -82,6 +84,7 @@ When creating a PR, GitHub doesn't just check if different commits exist on the 
 ### 2. GitHub API Format Differences
 
 The Compare API has different formats for same-repo and cross-repo (fork) comparisons:
+
 - Same repo: `repos/owner/repo/compare/base...head`
 - Fork: `repos/upstream-owner/upstream-repo/compare/base...fork-owner:head`
 
@@ -94,6 +97,7 @@ CLAUDE.md is intended to be temporary (created at session start, removed at end)
 ### 4. Why Logs Show Old Versions Failing
 
 The user provided logs show:
+
 - v0.29.5 failures: Timestamp fix not yet implemented
 - v0.29.7 failures: Fork mode fix not yet implemented
 
@@ -123,6 +127,7 @@ solve https://github.com/upstream/repo/issues/1 --auto-fork --auto-continue
 ```
 
 **Expected**:
+
 - Push to fork succeeds
 - Compare API uses `fork-user:branch` format
 - Compare API check succeeds
@@ -145,6 +150,6 @@ The solution is complete and ready for testing. Users experiencing these issues 
 
 ## Links
 
-- **Issue**: https://github.com/deep-assistant/hive-mind/issues/678
-- **Pull Request**: https://github.com/deep-assistant/hive-mind/pull/680
+- **Issue**: https://github.com/link-assistant/hive-mind/issues/678
+- **Pull Request**: https://github.com/link-assistant/hive-mind/pull/680
 - **Test Script**: [../../experiments/test-fork-compare-api-fix.mjs](../../experiments/test-fork-compare-api-fix.mjs)

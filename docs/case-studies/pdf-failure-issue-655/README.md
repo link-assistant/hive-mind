@@ -2,7 +2,7 @@
 
 ## Issue Reference
 
-- **Issue**: [#655](https://github.com/deep-assistant/hive-mind/issues/655)
+- **Issue**: [#655](https://github.com/link-assistant/hive-mind/issues/655)
 - **Related PRs**:
   - [Cybersyn21/asistente#2](https://github.com/Cybersyn21/asistente/pull/2) (Closed)
   - [Cybersyn21/asistente#3](https://github.com/Cybersyn21/asistente/pull/3) (Open)
@@ -20,6 +20,7 @@ The hive-mind solver encountered a failure when attempting to process multiple l
 **Title**: "start"
 
 **Description** (Russian/Spanish mixed):
+
 ```
 Прочитать файлы пдф полностью
 Manual de Procedimientos e Interpretación de Resultados A1
@@ -43,12 +44,14 @@ Manual de Procedimientos e Interpretación de Resultados B
 ## Timeline of Events
 
 ### PR #2 (Closed)
+
 - **Branch**: issue-1-87e18bae
 - **Status**: Failed with "CLAUDE execution failed"
 - **Log Size**: 8884KB (8.8MB)
 - **Gist**: [86cdedbdf7eb49e1a47ea5b59406a269](https://gist.github.com/konard/86cdedbdf7eb49e1a47ea5b59406a269)
 
 ### PR #3 (Open)
+
 - **Branch**: issue-1-f420c60cbdac
 - **Status**: Failed with "CLAUDE execution failed"
 - **Log Size**: 8874KB (8.7MB)
@@ -142,6 +145,7 @@ The most likely root cause is that sending 3 large PDF files (total ~6.5MB) as b
 ### Claude Code CLI
 
 **Partially Responsible**: The Read tool implementation for PDFs appears to load entire PDF files into memory and attempt to send them as documents, without:
+
 - Size validation before attempting to read
 - Chunking large PDFs for processing
 - Warning users about large file sizes
@@ -150,6 +154,7 @@ The most likely root cause is that sending 3 large PDF files (total ~6.5MB) as b
 ### Hive Mind Solver
 
 **Not Responsible**: The hive-mind solver code followed the expected workflow:
+
 1. Created proper todo list
 2. Used the Read tool correctly to access PDF files
 3. Followed guidelines for handling PDFs
@@ -204,6 +209,7 @@ The solver did not have visibility into the size limitations and could not predi
 ## Minimum Reproduction Example
 
 ### Setup
+
 ```bash
 # Create test repository
 mkdir test-pdf-failure
@@ -219,7 +225,9 @@ echo "Read all PDF files and create a summary" > issue.txt
 ```
 
 ### Expected Behavior
+
 The solver should:
+
 1. Detect PDF files
 2. Check their sizes
 3. Warn if total size exceeds limits
@@ -227,7 +235,9 @@ The solver should:
 5. Produce text output with extracted content
 
 ### Actual Behavior
+
 The solver:
+
 1. Successfully finds PDF files
 2. Attempts to read all PDFs simultaneously
 3. Sends large base64-encoded PDFs to Claude API
@@ -235,11 +245,12 @@ The solver:
 5. No useful error message provided
 
 ### Reproduction Rate
+
 **100%** - Fails consistently with PDFs totaling >5MB
 
 ## Related Issues
 
-- Current issue being tracked: [#655](https://github.com/deep-assistant/hive-mind/issues/655)
+- Current issue being tracked: [#655](https://github.com/link-assistant/hive-mind/issues/655)
 
 ## Artifacts
 

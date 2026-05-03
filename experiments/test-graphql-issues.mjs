@@ -62,10 +62,7 @@ async function testUserIssuesWithGraphQL(username, label = null, limit = 100) {
     `;
 
     // Execute the query
-    const result = execSync(
-      `gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f queryString='${searchQuery}' -F limit=${limit}`,
-      { encoding: 'utf8' }
-    );
+    const result = execSync(`gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f queryString='${searchQuery}' -F limit=${limit}`, { encoding: 'utf8' });
 
     const data = JSON.parse(result);
     const issues = data.data.search.nodes;
@@ -79,7 +76,6 @@ async function testUserIssuesWithGraphQL(username, label = null, limit = 100) {
     }
 
     return { issues, totalCount, hasMore };
-
   } catch (error) {
     console.error(`   ❌ Error: ${error.message}`);
     throw error;
@@ -131,10 +127,7 @@ async function testOrgIssuesWithGraphQL(orgName, label = null, limit = 100) {
     `;
 
     // Execute the query
-    const result = execSync(
-      `gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f queryString='${searchQuery}' -F limit=${limit}`,
-      { encoding: 'utf8' }
-    );
+    const result = execSync(`gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f queryString='${searchQuery}' -F limit=${limit}`, { encoding: 'utf8' });
 
     const data = JSON.parse(result);
     const issues = data.data.search.nodes;
@@ -148,7 +141,6 @@ async function testOrgIssuesWithGraphQL(orgName, label = null, limit = 100) {
     }
 
     return { issues, totalCount, hasMore };
-
   } catch (error) {
     console.error(`   ❌ Error: ${error.message}`);
     throw error;
@@ -165,7 +157,8 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
   console.log(`   Repo limit: ${limit}`);
 
   try {
-    const graphqlQuery = isOrg ? `
+    const graphqlQuery = isOrg
+      ? `
       query($owner: String!, $repoLimit: Int!) {
         organization(login: $owner) {
           repositories(first: $repoLimit, orderBy: {field: UPDATED_AT, direction: DESC}) {
@@ -192,7 +185,8 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
           }
         }
       }
-    ` : `
+    `
+      : `
       query($owner: String!, $repoLimit: Int!) {
         user(login: $owner) {
           repositories(first: $repoLimit, orderBy: {field: UPDATED_AT, direction: DESC}) {
@@ -221,10 +215,7 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
       }
     `;
 
-    const result = execSync(
-      `gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f owner='${owner}' -F repoLimit=${limit}`,
-      { encoding: 'utf8' }
-    );
+    const result = execSync(`gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f owner='${owner}' -F repoLimit=${limit}`, { encoding: 'utf8' });
 
     const data = JSON.parse(result);
     const repos = isOrg ? data.data.organization.repositories : data.data.user.repositories;
@@ -241,8 +232,8 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
           ...issue,
           repository: {
             name: repo.name,
-            owner: repo.owner
-          }
+            owner: repo.owner,
+          },
         });
       }
     }
@@ -252,7 +243,6 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
     console.log(`   Note: This approach has a limitation - can only fetch 100 issues per repo`);
 
     return { repos: repos.nodes, totalRepos, hasMoreRepos, issues: allIssues, totalIssues };
-
   } catch (error) {
     console.error(`   ❌ Error: ${error.message}`);
     throw error;
@@ -262,7 +252,7 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
 // Run tests
 async function main() {
   console.log('🚀 Starting GraphQL API experiments\n');
-  console.log('=' .repeat(80));
+  console.log('='.repeat(80));
 
   try {
     // Test 1: Fetch issues from konard user (all issues)
@@ -270,10 +260,10 @@ async function main() {
     console.log('-'.repeat(80));
     await testUserIssuesWithGraphQL('konard', null, 20);
 
-    // Test 2: Fetch issues from deep-assistant organization
-    console.log('\n📋 Test 2: Fetch all open issues from org deep-assistant');
+    // Test 2: Fetch issues from link-assistant organization
+    console.log('\n📋 Test 2: Fetch all open issues from org link-assistant');
     console.log('-'.repeat(80));
-    await testOrgIssuesWithGraphQL('deep-assistant', null, 20);
+    await testOrgIssuesWithGraphQL('link-assistant', null, 20);
 
     // Test 3: Fetch repos with issues from konard (alternative approach)
     console.log('\n📋 Test 3: Fetch repos with their issues from user konard');
@@ -288,7 +278,6 @@ async function main() {
     console.log('   2. It still uses search API which is rate limited');
     console.log('   3. Alternative: Fetch repos + issues in one query, but limited to 100 issues/repo');
     console.log('   4. For comprehensive issue fetching, repository-by-repository approach is still needed');
-
   } catch (error) {
     console.error('\n❌ Tests failed:', error.message);
     process.exit(1);

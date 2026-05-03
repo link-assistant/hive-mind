@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 
 /**
  * YouTrack to GitHub Issue Synchronization Module
@@ -11,9 +12,7 @@
 
 // Import YouTrack functions
 const youTrackLib = await import('./youtrack.lib.mjs');
-const {
-  fetchYouTrackIssues
-} = youTrackLib;
+const { fetchYouTrackIssues } = youTrackLib;
 
 /**
  * Find existing GitHub issue for a YouTrack issue
@@ -27,7 +26,8 @@ export async function findGitHubIssueForYouTrack(youTrackId, owner, repo, $) {
   try {
     // Search for both open and closed issues with the YouTrack ID in the title
     // This prevents creating duplicates even if an issue was closed
-    const searchResult = await $`gh api search/issues --jq '.items' -X GET -f q="repo:${owner}/${repo} \"${youTrackId}\" in:title is:issue"`;
+    // Use --paginate to get all search results (GitHub API returns max 30 per page by default)
+    const searchResult = await $`gh api search/issues --paginate --jq '.items' -X GET -f q="repo:${owner}/${repo} \"${youTrackId}\" in:title is:issue"`;
 
     if (searchResult.code !== 0) {
       return null;
@@ -37,16 +37,12 @@ export async function findGitHubIssueForYouTrack(youTrackId, owner, repo, $) {
 
     // Find exact match (YouTrack ID should be in brackets or at start)
     // Return the first matching issue (prefer open issues)
-    const openIssue = issues.find(issue =>
-      issue.state === 'open' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`))
-    );
+    const openIssue = issues.find(issue => issue.state === 'open' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`)));
 
     if (openIssue) return openIssue;
 
     // If no open issue, check for closed issues to prevent duplicates
-    const closedIssue = issues.find(issue =>
-      issue.state === 'closed' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`))
-    );
+    const closedIssue = issues.find(issue => issue.state === 'closed' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`)));
 
     return closedIssue || null;
   } catch {
@@ -123,7 +119,7 @@ ${youTrackIssue.description || 'No description provided.'}
         await log(`   🏷️ Added 'help wanted' label to #${existingIssue.number}`);
       } catch {
         // Silently skip if label doesn't exist
-        await log('   ⚠️ Could not add \'help wanted\' label (may not exist in repo)', { verbose: true });
+        await log("   ⚠️ Could not add 'help wanted' label (may not exist in repo)", { verbose: true });
       }
     }
 
@@ -145,7 +141,7 @@ ${youTrackIssue.description || 'No description provided.'}
           number: issueNumber,
           title: ghTitle,
           body: ghBody,
-          html_url: issueUrl
+          html_url: issueUrl,
         };
       } else {
         await log(`   ❌ Failed to create issue for ${youTrackId}`, { level: 'error' });
@@ -192,7 +188,7 @@ export async function syncYouTrackToGitHub(youTrackConfig, owner, repo, $, log) 
       githubIssues.push({
         ...ghIssue,
         youtrackId: ytIssue.id,
-        youtrackUrl: `${youTrackConfig.url}/issue/${ytIssue.idReadable}`
+        youtrackUrl: `${youTrackConfig.url}/issue/${ytIssue.idReadable}`,
       });
     }
   }
@@ -214,6 +210,6 @@ export function formatIssuesForHive(githubIssues) {
     html_url: issue.html_url,
     labels: issue.labels || [{ name: 'help-wanted' }],
     youtrackId: issue.youtrackId,
-    youtrackUrl: issue.youtrackUrl
+    youtrackUrl: issue.youtrackUrl,
   }));
 }

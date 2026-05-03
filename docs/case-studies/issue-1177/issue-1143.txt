@@ -1,0 +1,22 @@
+title:	Merge queue in hive-telegram-bot
+state:	CLOSED
+author:	konard
+labels:	enhancement
+comments:	0
+assignees:	
+projects:	
+milestone:	
+number:	1143
+--
+Add experimental `/merge` command, that accepts repository link, and checks all issues with `ready` label (if no such label configured for the repository, and we have permissions to configure it should configure such label with description). `Is ready to be merged`. As labels are shared with pull requests also it should work with pull requests the same way.
+
+So if label is on issue - we do get pull request linked to the issue, like we do with `/solve --auto-continue` and add it to merge queue.
+If the label on pull request - we just go and add pull request to the merge queue.
+
+What it does it actually pretty simple, it sorts all `ready` pull requests by creation time, and first merges one, that was created first (minimum of pull request and its linked issue creation date), it monitors for CI/CD, once it is finished and is successful it continues to merge pull requests on by one.
+
+We work only with `ready`, but not yet merged pull requests their issues. `ready` but closed - should be ignored.
+
+Making sure no pull requests are merged at the same time, and each one is merged after previous CI/CD successfully finished (meaning all CI/CDs the repository, to guarantee no interference will be with each merge/release).
+
+So it should be simple but helpful feature. That should work only if there are all nessesary permissions.

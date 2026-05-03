@@ -1,8 +1,9 @@
 # Case Study: Usage Limit Error Handling (Issue #719)
 
 ## Issue Reference
-- **Issue**: https://github.com/deep-assistant/hive-mind/issues/719
-- **Pull Request**: https://github.com/deep-assistant/hive-mind/pull/722
+
+- **Issue**: https://github.com/link-assistant/hive-mind/issues/719
+- **Pull Request**: https://github.com/link-assistant/hive-mind/pull/722
 - **Date**: 2025-11-12
 - **Reporter**: User konard
 
@@ -55,6 +56,7 @@ Based on the issue description, the solution must:
 ### Detection Patterns
 
 All three tools currently detect rate limits by searching for keywords in error messages:
+
 - `rate_limit_exceeded`
 - `rate_limit`
 - `limit`
@@ -64,6 +66,7 @@ However, they don't detect the specific pattern: "You've hit your usage limit"
 ### Current Behavior
 
 When a limit is reached:
+
 1. Tool sets `limitReached: true` in the result
 2. Shows a warning message in logs
 3. Returns `success: false`
@@ -72,6 +75,7 @@ When a limit is reached:
 ### Comment Format
 
 Currently handled in `src/github.lib.mjs` (lines 491-536):
+
 - Success format: Shows cost info and log
 - Failure format: Shows generic error message
 - **Missing**: Special format for usage limit errors
@@ -81,6 +85,7 @@ Currently handled in `src/github.lib.mjs` (lines 491-536):
 ### 1. Enhanced Detection
 
 Update all three tools to detect:
+
 - Existing patterns: `rate_limit_exceeded`, `rate_limit`, `limit`
 - New pattern: `You've hit your usage limit`
 - Extract reset time when available (e.g., "try again at 12:16 PM")
@@ -88,6 +93,7 @@ Update all three tools to detect:
 ### 2. Usage Limit Result Flag
 
 All tools should return:
+
 ```javascript
 {
   success: false,
@@ -106,20 +112,26 @@ Add a third comment format in `github.lib.mjs`:
 The automated solution draft was interrupted because the AI tool hit its usage limit.
 
 ### 📊 Limit Information
+
 - **Tool**: Claude/Codex/OpenCode
 - **Limit Type**: Usage limit
 - **Reset Time**: 12:16 PM (if available)
 
 ### 🔄 Next Steps
+
 To continue when the limit resets, run:
 ```
+
 [command to resume]
+
 ```
 
 <details>
 <summary>Click to expand execution log</summary>
 ```
+
 [full log here if --attach-logs]
+
 ```
 </details>
 
@@ -130,6 +142,7 @@ To continue when the limit resets, run:
 ### 4. Console Output
 
 When limit is detected, show prominent message:
+
 ```
 ⏳ Usage Limit Reached!
 

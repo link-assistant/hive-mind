@@ -16,7 +16,7 @@ console.log('Testing how yargs parses em-dash\n');
 const argv = yargs(['—fork'])
   .option('fork', {
     type: 'boolean',
-    default: false
+    default: false,
   })
   .parseSync();
 

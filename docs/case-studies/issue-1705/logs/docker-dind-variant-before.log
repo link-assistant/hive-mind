@@ -1,0 +1,15 @@
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Dockerfile.dind should exist
+    at assertFileExists (file:///tmp/gh-issue-solver-1777625541975/tests/test-docker-dind-variant.mjs:29:14)
+    at async file:///tmp/gh-issue-solver-1777625541975/tests/test-docker-dind-variant.mjs:35:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: undefined,
+  operator: 'fail'
+}
+
+Node.js v20.20.2

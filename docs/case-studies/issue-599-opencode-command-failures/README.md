@@ -1,6 +1,6 @@
 # Case Study: OpenCode Tool Command Failures
 
-**Issue Reference**: [#599](https://github.com/deep-assistant/hive-mind/issues/599)
+**Issue Reference**: [#599](https://github.com/link-assistant/hive-mind/issues/599)
 
 **Related Pull Request**: https://github.com/veb86/zcadvelecAI/pull/313#issuecomment-3431504835
 
@@ -62,6 +62,7 @@ Did you mean this?
 The OpenCode agent executed `gh pr comments` (plural) when the correct command is `gh pr comment` (singular). This is a simple typo in the command generation logic.
 
 **Impact**:
+
 - Low - The agent was able to continue and complete the task despite this error
 - The agent was trying to retrieve PR comments for feedback but failed
 - The agent recovered and found an alternative approach
@@ -80,6 +81,7 @@ accepts at most 1 arg(s), received 2
 
 **Root Cause**:
 The OpenCode agent attempted to use a non-existent subcommand pattern: `gh pr comment list 313`. The correct approach would be:
+
 - To list comments on a PR: Use GitHub API directly with `gh api repos/OWNER/REPO/pulls/NUMBER/comments`
 - To add a comment: Use `gh pr comment PR_NUMBER --body "comment text" --repo OWNER/REPO`
 - To view PR details including comments: Use `gh pr view PR_NUMBER --comments --repo OWNER/REPO`
@@ -87,6 +89,7 @@ The OpenCode agent attempted to use a non-existent subcommand pattern: `gh pr co
 The command structure `gh pr comment list` does not exist. The `gh pr comment` command is for creating comments, not listing them.
 
 **Impact**:
+
 - Low - The agent was able to continue and complete the task despite this error
 - The agent made two attempts with the same incorrect command before giving up
 - This suggests the agent's error recovery mechanism includes retries with the same command
@@ -94,12 +97,14 @@ The command structure `gh pr comment list` does not exist. The `gh pr comment` c
 ### Why These Errors Don't Break the Workflow
 
 Despite these command failures, the OpenCode agent:
+
 1. Successfully completed the implementation for issue #241
 2. Created appropriate commits
 3. Marked the PR as ready for review
 4. Generated comprehensive documentation
 
 This indicates that:
+
 - The agent has robust error handling
 - Failed commands don't cause the entire workflow to crash
 - The agent can adapt and find alternative approaches when commands fail
@@ -110,6 +115,7 @@ This indicates that:
 ### Severity: Medium
 
 While the errors don't prevent task completion, they indicate:
+
 1. **Quality Issues**: The agent generates incorrect commands that pollute logs
 2. **Inefficiency**: Failed commands waste time and API calls
 3. **User Experience**: Error messages in logs may confuse users
@@ -134,6 +140,7 @@ While the errors don't prevent task completion, they indicate:
 ### Step-by-Step Reproduction
 
 1. **Set up test environment**:
+
    ```bash
    # Ensure gh is authenticated
    gh auth status
@@ -143,6 +150,7 @@ While the errors don't prevent task completion, they indicate:
    ```
 
 2. **Run solve with opencode tool**:
+
    ```bash
    solve https://github.com/OWNER/REPO/issues/ISSUE_NUMBER \
      --tool opencode \
@@ -215,11 +223,11 @@ When using GitHub CLI commands:
 Create a validation layer that checks commands before execution:
 
 ```javascript
-const validateGhCommand = (command) => {
+const validateGhCommand = command => {
   const invalidPatterns = [
-    /gh pr comments\b/,  // Should be 'comment' (singular)
-    /gh pr comment list\b/,  // No 'list' subcommand exists
-    /gh issue comments\b/,  // Should be 'comment' (singular)
+    /gh pr comments\b/, // Should be 'comment' (singular)
+    /gh pr comment list\b/, // No 'list' subcommand exists
+    /gh issue comments\b/, // Should be 'comment' (singular)
   ];
 
   for (const pattern of invalidPatterns) {
@@ -260,18 +268,12 @@ gh api repos/veb86/zcadvelecAI/issues/241/comments --jq '.[].body'
 Create middleware that automatically corrects common mistakes:
 
 ```javascript
-const correctGhCommand = (command) => {
+const correctGhCommand = command => {
   // Fix "gh pr comments" -> "gh api ... /comments"
-  command = command.replace(
-    /gh pr comments (\d+) --repo ([^\s]+)/,
-    'gh api repos/$2/pulls/$1/comments'
-  );
+  command = command.replace(/gh pr comments (\d+) --repo ([^\s]+)/, 'gh api repos/$2/pulls/$1/comments');
 
   // Fix "gh pr comment list" -> "gh api ... /comments"
-  command = command.replace(
-    /gh pr comment list (\d+) --repo ([^\s]+)/,
-    'gh api repos/$2/pulls/$1/comments'
-  );
+  command = command.replace(/gh pr comment list (\d+) --repo ([^\s]+)/, 'gh api repos/$2/pulls/$1/comments');
 
   return command;
 };

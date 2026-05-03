@@ -1,134 +1,432 @@
-# Docker Support for Hive Mind Issue Solver
+# Docker Support for Hive Mind (languages: en • [zh](DOCKER.zh.md) • [hi](DOCKER.hi.md) • [ru](DOCKER.ru.md))
 
-This document explains how to run `solve.mjs` in a Docker container with proper credential transfer from the host machine.
+This document explains how to run Hive Mind in Docker containers.
 
 ## Quick Start
 
-### Option 1: Using the Helper Script (Recommended)
+### Option 1: Using Pre-built Image from Docker Hub (Recommended)
 
 ```bash
-# Build and run with automatic credential transfer
-./docker-solve.sh https://github.com/owner/repo/issues/123
+# Pull the latest image
+docker pull konard/hive-mind:latest
 
-# Force rebuild the image
-./docker-solve.sh --build https://github.com/owner/repo/issues/123
+# Create persistent host directories used by the current Docker workflow
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
 
-# Pass additional arguments
-./docker-solve.sh --verbose --timeout 300 https://github.com/owner/repo/issues/123
+# Run the container in detached mode with the same mounts we use locally
+docker run -dit --user box --name hive-mind --restart unless-stopped \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
+
+# Open a shell in the running container
+docker exec -it hive-mind bash
+
+# Inside the container, authenticate with GitHub
+gh auth login -h github.com -s repo,workflow,user,read:org,gist
+
+# Authenticate with Claude
+claude
+
+# Install or update Codex CLI
+bun install -g @openai/codex@latest
+
+# Log in to Codex using the current device auth flow
+codex login --device-auth
+
+# Verify Codex after login succeeds with "Successfully logged in"
+codex exec --model gpt-5.4-mini "hi"
+
+# Verify Playwright MCP registration in both CLIs
+claude mcp list | grep playwright
+codex mcp list | grep playwright
+
+# Exit the shell when setup is complete
+exit
 ```
 
-### Option 2: Using Docker Directly
+### Option 2: Building Locally
 
 ```bash
-# Build the image
-docker build -t hive-mind-solver .
+# Build the production image
+docker build -t hive-mind:local .
+
+# Run the image
+docker run -it hive-mind:local
+```
+
+### Option 3: Docker-in-Docker Image
+
+Use `konard/hive-mind-dind:latest` when the agent must run Docker commands,
+Docker Compose, or Testcontainers inside the Hive Mind container.
+
+```bash
+# Pull the Docker-in-Docker image
+docker pull konard/hive-mind-dind:latest
+
+# Default runtime: privileged container starts an inner dockerd
+docker run --rm --privileged -it konard/hive-mind-dind:latest bash
+
+# Inside the container, verify nested Docker
+docker info
+docker run hello-world
+```
+
+The image defaults the inner Docker daemon to `DIND_STORAGE_DRIVER=vfs` for
+compatibility with overlay-backed hosts. For faster local runs on hosts that
+support nested overlay mounts, pass `-e DIND_STORAGE_DRIVER=overlay2`.
+
+On shared hosts, prefer a Sysbox runtime when it is available:
+
+```bash
+docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
+```
+
+The DinD image is published separately from `konard/hive-mind:latest` so users
+who do not need nested Docker keep the existing lower-privilege image.
+
+### Option 4: Development Mode (Gitpod-style)
+
+For development purposes, the legacy `Dockerfile` provides a Gitpod-compatible environment:
+
+```bash
+# Build the development image
+docker build -t hive-mind-dev .
 
 # Run with credential mounts
 docker run --rm -it \
-    -v ~/.config/gh:/workspace/.persisted-configs/gh:ro \
-    -v ~/.local/share/claude-profiles:/workspace/.persisted-configs/claude:ro \
-    -v ~/.config/claude-code:/workspace/.persisted-configs/claude-code:ro \
-    -v "$(pwd)/output:/workspace/output" \
-    -e GITHUB_TOKEN="${GITHUB_TOKEN}" \
-    -e CLAUDE_API_KEY="${CLAUDE_API_KEY}" \
-    hive-mind-solver \
-    bash -c "./docker-restore-auth.sh && ./solve.mjs https://github.com/owner/repo/issues/123"
+    -v ~/.config/gh:/home/box/.persisted-configs/gh:ro \
+    -v ~/.local/share/claude-profiles:/home/box/.persisted-configs/claude:ro \
+    -v ~/.config/claude-code:/home/box/.persisted-configs/claude-code:ro \
+    -v "$(pwd)/output:/home/box/output" \
+    hive-mind-dev
 ```
 
-### Option 3: Using Docker Compose
+## Authentication
+
+The production Docker image (`Dockerfile`) extends the pinned full `konard/box` image, which provides Ubuntu 24.04 plus the general development toolchain. **IMPORTANT:** Authentication is performed **inside the container AFTER** the Docker image is fully installed and running.
+
+**Why Authentication Happens After Installation:**
+
+- ✅ Avoids Docker build timeouts caused by interactive prompts
+- ✅ Prevents build failures in CI/CD pipelines
+- ✅ Allows the installation script to complete successfully
+- ✅ Supports automated Docker image builds
+
+### GitHub Authentication
 
 ```bash
-# Start with docker-compose
-docker-compose run --rm hive-mind-solver ./solve.mjs https://github.com/owner/repo/issues/123
+# Inside the container, AFTER it's running
+gh auth login -h github.com -s repo,workflow,user,read:org,gist
 ```
 
-## Credential Transfer
+**Note:** The installation script intentionally does NOT call `gh auth login` during the build process. This is by design to support Docker builds without timeouts.
 
-The Docker setup automatically transfers credentials from your host machine to the container:
+### Claude Authentication
 
-### GitHub Credentials
-- **Host Path:** `~/.config/gh`
-- **Container Path:** `/workspace/.persisted-configs/gh`
-- **Purpose:** Enables GitHub API access and repository operations
+```bash
+# Inside the container, AFTER it's running
+claude
+```
 
-### Claude Profiles
-- **Host Path:** `~/.local/share/claude-profiles`
-- **Container Path:** `/workspace/.persisted-configs/claude`
-- **Purpose:** Transfers Claude profile configurations
+### Codex Authentication
 
-### Claude Code Credentials
-- **Host Path:** `~/.config/claude-code`
-- **Container Path:** `/workspace/.persisted-configs/claude-code`
-- **Purpose:** Enables Claude Code API access
+Install or update Codex CLI inside the running container:
+
+```bash
+bun install -g @openai/codex@latest
+```
+
+Log in with the device auth flow we currently use:
+
+```bash
+codex login --device-auth
+```
+
+The command should finish with:
+
+```text
+Successfully logged in
+```
+
+Then run the current smoke test:
+
+```bash
+codex exec --model gpt-5.4-mini "hi"
+```
+
+This approach allows:
+
+- ✅ Multiple Docker instances with different GitHub accounts
+- ✅ Multiple Docker instances with different Claude subscriptions
+- ✅ Persistent Codex authentication and session data when `/home/box/.codex` is mounted
+- ✅ No credential leakage between containers
+- ✅ Each container has its own isolated authentication
+- ✅ Successful Docker builds without interactive authentication
+
+## Playwright MCP State in Docker
+
+The image build now registers Playwright MCP for both Claude and Codex:
+
+- `claude mcp add playwright -s user -- ...`
+- `codex mcp add playwright -- ...`
+
+The CI workflow also builds the Docker image and verifies that both `claude mcp list` and `codex mcp list` contain `playwright`.
+
+If you still reproduce `codex mcp list` showing `No MCP servers configured yet` in a running container, the most likely root cause is a mounted `/home/box/.codex` directory from the host. In this image `HOME=/home/box`, so mounting `/home/box/.codex` replaces the image-baked Codex config, including any preconfigured MCP entries.
+
+That means:
+
+- the published image can be correct,
+- the runtime container can still show Codex as unconfigured,
+- and the difference is caused by persisted host state overriding the container defaults.
+
+To confirm that quickly, compare these two cases:
+
+```bash
+# Fresh container without host-mounted Codex state
+docker run --rm -it konard/hive-mind:latest bash -lc 'codex mcp list'
+
+# Container with persisted Codex state from host
+docker run --rm -it \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  konard/hive-mind:latest \
+  bash -lc 'codex mcp list'
+```
+
+If the first command shows `playwright` and the second does not, the host-mounted Codex directory is the source of the mismatch.
 
 ## Prerequisites
 
-1. **Docker:** Install Docker Desktop or Docker Engine
-2. **GitHub CLI:** Authenticate with `gh auth login` on host
-3. **Claude Credentials:** Set up Claude profiles or Claude Code on host
+1. **Docker:** Install Docker Desktop or Docker Engine (version 20.10 or higher)
+2. **Internet Connection:** Required for pulling images and authentication
 
 ## Directory Structure
 
 ```
 .
-├── Dockerfile                 # Main Docker image definition
-├── docker-compose.yml        # Docker Compose configuration
-├── docker-solve.sh          # Convenient wrapper script
-├── docker-restore-auth.sh    # Credential restoration script
-└── solve.mjs                 # Main application
+├── Dockerfile                    # Production image based on konard/box
+├── experiments/
+│   └── solve-dockerize/
+│       └── Dockerfile            # Legacy Gitpod-compatible image (archived)
+├── scripts/
+│   └── verify-docker-image.sh    # Docker image verification script
+└── docs/
+    └── DOCKER.md                 # This file
 ```
 
-## Environment Variables
+## Advanced Usage
 
-You can pass environment variables to control behavior:
+### Running with Persistent Storage
+
+To persist authentication and work between container restarts, mount the actual per-tool directories instead of a generic `/home/box` volume. In our Docker images `HOME=/home/box`, so Codex stores its data in `/home/box/.codex`.
 
 ```bash
-# Set GitHub token explicitly
-export GITHUB_TOKEN="your_token_here"
+# Host directories used by the current local Docker workflow
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
 
-# Set Claude API key
-export CLAUDE_API_KEY="your_key_here"
+# Run with persistent mounts
+docker run -dit --user box --name hive-mind --restart unless-stopped \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
 
-# Run with variables
-./docker-solve.sh https://github.com/owner/repo/issues/123
+# Fix ownership after the container starts
+BOX_UID=$(docker exec hive-mind id -u box)
+chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+chown $BOX_UID:$BOX_UID /root/.hive-mind/claude.json
 ```
 
-## Output Files
+The mounted Codex directory keeps the files we rely on:
 
-Any files created by `solve.mjs` will be available in the `./output/` directory on your host machine.
+- `/home/box/.codex/auth.json`
+- `/home/box/.codex/config.toml`
+- `/home/box/.codex/sessions/`
+
+Because this mount fully overrides the image's `/home/box/.codex` directory, it can also preserve an older `config.toml` that does not include the Playwright MCP registration added by newer images. After starting a container with an older persisted Codex directory, re-run:
+
+```bash
+codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
+```
+
+### Running in Detached Mode
+
+```bash
+# Start a detached container with persistent auth mounts
+docker run -dit --user box --name hive-worker --restart unless-stopped \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
+
+# Execute commands in the running container
+docker exec -it hive-worker bash
+
+# Inside the container, run your commands
+codex exec --model gpt-5.4-mini "hi"
+solve https://github.com/owner/repo/issues/123
+```
+
+### Using with Docker Compose
+
+Create a `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+services:
+  hive-mind:
+    image: konard/hive-mind:latest
+    volumes:
+      - box-home:/home/box
+    stdin_open: true
+    tty: true
+
+volumes:
+  box-home:
+```
+
+Then run:
+
+```bash
+docker-compose run --rm hive-mind
+```
 
 ## Troubleshooting
 
 ### GitHub Authentication Issues
+
 ```bash
-# Check if GitHub CLI is authenticated on host
+# Inside the container, check authentication status
 gh auth status
 
 # Re-authenticate if needed
-gh auth login
+gh auth login -h github.com -s repo,workflow,user,read:org,gist
 ```
 
-### Claude Credential Issues
-```bash
-# Check if Claude profiles exist
-ls -la ~/.local/share/claude-profiles
+### Claude Authentication Issues
 
-# Check Claude Code config
-ls -la ~/.config/claude-code
+```bash
+# Inside the container, re-run Claude to authenticate
+claude
 ```
 
 ### Docker Issues
+
 ```bash
-# Check Docker status
+# Check Docker status on host
 docker info
 
-# Rebuild image from scratch
-./docker-solve.sh --build
+# Pull the latest image
+docker pull konard/hive-mind:latest
+
+# Rebuild from source
+docker build -t hive-mind:local .
 ```
+
+### Build Issues
+
+If you encounter issues building the image locally:
+
+1. Ensure you have enough disk space (at least 20GB free)
+2. Check your internet connection
+3. Try building with more verbose output:
+   ```bash
+   docker build -t hive-mind:local --progress=plain .
+   ```
+
+## CI/CD Configuration for Docker Hub Publishing
+
+If you're maintaining a fork or want to publish to your own Docker Hub account, follow these steps to configure GitHub Actions:
+
+### Step 1: Create a Docker Hub Account
+
+1. Go to [hub.docker.com](https://hub.docker.com)
+2. Sign up or log in to your account
+3. Note your Docker Hub username (e.g., `konard`)
+
+### Step 2: Generate a Docker Hub Access Token
+
+1. Log in to [hub.docker.com](https://hub.docker.com)
+2. Click on your username in the top-right corner
+3. Select **Account Settings** → **Security**
+4. Click **New Access Token**
+5. Enter a description (e.g., "GitHub Actions - Hive Mind")
+6. Set permissions to **Read, Write, Delete** (required for publishing)
+7. Click **Generate**
+8. **IMPORTANT:** Copy the token immediately - you won't be able to see it again!
+   - Example format: `dckr_pat_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p`
+
+### Step 3: Add Secrets to GitHub Repository
+
+1. Go to your GitHub repository (e.g., `https://github.com/konard/hive-mind`)
+2. Click **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Add the following two secrets:
+
+   **Secret 1: DOCKERHUB_USERNAME**
+   - Name: `DOCKERHUB_USERNAME`
+   - Value: Your Docker Hub username (e.g., `konard`)
+   - Click **Add secret**
+
+   **Secret 2: DOCKERHUB_TOKEN**
+   - Name: `DOCKERHUB_TOKEN`
+   - Value: The access token you generated in Step 2
+   - Click **Add secret**
+
+### Step 4: Update Docker Image Name
+
+If using a fork, update the image name in `.github/workflows/docker-publish.yml`:
+
+```yaml
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: YOUR_DOCKERHUB_USERNAME/hive-mind # Change this to your username
+```
+
+### Step 5: Verify the Configuration
+
+1. Push changes to the `main` branch
+2. Go to **Actions** tab in your GitHub repository
+3. Find the "Docker Build and Publish" workflow
+4. Check that it completes successfully
+5. Verify the image appears on [hub.docker.com/r/YOUR_USERNAME/hive-mind](https://hub.docker.com/r/konard/hive-mind)
+
+### How It Works
+
+- **On Pull Requests:** The workflow tests building the Docker image without publishing
+- **On Main Branch:** The workflow builds and publishes to Docker Hub with the `latest` tag
+- **On Version Tags:** The workflow publishes with semantic version tags (e.g., `v0.37.0`, `0.37`, `0`)
+
+### Troubleshooting CI/CD
+
+**Build fails with authentication error:**
+
+- Verify `DOCKERHUB_USERNAME` matches your Docker Hub username exactly
+- Regenerate `DOCKERHUB_TOKEN` and update the secret
+
+**Image published but can't pull:**
+
+- Ensure the repository on Docker Hub is public (or you're authenticated)
+- Check [hub.docker.com](https://hub.docker.com) → Your repositories → hive-mind → Settings → Make Public
+
+**Build succeeds but image doesn't appear:**
+
+- Check you're pushing to the `main` branch (pull requests only test, don't publish)
+- Verify the workflow ran in the Actions tab
+- Check Docker Hub rate limits haven't been exceeded
 
 ## Security Notes
 
-- Credentials are mounted read-only into the container
-- Container runs with minimal privileges
-- No credentials are stored in the Docker image
-- All credential transfer happens at runtime
+- Each container maintains its own isolated authentication
+- No credentials are shared between containers
+- No credentials are stored in the Docker image itself
+- Authentication happens inside the container after it starts
+- Each GitHub/Claude account can have its own container instance
+- Docker Hub access tokens should be stored only as GitHub Secrets, never committed to the repository

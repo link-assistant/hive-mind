@@ -8,8 +8,7 @@ const execAsync = promisify(exec);
 async function cleanupScreenSession(sessionName) {
   try {
     await execAsync(`screen -S ${sessionName} -X quit`);
-  } catch (error) {
-  }
+  } catch (error) {}
 }
 
 async function screenSessionExists(sessionName) {
@@ -48,10 +47,9 @@ async function testSessionReuse() {
     console.log(`  Command: ./start-screen.mjs solve https://github.com/test/repo/issues/1`);
     console.log();
 
-    const { stdout } = await execAsync(
-      `./start-screen.mjs solve https://github.com/test/repo/issues/1`,
-      { cwd: '/tmp/gh-issue-solver-1759308672555' }
-    );
+    const { stdout } = await execAsync(`./start-screen.mjs solve https://github.com/test/repo/issues/1`, {
+      cwd: '/tmp/gh-issue-solver-1759308672555',
+    });
 
     console.log('Output from start-screen:');
     console.log(stdout);

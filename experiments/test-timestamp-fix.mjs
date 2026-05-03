@@ -75,8 +75,12 @@ Proceed.`;
     console.log('\n5. Final content preview:');
     const lines = content3.split('\n');
     console.log(`   Total lines: ${lines.length}`);
-    console.log(`   Last 5 lines:\n${lines.slice(-5).map(l => `     ${l}`).join('\n')}`);
-
+    console.log(
+      `   Last 5 lines:\n${lines
+        .slice(-5)
+        .map(l => `     ${l}`)
+        .join('\n')}`
+    );
   } finally {
     // Cleanup
     await fs.rm(testDir, { recursive: true, force: true });

@@ -12,8 +12,9 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 const os = (await use('os')).default;
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -24,12 +25,7 @@ const memoryCheck = await import('./memory-check.mjs');
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const {
-  log,
-  getLogFile,
-  cleanErrorMessage,
-  formatAligned
-} = lib;
+const { log, getLogFile, cleanErrorMessage, formatAligned } = lib;
 
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
@@ -37,13 +33,10 @@ const githubLib = await import('./github.lib.mjs');
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
-const {
-  sanitizeLogContent,
-  attachLogToGitHub
-} = githubLib;
+const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Create or find temporary directory for cloning the repository
-export const setupTempDirectory = async (argv) => {
+export const setupTempDirectory = async argv => {
   let tempDir;
   let isResuming = argv.resume;
 
@@ -65,7 +58,7 @@ export const setupTempDirectory = async (argv) => {
       reportError(err, {
         context: 'resume_session_setup',
         sessionId: argv.resume,
-        operation: 'find_session_log'
+        operation: 'find_session_log',
       });
       await log(`Warning: Session log for ${argv.resume} not found, but continuing with resume attempt`);
       tempDir = path.join(os.tmpdir(), `gh-issue-solver-resume-${argv.resume}-${Date.now()}`);
@@ -146,7 +139,7 @@ export const setupRepository = async (argv, owner, repo) => {
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           const delay = baseDelay * Math.pow(2, attempt - 1); // 2s, 4s, 8s, 16s, 32s
-          await log(`${formatAligned('⏳', 'Verifying fork:', `Attempt ${attempt}/${maxRetries} (waiting ${delay/1000}s)...`)}`);
+          await log(`${formatAligned('⏳', 'Verifying fork:', `Attempt ${attempt}/${maxRetries} (waiting ${delay / 1000}s)...`)}`);
           await new Promise(resolve => setTimeout(resolve, delay));
 
           const reCheckResult = await $`gh repo view ${forkFullName} --json name 2>/dev/null`;
@@ -201,7 +194,10 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           log,
           sanitizeLogContent,
           verbose: argv.verbose || false,
-          errorMessage: cleanErrorMessage(error)
+          errorMessage: cleanErrorMessage(error),
+          // Issue #1225: Pass model and tool info for PR comments
+          requestedModel: argv.originalModel || argv.model,
+          tool: argv.tool || 'claude',
         });
 
         if (logUploadSuccess) {
@@ -211,7 +207,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
         reportError(attachError, {
           context: 'attach_error_log',
           prNumber: global.createdPR?.number,
-          operation: 'attach_log_to_pr'
+          operation: 'attach_log_to_pr',
         });
         await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
       }
@@ -232,7 +228,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
       reportError(closeError, {
         context: 'close_pr_on_error',
         prNumber: global.createdPR?.number,
-        operation: 'close_pull_request'
+        operation: 'close_pull_request',
       });
       await log(`⚠️  Could not close pull request: ${closeError.message}`, { level: 'warning' });
     }
@@ -253,7 +249,7 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
       reportError(cleanupError, {
         context: 'cleanup_temp_directory',
         tempDir,
-        operation: 'remove_temp_dir'
+        operation: 'remove_temp_dir',
       });
       await log(' ⚠️  (failed)');
     }

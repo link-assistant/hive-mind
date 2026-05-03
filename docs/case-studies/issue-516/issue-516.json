@@ -1,0 +1,10 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "The support should be similar to opencode or claude tools, if available we should prefer json or other non plain text output (structural data output is better).\n\nWe should test it locally, so we are use call to command really works.",
+  "comments": [{ "id": "IC_kwDOPUU0qc7egqP3", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "Should be done when these are ready:\n\n- [ ] https://github.com/link-assistant/hive-mind/issues/1043\n- [ ] https://github.com/link-assistant/agent-commander/issues/13", "createdAt": "2026-01-10T16:05:42Z", "includesCreatedEdit": true, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/hive-mind/issues/516#issuecomment-3733103607", "viewerDidAuthor": true }],
+  "createdAt": "2025-10-13T23:35:12Z",
+  "number": 516,
+  "state": "OPEN",
+  "title": "Add support for `gemini` tool",
+  "updatedAt": "2026-01-10T16:08:53Z"
+}

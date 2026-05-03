@@ -69,7 +69,7 @@ console.log('}');
 console.log('```\n');
 
 console.log('🎯 RESOLUTION:');
-console.log('This implementation directly addresses the maintainer\'s feedback.');
+console.log("This implementation directly addresses the maintainer's feedback.");
 console.log('Fork sync will now fail immediately on push errors, preventing');
 console.log('the accumulation of failures in later stages of the process.\n');
 

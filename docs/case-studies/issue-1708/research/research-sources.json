@@ -1,0 +1,69 @@
+{
+  "issue": "https://github.com/link-assistant/hive-mind/issues/1708",
+  "pr": "https://github.com/link-assistant/hive-mind/pull/1709",
+  "internal_references": [
+    {
+      "id": "issue-817",
+      "url": "https://github.com/link-assistant/hive-mind/issues/817",
+      "title": "Implement bidirectional interactive mode",
+      "relevance": "Originated the existing NDJSON stream-json input pipe used for --tool claude. Source of bidirectional-interactive.lib.mjs and the three existing experimental flags."
+    },
+    {
+      "id": "issue-1190",
+      "url": "https://github.com/link-assistant/hive-mind/issues/1190",
+      "title": "Refactor auto-merge into solve.auto-merge.lib.mjs",
+      "relevance": "Defines the shape of watchUntilMergeable and the shared restart utilities."
+    },
+    {
+      "id": "issue-1323",
+      "url": "https://github.com/link-assistant/hive-mind/issues/1323",
+      "title": "Track actual AI restarts separately from check-cycle iterations",
+      "relevance": "The restart counter that streamUntilMergeable must not regress."
+    },
+    {
+      "id": "issue-1356",
+      "url": "https://github.com/link-assistant/hive-mind/issues/1356",
+      "title": "Auto-restart usage-limit handling",
+      "relevance": "Usage-limit branch in watchUntilMergeable that resumes via --resume."
+    },
+    {
+      "id": "issue-1567",
+      "url": "https://github.com/link-assistant/hive-mind/issues/1567",
+      "title": "Auto-restart consistency / minimum interval",
+      "relevance": "Sets MIN_CI_CHECK_INTERVAL_SECONDS = 120; same lower bound applies to streaming-mode poller."
+    },
+    {
+      "id": "issue-1571",
+      "url": "https://github.com/link-assistant/hive-mind/issues/1571",
+      "title": "Auto-resume comment ordering",
+      "relevance": "Documented constraint that the parent must await child exit before posting solution-draft / ready-to-merge comments. The streaming loop must preserve this ordering."
+    },
+    {
+      "id": "issue-1645",
+      "url": "https://github.com/link-assistant/hive-mind/issues/1645",
+      "title": "Ready-to-merge comment dedup",
+      "relevance": "The streaming path's settled-state should still post exactly one Ready to merge comment."
+    }
+  ],
+  "external_references": [
+    {
+      "url": "https://code.claude.com/docs/en/agent-sdk",
+      "title": "Claude Agent SDK overview",
+      "fetched_via": "WebFetch (followed redirects from docs.claude.com -> code.claude.com)",
+      "key_facts": ["Claude Code SDK was renamed to Claude Agent SDK.", "Sessions can be resumed by capturing the session_id from a system 'init' event and passing it back as the resume option.", "TypeScript and Python bindings expose the same headless agent loop the CLI uses."]
+    },
+    {
+      "url": "https://developers.openai.com/codex/noninteractive",
+      "title": "Codex CLI non-interactive mode (exec)",
+      "fetched_via": "WebFetch",
+      "key_facts": ["Codex `exec` accepts a prompt argument and stdin-piped context. If both are present, the prompt is the instruction and stdin is supplementary context.", "Stdin can be the entire prompt via `codex exec -`.", "Progress is emitted on stderr; stdout receives only the final agent message.", "No documented mid-session NDJSON channel that would let new user turns be appended after exec has started."]
+    },
+    {
+      "url": "https://github.com/openai/codex",
+      "title": "openai/codex (CLI source)",
+      "fetched_via": "WebFetch",
+      "key_facts": ["Repository README describes Codex CLI as a local coding agent and points to the docs site for input format details.", "No public commitment to a stream-json input contract."]
+    }
+  ],
+  "internal_files_examined": ["src/bidirectional-interactive.lib.mjs", "src/claude.lib.mjs", "src/codex.lib.mjs", "src/agent.lib.mjs", "src/opencode.lib.mjs", "src/solve.auto-merge.lib.mjs", "src/solve.auto-merge-helpers.lib.mjs", "src/solve.auto-continue.lib.mjs", "src/solve.restart-shared.lib.mjs", "src/solve.config.lib.mjs", "src/solve.watch.lib.mjs", "src/solve.feedback.lib.mjs", "tests/test-bidirectional-interactive.mjs"]
+}

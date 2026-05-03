@@ -3,24 +3,10 @@
  * Handles automatic creation of draft pull requests with initial commits
  */
 
-export async function handleAutoPrCreation({
-  argv,
-  tempDir,
-  branchName,
-  issueNumber,
-  owner,
-  repo,
-  defaultBranch,
-  forkedRepo,
-  isContinueMode,
-  prNumber,
-  log,
-  formatAligned,
-  $,
-  reportError,
-  path,
-  fs
-}) {
+import { closingIssueNumbersContain, parseClosingIssueNumbers } from './pr-issue-linking.lib.mjs';
+
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
   // Skip auto-PR creation if:
   // 1. Auto-PR creation is disabled AND we're not in continue mode with no PR
   // 2. Continue mode is active AND we already have a PR
@@ -47,20 +33,61 @@ export async function handleAutoPrCreation({
   const issueUrl = argv['issue-url'] || argv._[0];
 
   try {
-    // Create CLAUDE.md file with the task details
-    await log(formatAligned('📝', 'Creating:', 'CLAUDE.md with task details'));
+    // Determine which file to create based on CLI flags
+    let useClaudeFile = argv.claudeFile !== false;
+    const useAutoGitkeepFile = argv.autoGitkeepFile !== false;
 
-    // Check if CLAUDE.md already exists and read its content
-    const claudeMdPath = path.join(tempDir, 'CLAUDE.md');
+    // Pre-check: If CLAUDE.md would be ignored by .gitignore, automatically switch to .gitkeep mode
+    if (useClaudeFile && useAutoGitkeepFile) {
+      const checkResult = await $({ cwd: tempDir, silent: true })`git check-ignore CLAUDE.md 2>/dev/null`;
+      if (checkResult.code === 0) {
+        await log(formatAligned('ℹ️', 'Pre-check:', 'CLAUDE.md is in .gitignore, switching to .gitkeep mode\n'));
+        useClaudeFile = false;
+      }
+    }
+
+    if (argv.verbose) {
+      await log(`   Using ${useClaudeFile ? 'CLAUDE.md' : '.gitkeep'} mode (--claude-file=${argv.claudeFile !== false}, --gitkeep-file=${argv.gitkeepFile === true}, --auto-gitkeep-file=${useAutoGitkeepFile})`, { verbose: true });
+    }
+
+    let filePath;
+    let fileName;
     let existingContent = null;
     let fileExisted = false;
-    try {
-      existingContent = await fs.readFile(claudeMdPath, 'utf8');
-      fileExisted = true;
-    } catch (err) {
-      // File doesn't exist, which is fine
-      if (err.code !== 'ENOENT') {
-        throw err;
+
+    if (useClaudeFile) {
+      // Create CLAUDE.md file with the task details
+      await log(formatAligned('📝', 'Creating:', 'CLAUDE.md with task details'));
+
+      filePath = path.join(tempDir, 'CLAUDE.md');
+      fileName = 'CLAUDE.md';
+
+      // Check if CLAUDE.md already exists and read its content
+      try {
+        existingContent = await fs.readFile(filePath, 'utf8');
+        fileExisted = true;
+      } catch (err) {
+        // File doesn't exist, which is fine
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
+      }
+    } else {
+      // .gitkeep mode (default for all tools, or auto-gitkeep-file fallback)
+      const modeDesc = argv.claudeFile === false ? '.gitkeep (default)' : '.gitkeep (CLAUDE.md is ignored)';
+      await log(formatAligned('📝', 'Creating:', modeDesc));
+
+      filePath = path.join(tempDir, '.gitkeep');
+      fileName = '.gitkeep';
+      // Check if .gitkeep already exists for proper handling
+      try {
+        existingContent = await fs.readFile(filePath, 'utf8');
+        fileExisted = true;
+      } catch (err) {
+        // File doesn't exist, which is fine
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
       }
     }
 
@@ -78,40 +105,61 @@ export async function handleAutoPrCreation({
     // Without this, appending the same task info produces no git changes,
     // leading to "No commits between branches" error during PR creation
     const timestamp = new Date().toISOString();
-    const taskInfo = `Issue to solve: ${issueUrl}
-Your prepared branch: ${branchName}
-Your prepared working directory: ${tempDir}${argv.fork && forkedRepo ? `
-Your forked repository: ${forkedRepo}
-Original repository (upstream): ${owner}/${repo}` : ''}
 
-Proceed.`;
-
-    // If CLAUDE.md already exists, append the task info with separator and timestamp
-    // Otherwise, create new file with just the task info (no timestamp needed for new files)
     let finalContent;
-    if (fileExisted && existingContent) {
-      await log('   CLAUDE.md already exists, appending task info...', { verbose: true });
-      // Remove any trailing whitespace and add separator
-      const trimmedExisting = existingContent.trimEnd();
-      // Add timestamp to ensure uniqueness when appending
-      finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${timestamp}`;
+
+    if (useClaudeFile) {
+      // CLAUDE.md: Use detailed task info
+      const taskInfo = `Issue to solve: ${issueUrl}
+Your prepared branch: ${branchName}
+Your prepared working directory: ${tempDir}${
+        argv.fork && forkedRepo
+          ? `
+Your forked repository: ${forkedRepo}
+Original repository (upstream): ${owner}/${repo}`
+          : ''
+      }
+
+Proceed.
+`;
+
+      // If file already exists, append the task info with separator and timestamp
+      // Otherwise, create new file with just the task info (no timestamp needed for new files)
+      if (fileExisted && existingContent) {
+        await log(`   ${fileName} already exists, appending task info...`, { verbose: true });
+        // Remove any trailing whitespace and add separator
+        const trimmedExisting = existingContent.trimEnd();
+        // Add timestamp to ensure uniqueness when appending
+        finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${timestamp}`;
+      } else {
+        finalContent = taskInfo;
+      }
     } else {
-      finalContent = taskInfo;
+      // .gitkeep: Use minimal single-line metadata format (explicit --gitkeep-file or auto-gitkeep-file fallback)
+      const gitkeepContent = `# .gitkeep file auto-generated at ${timestamp} for PR creation at branch ${branchName} for issue ${issueUrl}`;
+
+      if (fileExisted && existingContent) {
+        await log(`   ${fileName} already exists, appending timestamp...`, { verbose: true });
+        // For .gitkeep, just append a new timestamp to ensure uniqueness
+        finalContent = `${existingContent.trimEnd()}\n# Updated: ${timestamp}`;
+      } else {
+        finalContent = gitkeepContent;
+      }
     }
 
-    await fs.writeFile(claudeMdPath, finalContent);
-    await log(formatAligned('✅', 'File created:', 'CLAUDE.md'));
+    await fs.writeFile(filePath, finalContent);
+    await log(formatAligned('✅', 'File created:', fileName));
 
     // Add and commit the file
     await log(formatAligned('📦', 'Adding file:', 'To git staging'));
 
     // Use explicit cwd option for better reliability
-    const addResult = await $({ cwd: tempDir })`git add CLAUDE.md`;
+    const addResult = await $({ cwd: tempDir })`git add ${fileName}`;
 
     if (addResult.code !== 0) {
-      await log('❌ Failed to add CLAUDE.md', { level: 'error' });
+      await log(`❌ Failed to add ${fileName}`, { level: 'error' });
       await log(`   Error: ${addResult.stderr ? addResult.stderr.toString() : 'Unknown error'}`, { level: 'error' });
-      throw new Error('Failed to add CLAUDE.md');
+      throw new Error(`Failed to add ${fileName}`);
     }
 
     // Verify the file was actually staged
@@ -123,107 +171,128 @@ Proceed.`;
     }
 
     // Track which file we're using for the commit
-    let commitFileName = 'CLAUDE.md';
+    let commitFileName = fileName;
 
     // Check if anything was actually staged
     if (!gitStatus || gitStatus.length === 0) {
       await log('');
-      await log(formatAligned('⚠️', 'CLAUDE.md not staged:', 'Checking if file is ignored'), { level: 'warning' });
+      await log(formatAligned('⚠️', `${fileName} not staged:`, 'Checking if file is ignored'), { level: 'warning' });
 
-      // Check if CLAUDE.md is in .gitignore
-      const checkIgnoreResult = await $({ cwd: tempDir })`git check-ignore CLAUDE.md`;
-      const isIgnored = checkIgnoreResult.code === 0;
+      // Only apply fallback logic when using CLAUDE.md mode (not in --gitkeep-file mode)
+      if (useClaudeFile) {
+        // Check if CLAUDE.md is in .gitignore
+        const checkIgnoreResult = await $({ cwd: tempDir })`git check-ignore CLAUDE.md`;
+        const isIgnored = checkIgnoreResult.code === 0;
 
-      if (isIgnored) {
-        await log(formatAligned('ℹ️', 'CLAUDE.md is ignored:', 'Using .gitkeep fallback'));
-        await log('');
-        await log('  📝 Fallback strategy:');
-        await log('     CLAUDE.md is in .gitignore, using .gitkeep instead.');
-        await log('     This allows auto-PR creation to proceed without modifying .gitignore.');
-        await log('');
-
-        // Create a .gitkeep file as fallback
-        const gitkeepPath = path.join(tempDir, '.gitkeep');
-        const gitkeepContent = `# Auto-generated file for PR creation
-# Issue: ${issueUrl}
-# Branch: ${branchName}
-# This file was created because CLAUDE.md is in .gitignore
-# It will be removed when the task is complete`;
-
-        await fs.writeFile(gitkeepPath, gitkeepContent);
-        await log(formatAligned('✅', 'Created:', '.gitkeep file'));
-
-        // Try to add .gitkeep
-        const gitkeepAddResult = await $({ cwd: tempDir })`git add .gitkeep`;
-
-        if (gitkeepAddResult.code !== 0) {
-          await log('❌ Failed to add .gitkeep', { level: 'error' });
-          await log(`   Error: ${gitkeepAddResult.stderr ? gitkeepAddResult.stderr.toString() : 'Unknown error'}`, { level: 'error' });
-          throw new Error('Failed to add .gitkeep');
-        }
-
-        // Verify .gitkeep was staged
-        statusResult = await $({ cwd: tempDir })`git status --short`;
-        gitStatus = statusResult.stdout ? statusResult.stdout.toString().trim() : '';
-
-        if (!gitStatus || gitStatus.length === 0) {
+        if (isIgnored) {
+          await log(formatAligned('ℹ️', 'CLAUDE.md is ignored:', 'Using .gitkeep fallback'));
           await log('');
-          await log(formatAligned('❌', 'GIT ADD FAILED:', 'Neither CLAUDE.md nor .gitkeep could be staged'), { level: 'error' });
+          await log('  📝 Fallback strategy:');
+          await log('     CLAUDE.md is in .gitignore, using .gitkeep instead.');
+          await log('     This allows auto-PR creation to proceed without modifying .gitignore.');
+          await log('');
+
+          // Create a .gitkeep file as fallback
+          const gitkeepPath = path.join(tempDir, '.gitkeep');
+          const gitkeepContent = `# .gitkeep file auto-generated at ${timestamp} for PR creation at branch ${branchName} for issue ${issueUrl}`;
+
+          await fs.writeFile(gitkeepPath, gitkeepContent);
+          await log(formatAligned('✅', 'Created:', '.gitkeep file'));
+
+          // Try to add .gitkeep
+          const gitkeepAddResult = await $({ cwd: tempDir })`git add .gitkeep`;
+
+          if (gitkeepAddResult.code !== 0) {
+            await log('❌ Failed to add .gitkeep', { level: 'error' });
+            await log(`   Error: ${gitkeepAddResult.stderr ? gitkeepAddResult.stderr.toString() : 'Unknown error'}`, {
+              level: 'error',
+            });
+            throw new Error('Failed to add .gitkeep');
+          }
+
+          // Verify .gitkeep was staged
+          statusResult = await $({ cwd: tempDir })`git status --short`;
+          gitStatus = statusResult.stdout ? statusResult.stdout.toString().trim() : '';
+
+          if (!gitStatus || gitStatus.length === 0) {
+            await log('');
+            await log(formatAligned('❌', 'GIT ADD FAILED:', 'Neither CLAUDE.md nor .gitkeep could be staged'), {
+              level: 'error',
+            });
+            await log('');
+            await log('  🔍 What happened:');
+            await log('     Both CLAUDE.md and .gitkeep failed to stage.');
+            await log('');
+            await log('  🔧 Troubleshooting steps:');
+            await log(`     1. Check git status: cd "${tempDir}" && git status`);
+            await log(`     2. Check .gitignore: cat "${tempDir}/.gitignore"`);
+            await log(`     3. Try force add: cd "${tempDir}" && git add -f .gitkeep`);
+            await log('');
+            throw new Error('Git add staged nothing - both files failed');
+          }
+
+          commitFileName = '.gitkeep';
+          await log(formatAligned('✅', 'File staged:', '.gitkeep'));
+        } else {
+          await log('');
+          await log(formatAligned('❌', 'GIT ADD FAILED:', 'Nothing was staged'), { level: 'error' });
           await log('');
           await log('  🔍 What happened:');
-          await log('     Both CLAUDE.md and .gitkeep failed to stage.');
+          await log('     CLAUDE.md was created but git did not stage any changes.');
+          await log('');
+          await log('  💡 Possible causes:');
+          await log('     • CLAUDE.md already exists with identical content');
+          await log('     • File system sync issue');
           await log('');
           await log('  🔧 Troubleshooting steps:');
-          await log(`     1. Check git status: cd "${tempDir}" && git status`);
-          await log(`     2. Check .gitignore: cat "${tempDir}/.gitignore"`);
-          await log(`     3. Try force add: cd "${tempDir}" && git add -f .gitkeep`);
+          await log(`     1. Check file exists: ls -la "${tempDir}/CLAUDE.md"`);
+          await log(`     2. Check git status: cd "${tempDir}" && git status`);
+          await log(`     3. Force add: cd "${tempDir}" && git add -f CLAUDE.md`);
           await log('');
-          throw new Error('Git add staged nothing - both files failed');
+          await log('  📂 Debug information:');
+          await log(`     Working directory: ${tempDir}`);
+          await log(`     Branch: ${branchName}`);
+          if (existingContent) {
+            await log('     Note: CLAUDE.md already existed (attempted to update with timestamp)');
+          }
+          await log('');
+          throw new Error('Git add staged nothing - CLAUDE.md may be unchanged');
         }
-
-        commitFileName = '.gitkeep';
-        await log(formatAligned('✅', 'File staged:', '.gitkeep'));
       } else {
+        // In --gitkeep-file mode, if .gitkeep couldn't be staged, this is an error
         await log('');
         await log(formatAligned('❌', 'GIT ADD FAILED:', 'Nothing was staged'), { level: 'error' });
         await log('');
         await log('  🔍 What happened:');
-        await log('     CLAUDE.md was created but git did not stage any changes.');
+        await log(`     ${fileName} was created but git did not stage any changes.`);
         await log('');
         await log('  💡 Possible causes:');
-        await log('     • CLAUDE.md already exists with identical content');
+        await log(`     • ${fileName} already exists with identical content`);
         await log('     • File system sync issue');
+        await log(`     • ${fileName} is in .gitignore`);
         await log('');
         await log('  🔧 Troubleshooting steps:');
-        await log(`     1. Check file exists: ls -la "${tempDir}/CLAUDE.md"`);
+        await log(`     1. Check file exists: ls -la "${tempDir}/${fileName}"`);
         await log(`     2. Check git status: cd "${tempDir}" && git status`);
-        await log(`     3. Force add: cd "${tempDir}" && git add -f CLAUDE.md`);
+        await log(`     3. Check if ignored: cd "${tempDir}" && git check-ignore ${fileName}`);
+        await log(`     4. Force add: cd "${tempDir}" && git add -f ${fileName}`);
         await log('');
         await log('  📂 Debug information:');
         await log(`     Working directory: ${tempDir}`);
         await log(`     Branch: ${branchName}`);
+        await log(`     Mode: ${useClaudeFile ? 'CLAUDE.md' : '.gitkeep'}`);
         if (existingContent) {
-          await log('     Note: CLAUDE.md already existed (attempted to update with timestamp)');
+          await log(`     Note: ${fileName} already existed (attempted to update with timestamp)`);
         }
         await log('');
-        throw new Error('Git add staged nothing - CLAUDE.md may be unchanged');
+        throw new Error(`Git add staged nothing - ${fileName} may be unchanged or ignored`);
       }
     }
 
     await log(formatAligned('📝', 'Creating commit:', `With ${commitFileName} file`));
-    const commitMessage = commitFileName === 'CLAUDE.md'
-      ? `Initial commit with task details for issue #${issueNumber}
-
-Adding CLAUDE.md with task information for AI processing.
-This file will be removed when the task is complete.
-
-Issue: ${issueUrl}`
-      : `Initial commit with task details for issue #${issueNumber}
-
-Adding .gitkeep for PR creation (CLAUDE.md is in .gitignore).
-This file will be removed when the task is complete.
-
-Issue: ${issueUrl}`;
+    // Commit message distinguishes between CLAUDE.md and .gitkeep modes
+    const fileDesc = commitFileName === 'CLAUDE.md' ? 'CLAUDE.md with task information for AI processing' : `.gitkeep for PR creation (${argv.claudeFile === false ? 'default mode' : 'CLAUDE.md is in .gitignore'})`;
+    const commitMessage = `Initial commit with task details\n\nAdding ${fileDesc}.\nThis file will be removed when the task is complete.\n\nIssue: ${issueUrl}`;
 
     // Use explicit cwd option for better reliability
     const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
@@ -236,7 +305,7 @@ Issue: ${issueUrl}`;
       await log(formatAligned('❌', 'COMMIT FAILED:', 'Could not create initial commit'), { level: 'error' });
       await log('');
       await log('  🔍 What happened:');
-      await log('     Git commit command failed after staging CLAUDE.md.');
+      await log(`     Git commit command failed after staging ${commitFileName}.`);
       await log('');
 
       // Check for specific error patterns
@@ -332,7 +401,9 @@ Issue: ${issueUrl}`;
 
         // Check for archived repository error
         if (errorOutput.includes('archived') && errorOutput.includes('read-only')) {
-          await log(`\n${formatAligned('❌', 'REPOSITORY ARCHIVED:', 'Cannot push to archived repository')}`, { level: 'error' });
+          await log(`\n${formatAligned('❌', 'REPOSITORY ARCHIVED:', 'Cannot push to archived repository')}`, {
+            level: 'error',
+          });
           await log('');
           await log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           await log('');
@@ -396,7 +467,7 @@ Issue: ${issueUrl}`;
               context: 'fork_check',
               owner,
               repo,
-              operation: 'check_user_fork'
+              operation: 'check_user_fork',
             });
             // Ignore error - fork check is optional
           }
@@ -408,7 +479,7 @@ Issue: ${issueUrl}`;
           await log(`  🔒 You don't have write access to ${owner}/${repo}`);
           await log('');
           await log('  This typically happens when:');
-          await log('    • You\'re not a collaborator on the repository');
+          await log("    • You're not a collaborator on the repository");
           await log('    • The repository belongs to another user/organization');
           await log('');
           await log('  📋 HOW TO FIX THIS:');
@@ -509,6 +580,7 @@ Issue: ${issueUrl}`;
         let compareAttempts = 0;
         const maxCompareAttempts = 5;
         const targetBranchForCompare = argv.baseBranch || defaultBranch;
+        let compareResult; // Declare outside loop so it's accessible for error checking
 
         while (!compareReady && compareAttempts < maxCompareAttempts) {
           compareAttempts++;
@@ -531,7 +603,9 @@ Issue: ${issueUrl}`;
           } else {
             headRef = branchName;
           }
-          const compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
+          compareResult = await $({
+            silent: true,
+          })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --paginate --jq '.ahead_by' 2>&1`;
 
           if (compareResult.code === 0) {
             const aheadBy = parseInt(compareResult.stdout.toString().trim(), 10);
@@ -553,52 +627,201 @@ Issue: ${issueUrl}`;
         }
 
         if (!compareReady) {
-          await log('');
-          await log(formatAligned('❌', 'GITHUB SYNC TIMEOUT:', 'Compare API not ready after retries'), { level: 'error' });
-          await log('');
-          await log('  🔍 What happened:');
-          await log(`     After ${maxCompareAttempts} attempts, GitHub's compare API still shows no commits`);
-          await log(`     between ${targetBranchForCompare} and ${branchName}.`);
-          await log('');
-          await log('  💡 This usually means:');
-          await log('     • GitHub\'s backend systems haven\'t finished indexing the push');
-          await log('     • There\'s a temporary issue with GitHub\'s API');
-          await log('     • The commits may not have been pushed correctly');
-          await log('');
-          await log('  🔧 How to fix:');
-          await log('     1. Wait a minute and try creating the PR manually:');
-          // For fork mode, use the correct head reference format
+          // Check if this is a repository mismatch error (HTTP 404 from compare API)
+          let isRepositoryMismatch = false;
           if (argv.fork && forkedRepo) {
-            const forkUser = forkedRepo.split('/')[0];
-            await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
-          } else {
-            await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${branchName}`);
+            // For fork mode, check the last compare API call result for 404
+            const lastCompareOutput = compareResult.stdout || compareResult.stderr || '';
+            if (lastCompareOutput.includes('HTTP 404') || lastCompareOutput.includes('Not Found')) {
+              isRepositoryMismatch = true;
+            }
           }
-          await log('     2. Check if the branch exists on GitHub:');
-          // Show the correct repository where the branch was pushed
-          const branchRepo = (argv.fork && forkedRepo) ? forkedRepo : `${owner}/${repo}`;
-          await log(`        https://github.com/${branchRepo}/tree/${branchName}`);
-          await log('     3. Check the commit is on GitHub:');
-          // Use the correct head reference for the compare API check
-          if (argv.fork && forkedRepo) {
-            const forkUser = forkedRepo.split('/')[0];
-            await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName}`);
+
+          if (isRepositoryMismatch) {
+            // BEFORE showing any error, verify if the repository is actually a GitHub fork
+            await log('');
+            await log(formatAligned('🔍', 'Investigating:', 'Checking fork relationship...'));
+
+            const forkInfoResult = await $({
+              silent: true,
+            })`gh api repos/${forkedRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}' 2>&1`;
+
+            let isFork = false;
+            let parentRepo = null;
+            let sourceRepo = null;
+
+            if (forkInfoResult.code === 0) {
+              try {
+                const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
+                isFork = forkInfo.fork === true;
+                parentRepo = forkInfo.parent || null;
+                sourceRepo = forkInfo.source || null;
+              } catch {
+                // Failed to parse fork info
+              }
+            }
+
+            if (!isFork) {
+              // Repository is NOT a fork at all
+              await log('');
+              await log(formatAligned('❌', 'NOT A GITHUB FORK:', 'Repository is not a fork'), { level: 'error' });
+              await log('');
+              await log('  🔍 What happened:');
+              await log(`     The repository ${forkedRepo} is NOT a GitHub fork.`);
+              await log('     GitHub API reports: fork=false, parent=null');
+              await log('');
+              await log('  💡 Why this happens:');
+              await log('     This repository was likely created by cloning and pushing (git clone + git push)');
+              await log("     instead of using GitHub's Fork button or API.");
+              await log('');
+              await log('     When a repository is created this way:');
+              await log('     • GitHub does not track it as a fork');
+              await log('     • It has no parent relationship with the original repository');
+              await log('     • Pull requests cannot be created to the original repository');
+              await log('     • Compare API returns 404 when comparing with unrelated repositories');
+              await log('');
+              await log('  📦 Repository details:');
+              await log('     • Target repository: ' + `${owner}/${repo}`);
+              await log('     • Your repository: ' + forkedRepo);
+              await log('     • Fork status: false (NOT A FORK)');
+              await log('');
+              await log('  🔧 How to fix:');
+              await log('     Option 1: Delete the non-fork repository and create a proper fork');
+              await log(`        gh repo delete ${forkedRepo}`);
+              await log(`        Then run this command again to create a proper GitHub fork of ${owner}/${repo}`);
+              await log('');
+              await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid name conflicts');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
+              await log('        This creates forks with names like "owner-repo" instead of just "repo"');
+              await log('');
+              await log('     Option 3: Work directly on the repository (if you have write access)');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --no-fork`);
+              await log('');
+
+              throw new Error('Repository is not a GitHub fork - cannot create PR to unrelated repository');
+            } else if (parentRepo !== `${owner}/${repo}` && sourceRepo !== `${owner}/${repo}`) {
+              // Repository IS a fork, but of a different repository
+              await log('');
+              await log(formatAligned('❌', 'WRONG FORK PARENT:', 'Fork is from different repository'), {
+                level: 'error',
+              });
+              await log('');
+              await log('  🔍 What happened:');
+              await log(`     The repository ${forkedRepo} IS a GitHub fork,`);
+              await log(`     but it's a fork of a DIFFERENT repository than ${owner}/${repo}.`);
+              await log('');
+              await log('  📦 Fork relationship:');
+              await log('     • Your fork: ' + forkedRepo);
+              await log('     • Fork parent: ' + (parentRepo || 'unknown'));
+              await log('     • Fork source: ' + (sourceRepo || 'unknown'));
+              await log('     • Target repository: ' + `${owner}/${repo}`);
+              await log('');
+              await log('  💡 Why this happens:');
+              await log('     You have an existing fork from a different repository');
+              await log('     that shares the same name but is from a different source.');
+              await log('     GitHub treats forks hierarchically - each fork tracks its root repository.');
+              await log('');
+              await log('  🔧 How to fix:');
+              await log('     Option 1: Delete the conflicting fork and create a new one');
+              await log(`        gh repo delete ${forkedRepo}`);
+              await log(`        Then run this command again to create a proper fork of ${owner}/${repo}`);
+              await log('');
+              await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid conflicts');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
+              await log('        This creates forks with names like "owner-repo" instead of just "repo"');
+              await log('');
+              await log('     Option 3: Work directly on the repository (if you have write access)');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --no-fork`);
+              await log('');
+
+              throw new Error('Fork parent mismatch - fork is from different repository tree');
+            } else {
+              // Repository is a fork of the correct parent, but compare API still failed
+              // This is unexpected - show detailed error
+              await log('');
+              await log(formatAligned('❌', 'COMPARE API ERROR:', 'Unexpected failure'), { level: 'error' });
+              await log('');
+              await log('  🔍 What happened:');
+              await log(`     The repository ${forkedRepo} is a valid fork of ${owner}/${repo},`);
+              await log("     but GitHub's compare API still returned an error.");
+              await log('');
+              await log('  📦 Fork verification:');
+              await log('     • Your fork: ' + forkedRepo);
+              await log('     • Fork status: true (VALID FORK)');
+              await log('     • Fork parent: ' + (parentRepo || 'unknown'));
+              await log('     • Target repository: ' + `${owner}/${repo}`);
+              await log('');
+              await log('  💡 This is unexpected:');
+              await log('     The fork relationship is correct, but the compare API failed.');
+              await log('     This might be a temporary GitHub API issue.');
+              await log('');
+              await log('  🔧 How to fix:');
+              await log('     1. Wait a minute and try creating the PR manually:');
+              if (argv.fork && forkedRepo) {
+                const forkUser = forkedRepo.split('/')[0];
+                await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
+              }
+              await log('     2. Check if the issue persists - it might be a GitHub API outage');
+              await log('');
+
+              throw new Error('Compare API failed unexpectedly despite valid fork relationship');
+            }
           } else {
-            await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName}`);
+            // Original timeout error for other cases
+            await log('');
+            await log(formatAligned('❌', 'GITHUB SYNC TIMEOUT:', 'Compare API not ready after retries'), {
+              level: 'error',
+            });
+            await log('');
+            await log('  🔍 What happened:');
+            await log(`     After ${maxCompareAttempts} attempts, GitHub's compare API still shows no commits`);
+            await log(`     between ${targetBranchForCompare} and ${branchName}.`);
+            await log('');
+            await log('  💡 This usually means:');
+            await log("     • GitHub's backend systems haven't finished indexing the push");
+            await log("     • There's a temporary issue with GitHub's API");
+            await log('     • The commits may not have been pushed correctly');
+            await log('');
+            await log('  🔧 How to fix:');
+            await log('     1. Wait a minute and try creating the PR manually:');
+            // For fork mode, use the correct head reference format
+            if (argv.fork && forkedRepo) {
+              const forkUser = forkedRepo.split('/')[0];
+              await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
+            } else {
+              await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${branchName}`);
+            }
+            await log('     2. Check if the branch exists on GitHub:');
+            // Show the correct repository where the branch was pushed
+            const branchRepo = argv.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;
+            await log(`        https://github.com/${branchRepo}/tree/${branchName}`);
+            await log('     3. Check the commit is on GitHub:');
+            // Use the correct head reference for the compare API check
+            if (argv.fork && forkedRepo) {
+              const forkUser = forkedRepo.split('/')[0];
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName} --paginate`);
+            } else {
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName} --paginate`);
+            }
+            await log('');
+
+            throw new Error('GitHub compare API not ready - cannot create PR safely');
           }
-          await log('');
-          throw new Error('GitHub compare API not ready - cannot create PR safely');
         }
 
         // Verify the push actually worked by checking GitHub API
         // When using fork mode, check the fork repository; otherwise check the original repository
-        const repoToCheck = (argv.fork && forkedRepo) ? forkedRepo : `${owner}/${repo}`;
-        const branchCheckResult = await $({ silent: true })`gh api repos/${repoToCheck}/branches/${branchName} --jq .name 2>&1`;
+        const repoToCheck = argv.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;
+        const branchCheckResult = await $({
+          silent: true,
+        })`gh api repos/${repoToCheck}/branches/${branchName} --jq .name 2>&1`;
         if (branchCheckResult.code === 0 && branchCheckResult.stdout.toString().trim() === branchName) {
           await log(`   Branch verified on GitHub: ${branchName}`);
 
           // Get the commit SHA from GitHub
-          const shaCheckResult = await $({ silent: true })`gh api repos/${repoToCheck}/branches/${branchName} --jq .commit.sha 2>&1`;
+          const shaCheckResult = await $({
+            silent: true,
+          })`gh api repos/${repoToCheck}/branches/${branchName} --jq .commit.sha 2>&1`;
           if (shaCheckResult.code === 0) {
             const remoteSha = shaCheckResult.stdout.toString().trim();
             await log(`   Remote commit SHA: ${remoteSha.substring(0, 7)}...`);
@@ -611,7 +834,9 @@ Issue: ${issueUrl}`;
             await log(`   Branch check result: ${branchCheckResult.stdout || branchCheckResult.stderr || 'empty'}`);
 
             // Show all branches on GitHub
-            const allBranchesResult = await $({ silent: true })`gh api repos/${repoToCheck}/branches --jq '.[].name' 2>&1`;
+            const allBranchesResult = await $({
+              silent: true,
+            })`gh api repos/${repoToCheck}/branches --paginate --jq '.[].name' 2>&1`;
             if (allBranchesResult.code === 0) {
               await log(`   All GitHub branches: ${allBranchesResult.stdout.toString().split('\n').slice(0, 5).join(', ')}...`);
             }
@@ -640,7 +865,9 @@ Issue: ${issueUrl}`;
 
         // Get issue title for PR title
         await log(formatAligned('📋', 'Getting issue:', 'Title from GitHub...'), { verbose: true });
-        const issueTitleResult = await $({ silent: true })`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq .title 2>&1`;
+        const issueTitleResult = await $({
+          silent: true,
+        })`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq .title 2>&1`;
         let issueTitle = `Fix issue #${issueNumber}`;
         if (issueTitleResult.code === 0) {
           issueTitle = issueTitleResult.stdout.toString().trim();
@@ -661,12 +888,16 @@ Issue: ${issueUrl}`;
 
           // Check if user has push access (is a collaborator or owner)
           // IMPORTANT: We need to completely suppress the JSON error output
-          // Using execSync to have full control over stderr
+          // Using async exec to have full control over stderr
           try {
-            const { execSync } = await import('child_process');
+            const { exec } = await import('child_process');
+            const { promisify } = await import('util');
+            const execAsync = promisify(exec);
             // This will throw if user doesn't have access, but won't print anything
-            execSync(`gh api repos/${owner}/${repo}/collaborators/${currentUser} 2>/dev/null`,
-                      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+            await execAsync(`gh api repos/${owner}/${repo}/collaborators/${currentUser} 2>/dev/null`, {
+              encoding: 'utf8',
+              env: process.env,
+            });
             canAssign = true;
             await log('   User has collaborator access', { verbose: true });
           } catch (e) {
@@ -675,7 +906,7 @@ Issue: ${issueUrl}`;
               owner,
               repo,
               currentUser,
-              operation: 'check_collaborator_access'
+              operation: 'check_collaborator_access',
             });
             // User doesn't have permission, but that's okay - we just won't assign
             canAssign = false;
@@ -698,12 +929,17 @@ Issue: ${issueUrl}`;
         // Fetch latest state of target branch to ensure accurate comparison
         const targetBranch = argv.baseBranch || defaultBranch;
         await log(formatAligned('🔄', 'Fetching:', `Latest ${targetBranch} branch...`));
-        const fetchBaseResult = await $({ cwd: tempDir, silent: true })`git fetch origin ${targetBranch}:refs/remotes/origin/${targetBranch} 2>&1`;
+        const fetchBaseResult = await $({
+          cwd: tempDir,
+          silent: true,
+        })`git fetch origin ${targetBranch}:refs/remotes/origin/${targetBranch} 2>&1`;
 
         if (fetchBaseResult.code !== 0) {
           await log(`⚠️ Warning: Could not fetch latest ${targetBranch}`, { level: 'warning' });
           if (argv.verbose) {
-            await log(`   Fetch output: ${fetchBaseResult.stdout || fetchBaseResult.stderr || 'none'}`, { verbose: true });
+            await log(`   Fetch output: ${fetchBaseResult.stdout || fetchBaseResult.stderr || 'none'}`, {
+              verbose: true,
+            });
           }
         } else {
           await log(formatAligned('✅', 'Base updated:', `Fetched latest ${targetBranch}`));
@@ -711,7 +947,10 @@ Issue: ${issueUrl}`;
 
         // Verify there are commits between base and head before attempting PR creation
         await log(formatAligned('🔍', 'Checking:', 'Commits between branches...'));
-        const commitCheckResult = await $({ cwd: tempDir, silent: true })`git rev-list --count origin/${targetBranch}..HEAD 2>&1`;
+        const commitCheckResult = await $({
+          cwd: tempDir,
+          silent: true,
+        })`git rev-list --count origin/${targetBranch}..HEAD 2>&1`;
 
         if (commitCheckResult.code === 0) {
           const commitCount = parseInt(commitCheckResult.stdout.toString().trim(), 10);
@@ -721,7 +960,10 @@ Issue: ${issueUrl}`;
 
           if (commitCount === 0) {
             // Check if the branch was already merged
-            const mergedCheckResult = await $({ cwd: tempDir, silent: true })`git branch -r --merged origin/${targetBranch} | grep -q "origin/${branchName}" 2>&1`;
+            const mergedCheckResult = await $({
+              cwd: tempDir,
+              silent: true,
+            })`git branch -r --merged origin/${targetBranch} | grep -q "origin/${branchName}" 2>&1`;
             const wasAlreadyMerged = mergedCheckResult.code === 0;
 
             // No commits to create PR - branch is up to date with base or behind it
@@ -788,7 +1030,9 @@ Issue: ${issueUrl}`;
         } else {
           await log('⚠️ Warning: Could not verify commit count', { level: 'warning' });
           if (argv.verbose) {
-            await log(`   Check output: ${commitCheckResult.stdout || commitCheckResult.stderr || 'none'}`, { verbose: true });
+            await log(`   Check output: ${commitCheckResult.stdout || commitCheckResult.stderr || 'none'}`, {
+              verbose: true,
+            });
           }
         }
 
@@ -826,14 +1070,19 @@ _Details will be added as the solution draft is developed..._
           if (currentUser) {
             await log(`   Assignee: ${currentUser}`, { verbose: true });
           }
-          await log(`   PR Body:
-${prBody}`, { verbose: true });
+          await log(
+            `   PR Body:
+${prBody}`,
+            { verbose: true }
+          );
         }
 
-        // Use execSync for gh pr create to avoid command-stream output issues
+        // Use async exec for gh pr create to avoid command-stream output issues
         // Similar to how create-test-repo.mjs handles it
         try {
-          const { execSync } = await import('child_process');
+          const { exec } = await import('child_process');
+          const { promisify } = await import('util');
+          const execAsync = promisify(exec);
 
           // Write PR body to temp file to avoid shell escaping issues
           const prBodyFile = `/tmp/pr-body-${Date.now()}.md`;
@@ -867,11 +1116,14 @@ ${prBody}`, { verbose: true });
           }
 
           let output;
+          let prCreateStderr = '';
           let assigneeFailed = false;
 
           // Try to create PR with assignee first (if specified)
           try {
-            output = execSync(command, { encoding: 'utf8', cwd: tempDir });
+            const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+            output = result.stdout;
+            prCreateStderr = result.stderr || '';
           } catch (firstError) {
             // Check if the error is specifically about assignee validation
             const errorMsg = firstError.message || '';
@@ -879,7 +1131,9 @@ ${prBody}`, { verbose: true });
               // Assignee validation failed - retry without assignee
               assigneeFailed = true;
               await log('');
-              await log(formatAligned('⚠️', 'Warning:', `User assignment failed for '${currentUser}'`), { level: 'warning' });
+              await log(formatAligned('⚠️', 'Warning:', `User assignment failed for '${currentUser}'`), {
+                level: 'warning',
+              });
               await log('     Retrying PR creation without assignee...');
 
               // Rebuild command without --assignee flag
@@ -895,7 +1149,9 @@ ${prBody}`, { verbose: true });
               }
 
               // Retry without assignee - if this fails, let the error propagate to outer catch
-              output = execSync(command, { encoding: 'utf8', cwd: tempDir });
+              const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+              output = retryResult.stdout;
+              prCreateStderr = retryResult.stderr || '';
             } else {
               // Not an assignee error, re-throw the original error
               throw firstError;
@@ -903,20 +1159,28 @@ ${prBody}`, { verbose: true });
           }
 
           // Clean up temp files
-          await fs.unlink(prBodyFile).catch((unlinkError) => {
+          await fs.unlink(prBodyFile).catch(unlinkError => {
             reportError(unlinkError, {
               context: 'pr_body_file_cleanup',
               prBodyFile,
-              operation: 'delete_temp_file'
+              operation: 'delete_temp_file',
             });
           });
-          await fs.unlink(prTitleFile).catch((unlinkError) => {
+          await fs.unlink(prTitleFile).catch(unlinkError => {
             reportError(unlinkError, {
               context: 'pr_title_file_cleanup',
               prTitleFile,
-              operation: 'delete_temp_file'
+              operation: 'delete_temp_file',
             });
           });
+
+          // Log gh pr create output for debugging (Issue #1462)
+          if (argv.verbose) {
+            await log(`   gh pr create stdout: ${(output || '').trim() || '(empty)'}`, { verbose: true });
+            if (prCreateStderr) {
+              await log(`   gh pr create stderr: ${prCreateStderr.trim()}`, { verbose: true });
+            }
+          }
 
           // Extract PR URL from output - gh pr create outputs the URL to stdout
           prUrl = output.trim();
@@ -942,42 +1206,59 @@ ${prBody}`, { verbose: true });
 
               // CRITICAL: Verify the PR was actually created by querying GitHub API
               // This is essential because gh pr create can return a URL but PR creation might have failed
+              // Issue #1468: Use retry with exponential backoff because GitHub's API is eventually
+              // consistent — a newly created PR may not be visible via gh pr view for several seconds.
+              // This matches the existing retry pattern used for the compare API (lines 571-624).
               await log(formatAligned('🔍', 'Verifying:', 'PR creation...'), { verbose: true });
-              const verifyResult = await $({ silent: true })`gh pr view ${localPrNumber} --repo ${owner}/${repo} --json number,url,state 2>&1`;
 
-              if (verifyResult.code === 0) {
-                try {
-                  const prData = JSON.parse(verifyResult.stdout.toString().trim());
-                  if (prData.number && prData.url) {
-                    await log(formatAligned('✅', 'Verification:', 'PR exists on GitHub'), { verbose: true });
-                    // Update prUrl and localPrNumber from verified data
-                    prUrl = prData.url;
-                    localPrNumber = String(prData.number);
-                  } else {
-                    throw new Error('PR data incomplete');
-                  }
-                } catch {
-                  await log('❌ PR verification failed: Could not parse PR data', { level: 'error' });
-                  throw new Error('PR creation verification failed - invalid response');
+              let prVerified = false;
+              let verifyAttempts = 0;
+              const maxVerifyAttempts = 5;
+              let lastVerifyResult = null;
+
+              while (!prVerified && verifyAttempts < maxVerifyAttempts) {
+                verifyAttempts++;
+                const waitTime = Math.min(2000 * verifyAttempts, 10000); // 2s, 4s, 6s, 8s, 10s
+
+                if (verifyAttempts > 1) {
+                  await log(`   Retry ${verifyAttempts}/${maxVerifyAttempts}: Waiting ${waitTime}ms for GitHub to propagate PR...`);
                 }
-              } else {
-                // PR does not exist - gh pr create must have failed silently
-                await log('');
-                await log(formatAligned('❌', 'FATAL ERROR:', 'PR creation failed'), { level: 'error' });
-                await log('');
-                await log('  🔍 What happened:');
-                await log('     The gh pr create command returned a URL, but the PR does not exist on GitHub.');
-                await log('');
-                await log('  🔧 How to fix:');
-                await log('     1. Check if PR exists manually:');
-                await log(`        gh pr list --repo ${owner}/${repo} --head ${branchName}`);
-                await log('     2. Try creating PR manually:');
-                await log(`        cd ${tempDir}`);
-                await log(`        gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
-                await log('     3. Check GitHub authentication:');
-                await log('        gh auth status');
-                await log('');
-                throw new Error('PR creation failed - PR does not exist on GitHub');
+
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+
+                lastVerifyResult = await $({
+                  silent: true,
+                })`gh pr view ${localPrNumber} --repo ${owner}/${repo} --json number,url,state 2>&1`;
+
+                if (lastVerifyResult.code === 0) {
+                  try {
+                    const prData = JSON.parse(lastVerifyResult.stdout.toString().trim());
+                    if (prData.number && prData.url) {
+                      await log(formatAligned('✅', 'Verification:', `PR exists on GitHub (attempt ${verifyAttempts}/${maxVerifyAttempts})`), { verbose: true });
+                      // Update prUrl and localPrNumber from verified data
+                      prUrl = prData.url;
+                      localPrNumber = String(prData.number);
+                      prVerified = true;
+                    }
+                  } catch {
+                    // Parse failed, will retry
+                    if (argv.verbose) {
+                      await log(`   Verify attempt ${verifyAttempts}: Could not parse PR data, retrying...`, { verbose: true });
+                    }
+                  }
+                } else if (argv.verbose) {
+                  const attemptStderr = lastVerifyResult.stderr ? lastVerifyResult.stderr.toString().trim() : '';
+                  await log(`   Verify attempt ${verifyAttempts}: PR not found yet${attemptStderr ? ` (${attemptStderr})` : ''}`, { verbose: true });
+                }
+              }
+
+              if (!prVerified) {
+                // PR does not exist after all retries - gh pr create must have failed silently
+                // Issue #1462: Include gh pr create stderr for root cause diagnosis
+                const verifyStderr = lastVerifyResult && lastVerifyResult.stderr ? lastVerifyResult.stderr.toString().trim() : '';
+                const stderrInfo = prCreateStderr ? ` (gh pr create stderr: ${prCreateStderr.trim()})` : '';
+                const verifyInfo = verifyStderr ? ` (gh pr view stderr: ${verifyStderr})` : '';
+                throw new Error(`PR verification failed - gh pr create returned URL "${prUrl}" but PR #${localPrNumber} does not exist on GitHub after ${maxVerifyAttempts} verification attempts${stderrInfo}${verifyInfo}`);
               }
               // Store PR info globally for error handlers
               global.createdPR = { number: localPrNumber, url: prUrl };
@@ -1051,18 +1332,24 @@ ${prBody}`, { verbose: true });
                 const linkCheckResult = await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${localPrNumber}) { closingIssuesReferences(first: 10) { nodes { number } } } } }' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'`;
 
                 if (linkCheckResult.code === 0) {
-                  const linkedIssues = linkCheckResult.stdout.toString().trim().split('\n').filter(n => n);
-                  if (linkedIssues.includes(issueNumber)) {
+                  const linkedIssues = parseClosingIssueNumbers(linkCheckResult.stdout);
+                  if (closingIssueNumbersContain(linkedIssues, issueNumber)) {
                     await log(formatAligned('✅', 'Link verified:', `Issue #${issueNumber} → PR #${localPrNumber}`));
                   } else {
                     // This is a problem - the link wasn't created
                     await log('');
-                    await log(formatAligned('⚠️', 'ISSUE LINK MISSING:', 'PR not linked to issue'), { level: 'warning' });
+                    await log(formatAligned('⚠️', 'ISSUE LINK MISSING:', 'PR not linked to issue'), {
+                      level: 'warning',
+                    });
                     await log('');
 
                     if (argv.fork) {
-                      await log('   The PR was created from a fork but wasn\'t linked to the issue.', { level: 'warning' });
-                      await log(`   Expected: "Fixes ${owner}/${repo}#${issueNumber}" in PR body`, { level: 'warning' });
+                      await log("   The PR was created from a fork but wasn't linked to the issue.", {
+                        level: 'warning',
+                      });
+                      await log(`   Expected: "Fixes ${owner}/${repo}#${issueNumber}" in PR body`, {
+                        level: 'warning',
+                      });
                       await log('');
                       await log('   To fix manually:', { level: 'warning' });
                       await log(`   1. Edit the PR description at: ${prUrl}`, { level: 'warning' });
@@ -1089,7 +1376,7 @@ ${prBody}`, { verbose: true });
                   context: 'pr_issue_link_verification',
                   prUrl,
                   issueNumber,
-                  operation: 'verify_issue_link'
+                  operation: 'verify_issue_link',
                 });
                 const expectedRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
                 await log(`⚠️ Could not verify issue linking: ${linkError.message}`, { level: 'warning' });
@@ -1110,75 +1397,24 @@ ${prBody}`, { verbose: true });
             context: 'pr_creation',
             issueNumber,
             branchName,
-            operation: 'create_pull_request'
+            operation: 'create_pull_request',
           });
+          // Issue #1462: Don't log verbose error block here - let the outer catch
+          // handler produce a single consolidated error message to avoid triple error output.
+          // Extract clean error message and re-throw with context.
           const errorMsg = prCreateError.message || '';
-
-          // Clean up the error message - extract the meaningful part
           let cleanError = errorMsg;
           if (errorMsg.includes('pull request create failed:')) {
             cleanError = errorMsg.split('pull request create failed:')[1].trim();
           } else if (errorMsg.includes('Command failed:')) {
-            // Extract just the error part, not the full command
             const lines = errorMsg.split('\n');
             cleanError = lines[lines.length - 1] || errorMsg;
           }
 
-          // Check for specific error types
-          // Note: Assignee errors are now handled by automatic retry in the try block above
-          // This catch block only handles other types of PR creation failures
-          if (errorMsg.includes('No commits between') || errorMsg.includes('Head sha can\'t be blank')) {
-            // Empty PR error
-            await log('');
-            await log(formatAligned('❌', 'PR CREATION FAILED', ''), { level: 'error' });
-            await log('');
-            await log('  🔍 What happened:');
-            await log('     Cannot create PR - no commits between branches.');
-            await log('');
-            await log('  📦 Error details:');
-            for (const line of cleanError.split('\n')) {
-              if (line.trim()) await log(`     ${line.trim()}`);
-            }
-            await log('');
-            await log('  💡 Possible causes:');
-            await log('     • The branch wasn\'t pushed properly');
-            await log('     • The commit wasn\'t created');
-            await log('     • GitHub sync issue');
-            await log('');
-            await log('  🔧 How to fix:');
-            await log('     1. Verify commit exists:');
-            await log(`        cd ${tempDir} && git log --format="%h %s" -5`);
-            await log('     2. Push again with tracking:');
-            await log(`        cd ${tempDir} && git push -u origin ${branchName}`);
-            await log('     3. Create PR manually:');
-            await log(`        cd ${tempDir} && gh pr create --draft`);
-            await log('');
-            await log(`  📂 Working directory: ${tempDir}`);
-            await log(`  🌿 Current branch: ${branchName}`);
-            await log('');
-            throw new Error('PR creation failed - no commits between branches');
+          if (errorMsg.includes('No commits between') || errorMsg.includes("Head sha can't be blank")) {
+            throw new Error(`PR creation failed - no commits between branches: ${cleanError}`);
           } else {
-            // Generic PR creation error
-            await log('');
-            await log(formatAligned('❌', 'PR CREATION FAILED', ''), { level: 'error' });
-            await log('');
-            await log('  🔍 What happened:');
-            await log('     Failed to create pull request.');
-            await log('');
-            await log('  📦 Error details:');
-            for (const line of cleanError.split('\n')) {
-              if (line.trim()) await log(`     ${line.trim()}`);
-            }
-            await log('');
-            await log('  🔧 How to fix:');
-            await log('     1. Try creating PR manually:');
-            await log(`        cd ${tempDir} && gh pr create --draft`);
-            await log('     2. Check branch status:');
-            await log(`        cd ${tempDir} && git status`);
-            await log('     3. Verify GitHub authentication:');
-            await log('        gh auth status');
-            await log('');
-            throw new Error('PR creation failed');
+            throw new Error(`PR creation failed: ${cleanError}`);
           }
         }
       }
@@ -1187,26 +1423,25 @@ ${prBody}`, { verbose: true });
     reportError(prError, {
       context: 'auto_pr_creation',
       issueNumber,
-      operation: 'handle_auto_pr'
+      operation: 'handle_auto_pr',
     });
 
-    // CRITICAL: PR creation failure should stop the entire process
-    // We cannot continue without a PR when auto-PR creation is enabled
+    // Issue #1462: Single consolidated error message for PR creation failure.
+    // Previously this was the third of three error blocks, causing confusing output.
+    // Now this is the ONLY error block shown for PR creation failures.
     await log('');
     await log(formatAligned('❌', 'FATAL ERROR:', 'PR creation failed'), { level: 'error' });
     await log('');
-    await log('  🔍 What this means:');
-    await log('     The solve command cannot continue without a pull request.');
-    await log('     Auto-PR creation is enabled but failed to create the PR.');
-    await log('');
-    await log('  📦 Error details:');
+    await log('  🔍 What happened:');
     await log(`     ${prError.message}`);
+    await log('');
+    await log('  💡 The solve command cannot continue without a pull request.');
     await log('');
     await log('  🔧 How to fix:');
     await log('');
     await log('  Option 1: Retry without auto-PR creation');
     await log(`     ./solve.mjs "${issueUrl}" --no-auto-pull-request-creation`);
-    await log('     (Claude will create the PR during the session)');
+    await log('     (The AI agent will create the PR during the session)');
     await log('');
     await log('  Option 2: Create PR manually first');
     await log(`     cd ${tempDir}`);
@@ -1220,8 +1455,9 @@ ${prBody}`, { verbose: true });
     await log('     gh pr create --draft  # Try manually to see detailed error');
     await log('');
 
-    // Re-throw the error to stop execution
-    throw new Error(`PR creation failed: ${prError.message}`);
+    // Re-throw the error to stop execution - use prError.message directly
+    // to avoid "PR creation failed: PR creation failed" redundancy (Issue #1462)
+    throw prError;
   }
 
   return { prUrl, prNumber: localPrNumber, claudeCommitHash };

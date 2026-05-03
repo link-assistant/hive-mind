@@ -66,7 +66,7 @@ try {
   const resumedSessionId = parseJsonLine(result3.stdout, 0, 'session_id');
   const resultData = findResultLine(result3.stdout);
   const response = resultData.result;
-  
+
   console.log(`   ✅ Resumed from: ${sessionId}`);
   console.log(`   ✅ New session ID: ${resumedSessionId}`);
   console.log(`   ✅ Context restored: ${response.toLowerCase().includes('blue') ? 'YES' : 'NO'}`);
@@ -88,7 +88,6 @@ try {
   console.log('✅ Session restoration works with --resume (creates new ID but keeps context)');
   console.log('✅ Context is maintained across resumed sessions');
   console.log('✅ JSON parsing is robust with proper error handling');
-
 } catch (error) {
   console.error('❌ Test failed:', error.message);
   if (error.stack) {

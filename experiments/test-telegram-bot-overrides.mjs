@@ -62,50 +62,50 @@ const tests = [
     name: 'No overrides - returns user args unchanged',
     userArgs: ['https://github.com/owner/repo/issues/123', '--verbose', '--fork'],
     overrides: [],
-    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--fork']
+    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--fork'],
   },
   {
     name: 'Boolean flag override - removes user flag',
     userArgs: ['https://github.com/owner/repo/issues/123', '--verbose'],
     overrides: ['--auto-continue'],
-    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--auto-continue']
+    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--auto-continue'],
   },
   {
     name: 'Duplet override - removes user duplet',
     userArgs: ['https://github.com/owner/repo/issues/123', '--tool', 'haiku'],
     overrides: ['--tool', 'opencode'],
-    expected: ['https://github.com/owner/repo/issues/123', '--tool', 'opencode']
+    expected: ['https://github.com/owner/repo/issues/123', '--tool', 'opencode'],
   },
   {
     name: 'Multiple overrides with mixed types',
     userArgs: ['https://github.com/owner/repo/issues/123', '--verbose', '--tool', 'haiku', '--fork'],
     overrides: ['--auto-continue', '--attach-logs', '--tool', 'opencode'],
-    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--fork', '--auto-continue', '--attach-logs', '--tool', 'opencode']
+    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--fork', '--auto-continue', '--attach-logs', '--tool', 'opencode'],
   },
   {
     name: 'Override replaces existing flag',
     userArgs: ['https://github.com/owner/repo/issues/123', '--auto-continue', '--verbose'],
     overrides: ['--auto-continue'],
-    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--auto-continue']
+    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--auto-continue'],
   },
   {
     name: 'Multiple duplets with same flag',
     userArgs: ['https://github.com/owner/repo/issues/123', '--model', 'haiku', '--verbose'],
     overrides: ['--model', 'sonnet', '--think', 'max'],
-    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--model', 'sonnet', '--think', 'max']
+    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--model', 'sonnet', '--think', 'max'],
   },
   {
     name: 'Complex real-world scenario',
     userArgs: ['https://github.com/owner/repo/issues/123', '--fork', '--model', 'haiku', '--verbose'],
     overrides: ['--auto-continue', '--attach-logs', '--verbose', '--tool', 'opencode'],
-    expected: ['https://github.com/owner/repo/issues/123', '--fork', '--model', 'haiku', '--auto-continue', '--attach-logs', '--verbose', '--tool', 'opencode']
+    expected: ['https://github.com/owner/repo/issues/123', '--fork', '--model', 'haiku', '--auto-continue', '--attach-logs', '--verbose', '--tool', 'opencode'],
   },
   {
     name: 'URL preserved as first argument',
     userArgs: ['https://github.com/owner/repo/issues/123'],
     overrides: ['--auto-continue', '--verbose'],
-    expected: ['https://github.com/owner/repo/issues/123', '--auto-continue', '--verbose']
-  }
+    expected: ['https://github.com/owner/repo/issues/123', '--auto-continue', '--verbose'],
+  },
 ];
 
 let passed = 0;

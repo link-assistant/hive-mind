@@ -571,6 +571,7 @@ bot.command('help', async ctx => {
   message += '*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental, #1688)\n';
   message += '*/help* - Show this help message\n';
   message += '*/stop* / */start* - Stop or resume accepting new tasks (owner only)\n';
+  message += '*/stop* `<uuid>` - Send CTRL+C to an isolated solve/hive session (owner only). Also works as a reply to a message containing the UUID.\n';
   message += '*/log* - Fetch isolation session log (owner only). Usage: `/log <uuid>` or reply with `/log`\n';
   message += '*/terminal\\_watch* - Live-update an isolation session log (owner only). Usage: `/terminal_watch <uuid>` or reply with `/terminal_watch`\n\n';
   message += '🔔 *Session Notifications:* Completion notifications are automatic; use /subscribe for private DM forwards.\n';

@@ -31,6 +31,7 @@
 ## Message Format
 
 ### User Message (Input)
+
 ```json
 {
   "type": "user",
@@ -47,6 +48,7 @@
 ```
 
 ### System Init Message (Output)
+
 ```json
 {
   "type": "system",
@@ -60,6 +62,7 @@
 ```
 
 ### Assistant Message (Output)
+
 ```json
 {
   "type": "assistant",
@@ -81,6 +84,7 @@
 ```
 
 ### Stream Event (Output with --include-partial-messages)
+
 ```json
 {
   "type": "stream_event",
@@ -97,6 +101,7 @@
 ```
 
 ### Result Message (Output)
+
 ```json
 {
   "type": "result",
@@ -112,6 +117,7 @@
 ```
 
 ### User Message Replay (Output with --replay-user-messages)
+
 ```json
 {
   "type": "user",
@@ -127,12 +133,14 @@
 ## Example Usage
 
 ### Basic Streaming I/O
+
 ```bash
 echo '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Hello"}]}}' | \
   claude -p --output-format=stream-json --input-format=stream-json --verbose
 ```
 
 ### Multi-Turn with Partial Messages
+
 ```bash
 {
   echo '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Remember: 42"}]}}'
@@ -142,6 +150,7 @@ echo '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"
 ```
 
 ### Stream Chaining
+
 ```bash
 claude -p --output-format=stream-json "Analyze this" | \
   claude -p --input-format=stream-json --output-format=stream-json "Summarize" | \

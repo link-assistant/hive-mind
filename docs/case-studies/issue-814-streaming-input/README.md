@@ -25,7 +25,7 @@ Claude Code CLI supports streaming input via the `--input-format stream-json` fl
 Messages must be sent in NDJSON (Newline-Delimited JSON) format:
 
 ```json
-{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Your message here"}]}}
+{ "type": "user", "message": { "role": "user", "content": [{ "type": "text", "text": "Your message here" }] } }
 ```
 
 ### 3. Bidirectional Streaming: Queued, Not Simultaneous
@@ -33,40 +33,46 @@ Messages must be sent in NDJSON (Newline-Delimited JSON) format:
 **Critical Finding**: While you CAN send input while receiving output, the input is **queued** and processed only after the current response completes. Claude does NOT interrupt its current response to process new input.
 
 **Evidence from Experiment 08**:
+
 - Content deltas before interrupt: 2
 - Content deltas after interrupt: 65
 - The interrupt message was processed as a separate turn AFTER the first response completed
 
 ### 4. Relevant CLI Flags
 
-| Flag | Purpose |
-|------|---------|
-| `--input-format stream-json` | Accept streaming JSON input via stdin |
-| `--output-format stream-json` | Stream JSON output |
-| `--include-partial-messages` | Include partial streaming events |
-| `--replay-user-messages` | Echo user messages back for acknowledgment |
-| `--verbose` | Required when using stream-json output with -p |
-| `-p, --print` | Non-interactive (headless) mode |
+| Flag                          | Purpose                                        |
+| ----------------------------- | ---------------------------------------------- |
+| `--input-format stream-json`  | Accept streaming JSON input via stdin          |
+| `--output-format stream-json` | Stream JSON output                             |
+| `--include-partial-messages`  | Include partial streaming events               |
+| `--replay-user-messages`      | Echo user messages back for acknowledgment     |
+| `--verbose`                   | Required when using stream-json output with -p |
+| `-p, --print`                 | Non-interactive (headless) mode                |
 
 ## Detailed Experiment Results
 
 ### Experiment 01: Basic Stream-JSON Input
+
 - **Result**: SUCCESS
 - **Finding**: Single messages can be sent via stdin in stream-json format
 
 ### Experiment 02: Multi-Turn Conversations
+
 - **Result**: SUCCESS
 - **Finding**: Multiple messages maintain conversation context (Claude remembered "42")
 
 ### Experiment 04: Replay User Messages
+
 - **Result**: SUCCESS
 - **Finding**: `--replay-user-messages` echoes messages with `"isReplay": true`
 
 ### Experiment 07: Partial Messages
+
 - **Result**: SUCCESS
 - **Finding**: `--include-partial-messages` shows token-by-token streaming events
 
 ### Experiment 08: True Bidirectional Test
+
 - **Result**: PARTIAL SUCCESS
 - **Finding**: Input during output is accepted but QUEUED, not immediately processed
 
@@ -102,6 +108,7 @@ Messages must be sent in NDJSON (Newline-Delimited JSON) format:
 ## Possible Solutions/Workarounds
 
 ### Option 1: Session-Based Multi-Turn (Recommended)
+
 Use `--input-format stream-json` for multi-turn conversations where each message is queued and processed in sequence.
 
 ```bash
@@ -113,6 +120,7 @@ Use `--input-format stream-json` for multi-turn conversations where each message
 ```
 
 ### Option 2: Session Resume for Pseudo-Bidirectional
+
 Launch multiple Claude processes, resuming the same session:
 
 ```bash
@@ -125,6 +133,7 @@ claude --resume "$SESSION_ID" -p "Follow-up" --output-format json
 ```
 
 ### Option 3: Stream Chaining for Agent Pipelines
+
 Chain multiple Claude instances for complex workflows:
 
 ```bash
@@ -134,6 +143,7 @@ claude -p --output-format stream-json "Analyze" | \
 ```
 
 ### Option 4: Custom Wrapper with Rate Limiting
+
 Build a wrapper that monitors output and batches input appropriately:
 
 ```javascript
@@ -141,7 +151,7 @@ Build a wrapper that monitors output and batches input appropriately:
 const claude = spawn('claude', [...streamingFlags]);
 const inputQueue = [];
 
-claude.stdout.on('data', (data) => {
+claude.stdout.on('data', data => {
   if (isResponseComplete(data)) {
     if (inputQueue.length > 0) {
       claude.stdin.write(inputQueue.shift());
@@ -159,6 +169,7 @@ function sendMessage(msg) {
 **The `claude` command DOES support streaming input**, but it operates on a **queued, sequential model** rather than true simultaneous bidirectional streaming. Messages sent while output is being generated are accepted and queued, then processed after the current response completes.
 
 For use cases requiring true real-time bidirectional communication, consider:
+
 1. Using the streaming input as-is with appropriate flow control
 2. Building a wrapper layer to manage message queuing
 3. Using session resume for more complex interaction patterns

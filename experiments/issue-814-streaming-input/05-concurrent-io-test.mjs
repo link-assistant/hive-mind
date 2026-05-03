@@ -9,17 +9,12 @@
 
 import { spawn } from 'child_process';
 
-console.log("=== Experiment 05: Concurrent I/O Streaming Test ===");
-console.log("Goal: Determine if input can be sent WHILE output is being generated");
-console.log("");
+console.log('=== Experiment 05: Concurrent I/O Streaming Test ===');
+console.log('Goal: Determine if input can be sent WHILE output is being generated');
+console.log('');
 
-const claude = spawn('claude', [
-  '-p',
-  '--output-format=stream-json',
-  '--input-format=stream-json',
-  '--replay-user-messages'
-], {
-  stdio: ['pipe', 'pipe', 'pipe']
+const claude = spawn('claude', ['-p', '--output-format=stream-json', '--input-format=stream-json', '--replay-user-messages'], {
+  stdio: ['pipe', 'pipe', 'pipe'],
 });
 
 let outputLines = [];
@@ -29,14 +24,17 @@ let receivingOutput = false;
 let inputSentDuringOutput = false;
 
 // Track when output starts
-claude.stdout.on('data', (data) => {
-  const lines = data.toString().split('\n').filter(l => l.trim());
+claude.stdout.on('data', data => {
+  const lines = data
+    .toString()
+    .split('\n')
+    .filter(l => l.trim());
   lines.forEach(line => {
     outputCount++;
     outputLines.push({
       timestamp: Date.now(),
       type: 'output',
-      data: line.substring(0, 100)
+      data: line.substring(0, 100),
     });
     console.log(`[OUT ${outputCount}]:`, line.substring(0, 80));
 
@@ -49,20 +47,20 @@ claude.stdout.on('data', (data) => {
       setTimeout(() => {
         if (receivingOutput) {
           inputSentDuringOutput = true;
-          sendInput("INTERRUPT: This message sent while receiving output");
+          sendInput('INTERRUPT: This message sent while receiving output');
         }
       }, 100);
     }
   });
 });
 
-claude.stderr.on('data', (data) => {
+claude.stderr.on('data', data => {
   console.log('[STDERR]:', data.toString().substring(0, 100));
 });
 
-claude.on('close', (code) => {
+claude.on('close', code => {
   console.log(`\n[EXIT] Process exited with code ${code}`);
-  console.log("\n=== ANALYSIS ===");
+  console.log('\n=== ANALYSIS ===');
   console.log(`Total inputs sent: ${inputCount}`);
   console.log(`Total output lines received: ${outputCount}`);
   console.log(`Input sent during output: ${inputSentDuringOutput}`);
@@ -73,26 +71,26 @@ claude.on('close', (code) => {
 
   if (inputs.length > 1 && outputs.length > 0) {
     // Check if any input was sent between outputs
-    console.log("\nConcurrency analysis: checking if inputs were interleaved with outputs...");
+    console.log('\nConcurrency analysis: checking if inputs were interleaved with outputs...');
   }
 
-  console.log("\n=== Test Complete ===");
+  console.log('\n=== Test Complete ===');
 });
 
 function sendInput(text) {
   inputCount++;
   const message = JSON.stringify({
-    type: "user",
+    type: 'user',
     message: {
-      role: "user",
-      content: [{ type: "text", text }]
-    }
+      role: 'user',
+      content: [{ type: 'text', text }],
+    },
   });
 
   outputLines.push({
     timestamp: Date.now(),
     type: 'input',
-    data: text.substring(0, 50)
+    data: text.substring(0, 50),
   });
 
   console.log(`[IN ${inputCount}]:`, text.substring(0, 50));
@@ -100,7 +98,7 @@ function sendInput(text) {
 }
 
 // Send initial prompt that will generate a longer response
-sendInput("Please count from 1 to 20, saying each number on a new line with a brief pause between each.");
+sendInput('Please count from 1 to 20, saying each number on a new line with a brief pause between each.');
 
 // Set timeout to end the test
 setTimeout(() => {

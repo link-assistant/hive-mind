@@ -10,20 +10,12 @@
 
 import { spawn } from 'child_process';
 
-console.log("=== Experiment 08: True Bidirectional Streaming Test ===");
-console.log("Testing if we can send input WHILE output is being streamed");
-console.log("");
+console.log('=== Experiment 08: True Bidirectional Streaming Test ===');
+console.log('Testing if we can send input WHILE output is being streamed');
+console.log('');
 
-const claude = spawn('claude', [
-  '-p',
-  '--output-format=stream-json',
-  '--input-format=stream-json',
-  '--include-partial-messages',
-  '--replay-user-messages',
-  '--verbose',
-  '--dangerously-skip-permissions'
-], {
-  stdio: ['pipe', 'pipe', 'pipe']
+const claude = spawn('claude', ['-p', '--output-format=stream-json', '--input-format=stream-json', '--include-partial-messages', '--replay-user-messages', '--verbose', '--dangerously-skip-permissions'], {
+  stdio: ['pipe', 'pipe', 'pipe'],
 });
 
 let streamEventCount = 0;
@@ -33,8 +25,11 @@ let contentDeltasAfterInterrupt = 0;
 let interruptSent = false;
 
 // Handle stdout
-claude.stdout.on('data', (data) => {
-  const lines = data.toString().split('\n').filter(l => l.trim());
+claude.stdout.on('data', data => {
+  const lines = data
+    .toString()
+    .split('\n')
+    .filter(l => l.trim());
 
   lines.forEach(line => {
     try {
@@ -54,8 +49,8 @@ claude.stdout.on('data', (data) => {
 
         // After seeing some content, try to interrupt
         if (contentDeltasBeforeInterrupt === 2 && !interruptSent) {
-          console.log("\n>>> SENDING INTERRUPT MESSAGE NOW <<<\n");
-          sendMessage("STOP! I have a new question: What is 3+3?");
+          console.log('\n>>> SENDING INTERRUPT MESSAGE NOW <<<\n');
+          sendMessage('STOP! I have a new question: What is 3+3?');
           interruptSent = true;
           messageSentDuringStream = true;
         }
@@ -70,7 +65,6 @@ claude.stdout.on('data', (data) => {
       if (json.type === 'result') {
         console.log(`[TURN COMPLETE] num_turns: ${json.num_turns}`);
       }
-
     } catch (e) {
       // Not JSON, just log it
       console.log(`[RAW]: ${line.substring(0, 50)}`);
@@ -78,39 +72,39 @@ claude.stdout.on('data', (data) => {
   });
 });
 
-claude.stderr.on('data', (data) => {
+claude.stderr.on('data', data => {
   console.log('[STDERR]:', data.toString().substring(0, 100));
 });
 
-claude.on('close', (code) => {
+claude.on('close', code => {
   console.log(`\n[EXIT] Process exited with code ${code}`);
-  console.log("\n=== ANALYSIS ===");
+  console.log('\n=== ANALYSIS ===');
   console.log(`Total stream events: ${streamEventCount}`);
   console.log(`Content deltas before interrupt: ${contentDeltasBeforeInterrupt}`);
   console.log(`Content deltas after interrupt: ${contentDeltasAfterInterrupt}`);
   console.log(`Interrupt sent during stream: ${messageSentDuringStream}`);
 
   if (contentDeltasAfterInterrupt > 0 && messageSentDuringStream) {
-    console.log("\n>>> FINDING: Claude continued streaming after interrupt was sent.");
-    console.log(">>> This suggests the interrupt is QUEUED, not immediately processed.");
+    console.log('\n>>> FINDING: Claude continued streaming after interrupt was sent.');
+    console.log('>>> This suggests the interrupt is QUEUED, not immediately processed.');
   }
 
-  console.log("\n=== Test Complete ===");
+  console.log('\n=== Test Complete ===');
 });
 
 function sendMessage(text) {
   const message = JSON.stringify({
-    type: "user",
+    type: 'user',
     message: {
-      role: "user",
-      content: [{ type: "text", text }]
-    }
+      role: 'user',
+      content: [{ type: 'text', text }],
+    },
   });
   claude.stdin.write(message + '\n');
 }
 
 // Send initial prompt that will generate a longer response
-sendMessage("Write a short poem about the ocean. Make it at least 8 lines long.");
+sendMessage('Write a short poem about the ocean. Make it at least 8 lines long.');
 
 // Set timeouts
 setTimeout(() => {

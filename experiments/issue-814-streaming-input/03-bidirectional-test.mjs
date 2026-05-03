@@ -8,19 +8,13 @@
 
 import { spawn } from 'child_process';
 
-console.log("=== Experiment 03: Bidirectional Streaming Test ===");
-console.log("Testing if input can be sent while output is being received");
-console.log("");
+console.log('=== Experiment 03: Bidirectional Streaming Test ===');
+console.log('Testing if input can be sent while output is being received');
+console.log('');
 
 // Spawn claude with stream-json input/output
-const claude = spawn('claude', [
-  '-p',
-  '--output-format=stream-json',
-  '--input-format=stream-json',
-  '--verbose',
-  '--dangerously-skip-permissions'
-], {
-  stdio: ['pipe', 'pipe', 'pipe']
+const claude = spawn('claude', ['-p', '--output-format=stream-json', '--input-format=stream-json', '--verbose', '--dangerously-skip-permissions'], {
+  stdio: ['pipe', 'pipe', 'pipe'],
 });
 
 let outputBuffer = '';
@@ -28,7 +22,7 @@ let messagesSent = 0;
 const maxMessages = 3;
 
 // Handle stdout (Claude's output)
-claude.stdout.on('data', (data) => {
+claude.stdout.on('data', data => {
   const text = data.toString();
   outputBuffer += text;
   console.log('[STDOUT]:', text.substring(0, 200));
@@ -42,29 +36,29 @@ claude.stdout.on('data', (data) => {
 });
 
 // Handle stderr
-claude.stderr.on('data', (data) => {
+claude.stderr.on('data', data => {
   console.log('[STDERR]:', data.toString().substring(0, 200));
 });
 
 // Handle process exit
-claude.on('close', (code) => {
+claude.on('close', code => {
   console.log(`\n[EXIT] Claude process exited with code ${code}`);
   console.log(`[STATS] Total messages sent: ${messagesSent}`);
-  console.log("\n=== Test Complete ===");
+  console.log('\n=== Test Complete ===');
 });
 
-claude.on('error', (err) => {
+claude.on('error', err => {
   console.error('[ERROR]:', err.message);
 });
 
 // Function to send a message to Claude
 function sendMessage(text) {
   const message = JSON.stringify({
-    type: "user",
+    type: 'user',
     message: {
-      role: "user",
-      content: [{ type: "text", text }]
-    }
+      role: 'user',
+      content: [{ type: 'text', text }],
+    },
   });
 
   console.log(`[SENDING MESSAGE ${messagesSent + 1}]:`, text.substring(0, 50));
@@ -73,7 +67,7 @@ function sendMessage(text) {
 }
 
 // Send initial message
-sendMessage("What is 2+2? Please explain step by step.");
+sendMessage('What is 2+2? Please explain step by step.');
 
 // Set a timeout to close stdin after some time
 setTimeout(() => {

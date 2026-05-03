@@ -256,6 +256,55 @@ export async function querySessionStatus(sessionId, verbose = false) {
 }
 
 /**
+ * Ask the `$` CLI to gracefully stop an isolated session by sending CTRL+C.
+ *
+ * Wraps `$ --stop <uuid>` from start-command (link-foundation/start#112).
+ * Works for any isolation backend (screen, tmux, docker, …) — `$` knows the
+ * backend it launched with and forwards the interrupt accordingly.
+ *
+ * @param {string} sessionId - UUID of the session to stop
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<{success: boolean, output: string, error: string|null}>}
+ */
+export async function stopIsolatedSession(sessionId, verbose = false) {
+  const binPath = await findStartCommandBinary();
+  if (!binPath) {
+    if (verbose) {
+      console.log('[VERBOSE] isolation-runner: Cannot stop session - $ binary not found');
+    }
+    return {
+      success: false,
+      output: '',
+      error: '`$` (start-command) binary not found on PATH. Install link-foundation/start to use /stop <UUID>.',
+    };
+  }
+
+  try {
+    const result = await $({ mirror: false })`${binPath} --stop ${sessionId}`;
+    const stdout = result.stdout?.toString() || '';
+    const stderr = result.stderr?.toString() || '';
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: $ --stop ${sessionId} stdout: ${stdout.substring(0, 300)}`);
+      if (stderr) {
+        console.log(`[VERBOSE] isolation-runner: $ --stop ${sessionId} stderr: ${stderr.substring(0, 300)}`);
+      }
+    }
+    return { success: true, output: stdout || stderr, error: null };
+  } catch (error) {
+    const stderr = error?.stderr?.toString?.() || '';
+    const stdout = error?.stdout?.toString?.() || '';
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: $ --stop ${sessionId} failed: ${error.message}`);
+    }
+    return {
+      success: false,
+      output: stdout,
+      error: stderr.trim() || error?.message || String(error),
+    };
+  }
+}
+
+/**
  * Check if a screen session exists via `screen -ls`.
  * Used as a fallback when `$ --status` fails to find or correctly track
  * screen-based isolation sessions.

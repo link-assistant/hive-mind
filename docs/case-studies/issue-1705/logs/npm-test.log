@@ -1,0 +1,3770 @@
+
+> @link-assistant/hive-mind@1.61.0 test
+> node scripts/run-tests.mjs --suite default
+
+Running 80 default test file(s)...
+
+[1/80] tests/limits-display.test.mjs
+
+📋 Progress Bar Tests
+
+✅ getProgressBar returns correct length
+✅ getProgressBar at 0% shows all empty
+✅ getProgressBar at 100% shows all filled
+✅ getProgressBar at 50% shows half filled
+✅ getProgressBar handles edge values
+
+📋 Progress Bar Threshold Marker Tests (Issue #1242)
+
+✅ getProgressBar with threshold returns correct length
+✅ getProgressBar with threshold includes marker character
+✅ getProgressBar with threshold at 65% places marker correctly
+✅ getProgressBar with threshold at 90% places marker correctly
+✅ getProgressBar with threshold at 97% places marker correctly
+✅ getProgressBar with null threshold returns original format
+✅ getProgressBar threshold marker replaces one block
+✅ DISPLAY_THRESHOLDS constants are defined
+✅ formatCodexLimitsSection renders 5 hour and weekly sections
+✅ formatCodexLimitsSection renders error state
+
+📋 Math.floor Percentage Tests (Issue #1133)
+
+✅ formatUsageMessage uses Math.floor for session percentage
+✅ formatUsageMessage shows 100% only when exactly 100
+✅ formatUsageMessage floors various percentages correctly
+✅ Math.floor ensures 100% means exactly full
+
+📋 Time Passed Percentage Tests
+
+✅ calculateTimePassedPercentage returns null for null input
+✅ calculateTimePassedPercentage returns valid percentage for future date
+✅ calculateTimePassedPercentage handles 5-hour period
+✅ calculateTimePassedPercentage handles 168-hour period (weekly)
+
+📋 formatUsageMessage Comprehensive Tests
+
+✅ formatUsageMessage includes all required sections
+✅ formatUsageMessage handles null percentages
+✅ formatUsageMessage includes optional system info
+✅ formatUsageMessage caps displayed CPU cores when load average exceeds CPU count
+
+📋 Edge Cases for Display
+
+✅ formatUsageMessage handles 0% correctly
+✅ formatUsageMessage handles extreme values
+
+📋 Warning Emoji Tests (Issue #1242)
+
+✅ formatUsageMessage shows warning emoji when session exceeds threshold
+✅ formatUsageMessage does not show warning emoji when below threshold
+✅ formatUsageMessage shows warning for system resources when exceeded
+✅ formatUsageMessage shows threshold markers in progress bars
+
+📋 Claude Error Display Tests (Issue #1343)
+
+✅ formatUsageMessage with claudeError shows error once in Claude limits section
+✅ formatUsageMessage with claudeError still shows system resource sections
+✅ formatUsageMessage with null claudeError shows normal Claude data
+
+📋 Sections Array / Extra Sections Tests (Issue #1387)
+
+✅ formatUsageMessage wraps all content in a single code block
+✅ formatUsageMessage with extraSections includes extra content inside code block
+✅ formatUsageMessage with claudeError and extraSections includes extra content inside code block
+✅ formatUsageMessage with empty extraSections works as before
+✅ formatUsageMessage sections are separated by blank lines
+
+📋 formatRetryAfterMessage Tests (Issue #1446)
+
+✅ formatRetryAfterMessage returns "Try again later." for null
+✅ formatRetryAfterMessage returns "Try again later." for undefined
+✅ formatRetryAfterMessage returns "Try again later." for "0"
+✅ formatRetryAfterMessage returns "Try again later." for negative value
+✅ formatRetryAfterMessage formats seconds correctly for small values
+✅ formatRetryAfterMessage formats seconds correctly for minutes
+✅ formatRetryAfterMessage formats seconds correctly for hours
+✅ formatRetryAfterMessage formats exact minutes without trailing seconds
+✅ formatRetryAfterMessage handles HTTP-date format
+✅ formatRetryAfterMessage handles HTTP-date in the past
+✅ formatRetryAfterMessage with rate-limit error message in formatUsageMessage
+✅ formatRetryAfterMessage with positive retry-after in formatUsageMessage
+
+📊 Test Results
+
+Tests passed: 53
+Tests failed: 0
+Total tests: 53
+
+✅ All tests passed!
+
+[2/80] tests/solve-queue.test.mjs
+
+📋 Configuration Tests
+
+✅ QUEUE_CONFIG has all required fields
+✅ QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)
+✅ MESSAGE_UPDATE_INTERVAL_MS is reasonable
+✅ MIN_START_INTERVAL_MS is 1 minute
+✅ CONSUMER_POLL_INTERVAL_MS is 1 minute
+
+📋 Queue Status Tests
+
+✅ QueueItemStatus has all required statuses
+
+📋 Queue Basic Operations Tests
+
+✅ SolveQueue initializes with empty state
+✅ enqueue adds items to queue
+✅ cancel removes items from queue
+✅ getQueueSummary returns correct structure
+
+📋 Duplicate URL Prevention Tests (Issue #1080)
+
+✅ findByUrl returns null for empty queue
+✅ findByUrl finds item in queue
+✅ findByUrl returns null for different URL
+✅ findByUrl finds item among multiple queued items
+✅ findByUrl does not find cancelled items
+
+📋 Message Update Tests
+
+✅ shouldUpdateMessage returns true for items without lastMessageUpdateTime
+✅ shouldUpdateMessage returns false when update interval not reached
+✅ shouldUpdateMessage returns true when update interval reached
+
+📋 Throttle Statistics Tests
+
+✅ recordThrottle increments throttle reason count
+
+📋 Format Tests
+
+✅ formatStatus returns correct string for empty queue
+✅ formatStatus returns correct string for non-empty queue
+✅ formatDetailedStatus includes all sections
+
+📋 Claude Process Detection Tests
+
+✅ getRunningClaudeProcesses returns object with count and processes
+
+📋 Cache Tests
+
+✅ getLimitCache returns a cache instance
+✅ Cache set and get work correctly
+✅ Cache returns null for expired entries
+✅ CACHE_TTL has all required values
+
+📋 Queue Item State Transitions Tests
+
+✅ Item transitions from QUEUED to WAITING
+✅ Item transitions from WAITING to STARTING
+✅ Item transitions from STARTING to STARTED
+✅ Item can be marked as failed
+✅ Item can be marked as failed with Error object
+
+📋 Wait Time Calculation Tests
+
+✅ getWaitTime returns elapsed time for queued items
+
+📋 Reason Message Ordering Tests (Issue #1078)
+
+✅ Claude process info should be at end of reasons
+
+📋 Total Processing Calculation Tests (Issue #1133)
+
+✅ totalProcessing is calculated as processing.size + Claude processes
+✅ canStartCommand returns totalProcessing in result
+✅ canStartCommand returns claudeProcesses count in result
+
+📋 System Resource Threshold Tests (Issue #1133)
+
+✅ checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode (Issue #1155)
+✅ checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode (Issue #1155)
+✅ QUEUE_CONFIG thresholds are valid positive ratios
+
+📋 API Threshold Behavior Tests (Issue #1133)
+
+✅ checkApiLimits accepts totalProcessing parameter
+✅ checkApiLimits with different totalProcessing values
+
+📋 One-At-A-Time Mode Tests (Issue #1133)
+
+✅ oneAtATime mode blocks when totalProcessing > 0
+✅ oneAtATime mode allows when totalProcessing === 0
+✅ normal mode allows parallel commands
+
+📋 Throttle Recording Tests
+
+✅ recordThrottle increments correct stats for all threshold types
+
+📋 Threshold Naming Tests (Issue #1133)
+
+✅ CLAUDE_5_HOUR_SESSION_THRESHOLD is correctly named
+
+📋 Queue Statistics Tests
+
+✅ getStats returns all required fields
+✅ getStats tracks enqueue correctly
+
+📋 Min Start Interval Tests
+
+✅ lastStartTime is updated when item moves to processing
+✅ MIN_START_INTERVAL_MS prevents rapid consecutive starts
+
+📋 Processing Map Tests
+
+✅ processing map correctly tracks items
+
+📋 Format Waiting Reason Tests
+
+✅ formatDetailedStatus shows waiting items with reasons
+
+📋 Queue Consumer Logic Tests
+
+✅ consumer does not start when queue is empty
+✅ multiple items maintain FIFO order within tool queue
+
+📋 Edge Case Tests
+
+✅ cancel returns false for non-existent or processing items
+✅ getQueueSummary handles empty queue correctly
+✅ queue item has correct tool property
+
+📋 Tool Agent Claude Limits Skip Tests (Issue #1159)
+
+✅ checkApiLimits accepts tool parameter
+✅ checkApiLimits with tool agent should not block on Claude limits
+✅ checkApiLimits with tool codex applies Codex limits
+✅ checkApiLimits default tool is claude
+✅ canStartCommand accepts tool option
+✅ canStartCommand with tool agent skips Claude limits
+✅ canStartCommand default tool is claude
+✅ queue item tool property is used by consumer
+
+📊 Test Results
+
+Tests passed: 66
+Tests failed: 0
+Total tests: 66
+
+✅ All tests passed!
+
+[3/80] tests/test-active-branch-runs-buffer-1722.mjs
+
+📋 Issue #1722: /merge active branch CI detection
+
+✅ getActiveBranchRuns queries each active status (not the full history)
+✅ getActiveBranchRuns deduplicates runs that appear under multiple statuses
+✅ getActiveBranchRuns survives a >1 MB response (bug #1722 buffer fix)
+✅ getActiveBranchRuns throws on gh failure (does NOT silently report idle)
+[ERROR] /merge: Error checking branch CI: Command failed: gh api "repos/o/r/actions/runs?branch=main&status=in_progress&per_page=100" --paginate --slurp
+boom
+
+[ERROR] /merge: Error checking branch CI: Command failed: gh api "repos/o/r/actions/runs?branch=main&status=in_progress&per_page=100" --paginate --slurp
+boom
+
+[ERROR] /merge: Error checking branch CI: Command failed: gh api "repos/o/r/actions/runs?branch=main&status=in_progress&per_page=100" --paginate --slurp
+boom
+
+✅ waitForBranchCI keeps polling on fetch errors (does NOT report ready)
+✅ waitForBranchCI returns success when CI is genuinely idle
+✅ getAllActiveRepoRuns also uses status filters
+✅ getAllActiveRepoRuns propagates gh errors
+
+8 passed, 0 failed
+
+
+[4/80] tests/test-agent-token-usage.mjs
+🧪 Running agent token usage tests (Issue #1250)...
+
+================================================================================
+
+📋 Test Group: Basic NDJSON parsing
+
+Testing parses single step_finish event... ✅ PASSED
+Testing sums tokens from multiple step_finish events... ✅ PASSED
+Testing ignores non-step_finish events... ✅ PASSED
+
+📋 Test Group: Edge cases
+
+Testing handles empty output... ✅ PASSED
+Testing handles output with only whitespace... ✅ PASSED
+Testing handles invalid JSON lines gracefully... ✅ PASSED
+Testing handles step_finish without tokens field... ✅ PASSED
+Testing handles step_finish with null tokens... ✅ PASSED
+Testing handles missing optional token fields... ✅ PASSED
+Testing handles token values of 0... ✅ PASSED
+
+📋 Test Group: Issue #1250 - Streaming accumulation
+
+Testing Issue #1250: concatenated JSON without newlines fails parsing... ✅ PASSED
+Testing Issue #1250: properly newline-delimited JSON parses correctly... ✅ PASSED
+Testing Issue #1250: simulates streaming accumulation (the fix)... ✅ PASSED
+
+📋 Test Group: Cost accumulation
+
+Testing sums cost from multiple steps... ✅ PASSED
+Testing sums decimal costs without binary floating-point drift... ✅ PASSED
+Testing handles zero cost (free models)... ✅ PASSED
+
+📋 Test Group: Real-world format validation
+
+Testing parses real agent output format with all fields... ✅ PASSED
+
+📋 Test Group: Issue #1313 - Exact data from bug report
+
+Testing Issue #1313: parses exact token values from the bug report log... ✅ PASSED
+Testing Issue #1313: streaming accumulation correctly sums tokens like in the bug report... ✅ PASSED
+Testing Issue #1313: concatenated JSON (old bug scenario) gives 0 tokens... ✅ PASSED
+
+📋 Test Group: accumulateTokenUsage - Streaming accumulation function
+
+Testing accumulateTokenUsage: ignores non-step_finish events... ✅ PASSED
+Testing accumulateTokenUsage: ignores step_finish without tokens... ✅ PASSED
+Testing accumulateTokenUsage: handles step_finish from stdout chunk... ✅ PASSED
+Testing accumulateTokenUsage: handles step_finish from stderr chunk (same as stdout)... ✅ PASSED
+Testing accumulateTokenUsage: correctly sums across many steps... ✅ PASSED
+Testing accumulateTokenUsage: processes interleaved non-step events correctly... ✅ PASSED
+Testing accumulateTokenUsage: handles missing cache field gracefully... ✅ PASSED
+Testing accumulateTokenUsage: handles cost accumulation across steps... ✅ PASSED
+Testing accumulateTokenUsage: does not double-count tokens from same event... ✅ PASSED
+
+📋 Test Group: Issue #1313 regression prevention
+
+Testing Regression: parseAgentTokenUsage returns non-zero when output has proper newlines... ✅ PASSED
+Testing Regression: streaming accumulation correctly sums tokens across many chunks... ✅ PASSED
+Testing Regression: mixed stdout/stderr streaming accumulation... ✅ PASSED
+
+📋 Test Group: Token display pipeline (end-to-end Issue #1313 scenario)
+
+Testing Issue #1313 pipeline: accumulated tokens display non-zero... ✅ PASSED
+Testing Issue #1313 pipeline: zero accumulated tokens (old bug scenario) display correctly... ✅ PASSED
+Testing Issue #1313 pipeline: multi-step run produces correct non-zero display... ✅ PASSED
+
+📋 Test Group: Large numbers and precision
+
+Testing handles very large token counts without overflow... ✅ PASSED
+Testing parseAgentTokenUsage handles large token values correctly... ✅ PASSED
+
+📋 Test Group: NDJSON format boundary cases
+
+Testing parseAgentTokenUsage handles output with Windows-style line endings (CRLF)... ✅ PASSED
+Testing parseAgentTokenUsage skips lines that are not JSON objects... ✅ PASSED
+Testing parseAgentTokenUsage handles JSON arrays (should skip them)... ✅ PASSED
+Testing parseAgentTokenUsage handles deeply nested tokens structure... ✅ PASSED
+
+📋 Test Group: Accumulator state isolation
+
+Testing two separate accumulators are independent... ✅ PASSED
+Testing accumulator starts fresh with all zeros... ✅ PASSED
+
+📋 Test Group: Issue #1313 exact reproduction
+
+Testing Issue #1313: the exact gist log data parses non-zero tokens... ✅ PASSED
+Testing Issue #1313: demonstrates old post-hoc bug with concatenated JSON... ✅ PASSED
+
+================================================================================
+Test Results for agent token usage (Issue #1250 / Issue #1313):
+  ✅ Passed: 45
+  ❌ Failed: 0
+================================================================================
+
+[5/80] tests/test-auto-input-until-mergeable-1708.mjs
+
+--- yargsOptions registers --auto-input-until-mergeable ---
+  ✅ flag is present in yargsOptions
+  ✅ flag is boolean (no value required)
+  ✅ flag defaults to false (opt-in only — R4)
+  ✅ flag has a description for --help
+  ✅ description marks the flag as experimental
+
+--- yargsOptions registers --stream-comments-to-input and --queue-comments-to-input ---
+  ✅ --stream-comments-to-input is present in yargsOptions
+  ✅ --stream-comments-to-input is boolean
+  ✅ --stream-comments-to-input defaults to false (opt-in only)
+  ✅ --stream-comments-to-input is marked experimental
+  ✅ --queue-comments-to-input is present in yargsOptions
+  ✅ --queue-comments-to-input is boolean
+  ✅ --queue-comments-to-input defaults to false (opt-in only)
+  ✅ --queue-comments-to-input is marked experimental
+
+--- defaults for the existing auto-merge loop are unchanged ---
+  ✅ auto-restart-until-mergeable still defaults to true
+  ✅ auto-merge still defaults to false
+
+--- validateBidirectionalModeConfig: --auto-input-until-mergeable on claude composes correctly ---
+  ✅ validator returns true for claude + auto-input-until-mergeable
+  ✅ auto-input-until-mergeable enables accept-incomming-comments-as-input
+  ✅ auto-input-until-mergeable defaults delivery to queue mode
+  ✅ queue mode is the default; stream is NOT enabled
+  ✅ auto-input-until-mergeable does NOT enable --interactive-mode (output stays out of PR)
+  ✅ auto-input-until-mergeable does NOT imply --bidirectional-interactive-mode
+  ✅ auto-input-until-mergeable does NOT toggle the self-talk filter
+
+--- --accept-incomming-comments-as-input on its own defaults to stream mode (#817 backwards-compat) ---
+  ✅ standalone accept flag defaults to stream-comments-to-input
+  ✅ standalone accept flag does NOT default to queue mode
+
+--- explicit --queue-comments-to-input wins over --stream-comments-to-input when both are set ---
+  ✅ queue mode stays on when both flags are set
+  ✅ queue mode wins; stream is reset to false
+
+--- --bidirectional-interactive-mode still cascades to the three #817 flags (no regression) ---
+  ✅ bidirectional cascades to interactive-mode
+  ✅ bidirectional cascades to accept-incomming-comments-as-input
+  ✅ bidirectional cascades to exclude-all-own-incomming-comments-from-input
+  ✅ bidirectional defaults to stream mode (matches #817 behavior)
+
+--- explicit user toggles are preserved ---
+  ✅ explicit stream-comments-to-input stays on
+  ✅ explicit stream choice is not overridden to queue
+
+--- non-Claude tool: streaming pipe is disabled with a warning ---
+  ✅ non-claude tool: validator returns false (existing tool-support behavior preserved)
+  ✅ streaming-input is disabled for codex (no NDJSON channel upstream)
+  ✅ self-talk filter is disabled along with streaming-input
+  ✅ stream-comments-to-input is reset for non-claude tools
+  ✅ queue-comments-to-input is reset for non-claude tools
+  ✅ validator logs the standard "claude only" warning so users see why streaming is off
+
+--- without the flag, the validator is a strict no-op (R4) ---
+  ✅ validator returns true when no streaming flag is requested
+  ✅ no flag means bidirectional stays off
+  ✅ no flag means streaming-input stays off
+  ✅ no flag means interactive-mode stays off
+  ✅ no flag means stream-comments-to-input stays off
+  ✅ no flag means queue-comments-to-input stays off
+
+--- handler exposes Issue #1708 idle/busy + queue API ---
+  ✅ handler exposes markAiBusy()
+  ✅ handler exposes markAiIdle()
+  ✅ handler exposes checkForStatusChanges()
+  ✅ getState reports deliveryMode='queue'
+  ✅ getState reports streamStatusToInput=true
+  ✅ getState reports isAiBusy=false initially
+  ✅ getState reports pendingFramesLength=0 initially
+  ✅ getState reports totalFramesQueued=0 initially
+  ✅ getState reports totalFramesFlushed=0 initially
+  ✅ getState reports totalStatusFramesSent=0 initially
+  ✅ markAiBusy() flips isAiBusy=true
+  ✅ markAiIdle() returns 0 when no frames pending
+  ✅ markAiIdle() flips isAiBusy=false
+
+--- handler default deliveryMode is stream when not opted into queue ---
+  ✅ default deliveryMode is stream
+  ✅ default streamStatusToInput is false
+
+================================================================================
+Result: 59 passed, 0 failed
+================================================================================
+
+[6/80] tests/test-auto-restart-limits-1664.mjs
+ok - default auto iteration limit is 5
+ok - iteration limit helper allows exactly the configured number of executions
+ok - zero disables the auto iteration limit for explicit opt-out
+ok - invalid limit values fall back to the safe default
+ok - auto-restart skips branch sync when uncommitted changes are present
+All 5 issue #1664 auto-restart limit tests passed.
+
+[7/80] tests/test-branch-name-validation.mjs
+🧪 Branch Name Validation Tests
+
+Testing isValidIssueBranchName - legacy 8-char format... ✅ PASSED
+Testing isValidIssueBranchName - new 12-char format... ✅ PASSED
+Testing isValidIssueBranchName - invalid formats... ✅ PASSED
+Testing isValidIssueBranchName - with specific issue number... ✅ PASSED
+Testing parseIssueBranchName - valid branches... ✅ PASSED
+Testing parseIssueBranchName - invalid branches... ✅ PASSED
+Testing getIssueBranchPrefix... ✅ PASSED
+Testing matchesIssuePattern... ✅ PASSED
+Testing detectBranchFormat - legacy... ✅ PASSED
+Testing detectBranchFormat - new... ✅ PASSED
+Testing detectBranchFormat - invalid... ✅ PASSED
+
+📊 Test Summary:
+✅ Passed: 11
+❌ Failed: 0
+
+🎉 All tests passed!
+
+[8/80] tests/test-build-cost-info-string.mjs
+🧪 Running buildCostInfoString unit tests (Issue #1015)...
+
+================================================================================
+
+📋 Test Group: Issue #1015 Bug 2 - Empty when all values unknown
+
+Testing returns empty string when all values are null... ✅ PASSED
+Testing returns empty string when all values are undefined... ✅ PASSED
+Testing returns empty string with empty pricing info object... ✅ PASSED
+Testing returns empty string when pricing info has no relevant fields... ✅ PASSED
+
+📋 Test Group: Public pricing estimate
+
+Testing shows public pricing estimate when available... ✅ PASSED
+Testing formats small cost with 6 decimal places... ✅ PASSED
+Testing formats zero cost correctly... ✅ PASSED
+
+📋 Test Group: Anthropic calculated cost
+
+Testing shows Anthropic calculated cost when available... ✅ PASSED
+Testing shows difference when both costs available (Anthropic higher)... ✅ PASSED
+Testing shows difference when both costs available (Anthropic lower)... ✅ PASSED
+Testing shows simplified format when costs are equal (Issue #1557)... ✅ PASSED
+Testing handles zero public cost in percentage calculation... ✅ PASSED
+
+📋 Test Group: Pricing info formatting
+
+Testing shows model name when available... ✅ PASSED
+Testing shows provider when model name and provider available... ✅ PASSED
+Testing shows unknown for public pricing when has pricing info but no public cost... ✅ PASSED
+Testing shows free model pricing correctly... ✅ PASSED
+
+📋 Test Group: Token usage formatting
+
+Testing shows basic token usage... ✅ PASSED
+Testing shows reasoning tokens when present... ✅ PASSED
+Testing shows cache tokens when present... ✅ PASSED
+Testing handles zero tokens... ✅ PASSED
+Testing handles undefined token values... ✅ PASSED
+Testing does not show reasoning tokens when zero... ✅ PASSED
+Testing does not show cache tokens when both are zero... ✅ PASSED
+Testing shows only cache read when cache write value is unavailable... ✅ PASSED
+Testing shows observed zero cache write when field availability says it exists... ✅ PASSED
+
+📋 Test Group: Comprehensive format
+
+Testing shows all information when everything is available... ✅ PASSED
+Testing real-world example from Issue #1015... ✅ PASSED
+Testing real-world example with actual work... ✅ PASSED
+
+📋 Test Group: Edge cases
+
+Testing handles large token counts... ✅ PASSED
+Testing handles very small costs... ✅ PASSED
+Testing returns proper string format starting with newlines... ✅ PASSED
+Testing handles tokenUsage being the only truthy pricingInfo field... ✅ PASSED
+Testing can omit raw token usage when budget stats already render totals... ✅ PASSED
+Testing handles isFreeModel being the only truthy pricingInfo field... ✅ PASSED
+
+📋 Test Group: Issue #1250 - OpenCode Zen cost
+
+Testing shows OpenCode Zen as provider with free cost... ✅ PASSED
+Testing shows public pricing estimate with original provider reference... ✅ PASSED
+Testing shows both public pricing and OpenCode Zen cost for agent tool... ✅ PASSED
+Testing handles OpenCode Zen with non-free cost... ✅ PASSED
+Testing shows output with only OpenCode Zen cost present... ✅ PASSED
+Testing Codex comments with unknown public pricing omit unavailable cache write tokens... ✅ PASSED
+Testing isOpencodeFreeModel triggers hasPricing check... ✅ PASSED
+
+📋 Test Group: Issue #1250 - Base model pricing for free models
+
+Testing shows base model pricing for kimi-k2.5-free (Issue #1250 main fix)... ✅ PASSED
+Testing shows regular free model pricing when base model also has no pricing... ✅ PASSED
+Testing shows base model reference with original provider... ✅ PASSED
+Testing handles base model pricing with cache tokens... ✅ PASSED
+Testing does not show base model reference when no baseModelName... ✅ PASSED
+
+📋 Test Group: Issue #1557 - Simplified cost display when costs match
+
+Testing shows simplified format when public and Anthropic costs match exactly... ✅ PASSED
+Testing shows simplified format with real-world matching costs... ✅ PASSED
+Testing shows full format when costs differ slightly... ✅ PASSED
+Testing does not show simplified format when only public cost available... ✅ PASSED
+Testing does not show simplified format when only Anthropic cost available... ✅ PASSED
+Testing no USD suffix in Anthropic cost line (Issue #1557)... ✅ PASSED
+
+📋 Test Group: Issue #1703 - Collapse cost section when difference is below display precision
+
+Testing shows simplified format when difference rounds to zero at six decimals (Issue #1703)... ✅ PASSED
+Testing shows simplified format when costs differ by sub-microcent rounding (Issue #1703)... ✅ PASSED
+Testing still shows full format when difference is exactly $0.000001 (Issue #1703 boundary)... ✅ PASSED
+
+================================================================================
+Test Results for buildCostInfoString (Issues #1015, #1250 & #1557):
+  ✅ Passed: 55
+  ❌ Failed: 0
+================================================================================
+
+[9/80] tests/test-claude-code-install-method.mjs
+Claude Code install method tests passed
+
+[10/80] tests/test-claude-quiet-config.mjs
+Claude quiet configuration tests passed
+
+[11/80] tests/test-codex-support.mjs
+✅ Codex preferred default model is gpt-5.5
+✅ Codex resolves gpt-5.5 model id
+✅ Codex validates gpt-5.5-mini model id
+✅ Codex validates gpt-5.5-nano model id
+✅ Codex primary model names prioritize gpt-5.5 and current visible catalog entries
+✅ Codex runtime default stays on gpt-5.5 when the local catalog includes it
+✅ Codex runtime default falls back to gpt-5.4 when gpt-5.5 is not in the local catalog
+✅ Codex runtime default falls back to gpt-5.5-mini when newer small variants are available before older full-size fallbacks
+✅ Codex default fallback model resolves from gpt-5.5 to gpt-5.4
+✅ Claude default fallback model resolves from opus to opus-4-6
+✅ Models without configured defaults keep fallback unset
+✅ Capacity errors are classified as retryable overloads
+✅ Codex stream disconnects are classified as retryable transport errors
+✅ Codex --think off maps to none reasoning
+✅ Codex --think low maps to low reasoning
+✅ Codex --think medium maps to medium reasoning
+✅ Codex --think high maps to high reasoning
+✅ Codex --think xhigh maps to xhigh reasoning
+✅ Codex --think max maps to xhigh reasoning
+✅ Codex --thinking-budget exposes minimal reasoning tier
+✅ Codex --thinking-budget exposes high reasoning tier
+✅ Codex defaults to none reasoning when no thinking flags are set
+✅ Codex exec JSON parser extracts session, result text, usage, and collab calls from authoritative event types
+✅ Codex exec JSON parser does not mark cache write as available when CLI does not emit it
+✅ Codex pricing uses OpenAI input, cached input, and output rates
+✅ Codex pricing applies long-context rates when peak prompt exceeds OpenAI threshold
+✅ Codex exec JSON parser captures optional nested cache write and reasoning fields when emitted
+✅ Codex exec JSON parser captures remaining supported item payloads
+✅ Codex error summary unwraps unsupported ChatGPT-account model errors
+✅ Codex error summary ignores non-fatal app-server stream lag item errors
+✅ Codex command fails when JSON error events are emitted with exit code 0
+✅ Codex command succeeds when only non-fatal app-server stream lag item errors are emitted
+✅ Codex command retries with resume and fallback model after capacity error
+✅ Codex command retries stream disconnects by resuming the same session
+✅ OpenCode resume uses --session so fallback retries can stay on the same session
+✅ Agent resume uses --resume with --no-fork to preserve the same session
+✅ Codex result model usage uses parsed token usage in shared budget-stats shape
+
+Passed: 37  Failed: 0
+
+[12/80] tests/test-configure-claude-bin.mjs
+configure-claude bin tests passed
+
+[13/80] tests/test-detect-code-changes-1528.mjs
+🧪 Detect Code Changes Tests (Issue #1528)
+
+--- isExcludedFromCodeChanges ---
+
+Testing README.md is excluded... ✅ PASSED
+Testing docs/analysis.md is excluded... ✅ PASSED
+Testing CHANGELOG.md is excluded... ✅ PASSED
+Testing .changeset/ files are excluded... ✅ PASSED
+Testing data/ files are excluded... ✅ PASSED
+Testing docs/ files are excluded... ✅ PASSED
+Testing experiments/ files are excluded... ✅ PASSED
+Testing .gitkeep is NOT excluded by isExcludedFromCodeChanges (handled by positive matching)... ✅ PASSED
+Testing .gitkeep in subdirectory is NOT excluded by isExcludedFromCodeChanges... ✅ PASSED
+Testing src/*.mjs files are NOT excluded... ✅ PASSED
+Testing tests/*.mjs files are NOT excluded... ✅ PASSED
+Testing package.json is NOT excluded... ✅ PASSED
+Testing .github/workflows/release.yml is NOT excluded... ✅ PASSED
+Testing Dockerfile is NOT excluded... ✅ PASSED
+Testing eslint.config.mjs is NOT excluded... ✅ PASSED
+Testing scripts/detect-code-changes.mjs is NOT excluded... ✅ PASSED
+Testing helm/Chart.yaml is NOT excluded... ✅ PASSED
+
+--- matchesPattern (codePattern positive matching) ---
+
+Testing .mjs files match code pattern... ✅ PASSED
+Testing .js files match code pattern... ✅ PASSED
+Testing .json files match code pattern... ✅ PASSED
+Testing .yml files match code pattern... ✅ PASSED
+Testing .yaml files match code pattern... ✅ PASSED
+Testing workflow files match code pattern... ✅ PASSED
+Testing .gitkeep does NOT match code pattern... ✅ PASSED
+Testing .gitkeep in subdirectory does NOT match code pattern... ✅ PASSED
+Testing Dockerfile does NOT match code pattern... ✅ PASSED
+Testing .sh files do NOT match code pattern... ✅ PASSED
+Testing .txt files do NOT match code pattern... ✅ PASSED
+Testing .gitignore does NOT match code pattern... ✅ PASSED
+
+--- Integration: full pipeline (exclusion + positive matching) ---
+
+Testing .gitkeep-only change produces no code files (issue #1528)... ✅ PASSED
+Testing .gitkeep in subdirectory produces no code files... ✅ PASSED
+Testing mixed .gitkeep + code change correctly detects code files... ✅ PASSED
+Testing docs-only change produces no code files... ✅ PASSED
+Testing markdown-only change produces no code files... ✅ PASSED
+Testing changeset-only change produces no code files... ✅ PASSED
+Testing unknown file types (no extension, .txt, .log) produce no code files... ✅ PASSED
+Testing workflow file change is detected as code... ✅ PASSED
+Testing package.json change is detected as code... ✅ PASSED
+Testing data/ .json files are excluded despite matching code pattern extension... ✅ PASSED
+Testing experiments/ .mjs files are excluded despite matching code pattern extension... ✅ PASSED
+Testing realistic mixed change set is correctly classified... ✅ PASSED
+Testing pull_request synchronize event SHA range skips a single metadata-only update (issue #1665)... ✅ PASSED
+Testing pull_request synchronize event SHA range includes code from a multi-commit push (issue #1665)... ✅ PASSED
+Testing pull_request synchronize synthetic merge fallback uses only the latest PR head commit (issue #1665)... ✅ PASSED
+
+==================================================
+Results: 44 passed, 0 failed out of 44 tests
+
+✅ All tests passed!
+
+[14/80] tests/test-display-cost-comparison.mjs
+🧪 Running displayCostComparison unit tests (Issues #1557 & #1703)...
+
+================================================================================
+Testing shows simplified format when costs match exactly (Issue #1557)... ✅ PASSED
+Testing shows full breakdown when costs differ by exactly $0.000001... ✅ PASSED
+Testing collapses to simplified format when difference rounds to zero (Issue #1703)... ✅ PASSED
+Testing still shows full breakdown when only one cost is known... ✅ PASSED
+
+================================================================================
+Test Results for displayCostComparison (Issues #1557 & #1703):
+  ✅ Passed: 4
+  ❌ Failed: 0
+================================================================================
+
+[15/80] tests/test-docker-box-migration.mjs
+Docker Box migration checks passed
+
+[16/80] tests/test-docker-dind-variant.mjs
+Docker DinD variant checks passed
+
+[17/80] tests/test-docker-release-order.mjs
+Docker release-order contract tests passed
+
+[18/80] tests/test-docs-options-sync.mjs
+Testing documentation-code options sync...
+
+Testing all non-hidden solve options are documented in CONFIGURATION.md... ✅ PASSED
+Testing all documented solve options exist in code... ✅ PASSED
+Testing hidden options are not documented (internal/deprecated)... ✅ PASSED
+Testing docs have reasonable number of solve options... ✅ PASSED
+Testing code has reasonable number of non-hidden options... ✅ PASSED
+Testing --allow-force-non-fork-repository-deletion is documented... ✅ PASSED
+
+=== Test Summary ===
+Total: 6 | ✅ Passed: 6 | ❌ Failed: 0
+
+Stats: 87 non-hidden code options, 96 documented solve options
+
+🎉 All documentation-code sync tests passed!
+
+[19/80] tests/test-extract-isolation-from-args.mjs
+Testing extractIsolationFromArgs (issue #1534)
+============================================================
+
+  No --isolation flag:
+  ✅ PASS: backend is null when no --isolation flag
+  ✅ PASS: args unchanged when no --isolation flag
+
+  --isolation screen (original bug):
+  ✅ PASS: backend is "screen"
+  ✅ PASS: --isolation and value removed from args
+
+  --isolation tmux:
+  ✅ PASS: backend is "tmux"
+  ✅ PASS: --isolation stripped, other args preserved
+
+  --isolation docker:
+  ✅ PASS: backend is "docker"
+
+  --isolation=screen (equals syntax):
+  ✅ PASS: backend is "screen" with equals syntax
+  ✅ PASS: --isolation=screen stripped from args
+
+  --isolation at beginning:
+  ✅ PASS: backend extracted from beginning
+  ✅ PASS: URL and other args preserved
+
+  --isolation in the middle with multiple flags:
+  ✅ PASS: backend extracted from middle
+  ✅ PASS: all other args preserved in order
+
+  Case insensitivity:
+  ✅ PASS: backend is lowercased
+
+  --isolation with whitespace:
+  ✅ PASS: backend is trimmed
+
+  --isolation as last arg (no value):
+  ✅ PASS: backend is null when --isolation has no value
+  ✅ PASS: --isolation kept in args when no value
+
+  Empty args:
+  ✅ PASS: backend is null for empty args
+  ✅ PASS: filtered args is empty
+
+  Invalid backend value (extraction only):
+  ✅ PASS: extracts invalid backend (validation is separate)
+  ✅ PASS: --isolation stripped even for invalid backend
+
+  isValidPerCommandIsolation:
+  ✅ PASS: screen is valid
+  ✅ PASS: tmux is valid
+  ✅ PASS: docker is valid
+  ✅ PASS: ssh is invalid
+  ✅ PASS: empty string is invalid
+
+============================================================
+Results: 26 passed, 0 failed, 26 total
+============================================================
+
+✅ All tests passed!
+
+[20/80] tests/test-feedback-lines-simple.mjs
+🧪 Testing feedback lines logic (Issue #168)
+============================================
+
+🔬 Test 1: System prompt should NOT contain feedback lines
+   System prompt contains feedback: NO (CORRECT)
+   ✅ PASS
+
+🔬 Test 2: Main prompt should contain feedback lines in continue mode
+   Main prompt contains all feedback: YES (CORRECT)
+   ✅ PASS
+
+🔬 Test 3: OLD buggy behavior should be detected as wrong
+   Buggy system prompt would contain feedback: YES (THIS WAS THE BUG)
+   ✅ PASS
+
+🔬 Test 4: Empty feedback lines should not affect prompts
+   System prompt clean: true
+   Main prompt appropriate: true
+   ✅ PASS
+
+🔬 Test 5: Feedback lines should only appear in continue mode
+   Continue mode has feedback: true
+   Initial mode lacks feedback: true
+   ✅ PASS
+
+📊 Test Results:
+   Passed: 5/5
+   🎉 ALL TESTS PASSED! Feedback lines bug is fixed.
+
+[21/80] tests/test-fork-parent-validation.mjs
+Testing validateForkParent export... ✅ PASSED
+Testing validateForkParent documentation... ✅ PASSED
+Testing validation called for existing forks... ✅ PASSED
+Testing error message references issue #967... ✅ PASSED
+Testing safe auto-recovery for non-fork/mismatch repos (Issue #1518)... ✅ PASSED
+Testing API error handling... ✅ PASSED
+Testing parent vs source distinction... ✅ PASSED
+Testing validation for forkOwner code path... ✅ PASSED
+Testing non-fork repository detection... ✅ PASSED
+Testing success message on valid fork... ✅ PASSED
+Testing retry logic for network errors (Issue #1311)... ✅ PASSED
+Testing isNetworkError flag in return value (Issue #1311)... ✅ PASSED
+Testing network error message differentiation (Issue #1311)... ✅ PASSED
+Testing isTransientNetworkError helper exists... ✅ PASSED
+Testing error context in auto-recovery messages... ✅ PASSED
+Testing post-creation fork validation (Issue #1518)... ✅ PASSED
+Testing verbose fork command logging (Issue #1518)... ✅ PASSED
+Testing --allow-force-non-fork-repository-deletion flag support (Issue #1518)... ✅ PASSED
+Testing --allow-force-non-fork-repository-deletion option in config... ✅ PASSED
+Testing --allow-force-non-fork-repository-deletion in option suggestions... ✅ PASSED
+Testing verbose fork output logging (Issue #1518)... ✅ PASSED
+Testing fork parent validation in creation/discovery path (Issue #1518)... ✅ PASSED
+Testing missing delete_repo scope remediation (Issue #1651)... ✅ PASSED
+
+==================================================
+Test Results for fork parent validation:
+  ✅ Passed: 23
+  ❌ Failed: 0
+==================================================
+
+[22/80] tests/test-github-linking.mjs
+🧪 Testing GitHub Issue Linking Detection
+
+============================================================
+
+📋 Test Suite 1: Keyword List Validation
+
+✅ PASS: Correct number of keywords
+✅ PASS: Keyword 'close' is included
+✅ PASS: Keyword 'closes' is included
+✅ PASS: Keyword 'closed' is included
+✅ PASS: Keyword 'fix' is included
+✅ PASS: Keyword 'fixes' is included
+✅ PASS: Keyword 'fixed' is included
+✅ PASS: Keyword 'resolve' is included
+✅ PASS: Keyword 'resolves' is included
+✅ PASS: Keyword 'resolved' is included
+
+📋 Test Suite 2: Valid Linking Formats (Should Detect)
+
+✅ PASS: Simple fixes #N
+✅ PASS: Capitalized Fixes #N
+✅ PASS: All caps FIXES #N
+✅ PASS: closes #N
+✅ PASS: Resolves #N
+✅ PASS: Fix #N
+✅ PASS: Close #N
+✅ PASS: Resolve #N
+✅ PASS: Fixed #N
+✅ PASS: Closed #N
+✅ PASS: Resolved #N
+✅ PASS: Fixes #N in middle of text
+✅ PASS: Fixes owner/repo#N
+✅ PASS: Resolves full URL
+✅ PASS: Resolves #N after separator
+
+📋 Test Suite 3: Invalid Formats (Should NOT Detect)
+
+✅ PASS: Implements issue #N (not a GitHub keyword)
+✅ PASS: Addresses #N (not a GitHub keyword)
+✅ PASS: Handles #N (not a GitHub keyword)
+✅ PASS: Related to #N (not a GitHub keyword)
+✅ PASS: See #N (not a GitHub keyword)
+✅ PASS: Fixes #515 but checking for #999
+✅ PASS: closes#N without space (invalid format)
+✅ PASS: Issue 515 without # (invalid format)
+✅ PASS: Empty PR body
+✅ PASS: No reference at all
+
+📋 Test Suite 4: Edge Cases
+
+✅ PASS: Null PR body returns false
+✅ PASS: Null issue number returns false
+✅ PASS: Empty issue number returns false
+✅ PASS: Numeric issue number is handled correctly
+
+📋 Test Suite 5: Issue Number Extraction
+
+✅ PASS: Extract from Fixes #N
+✅ PASS: Extract from Closes #N
+✅ PASS: Extract from owner/repo#N
+✅ PASS: Extract from full URL
+✅ PASS: Return null when no issue found
+✅ PASS: Return null for non-GitHub keyword
+✅ PASS: Return null for empty body
+
+📋 Test Suite 6: Real-World Examples from Issue #568
+
+✅ PASS: PR #558: Should NOT detect linking (missing Resolves #515)
+✅ PASS: PR #563: Should NOT detect linking (used "Implements issue" instead of GitHub keyword)
+✅ PASS: PR #558 Fixed: Should detect linking with added "Resolves #515"
+✅ PASS: PR #563 Fixed: Should detect linking when "Implements issue" is replaced with "Resolves"
+
+============================================================
+
+📊 Test Results Summary
+
+Total tests: 50
+✅ Passed: 50
+❌ Failed: 0
+
+🎉 All tests passed!
+
+[23/80] tests/test-hive-no-silent-failure.mjs
+Running hive command silent failure tests (Issue #504)...
+
+  hive --help should show help... ✅ PASS
+  hive --version should show version... ✅ PASS
+  hive --dry-run should produce output and exit cleanly...     ✓ Command completed with full output
+✅ PASS
+
+============================================================
+Test Summary:
+  ✅ Passed: 3
+  ❌ Failed: 0
+============================================================
+
+✅ All tests passed!
+
+[24/80] tests/test-hive-screens.mjs
+All hive-screens tests passed
+
+[25/80] tests/test-hive-solve-option-parity.mjs
+Testing hive-solve option parity...
+
+Testing all solve options are passthrough (or in exception list)... ✅ PASSED
+Testing solve config has reasonable number of options... ✅ PASSED
+Testing hive passthrough has reasonable number of options... ✅ PASSED
+Testing --gitkeep-file is passthrough... ✅ PASSED
+Testing --claude-file is passthrough... ✅ PASSED
+Testing --auto-gitkeep-file is passthrough... ✅ PASSED
+Testing --tokens-budget-stats is passthrough... ✅ PASSED
+Testing --base-branch is passthrough... ✅ PASSED
+Testing solve-only options are excluded from passthrough... ✅ PASSED
+Testing SOLVE_OPTION_DEFINITIONS contains all expected options... ✅ PASSED
+
+=== Test Summary ===
+Total: 10 | ✅ Passed: 10 | ❌ Failed: 0
+
+🎉 All tests passed!
+
+[26/80] tests/test-hive.mjs
+Testing hive.mjs exists... ✅ PASSED
+Testing hive.mjs usage... ✅ PASSED
+Testing hive.mjs --version... ✅ PASSED
+Testing hive.mjs --help... ✅ PASSED
+Testing hive.mjs -h... ✅ PASSED
+Testing hive.mjs requires GitHub URL... ✅ PASSED
+Testing hive.mjs validates URL format... ✅ PASSED
+Testing hive.mjs basic validation... ✅ PASSED
+Testing hive.mjs syntax check... ✅ PASSED
+Testing hive.mjs module imports... ✅ PASSED
+Testing hive.mjs loads... ✅ PASSED
+Testing hive.mjs basic execution... ✅ PASSED
+Testing hive.mjs script loads... ✅ PASSED
+Testing hive.mjs no runtime switching... ✅ PASSED
+Testing hive.mjs --attach-logs flag... ✅ PASSED
+Testing hive.mjs --skip-tool-connection-check flag... ✅ PASSED
+Testing hive.mjs --tool flag... ✅ PASSED
+Testing hive --dry-run with --no-sentry doesn't hang... ✅ PASSED
+Testing hive --dry-run doesn't silently fail (variant test)... ✅ PASSED
+Testing hive --dry-run exits without hanging... ✅ PASSED
+
+==================================================
+Test Results for hive.mjs:
+  ✅ Passed: 20
+  ❌ Failed: 0
+==================================================
+
+[27/80] tests/test-interactive-mode.mjs
+
+=== Testing Utility Functions ===
+
+Testing truncateMiddle with short content... ✅ PASSED
+Testing truncateMiddle with long content... ✅ PASSED
+Testing truncateMiddle with null/undefined... ✅ PASSED
+Testing safeJsonStringify basic object... ✅ PASSED
+Testing safeJsonStringify circular reference... ✅ PASSED
+Testing createCollapsible basic... ✅ PASSED
+Testing createCollapsible open by default... ✅ PASSED
+Testing formatDuration seconds only... ✅ PASSED
+Testing formatDuration minutes and seconds... ✅ PASSED
+Testing formatDuration hours, minutes, seconds... ✅ PASSED
+Testing formatDuration invalid values... ✅ PASSED
+Testing formatCost basic... ✅ PASSED
+Testing formatCost small value... ✅ PASSED
+Testing formatCost invalid values... ✅ PASSED
+Testing escapeMarkdown basic... ✅ PASSED
+Testing escapeMarkdown empty/null... ✅ PASSED
+Testing getToolIcon known tools... ✅ PASSED
+Testing getToolIcon unknown tool... ✅ PASSED
+Testing createRawJsonSection basic... ✅ PASSED
+Testing createRawJsonSection wraps single object in array... ✅ PASSED
+Testing createRawJsonSection preserves existing arrays... ✅ PASSED
+
+=== Testing Function Exports ===
+
+Testing isInteractiveModeSupported claude... ✅ PASSED
+Testing isInteractiveModeSupported opencode... ✅ PASSED
+Testing isInteractiveModeSupported other tools... ✅ PASSED
+
+=== Testing Async Functions ===
+
+Testing validateInteractiveModeConfig disabled... ✅ PASSED
+Testing validateInteractiveModeConfig enabled with claude... ✅ PASSED
+Testing validateInteractiveModeConfig enabled with opencode... ✅ PASSED
+Testing validateInteractiveModeConfig enabled with codex... ✅ PASSED
+
+=== Testing Interactive Handler ===
+
+Testing createInteractiveHandler returns expected interface... ✅ PASSED
+Testing handler initial state... ✅ PASSED
+Testing processEvent handles system.init... ✅ PASSED
+Testing processEvent handles assistant text... ✅ PASSED
+Testing processEvent handles tool_use... ✅ PASSED
+Testing processEvent handles result... ✅ PASSED
+Testing processEvent handles codex thread.started and agent_message... ✅ PASSED
+Testing processEvent handles unrecognized events... ✅ PASSED
+Testing processEvent handles null/invalid input... ✅ PASSED
+Testing handler does not post without PR info... ✅ PASSED
+
+=== Testing Comment ID Extraction ===
+
+Testing comment ID extraction from gh output URL... ✅ PASSED
+Testing comment ID extraction handles empty/invalid output... ✅ PASSED
+Testing comment ID extraction with Buffer-like objects... ✅ PASSED
+
+=== Testing Unicode Sanitization (Issue #1324) ===
+
+Testing sanitizeUnicode: clean string passes through unchanged... ✅ PASSED
+Testing sanitizeUnicode: full emoji surrogate pair is preserved... ✅ PASSED
+Testing sanitizeUnicode: orphaned high surrogate is replaced with U+FFFD... ✅ PASSED
+Testing sanitizeUnicode: orphaned low surrogate is replaced with U+FFFD... ✅ PASSED
+Testing sanitizeUnicode: reproduces and fixes exact bug from issue #1324... ✅ PASSED
+Testing sanitizeUnicode: multiple orphaned surrogates in one string... ✅ PASSED
+Testing sanitizeUnicode: null/undefined/empty returns empty string... ✅ PASSED
+Testing truncateMiddle: sanitizes content even when no truncation needed... ✅ PASSED
+Testing truncateMiddle: sanitizes content after truncation... ✅ PASSED
+Testing safeJsonStringify: sanitizes string values before serialization... ✅ PASSED
+Testing safeJsonStringify: normal strings are not corrupted... ✅ PASSED
+
+=== Testing Real-World Log Data Patterns (Issue #1324) ===
+
+Testing sanitizeUnicode: preserves emoji-rich GitHub PR comment (real log pattern)... ✅ PASSED
+Testing sanitizeUnicode: preserves real hive-mind status messages with emojis... ✅ PASSED
+Testing sanitizeUnicode: preserves Cyrillic and mixed scripts (real log pattern)... ✅ PASSED
+Testing sanitizeUnicode: fixes the exact persisted-output truncation from issue #1324... ✅ PASSED
+Testing sanitizeUnicode: handles multiple emoji at end of truncation boundary... ✅ PASSED
+Testing sanitizeUnicode: handles orphaned low surrogate at start of string... ✅ PASSED
+Testing sanitizeUnicode: handles orphaned high surrogate at end of string... ✅ PASSED
+Testing sanitizeUnicode: preserves all BMP characters including CJK and Arabic... ✅ PASSED
+Testing sanitizeUnicode: preserves multiple valid surrogate pairs in sequence... ✅ PASSED
+Testing sanitizeUnicode: handles reversed surrogate pair (low before high)... ✅ PASSED
+Testing sanitizeUnicode: stress test with 1000 emojis... ✅ PASSED
+Testing truncateMiddle: preserves short emoji-rich content (real log format)... ✅ PASSED
+Testing truncateMiddle: truncates large output with emoji safely... ✅ PASSED
+Testing truncateMiddle: handles truncation point exactly at emoji boundary... ✅ PASSED
+Testing safeJsonStringify: handles real Claude assistant event with emojis... ✅ PASSED
+Testing safeJsonStringify: handles real tool_result event with persisted-output... ✅ PASSED
+Testing safeJsonStringify: handles real result event structure... ✅ PASSED
+Testing safeJsonStringify: handles deeply nested objects with emojis... ✅ PASSED
+Testing safeJsonStringify: handles arrays with mixed content types... ✅ PASSED
+
+=== Testing Handler Pipeline with Real Events (Issue #1324) ===
+
+Testing handler processes assistant text with emojis without error... ✅ PASSED
+Testing handler processes tool_use with emoji-containing command... ✅ PASSED
+Testing handler processes tool_result with orphaned surrogate (exact issue #1324 scenario)... ✅ PASSED
+Testing handler processes result event with error message... ✅ PASSED
+Testing handler processes system.init with real structure... ✅ PASSED
+
+=== Testing JSON Round-Trip Safety ===
+
+Testing JSON round-trip: all surrogate ranges are handled... ✅ PASSED
+Testing JSON round-trip: sanitizeUnicode + JSON.stringify + JSON.parse is idempotent for clean strings... ✅ PASSED
+Testing JSON round-trip: sanitizeUnicode + JSON.stringify + JSON.parse preserves all valid emoji... ✅ PASSED
+Testing JSON round-trip: safeJsonStringify output is always parseable... ✅ PASSED
+
+=== Testing Agent Task Events (Issue #1450) ===
+
+Testing processEvent handles system.task_started... ✅ PASSED
+Testing processEvent handles system.task_progress with pending task... ✅ PASSED
+Testing processEvent handles system.task_progress without pending task (graceful fallback)... ✅ PASSED
+Testing processEvent handles system.task_notification (completed)... ✅ PASSED
+Testing processEvent handles system.task_notification without pending task (standalone)... ✅ PASSED
+Testing processEvent handles rate_limit_event silently... ✅ PASSED
+Testing processEvent no longer marks known system subtypes as unrecognized... ✅ PASSED
+Testing processEvent still marks truly unknown system subtypes as unrecognized... ✅ PASSED
+Testing full agent task lifecycle: started -> progress -> progress -> notification... ✅ PASSED
+Testing getToolIcon returns Agent icon... ✅ PASSED
+Testing handler exposes new task handlers... ✅ PASSED
+
+=== Testing Configuration Constants ===
+
+Testing CONFIG constants are defined... ✅ PASSED
+Testing CONFIG constants have reasonable values... ✅ PASSED
+
+=== Testing execFileAsync stdin piping (Issue #1532) ===
+
+Testing execFileAsync passes input to child stdin (Issue #1532)... ✅ PASSED
+Testing execFileAsync works without input option... ✅ PASSED
+Testing execFileAsync rejects on non-zero exit code... ✅ PASSED
+Testing execFileAsync handles large stdin input... ✅ PASSED
+Testing execFileAsync handles JSON payload for gh api simulation (Issue #1532)... ✅ PASSED
+
+=== Testing Issue #1576 Fixes ===
+
+Testing truncateMiddle shows line range instead of count... ✅ PASSED
+Testing Session Complete renamed to Interactive session completed... ✅ PASSED
+Testing Session Failed renamed to Interactive session failed... ✅ PASSED
+Testing TodoWrite shows checked/total count... ✅ PASSED
+Testing Write tool displays as Change (expanded by default)... ✅ PASSED
+Testing Write tool diff contains line numbers... ✅ PASSED
+Testing Task prompt is expanded by default... ✅ PASSED
+Testing Agent task comments show agent ID and sub-agent emoji... ✅ PASSED
+Testing ToolSearch has specific icon and formatting... ✅ PASSED
+Testing ToolSearch tool gets specific display (not generic JSON)... ✅ PASSED
+Testing Result event prefers modelUsage for token display... ✅ PASSED
+Testing Result event falls back to usage when modelUsage is absent... ✅ PASSED
+Testing Task comment queue tracking: taskId propagated through queue... ✅ PASSED
+
+==================================================
+Test Results for interactive-mode.lib.mjs:
+  ✅ Passed: 111
+  ❌ Failed: 0
+==================================================
+
+[28/80] tests/test-isolation-runner.mjs
+Testing isolation-runner.lib.mjs
+============================================================
+
+  generateSessionId:
+  ✅ PASS: Returns a string
+  ✅ PASS: UUID has correct length (36 chars)
+  ✅ PASS: UUID matches v4 format
+  ✅ PASS: Generates unique IDs
+
+  isValidIsolationBackend:
+  ✅ PASS: screen is valid
+  ✅ PASS: tmux is valid
+  ✅ PASS: docker is valid
+  ✅ PASS: ssh is not valid (not supported in telegram bot)
+  ✅ PASS: invalid backend is rejected
+  ✅ PASS: empty string is rejected
+
+  VALID_ISOLATION_BACKENDS:
+  ✅ PASS: Is an array
+  ✅ PASS: Has 3 backends
+  ✅ PASS: Contains screen
+  ✅ PASS: Contains tmux
+  ✅ PASS: Contains docker
+
+============================================================
+Results: 15 passed, 0 failed, 15 total
+============================================================
+
+✅ All tests passed!
+
+[29/80] tests/test-isolation-screen-fallback-1545.mjs
+Testing isolation screen fallback (issue #1545)
+============================================================
+
+  checkScreenSessionRunning:
+  ✅ PASS: Returns false for non-existent screen session
+
+  isSessionRunning legacy signature:
+/home/box/.bun/bin/$
+  ✅ PASS: Legacy call (sessionId, verbose) works and returns false for non-existent session
+
+  isSessionRunning new signature:
+/home/box/.bun/bin/$
+  ✅ PASS: New call (sessionId, {backend, verbose}) returns false for non-existent session
+/home/box/.bun/bin/$
+  ✅ PASS: Call without backend returns false for non-existent session
+
+  trackSession with isolation backend:
+  ✅ PASS: Session tracked successfully (1 active)
+
+============================================================
+Results: 5 passed, 0 failed, 5 total
+============================================================
+
+[30/80] tests/test-isolation-screen-integration-1545.mjs
+Integration tests: isolation screen session monitoring (Issue #1545)
+======================================================================
+
+  Prerequisites:
+    screen:        ✅ available
+    start-command:  ✅ available
+    version:        start-command version: 0.26.0
+
+--- Unit tests (no external tools required) ---
+
+  querySessionStatus with non-existent session:
+/home/box/.bun/bin/$
+  ✅ PASS: Returns exists=false for non-existent session
+  ✅ PASS: Returns status=null for non-existent session
+
+  isSessionRunning screen backend (non-existent):
+/home/box/.bun/bin/$
+  ✅ PASS: Returns false for non-existent screen session
+
+  isSessionRunning no backend (non-existent):
+/home/box/.bun/bin/$
+  ✅ PASS: Returns false for non-existent session without backend
+
+  checkScreenSessionRunning (non-existent):
+  ✅ PASS: Returns false for non-existent screen session
+
+  Legacy boolean signature:
+/home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Status query result:
+  ✅ PASS: Legacy (sessionId, boolean) returns false for non-existent
+
+--- Integration tests (screen + start-command) ---
+
+  executeWithIsolation (screen backend):
+/home/box/.bun/bin/$
+  ✅ PASS: Execution started successfully (session: test-1545-1777626593998)
+  ✅ PASS: Session ID matches requested name
+
+  querySessionStatus by session name (start-command v0.25.2 fix):
+/home/box/.bun/bin/$
+  ✅ PASS: $ --status finds session by --session name
+  ✅ PASS: Session status is "executing" while running (got: executing)
+
+  checkScreenSessionRunning (running session):
+  ✅ PASS: screen -ls detects running session
+
+  isSessionRunning (running session, screen backend):
+/home/box/.bun/bin/$
+  ✅ PASS: isSessionRunning returns true for running session
+
+  isSessionRunning (running session, no backend):
+/home/box/.bun/bin/$
+  ✅ PASS: isSessionRunning returns true via $ --status alone
+
+  Waiting for session to complete...
+  ✅ PASS: Session completed within timeout
+
+  isSessionRunning (after completion):
+/home/box/.bun/bin/$
+  ✅ PASS: isSessionRunning returns false after session completes
+
+  querySessionStatus (after completion):
+/home/box/.bun/bin/$
+  ✅ PASS: Session status is "executed" after completion (got: executed)
+
+======================================================================
+Results: 16 passed, 0 failed, 16 total
+======================================================================
+
+[31/80] tests/test-issue-1337-stderr-warning-detection.mjs
+🧪 Testing stderr warning detection (isStderrError)
+
+============================================================
+
+📋 Suite 1: JSON-structured SDK messages (Issue #1337)
+
+✅ PASS: JSON warn level with "failed" keyword — root cause of #1337
+✅ PASS: JSON error level — should still be detected as error
+✅ PASS: JSON fatal level — should still be detected as error
+✅ PASS: JSON info level — should NOT be an error
+✅ PASS: JSON debug level — should NOT be an error
+✅ PASS: JSON warn level with "error" keyword in message text
+✅ PASS: JSON warn level with "not found" keyword in message text
+✅ PASS: JSON warn level with "failed" keyword in message text
+✅ PASS: JSON object without level field — falls through to keyword matching, "failed" present
+✅ PASS: JSON WARN level (uppercase) — case-insensitive, should NOT be an error
+✅ PASS: JSON Warning level (mixed case) — case-insensitive, should NOT be an error
+
+📋 Suite 2: Emoji-prefixed warnings (Issue #477)
+
+✅ PASS: Emoji ⚠️ with "failed" keyword — should NOT be an error
+✅ PASS: Emoji ⚠ (alternative) with error keywords — should NOT be an error
+
+📋 Suite 3: Real errors (must still be detected)
+
+✅ PASS: Plain "Error:" prefix
+✅ PASS: npm error code
+✅ PASS: Command failed with exit code
+✅ PASS: "command not found" — Issue #1165
+✅ PASS: Lowercase "error" keyword
+
+📋 Suite 4: Edge cases
+
+✅ PASS: Empty string — should NOT be an error
+✅ PASS: Whitespace-only — should NOT be an error
+✅ PASS: Invalid JSON starting with { — falls through to keyword matching, "failed" present
+✅ PASS: Invalid JSON starting with { — no error keywords, should NOT be an error
+✅ PASS: Leading whitespace before ⚠️ — trim() normalizes it, should NOT be an error
+✅ PASS: Benign message with no error keywords
+✅ PASS: Message containing "error" as substring of another word — e.g. "errored" — should be detected
+
+============================================================
+
+📊 Test Results Summary
+
+Total tests: 25
+✅ Passed: 25
+❌ Failed: 0
+
+🎉 All tests passed! Issue #1337 fix verified.
+
+[32/80] tests/test-issue-1616-pr-issue-link-preservation.mjs
+Testing issue #1616 PR issue-link preservation
+============================================================
+PASS: Missing issue link is detected as an update
+PASS: Existing PR body content is preserved
+PASS: Short issue-closing keyword is appended for same-repo PRs
+PASS: Same-repo issue reference uses short form
+PASS: Existing issue link is not duplicated
+PASS: Already-linked PR body is left unchanged
+PASS: Full owner/repo issue link is accepted for same-repo PRs
+PASS: Fork issue reference uses owner/repo form
+PASS: Fork issue-closing keyword is appended with owner/repo
+PASS: Empty PR body does not get leading blank lines
+PASS: buildIssueReference defaults to short form
+PASS: buildIssueReference supports fork form
+PASS: GraphQL closing issue stdout is parsed
+PASS: Numeric issue number matches string GraphQL output
+PASS: String issue number matches numeric GraphQL output
+PASS: Different issue number is not matched
+
+============================================================
+Total tests: 16
+Passed: 16
+Failed: 0
+
+[33/80] tests/test-issue-1670-screen-status-monitoring.mjs
+Testing issue #1670: screen status monitoring
+============================================================
+
+  $ --status parser:
+  ✅ PASS: JSON status exists
+  ✅ PASS: JSON status parses executed
+  ✅ PASS: JSON status parses non-zero exit code
+  ✅ PASS: Executed status does not fall back to screen -ls
+  ✅ PASS: Text status exists
+  ✅ PASS: Text status parses UUID
+  ✅ PASS: Text status parses executing
+  ✅ PASS: Text status parses currentTime
+
+  Active session refresh:
+  ✅ PASS: Completed isolation session does not block duplicate URL
+  ✅ PASS: Completed isolation session stays tracked for completion notification
+  ✅ PASS: Executing isolation session blocks duplicate URL
+  ✅ PASS: Executing duplicate result includes session name
+  ✅ PASS: Only executing isolation sessions are counted
+  ✅ PASS: Executing isolation session is counted under its tool
+
+  Queue processing counts:
+  ✅ PASS: Queue uses pgrep count when it is higher than status count
+  ✅ PASS: Queue uses status count when it is higher than pgrep count
+  ✅ PASS: Queue reports zero when both sources are zero
+  ✅ PASS: Queue total uses max(total pgrep count, total status count)
+  ✅ PASS: Formatted status shows max claude processing count
+  ✅ PASS: Formatted status shows max codex processing count
+
+  Telegram message formatting:
+  ✅ PASS: Executing message uses in-progress hourglass status
+  ✅ PASS: Executing message does not duplicate the status line
+  ✅ PASS: Executing message omits the update footer
+  ✅ PASS: Executing message no longer references command name (issue #1684)
+  ✅ PASS: Executing message includes session id
+  ✅ PASS: Executing message includes isolation backend
+  ✅ PASS: Completion message treats non-zero exit code as failed
+  ✅ PASS: Completion message uses start/end times from status output
+  ✅ PASS: Completion message omits transient update footer
+  ✅ PASS: Completion message omits old footer (issue #1684)
+  ✅ PASS: Completion message treats zero exit code as completed
+  ✅ PASS: Successful completion uses status timestamps for duration
+
+============================================================
+Results: 32 passed, 0 failed, 32 total
+============================================================
+/home/box/.bun/bin/$
+/home/box/.bun/bin/$
+/home/box/.bun/bin/$
+/home/box/.bun/bin/$
+
+[34/80] tests/test-issue-1680-session-monitoring.mjs
+Testing issue #1680: in-memory screen isolation monitoring
+============================================================
+  ✅ PASS: Session monitor keeps Telegram task state in memory
+  ✅ PASS: Session monitor does not expose a JSON session store path
+  ✅ PASS: Tracked screen-isolated session is stored in memory
+  ✅ PASS: Monitor polls the tracked screen session with $ --status
+Session 6a0ec9c3-04b5-4c22-acc2-8f21e934036e has finished. Sending notification to chat 12345
+Failed to send completion notification for 6a0ec9c3-04b5-4c22-acc2-8f21e934036e: Error: temporary Telegram API failure
+    at Object.editMessageText (file:///tmp/gh-issue-solver-1777625541975/tests/test-issue-1680-session-monitoring.mjs:49:15)
+    at monitorSessions (file:///tmp/gh-issue-solver-1777625541975/src/session-monitor.lib.mjs:298:30)
+    at async file:///tmp/gh-issue-solver-1777625541975/tests/test-issue-1680-session-monitoring.mjs:72:1
+  ✅ PASS: Monitor checks terminal $ --status on the first pass
+  ✅ PASS: Monitor attempts to update the original Telegram message
+  ✅ PASS: Session remains tracked when Telegram update fails
+  ✅ PASS: Monitor polls the tracked screen session with $ --status
+Session 6a0ec9c3-04b5-4c22-acc2-8f21e934036e has finished. Sending notification to chat 12345
+  ✅ PASS: Monitor polls $ --status again while the completion update is pending
+  ✅ PASS: Monitor retries the completion message update
+  ✅ PASS: Retry uses the original chat and message IDs
+  ✅ PASS: Completion edit contains terminal completed status
+  ✅ PASS: Completion edit uses $ --status timestamps
+  ✅ PASS: Session is removed from memory only after message update succeeds
+
+============================================================
+Results: 14 passed, 0 failed, 14 total
+============================================================
+
+[35/80] tests/test-issue-1684-message-formatting.mjs
+Testing issue #1684: Telegram bot UI/UX message formatting
+============================================================
+
+  Starting message:
+  ✅ PASS: Starting message uses 🔄 Starting...
+  ✅ PASS: Starting message no longer uses old 🚀 prefix
+  ✅ PASS: Starting message no longer uses old 🚀 hive prefix
+  ✅ PASS: Starting message preserves requester for audit
+  ✅ PASS: Starting message preserves URL for audit
+
+  Executing message:
+  ✅ PASS: Executing message uses ⏳ Executing...
+  ✅ PASS: Executing message no longer references command name
+  ✅ PASS: Executing message no longer references hive command name
+  ✅ PASS: Executing message includes session id
+  ✅ PASS: Executing message includes isolation backend
+  ✅ PASS: Executing message preserves requester
+
+  Successful completion message:
+  ✅ PASS: Successful completion uses new headline
+  ✅ PASS: Old completion headline is removed
+  ✅ PASS: Old footer is removed
+  ✅ PASS: Standalone URL line is removed (URL is in infoBlock)
+  ✅ PASS: Duration is shown before Session
+  ✅ PASS: Successful completion shows duration from status output
+  ✅ PASS: Successful completion shows isolation
+  ✅ PASS: Successful completion preserves requester for audit
+  ✅ PASS: Successful completion preserves URL for audit
+  ✅ PASS: Successful completion preserves user options
+  ✅ PASS: Successful completion preserves locked options block
+
+  Failed completion message:
+  ✅ PASS: Failed completion uses new failure headline
+  ✅ PASS: Old failure headline is removed
+  ✅ PASS: Failed completion shows duration
+  ✅ PASS: Failed completion preserves requester for audit
+
+  Completion message uses sessionInfo.infoBlock fallback:
+  ✅ PASS: Completion falls back to sessionInfo.infoBlock when explicit infoBlock missing
+
+  Empty infoBlock degrades gracefully:
+  ✅ PASS: Empty infoBlock still produces valid message
+  ✅ PASS: Empty infoBlock does not introduce stray audit lines
+
+============================================================
+Results: 29 passed, 0 failed, 29 total
+============================================================
+
+[36/80] tests/test-issue-1686-log-command.mjs
+================================================================================
+Unit Tests: /log command helpers (Issue #1686)
+================================================================================
+
+--- extractSessionIdFromText() ---
+  ✅ extracts UUID from "/log <UUID>"
+  ✅ lowercases extracted UUID
+  ✅ extracts UUID from a typical Executing... message
+  ✅ extracts UUID from a completion message
+  ✅ returns null for empty text
+  ✅ returns null for null
+  ✅ returns null for undefined
+  ✅ returns null for non-UUID arg
+  ✅ returns null for truncated UUID
+  ✅ returns the first UUID when multiple are present
+
+--- parseSessionStatusOutput() exposes logPath/isolation/command ---
+  ✅ JSON: marks the session as exists
+  ✅ JSON: extracts uuid
+  ✅ JSON: lowercases status
+  ✅ JSON: parses exitCode as number
+  ✅ JSON: surfaces command
+  ✅ JSON: surfaces logPath
+  ✅ JSON: derives isolation from options.isolation when no top-level field
+  ✅ JSON: top-level isolation is lowercased
+  ✅ JSON: tmux logPath surfaces
+  ✅ TEXT: marks session as exists
+  ✅ TEXT: extracts uuid
+  ✅ TEXT: lowercases status
+  ✅ TEXT: parses exitCode
+  ✅ TEXT: surfaces logPath
+  ✅ TEXT: surfaces isolation
+  ✅ TEXT: surfaces command
+  ✅ EMPTY: marks not-exists
+  ✅ EMPTY: logPath is null
+  ✅ EMPTY: isolation is null
+
+--- decideLogDestination() ---
+  ✅ public repo + group chat → chat delivery
+  ✅ public repo + supergroup → chat delivery
+  ✅ public repo + private chat (DM) → dm delivery (already in DM)
+  ✅ private repo → dm delivery
+  ✅ internal-visibility repo → dm delivery
+  ✅ unknown visibility → dm delivery (fail-closed)
+  ✅ isPublic:true but visibility unknown → dm delivery (fail-closed)
+  ✅ non-isolation session → reject (issue #1686 R4)
+  ✅ isolation:"direct" → reject
+  ✅ unknown session → reject
+  ✅ sessionInfo.isolationBackend overrides missing status.isolation
+  ✅ sessionInfo.isolationBackend + private repo → dm
+
+--- resolveLogPath() ---
+  ✅ prefers statusResult.logPath when present
+  ✅ falls back to isolation/<backend>/<uuid>.log
+  ✅ falls back to direct/<uuid>.log when no backend
+  ✅ returns null when uuid is missing and no logPath is provided
+
+================================================================================
+Result: 45 passed, 0 failed
+================================================================================
+
+[37/80] tests/test-issue-1688-subscribe-and-pr-link.mjs
+Testing issue #1688: /subscribe + /unsubscribe + Issue/PR completion lines
+============================================================
+
+  appendPullRequestLine() helper:
+  ✅ PASS: Issue line preserved
+  ✅ PASS: Pull request line appended
+  ✅ PASS: Pull request line appears after the Issue line
+  ✅ PASS: Pull request line is inserted before the options block
+  ✅ PASS: appendPullRequestLine is idempotent when PR URL is already present
+  ✅ PASS: Empty infoBlock stays empty
+  ✅ PASS: Null pullRequestUrl returns infoBlock unchanged
+
+  Completion message includes both Issue and PR links:
+  ✅ PASS: Completion includes Issue line
+  ✅ PASS: Completion includes Pull request line
+  ✅ PASS: Successful completion headline preserved
+  ✅ PASS: Completion still shows Issue line when no PR
+  ✅ PASS: Completion does not show Pull request line when no PR is found
+
+  Subscriber store:
+  ✅ PASS: Subscriber store starts empty
+  ✅ PASS: addSubscriber returns true for new user
+  ✅ PASS: User is subscribed after addSubscriber
+  ✅ PASS: Subscriber count increments
+  ✅ PASS: Adding same user twice returns false
+  ✅ PASS: Subscriber count does not double-count
+  ✅ PASS: removeSubscriber returns true for existing user
+  ✅ PASS: User no longer subscribed after removeSubscriber
+  ✅ PASS: removeSubscriber returns false for non-subscriber
+  ✅ PASS: Subscriber count returns to 0
+  ✅ PASS: addSubscriber rejects null user id
+  ✅ PASS: addSubscriber rejects undefined user id
+
+  notifySubscribers forwarding + fallback + skip-set:
+  ✅ PASS: One subscriber received the forwarded message
+  ✅ PASS: One subscriber received the fallback sendMessage
+  ✅ PASS: Requester is skipped
+  ✅ PASS: No failures when fallback succeeded
+  ✅ PASS: forwardMessage attempted for subscriber 100
+  ✅ PASS: Fallback sendMessage used for blocked subscriber
+  ✅ PASS: Skipped requester never received forwardMessage
+  ✅ PASS: Skipped requester never received sendMessage either
+
+  monitorSessions appends Pull request line and notifies subscribers:
+Session sess-3 has finished. Sending notification to chat 11
+  ✅ PASS: lookupLinkedPullRequest receives parsed URL context
+  ✅ PASS: monitorSessions edits the original message exactly once
+  ✅ PASS: Edited message preserves Issue line
+  ✅ PASS: Edited message includes Pull request line from lookup
+  ✅ PASS: monitorSessions forwards to one subscriber
+  ✅ PASS: Forward target is subscribed user
+  ✅ PASS: Forward source chat matches edited message chat
+  ✅ PASS: Forward source message id matches edited message id
+  ✅ PASS: Session is removed from in-memory tracking after notification
+
+============================================================
+Results: 41 passed, 0 failed, 41 total
+============================================================
+
+[38/80] tests/test-issue-1694-stabilized-defaults.mjs
+
+================================================================================
+Issue #1694: Stabilized option defaults
+================================================================================
+
+📋 SOLVE_OPTION_DEFINITIONS
+
+✅ SOLVE_OPTION_DEFINITIONS["auto-accept-invite"].default === true
+✅ SOLVE_OPTION_DEFINITIONS["tokens-budget-stats"].default === true
+✅ SOLVE_OPTION_DEFINITIONS["auto-attach-solution-summary"].default === true
+
+📋 solve parser argv
+
+✅ solve parsed argv.autoAcceptInvite === true
+✅ solve parsed argv.tokensBudgetStats === true
+✅ solve parsed argv.autoAttachSolutionSummary === true
+✅ solve --no-auto-accept-invite disables flag
+✅ solve --no-tokens-budget-stats disables flag
+✅ solve --no-auto-attach-solution-summary disables flag
+
+📋 hive parser argv
+
+✅ hive parsed argv.autoAcceptInvite === true
+✅ hive parsed argv.tokensBudgetStats === true
+✅ hive parsed argv.autoAttachSolutionSummary === true
+
+📋 hive-telegram-bot --isolation default
+
+✅ telegram-bot reports isolation backend = screen by default
+✅ --isolation "" opts out of screen (no isolation log line)
+
+================================================================================
+Results: 14 passed, 0 failed
+================================================================================
+
+
+[39/80] tests/test-issue-1700-isolation-parsing.mjs
+
+--- parseSessionStatusOutput() handles real start-command output ---
+  ✅ links-notation: marks session as exists
+  ✅ links-notation: extracts uuid
+  ✅ links-notation: lowercases status
+  ✅ links-notation: parses exitCode
+  ✅ links-notation: surfaces logPath
+  ✅ links-notation: surfaces options.isolated as isolation (issue #1700)
+  ✅ JSON: marks session as exists
+  ✅ JSON: surfaces options.isolated as isolation (issue #1700)
+  ✅ JSON: tmux backend is lowercased from options.isolated
+  ✅ JSON: docker backend surfaces from options.isolated
+
+--- decideLogDestination() accepts real isolation sessions ---
+  ✅ real screen session in public chat → chat (was rejected before fix)
+  ✅ decision exposes screen backend from options.isolated
+  ✅ real JSON session in supergroup → chat (was rejected before fix)
+  ✅ decision exposes screen backend from JSON options.isolated
+
+================================================================================
+Result: 14 passed, 0 failed
+================================================================================
+
+[40/80] tests/test-issue-1706-sub-session-size.mjs
+
+=== parseSubSessionSize ===
+
+✅ parses "150k" → kind=tokens
+✅ parses "150k" → tokens=150000
+✅ parses "150K" → tokens=150000 (case-insensitive)
+✅ parses "150000" → tokens=150000
+✅ parses "1m" → tokens=1000000
+✅ parses "1.5M" → tokens=1500000
+✅ parses "50%" → kind=percent
+✅ parses "50%" → percent=50
+✅ parses "50%" with contextWindow=200000 → tokens=100000
+✅ parses "default" → kind=default
+✅ parses "default" → tokens=null
+✅ parses "auto" → kind=default
+✅ parses "off" → kind=default
+✅ parses "" → kind=default
+✅ parses undefined → kind=default
+✅ rejects garbage value "abc"
+✅ rejects negative percentage
+✅ rejects percentage > 100
+
+=== applySubSessionSizeToClaudeEnv ===
+
+✅ tokens=150k sets CLAUDE_CODE_AUTO_COMPACT_WINDOW=150000
+✅ tokens=150k sets CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75 (150/200)
+✅ tokens=150k → applied=true
+✅ tokens=1m clamps PCT_OVERRIDE to 95 (lower-only semantics)
+✅ tokens=150k with null contextWindow falls back to PCT=95
+✅ tokens=150k with null contextWindow keeps WINDOW=150000
+✅ percent=50 sets CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50
+✅ percent=50 sets CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000
+✅ default → no env vars set
+✅ default → applied=false
+
+=== applyDisable1mContextToClaudeEnv ===
+
+✅ disabled=true sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1
+✅ disabled=false leaves env untouched
+
+=== buildCodexSubSessionSizeConfigArgs ===
+
+✅ tokens=150k → -c model_auto_compact_token_limit=150000
+✅ tokens=1m → -c model_auto_compact_token_limit=1000000
+✅ default → []
+✅ percent without contextWindow → []
+✅ percent=50 with contextWindow=200000 → -c ...=100000
+
+=== buildCodexDisable1mContextConfigArgs ===
+
+✅ disabled=true → -c model_context_window=200000
+✅ disabled=false → []
+✅ custom fallbackTokens
+
+=== SOLVE_OPTION_DEFINITIONS ===
+
+✅ sub-session-size default = "150k"
+✅ sub-session-size type = "string"
+✅ disable-1m-context default = true
+✅ disable-1m-context type = "boolean"
+
+=== getClaudeEnv integration ===
+
+✅ getClaudeEnv: CLAUDE_CODE_DISABLE_1M_CONTEXT=1
+✅ getClaudeEnv: CLAUDE_CODE_AUTO_COMPACT_WINDOW=150000
+✅ getClaudeEnv: CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75
+✅ getClaudeEnv: no DISABLE_1M_CONTEXT when disabled=false
+✅ getClaudeEnv: no AUTO_COMPACT_WINDOW when sub-session-size=default
+✅ getClaudeEnv: no PCT_OVERRIDE when sub-session-size=default
+✅ getClaudeEnv: percent=50 → PCT_OVERRIDE=50
+✅ getClaudeEnv: percent=50 → AUTO_COMPACT_WINDOW=200000
+
+================================================================================
+Results: 50 passed, 0 failed
+================================================================================
+
+
+[41/80] tests/test-issue-1710-budget-trace.mjs
+✅ every line is gated behind {verbose: true}
+✅ renders peak request line with context limit when known
+✅ renders cumulative line splitting cache writes by tier
+✅ annotates web_search residual cost when count > 0
+✅ omits web_search dollar annotation when count is 0
+✅ surfaces both public and Anthropic costs when both available
+✅ reports sub-session count from tokenUsage
+✅ reports data source as result-event when supplemented
+✅ reports data source as jsonl-only when not supplemented
+✅ does not crash with a minimal usage object
+
+📊 Tests: 10 passed, 0 failed
+
+[42/80] tests/test-issue-1710-format-fixes.mjs
+
+📋 R1 — web_search billed at documented per-request rate
+
+✅ Haiku web_search 4 requests adds exactly $0.04
+✅ zero web_search requests does not add cost
+
+📋 R2 — Haiku sub-session line includes an input-tokens phrase
+
+✅ Haiku sub-agent (peakContext=0) renders cumulative input phrase
+
+📋 R3 — bullet labelled "peak request:" to disambiguate from Total
+
+✅ Opus single-session bullet is labelled "peak request:"
+
+📋 R4 — Total always splits cache writes / cache reads when present
+
+✅ Haiku Total preserves writes/reads as separate categories (writes only)
+✅ Opus Total renders three-way split (input + writes + reads)
+✅ Total preserves legacy "(X + Y cached)" form when only cache reads exist
+
+📋 R5 — peakContext excludes cache reads (sub-sessions input is non-cached)
+
+✅ peakContext semantic: bullet is reconcilable with totalInputNonCached
+
+📊 Tests: 8 passed, 0 failed
+
+[43/80] tests/test-issue-1714-auto-accept-invite-hint.mjs
+
+================================================================================
+Issue #1714: --auto-accept-invite hint suppression after default flip
+================================================================================
+
+📋 parsed argv autoAcceptInvite default
+
+✅ default invocation -> parsed argv.autoAcceptInvite === true
+✅ --auto-accept-invite -> parsed argv.autoAcceptInvite === true
+✅ --no-auto-accept-invite -> parsed argv.autoAcceptInvite === false
+
+📋 raw args form is broken on the default-on path (regression lock-in)
+
+✅ args.some(a => a === "--auto-accept-invite") on default invocation === false
+
+📋 hint suppression behaviour driven by parsed argv
+
+✅ default invocation (no flag) suppresses --auto-accept-invite hint
+✅ explicit --auto-accept-invite suppresses --auto-accept-invite hint
+✅ --no-auto-accept-invite shows --auto-accept-invite hint
+
+📋 source-level guard for src/telegram-bot.mjs
+
+✅ telegram-bot.mjs validateGitHubEntityExistence call uses parsedSolveArgs.autoAcceptInvite
+
+================================================================================
+Results: 8 passed, 0 failed
+================================================================================
+
+
+[44/80] tests/test-issue-1716-private-repo-skip-fork.mjs
+Testing solve.mjs computes skipForkForPrivateUpstream flag... ✅ PASSED
+Testing bypass requires !isRepoPublic && !argv.fork && hasWriteAccess... ✅ PASSED
+Testing visibility detection runs unconditionally... ✅ PASSED
+Testing bypass references issue #1716... ✅ PASSED
+Testing bypass logs working directly on private upstream... ✅ PASSED
+Testing bypass applied in auto-continue PR-detection path... ✅ PASSED
+Testing bypass applied in direct PR URL path... ✅ PASSED
+Testing bypass leaves forkOwner null... ✅ PASSED
+Testing maintainer-modify check requires forkOwner... ✅ PASSED
+Testing scenario: private upstream + write access + fork PR → bypass... ✅ PASSED
+Testing scenario: public upstream + fork PR → no bypass... ✅ PASSED
+Testing scenario: explicit --fork on private repo → no bypass... ✅ PASSED
+Testing scenario: private upstream + no write access → no bypass... ✅ PASSED
+
+============================================================
+Test Results for Issue #1716 (Skip fork for private upstream):
+  ✅ Passed: 13
+  ❌ Failed: 0
+============================================================
+
+[45/80] tests/test-issue-1720-terminal-watch-no-log.mjs
+================================================================================
+Regression: /terminal_watch must not attach logs (Issue #1720)
+================================================================================
+
+--- watchTerminalLogSession() does not upload logs on completion ---
+  ✅ still edits the live message while running and at completion
+  ✅ does NOT call sendDocument on completion
+  ✅ does NOT call sendMessage (e.g. for oversize logs) on completion
+  ✅ final edit shows the watch is complete
+
+--- /log replies to the originating message (so Telegraf carries message_thread_id) ---
+  ✅ /log issues exactly one replyWithDocument call for a public-repo session
+  ✅ /log replies to the message that contained the command
+  ✅ /log uses ctx.replyWithDocument so Telegraf carries message_thread_id automatically
+
+================================================================================
+Result: 7 passed, 0 failed
+================================================================================
+
+[46/80] tests/test-issue-467-terminal-watch.mjs
+================================================================================
+Unit Tests: Telegram terminal watch (Issue #467)
+================================================================================
+
+--- parseTerminalWatchArgs() ---
+  ✅ extracts session id from direct command
+  ✅ parses --size width
+  ✅ parses --size height
+  ✅ parses --interval-ms
+  ✅ parses --max-chars inline form
+  ✅ accepts valid options without errors
+  ✅ reports invalid size, height, and unknown option
+
+--- tailTextForTerminal() ---
+  ✅ keeps last height lines and trims long lines from the left
+  ✅ renders empty logs explicitly
+
+--- formatTerminalWatchMessage() ---
+  ✅ formats live watch title
+  ✅ includes session id
+  ✅ sanitizes nested code fences in logs
+  ✅ includes repository description
+
+--- resolveTerminalWatchRepository() ---
+  ✅ derives repo from $ --status command when in-memory tracking is missing
+  ✅ returns detected visibility
+
+--- watchTerminalLogSession() ---
+  ✅ edits the watch message while running and at completion
+  ✅ does not attach the full log when the session reaches terminal status (issue #1720)
+  ✅ freezes final message as complete
+
+================================================================================
+Result: 18 passed, 0 failed
+================================================================================
+
+[47/80] tests/test-lenv-reader.mjs
+Testing LenvReader class export... Testing lenvReader singleton export... Testing loadLenvConfig function export... Testing parse simple LINO configuration... Testing parse LINO configuration with list... Testing parse empty configuration... Testing parse null configuration... Testing read .lenv file... Testing read non-existent file... Testing config() with configuration string... Testing config() with file... Testing config() respects override flag... Testing shouldUseLenv() method... Testing shouldUseLenv() returns false when no .lenv... Testing parse --configuration option format... Testing loadLenvConfig function... Testing reject same-line options... Testing reject invalid character ? in options... Testing reject invalid character @ in options... Testing accept valid options with = sign... Testing accept valid hyphenated options... Testing non-option values are not validated... Testing accept explicit parenthesized lists... Testing validation error message includes problematic value... Testing accept parenthesized option/value links... Testing accept issue #1658 Telegram configuration shape... ✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+
+==================================================
+Test Results for lenv-reader.lib.mjs:
+  ✅ Passed: 26
+  ❌ Failed: 0
+==================================================
+
+[48/80] tests/test-lino-arguments-cli.mjs
+PASS: package depends on lino-arguments
+PASS: CLI argument parsers route through lino-arguments adapter
+PASS: memory-check CI installs package dependencies before CLI tests
+
+Total: 3, Passed: 3, Failed: 0
+
+[49/80] tests/test-lino.mjs
+📋 LinksNotationManager Export Tests
+
+Testing LinksNotationManager class export... Testing lino singleton export... Testing CACHE_FILES export...
+📋 parse() Method Tests
+
+Testing parse empty input... Testing parse null input... Testing parse simple LINO list... Testing parse numeric values... Testing parse command-line options...
+📋 parseNumericIds() Method Tests
+
+Testing parseNumericIds empty input... Testing parseNumericIds with numeric values... Testing parseNumericIds with negative numbers... Testing parseNumericIds filters non-numeric values...
+📋 parseStringValues() Method Tests
+
+Testing parseStringValues empty input... Testing parseStringValues null input... Testing parseStringValues with options... Testing parseStringValues with mixed content...
+📋 format() Method Tests
+
+Testing format empty array... Testing format null... Testing format simple values... Testing format command-line options...
+📋 Round-Trip Tests (parse -> format)
+
+Testing round-trip with options... Testing round-trip with numeric strings...
+📋 Edge Case Tests (Issue #1086 Related)
+
+Testing parseStringValues with same-line items (nested structure)... Testing parseStringValues with equals sign options... Testing parseStringValues with hyphenated options... Testing parseStringValues with short options... Testing parseStringValues with parenthesized option/value tuple...
+📋 Cache Method Tests
+
+Testing getCachePath returns correct path... Testing cacheExists for non-existent file... ✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+✅ PASSED
+
+==================================================
+Test Results for lino.lib.mjs:
+  ✅ Passed: 29
+  ❌ Failed: 0
+==================================================
+
+[50/80] tests/test-log-upload-output-1678.mjs
+ok 1 - parses gh-upload-log v0.8 shared repository output
+ok 2 - parses multi-file repository uploads as multiple chunks
+ok 3 - keeps legacy dedicated repository output compatible
+ok 4 - attachLogToGitHub no longer contains a truncated-log fallback
+
+4 issue #1678 log upload tests passed
+
+[51/80] tests/test-log-upload-output-1682.mjs
+ok 1 - resolves the issue #1682 public shared-repository upload to a raw URL
+ok 2 - returns no URL when gh-upload-log success lacks a usable link
+ok 3 - keeps private repository uploads on a stable repository page URL
+ok 4 - failure-log terminal status is not rendered with a green check mark
+
+4 issue #1682 log upload tests passed
+
+[52/80] tests/test-memory-check.mjs
+Testing memory-check.mjs exists... ✅ PASSED
+Testing memory-check.mjs --help... ✅ PASSED
+Testing memory-check.mjs basic execution... ✅ PASSED
+Testing memory-check.mjs disk space check... ✅ PASSED
+Testing memory-check.mjs RAM check... ✅ PASSED
+Testing memory-check.mjs verbose output... ✅ PASSED
+Testing memory-check.mjs syntax check... ✅ PASSED
+Testing memory-check.mjs platform detection... ✅ PASSED
+Testing memory-check.mjs exit code on success... ✅ PASSED
+Testing memory-check.mjs execution... ✅ PASSED
+
+==================================================
+Test Results for memory-check.mjs:
+  ✅ Passed: 10
+  ❌ Failed: 0
+  Platform: linux
+==================================================
+
+[53/80] tests/test-pre-pr-failure-notifier-1640.mjs
+✅ notifies only nonzero exits with known issue and no PR
+✅ builds a pre-PR failure comment with the tracked failure marker
+✅ builds fork-specific user guidance without administrator commands
+✅ uploads logs to the issue when attach-logs is enabled
+✅ falls back to a plain issue comment when log upload is unavailable
+
+Pre-PR failure notifier tests: 5 passed, 0 failed
+
+[54/80] tests/test-preinstall-use-m-packages-1724.mjs
+✅ aliasForPackage strips @ and replaces / for scoped names
+✅ isRetryableNpmError detects ENOTEMPTY and friends
+✅ computeBackoffMs grows exponentially
+[preinstall-use-m] ✅ installed command-stream@latest as command-stream-v-latest (attempt 1)
+✅ installWithRetry returns ok on first success
+[preinstall-use-m] ⚠️  attempt 1/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ⚠️  attempt 2/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ✅ installed command-stream@latest as command-stream-v-latest (attempt 3)
+✅ installWithRetry retries on ENOTEMPTY then succeeds
+[preinstall-use-m] ⚠️  attempt 1/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ❌ giving up on command-stream@latest after 1 attempt(s)
+✅ installWithRetry aborts immediately on non-retryable error
+[preinstall-use-m] ⚠️  attempt 1/3 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ℹ️  command-stream-v-latest already present in /tmp/preinstall-1724-tZcYvl; treating as success despite npm error
+✅ installWithRetry treats package-present-on-disk as recovered success
+
+Passed: 7 / 7
+
+[55/80] tests/test-queue-display-1267.mjs
+================================================================================
+Tests: Issue #1267 - Queue Display & Progress Bar Fixes
+================================================================================
+
+📋 formatDuration Tests
+
+✅ formatDuration formats seconds correctly
+✅ formatDuration formats minutes and seconds
+✅ formatDuration formats hours, minutes, and seconds
+✅ formatDuration formats days
+✅ formatDuration handles negative values gracefully
+
+📋 Queue Display Tests
+
+✅ formatStatus shows all queues even when empty
+✅ formatDetailedStatus groups items by tool queue
+✅ formatDetailedStatus shows max 5 items per queue
+
+📋 Used Label Tests
+
+✅ formatUsageMessage shows used label on progress bars below threshold
+✅ formatUsageMessage shows warning emoji on progress bars at/above threshold
+
+================================================================================
+Test Results for Issue #1267:
+  ✅ Passed: 10
+  ❌ Failed: 0
+  Total: 10
+================================================================================
+
+[56/80] tests/test-ready-to-merge-pagination-1645.mjs
+================================================================================
+Unit Tests: Issue #1645 - Ready-to-merge deduplication pagination
+================================================================================
+
+  [32mPASS:[0m checkForExistingComment paginates PR comments before applying session scope
+
+================================================================================
+Test Results for Issue #1645:
+  [32mPassed:[0m 1
+  [31mFailed:[0m 0
+  Total: 1
+================================================================================
+
+
+[57/80] tests/test-require-gh-paginate-rule.mjs
+require-gh-paginate ESLint rule tests passed
+
+[58/80] tests/test-sentry.mjs
+🧪 Running Sentry Integration Tests
+
+Testing: instrument.mjs file exists... [32m✓ PASSED[0m
+Testing: sentry.lib.mjs file exists... [32m✓ PASSED[0m
+Testing: Sentry packages in package.json... [32m✓ PASSED[0m
+Testing: hive.mjs supports --sentry flag... [32m✓ PASSED[0m
+Testing: solve.mjs supports --sentry flag... [32m✓ PASSED[0m
+Testing: instrument.mjs has correct imports... [32m✓ PASSED[0m
+Testing: Sentry DSN is configured... [32m✓ PASSED[0m
+Testing: Supports HIVE_MIND_NO_SENTRY environment variable... [32m✓ PASSED[0m
+Testing: Disables Sentry in CI environment... [32m✓ PASSED[0m
+Testing: hive.mjs imports instrument.mjs... [32m✓ PASSED[0m
+Testing: solve.mjs imports instrument.mjs... [32m✓ PASSED[0m
+Testing: Sentry has privacy protections... [32m✓ PASSED[0m
+Testing: sentry.lib.mjs exports required functions... [32m✓ PASSED[0m
+Testing: Sentry filters common network errors... [32m✓ PASSED[0m
+Testing: Version is properly configured... [32m✓ PASSED[0m
+
+==================================================
+[32m✓ Passed: 15[0m
+Total Tests: 15
+==================================================
+
+[32m🎉 All tests passed![0m
+
+
+[59/80] tests/test-session-monitor-isolation.mjs
+Testing session-monitor.lib.mjs (isolation support)
+============================================================
+
+  trackSession with isolation:
+  ✅ PASS: At least 1 active session tracked (got 1)
+
+  trackSession with messageId:
+  ✅ PASS: At least 2 active sessions tracked (got 2)
+
+  getSessionStats:
+  ✅ PASS: Returns an object
+  ✅ PASS: Has total count
+  ✅ PASS: Has executing count
+  ✅ PASS: Has storage type
+  ✅ PASS: Has isolated count field
+
+  checkScreenSessionExists:
+  ✅ PASS: Returns false for non-existent screen session
+
+============================================================
+Results: 8 passed, 0 failed, 8 total
+============================================================
+
+[60/80] tests/test-solve-queue-command.mjs
+================================================================================
+Unit Tests: /solve_queue Command (Issue #1232)
+================================================================================
+
+📋 Registration Tests
+
+✅ registerSolveQueueCommand registers a command handler
+✅ registerSolveQueueCommand returns handleSolveQueueCommand function
+✅ Command regex matches solve_queue
+✅ Command regex matches solvequeue
+✅ Command regex matches solve-queue
+✅ Command regex matches SOLVE_QUEUE (case insensitive)
+✅ Command regex does not match solve
+✅ Command regex does not match queue
+
+📋 Permission Tests
+
+✅ Rejects non-group chat
+✅ Rejects unauthorized chat
+✅ Ignores old messages
+✅ Ignores forwarded messages
+
+📋 Queue Status Output Tests
+
+✅ Shows queue status for empty queue
+✅ Shows processing count in per-queue breakdown
+✅ Shows queue with pending items
+
+📋 Hint Text Regression Tests
+
+✅ telegram-bot.mjs uses /solve_queue in hint text (not /solve-queue)
+✅ telegram-bot.mjs includes /solve_queue in help text using backtick code block
+✅ telegram-bot.mjs includes solve_queue in text fallback handlers
+✅ telegram-solve-queue.lib.mjs uses /solve_queue in log messages (not /solve-queue)
+✅ telegram-solve-queue.lib.mjs uses [solve_queue] log tag (not [solve-queue])
+✅ telegram-bot.mjs includes /accept_invites in help text using backtick code block
+✅ telegram-accept-invitations.lib.mjs uses /accept_invites in log messages (not /accept-invites)
+
+================================================================================
+Test Results for /solve_queue command:
+  ✅ Passed: 22
+  ❌ Failed: 0
+  Total: 22
+================================================================================
+
+[61/80] tests/test-solve.mjs
+Testing solve.mjs exists... ✅ PASSED
+Testing solve.mjs usage without args... ✅ PASSED
+Testing solve.mjs --version... ✅ PASSED
+Testing solve.mjs --help... ✅ PASSED
+Testing solve.mjs -h... ✅ PASSED
+Testing solve.mjs requires GitHub URL... ✅ PASSED
+Testing solve.mjs validates URL format... ✅ PASSED
+Testing solve.mjs basic validation... ✅ PASSED
+Testing solve.mjs syntax check... ✅ PASSED
+Testing solve.mjs module imports... ✅ PASSED
+Testing solve.mjs no runtime switching... ✅ PASSED
+Testing solve.mjs loads successfully... ✅ PASSED
+Testing solve.mjs --skip-tool-connection-check flag... ✅ PASSED
+Testing solve.mjs --auto-close-pull-request-on-fail flag... ✅ PASSED
+Testing solve.mjs --attach-logs flag... ✅ PASSED
+Testing solve.mjs raw command logging... ✅ PASSED
+Testing solve.mjs version logging at startup... ✅ PASSED
+
+==================================================
+Test Results for solve.mjs:
+  ✅ Passed: 17
+  ❌ Failed: 0
+==================================================
+
+[62/80] tests/test-start-screen.mjs
+Testing screen name generation logic...
+
+Test: solve command with issue URL
+  URL: https://github.com/veb86/zcadvelecAI/issues/2
+  Expected: solve-veb86-zcadvelecAI-2
+  Got: solve-veb86-zcadvelecAI-2
+  Result: ✓ PASSED
+
+Test: hive command with repo URL
+  URL: https://github.com/veb86/zcadvelecAI
+  Expected: hive-veb86-zcadvelecAI
+  Got: hive-veb86-zcadvelecAI
+  Result: ✓ PASSED
+
+Test: solve command with another issue
+  URL: https://github.com/link-assistant/hive-mind/issues/333
+  Expected: solve-link-assistant-hive-mind-333
+  Got: solve-link-assistant-hive-mind-333
+  Result: ✓ PASSED
+
+Test: hive command with different repo
+  URL: https://github.com/openai/gpt-4
+  Expected: hive-openai-gpt-4
+  Got: hive-openai-gpt-4
+  Result: ✓ PASSED
+
+Testing help output...
+  Help output: ✓ PASSED
+
+Testing invalid command handling...
+  Invalid command: ✓ PASSED
+
+Testing --auto-terminate flag in help output...
+  --auto-terminate in help: ✓ PASSED
+
+Testing --auto-terminate flag position...
+  --auto-terminate position in usage: ✓ PASSED
+
+Testing --dry-run mode for solve command...
+  solve --dry-run: ✓ PASSED
+
+Testing --dry-run mode for hive command with user URL...
+  hive --dry-run user URL: ✓ PASSED
+
+Testing --dry-run mode for hive command with repo URL...
+  hive --dry-run repo URL: ✓ PASSED
+
+==================================================
+All tests PASSED! ✓
+
+[63/80] tests/test-task-split.mjs
+PASS: parseTaskIssueUrl accepts issues and rejects pull requests
+PASS: buildTaskSplitPrompt requires exact task count
+PASS: extractTaskSplitJson reads fenced JSON
+PASS: normalizeSplitTasks validates count and fields
+PASS: formatChildIssueBody links parent issue and dependencies
+PASS: appendOrReplaceParentSplitSection keeps one managed section
+PASS: sub-issue API helpers target GitHub relationship endpoints
+PASS: start-agent args enforce read-only planning mode
+PASS: agent-commander dependency provides start-agent before PATH lookup
+
+Total: 9, Passed: 9, Failed: 0
+
+[64/80] tests/test-telegram-bot-command-aliases.mjs
+Running telegram bot command aliases tests...
+
+PASS: /do command with basic URL
+PASS: /continue command with options
+PASS: /solve command still works
+PASS: /claude injects --tool claude
+PASS: /codex without arguments stays empty before reply URL resolution
+PASS: /codex injects --tool codex while preserving options
+PASS: /opencode injects --tool opencode
+PASS: /agent injects --tool agent and handles bot mention
+PASS: /agent handles Telegram em-dash replacement
+PASS: /codex command wins over explicit --tool value
+PASS: /opencode command wins over explicit --tool=value syntax
+PASS: /claude is registered as a per-tool solve alias
+PASS: /codex is registered as a per-tool solve alias
+PASS: /opencode is registered as a per-tool solve alias
+PASS: /agent is registered as a per-tool solve alias
+
+==================================================
+Total: 15 tests
+Passed: 15
+Failed: 0
+==================================================
+
+[65/80] tests/test-telegram-bot-configuration-isolation-links-notation.mjs
+✅ exits successfully
+✅ loads token from --configuration
+✅ validates solve overrides
+✅ validates hive overrides
+✅ keeps isolation flag in summary
+✅ keeps isolation value in summary
+✅ does not report missing token
+
+✅ Issue #1658 Telegram configuration regression passed
+
+[66/80] tests/test-telegram-bot-dry-run.mjs
+Testing telegram-bot --dry-run mode...
+
+
+--- Test: Issue #487: Exact command with --dry-run ---
+Command: hive-telegram-bot --token 8490528355:AAFPBDyYA8pPB1Uzl9eD7wbt9Gsj1LAaOEM --allowed-chats (-1002975819706 -1002861722681) --no-hive --solve-overrides (
+  --auto-continue
+  --attach-logs
+  --verbose
+  --no-tool-check
+) --dry-run
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Valid solve-overrides with --dry-run ---
+Command: hive-telegram-bot --token test_token_123 --solve-overrides (--auto-continue --attach-logs) --dry-run
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Valid hive-overrides with --dry-run ---
+Command: hive-telegram-bot --token test_token_123 --hive-overrides (--verbose --all-issues) --dry-run
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Both commands disabled with --dry-run ---
+Command: hive-telegram-bot --token test_token_123 --no-hive --no-solve --dry-run
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Invalid solve-overrides with --dry-run (should fail) ---
+Command: hive-telegram-bot --token test_token_123 --solve-overrides (--invalid-option-xyz) --dry-run
+Exit code: 1
+Result: ✅ PASSED - Has expected validation error
+
+--- Test: Invalid hive-overrides with --dry-run (should fail) ---
+Command: hive-telegram-bot --token test_token_123 --hive-overrides (--invalid-option-abc) --dry-run
+Exit code: 1
+Result: ✅ PASSED - Has expected validation error
+
+--- Test: Issue #484: --no-hive with solve-overrides ---
+Command: hive-telegram-bot --token test_token_123 --no-hive --solve-overrides (--auto-continue --verbose) --dry-run
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: --no-solve with hive-overrides ---
+Command: hive-telegram-bot --token test_token_123 --no-solve --hive-overrides (--verbose) --dry-run
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Complex allowed-chats with --dry-run ---
+Command: hive-telegram-bot --token test_token_123 --allowed-chats (
+  -1001234567890
+  -1009876543210
+  123456789
+) --dry-run
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Full configuration with --dry-run ---
+Command: hive-telegram-bot --token test_token_123 --allowed-chats (-1001234567890 -1009876543210) --solve-overrides (--auto-continue --attach-logs --verbose) --hive-overrides (--verbose --all-issues) --dry-run
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+
+=== SUMMARY ===
+10/10 tests passed
+✅ Issue #487: Exact command with --dry-run
+✅ Valid solve-overrides with --dry-run
+✅ Valid hive-overrides with --dry-run
+✅ Both commands disabled with --dry-run
+✅ Invalid solve-overrides with --dry-run (should fail)
+✅ Invalid hive-overrides with --dry-run (should fail)
+✅ Issue #484: --no-hive with solve-overrides
+✅ --no-solve with hive-overrides
+✅ Complex allowed-chats with --dry-run
+✅ Full configuration with --dry-run
+
+✅ All tests passed!
+
+📝 The command from issue #487 now works correctly with --dry-run:
+   hive-telegram-bot --token ... --allowed-chats "(...)" --no-hive --solve-overrides "(...)" --dry-run
+
+[67/80] tests/test-telegram-bot-hero-links-notation.mjs
+Testing telegram-bot hero example with Links Notation (Issue #623)...
+
+
+--- Test: Issue #623: Hero example with Links Notation ---
+Command: hive-telegram-bot --configuration TELEGRAM_BOT_TOKEN: test_token_hero_example
+TELEGRAM_ALLOWED_CHATS: (
+  -1002975819706
+  -1002861722681
+)
+TELEGRAM_HIVE_OVERRIDES: (
+  --all-issues
+  --once
+  --auto-fork
+  --skip-issues-with-prs
+  --attach-logs
+  --verbose
+  --no-tool-check
+)
+TELEGRAM_SOLVE_OVERRIDES: (
+  --auto-fork
+  --auto-continue
+  --attach-logs
+  --verbose
+  --no-tool-check
+)
+TELEGRAM_BOT_VERBOSE: true --dry-run
+Exit code: 0
+Result: ✅ PASSED - Hero configuration validated successfully
+
+--- Test: Simplified hero configuration ---
+Command: hive-telegram-bot --configuration TELEGRAM_BOT_TOKEN: test_token
+TELEGRAM_ALLOWED_CHATS: (
+  -1002975819706
+  -1002861722681
+)
+TELEGRAM_SOLVE_OVERRIDES: (
+  --auto-fork
+  --verbose
+) --dry-run
+Exit code: 0
+Result: ✅ PASSED - Hero configuration validated successfully
+
+--- Test: Configuration with TELEGRAM_BOT_VERBOSE ---
+Command: hive-telegram-bot --configuration TELEGRAM_BOT_TOKEN: test_token
+TELEGRAM_BOT_VERBOSE: true --dry-run
+Exit code: 0
+Result: ✅ PASSED - Hero configuration validated successfully
+
+--- Test: Full hero configuration with all options ---
+Command: hive-telegram-bot --configuration TELEGRAM_BOT_TOKEN: test_token_hero_example
+TELEGRAM_ALLOWED_CHATS: (
+  -1002975819706
+  -1002861722681
+)
+TELEGRAM_HIVE_OVERRIDES: (
+  --all-issues
+  --once
+  --auto-fork
+  --skip-issues-with-prs
+  --attach-logs
+  --verbose
+  --no-tool-check
+)
+TELEGRAM_SOLVE_OVERRIDES: (
+  --auto-fork
+  --auto-continue
+  --attach-logs
+  --verbose
+  --no-tool-check
+)
+TELEGRAM_BOT_VERBOSE: true --dry-run
+Exit code: 0
+Result: ✅ PASSED - Hero configuration validated successfully
+
+
+=== SUMMARY ===
+4/4 tests passed
+✅ Issue #623: Hero example with Links Notation
+✅ Simplified hero configuration
+✅ Configuration with TELEGRAM_BOT_VERBOSE
+✅ Full hero configuration with all options
+
+✅ All tests passed!
+
+📝 Issue #623 resolved: Hero example with Links Notation works correctly!
+   The recommended configuration from README.md has been validated:
+   hive-telegram-bot --configuration "TELEGRAM_BOT_TOKEN: ... (full config)" --dry-run
+
+💡 Users can now use the Links Notation format for cleaner configuration.
+
+[68/80] tests/test-telegram-bot-launcher.mjs
+================================================================================
+Unit Tests: Telegram Bot Launcher with Retry (Issue #1240)
+================================================================================
+
+
+--- LAUNCHER_DEFAULTS Tests ---
+
+  ✅ PASS: Default base delay is 1 second
+  ✅ PASS: Default max delay is 10 minutes
+  ✅ PASS: Default backoff multiplier is 2
+  ✅ PASS: Default jitter fraction is 0.1 (10%)
+
+--- isRetryableError() Tests ---
+
+  ✅ PASS: Returns false for 401 Unauthorized (invalid token)
+  ✅ PASS: Returns true for 409 Conflict (another instance)
+  ✅ PASS: Returns true for 429 Rate Limit
+  ✅ PASS: Returns true for 500 Internal Server Error
+  ✅ PASS: Returns true for 502 Bad Gateway
+  ✅ PASS: Returns true for network error (no code)
+  ✅ PASS: Returns true for fetch error (no code)
+  ✅ PASS: Returns true for unknown error code
+
+--- calculateRetryDelay() Tests ---
+
+  ✅ PASS: Attempt 1 returns ~1s (base delay)
+  ✅ PASS: Attempt 2 returns ~2s with default multiplier
+  ✅ PASS: Attempt 3 returns ~4s with default multiplier
+  ✅ PASS: Attempt 10 returns ~512s with default multiplier
+  ✅ PASS: Delay is capped at maxDelayMs
+  ✅ PASS: Custom base delay is respected
+  ✅ PASS: Custom multiplier is respected
+  ✅ PASS: Jitter adds up to jitterFraction of delay
+  ✅ PASS: Zero jitter means exact delay
+  ✅ PASS: Backoff schedule matches expected values (no jitter)
+
+--- formatDelay() Tests ---
+
+  ✅ PASS: Formats 1000ms as "1s"
+  ✅ PASS: Formats 500ms as "1s" (rounds up)
+  ✅ PASS: Formats 30000ms as "30s"
+  ✅ PASS: Formats 60000ms as "1m"
+  ✅ PASS: Formats 90000ms as "1m 30s"
+  ✅ PASS: Formats 600000ms as "10m"
+  ✅ PASS: Formats 0ms as "0s"
+  ✅ PASS: Formats 125000ms as "2m 5s"
+
+--- launchBotWithRetry() Tests ---
+
+  Success cases:
+
+  ✅ PASS: Succeeds on first attempt with no errors
+  ✅ PASS: Calls deleteWebhook before launch
+  ✅ PASS: Calls onLaunch before a long-polling launch promise settles
+
+  Retry cases:
+
+⚠️  Bot launch attempt 1 failed (409): Conflict: terminated by other getUpdates request. Retrying in 0s...
+✅ Bot launched successfully after 2 attempts
+  ✅ PASS: Retries on 409 Conflict and succeeds on 2nd attempt
+⚠️  Bot launch attempt 1 failed (ECONNRESET): ECONNRESET. Retrying in 0s...
+✅ Bot launched successfully after 2 attempts
+  ✅ PASS: Retries on network error and succeeds
+⚠️  Bot launch attempt 1 failed (409): Conflict. Retrying in 0s...
+⚠️  Bot launch attempt 2 failed (500): Internal Server Error. Retrying in 0s...
+✅ Bot launched successfully after 3 attempts
+  ✅ PASS: Retries multiple times (409, 500, then success)
+⚠️  Bot launch attempt 1 failed (409): Conflict. Retrying in 0s...
+⚠️  Bot launch attempt 2 failed (409): Conflict. Retrying in 0s...
+✅ Bot launched successfully after 3 attempts
+  ✅ PASS: Calls onRetry callback on each retry
+
+  Non-retryable errors:
+
+❌ Non-retryable error (401): Unauthorized
+  ✅ PASS: Throws immediately on 401 Unauthorized (no retry)
+
+  AbortSignal cases:
+
+  ✅ PASS: Aborts before first attempt if signal already aborted
+⚠️  Bot launch attempt 1 failed (409): Conflict. Retrying in 5s...
+  ✅ PASS: Aborts during retry wait
+
+  deleteWebhook behavior:
+
+  ✅ PASS: Calls deleteWebhook with drop_pending_updates: true
+⚠️  Bot launch attempt 1 failed (409): Conflict. Retrying in 0s...
+⚠️  Bot launch attempt 2 failed (409): Conflict. Retrying in 0s...
+✅ Bot launched successfully after 3 attempts
+  ✅ PASS: Retries deleteWebhook + launch together on each attempt
+
+================================================================================
+Results: 42 passed, 0 failed, 42 total
+================================================================================
+
+✅ All tests passed!
+
+[69/80] tests/test-telegram-markdown-escaping.mjs
+🧪 Running Telegram Markdown escaping unit tests...
+
+================================================================================
+Test Suite: Telegram Markdown Escaping (Issue #580)
+================================================================================
+
+✅ PASS: URL with underscores (the exact bug from issue #580)
+   Input:  "https://github.com/andchir/llm_game/issues/1"
+   Output: "https://github.com/andchir/llm\_game/issues/1"
+
+✅ PASS: URL with multiple underscores
+   Input:  "https://github.com/test_repo/test_project/issues/123"
+   Output: "https://github.com/test\_repo/test\_project/issues/123"
+
+✅ PASS: URL with asterisks
+   Input:  "https://example.com/**/path/**"
+   Output: "https://example.com/\*\*/path/\*\*"
+
+✅ PASS: URL with both underscores and asterisks
+   Input:  "https://example.com/test_path/**/file_name.txt"
+   Output: "https://example.com/test\_path/\*\*/file\_name.txt"
+
+✅ PASS: Plain URL without special characters
+
+✅ PASS: URL with consecutive underscores
+   Input:  "https://github.com/user__name/repo__name/issues/1"
+   Output: "https://github.com/user\_\_name/repo\_\_name/issues/1"
+
+✅ PASS: URL with underscores at different positions
+   Input:  "https://github.com/_leading/trailing_/issues/1"
+   Output: "https://github.com/\_leading/trailing\_/issues/1"
+
+✅ PASS: Empty string
+
+✅ PASS: Null value
+
+✅ PASS: Undefined value
+
+✅ PASS: String with only underscores
+   Input:  "___"
+   Output: "\_\_\_"
+
+✅ PASS: String with only asterisks
+   Input:  "***"
+   Output: "\*\*\*"
+
+✅ PASS: Mixed text and special characters
+   Input:  "Hello_World*Test"
+   Output: "Hello\_World\*Test"
+
+================================================================================
+Integration Test: Message Construction (Real-world scenario)
+================================================================================
+
+Generated Telegram message:
+────────────────────────────────────────────────────────────────────────────────
+🚀 Starting solve command...
+Requested by: [@drakonard](https://t.me/drakonard)
+URL: https://github.com/andchir/llm\_game/issues/1
+Options: --auto-fork --auto-continue --attach-logs --verbose --no-tool-check
+🔒 Locked options: --auto-fork --auto-continue --attach-logs --verbose --no-tool-check
+────────────────────────────────────────────────────────────────────────────────
+
+✅ Message construction successful!
+   Original URL: https://github.com/andchir/llm_game/issues/1
+   Escaped URL:  https://github.com/andchir/llm\_game/issues/1
+   This prevents the "Can't find end of entity at byte offset 117" error.
+
+================================================================================
+Test Summary
+================================================================================
+Total tests:  13
+Passed:       13 ✅
+Failed:       0
+================================================================================
+
+🎉 All tests passed!
+
+📝 Coverage:
+   ✅ Basic URL escaping (underscores and asterisks)
+   ✅ Edge cases (empty, null, undefined)
+   ✅ Real-world scenario from issue #580
+   ✅ Message construction integration test
+
+
+[70/80] tests/test-telegram-message-filters.mjs
+================================================================================
+Unit Tests: Telegram Message Filters (Issue #1207)
+================================================================================
+
+
+--- isOldMessage() Tests ---
+
+  ✅ PASS: Returns false when message has no date
+  ✅ PASS: Returns true when message date is before bot start time
+  ✅ PASS: Returns false when message date equals bot start time
+  ✅ PASS: Returns false when message date is after bot start time
+  ✅ PASS: Returns false when message is undefined
+
+--- isGroupChat() Tests ---
+
+  ✅ PASS: Returns true for group chat
+  ✅ PASS: Returns true for supergroup chat
+  ✅ PASS: Returns false for private chat
+  ✅ PASS: Returns false for channel
+  ✅ PASS: Returns false when chat is undefined
+
+--- isChatAuthorized() Tests ---
+
+  ✅ PASS: Returns true when allowedChats is null (no restrictions)
+  ✅ PASS: Returns true when allowedChats is undefined (no restrictions)
+  ✅ PASS: Returns true when chat ID is in allowed list
+  ✅ PASS: Returns false when chat ID is NOT in allowed list
+  ✅ PASS: Returns false when allowed list is empty
+  ✅ PASS: Works with negative chat IDs (supergroups)
+
+--- isForwardedOrReply() Tests ---
+
+
+  Normal messages:
+
+  ✅ PASS: Returns false for normal message (no forwarding or reply fields)
+  ✅ PASS: Returns false when message is undefined
+  ✅ PASS: Returns false when forward_origin is empty object {} (issue #493)
+  ✅ PASS: Returns false when reply_to_message is empty object {} (issue #493)
+
+  Forwarded messages:
+
+  ✅ PASS: Returns true for forwarded message (new API: forward_origin with type)
+  ✅ PASS: Returns true for forwarded message (old API: forward_from)
+  ✅ PASS: Returns true for forwarded message (old API: forward_from_chat)
+  ✅ PASS: Returns true for forwarded message (old API: forward_date)
+  ✅ PASS: Returns true for forwarded message (old API: forward_sender_name)
+  ✅ PASS: Returns true for forwarded message (old API: forward_signature)
+  ✅ PASS: Returns true for forwarded message (old API: forward_from_message_id)
+
+  Reply messages:
+
+  ✅ PASS: Returns true for reply to another user message
+  ✅ PASS: Returns true for reply to bot message
+
+  Forum topic messages (issue #496):
+
+  ✅ PASS: Returns false for message in forum topic (reply_to_message with forum_topic_created)
+  ✅ PASS: Returns false for message in forum topic with topic_message and thread_id
+
+  Edge cases:
+
+  ✅ PASS: Returns true for forwarded message in forum topic (forwarding takes priority)
+  ✅ PASS: Handles message with forward_origin.type = "hidden_user"
+  ✅ PASS: Handles message with forward_origin.type = "channel"
+
+--- extractCommandFromText() Tests ---
+
+  Basic command extraction:
+
+  ✅ PASS: Extracts /solve command
+  ✅ PASS: Extracts /hive command
+  ✅ PASS: Extracts /help command
+  ✅ PASS: Extracts command with @botname mention
+  ✅ PASS: Case-insensitive command extraction (lowercase)
+
+  Bot username validation:
+
+  ✅ PASS: Returns result when botUsername matches mention
+  ✅ PASS: Returns null when botUsername does not match mention
+  ✅ PASS: Case-insensitive botUsername matching
+  ✅ PASS: Returns result when no mention and botUsername provided
+
+  Edge cases and invalid input:
+
+  ✅ PASS: Returns null for null text
+  ✅ PASS: Returns null for undefined text
+  ✅ PASS: Returns null for empty string
+  ✅ PASS: Returns null for non-command text
+  ✅ PASS: Returns null for text not starting with /
+  ✅ PASS: Returns null for slash only
+  ✅ PASS: Handles command with no arguments
+  ✅ PASS: Handles command from issue #1207 exact text
+
+================================================================================
+Results: 51 passed, 0 failed, 51 total
+================================================================================
+
+✅ All tests passed!
+
+[71/80] tests/test-telegram-options-before-url.mjs
+PASS: /codex accepts --model before issue URL
+PASS: /solve reply options without URL remain available for reply extraction
+PASS: /codex invalid --think reports each choice once after URL probing
+PASS: /hive accepts options before repository URL
+
+Total: 4, Passed: 4, Failed: 0
+
+[72/80] tests/test-telegram-special-char-handling.mjs
+================================================================================
+Unit Tests: Telegram Special Character Handling (Issue #1070)
+================================================================================
+
+
+--- cleanNonPrintableChars() Tests ---
+
+✅ PASS: Remove zero-width space (U+200B)
+✅ PASS: Remove zero-width non-joiner (U+200C)
+✅ PASS: Remove zero-width joiner (U+200D)
+✅ PASS: Remove byte order mark (U+FEFF)
+✅ PASS: Remove soft hyphen (U+00AD)
+✅ PASS: Remove null character (U+0000)
+✅ PASS: Remove control characters (U+0001 to U+001F except tab/newline)
+✅ PASS: Normalize multiple spaces to single space
+✅ PASS: Preserve newlines while trimming whitespace from lines
+✅ PASS: Clean URL with zero-width chars (real-world scenario)
+✅ PASS: Normal text unchanged
+✅ PASS: Handle null input
+✅ PASS: Handle undefined input
+✅ PASS: Handle empty string
+✅ PASS: Handle non-string input (number)
+
+--- makeSpecialCharsVisible() Tests ---
+
+✅ PASS: Make zero-width space visible as [ZWSP]
+✅ PASS: Make zero-width non-joiner visible as [ZWNJ]
+✅ PASS: Make zero-width joiner visible as [ZWJ]
+✅ PASS: Make byte order mark visible as [BOM]
+✅ PASS: Make soft hyphen visible as [SHY]
+✅ PASS: Make tab visible as [TAB]
+✅ PASS: Make newline visible as [LF]
+✅ PASS: Make carriage return visible as [CR]
+✅ PASS: Show control characters as [U+XXXX]
+✅ PASS: Normal text unchanged
+✅ PASS: Truncate long strings with default maxLength
+✅ PASS: Truncate long strings with custom maxLength
+✅ PASS: Handle null input
+✅ PASS: Handle undefined input
+✅ PASS: Handle empty string
+✅ PASS: Handle non-string input (number)
+✅ PASS: URL with multiple special chars (real-world scenario)
+
+--- Integration Tests ---
+
+✅ PASS: Clean then make visible (verifies cleaning removes all special chars)
+✅ PASS: Make visible without cleaning (for debugging)
+
+================================================================================
+Test Summary
+================================================================================
+Total tests:  34
+Passed:       34 ✅
+Failed:       0
+================================================================================
+
+🎉 All tests passed!
+
+📝 Coverage:
+   ✅ cleanNonPrintableChars() - Zero-width chars, control chars, normalization
+   ✅ makeSpecialCharsVisible() - All special char markers, truncation
+   ✅ Edge cases (null, undefined, empty, non-string)
+   ✅ Real-world URL scenarios
+   ✅ Integration of both functions
+
+
+[73/80] tests/test-telegram-task-command.mjs
+PASS: /task command is recognized
+PASS: /split adds --split by default and keeps user options
+PASS: /task does not add --split by default
+PASS: /task explicit --split keeps split mode available
+PASS: explicit --split is not duplicated
+PASS: pull request URLs are not accepted as task issue URL
+PASS: tool can be parsed from task command arguments
+PASS: task issue creation parses repository link before issue text
+PASS: task issue creation parses repository link after issue text
+PASS: task issue creation parses --repository before issue text
+PASS: task issue creation parses --repository after issue text
+PASS: inline /task issue creation strips command prefix
+PASS: task issue title truncates the first line with ASCII ellipsis
+PASS: task issue creation replies with the created issue URL
+
+Total: 14, Passed: 14, Failed: 0
+
+[74/80] tests/test-telegram-url-extraction.mjs
+===========================================
+Unit Tests: Telegram URL Extraction
+===========================================
+
+Test Suite 1: Single Link Extraction
+
+✅ PASS: Plain issue URL
+✅ PASS: Issue URL in a sentence
+✅ PASS: Pull request URL
+✅ PASS: Shorthand issue format
+✅ PASS: Issue URL with query params
+✅ PASS: HTTP protocol (should normalize to HTTPS)
+
+Test Suite 2: No Link Found
+
+✅ PASS: No GitHub URL
+✅ PASS: GitHub repo URL (not issue/PR)
+✅ PASS: Empty text
+✅ PASS: Null text
+
+Test Suite 3: Multiple Links (Error Cases)
+
+✅ PASS: Two issue URLs
+✅ PASS: Three PR URLs
+✅ PASS: Mixed issue and PR URLs
+
+===========================================
+Results: 13 passed, 0 failed
+===========================================
+
+✅ All tests passed!
+
+[75/80] tests/test-telegram-validate-url.mjs
+===========================================
+Unit Tests: Telegram URL Validation
+===========================================
+
+Test Suite 1: /solve command - Valid URLs (Should Pass)
+
+✅ PASS: Valid issue URL
+✅ PASS: Valid PR URL
+✅ PASS: Valid issue URL with options
+✅ PASS: Valid PR URL with query params
+
+Test Suite 2: /solve command - Invalid URLs (Should Fail)
+
+✅ PASS: Repository URL only (no issue/PR)
+✅ PASS: Repository URL with trailing slash
+✅ PASS: User profile URL
+✅ PASS: Issues list URL (no specific issue)
+✅ PASS: Pull requests list URL (no specific PR)
+✅ PASS: Missing URL
+✅ PASS: Non-GitHub URL
+✅ PASS: GitHub Actions URL
+✅ PASS: GitHub file URL
+
+Test Suite 3: /hive command - Valid URLs (Should Pass)
+
+✅ PASS: Valid repository URL
+✅ PASS: Valid organization URL
+✅ PASS: Valid repository URL with trailing slash
+
+Test Suite 4: /hive command - Invalid URLs (Should Fail)
+
+✅ PASS: Issue URL (not allowed for hive)
+✅ PASS: PR URL (not allowed for hive)
+✅ PASS: Missing URL
+
+===========================================
+Results: 19 passed, 0 failed
+===========================================
+
+✅ All tests passed!
+
+[76/80] tests/test-test-runner-1698.test.mjs
+TAP version 13
+# Subtest: issue \#1698 stable test entrypoints
+    # Subtest: keeps package.json test as a stable runner command
+    ok 1 - keeps package.json test as a stable runner command
+      ---
+      duration_ms: 0.884461
+      ...
+    # Subtest: keeps the CI test-suites job behind npm test
+    ok 2 - keeps the CI test-suites job behind npm test
+      ---
+      duration_ms: 0.282702
+      ...
+    1..2
+ok 1 - issue \#1698 stable test entrypoints
+  ---
+  duration_ms: 2.215071
+  type: 'suite'
+  ...
+1..1
+# tests 2
+# suites 1
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 12.904493
+
+[77/80] tests/test-token-sanitization.mjs
+🧪 Running token sanitization unit tests (Issue #1037)...
+
+================================================================================
+
+📋 Test Group 1: isSafeToken function - Safe patterns
+
+Testing browser_take_screenshot is safe... ✅ PASSED
+Testing browser_click is safe... ✅ PASSED
+Testing browser_snapshot is safe... ✅ PASSED
+Testing browser_navigate is safe... ✅ PASSED
+Testing browser_fill_form is safe... ✅ PASSED
+Testing mcp__playwright__browser_snapshot is safe... ✅ PASSED
+Testing mcp__playwright__browser_click is safe... ✅ PASSED
+Testing mcp__filesystem__read_file is safe... ✅ PASSED
+Testing get_user_profile is safe... ✅ PASSED
+Testing validate_user_input is safe... ✅ PASSED
+Testing process_batch_request is safe... ✅ PASSED
+Testing UUID is safe... ✅ PASSED
+Testing another UUID format is safe... ✅ PASSED
+
+📋 Test Group 2: isSafeToken function - Unsafe patterns
+
+Testing GitHub PAT is NOT safe... ✅ PASSED
+Testing Random hex string is NOT safe... ✅ PASSED
+Testing Short random string is NOT safe... ✅ PASSED
+Testing Empty string is NOT safe... ✅ PASSED
+Testing null is NOT safe... ✅ PASSED
+Testing undefined is NOT safe... ✅ PASSED
+
+📋 Test Group 3: isHexInSafeContext function - Safe contexts
+
+Testing gh gist view context is safe... ✅ PASSED
+Testing git log context is safe... ✅ PASSED
+Testing git show context is safe... ✅ PASSED
+Testing git diff context is safe... ✅ PASSED
+Testing git cherry-pick context is safe... ✅ PASSED
+Testing commit SHA in git log output is safe... ✅ PASSED
+Testing SHA: prefix context is safe... ✅ PASSED
+
+📋 Test Group 4: isHexInSafeContext function - Unsafe contexts
+
+Testing oauth_token context is NOT safe... ✅ PASSED
+Testing API token context is NOT safe... ✅ PASSED
+Testing random context is NOT safe... ✅ PASSED
+Testing authorization header context is NOT safe... ✅ PASSED
+
+📋 Test Group 5: maskToken function
+
+Testing maskToken masks long token correctly... ✅ PASSED
+Testing maskToken returns short tokens unchanged... ✅ PASSED
+
+📋 Test Group 6: sanitizeLogContent - False positives prevention
+
+Testing browser_take_screenshot is NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing mcp__playwright__browser_click is NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Long function names are NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Gist ID in gh gist view is NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Commit SHA in git log output is NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Multiple Playwright tools in same log are NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing No partial masking of browser tools... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 7: sanitizeLogContent - True positives (should mask)
+
+Testing GitHub PAT (ghp_) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing OAuth token (gho_) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing User token (ghu_) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Fine-grained PAT (github_pat_) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Multiple tokens in same log ARE masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 8: Real-world scenarios from Issue #1037
+
+Testing Real-world log with mixed content... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Git operations with commit hashes... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Edge case: underscore-heavy identifiers... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 9: Edge cases and boundary conditions
+
+Testing Empty content returns empty... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Content with no tokens remains unchanged... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Mixed case tokens are handled... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Token at very beginning of content... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Token at very end of content... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Special characters around tokens... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 10: AI Provider tokens - OpenAI
+
+Testing OpenAI project API key (sk-proj-) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing OpenAI service account key (sk-svcacct-) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing OpenAI admin key (sk-admin-) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing OpenAI legacy key (sk-) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 11: AI Provider tokens - Anthropic (Claude)
+
+Testing Anthropic API key (sk-ant-api03-) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Anthropic API key with different version (sk-ant-api01-) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Anthropic API key short format (sk-ant-) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 12: AI Provider tokens - Google (Gemini)
+
+Testing Google API / Gemini key (AIza*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Google Gemini API key IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 13: AI Provider tokens - HuggingFace
+
+Testing HuggingFace API token (hf_*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing HuggingFace token in Python code IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 14: Other sensitive tokens (AWS, Slack, Stripe, etc.)
+
+Testing AWS Access Key ID (AKIA*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing AWS Session Token (ASIA*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Slack bot token (xoxb-*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Slack user token (xoxp-*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Stripe live secret key (sk_live_*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Stripe test secret key (sk_test_*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Stripe publishable key (pk_live_*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing SendGrid API key IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Twilio API key (SK*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Mailchimp API key IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Square access token (sq0atp-*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Shopify access token (shpat_*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Databricks token (dapi*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing npm token (npm_*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing PyPI token (pypi-*) IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Discord bot token IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Telegram bot token IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 15: False positives - AI/provider prefixes that should NOT be masked
+
+Testing Short sk- prefix alone is NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Documentation about hf_ token format is NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing AWS key documentation is NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Google AIza prefix in docs is NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 16: Real-world mixed content with multiple AI provider tokens
+
+Testing Mixed AI provider tokens in environment config... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Very long content with multiple tool references... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 17: Secretlint integration - realistic token formats
+
+Testing Realistic OpenAI legacy token IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Realistic Anthropic token IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Private key IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Basic auth URL IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 18: Additional false positive prevention
+
+Testing Common programming terms are NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Short sk-ant prefix is NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing GitHub Actions workflow names are NOT masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 19: Edge cases for multi-line content
+
+Testing Multi-line environment file IS sanitized... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing JSON config with tokens IS sanitized... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+📋 Test Group 20: Linear tokens (via secretlint)
+
+Testing Linear API token IS masked... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+================================================================================
+Test Results for Token Sanitization (Issue #1037):
+  ✅ Passed: 97
+  ❌ Failed: 0
+================================================================================
+
+✅ All tests passed! Token sanitization is working correctly.
+
+📋 VERIFIED BEHAVIORS:
+   ✓ browser_take_screenshot and similar tool names are NOT masked
+   ✓ MCP tool names (mcp__playwright__*) are NOT masked
+   ✓ Git commit hashes in git command contexts are NOT masked
+   ✓ Gist IDs in "gh gist view" commands are NOT masked
+   ✓ Real GitHub tokens (ghp_, gho_, ghu_, github_pat_) ARE masked
+   ✓ Random hex strings outside safe contexts ARE masked
+
+[78/80] tests/test-unicode-sanitization.mjs
+
+=== sanitizeUnicode: Basic Tests ===
+
+Testing returns empty string for null... ✅ PASSED
+Testing returns empty string for undefined... ✅ PASSED
+Testing returns empty string for empty string... ✅ PASSED
+Testing returns non-string input unchanged... ✅ PASSED
+Testing passes through clean ASCII text... ✅ PASSED
+Testing passes through clean BMP Unicode... ✅ PASSED
+Testing preserves valid emoji (surrogate pairs)... ✅ PASSED
+Testing preserves multiple sequential valid emoji... ✅ PASSED
+
+=== sanitizeUnicode: Orphaned Surrogate Tests ===
+
+Testing replaces orphaned high surrogate... ✅ PASSED
+Testing replaces orphaned low surrogate... ✅ PASSED
+Testing replaces orphaned high surrogate at start... ✅ PASSED
+Testing replaces orphaned high surrogate at end... ✅ PASSED
+Testing replaces orphaned low surrogate at start... ✅ PASSED
+Testing replaces orphaned low surrogate at end... ✅ PASSED
+Testing replaces multiple orphaned surrogates... ✅ PASSED
+Testing replaces reversed surrogate pair (low before high)... ✅ PASSED
+Testing handles string of only orphaned surrogates... ✅ PASSED
+Testing preserves valid pair but replaces adjacent orphan... ✅ PASSED
+Testing handles orphaned high at surrogate range boundaries... ✅ PASSED
+Testing handles orphaned low at surrogate range boundaries... ✅ PASSED
+Testing valid pairs at surrogate range boundaries are preserved... ✅ PASSED
+
+=== sanitizeUnicode: Real-World Claude Output Patterns ===
+
+Testing handles exact issue #1324 API error message... ✅ PASSED
+Testing handles Claude result event with emoji-rich content... ✅ PASSED
+Testing handles persisted-output truncation that splits emoji... ✅ PASSED
+Testing handles hive-mind status messages with emoji... ✅ PASSED
+Testing handles Cyrillic + emoji mixed content... ✅ PASSED
+Testing handles CJK characters with emoji... ✅ PASSED
+Testing handles tool result with truncated emoji at boundary... ✅ PASSED
+Testing handles large text with 1000 valid emoji... ✅ PASSED
+Testing is idempotent on clean strings... ✅ PASSED
+Testing is idempotent on strings with orphans... ✅ PASSED
+
+=== sanitizeObjectStrings: Basic Tests ===
+
+Testing sanitizes string value... ✅ PASSED
+Testing returns number as-is... ✅ PASSED
+Testing returns boolean as-is... ✅ PASSED
+Testing returns null as-is... ✅ PASSED
+Testing returns undefined as-is... ✅ PASSED
+Testing sanitizes flat object... ✅ PASSED
+Testing sanitizes nested object... ✅ PASSED
+Testing sanitizes array of strings... ✅ PASSED
+Testing sanitizes mixed array... ✅ PASSED
+
+=== sanitizeObjectStrings: Claude NDJSON Event Simulation ===
+
+Testing sanitizes assistant text event with orphaned surrogate... ✅ PASSED
+Testing sanitizes result event from issue #1324... ✅ PASSED
+Testing sanitizes tool_result event with persisted-output content... ✅ PASSED
+Testing sanitizes tool_use event with emoji in input... ✅ PASSED
+Testing sanitizes system.init event (clean — should pass through)... ✅ PASSED
+Testing sanitizes deeply nested object from real assistant event... ✅ PASSED
+Testing handles event with multiple content items, some with orphans... ✅ PASSED
+
+=== JSON Round-trip Safety Tests ===
+
+Testing sanitized string survives JSON.stringify round-trip... ✅ PASSED
+Testing sanitized object survives JSON.stringify round-trip... ✅ PASSED
+Testing sanitized complex event survives JSON.stringify round-trip... ✅ PASSED
+Testing pathological input: all surrogate code units... ✅ PASSED
+Testing pathological input: all low surrogate code units... ✅ PASSED
+
+=== Simulated Regular Claude Command NDJSON Parsing ===
+
+Testing simulated NDJSON line parsing with sanitization... ✅ PASSED
+Testing simulated result event with cost data preserved... ✅ PASSED
+Testing simulated message count tracking preserved after sanitization... ✅ PASSED
+Testing simulated session limit detection works after sanitization... ✅ PASSED
+Testing simulated overload error detection works after sanitization... ✅ PASSED
+Testing simulated 503 error detection works after sanitization... ✅ PASSED
+Testing simulated request timeout detection works after sanitization... ✅ PASSED
+Testing simulated resultSummary capture preserved after sanitization... ✅ PASSED
+
+=== Performance / Stress Tests ===
+
+Testing handles very large string efficiently... ✅ PASSED
+Testing handles deeply nested object... ✅ PASSED
+
+==================================================
+Total: 62 | ✅ Passed: 62 | ❌ Failed: 0
+==================================================
+
+[79/80] tests/test-usage-limit.mjs
+Testing isUsageLimitError: detects "limit reached"... [32m✓ PASSED[0m
+Testing isUsageLimitError: detects Claude-style "resets" message... [32m✓ PASSED[0m
+Testing isUsageLimitError: detects usage limit exceeded... [32m✓ PASSED[0m
+Testing isUsageLimitError: detects session limit reached... [32m✓ PASSED[0m
+Testing isUsageLimitError: returns false for null/undefined... [32m✓ PASSED[0m
+Testing isUsageLimitError: returns false for normal messages... [32m✓ PASSED[0m
+Testing extractResetTime: extracts time from "resets 8pm" format... [32m✓ PASSED[0m
+Testing extractResetTime: extracts time from "resets 5:00am" format... [32m✓ PASSED[0m
+Testing extractResetTime: extracts time from "try again at" format... [32m✓ PASSED[0m
+Testing extractResetTime: extracts time from 24-hour format... [32m✓ PASSED[0m
+Testing extractResetTime: returns null for no time... [32m✓ PASSED[0m
+Testing extractResetTime: returns null for invalid input... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time from "resets Jan 15, 8am" format... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time from "resets January 20, 10:30am" format... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time with PM... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time with full month name and minutes... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time for abbreviated months... [32m✓ PASSED[0m
+Testing extractResetTime: extracts date+time for full month names... [32m✓ PASSED[0m
+Testing extractResetTime: handles date format with comma after day... [32m✓ PASSED[0m
+Testing extractResetTime: handles date format without comma... [32m✓ PASSED[0m
+Testing extractResetTime: prioritizes date+time over time-only patterns... [32m✓ PASSED[0m
+Testing detectUsageLimit: returns combined info... [32m✓ PASSED[0m
+Testing detectUsageLimit: no reset time for non-limit message... [32m✓ PASSED[0m
+Testing formatUsageLimitMessage: includes session ID and resume command... [32m✓ PASSED[0m
+Testing formatUsageLimitMessage: handles missing reset time... [32m✓ PASSED[0m
+Testing formatUsageLimitMessage: handles missing session ID... [32m✓ PASSED[0m
+Testing parseUsageLimitJson: parses error type JSON... [32m✓ PASSED[0m
+Testing parseUsageLimitJson: parses turn.failed type JSON... [32m✓ PASSED[0m
+Testing parseUsageLimitJson: returns null for non-limit errors... [32m✓ PASSED[0m
+Testing parseUsageLimitJson: returns null for invalid JSON... [32m✓ PASSED[0m
+Testing parseResetTime: parses time-only format "8:00 PM"... [32m✓ PASSED[0m
+Testing parseResetTime: parses time-only format "5:30 AM"... [32m✓ PASSED[0m
+Testing parseResetTime: parses time-only format "12:00 PM" (noon)... [32m✓ PASSED[0m
+Testing parseResetTime: parses time-only format "12:00 AM" (midnight)... [32m✓ PASSED[0m
+Testing parseResetTime: parses date+time format "Jan 15, 8:00 AM"... [32m✓ PASSED[0m
+Testing parseResetTime: parses date+time format with full month "January 15, 8:00 AM"... [32m✓ PASSED[0m
+Testing parseResetTime: parses date+time format "Dec 25, 11:59 PM"... [32m✓ PASSED[0m
+Testing parseResetTime: parses all abbreviated month names... [32m✓ PASSED[0m
+Testing parseResetTime: parses Sept abbreviation... [32m✓ PASSED[0m
+Testing parseResetTime: returns null for invalid input... [32m✓ PASSED[0m
+Testing parseResetTime: returns null for invalid format... [32m✓ PASSED[0m
+Testing formatRelativeTime: returns "now" for past dates... [32m✓ PASSED[0m
+Testing formatRelativeTime: formats minutes only... [32m✓ PASSED[0m
+Testing formatRelativeTime: formats hours and minutes... [32m✓ PASSED[0m
+Testing formatRelativeTime: formats days, hours and minutes... [32m✓ PASSED[0m
+Testing formatRelativeTime: returns empty string for invalid input... [32m✓ PASSED[0m
+Testing formatResetTimeWithRelative: returns original time if parsing fails... [32m✓ PASSED[0m
+Testing formatResetTimeWithRelative: returns null/undefined as-is... [32m✓ PASSED[0m
+Testing formatResetTimeWithRelative: formats valid time with relative and UTC... [32m✓ PASSED[0m
+Testing extractResetTime: does not match invalid date formats... [32m✓ PASSED[0m
+Testing isUsageLimitError: does not match unrelated messages... [32m✓ PASSED[0m
+Testing isUsageLimitError: does not match "resets" in code comments (Issue #1290)... [32m✓ PASSED[0m
+Testing isUsageLimitError: still matches valid "resets" usage limit messages (Issue #1290)... [32m✓ PASSED[0m
+Testing extractTimezone: extracts Europe/Berlin timezone... [32m✓ PASSED[0m
+Testing extractTimezone: extracts UTC timezone... [32m✓ PASSED[0m
+Testing extractTimezone: extracts America/New_York timezone... [32m✓ PASSED[0m
+Testing extractTimezone: returns null for invalid timezone... [32m✓ PASSED[0m
+Testing extractTimezone: returns null for no timezone... [32m✓ PASSED[0m
+Testing extractTimezone: returns null for null/undefined input... [32m✓ PASSED[0m
+Testing parseResetTime: parses with Europe/Berlin timezone... [32m✓ PASSED[0m
+Testing parseResetTime: parses time-only with timezone... [32m✓ PASSED[0m
+Testing Integration: extractResetTime to parseResetTime for time-only... [32m✓ PASSED[0m
+Testing Integration: extractResetTime to parseResetTime for date+time (Issue #1122)... [32m✓ PASSED[0m
+Testing Integration: full pipeline with timezone (Issue #1122)... [32m✓ PASSED[0m
+Testing Integration: detectUsageLimit includes timezone (Issue #1122)... [32m✓ PASSED[0m
+Testing isUsageLimitError: detects FreeUsageLimitError from Agent/OpenCode Zen... [32m✓ PASSED[0m
+Testing detectUsageLimit: detects agent rate limit error message (Issue #1287)... [32m✓ PASSED[0m
+
+==================================================
+Test results: 67 passed, 0 failed
+==================================================
+
+[80/80] tests/test-use-with-retry.mjs
+
+📋 isCorruptInstallError
+
+✅ detects SyntaxError cause as corrupt install
+✅ detects "Unexpected end of input" cause message
+✅ detects "Failed to resolve the path" message
+✅ detects ERR_INVALID_PACKAGE_CONFIG by code (issue #1712)
+✅ detects ERR_INVALID_PACKAGE_CONFIG on cause
+✅ detects "Invalid package config" by message (no code)
+✅ does not flag unrelated errors
+
+📋 extractCorruptedFilePath
+
+✅ extracts file path from import-failed message
+✅ extracts directory path from resolve-failed message
+✅ extracts package.json path from invalid-package-config message (issue #1712)
+✅ returns null when no path is present
+
+📋 useWithRetry — happy path
+
+✅ returns module on first try when use() succeeds
+
+📋 useWithRetry — recovery
+
+✅ retries after SyntaxError cause and cleans up alias dir
+✅ retries after resolve-path failure and cleans up alias dir
+✅ retries after ERR_INVALID_PACKAGE_CONFIG and cleans up alias dir (issue #1712)
+✅ does not retry on unrelated errors
+✅ rethrows after exhausting attempts on corrupt install
+✅ continues retrying when cleanup itself fails
+
+📊 18 test(s): ✅ 18 passed, ❌ 0 failed
+
+
+All 80 selected test file(s) passed.

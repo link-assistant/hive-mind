@@ -22,27 +22,27 @@ console.log('=== Testing hive command silent failure (Issue #504) ===\n');
  * Run a command and capture its output
  */
 function runCommand(command, args, timeout = 10000) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     console.log(`\n📋 Running: ${command} ${args.join(' ')}`);
     console.log('⏱️  Waiting for output...\n');
 
     const child = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: timeout
+      timeout: timeout,
     });
 
     let stdout = '';
     let stderr = '';
     let hasOutput = false;
 
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', data => {
       hasOutput = true;
       const output = data.toString();
       stdout += output;
       process.stdout.write(`  [stdout] ${output}`);
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', data => {
       hasOutput = true;
       const output = data.toString();
       stderr += output;
@@ -54,7 +54,7 @@ function runCommand(command, args, timeout = 10000) {
       child.kill('SIGTERM');
     }, timeout);
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       clearTimeout(timer);
       console.log(`\n✅ Process exited with code: ${code}`);
       console.log(`📊 Had output: ${hasOutput ? 'YES' : 'NO (SILENT FAILURE!)'}`);
@@ -66,11 +66,11 @@ function runCommand(command, args, timeout = 10000) {
         stdout,
         stderr,
         hasOutput,
-        command: `${command} ${args.join(' ')}`
+        command: `${command} ${args.join(' ')}`,
       });
     });
 
-    child.on('error', (error) => {
+    child.on('error', error => {
       clearTimeout(timer);
       console.log(`\n❌ Process error: ${error.message}`);
       resolve({
@@ -79,7 +79,7 @@ function runCommand(command, args, timeout = 10000) {
         stderr,
         hasOutput,
         error: error.message,
-        command: `${command} ${args.join(' ')}`
+        command: `${command} ${args.join(' ')}`,
       });
     });
   });
@@ -93,28 +93,28 @@ async function main() {
     {
       name: 'Test 1: hive --help (should work)',
       command: hivePath,
-      args: ['--help']
+      args: ['--help'],
     },
     {
       name: 'Test 2: hive --version (should work)',
       command: hivePath,
-      args: ['--version']
+      args: ['--version'],
     },
     {
       name: 'Test 3: hive github.com/konard --dry-run (reported failing)',
       command: hivePath,
-      args: ['github.com/konard', '--dry-run', '--skip-tool-check', '--once', '--max-issues', '1']
+      args: ['github.com/konard', '--dry-run', '--skip-tool-check', '--once', '--max-issues', '1'],
     },
     {
       name: 'Test 4: hive https://github.com/konard --dry-run (reported failing)',
       command: hivePath,
-      args: ['https://github.com/konard', '--dry-run', '--skip-tool-check', '--once', '--max-issues', '1']
+      args: ['https://github.com/konard', '--dry-run', '--skip-tool-check', '--once', '--max-issues', '1'],
     },
     {
       name: 'Test 5: hive with no arguments (should show error)',
       command: hivePath,
-      args: []
-    }
+      args: [],
+    },
   ];
 
   const results = [];

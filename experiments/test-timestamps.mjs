@@ -18,19 +18,19 @@ console.log('');
 async function testGitHubApiCall(description, command) {
   console.log(`Testing: ${description}`);
   console.log(`Command: ${command}`);
-  
+
   try {
     const result = await $`gh ${command.split(' ').slice(1)}`;
     console.log(`✓ Success`);
     console.log(`  Type of result:`, typeof result);
     console.log(`  Result keys:`, Object.keys(result));
     console.log(`  stdout type:`, typeof result.stdout);
-    
+
     // Convert Buffer to string if needed
     const stdoutString = result.stdout.toString();
     console.log(`  stdout as string:`, JSON.stringify(stdoutString));
     console.log(`  trimmed:`, JSON.stringify(stdoutString.trim()));
-    
+
     return { ...result, stdout: stdoutString };
   } catch (error) {
     console.log(`✗ Error:`, error.message);
@@ -73,7 +73,7 @@ try {
   console.log(`✗ Comments API failed: ${error.message}`);
 }
 
-// Test 3: Recent PR 
+// Test 3: Recent PR
 try {
   const prsResult = await $`gh pr list --repo ${owner}/${repo} --limit 1 --json createdAt`;
   const prs = JSON.parse(prsResult.stdout.toString().trim() || '[]');

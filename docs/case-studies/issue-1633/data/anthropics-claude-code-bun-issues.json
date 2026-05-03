@@ -1,0 +1,12 @@
+[
+  { "createdAt": "2026-03-21T10:33:58Z", "number": 37047, "state": "OPEN", "title": "Channels plugin spawns but notifications silently dropped - tengu_harbor flag blocking (VPS + native binary)", "url": "https://github.com/anthropics/claude-code/issues/37047" },
+  { "createdAt": "2026-03-20T12:27:14Z", "number": 36618, "state": "OPEN", "title": "[BUG] Homepage install script (claude.ai/install.sh) triggers bun/AVX warning on Apple Silicon", "url": "https://github.com/anthropics/claude-code/issues/36618" },
+  { "createdAt": "2026-04-03T09:35:17Z", "number": 43023, "state": "OPEN", "title": "[BUG] claude.exe launches Bun instead of Claude Code on Windows after native installer", "url": "https://github.com/anthropics/claude-code/issues/43023" },
+  { "createdAt": "2026-03-31T23:10:33Z", "number": 41698, "state": "OPEN", "title": "Claude desktop app crashes on pre-AVX2 Intel Macs (Bun binary requires AVX2)", "url": "https://github.com/anthropics/claude-code/issues/41698" },
+  { "createdAt": "2026-04-12T20:53:16Z", "number": 47110, "state": "OPEN", "title": "computer-use MCP silently returns \"not_installed\" for every app on native-installer CLI (NSMetadataQuery needs NSRunLoop.main)", "url": "https://github.com/anthropics/claude-code/issues/47110" },
+  { "createdAt": "2026-01-22T11:54:03Z", "number": 20050, "state": "OPEN", "title": "[BUG] LSP plugins not working with native/standalone binary installation", "url": "https://github.com/anthropics/claude-code/issues/20050" },
+  { "createdAt": "2026-04-14T22:11:29Z", "number": 48143, "state": "OPEN", "title": "SDK: misleading 'executable not found' error when PATH is missing from child env", "url": "https://github.com/anthropics/claude-code/issues/48143" },
+  { "createdAt": "2026-03-25T14:31:22Z", "number": 38788, "state": "OPEN", "title": "[BUG] Claude code 2.1.83 and above broken on WSL1", "url": "https://github.com/anthropics/claude-code/issues/38788" },
+  { "createdAt": "2026-01-16T12:36:16Z", "number": 18567, "state": "OPEN", "title": "[BUG] Bun v1.3.5 crashes on Windows with \"integer does not fit in destination type\" - prevents installation and startup", "url": "https://github.com/anthropics/claude-code/issues/18567" },
+  { "createdAt": "2026-04-17T15:38:13Z", "number": 50002, "state": "OPEN", "title": "CLI crashes with String.prototype.repeat error during parallel agent rendering in narrow terminals", "url": "https://github.com/anthropics/claude-code/issues/50002" }
+]

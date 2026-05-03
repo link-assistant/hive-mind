@@ -21,14 +21,14 @@ console.log('\nTesting command construction:');
 const command = 'solve';
 const args = ['https://github.com/test/repo/issues/1', '--verbose'];
 
-const quotedArgs = args.map(arg => {
-  if (arg.includes(' ') || arg.includes('&') || arg.includes('|') ||
-      arg.includes(';') || arg.includes('$') || arg.includes('*') ||
-      arg.includes('?') || arg.includes('(') || arg.includes(')')) {
-    return `'${arg.replace(/'/g, "'\\''")}'`;
-  }
-  return arg;
-}).join(' ');
+const quotedArgs = args
+  .map(arg => {
+    if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
+      return `'${arg.replace(/'/g, "'\\''")}'`;
+    }
+    return arg;
+  })
+  .join(' ');
 
 const fullCommandOld = `start-screen ${command} ${quotedArgs}`;
 const fullCommandNew = `node ${startScreenPath} ${command} ${quotedArgs}`;

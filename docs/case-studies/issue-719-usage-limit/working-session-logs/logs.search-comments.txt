@@ -1,0 +1,25 @@
+src/solve.session.lib.mjs:50:      const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${startComment}`;
+src/solve.session.lib.mjs:89:        const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${endComment}`;
+src/solve.feedback.lib.mjs:111:        // Count new PR comments after last commit (both code review comments and conversation comments)
+src/solve.feedback.lib.mjs:122:        const prConversationCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments`;
+src/solve.feedback.lib.mjs:127:        // Combine and count all PR comments after last commit
+src/solve.feedback.lib.mjs:149:        const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+src/solve.feedback.lib.mjs:171:        await log(formatAligned('💬', 'New PR comments:', newPrComments.toString(), 2));
+src/solve.feedback.lib.mjs:179:          await log(`   Total PR comments checked: ${allPrComments.length}`, { verbose: true });
+src/claude.prompts.lib.mjs:159:   - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.
+src/claude.prompts.lib.mjs:176:      make sure no previously existing features were removed without an explicit request from users via the issue description, issue comments, and/or pull request comments.
+src/solve.watch.lib.mjs:238:              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+src/solve.watch.lib.mjs:249:              await log(formatAligned('', '⚠️  Could not post comment to PR', '', 2));
+src/codex.prompts.lib.mjs:152:   - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.
+src/codex.prompts.lib.mjs:169:      make sure no previously existing features were removed without an explicit request from users via the issue description, issue comments, and/or pull request comments.
+src/solve.preparation.lib.mjs:61:    const commentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+src/opencode.prompts.lib.mjs:132:   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments.
+src/opencode.prompts.lib.mjs:144:   - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.
+src/opencode.prompts.lib.mjs:160:      make sure no previously existing features were removed without an explicit request from users via the issue description, issue comments, and/or pull request comments.
+src/opencode.prompts.lib.mjs:182:   - When listing PR comments, use gh api repos/OWNER/REPO/pulls/NUMBER/comments.
+src/opencode.prompts.lib.mjs:183:   - When listing issue comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments.
+src/opencode.prompts.lib.mjs:184:   - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
+src/solve.results.lib.mjs:405:    const allCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+src/github.lib.mjs:404:    const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+src/github.lib.mjs:411:      await log(`⚠️  Warning: Failed to post comment: ${cleanErrorMessage(errorOutput)}`, { level: 'warning' });
+src/github.lib.mjs:653:          // Create comment with gist link

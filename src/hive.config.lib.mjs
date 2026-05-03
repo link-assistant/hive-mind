@@ -3,16 +3,80 @@
 // when only the yargs configuration is needed (e.g., in telegram-bot.mjs)
 // This module has no heavy dependencies to allow fast loading for --help
 
-export const createYargsConfig = (yargsInstance) => {
-  return yargsInstance
-    .command('$0 [github-url]', 'Monitor GitHub issues and create PRs', (yargs) => {
+import { SOLVE_OPTION_DEFINITIONS } from './solve.config.lib.mjs';
+import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
+
+// Hive-only options that are NOT solve options (hive-specific functionality).
+// These are excluded when auto-registering solve-passthrough options.
+const HIVE_ONLY_OPTION_NAMES = new Set(['monitor-tag', 'all-issues', 'skip-issues-with-prs', 'concurrency', 'pull-requests-per-issue', 'interval', 'max-issues', 'once', 'project-number', 'project-owner', 'project-status', 'project-mode', 'youtrack-mode', 'youtrack-stage', 'youtrack-project', 'target-branch', 'issue-order']);
+
+// Solve-only options that should NOT be registered in hive
+// (they are internal to solve and not meaningful when passed from hive)
+const SOLVE_ONLY_OPTION_NAMES = new Set(['resume', 'working-directory', 'only-prepare-command', 'session-type', 'auto-resume-iteration']);
+
+// Options that hive defines with different defaults/descriptions than solve.
+// These are registered manually in hive config to preserve hive-specific behavior.
+// All other solve options are auto-registered from SOLVE_OPTION_DEFINITIONS.
+const HIVE_CUSTOM_SOLVE_OPTIONS = {
+  model: {
+    type: 'string',
+    description: `${buildModelOptionDescription()}, or any model ID supported by the tool`,
+    alias: ['m', 'worker-model'],
+    default: currentParsedArgs => defaultModels[currentParsedArgs?.tool] || defaultModels.claude,
+  },
+  'dry-run': {
+    type: 'boolean',
+    description: 'List issues that would be processed without actually processing them',
+    default: false,
+  },
+  'auto-continue': {
+    type: 'boolean',
+    description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
+    default: true,
+  },
+  'auto-resume-on-limit-reset': {
+    type: 'boolean',
+    description: 'Automatically resume when AI tool limit resets (calculates reset time and waits). Passed to solve command.',
+    default: true,
+  },
+  'auto-cleanup': {
+    type: 'boolean',
+    description: 'Automatically clean temporary directories (/tmp/* /var/tmp/*) when finished successfully',
+    default: false,
+  },
+  tool: {
+    type: 'string',
+    description: 'AI tool to use for solving issues',
+    choices: ['claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini'],
+    default: 'claude',
+  },
+};
+
+// Compute the set of solve options that hive auto-registers from SOLVE_OPTION_DEFINITIONS.
+// This is exported so hive.mjs can use it for automatic argument forwarding.
+// An option is auto-registered if it: (1) exists in solve, (2) is not hive-only,
+// (3) is not solve-only, and (4) is not customized in hive.
+export const getSolvePassthroughOptionNames = () => {
+  const names = [];
+  for (const name of Object.keys(SOLVE_OPTION_DEFINITIONS)) {
+    if (HIVE_ONLY_OPTION_NAMES.has(name)) continue;
+    if (SOLVE_ONLY_OPTION_NAMES.has(name)) continue;
+    // Include both custom and auto-registered options as passthrough
+    names.push(name);
+  }
+  return names;
+};
+
+export const createYargsConfig = yargsInstance => {
+  let config = yargsInstance
+    .command('$0 [github-url]', 'Monitor GitHub issues and create PRs', yargs => {
       yargs.positional('github-url', {
         type: 'string',
-        description: 'GitHub organization, repository, or user URL to monitor (or GitHub repo URL when using --youtrack-mode)'
+        description: 'GitHub organization, repository, or user URL to monitor (or GitHub repo URL when using --youtrack-mode)',
       });
     })
     .usage('Usage: $0 <github-url> [options]')
-    .fail((msg, err, _yargs) => {
+    .fail((msg, err) => {
       // Custom fail handler to suppress yargs' automatic error output to stderr
       // We handle errors in the calling code's try-catch block
       // If there's an existing error object, throw it as-is to preserve the full trace
@@ -27,190 +91,132 @@ export const createYargsConfig = (yargsInstance) => {
         error.cause = err;
       }
       throw error;
-    })
+    });
+
+  // Register hive-only options
+  config = config
     .option('monitor-tag', {
       type: 'string',
       description: 'GitHub label to monitor for issues',
       default: 'help wanted',
-      alias: 't'
+      alias: 't',
     })
     .option('all-issues', {
       type: 'boolean',
       description: 'Process all open issues regardless of labels',
       default: false,
-      alias: 'a'
+      alias: 'a',
     })
     .option('skip-issues-with-prs', {
       type: 'boolean',
       description: 'Skip issues that already have open pull requests',
       default: false,
-      alias: 's'
+      alias: 's',
     })
     .option('concurrency', {
       type: 'number',
       description: 'Number of concurrent solve instances',
       default: 2,
-      alias: 'c'
+      alias: 'c',
     })
     .option('pull-requests-per-issue', {
       type: 'number',
       description: 'Number of pull requests to generate per issue',
       default: 1,
-      alias: 'p'
-    })
-    .option('model', {
-      type: 'string',
-      description: 'Model to use for solve (opus, sonnet, or any model ID supported by the tool)',
-      alias: 'm',
-      default: 'sonnet'
+      alias: 'p',
     })
     .option('interval', {
       type: 'number',
       description: 'Polling interval in seconds',
       default: 300, // 5 minutes
-      alias: 'i'
+      alias: 'i',
     })
     .option('max-issues', {
       type: 'number',
       description: 'Maximum number of issues to process (0 = unlimited)',
-      default: 0
-    })
-    .option('dry-run', {
-      type: 'boolean',
-      description: 'List issues that would be processed without actually processing them',
-      default: false
-    })
-    .option('skip-tool-check', {
-      type: 'boolean',
-      description: 'Skip tool connection check (useful in CI environments)',
-      default: false
-    })
-    .option('tool-check', {
-      type: 'boolean',
-      description: 'Perform tool connection check (enabled by default, use --no-tool-check to skip)',
-      default: true,
-      hidden: true
-    })
-    .option('tool', {
-      type: 'string',
-      description: 'AI tool to use for solving issues',
-      choices: ['claude', 'opencode'],
-      default: 'claude'
-    })
-    .option('verbose', {
-      type: 'boolean',
-      description: 'Enable verbose logging',
-      alias: 'v',
-      default: false
+      default: 0,
     })
     .option('once', {
       type: 'boolean',
       description: 'Run once and exit instead of continuous monitoring',
-      default: false
-    })
-    .option('min-disk-space', {
-      type: 'number',
-      description: 'Minimum required disk space in MB (default: 500)',
-      default: 500
-    })
-    .option('auto-cleanup', {
-      type: 'boolean',
-      description: 'Automatically clean temporary directories (/tmp/* /var/tmp/*) when finished successfully',
-      default: false
-    })
-    .option('fork', {
-      type: 'boolean',
-      description: 'Fork the repository if you don\'t have write access',
-      alias: 'f',
-      default: false
-    })
-    .option('attach-logs', {
-      type: 'boolean',
-      description: 'Upload the solution draft log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',
-      default: false
+      default: false,
     })
     .option('project-number', {
       type: 'number',
       description: 'GitHub Project number to monitor',
-      alias: 'pn'
+      alias: 'pn',
     })
     .option('project-owner', {
       type: 'string',
       description: 'GitHub Project owner (organization or user)',
-      alias: 'po'
+      alias: 'po',
     })
     .option('project-status', {
       type: 'string',
       description: 'Project status column to monitor (e.g., "Ready", "To Do")',
       alias: 'ps',
-      default: 'Ready'
+      default: 'Ready',
     })
     .option('project-mode', {
       type: 'boolean',
       description: 'Enable project-based monitoring instead of label-based',
       alias: 'pm',
-      default: false
+      default: false,
     })
     .option('youtrack-mode', {
       type: 'boolean',
       description: 'Enable YouTrack mode instead of GitHub issues',
-      default: false
+      default: false,
     })
     .option('youtrack-stage', {
       type: 'string',
-      description: 'Override YouTrack stage to monitor (overrides YOUTRACK_STAGE env var)'
+      description: 'Override YouTrack stage to monitor (overrides YOUTRACK_STAGE env var)',
     })
     .option('youtrack-project', {
       type: 'string',
-      description: 'Override YouTrack project code (overrides YOUTRACK_PROJECT_CODE env var)'
+      description: 'Override YouTrack project code (overrides YOUTRACK_PROJECT_CODE env var)',
     })
     .option('target-branch', {
       type: 'string',
       description: 'Target branch for pull requests (defaults to repository default branch)',
-      alias: 'tb'
-    })
-    .option('log-dir', {
-      type: 'string',
-      description: 'Directory to save log files (defaults to current working directory)',
-      alias: 'l'
-    })
-    .option('auto-continue', {
-      type: 'boolean',
-      description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
-      default: false
-    })
-    .option('think', {
-      type: 'string',
-      description: 'Thinking level: low (Think.), medium (Think hard.), high (Think harder.), max (Ultrathink.)',
-      choices: ['low', 'medium', 'high', 'max'],
-      default: undefined
-    })
-    .option('sentry', {
-      type: 'boolean',
-      description: 'Enable Sentry error tracking and monitoring (use --no-sentry to disable)',
-      default: true
-    })
-    .option('watch', {
-      type: 'boolean',
-      description: 'Monitor continuously for feedback and auto-restart when detected (stops when PR is merged)',
-      alias: 'w',
-      default: false
+      alias: 'tb',
     })
     .option('issue-order', {
       type: 'string',
       description: 'Order issues by publication date: "asc" (oldest first) or "desc" (newest first)',
       alias: 'o',
       default: 'asc',
-      choices: ['asc', 'desc']
-    })
+      choices: ['asc', 'desc'],
+    });
+
+  // Register options with hive-specific customizations (different defaults/descriptions than solve)
+  for (const [name, def] of Object.entries(HIVE_CUSTOM_SOLVE_OPTIONS)) {
+    config = config.option(name, def);
+  }
+
+  // Auto-register all remaining solve options as passthrough options.
+  // This ensures any new option added to solve.config.lib.mjs is automatically
+  // available in hive (and TELEGRAM_HIVE_OVERRIDES) without manual code changes.
+  // See: https://github.com/link-assistant/hive-mind/issues/1209
+  for (const [name, def] of Object.entries(SOLVE_OPTION_DEFINITIONS)) {
+    // Skip options that are hive-only, solve-only, or already registered with custom hive config
+    if (HIVE_ONLY_OPTION_NAMES.has(name)) continue;
+    if (SOLVE_ONLY_OPTION_NAMES.has(name)) continue;
+    if (name in HIVE_CUSTOM_SOLVE_OPTIONS) continue;
+    config = config.option(name, def);
+  }
+
+  config = config
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,
       'strip-aliased': false,
-      'populate--': false
+      'populate--': false,
     })
-    .showHelpOnFail(false)  // Don't show help on validation failures
+    .showHelpOnFail(false) // Don't show help on validation failures
     .strict()
     .help('h')
     .alias('h', 'help');
+
+  return config;
 };

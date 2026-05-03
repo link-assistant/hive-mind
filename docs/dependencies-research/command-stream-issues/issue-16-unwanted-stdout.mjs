@@ -59,7 +59,7 @@ try {
 
 console.log('\n=== Summary ===');
 console.log('Problem: Default $ always mirrors output to stdout');
-console.log('Impact: CLI tools get polluted output, can\'t create clean interfaces');
+console.log("Impact: CLI tools get polluted output, can't create clean interfaces");
 console.log('Workaround: Use $({ mirror: false, capture: true }) for silent execution');
 console.log('\nRecommendation for library:');
 console.log('- Add a global silent mode option');

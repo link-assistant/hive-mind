@@ -1,0 +1,11 @@
+helm-release	Commit and push to gh-pages	﻿2025-12-09T06:05:57.7673656Z ##[group]Run git add *.tgz index.yaml
+helm-release	Commit and push to gh-pages	2025-12-09T06:05:57.7673977Z [36;1mgit add *.tgz index.yaml[0m
+helm-release	Commit and push to gh-pages	2025-12-09T06:05:57.7674350Z [36;1mgit commit -m "Release Helm chart version 0.37.28" || echo "No changes to commit"[0m
+helm-release	Commit and push to gh-pages	2025-12-09T06:05:57.7674729Z [36;1mgit push origin gh-pages[0m
+helm-release	Commit and push to gh-pages	2025-12-09T06:05:57.7705114Z shell: /usr/bin/bash -e {0}
+helm-release	Commit and push to gh-pages	2025-12-09T06:05:57.7705346Z ##[endgroup]
+helm-release	Commit and push to gh-pages	2025-12-09T06:05:57.7773785Z The following paths are ignored by one of your .gitignore files:
+helm-release	Commit and push to gh-pages	2025-12-09T06:05:57.7774153Z hive-mind-0.37.28.tgz
+helm-release	Commit and push to gh-pages	2025-12-09T06:05:57.7774396Z hint: Use -f if you really want to add them.
+helm-release	Commit and push to gh-pages	2025-12-09T06:05:57.7774752Z hint: Disable this message with "git config set advice.addIgnoredFile false"
+helm-release	Commit and push to gh-pages	2025-12-09T06:05:57.7814980Z ##[error]Process completed with exit code 1.

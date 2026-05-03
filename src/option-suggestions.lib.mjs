@@ -179,6 +179,8 @@ const KNOWN_OPTION_NAMES = [
   'auto-pull-request-creation',
   'auto-commit-uncommitted-changes',
   'auto-restart-on-uncommitted-changes',
+  'auto-resume-on-uncommitted-changes',
+  'auto-resume-on-uncommitted-changes-maximum-context-window-usage',
   'continue-only-on-feedback',
   'claude-file',
   'gitkeep-file',

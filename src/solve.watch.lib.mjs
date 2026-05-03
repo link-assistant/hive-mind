@@ -50,6 +50,11 @@ const { AUTO_RESTART_MARKER, postTrackedComment } = toolComments;
 const resultsLib = await import('./solve.results.lib.mjs');
 const { maybeAttachWorkingSessionSummary } = resultsLib;
 
+// Issue #1056: Auto-resume on uncommitted changes — decide whether to call the
+// agent again with --resume <sessionId> instead of restarting from scratch.
+const autoResumeLib = await import('./auto-resume-uncommitted.lib.mjs');
+const { decideAutoResumeOnUncommittedChanges, isAutoResumeOnUncommittedChangesEnabled } = autoResumeLib;
+
 /**
  * Monitor for feedback in a loop and trigger restart when detected
  */
@@ -61,8 +66,12 @@ export const watchForFeedback = async params => {
   const maxAutoRestartIterations = normalizeAutoIterationLimit(argv.autoRestartMaxIterations);
 
   // Track latest session data across all iterations for accurate pricing
-  let latestSessionId = null;
+  // Issue #1056: Seed from the *initial* tool execution so the first auto-restart
+  // iteration can attempt --resume on the original session if the user opted in
+  // via --auto-resume-on-uncommitted-changes.
+  let latestSessionId = params.initialSessionId || null;
   let latestAnthropicCost = null;
+  let latestResultModelUsage = params.initialResultModelUsage || null;
 
   // Issue #1290: Track whether auto-restart iterations actually ran and whether logs were uploaded
   // This helps solve.mjs decide whether to upload final logs
@@ -240,6 +249,47 @@ export const watchForFeedback = async params => {
         // to comments posted during *this* iteration only, not across the whole watch loop.
         const iterationStartTime = new Date();
 
+        // Issue #1056: When uncommitted changes triggered this restart and the user
+        // has opted in via --auto-resume-on-uncommitted-changes, attempt to call
+        // the agent with --resume <sessionId> so the previous context is reused
+        // instead of starting a fresh session. We only consider this for claude
+        // because --resume is a Claude Code feature; other tools fall back to a
+        // normal restart.
+        let iterationArgv = argv;
+        const isClaudeTool = !argv.tool || argv.tool === 'claude';
+        const triggeredByUncommitted = firstIterationInTemporaryMode || hasUncommittedInTempMode;
+        if (triggeredByUncommitted && isClaudeTool && isAutoResumeOnUncommittedChangesEnabled(argv)) {
+          let tokenUsage = null;
+          if (latestSessionId && tempDir) {
+            try {
+              const { calculateSessionTokens } = await import('./claude.lib.mjs');
+              tokenUsage = await calculateSessionTokens(latestSessionId, tempDir, latestResultModelUsage);
+            } catch (tokenError) {
+              if (argv.verbose) {
+                await log(`   ⚠️  Could not calculate token usage for auto-resume decision: ${tokenError.message}`, { verbose: true });
+              }
+            }
+          }
+
+          const decision = decideAutoResumeOnUncommittedChanges({ argv, sessionId: latestSessionId, tokenUsage });
+          const formatPercent = value => (typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)}%` : 'unknown');
+
+          if (decision.resume) {
+            iterationArgv = { ...argv, resume: latestSessionId };
+            if (decision.reason === 'ok') {
+              await log(formatAligned('🔁', 'Auto-resume:', `Resuming session ${latestSessionId} (peak ${decision.peak}/${decision.limit} tokens, ${formatPercent(decision.usedPercent)} of context, threshold ${decision.threshold}%)`, 2));
+            } else {
+              // 'no_context_data' — flag is set but we don't have stats yet
+              await log(formatAligned('🔁', 'Auto-resume:', `Resuming session ${latestSessionId} (context usage stats unavailable; threshold ${decision.threshold}%)`, 2));
+            }
+          } else if (decision.reason === 'context_too_full') {
+            await log(formatAligned('🆕', 'Auto-resume skipped:', `Peak context usage ${formatPercent(decision.usedPercent)} exceeds threshold ${decision.threshold}% — falling back to fresh restart`, 2));
+          } else if (decision.reason === 'no_session_id') {
+            await log(formatAligned('🆕', 'Auto-resume skipped:', 'No previous session ID available — running fresh', 2));
+          }
+          // 'disabled' is unreachable here because we gated on isAutoResumeOnUncommittedChangesEnabled.
+        }
+
         // Execute tool using shared utility
         const toolResult = await executeToolIteration({
           issueUrl,
@@ -251,7 +301,7 @@ export const watchForFeedback = async params => {
           tempDir,
           mergeStateStatus,
           feedbackLines,
-          argv,
+          argv: iterationArgv,
         });
 
         if (!toolResult.success) {
@@ -359,6 +409,12 @@ export const watchForFeedback = async params => {
                 await log(`   💰 Anthropic cost: $${latestAnthropicCost.toFixed(6)}`, { verbose: true });
               }
             }
+          }
+
+          // Issue #1056: Track latest model usage so the next auto-resume decision
+          // can re-evaluate context-window usage against the most recent peak.
+          if (toolResult.resultModelUsage) {
+            latestResultModelUsage = toolResult.resultModelUsage;
           }
 
           // Issue #1508: Compute budget stats for auto-restart log comment

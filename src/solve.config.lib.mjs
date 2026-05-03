@@ -177,6 +177,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically restart when uncommitted changes are detected to allow the tool to handle them (default: true, use --no-auto-restart-on-uncommitted-changes to disable)',
     default: true,
   },
+  'auto-resume-on-uncommitted-changes': {
+    type: 'boolean',
+    description: 'EXPERIMENTAL: Automatically resume the previous AI session (--resume) when uncommitted changes are detected, preserving context. Falls back to restart when context window is too full or session ID is unavailable. Disabled by default.',
+    default: false,
+  },
+  'auto-resume-on-uncommitted-changes-maximum-context-window-usage': {
+    type: 'number',
+    description: 'When --auto-resume-on-uncommitted-changes is enabled, the maximum context window usage (in percent of model context limit) that still allows resuming. Above this threshold the tool falls back to a fresh restart (default: 50).',
+    default: 50,
+  },
   'auto-restart-max-iterations': {
     type: 'number',
     description: 'Maximum number of auto-restart iterations before stopping (default: 5, 0 = unlimited)',

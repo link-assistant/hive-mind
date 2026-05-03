@@ -1219,6 +1219,12 @@ try {
     prBranch,
     branchName,
     tempDir,
+    // Issue #1056: Pass initial session ID + token usage so the watch loop
+    // can decide whether `--auto-resume-on-uncommitted-changes` may resume
+    // the previous Claude session (preserving context) or must fall back
+    // to a fresh restart when the context window is too full.
+    initialSessionId: sessionId,
+    initialResultModelUsage: resultModelUsage,
     argv: {
       ...argv,
       watch: argv.watch || shouldRestart, // Enable watch if uncommitted changes

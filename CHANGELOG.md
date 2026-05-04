@@ -1,5 +1,14 @@
 # @link-assistant/hive-mind
 
+## 1.65.0
+
+### Minor Changes
+
+- 14fe57e: Prevent normal Docker release manifest jobs from downloading DinD digest artifacts.
+- 74ce579: Reduce `/terminal_watch` Telegram edits by updating only when the displayed terminal snapshot changes and count only real terminal snapshot updates.
+- 78ab6e2: Add `--auto-delete-branch-on-merge` option for the `solve` command. When set together with `--watch`, the branch is deleted from the remote after the pull request is merged; when set together with `--auto-merge`, the auto-merge call requests branch deletion as part of the merge. The option is opt-in (default `false`), enables full GitHub Flow automation, avoids temporary auto-restart cleanup, uses the GitHub REST API for watch-mode deletion, and treats "branch already gone" responses as success so it does not warn when GitHub's "Automatically delete head branches" repo setting beats us to it.
+- 152de95: Add a Claude CLI streaming input case study with reproducible experiment scripts.
+
 ## 1.64.4
 
 ### Patch Changes

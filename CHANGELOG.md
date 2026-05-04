@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.65.1
+
+### Patch Changes
+
+- d5cd096: Add a solve flag to disable separate error-report issue creation while preserving original issue failure comments, and improve pre-PR branch divergence diagnostics.
+
 ## 1.65.0
 
 ### Minor Changes

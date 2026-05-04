@@ -173,12 +173,18 @@ async function querySessionStatusWithRetry(querySessionStatus, sessionId, verbos
 
 // Note: /terminal_watch never uploads the full session log itself (issue #1720).
 // Use /log <uuid> if you want the log file delivered as a document.
-export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options = {}, repoDescription = null, verbose = false }) {
+function getDisplayedTerminalSnapshot(logText, options) {
+  return sanitizeCodeBlock(tailTextForTerminal(logText, options));
+}
+
+export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options = {}, repoDescription = null, verbose = false, initialStatusResult = null, initialLogText = null, initialMessage = '' }) {
   const key = `${chatId}:${messageId}:${sessionId}`;
   activeWatches.get(key)?.stop();
 
   let stopped = false;
-  let lastMessage = '';
+  const hasInitialLogText = initialLogText !== null && initialLogText !== undefined;
+  let lastSnapshot = hasInitialLogText ? getDisplayedTerminalSnapshot(initialLogText, options) : null;
+  let lastMessage = initialMessage || (hasInitialLogText ? formatTerminalWatchMessage({ sessionId, statusResult: initialStatusResult, logText: initialLogText, options, updateCount: 0, completed: !!initialStatusResult?.status && isTerminalSessionStatus(initialStatusResult.status), repoDescription }) : '');
   let updateCount = 0;
   let timer = null;
   const intervalMs = options.intervalMs || DEFAULT_INTERVAL_MS;
@@ -189,11 +195,16 @@ export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, log
       const statusResult = await querySessionStatus(sessionId, verbose);
       const completed = !!statusResult?.status && isTerminalSessionStatus(statusResult.status);
       const logText = await readLogFile(logPath);
-      const message = formatTerminalWatchMessage({ sessionId, statusResult, logText, options, updateCount: ++updateCount, completed, repoDescription });
-      if (message !== lastMessage) {
+      const snapshot = getDisplayedTerminalSnapshot(logText, options);
+      const snapshotChanged = snapshot !== lastSnapshot;
+      if (snapshotChanged) updateCount++;
+      const message = formatTerminalWatchMessage({ sessionId, statusResult, logText, options, updateCount, completed, repoDescription });
+      const shouldEdit = !lastMessage || snapshotChanged || (completed && message !== lastMessage);
+      if (shouldEdit && message !== lastMessage) {
         await bot.telegram.editMessageText(chatId, messageId, undefined, message, { parse_mode: 'Markdown' });
         lastMessage = message;
       }
+      lastSnapshot = snapshot;
       if (completed) {
         stopped = true;
         activeWatches.delete(key);
@@ -255,14 +266,15 @@ async function startWatchFromResolvedSession({ bot, ctx, sessionId, statusResult
   if (!targetChatId) return { started: false, reason: 'Missing target chat id' };
 
   const initialLogText = await readLogFile(logPath);
-  const initialText = formatTerminalWatchMessage({ sessionId, statusResult, logText: initialLogText, options: watchOptions, repoDescription });
+  const initialCompleted = !!statusResult?.status && isTerminalSessionStatus(statusResult.status);
+  const initialText = formatTerminalWatchMessage({ sessionId, statusResult, logText: initialLogText, options: watchOptions, completed: initialCompleted, repoDescription });
   let replyToMessageId = ctx.message?.message_id || undefined;
   if (decision.destination === 'dm' && ctx.chat.type !== 'private') {
     replyToMessageId = await forwardOrCopyToDm(ctx, ctx.message?.reply_to_message || ctx.message);
   }
 
   const watchMessage = await createWatchMessage({ ctx, targetChatId, replyToMessageId, text: initialText });
-  watchTerminalLogSession({ bot, chatId: targetChatId, messageId: watchMessage.message_id, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options: watchOptions, repoDescription, verbose });
+  watchTerminalLogSession({ bot, chatId: targetChatId, messageId: watchMessage.message_id, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options: watchOptions, repoDescription, verbose, initialStatusResult: statusResult, initialLogText, initialMessage: initialText });
 
   if (!auto && decision.destination === 'dm' && ctx.chat.type !== 'private') {
     await ctx.reply(`📬 Started terminal watch for \`${sessionId}\` in your direct messages.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });

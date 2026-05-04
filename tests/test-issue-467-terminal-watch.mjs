@@ -117,6 +117,87 @@ assert(String(edits.at(-1)?.[3] || '').includes('Terminal watch complete'), 'fre
 
 await fs.rm(tempDir, { recursive: true, force: true });
 
+console.log('\n--- watchTerminalLogSession() change detection (Issue #1750) ---');
+const noChangeTempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-watch-1750-'));
+const noChangeLogPath = path.join(noChangeTempDir, `${uuid}.log`);
+await fs.writeFile(noChangeLogPath, 'stable line\n');
+
+const unchangedEdits = [];
+let unchangedStatusCalls = 0;
+const unchangedInitialStatus = { exists: true, uuid, status: 'executing', logPath: noChangeLogPath, isolation: 'screen' };
+const unchangedInitialMessage = formatTerminalWatchMessage({
+  sessionId: uuid,
+  statusResult: unchangedInitialStatus,
+  logText: 'stable line\n',
+  options: { width: 80, height: 10, intervalMs: 10, maxChars: 1000 },
+  updateCount: 0,
+});
+const unchangedControl = watchTerminalLogSession({
+  bot: {
+    telegram: {
+      editMessageText: async (...args) => unchangedEdits.push(args),
+    },
+  },
+  chatId: 123,
+  messageId: 789,
+  sessionId: uuid,
+  logPath: noChangeLogPath,
+  options: { width: 80, height: 10, intervalMs: 10, maxChars: 1000 },
+  initialStatusResult: unchangedInitialStatus,
+  initialLogText: 'stable line\n',
+  initialMessage: unchangedInitialMessage,
+  querySessionStatus: async () => {
+    unchangedStatusCalls++;
+    return { exists: true, uuid, status: 'executing', logPath: noChangeLogPath, isolation: 'screen' };
+  },
+  isTerminalSessionStatus: status => status === 'executed',
+});
+
+await new Promise(resolve => setTimeout(resolve, 55));
+unchangedControl.stop();
+assert(unchangedStatusCalls >= 2, 'polls the session more than once while the watch is active', { unchangedStatusCalls });
+assert(unchangedEdits.length === 0, 'does not edit Telegram message when terminal snapshot is unchanged', { editCount: unchangedEdits.length });
+
+const changedEdits = [];
+let changedStatusCalls = 0;
+await fs.writeFile(noChangeLogPath, 'first snapshot\n');
+const changedInitialStatus = { exists: true, uuid, status: 'executing', logPath: noChangeLogPath, isolation: 'screen' };
+const changedOptions = { width: 80, height: 10, intervalMs: 10, maxChars: 1000 };
+const changedControl = watchTerminalLogSession({
+  bot: {
+    telegram: {
+      editMessageText: async (...args) => changedEdits.push(args),
+    },
+  },
+  chatId: 123,
+  messageId: 790,
+  sessionId: uuid,
+  logPath: noChangeLogPath,
+  options: changedOptions,
+  initialStatusResult: changedInitialStatus,
+  initialLogText: 'first snapshot\n',
+  initialMessage: formatTerminalWatchMessage({
+    sessionId: uuid,
+    statusResult: changedInitialStatus,
+    logText: 'first snapshot\n',
+    options: changedOptions,
+    updateCount: 0,
+  }),
+  querySessionStatus: async () => {
+    changedStatusCalls++;
+    if (changedStatusCalls === 2) await fs.writeFile(noChangeLogPath, 'second snapshot\n');
+    return { exists: true, uuid, status: 'executing', logPath: noChangeLogPath, isolation: 'screen' };
+  },
+  isTerminalSessionStatus: status => status === 'executed',
+});
+
+await new Promise(resolve => setTimeout(resolve, 80));
+changedControl.stop();
+assert(changedEdits.length === 1, 'edits Telegram exactly once for one changed terminal snapshot', { editCount: changedEdits.length });
+assert(String(changedEdits[0]?.[3] || '').includes('Updates: 1'), 'counts only changed terminal snapshots as updates', { message: changedEdits[0]?.[3] });
+
+await fs.rm(noChangeTempDir, { recursive: true, force: true });
+
 console.log('\n' + '='.repeat(80));
 console.log(`Result: ${passed} passed, ${failed} failed`);
 console.log('='.repeat(80));

@@ -243,6 +243,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Interval in seconds for checking feedback in watch mode (default: 60)',
     default: 60,
   },
+  'auto-delete-branch-on-merge': {
+    type: 'boolean',
+    description: 'Automatically delete the branch after the pull request is merged in --watch mode or by --auto-merge. Enables full GitHub Flow support (issue #401).',
+    default: false,
+  },
   'min-disk-space': {
     type: 'number',
     description: 'Minimum required disk space in MB (default: 2048)',

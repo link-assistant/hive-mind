@@ -107,6 +107,52 @@ export const watchForFeedback = async params => {
       await log('');
       await log(formatAligned('🎉', 'PR MERGED!', 'Stopping watch mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been merged`, 2));
+
+      // Issue #401: If --auto-delete-branch-on-merge is enabled in --watch mode,
+      // delete the branch from the remote after the PR is merged. This enables
+      // full GitHub Flow automation. Only applies in --watch mode (not auto-restart),
+      // because auto-restart is for completing local work, not finalizing GitHub Flow.
+      const shouldAutoDeleteBranch = !isTemporaryWatch && argv.autoDeleteBranchOnMerge && branchName;
+      if (shouldAutoDeleteBranch) {
+        await log('');
+        await log(formatAligned('🗑️', 'AUTO-DELETE:', `Deleting branch ${branchName} after merge`));
+        try {
+          // Delete the branch from the remote via GitHub REST API.
+          // We use `gh api ... -X DELETE` rather than `git push --delete` so we don't
+          // require a configured local remote in tempDir at this point in the run.
+          const deleteBranchResult = await $`gh api repos/${owner}/${repo}/git/refs/heads/${branchName} -X DELETE`;
+          if (deleteBranchResult.code === 0) {
+            await log(formatAligned('✅', 'Branch deleted:', `${branchName}`, 2));
+          } else {
+            const stderrText = deleteBranchResult.stderr?.toString().trim() || 'Unknown error';
+            // 422 Reference does not exist -> branch was already deleted (e.g. GitHub's "Automatically delete head branches"
+            // setting raced ahead of us). Treat as success rather than warning.
+            if (/Reference does not exist|Not Found|422|404/i.test(stderrText)) {
+              await log(formatAligned('✅', 'Branch already removed:', `${branchName} (no action needed)`, 2));
+            } else {
+              await log(formatAligned('⚠️', 'Branch deletion failed:', stderrText, 2));
+              reportError(new Error(`Branch deletion returned non-zero exit code: ${stderrText}`), {
+                context: 'delete_branch_on_merge_non_zero',
+                owner,
+                repo,
+                branchName,
+                exitCode: deleteBranchResult.code,
+                operation: 'delete_remote_branch',
+              });
+            }
+          }
+        } catch (deleteError) {
+          reportError(deleteError, {
+            context: 'delete_branch_on_merge',
+            owner,
+            repo,
+            branchName,
+            operation: 'delete_remote_branch',
+          });
+          await log(formatAligned('⚠️', 'Branch deletion error:', cleanErrorMessage(deleteError), 2));
+        }
+      }
+
       await log('');
       break;
     }

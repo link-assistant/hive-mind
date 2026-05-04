@@ -67,6 +67,8 @@ const { maybeAttachWorkingSessionSummary } = resultsLib;
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit, shouldSyncBeforeRestart } = await import('./auto-iteration-limits.lib.mjs');
 
+const shouldDeleteBranchAfterMerge = argv => argv.autoDeleteBranchOnMerge || argv.deleteBranchAfterMerge || false;
+
 /**
  * Main function: Watch and restart until PR becomes mergeable
  * This implements --auto-restart-until-mergeable functionality
@@ -273,7 +275,11 @@ export const watchUntilMergeable = async params => {
         if (isAutoMerge) {
           // Attempt to merge the PR
           await log(formatAligned('🔀', 'Auto-merging PR...', ''));
-          const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: argv.deleteBranchAfterMerge || false }, argv.verbose);
+          const deleteAfterMerge = shouldDeleteBranchAfterMerge(argv);
+          if (deleteAfterMerge) {
+            await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
+          }
+          const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
 
           if (mergeResult.success) {
             await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
@@ -1045,7 +1051,11 @@ export const attemptAutoMerge = async params => {
   await log(formatAligned('✅', 'PR is mergeable:', 'Attempting to merge...', 2));
 
   // Attempt to merge
-  const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: argv.deleteBranchAfterMerge || false }, argv.verbose);
+  const deleteAfterMerge = shouldDeleteBranchAfterMerge(argv);
+  if (deleteAfterMerge) {
+    await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
+  }
+  const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
 
   if (mergeResult.success) {
     await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));

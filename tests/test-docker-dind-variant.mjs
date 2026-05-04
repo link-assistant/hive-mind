@@ -76,8 +76,8 @@ assertIncludes(releaseYml, 'docker-publish-dind-instant:\n    name: Docker Publi
 assertIncludes(releaseYml, 'docker-publish-dind-instant-merge:\n    name: Docker Publish DinD Instant (Merge)', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'IMAGE_NAME: konard/hive-mind-dind', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'file: ./Dockerfile.dind', '.github/workflows/release.yml');
-assertIncludes(releaseYml, 'digests-dind-${{ matrix.platform ==', '.github/workflows/release.yml');
-assertIncludes(releaseYml, 'digests-dind-instant-${{ matrix.platform ==', '.github/workflows/release.yml');
+assertIncludes(releaseYml, 'hive-mind-dind-digests-${{ matrix.platform ==', '.github/workflows/release.yml');
+assertIncludes(releaseYml, 'hive-mind-dind-instant-digests-${{ matrix.platform ==', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'buildcache-dind-${{ matrix.cache_suffix }}', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'HIVE_MIND_VERSION=${{ needs.release.outputs.published_version }}', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'HIVE_MIND_VERSION=${{ needs.instant-release.outputs.published_version }}', '.github/workflows/release.yml');

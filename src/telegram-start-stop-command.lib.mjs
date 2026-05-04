@@ -10,9 +10,16 @@
  * - Graceful stop: existing queue items continue to process
  * - Read-only commands (/help, /limits, /version) remain available when stopped
  * - Write commands (/solve, /hive) are rejected when stopped
+ * - `/stop <UUID>` or reply-to-message-with-UUID forwards CTRL+C to the
+ *   matching isolated solve/hive session via `$ --stop <UUID>` from
+ *   link-foundation/start (issue #524).
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1081
+ * @see https://github.com/link-assistant/hive-mind/issues/524
+ * @see https://github.com/link-foundation/start/issues/112
  */
+
+import { extractSessionIdFromText } from './telegram-log-command.lib.mjs';
 
 // Store stopped chats: Map<chatId, { stoppedAt: Date, stoppedBy: { id, username, firstName }, reason?: string }>
 const stoppedChats = new Map();
@@ -87,6 +94,30 @@ export function getStoppedChatRejectMessage(chatId, commandName = 'Command') {
 }
 
 /**
+ * Extract a session UUID for `/stop`. Priority:
+ *   1. UUID literal anywhere in the `/stop` message text.
+ *   2. UUID in the text/caption of the message being replied to.
+ *
+ * The `text` argument is the raw `/stop ...` command text. `repliedTo`, when
+ * present, is the Telegram message object that the user replied to with `/stop`.
+ *
+ * @param {string} text
+ * @param {Object|null|undefined} repliedTo
+ * @returns {{ sessionId: string|null, source: 'argument'|'reply'|null }}
+ */
+export function extractStopSessionId(text, repliedTo) {
+  // Strip the leading `/stop` (or `/stop@botname`) before looking for a UUID,
+  // so we don't accidentally match digits inside the command name itself.
+  const argText = String(text || '').replace(/^\/stop(?:@\w+)?\s*/i, '');
+  const direct = extractSessionIdFromText(argText);
+  if (direct) return { sessionId: direct, source: 'argument' };
+  const replyText = repliedTo ? `${repliedTo.text || ''}\n${repliedTo.caption || ''}` : '';
+  const fromReply = extractSessionIdFromText(replyText);
+  if (fromReply) return { sessionId: fromReply, source: 'reply' };
+  return { sessionId: null, source: null };
+}
+
+/**
  * Registers the /start and /stop command handlers with the bot
  * @param {Object} bot - The Telegraf bot instance
  * @param {Object} options - Options object
@@ -95,9 +126,13 @@ export function getStoppedChatRejectMessage(chatId, commandName = 'Command') {
  * @param {Function} options.isForwardedOrReply - Function to check if message is forwarded/reply
  * @param {Function} options.isGroupChat - Function to check if chat is a group
  * @param {Function} options.isChatAuthorized - Function to check if chat is authorized
+ * @param {Function} [options.isTopicAuthorized] - Topic-level authorization fallback
+ * @param {Function} [options.buildAuthErrorMessage] - Builds the chat-not-authorized message
+ * @param {Function} [options.stopIsolatedSession] - Override for tests; calls `$ --stop <uuid>`
  */
 export function registerStartStopCommands(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
+  const stopIsolatedSessionImpl = options.stopIsolatedSession || (async (...args) => (await import('./isolation-runner.lib.mjs')).stopIsolatedSession(...args));
 
   /**
    * Validate command context: checks old message, forwarded, group chat, authorized, and owner status.
@@ -145,9 +180,110 @@ export function registerStartStopCommands(bot, options) {
     return { valid: true, chatId };
   }
 
-  // /stop command - stop accepting new tasks in this chat
-  // Only accessible by chat owner (creator)
+  // /stop command. Two modes:
+  //   1. `/stop <UUID>` or reply-to-message-with-UUID — forward CTRL+C to the
+  //      matching isolated session via `$ --stop <UUID>` (issue #524).
+  //   2. bare `/stop` (optionally with a free-text reason) — pause new task
+  //      acceptance for the chat (issue #1081).
+  // Only accessible by chat owner (creator) in both modes.
   bot.command('stop', async ctx => {
+    VERBOSE && console.log('[VERBOSE] /stop command received');
+    if (isOldMessage(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /stop ignored: old message');
+      return;
+    }
+
+    // Detect UUID modes BEFORE the forwarded/reply rejection used by the
+    // chat-level stop, because the UUID-from-reply mode is intentionally a
+    // reply (issue #524).
+    const message = ctx.message;
+    const repliedTo = message?.reply_to_message || null;
+    const { sessionId, source } = extractStopSessionId(message?.text || '', repliedTo);
+
+    if (sessionId) {
+      VERBOSE && console.log(`[VERBOSE] /stop: detected UUID ${sessionId} (source=${source})`);
+      // Reuse the same auth model as /log: must be chat owner in groups; in
+      // private DMs the user is implicitly the owner of their own chat.
+      const chatId = ctx.chat?.id;
+      const chatType = ctx.chat?.type;
+      if (chatType !== 'private') {
+        if (!isGroupChat(ctx)) {
+          await ctx.reply('❌ The /stop command only works in group chats or private chats with the bot.', { reply_to_message_id: message.message_id });
+          return;
+        }
+        if (!isChatAuthorized(chatId)) {
+          if (!isTopicAuthorized || !isTopicAuthorized(ctx)) {
+            const errMsg = buildAuthErrorMessage ? buildAuthErrorMessage(ctx) : `❌ This chat (ID: ${chatId}) is not authorized to use this bot.`;
+            await ctx.reply(errMsg, { reply_to_message_id: message.message_id });
+            return;
+          }
+        }
+        try {
+          const member = await ctx.telegram.getChatMember(chatId, ctx.from.id);
+          if (!member || member.status !== 'creator') {
+            VERBOSE && console.log('[VERBOSE] /stop <UUID> ignored: user is not chat owner');
+            await ctx.reply('❌ /stop <UUID> is only available to the chat owner.', { reply_to_message_id: message.message_id });
+            return;
+          }
+        } catch (error) {
+          console.error('[ERROR] /stop <UUID>: getChatMember failed:', error);
+          await ctx.reply('❌ Failed to verify permissions for /stop.', { reply_to_message_id: message.message_id });
+          return;
+        }
+      }
+
+      const ack = await ctx.reply(`⏹️ Asking session \`${sessionId}\` to stop (sending CTRL+C via \`$ --stop\`)…`, {
+        parse_mode: 'Markdown',
+        reply_to_message_id: message.message_id,
+      });
+
+      let result;
+      try {
+        result = await stopIsolatedSessionImpl(sessionId, VERBOSE);
+      } catch (error) {
+        console.error('[ERROR] /stop <UUID>: stopIsolatedSession threw:', error);
+        result = { success: false, output: '', error: error?.message || String(error) };
+      }
+
+      const trimmedOutput = (result.output || '').toString().trim();
+      const trimmedError = (result.error || '').toString().trim();
+      const lines = [];
+      if (result.success) {
+        lines.push(`✅ Stop request sent to session \`${sessionId}\`.`);
+        lines.push('');
+        lines.push('The session should terminate shortly.');
+        if (trimmedOutput) {
+          lines.push('');
+          lines.push('```');
+          lines.push(trimmedOutput.slice(0, 1000));
+          lines.push('```');
+        }
+      } else {
+        lines.push(`❌ Failed to stop session \`${sessionId}\`.`);
+        if (trimmedError) {
+          lines.push('');
+          lines.push('```');
+          lines.push(trimmedError.slice(0, 1000));
+          lines.push('```');
+        }
+      }
+
+      try {
+        await ctx.telegram.editMessageText(ack.chat.id, ack.message_id, undefined, lines.join('\n'), { parse_mode: 'Markdown' });
+      } catch (error) {
+        console.error('[ERROR] /stop <UUID>: editMessageText failed, falling back to reply:', error);
+        await ctx.reply(lines.join('\n'), { parse_mode: 'Markdown', reply_to_message_id: message.message_id });
+      }
+      return;
+    }
+
+    // No UUID — fall through to the chat-level pause flow. That flow rejects
+    // forwards/replies on purpose (#1081) so a stray reply doesn't pause the chat.
+    if (isForwardedOrReply(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /stop ignored: forwarded or reply');
+      return;
+    }
+
     const check = await validateOwnerCommand(ctx, '/stop');
     if (!check.valid) return;
     const chatId = check.chatId;

@@ -11,6 +11,7 @@ import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { mapModelForTool } from './models/index.mjs';
 import { buildCodexDisable1mContextConfigArgs, buildCodexSubSessionSizeConfigArgs, parseSubSessionSize } from './sub-session-size.lib.mjs';
 import { detectUsageLimit } from './usage-limit.lib.mjs';
+import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -222,10 +223,45 @@ const extractResultSummary = (messages, plainOutput) => {
 
 const hasErrorMessage = messages => messages.some(message => message?.is_error === true || message?.type === 'error' || message?.type === 'step_error' || message?.error);
 
+const normalizeAgentCommanderTokenUsage = usage => {
+  if (!usage || typeof usage !== 'object') return null;
+  const normalized = {
+    ...usage,
+    contextFillInputTokens: usage.contextFillInputTokens ?? getCumulativeContextInputTokens(usage),
+  };
+  const cacheReadTokens = getCacheReadTokenCount(normalized);
+  const hasTokenCounts = getCumulativeContextInputTokens(normalized) > 0 || getOutputTokenCount(normalized) > 0 || cacheReadTokens > 0;
+  if (!hasTokenCounts) return null;
+  if (!normalized.stepCount) normalized.stepCount = 1;
+  return normalized;
+};
+
+const enrichPricingInfoWithTokenUsage = ({ pricingInfo = null, usage = null, tool = null, publicPricingEstimate = null }) => {
+  const tokenUsage = normalizeAgentCommanderTokenUsage(pricingInfo?.tokenUsage || usage);
+  if (!tokenUsage) return pricingInfo || null;
+
+  return {
+    source: 'agent-commander',
+    ...(pricingInfo || {}),
+    provider: pricingInfo?.provider || tool || 'agent-commander',
+    modelId: pricingInfo?.modelId || tokenUsage.respondedModelId || tokenUsage.requestedModelId || null,
+    modelName: pricingInfo?.modelName || tokenUsage.respondedModelId || tokenUsage.requestedModelId || null,
+    totalCostUSD: pricingInfo?.totalCostUSD ?? publicPricingEstimate ?? null,
+    tokenUsage,
+  };
+};
+
 export const summarizeAgentCommanderResult = ({ result, tool }) => {
   const plainOutput = result?.output?.plain || '';
   if (result?.metadata && typeof result.metadata === 'object') {
     const metadata = result.metadata;
+    const streamTokenUsage = metadata.streamTokenUsage || result.usage || null;
+    const pricingInfo = enrichPricingInfoWithTokenUsage({
+      pricingInfo: metadata.pricingInfo || null,
+      usage: streamTokenUsage,
+      tool,
+      publicPricingEstimate: metadata.publicPricingEstimate ?? metadata.pricingInfo?.totalCostUSD ?? null,
+    });
     return {
       success: metadata.success === true,
       sessionId: metadata.sessionId || result.sessionId || null,
@@ -233,11 +269,11 @@ export const summarizeAgentCommanderResult = ({ result, tool }) => {
       limitResetTime: metadata.limitResetTime || null,
       limitTimezone: metadata.limitTimezone || null,
       anthropicTotalCostUSD: metadata.anthropicTotalCostUSD ?? null,
-      publicPricingEstimate: metadata.publicPricingEstimate ?? metadata.pricingInfo?.totalCostUSD ?? null,
-      pricingInfo: metadata.pricingInfo || null,
+      publicPricingEstimate: metadata.publicPricingEstimate ?? pricingInfo?.totalCostUSD ?? null,
+      pricingInfo,
       resultSummary: metadata.resultSummary || null,
       resultModelUsage: metadata.resultModelUsage || null,
-      streamTokenUsage: metadata.streamTokenUsage || result.usage || null,
+      streamTokenUsage,
       subAgentCalls: metadata.subAgentCalls || null,
       errorDuringExecution: metadata.errorDuringExecution === true || result?.exitCode !== 0,
       result: plainOutput,
@@ -250,6 +286,12 @@ export const summarizeAgentCommanderResult = ({ result, tool }) => {
   const resultMessage = [...messages].reverse().find(message => message?.type === 'result') || null;
   const totalCost = typeof resultMessage?.total_cost_usd === 'number' ? resultMessage.total_cost_usd : null;
   const publicPricingEstimate = tool === 'agent' && typeof usage?.totalCost === 'number' ? usage.totalCost : null;
+  const pricingInfo = enrichPricingInfoWithTokenUsage({
+    pricingInfo: publicPricingEstimate !== null ? { totalCostUSD: publicPricingEstimate, source: 'agent-commander' } : null,
+    usage,
+    tool,
+    publicPricingEstimate,
+  });
 
   return {
     success: result?.exitCode === 0 && !usageLimit.isUsageLimit && !hasErrorMessage(messages),
@@ -258,8 +300,8 @@ export const summarizeAgentCommanderResult = ({ result, tool }) => {
     limitResetTime: usageLimit.resetTime,
     limitTimezone: usageLimit.timezone,
     anthropicTotalCostUSD: tool === 'claude' ? totalCost : null,
-    publicPricingEstimate,
-    pricingInfo: publicPricingEstimate !== null ? { totalCostUSD: publicPricingEstimate, source: 'agent-commander' } : null,
+    publicPricingEstimate: publicPricingEstimate ?? pricingInfo?.totalCostUSD ?? null,
+    pricingInfo,
     resultSummary: extractResultSummary(messages, plainOutput),
     resultModelUsage: null,
     streamTokenUsage: usage,

@@ -682,7 +682,18 @@ export const executeClaudeCommand = async params => {
     let interactiveHandler = null;
     if (argv.interactiveMode && owner && repo && prNumber) {
       await log('🔌 Interactive mode: Creating handler for real-time PR comments', { verbose: true });
-      interactiveHandler = createInteractiveHandler({ owner, repo, prNumber, $, log, verbose: argv.verbose });
+      interactiveHandler = createInteractiveHandler({
+        owner,
+        repo,
+        prNumber,
+        $,
+        log,
+        verbose: argv.verbose,
+        // Issue #1745: thread the three independent dangerous-skip flags through
+        // so the comment-posting path can honor them; flags default to false.
+        skipOutputSanitization: argv['dangerously-skip-output-sanitization'] === true,
+        skipActiveTokensOutputSanitization: argv['dangerously-skip-active-tokens-output-sanitization'] === true,
+      });
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }

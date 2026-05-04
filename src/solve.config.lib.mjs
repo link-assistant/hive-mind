@@ -115,6 +115,21 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Upload the solution draft log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',
     default: false,
   },
+  'dangerously-skip-output-sanitization': {
+    type: 'boolean',
+    description: 'DANGEROUS: skip pattern-based sanitization of generated output. Active local token masking stays enabled unless --dangerously-skip-active-tokens-output-sanitization is also set.',
+    default: false,
+  },
+  'dangerously-skip-code-output-sanitization': {
+    type: 'boolean',
+    description: 'DANGEROUS: allow generated code/file output to keep pattern-matched token-looking strings. Active local token masking stays enabled unless explicitly disabled.',
+    default: false,
+  },
+  'dangerously-skip-active-tokens-output-sanitization': {
+    type: 'boolean',
+    description: 'DANGEROUS: skip masking known active local tokens in output. This is separate from other sanitization skip flags and should only be used for controlled debugging.',
+    default: false,
+  },
   'auto-close-pull-request-on-fail': {
     type: 'boolean',
     description: 'Automatically close the pull request if execution fails',

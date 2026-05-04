@@ -512,6 +512,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Disable error issue creation entirely (no prompt, no automatic creation). Overrides --auto-report-issue if both are specified.',
     default: false,
   },
+  'disable-issue-auto-creation-on-error': {
+    type: 'boolean',
+    description: 'Disable creating a new GitHub error-report issue when solve fails, including the interactive prompt. This does not disable posting failure logs or comments to the original issue or pull request.',
+    default: false,
+  },
   'attach-solution-summary': {
     type: 'boolean',
     description: 'Attach the AI working session summary (from the result field) as a comment to the PR/issue after every working session. The summary is extracted from the AI tool JSON output and posted under a "Working session summary" header. Applies to the top-level run, auto-restart-until-mergeable iterations, and watch-mode iterations.',
@@ -717,6 +722,12 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     // Support negated deprecated flag: --no-tool-check becomes --no-tool-connection-check
     if (argv.toolCheck === false) {
       argv.toolConnectionCheck = false;
+    }
+    // Issue #1752: new flag is the explicit user-facing switch for disabling
+    // creation of separate solver-error issues. Keep the existing internal
+    // disableReportIssue path as the single behavior flag.
+    if (argv.disableIssueAutoCreationOnError) {
+      argv.disableReportIssue = true;
     }
   }
 

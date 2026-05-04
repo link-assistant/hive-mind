@@ -4,8 +4,10 @@
  */
 
 import { closingIssueNumbersContain, parseClosingIssueNumbers } from './pr-issue-linking.lib.mjs';
+import { buildPushRejectionExplanation, getRemoteBranchDivergenceSnapshot, synchronizeExistingIssueBranchBeforeAutoPrCreation } from './solve.branch-divergence.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+
 export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
   // Skip auto-PR creation if:
   // 1. Auto-PR creation is disabled AND we're not in continue mode with no PR
@@ -33,6 +35,16 @@ export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNum
   const issueUrl = argv['issue-url'] || argv._[0];
 
   try {
+    await synchronizeExistingIssueBranchBeforeAutoPrCreation({
+      tempDir,
+      branchName,
+      isContinueMode,
+      prNumber,
+      log,
+      formatAligned,
+      $,
+    });
+
     // Determine which file to create based on CLI flags
     let useClaudeFile = argv.claudeFile !== false;
     const useAutoGitkeepFile = argv.autoGitkeepFile !== false;
@@ -527,6 +539,7 @@ Proceed.
           await log('');
           throw new Error('Permission denied - need fork or collaborator access');
         } else if (errorOutput.includes('non-fast-forward') || errorOutput.includes('rejected') || errorOutput.includes('! [rejected]')) {
+          const divergence = await getRemoteBranchDivergenceSnapshot({ $, tempDir, branchName });
           // Push rejected due to conflicts or diverged history
           await log('');
           await log(formatAligned('❌', 'PUSH REJECTED:', 'Branch has diverged from remote'), { level: 'error' });
@@ -534,6 +547,9 @@ Proceed.
           await log('  🔍 What happened:');
           await log('     The remote branch has changes that conflict with your local changes.');
           await log('     This typically means someone else has pushed to this branch.');
+          for (const line of buildPushRejectionExplanation({ branchName, isContinueMode, prNumber, divergence })) {
+            await log(line);
+          }
           await log('');
           await log('  💡 Why we cannot fix this automatically:');
           await log('     • We never use force push to preserve history');

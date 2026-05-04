@@ -12,11 +12,14 @@ import { reportError } from './sentry.lib.mjs';
 // Import GitHub error reporter
 import { handleErrorWithIssueCreation } from './github-error-reporter.lib.mjs';
 
+export const isErrorIssueAutoCreationDisabled = argv => !!(argv?.disableReportIssue || argv?.disableIssueAutoCreationOnError);
+
 /**
  * Handles log attachment and PR closing on failure
  */
 export const handleFailure = async options => {
   const { error, errorType, shouldAttachLogs, argv, global, owner, repo, log, getLogFile, attachLogToGitHub, cleanErrorMessage, sanitizeLogContent, $ } = options;
+  const disableIssueCreation = isErrorIssueAutoCreationDisabled(argv);
 
   // Offer to create GitHub issue for the error
   try {
@@ -30,9 +33,9 @@ export const handleFailure = async options => {
         prNumber: global.createdPR?.number,
         errorType,
       },
-      skipPrompt: !process.stdin.isTTY || argv.noIssueCreation,
+      skipPrompt: !process.stdin.isTTY || argv.noIssueCreation || disableIssueCreation,
       autoReport: argv.autoReportIssue,
-      disableReport: argv.disableReportIssue,
+      disableReport: disableIssueCreation,
     });
   } catch (issueError) {
     reportError(issueError, {
@@ -49,7 +52,7 @@ export const handleFailure = async options => {
     const hasIssue = global.issueNumber;
     const targetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
     const targetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
-    const targetLabel = hasPR ? 'Pull Request' : 'Issue';
+    const targetLabel = hasPR ? 'Pull Request' : `original issue #${targetNumber}`;
 
     if (targetType && targetNumber) {
       await log(`\n📄 Attempting to attach failure logs to ${targetLabel}...`);
@@ -70,7 +73,7 @@ export const handleFailure = async options => {
           tool: argv.tool || 'claude',
         });
         if (logUploadSuccess) {
-          await log(`📎 Failure log attached to ${targetLabel}`);
+          await log(`📎 Failure log posted to ${targetLabel}`);
           if (!hasPR && hasIssue) global.prePullRequestFailureNotificationPosted = true;
         }
       } catch (attachError) {
@@ -81,7 +84,7 @@ export const handleFailure = async options => {
           errorType,
           operation: `attach_log_to_${targetType}`,
         });
-        await log(`⚠️  Could not attach failure log to ${targetLabel}: ${attachError.message}`, { level: 'warning' });
+        await log(`⚠️  Could not post failure log to ${targetLabel}: ${attachError.message}`, { level: 'warning' });
       }
     }
   }

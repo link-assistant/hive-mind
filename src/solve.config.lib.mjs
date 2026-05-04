@@ -245,7 +245,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'auto-delete-branch-on-merge': {
     type: 'boolean',
-    description: 'Automatically delete the branch after the pull request is merged (only in --watch mode). Enables full GitHub Flow support (issue #401).',
+    description: 'Automatically delete the branch after the pull request is merged in --watch mode or by --auto-merge. Enables full GitHub Flow support (issue #401).',
     default: false,
   },
   'min-disk-space': {

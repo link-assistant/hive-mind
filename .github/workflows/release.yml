@@ -801,7 +801,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: hive-mind-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -826,7 +826,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digests-*
+          pattern: hive-mind-digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -946,7 +946,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-dind-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: hive-mind-dind-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -968,7 +968,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digests-dind-*
+          pattern: hive-mind-dind-digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -1186,7 +1186,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: hive-mind-instant-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -1211,7 +1211,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digests-instant-*
+          pattern: hive-mind-instant-digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -1331,7 +1331,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-dind-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: hive-mind-dind-instant-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -1353,7 +1353,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digests-dind-instant-*
+          pattern: hive-mind-dind-instant-digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx

@@ -182,5 +182,15 @@ await test('SOLVE_OPTION_DEFINITIONS exposes language option', async () => {
   assert.deepStrictEqual(SOLVE_OPTION_DEFINITIONS.language.choices, ['en', 'ru', 'zh', 'hi']);
 });
 
+// 6. Translation parity across locales
+console.log('\n6) Translation parity');
+await test('every supported locale defines the core "error" key', async () => {
+  for (const loc of getSupportedLocales()) {
+    const value = t('error', {}, { locale: loc });
+    assert.notStrictEqual(value, 'error', `locale ${loc} is missing "error" translation`);
+    assert.ok(typeof value === 'string' && value.length > 0, `locale ${loc} returned empty translation`);
+  }
+});
+
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

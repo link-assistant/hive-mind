@@ -141,5 +141,46 @@ await test('preloadAllLocales does not throw', async () => {
   assert.strictEqual(t('error', {}, { locale: 'hi' }), 'त्रुटि');
 });
 
+// 5. CLI --language integration
+console.log('\n5) CLI --language integration');
+await test('task.mjs parser accepts --language ru', async () => {
+  const { parseTaskArguments } = await import('../src/task.config.lib.mjs');
+  const argv = parseTaskArguments(['node', 'task.mjs', 'do something', '--language', 'ru']);
+  assert.strictEqual(argv.language, 'ru');
+});
+
+await test('task.mjs parser rejects unsupported language', async () => {
+  const { parseTaskArguments } = await import('../src/task.config.lib.mjs');
+  // yargs prints to stderr/stdout on validation; suppress for test cleanliness
+  const origStderrWrite = process.stderr.write;
+  const origStdoutWrite = process.stdout.write;
+  process.stderr.write = () => true;
+  process.stdout.write = () => true;
+  try {
+    let threw = false;
+    try {
+      parseTaskArguments(['node', 'task.mjs', 'do something', '--language', 'fr']);
+    } catch {
+      threw = true;
+    }
+    assert.strictEqual(threw, true, 'expected unsupported language to be rejected');
+  } finally {
+    process.stderr.write = origStderrWrite;
+    process.stdout.write = origStdoutWrite;
+  }
+});
+
+await test('hive auto-registers language via passthrough', async () => {
+  const { getSolvePassthroughOptionNames } = await import('../src/hive.config.lib.mjs');
+  const names = getSolvePassthroughOptionNames();
+  assert.ok(names.includes('language'), 'expected language in hive passthrough list');
+});
+
+await test('SOLVE_OPTION_DEFINITIONS exposes language option', async () => {
+  const { SOLVE_OPTION_DEFINITIONS } = await import('../src/solve.config.lib.mjs');
+  assert.ok(SOLVE_OPTION_DEFINITIONS.language, 'expected language in SOLVE_OPTION_DEFINITIONS');
+  assert.deepStrictEqual(SOLVE_OPTION_DEFINITIONS.language.choices, ['en', 'ru', 'zh', 'hi']);
+});
+
 console.log(`\nResults: ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

@@ -101,6 +101,11 @@ const createReviewYargsConfig = yargsInstance =>
       description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
       default: false,
     })
+    .option('language', {
+      type: 'string',
+      description: 'Language for user-facing output (en, ru, zh, hi). Defaults to detected system locale.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
     .check(parsed => {
       if (!parsed['pr-url'] && !parsed.prUrl && !parsed._?.[0]) {
         throw new Error('The GitHub pull request URL is required');
@@ -127,6 +132,10 @@ const prUrl = argv['pr-url'] || argv.prUrl || argv._[0];
 
 // Set global verbose mode for log function
 global.verboseMode = argv.verbose;
+
+// Initialize i18n based on --language (or detected system locale)
+const { initI18n } = await import('./i18n.lib.mjs');
+await initI18n(argv.language);
 
 // Create permanent log file immediately with timestamp
 const scriptDir = path.dirname(process.argv[1]);

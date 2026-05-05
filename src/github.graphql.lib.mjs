@@ -3,6 +3,8 @@
  * This module provides functions to fetch issues using GitHub's GraphQL API
  */
 
+import { execGhWithRetry } from './github-rate-limit.lib.mjs'; // #1756: route gh exec through transient + rate-limit retry wrapper
+
 /**
  * Fetch issues from a single repository with pagination support for >100 issues
  * @param {string} owner - Repository owner
@@ -13,9 +15,6 @@
  * @returns {Promise<Array>} Array of issues
  */
 async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanErrorMessage, issueLimit = 100) {
-  const { exec } = await import('child_process');
-  const { promisify } = await import('util');
-  const execAsync = promisify(exec);
   const allIssues = [];
   let hasNextPage = true;
   let cursor = null;
@@ -59,7 +58,10 @@ async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanEr
       // Add delay for rate limiting
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const { stdout } = await execAsync(graphqlCmd, { encoding: 'utf8', env: process.env });
+      const { stdout } = await execGhWithRetry(graphqlCmd, {
+        execOptions: { encoding: 'utf8', env: process.env },
+        label: `gh api graphql (issues page ${pageNum} of ${owner}/${repoName})`,
+      });
       const data = JSON.parse(stdout);
       const issuesData = data.data.repository.issues;
 
@@ -95,10 +97,6 @@ async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanEr
  * @returns {Promise<{success: boolean, issues: Array, repoCount: number}>}
  */
 export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMessage, repoLimit = 100, issueLimit = 100) {
-  const { exec } = await import('child_process');
-  const { promisify } = await import('util');
-  const execAsync = promisify(exec);
-
   try {
     await log('   🧪 Attempting GraphQL approach with pagination support...', { verbose: true });
 
@@ -174,7 +172,10 @@ export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMes
       // Add delay for rate limiting
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const { stdout } = await execAsync(graphqlCmd, { encoding: 'utf8', env: process.env });
+      const { stdout } = await execGhWithRetry(graphqlCmd, {
+        execOptions: { encoding: 'utf8', env: process.env },
+        label: `gh api graphql (repos page ${repoPageNum} of ${owner})`,
+      });
       const data = JSON.parse(stdout);
       const repos = isOrg ? data.data.organization.repositories : data.data.user.repositories;
 

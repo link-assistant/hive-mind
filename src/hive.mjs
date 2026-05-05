@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
   const { getVersion } = await import('./version.lib.mjs');
@@ -112,9 +112,6 @@ if (isRunningDirectly) {
      * @returns {Promise<Array>} Array of issues
      */
     async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIssues = false) {
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
       try {
         await log(`   🔄 Using repository-by-repository fallback for ${scope}: ${owner}`);
         // Strategy 1: Try GraphQL approach first (faster but has limitations)
@@ -141,7 +138,11 @@ if (isRunningDirectly) {
 
         // Add delay for rate limiting
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const { stdout: repoOutput } = await execAsync(repoListCmd, { encoding: 'utf8', env: process.env });
+        // #1756: route through execGhWithRetry for transient 5xx + rate-limit
+        const { stdout: repoOutput } = await execGhWithRetry(repoListCmd, {
+          execOptions: { encoding: 'utf8', env: process.env },
+          label: `gh api ${scope} repos (paginated)`,
+        });
         // Parse the output line by line, as gh api with --jq outputs one JSON object per line
         const repoLines = repoOutput
           .trim()

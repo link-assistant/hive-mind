@@ -12,7 +12,7 @@ import { promisify } from 'node:util';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 // Initialize dayjs plugins
 dayjs.extend(utc);
 
@@ -316,7 +316,8 @@ function getDisplayCpuCoresUsed(loadAvg5, cpuCount) {
  */
 export async function getGitHubRateLimits(verbose = false) {
   try {
-    const { stdout } = await execAsync('gh api rate_limit 2>/dev/null');
+    // #1756: route through execGhWithRetry for transient 5xx; skip rate-limit retry budget (this is the endpoint we'd consult to know about rate limits).
+    const { stdout } = await execGhWithRetry('gh api rate_limit 2>/dev/null', { label: 'gh api rate_limit', maxAttempts: 1 });
     const data = JSON.parse(stdout);
 
     if (verbose) {

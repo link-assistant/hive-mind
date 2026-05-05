@@ -170,45 +170,97 @@ const sleepWithCountdown = async (ms, log) => {
 };
 
 /**
+ * Patterns matched against an error's combined message/stderr/stdout to decide
+ * whether the failure is a transient network/edge fault that deserves a retry.
+ * Mirrors `isTransientNetworkError` in `src/lib.mjs` (issue #1536); duplicated
+ * here to avoid a circular import — `lib.mjs` already imports from this file.
+ *
+ * Issue #1756: `gh pr create` failed with `HTTP 504: 504 Gateway Timeout
+ * (https://api.github.com/graphql)`. `execGhWithRetry`/`ghWithRateLimitRetry`
+ * only handled rate-limit errors before — a single 504 was fatal.
+ */
+const TRANSIENT_NETWORK_PATTERNS = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up', 'unexpected eof'];
+
+const isTransientNetworkError = error => {
+  const text = collectErrorText(error).toLowerCase();
+  if (!text) return false;
+  return TRANSIENT_NETWORK_PATTERNS.some(pattern => text.includes(pattern));
+};
+
+/**
  * Wrap `fn` so that GitHub rate-limit errors are converted into a sleep until
- * (resetTime + bufferMs + jitterMs) followed by a retry. Non-rate-limit errors
- * are rethrown immediately so we don't mask programming bugs or 404s.
+ * (resetTime + bufferMs + jitterMs) followed by a retry. Transient network
+ * errors (504/502/503, socket hang up, TLS timeouts) get exponential backoff
+ * and a separate retry budget. Other errors are rethrown immediately so we
+ * don't mask programming bugs or 404s.
+ *
+ * Issue #1726 — rate-limit retry. Issue #1756 — transient network retry.
  *
  * @template T
  * @param {() => Promise<T>} fn
  * @param {object} [options]
  * @param {number} [options.maxAttempts] - hard cap on rate-limit retries (default `retryLimits.maxApiRetries`).
+ * @param {number} [options.transientMaxAttempts] - hard cap on transient network retries (default `retryLimits.maxApiRetries`).
+ * @param {number} [options.transientDelay] - initial transient retry delay in ms (default 1000).
+ * @param {number} [options.transientBackoff] - backoff multiplier for transient retries (default 2).
  * @param {string} [options.label] - prefix for log messages.
  * @param {(msg: string) => Promise<void>|void} [options.log] - logger. Defaults to console.warn.
  * @returns {Promise<T>}
  */
 export const ghWithRateLimitRetry = async (fn, options = {}) => {
   const maxAttempts = options.maxAttempts ?? retryLimits.maxApiRetries;
+  const transientMaxAttempts = options.transientMaxAttempts ?? retryLimits.maxApiRetries;
+  const transientDelay = options.transientDelay ?? 1000;
+  const transientBackoff = options.transientBackoff ?? 2;
   const label = options.label || 'gh';
   const log = options.log || (msg => console.warn(msg));
 
+  // Two independent retry budgets — a long string of rate-limit responses
+  // shouldn't burn the transient-error retries, and vice versa.
+  let rateLimitAttempts = 0;
+  let transientAttempts = 0;
   let lastError;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  // Hard cap so a permanently broken endpoint can't loop forever — sum of
+  // both budgets plus a safety margin.
+  const hardCap = maxAttempts + transientMaxAttempts + 1;
+
+  for (let i = 0; i < hardCap; i++) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
-      if (!isRateLimitError(error)) throw error;
 
-      if (attempt === maxAttempts) {
-        await Promise.resolve(log(`❌ ${label}: rate limit still active after ${attempt} attempts; giving up.`));
-        throw error;
+      if (isRateLimitError(error)) {
+        rateLimitAttempts++;
+        if (rateLimitAttempts >= maxAttempts) {
+          await Promise.resolve(log(`❌ ${label}: rate limit still active after ${rateLimitAttempts} attempts; giving up.`));
+          throw error;
+        }
+        const reset = parseRateLimitReset(error) || (await fetchNextRateLimitReset());
+        const { waitMs, deadline, bufferMs, jitterMs } = computeRateLimitWait(reset);
+        const waitMinutes = Math.round(waitMs / 60_000);
+        const resetSummary = reset ? `reset at ${reset.toISOString()}` : 'reset time unknown (using buffer + jitter only)';
+        await Promise.resolve(log(`⏳ ${label}: GitHub API rate limit hit (attempt ${rateLimitAttempts}/${maxAttempts}). Waiting ${waitMinutes} min (${resetSummary}; buffer ${Math.round(bufferMs / 60_000)} min + jitter ${Math.round(jitterMs / 1000)}s) until ${deadline.toISOString()}.`));
+        await sleepWithCountdown(waitMs, log);
+        continue;
       }
 
-      const reset = parseRateLimitReset(error) || (await fetchNextRateLimitReset());
-      const { waitMs, deadline, bufferMs, jitterMs } = computeRateLimitWait(reset);
-      const waitMinutes = Math.round(waitMs / 60_000);
-      const resetSummary = reset ? `reset at ${reset.toISOString()}` : 'reset time unknown (using buffer + jitter only)';
-      await Promise.resolve(log(`⏳ ${label}: GitHub API rate limit hit (attempt ${attempt}/${maxAttempts}). Waiting ${waitMinutes} min (${resetSummary}; buffer ${Math.round(bufferMs / 60_000)} min + jitter ${Math.round(jitterMs / 1000)}s) until ${deadline.toISOString()}.`));
-      await sleepWithCountdown(waitMs, log);
+      if (isTransientNetworkError(error)) {
+        transientAttempts++;
+        if (transientAttempts >= transientMaxAttempts) {
+          await Promise.resolve(log(`❌ ${label}: transient network error persisted after ${transientAttempts} attempts; giving up.`));
+          throw error;
+        }
+        const waitMs = transientDelay * Math.pow(transientBackoff, transientAttempts - 1);
+        await Promise.resolve(log(`⚠️ ${label}: transient network error (attempt ${transientAttempts}/${transientMaxAttempts}), retrying in ${Math.round(waitMs / 1000)}s...`));
+        await sleepWithCountdown(waitMs, log);
+        continue;
+      }
+
+      throw error;
     }
   }
-  // Unreachable — loop either returns or throws.
+  // Unreachable — loop either returns or throws via the budgets above.
   throw lastError;
 };
 
@@ -265,8 +317,11 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
   return wrapped;
 };
 
+export { isTransientNetworkError };
+
 export default {
   isRateLimitError,
+  isTransientNetworkError,
   parseRateLimitReset,
   fetchNextRateLimitReset,
   computeRateLimitWait,

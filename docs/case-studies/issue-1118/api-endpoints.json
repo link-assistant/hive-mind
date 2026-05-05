@@ -1,0 +1,45 @@
+{
+  "repository_invitations": {
+    "list_pending": {
+      "method": "GET",
+      "endpoint": "/user/repository_invitations",
+      "description": "List repository invitations for the authenticated user",
+      "required_scope": "repo:invite or repo",
+      "example_gh_cli": "gh api /user/repository_invitations"
+    },
+    "accept_invitation": {
+      "method": "PATCH",
+      "endpoint": "/user/repository_invitations/{invitation_id}",
+      "description": "Accept a repository invitation",
+      "required_scope": "repo:invite or repo",
+      "response_status": 204,
+      "example_gh_cli": "gh api -X PATCH /user/repository_invitations/INVITATION_ID"
+    },
+    "decline_invitation": {
+      "method": "DELETE",
+      "endpoint": "/user/repository_invitations/{invitation_id}",
+      "description": "Decline a repository invitation",
+      "required_scope": "repo:invite or repo",
+      "response_status": 204,
+      "example_gh_cli": "gh api -X DELETE /user/repository_invitations/INVITATION_ID"
+    }
+  },
+  "organization_invitations": {
+    "list_memberships": {
+      "method": "GET",
+      "endpoint": "/user/memberships/orgs",
+      "description": "List organization memberships for the authenticated user",
+      "required_scope": "read:org or admin:org",
+      "example_gh_cli": "gh api /user/memberships/orgs"
+    },
+    "accept_invitation": {
+      "method": "PATCH",
+      "endpoint": "/user/memberships/orgs/{org}",
+      "description": "Accept an organization invitation by setting state to 'active'",
+      "required_scope": "admin:org",
+      "body": { "state": "active" },
+      "response_status": 200,
+      "example_gh_cli": "gh api -X PATCH /user/memberships/orgs/ORG_NAME -f state=active"
+    }
+  }
+}

@@ -12,12 +12,12 @@ async function testLogFileContent() {
   console.log('Testing raw command in log file...\n');
 
   const testUrl = 'https://github.com/test/repo/issues/888';
-  const testProcess = spawn('node', [solvePath, testUrl, '--dry-run', '--skip-claude-check', '--verbose'], {
-    stdio: 'pipe'
+  const testProcess = spawn('node', [solvePath, testUrl, '--dry-run', '--skip-tool-check', '--verbose'], {
+    stdio: 'pipe',
   });
 
   let logFilePath = '';
-  testProcess.stdout.on('data', (data) => {
+  testProcess.stdout.on('data', data => {
     const text = data.toString();
     // Look for log file path
     if (text.includes('Log file:')) {
@@ -28,7 +28,7 @@ async function testLogFileContent() {
     }
   });
 
-  await new Promise((resolve) => {
+  await new Promise(resolve => {
     testProcess.on('close', resolve);
   });
 

@@ -45,11 +45,21 @@ try {
 
 console.log('');
 
-// Test 2: Check default value is true
-console.log('Test 2: Verify default value is auto-cleanup=true');
+// Test 2: Check default value is undefined (visibility-based)
+console.log('Test 2: Verify default value is auto-cleanup=undefined (visibility-based)');
 console.log('This will be verified through config loading...');
 // We can't easily test this without actually running solve.mjs
-console.log('✅ Default value set to true in config (verified by code inspection)');
+try {
+  const { readFileSync } = await import('fs');
+  const configContent = readFileSync('./src/solve.config.lib.mjs', 'utf8');
+  if (configContent.includes('default: undefined')) {
+    console.log('✅ Default value set to undefined in config (visibility-based)');
+  } else {
+    console.log('❌ Default value NOT set to undefined');
+  }
+} catch (error) {
+  console.log(`⚠️  Could not verify: ${error.message}`);
+}
 console.log('');
 
 // Test 3: Count temp directories before and after
@@ -144,6 +154,7 @@ console.log('  All code inspections completed successfully');
 console.log('  To test runtime behavior, run solve.mjs with a real issue');
 console.log('');
 console.log('  Examples:');
-console.log('    ./src/solve.mjs <issue-url>                    # Auto-cleanup enabled (default)');
-console.log('    ./src/solve.mjs <issue-url> --auto-cleanup     # Explicit auto-cleanup');
-console.log('    ./src/solve.mjs <issue-url> --no-auto-cleanup  # Keep directory');
+console.log('    ./src/solve.mjs <public-repo-issue-url>        # Auto-cleanup disabled (default for public)');
+console.log('    ./src/solve.mjs <private-repo-issue-url>       # Auto-cleanup enabled (default for private)');
+console.log('    ./src/solve.mjs <issue-url> --auto-cleanup     # Explicit auto-cleanup (always clean)');
+console.log('    ./src/solve.mjs <issue-url> --no-auto-cleanup  # Keep directory (always keep)');

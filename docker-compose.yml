@@ -5,12 +5,12 @@ services:
     build: .
     volumes:
       # Mount GitHub credentials
-      - ~/.config/gh:/workspace/.persisted-configs/gh:ro
+      - ~/.config/gh:/home/box/.persisted-configs/gh:ro
       # Mount Claude credentials (adjust paths as needed)
-      - ~/.local/share/claude-profiles:/workspace/.persisted-configs/claude:ro
-      - ~/.config/claude-code:/workspace/.persisted-configs/claude-code:ro
+      - ~/.local/share/claude-profiles:/home/box/.persisted-configs/claude:ro
+      - ~/.config/claude-code:/home/box/.persisted-configs/claude-code:ro
       # Mount working directory for persistent changes
-      - ./output:/workspace/output
+      - ./output:/home/box/output
     environment:
       # Pass through any needed environment variables
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}

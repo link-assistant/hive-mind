@@ -1,0 +1,128 @@
+src/usage-limit.lib.mjs:37: * Extract reset time from usage limit error message
+src/usage-limit.lib.mjs:40: * @returns {string|null} - Reset time string (e.g., "12:16 PM") or null if not found
+src/usage-limit.lib.mjs:47:  // Pattern 1: "try again at 12:16 PM"
+src/usage-limit.lib.mjs:53:  // Pattern 2: "available at 12:16 PM"
+src/usage-limit.lib.mjs:59:  // Pattern 3: "reset at 12:16 PM"
+src/usage-limit.lib.mjs:65:  // Pattern 4: "12:16 PM" standalone (less reliable, so last)
+src/telegram-bot.mjs:50:    default: getenv('TELEGRAM_CONFIGURATION', '')
+src/telegram-bot.mjs:56:    default: getenv('TELEGRAM_BOT_TOKEN', '')
+src/telegram-bot.mjs:62:    default: getenv('TELEGRAM_ALLOWED_CHATS', '')
+src/telegram-bot.mjs:66:    description: 'Override options for /solve command in lino notation, e.g., "(\n  --auto-continue\n  --attach-logs\n)"',
+src/telegram-bot.mjs:68:    default: getenv('TELEGRAM_SOLVE_OVERRIDES', '')
+src/telegram-bot.mjs:74:    default: getenv('TELEGRAM_HIVE_OVERRIDES', '')
+src/telegram-bot.mjs:79:    default: getenv('TELEGRAM_SOLVE', 'true') !== 'false'
+src/telegram-bot.mjs:84:    default: getenv('TELEGRAM_HIVE', 'true') !== 'false'
+src/telegram-bot.mjs:96:    default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true'
+src/telegram-bot.mjs:124:const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
+src/telegram-bot.mjs:125:const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
+src/telegram-bot.mjs:128:  console.error('Error: TELEGRAM_BOT_TOKEN environment variable or --token option is not set');
+src/telegram-bot.mjs:129:  console.error('Please set it with: export TELEGRAM_BOT_TOKEN=your_bot_token');
+src/telegram-bot.mjs:155:const resolvedAllowedChats = config.allowedChats || getenv('TELEGRAM_ALLOWED_CHATS', '');
+src/telegram-bot.mjs:161:const resolvedSolveOverrides = config.solveOverrides || getenv('TELEGRAM_SOLVE_OVERRIDES', '');
+src/telegram-bot.mjs:166:const resolvedHiveOverrides = config.hiveOverrides || getenv('TELEGRAM_HIVE_OVERRIDES', '');
+src/telegram-bot.mjs:730:  message += '• `--auto-continue` - Continue working on existing pull request to the issue, if exists\n';
+src/solve.repository.lib.mjs:440:    // Priority 2: If forkOwner is provided (from auto-continue/PR mode) and --fork was not used,
+src/solve.repository.lib.mjs:740:  // 3. In continue mode (auto-continue or continuing existing PR)
+src/solve.repository.lib.mjs:834:  const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoContinueLimit && global.limitResetTime);
+src/solve.repository.lib.mjs:851:  } else if (limitReached && argv.autoContinueLimit) {
+src/solve.repository.lib.mjs:852:    await log(`\n📁 Keeping directory for auto-continue: ${tempDir}`);
+src/solve.validation.lib.mjs:17:// Import memory check functions (RAM, swap, disk)
+src/solve.validation.lib.mjs:199:      await log('   • Issue URL with --auto-continue option', { level: 'error' });
+src/solve.validation.lib.mjs:200:      await log(`   Current: ${isPrUrl ? 'PR URL' : 'Issue URL'} ${argv.autoContinue ? 'with --auto-continue' : 'without --auto-continue'}`, { level: 'error' });
+src/solve.validation.lib.mjs:277:  // "5:30am", "11:45pm", "12:16 PM", "07:05 Am"
+src/solve.results.lib.mjs:37:// Import auto-continue functions
+src/solve.results.lib.mjs:38:const autoContinue = await import('./solve.auto-continue.lib.mjs');
+src/solve.results.lib.mjs:211:      if (argv.autoContinueLimit && global.limitResetTime) {
+src/solve.results.lib.mjs:212:        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+src/solve.results.lib.mjs:220:          if (global.limitResetTime) {
+src/solve.results.lib.mjs:221:            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
+src/solve.results.lib.mjs:222:            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);
+src/solve.feedback.lib.mjs:182:        // Check if --auto-continue-only-on-new-comments is enabled and fail if no new comments
+src/solve.feedback.lib.mjs:186:            await log('❌ auto-continue-only-on-new-comments: No new comments found since last commit');
+src/solve.feedback.lib.mjs:187:            await log('   This option requires new comments to proceed with auto-continue or continue mode.');
+src/solve.feedback.lib.mjs:190:            await log(`✅ auto-continue-only-on-new-comments: Found ${totalNewComments} new comments, continuing...`);
+src/solve.mjs:56:const autoContinue = await import('./solve.auto-continue.lib.mjs');
+src/solve.mjs:318:// Auto-continue logic: check for existing PRs if --auto-continue is enabled
+src/solve.mjs:803:  // Capture limit reset time globally for downstream handlers (auto-continue, cleanup decisions)
+src/solve.mjs:804:  if (toolResult && toolResult.limitResetTime) {
+src/solve.mjs:805:    global.limitResetTime = toolResult.limitResetTime;
+src/solve.mjs:826:          limitResetTime: limitReached ? toolResult.limitResetTime : null,
+src/solve.execution.lib.mjs:22:// Import memory check functions (RAM, swap, disk)
+src/solve.execution.lib.mjs:235:  // Clean up temporary directory (but not when resuming, when limit reached, or when auto-continue is active)
+src/solve.execution.lib.mjs:236:  if (!argv.resume && !limitReached && !(argv.autoContinueLimit && global.limitResetTime)) {
+src/solve.execution.lib.mjs:251:  } else if (limitReached && argv.autoContinueLimit) {
+src/solve.execution.lib.mjs:252:    await log(`\n📁 Keeping directory for auto-continue: ${tempDir}`);
+src/solve.auto-pr.lib.mjs:77:    // This is critical for --auto-continue mode when reusing an existing branch
+src/solve.auto-pr.lib.mjs:497:          // This is the SAME API that gh pr create uses internally, so if this works,
+src/sentry.lib.mjs:45:      if (process.env.USER || process.env.USERNAME) {
+src/sentry.lib.mjs:47:          username: process.env.USER || process.env.USERNAME,
+src/solve.config.lib.mjs:115:    .option('auto-continue', {
+src/solve.config.lib.mjs:120:    .option('auto-continue-limit', {
+src/solve.config.lib.mjs:122:      description: 'Automatically continue when Claude limit resets (waits until reset time)',
+src/solve.config.lib.mjs:131:    .option('auto-continue-only-on-new-comments', {
+src/solve.config.lib.mjs:133:      description: 'Explicitly fail on absence of new comments in auto-continue or continue mode',
+src/solve.config.lib.mjs:153:      description: 'Only continue if feedback is detected (works only with pull request link or issue link with --auto-continue)',
+src/solve.auto-continue.lib.mjs:61:    const resetTime = global.limitResetTime;
+src/solve.auto-continue.lib.mjs:80:    // Wait until reset time
+src/solve.auto-continue.lib.mjs:84:    await log('\n✅ Limit reset time reached! Resuming session...');
+src/solve.auto-continue.lib.mjs:96:      '--auto-continue-limit' // Keep auto-continue-limit enabled
+src/solve.auto-continue.lib.mjs:131:// Auto-continue logic: check for existing PRs if --auto-continue is enabled
+src/solve.auto-continue.lib.mjs:310:// Process auto-continue logic for issue URLs
+src/memory-check.mjs:70:// Function to check available RAM (volatile memory)
+src/memory-check.mjs:71:export const checkRAM = async (minMemoryMB = 256, options = {}) => {
+src/memory-check.mjs:76:    // macOS RAM check using vm_stat
+src/memory-check.mjs:125:      // Calculate total available memory (RAM + swap)
+src/memory-check.mjs:167:      // Calculate total available memory (RAM + page file)
+src/memory-check.mjs:224:      // Calculate total available memory (RAM + swap)
+src/memory-check.mjs:255:// Keep checkMemory as an alias for checkRAM for backward compatibility
+src/memory-check.mjs:256:export const checkMemory = checkRAM;
+src/memory-check.mjs:302:  // Note: log is passed through options to checkDiskSpace and checkRAM
+src/memory-check.mjs:318:  // Check RAM (volatile memory)
+src/memory-check.mjs:319:  results.ram = await checkRAM(minMemoryMB, options);
+src/memory-check.mjs:406:    console.log(`RAM:    ${results.ram.success ? '✅' : '❌'} ${results.ram.availableMB}MB available (${results.ram.required}MB required)`);
+src/lino.lib.mjs:164:  TELEGRAM_CHATS: 'telegram-chats.lino'
+src/opencode.lib.mjs:311:      let limitResetTime = null;
+src/opencode.lib.mjs:336:          limitResetTime = limitInfo.resetTime;
+src/opencode.lib.mjs:362:          limitResetTime
+src/opencode.lib.mjs:372:        limitResetTime
+src/opencode.lib.mjs:387:        limitResetTime: null
+src/hive.mjs:486:  await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', { level: 'error' });
+src/hive.mjs:488:  await log('   --auto-continue: Continues with existing PRs instead of creating new ones', { level: 'error' });
+src/hive.mjs:751:        const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : '';
+src/hive.mjs:792:          args.push('--auto-continue');
+src/hive.mjs:1438:// Check system resources (disk space and RAM) before starting monitoring (skip in dry-run mode)
+src/hive.config.lib.mjs:187:    .option('auto-continue', {
+src/hive.config.lib.mjs:189:      description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
+src/github.lib.mjs:441: * @param {string} [options.limitResetTime] - Time when usage limit resets
+src/github.lib.mjs:464:    limitResetTime = null,
+src/github.lib.mjs:527:      if (limitResetTime) {
+src/github.lib.mjs:528:        logComment += `\n- **Reset Time**: ${limitResetTime}`;
+src/github.lib.mjs:537:      if (limitResetTime) {
+src/github.lib.mjs:538:        logComment += `Once the limit resets at **${limitResetTime}**, `;
+src/github.lib.mjs:668:            if (limitResetTime) {
+src/github.lib.mjs:669:              gistComment += `\n- **Reset Time**: ${limitResetTime}`;
+src/github.lib.mjs:678:            if (limitResetTime) {
+src/github.lib.mjs:679:              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+src/github.lib.mjs:1372:      if (argv.autoContinue) commandParts.push('--auto-continue');
+src/config.lib.mjs:84:  taskInfoFilename: getenv('HIVE_MIND_TASK_INFO_FILENAME', 'CLAUDE.md'),
+src/config.lib.mjs:105:  tracesSampleRateDev: parseFloatWithDefault('HIVE_MIND_SENTRY_TRACES_SAMPLE_RATE_DEV', 1.0),
+src/config.lib.mjs:106:  tracesSampleRateProd: parseFloatWithDefault('HIVE_MIND_SENTRY_TRACES_SAMPLE_RATE_PROD', 0.1),
+src/config.lib.mjs:107:  profileSessionSampleRateDev: parseFloatWithDefault('HIVE_MIND_SENTRY_PROFILE_SESSION_SAMPLE_RATE_DEV', 1.0),
+src/config.lib.mjs:108:  profileSessionSampleRateProd: parseFloatWithDefault('HIVE_MIND_SENTRY_PROFILE_SESSION_SAMPLE_RATE_PROD', 0.1),
+src/solve.validation.lib.mjs:17:// Import memory check functions (RAM, swap, disk)
+src/solve.validation.lib.mjs:199:      await log('   • Issue URL with --auto-continue option', { level: 'error' });
+src/solve.validation.lib.mjs:200:      await log(`   Current: ${isPrUrl ? 'PR URL' : 'Issue URL'} ${argv.autoContinue ? 'with --auto-continue' : 'without --auto-continue'}`, { level: 'error' });
+src/solve.validation.lib.mjs:277:  // "5:30am", "11:45pm", "12:16 PM", "07:05 Am"
+src/codex.lib.mjs:321:      let limitResetTime = null;
+src/codex.lib.mjs:400:          limitResetTime = limitInfo.resetTime;
+src/codex.lib.mjs:426:          limitResetTime
+src/codex.lib.mjs:436:        limitResetTime
+src/codex.lib.mjs:460:        limitResetTime: null
+src/claude.lib.mjs:832:    let limitResetTime = null;
+src/claude.lib.mjs:1059:          limitResetTime: null,
+src/claude.lib.mjs:1107:          limitResetTime: null,
+src/claude.lib.mjs:1119:        limitResetTime = limitInfo.resetTime;
+src/claude.lib.mjs:1126:          resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null
+src/claude.lib.mjs:1182:        limitResetTime,
+src/claude.lib.mjs:1277:      limitResetTime,
+src/claude.lib.mjs:1324:      limitResetTime: null,

@@ -1,0 +1,38 @@
+{
+  "issue_number": 1318,
+  "title": "Fix `hive-telegram-bot --version` version display",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1318",
+  "author": "konard",
+  "created_at": "2026-02-17",
+  "labels": ["bug"],
+  "state": "open",
+  "problem_description": {
+    "summary": "When running `hive-telegram-bot --version`, dotenvx warnings are displayed before the version output",
+    "symptoms": ["[MISSING_ENV_FILE] missing .env file (/home/hive/.env)", "[MISSING_ENV_FILE] https://github.com/dotenvx/dotenvx/issues/484", "Version displayed as 'unknown' or with warnings"],
+    "expected_behavior": "Clean version output without warnings, .env file should be optional",
+    "additional_request": "Prefer .lenv files over .env files, .env should be optional for all projects",
+    "version_caching_requirement": "Version should be cached in RAM at startup and remain immutable - if package.json changes during runtime, the running version should still reflect the original version"
+  },
+  "reproduction": {
+    "command": "hive-telegram-bot --version",
+    "environment": "System without .env file",
+    "actual_output": "[MISSING_ENV_FILE] missing .env file (/home/hive/.env)\n[MISSING_ENV_FILE] https://github.com/dotenvx/dotenvx/issues/484\nunknown"
+  },
+  "root_cause_analysis": {
+    "cause_1": "telegram-bot.mjs loads dotenvx BEFORE checking for --version flag",
+    "cause_2": "dotenvx.config({ quiet: true }) only suppresses info messages, not error-level messages like MISSING_ENV_FILE",
+    "cause_3": "solve.mjs and hive.mjs have early --version handling that avoids loading dotenvx",
+    "cause_4": "The 'ignore' option is needed to suppress MISSING_ENV_FILE warnings"
+  },
+  "related_files": ["src/telegram-bot.mjs", "src/solve.mjs", "src/hive.mjs", "src/version.lib.mjs", "src/lenv-reader.lib.mjs"],
+  "dotenvx_issue": {
+    "url": "https://github.com/dotenvx/dotenvx/issues/484",
+    "status": "CLOSED",
+    "solution": "Use the --ignore=MISSING_ENV_FILE flag or ignore: ['MISSING_ENV_FILE'] option"
+  },
+  "solution": {
+    "early_version_handling": "Add --version check before loading dotenvx in telegram-bot.mjs",
+    "ignore_option": "Use ignore: ['MISSING_ENV_FILE'] to suppress errors when .env is missing",
+    "version_caching": "Cache version in RAM after first read in version.lib.mjs to ensure immutability during runtime"
+  }
+}

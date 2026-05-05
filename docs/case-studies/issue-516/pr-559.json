@@ -1,0 +1,27 @@
+{
+  "baseRefName": "main",
+  "body": "## Summary\n\nThis PR adds support for the **Gemini CLI** tool as a third AI tool option alongside Claude and OpenCode, implementing JSON output format support for structured data exchange.\n\n## Changes\n\n### New Files\n- **`src/gemini.lib.mjs`**: Core Gemini integration module\n  - Connection validation with retry logic\n  - Command execution with JSON output parsing\n  - Uncommitted changes detection and handling\n  - Model ID mapping (flash, pro, thinking)\n  \n- **`src/gemini.prompts.lib.mjs`**: Prompt building utilities\n  - User prompt builder with issue/PR context\n  - System prompt builder with guidelines\n  - Thinking instruction support\n\n### Modified Files\n- **`src/solve.config.lib.mjs`**:\n  - Added `gemini` to tool choices\n  - Added model descriptions for gemini models\n  - Set default model to `flash` for gemini tool\n  \n- **`src/config.lib.mjs`**:\n  - Added `geminiCli` timeout configuration\n  - Configurable via `HIVE_MIND_GEMINI_TIMEOUT_SECONDS` env var\n  \n- **`src/solve.validation.lib.mjs`**:\n  - Added gemini connection validation\n  - Integrated into system checks workflow\n  \n- **`src/solve.mjs`**:\n  - Added gemini tool execution path\n  - Added tool-specific uncommitted changes handler\n\n## Features\n\n✅ **Model Support**:\n- `flash` (default): gemini-2.0-flash-exp\n- `pro`: gemini-2.0-pro-exp\n- `thinking`: gemini-2.0-flash-thinking-exp\n\n✅ **JSON Output Format**: Prefers JSON output when available for structured data processing\n\n✅ **Connection Validation**: Tests gemini CLI before execution to ensure proper authentication\n\n✅ **Error Handling**: Includes detailed error messages for common issues (auth, project ID, etc.)\n\n✅ **Timeout Configuration**: Customizable timeout via environment variable\n\n## Usage\n\n```bash\n# Use gemini with default model (flash)\n./src/solve.mjs <issue-url> --tool gemini\n\n# Use specific gemini model\n./src/solve.mjs <issue-url> --tool gemini --model pro\n\n# Set custom timeout (in seconds)\nHIVE_MIND_GEMINI_TIMEOUT_SECONDS=120 ./src/solve.mjs <issue-url> --tool gemini\n```\n\n## Testing\n\n- ✅ Verified gemini tool appears in `--help` output\n- ✅ Confirmed tool choice validation works correctly\n- ✅ Tested model alias mapping (flash, pro, thinking)\n- ✅ Validated JSON output format support\n\n## Notes\n\n- The implementation follows the same patterns as existing claude and opencode tools\n- Gemini CLI does not support session resume functionality (unlike Claude CLI)\n- JSON output format is used for better error detection and structured data handling\n\nFixes #516\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+  "commits": [
+    { "authoredDate": "2025-10-14T15:39:19Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2025-10-14T15:39:19Z", "messageBody": "Adding CLAUDE.md with task information for AI processing.\nThis file will be removed when the task is complete.\n\nIssue: undefined", "messageHeadline": "Initial commit with task details for issue #516", "oid": "8f845ca41f97310ace40fd7071389ca88761adb9" },
+    {
+      "authoredDate": "2025-10-14T15:51:13Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude" }
+      ],
+      "committedDate": "2025-10-14T15:51:13Z",
+      "messageBody": "This commit adds support for the Gemini CLI tool as a third AI tool option\nalongside Claude and OpenCode, with JSON output format support.\n\nChanges:\n- Created src/gemini.lib.mjs with connection validation, command execution,\n  and uncommitted changes handling\n- Created src/gemini.prompts.lib.mjs with user and system prompt builders\n- Updated src/solve.config.lib.mjs to add gemini to tool choices with\n  default model 'flash'\n- Updated src/config.lib.mjs to add geminiCli timeout configuration\n- Updated src/solve.validation.lib.mjs to add gemini tool validation\n- Integrated gemini into src/solve.mjs workflow for tool execution\n\nThe implementation follows the same patterns as the existing claude and\nopencode tools, supporting:\n- Model aliases (flash, pro, thinking)\n- JSON output format for structured data\n- Timeout configuration via HIVE_MIND_GEMINI_TIMEOUT_SECONDS\n- Connection validation before execution\n- Error handling and retry logic\n\nFixes #516\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+      "messageHeadline": "Add support for gemini tool",
+      "oid": "ee24a7222cf6d7ec4cf3fe92112ab8a7931df34b"
+    },
+    { "authoredDate": "2025-10-14T15:52:50Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2025-10-14T15:52:50Z", "messageBody": "This reverts commit 8f845ca41f97310ace40fd7071389ca88761adb9.", "messageHeadline": "Revert \"Initial commit with task details for issue #516\"", "oid": "8eba1cdfad0b0af10fc7797a7fdfe7b17f948dbb" }
+  ],
+  "createdAt": "2025-10-14T15:39:32Z",
+  "headRefName": "issue-516-54126055",
+  "isDraft": true,
+  "mergeStateStatus": "DIRTY",
+  "number": 559,
+  "state": "OPEN",
+  "title": "Add support for gemini tool with JSON output format",
+  "updatedAt": "2026-05-01T05:01:29Z"
+}

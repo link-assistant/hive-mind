@@ -1,0 +1,697 @@
+#!/usr/bin/env node
+// OpenCode-related utility functions
+
+// Check if use is already defined (when imported from solve.mjs)
+// If not, fetch it (when running standalone)
+if (typeof globalThis.use === 'undefined') {
+  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+}
+
+const { $ } = await use('command-stream');
+const fs = (await use('fs')).promises;
+const path = (await use('path')).default;
+const os = (await use('os')).default;
+
+// Import log from general lib
+import { log } from './lib.mjs';
+import { reportError } from './sentry.lib.mjs';
+import { timeouts, retryLimits } from './config.lib.mjs';
+import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import { opencodeModels, defaultModels } from './models/index.mjs';
+import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
+import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
+import { calculateAgentPricing } from './agent.lib.mjs';
+import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+
+export { parseOpenCodeTokenUsage };
+
+// Model mapping to translate aliases to full model IDs for OpenCode
+// Issue #1473: Uses centralized opencodeModels from models/index.mjs (single source of truth)
+export const mapModelToId = model => {
+  return opencodeModels[model] || model;
+};
+
+// Function to validate OpenCode connection
+export const validateOpenCodeConnection = async (model = defaultModels.opencode) => {
+  // Map model alias to full ID
+  const mappedModel = mapModelToId(model);
+
+  // Retry configuration
+  const maxRetries = 3;
+  let retryCount = 0;
+
+  const attemptValidation = async () => {
+    try {
+      if (retryCount === 0) {
+        await log('🔍 Validating OpenCode connection...');
+      } else {
+        await log(`🔄 Retry attempt ${retryCount}/${maxRetries} for OpenCode validation...`);
+      }
+
+      // Check if OpenCode CLI is installed and get version
+      try {
+        const versionResult = await $`timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode --version`;
+        if (versionResult.code === 0) {
+          const version = versionResult.stdout?.toString().trim();
+          if (retryCount === 0) {
+            await log(`📦 OpenCode CLI version: ${version}`);
+          }
+        }
+      } catch (versionError) {
+        if (retryCount === 0) {
+          await log(`⚠️  OpenCode CLI version check failed (${versionError.code}), proceeding with connection test...`);
+        }
+      }
+
+      // Test basic OpenCode functionality with a simple "hi" message
+      // Check for non-error result to validate the connection
+      const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
+
+      if (testResult.code !== 0) {
+        const stderr = testResult.stderr?.toString() || '';
+
+        if (stderr.includes('auth') || stderr.includes('login')) {
+          await log('❌ OpenCode authentication failed', { level: 'error' });
+          await log('   💡 Please run: opencode auth', { level: 'error' });
+          return false;
+        }
+
+        await log(`❌ OpenCode validation failed with exit code ${testResult.code}`, { level: 'error' });
+        if (stderr) await log(`   Error: ${stderr.trim()}`, { level: 'error' });
+        return false;
+      }
+
+      // Success
+      await log('✅ OpenCode connection validated successfully');
+      return true;
+    } catch (error) {
+      await log(`❌ Failed to validate OpenCode connection: ${error.message}`, { level: 'error' });
+      await log('   💡 Make sure OpenCode CLI is installed and accessible', { level: 'error' });
+      return false;
+    }
+  };
+
+  // Start the validation
+  return await attemptValidation();
+};
+
+// Function to handle OpenCode runtime switching (if applicable)
+export const handleOpenCodeRuntimeSwitch = async () => {
+  // OpenCode is typically run as a CLI tool, runtime switching may not be applicable
+  // This function can be used for any runtime-specific configurations if needed
+  await log('ℹ️  OpenCode runtime handling not required for this operation');
+};
+
+/** Check if Playwright MCP is available for OpenCode @returns {Promise<boolean>} */
+export const checkPlaywrightMcpAvailability = checkPlaywrightMcpPackageAvailability;
+
+// Main function to execute OpenCode with prompts and settings
+export const executeOpenCode = async params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, opencodePath = 'opencode', $ } = params;
+
+  // Import prompt building functions from opencode.prompts.lib.mjs
+  const { buildUserPrompt, buildSystemPrompt } = await import('./opencode.prompts.lib.mjs');
+
+  // Build the user prompt
+  const prompt = buildUserPrompt({
+    issueUrl,
+    issueNumber,
+    prNumber,
+    prUrl,
+    branchName,
+    tempDir,
+    workspaceTmpDir,
+    isContinueMode,
+    mergeStateStatus,
+    forkedRepo,
+    feedbackLines,
+    forkActionsUrl,
+    owner,
+    repo,
+    argv,
+  });
+
+  // Build the system prompt
+  const systemPrompt = buildSystemPrompt({
+    owner,
+    repo,
+    issueNumber,
+    prNumber,
+    branchName,
+    tempDir,
+    workspaceTmpDir,
+    isContinueMode,
+    forkedRepo,
+    argv,
+  });
+
+  // Log prompt details in verbose mode
+  if (argv.verbose) {
+    await log('\n📝 Final prompt structure:', { verbose: true });
+    await log(`   Characters: ${prompt.length}`, { verbose: true });
+    await log(`   System prompt characters: ${systemPrompt.length}`, { verbose: true });
+    if (feedbackLines && feedbackLines.length > 0) {
+      await log('   Feedback info: Included', { verbose: true });
+    }
+
+    if (argv.dryRun) {
+      await log('\n📋 User prompt content:', { verbose: true });
+      await log('---BEGIN USER PROMPT---', { verbose: true });
+      await log(prompt, { verbose: true });
+      await log('---END USER PROMPT---', { verbose: true });
+      await log('\n📋 System prompt content:', { verbose: true });
+      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
+      await log(systemPrompt, { verbose: true });
+      await log('---END SYSTEM PROMPT---', { verbose: true });
+    }
+  }
+
+  // Execute the OpenCode command
+  return await executeOpenCodeCommand({
+    tempDir,
+    branchName,
+    prompt,
+    systemPrompt,
+    argv,
+    log,
+    formatAligned,
+    getResourceSnapshot,
+    forkedRepo,
+    feedbackLines,
+    opencodePath,
+    $,
+  });
+};
+
+export const executeOpenCodeCommand = async params => {
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, opencodePath, $, waitForRetryDelay = waitWithCountdown } = params;
+
+  // Retry configuration
+  let retryCount = 0;
+
+  const executeWithRetry = async () => {
+    // Execute opencode command from the cloned repository directory
+    if (retryCount === 0) {
+      await log(`\n${formatAligned('🤖', 'Executing OpenCode:', argv.model.toUpperCase())}`);
+    } else {
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
+    }
+
+    if (argv.verbose) {
+      await log(`   Model: ${argv.model}`, { verbose: true });
+      await log(`   Working directory: ${tempDir}`, { verbose: true });
+      await log(`   Branch: ${branchName}`, { verbose: true });
+      await log(`   Prompt length: ${prompt.length} chars`, { verbose: true });
+      await log(`   System prompt length: ${systemPrompt.length} chars`, { verbose: true });
+      if (feedbackLines && feedbackLines.length > 0) {
+        await log(`   Feedback info included: Yes (${feedbackLines.length} lines)`, { verbose: true });
+      } else {
+        await log('   Feedback info included: No', { verbose: true });
+      }
+    }
+
+    // Create OpenCode configuration file with unrestricted permissions
+    // This allows OpenCode to access files outside the working directory without prompting
+    // Fixes issue #755: "Permission required to run: Access file outside working directory"
+    // Reference: https://opencode.ai/docs/config - see permissions documentation
+    const opencodeConfigPath = path.join(tempDir, 'opencode.json');
+    const opencodeConfig = {
+      $schema: 'https://opencode.ai/config.json',
+      permission: {
+        // All tool permissions set to 'allow' for unrestricted autonomous execution
+        // See: https://github.com/sst/opencode - permission options: "allow", "ask", "deny"
+        edit: 'allow', // File modification operations
+        bash: 'allow', // Command execution
+        webfetch: 'allow', // Web page retrieval
+        skill: 'allow', // Custom skills execution
+        doom_loop: 'allow', // Allow repeated identical tool calls (default: ask)
+        external_directory: 'allow', // File operations outside working directory (default: ask)
+      },
+    };
+    try {
+      await fs.writeFile(opencodeConfigPath, JSON.stringify(opencodeConfig, null, 2));
+      if (argv.verbose) {
+        await log(`   Created OpenCode config: ${opencodeConfigPath}`, { verbose: true });
+        await log('   Permissions set: edit=allow, bash=allow, webfetch=allow, skill=allow, doom_loop=allow, external_directory=allow', { verbose: true });
+      }
+    } catch (configError) {
+      await log(`⚠️  Warning: Could not create OpenCode config file: ${configError.message}`, { level: 'warning' });
+    }
+
+    // Take resource snapshot before execution
+    const resourcesBefore = await getResourceSnapshot();
+    await log('📈 System resources before execution:', { verbose: true });
+    await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
+    await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
+
+    const opencodeEnv = { ...process.env };
+
+    // Apply Playwright MCP session state before launching OpenCode.
+    if (argv.playwrightMcp === false) {
+      Object.assign(opencodeEnv, await getOpenCodePlaywrightMcpDisableEnv({ env: opencodeEnv, cwd: tempDir, log }));
+      await log('🎭 Playwright MCP physically disabled for this OpenCode session via --no-playwright-mcp', { verbose: true });
+    }
+
+    // Build OpenCode command
+    let execCommand;
+
+    // Map model alias to full ID
+    const mappedModel = mapModelToId(argv.model);
+    const streamingTokenUsage = createAgentTokenUsage();
+
+    // Build opencode command arguments
+    let opencodeArgs = `run --format json --model ${mappedModel}`;
+
+    if (argv.resume) {
+      await log(`🔄 Resuming from session: ${argv.resume}`);
+      opencodeArgs = `run --format json --session ${argv.resume} --model ${mappedModel}`;
+    }
+
+    // For OpenCode, we pass the prompt via stdin
+    // The system prompt is typically not supported separately in opencode
+    // We'll combine system and user prompts into a single message
+    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+
+    // Write the combined prompt to a file for piping
+    // Use OS temporary directory instead of repository workspace to avoid polluting the repo
+    const promptFile = path.join(os.tmpdir(), `opencode_prompt_${Date.now()}_${process.pid}.txt`);
+    await fs.writeFile(promptFile, combinedPrompt);
+
+    // Build the full command - pipe the prompt file to opencode
+    const fullCommand = `(cd "${tempDir}" && cat "${promptFile}" | ${opencodePath} ${opencodeArgs})`;
+
+    await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
+    await log(`${fullCommand}`);
+    await log('');
+
+    const buildPricingInfo = async () => {
+      const tokenUsage = streamingTokenUsage;
+      if (tokenUsage.stepCount === 0) {
+        return { tokenUsage, pricingInfo: null, publicPricingEstimate: null };
+      }
+      const pricingInfo = await calculateAgentPricing(mappedModel, tokenUsage);
+      return { tokenUsage, pricingInfo, publicPricingEstimate: pricingInfo?.totalCostUSD ?? null };
+    };
+
+    try {
+      // Pipe the prompt file to opencode via stdin
+      if (argv.resume) {
+        execCommand = $({
+          cwd: tempDir,
+          mirror: false,
+          env: opencodeEnv,
+        })`cat ${promptFile} | ${opencodePath} run --format json --session ${argv.resume} --model ${mappedModel}`;
+      } else {
+        execCommand = $({
+          cwd: tempDir,
+          mirror: false,
+          env: opencodeEnv,
+        })`cat ${promptFile} | ${opencodePath} run --format json --model ${mappedModel}`;
+      }
+
+      await log(`${formatAligned('📋', 'Command details:', '')}`);
+      await log(formatAligned('📂', 'Working directory:', tempDir, 2));
+      await log(formatAligned('🌿', 'Branch:', branchName, 2));
+      await log(formatAligned('🤖', 'Model:', `OpenCode ${argv.model.toUpperCase()}`, 2));
+      if (argv.fork && forkedRepo) {
+        await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
+      }
+
+      await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
+
+      let exitCode = 0;
+      let sessionId = null;
+      let limitReached = false;
+      let limitResetTime = null;
+      let lastMessage = '';
+      let lastTextContent = ''; // Issue #1263: Track last text content for result summary
+      let allOutput = ''; // Collect all output for error detection
+
+      for await (const chunk of execCommand.stream()) {
+        if (chunk.type === 'stdout') {
+          const output = chunk.data.toString();
+          await log(output);
+          lastMessage = output;
+          allOutput += output;
+
+          // Issue #1263: Try to parse JSON output to extract text content for result summary
+          try {
+            const lines = output.split('\n');
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              const data = sanitizeObjectStrings(JSON.parse(line));
+              accumulateAgentStepFinishUsage(streamingTokenUsage, data);
+              // Track text content for result summary
+              // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
+              if (data.type === 'text' && data.text) {
+                lastTextContent = data.text;
+              } else if (data.type === 'assistant' && data.message?.content) {
+                const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+                for (const item of content) {
+                  if (item.type === 'text' && item.text) {
+                    lastTextContent = item.text;
+                  }
+                }
+              } else if (data.type === 'message' && data.content) {
+                if (typeof data.content === 'string') {
+                  lastTextContent = data.content;
+                } else if (Array.isArray(data.content)) {
+                  for (const item of data.content) {
+                    if (item.type === 'text' && item.text) {
+                      lastTextContent = item.text;
+                    }
+                  }
+                }
+              } else if (data.type === 'result' && data.result) {
+                lastTextContent = data.result;
+              }
+            }
+          } catch {
+            // Not JSON, continue
+          }
+        }
+
+        if (chunk.type === 'stderr') {
+          const errorOutput = chunk.data.toString();
+          if (errorOutput) {
+            await log(errorOutput, { stream: 'stderr' });
+            allOutput += errorOutput;
+
+            // Issue #1263: Also try to parse stderr for text content
+            try {
+              const lines = errorOutput.split('\n');
+              for (const line of lines) {
+                if (!line.trim()) continue;
+                const data = sanitizeObjectStrings(JSON.parse(line));
+                accumulateAgentStepFinishUsage(streamingTokenUsage, data);
+                if (data.type === 'text' && data.text) {
+                  lastTextContent = data.text;
+                } else if (data.type === 'assistant' && data.message?.content) {
+                  const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+                  for (const item of content) {
+                    if (item.type === 'text' && item.text) {
+                      lastTextContent = item.text;
+                    }
+                  }
+                } else if (data.type === 'message' && data.content) {
+                  if (typeof data.content === 'string') {
+                    lastTextContent = data.content;
+                  } else if (Array.isArray(data.content)) {
+                    for (const item of data.content) {
+                      if (item.type === 'text' && item.text) {
+                        lastTextContent = item.text;
+                      }
+                    }
+                  }
+                } else if (data.type === 'result' && data.result) {
+                  lastTextContent = data.result;
+                }
+              }
+            } catch {
+              // Not JSON, continue
+            }
+          }
+        } else if (chunk.type === 'exit') {
+          exitCode = chunk.code;
+        }
+      }
+
+      // Clean up the opencode.json config file to avoid polluting the repository
+      try {
+        await fs.unlink(opencodeConfigPath);
+        if (argv.verbose) {
+          await log(`   Cleaned up OpenCode config: ${opencodeConfigPath}`, { verbose: true });
+        }
+      } catch (cleanupError) {
+        // Ignore cleanup errors - file may already be deleted or not exist
+        if (argv.verbose) {
+          await log(`   Note: Could not clean up OpenCode config: ${cleanupError.message}`, { verbose: true });
+        }
+      }
+
+      // Check for permission prompt errors (these can hang the process)
+      // Pattern: "Permission required to run:" or "Access file outside working directory"
+      const hasPermissionPrompt = allOutput.includes('Permission required to run:') || allOutput.includes('Access file outside working directory') || allOutput.includes('● Allow once') || allOutput.includes('○ Always allow') || allOutput.includes('○ Reject');
+
+      if (hasPermissionPrompt) {
+        await log('\n\n❌ OpenCode encountered a permission prompt', { level: 'error' });
+        await log('', { level: 'error' });
+        await log('OpenCode CLI does not support autonomous agents in its full potential.', { level: 'error' });
+        await log('Interactive permission prompts block automated execution, even with', { level: 'error' });
+        await log('all permissions set to "allow" in opencode.json configuration.', { level: 'error' });
+        await log('', { level: 'error' });
+        await log('💡 Recommendation: Use @link-assistant/agent instead', { level: 'error' });
+        await log('', { level: 'error' });
+        await log('   @link-assistant/agent is a 100% unrestricted fork of OpenCode', { level: 'error' });
+        await log('   specifically designed for autonomous agents in isolated environments.', { level: 'error' });
+        await log('', { level: 'error' });
+        await log('   Install: bun install -g @link-assistant/agent', { level: 'error' });
+        await log('   Run with: --tool agent', { level: 'error' });
+        await log('', { level: 'error' });
+        await log('   More info: https://github.com/link-assistant/agent', { level: 'error' });
+        await log('', { level: 'error' });
+
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        const pricingResult = await buildPricingInfo();
+        return {
+          success: false,
+          sessionId,
+          limitReached: false,
+          limitResetTime: null,
+          permissionPromptDetected: true,
+          ...pricingResult,
+          resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
+        };
+      }
+
+      if (exitCode !== 0) {
+        const retryableError = classifyRetryableError(allOutput || lastMessage);
+        if (retryableError.isRetryable) {
+          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
+          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+          if (retryCount < maxRetries) {
+            const delay = getRetryDelayMs({
+              retryCount,
+              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+            });
+            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            await maybeSwitchToFallbackModel({ tool: 'opencode', argv, log, errorMessage: retryableError.message });
+            await waitForRetryDelay(delay, log);
+            await log('\n🔄 Retrying now...');
+            retryCount++;
+            return await executeWithRetry();
+          }
+          await log(`\n\n❌ ${retryableError.label} persisted after ${maxRetries} retries`, { level: 'error' });
+        }
+
+        // Check for usage limit errors first (more specific)
+        const limitInfo = detectUsageLimit(lastMessage);
+        if (limitInfo.isUsageLimit) {
+          limitReached = true;
+          limitResetTime = limitInfo.resetTime;
+
+          // Format and display user-friendly message
+          const messageLines = formatUsageLimitMessage({
+            tool: 'OpenCode',
+            resetTime: limitInfo.resetTime,
+            sessionId,
+            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
+          });
+
+          for (const line of messageLines) {
+            await log(line, { level: 'warning' });
+          }
+        } else if (exitCode === 130) {
+          await log('\n\n⚠️ OpenCode command interrupted (CTRL+C)');
+        } else {
+          await log(`\n\n❌ OpenCode command failed with exit code ${exitCode}`, { level: 'error' });
+        }
+
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        const pricingResult = await buildPricingInfo();
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime,
+          ...pricingResult,
+          resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
+        };
+      }
+
+      await log('\n\n✅ OpenCode command completed');
+
+      const pricingResult = await buildPricingInfo();
+      if (pricingResult.tokenUsage.stepCount > 0) {
+        await log('\n💰 Token Usage Summary:');
+        await log(`   📊 ${pricingResult.pricingInfo?.modelName || mappedModel} (${pricingResult.tokenUsage.stepCount} steps):`);
+        await log(`      Input tokens:     ${pricingResult.tokenUsage.inputTokens.toLocaleString()}`);
+        await log(`      Output tokens:    ${pricingResult.tokenUsage.outputTokens.toLocaleString()}`);
+        if (pricingResult.tokenUsage.reasoningTokens > 0 || pricingResult.tokenUsage.tokenFieldAvailability?.reasoningTokens) {
+          await log(`      Reasoning tokens: ${pricingResult.tokenUsage.reasoningTokens.toLocaleString()}`);
+        }
+        if (pricingResult.tokenUsage.cacheReadTokens > 0 || pricingResult.tokenUsage.tokenFieldAvailability?.cacheReadTokens) {
+          await log(`      Cache read:       ${pricingResult.tokenUsage.cacheReadTokens.toLocaleString()}`);
+        }
+        if (pricingResult.tokenUsage.cacheWriteTokens > 0 || pricingResult.tokenUsage.tokenFieldAvailability?.cacheWriteTokens) {
+          await log(`      Cache write:      ${pricingResult.tokenUsage.cacheWriteTokens.toLocaleString()}`);
+        }
+        if (pricingResult.pricingInfo?.totalCostUSD !== null && pricingResult.pricingInfo?.totalCostUSD !== undefined) {
+          await log(`      Public pricing estimate: $${pricingResult.pricingInfo.totalCostUSD.toFixed(6)}`);
+        } else {
+          await log('      Cost: Not available (could not fetch pricing)');
+        }
+      }
+
+      // Issue #1263: Log if result summary was captured
+      if (lastTextContent) {
+        await log('📝 Captured result summary from OpenCode output', { verbose: true });
+      }
+
+      return {
+        success: true,
+        sessionId,
+        limitReached,
+        limitResetTime,
+        ...pricingResult,
+        resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
+      };
+    } catch (error) {
+      // Clean up the opencode.json config file even on error
+      try {
+        await fs.unlink(opencodeConfigPath);
+      } catch {
+        // Ignore cleanup errors
+      }
+
+      reportError(error, {
+        context: 'execute_opencode',
+        command: params.command,
+        opencodePath: params.opencodePath,
+        operation: 'run_opencode_command',
+      });
+
+      await log(`\n\n❌ Error executing OpenCode command: ${error.message}`, { level: 'error' });
+      return {
+        success: false,
+        sessionId: null,
+        limitReached: false,
+        limitResetTime: null,
+        tokenUsage: streamingTokenUsage.stepCount > 0 ? streamingTokenUsage : null,
+        pricingInfo: null,
+        publicPricingEstimate: null,
+        resultSummary: null, // Issue #1263: No result summary available on error
+      };
+    }
+  };
+
+  // Start the execution with retry logic
+  return await executeWithRetry();
+};
+
+export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
+  // Similar to Claude version, check for uncommitted changes
+  await log('\n🔍 Checking for uncommitted changes...');
+  try {
+    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+
+    if (gitStatusResult.code === 0) {
+      const statusOutput = gitStatusResult.stdout.toString().trim();
+
+      if (statusOutput) {
+        await log('📝 Found uncommitted changes');
+        await log('Changes:');
+        for (const line of statusOutput.split('\n')) {
+          await log(`   ${line}`);
+        }
+
+        if (autoCommit) {
+          await log('💾 Auto-committing changes (--auto-commit-uncommitted-changes is enabled)...');
+
+          const addResult = await $({ cwd: tempDir })`git add -A`;
+          if (addResult.code === 0) {
+            const commitMessage = 'Auto-commit: Changes made by OpenCode during problem-solving session';
+            const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
+
+            if (commitResult.code === 0) {
+              await log('✅ Changes committed successfully');
+
+              const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+
+              if (pushResult.code === 0) {
+                await log('✅ Changes pushed successfully');
+              } else {
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim() || pushResult.stdout?.toString().trim()}`, {
+                  level: 'warning',
+                });
+              }
+            } else {
+              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, {
+                level: 'warning',
+              });
+            }
+          } else {
+            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, {
+              level: 'warning',
+            });
+          }
+          return false;
+        } else if (autoRestartEnabled) {
+          await log('');
+          await log('⚠️  IMPORTANT: Uncommitted changes detected!');
+          await log('   OpenCode made changes that were not committed.');
+          await log('');
+          await log('🔄 AUTO-RESTART: Restarting OpenCode to handle uncommitted changes...');
+          await log('   OpenCode will review the changes and decide what to commit.');
+          await log('');
+          return true;
+        } else {
+          await log('');
+          await log('⚠️  Uncommitted changes detected but auto-restart is disabled.');
+          await log('   Use --auto-restart-on-uncommitted-changes to enable or commit manually.');
+          await log('');
+          return false;
+        }
+      } else {
+        await log('✅ No uncommitted changes found');
+        return false;
+      }
+    } else {
+      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, {
+        level: 'warning',
+      });
+      return false;
+    }
+  } catch (gitError) {
+    reportError(gitError, {
+      context: 'check_uncommitted_changes_opencode',
+      tempDir,
+      operation: 'git_status_check',
+    });
+    await log(`⚠️ Warning: Error checking for uncommitted changes: ${gitError.message}`, { level: 'warning' });
+    return false;
+  }
+};
+
+// Export all functions as default object too
+export default {
+  validateOpenCodeConnection,
+  handleOpenCodeRuntimeSwitch,
+  checkPlaywrightMcpAvailability,
+  executeOpenCode,
+  executeOpenCodeCommand,
+  checkForUncommittedChanges,
+  parseOpenCodeTokenUsage,
+};

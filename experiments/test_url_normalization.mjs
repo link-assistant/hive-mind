@@ -1,16 +1,7 @@
 #!/usr/bin/env node
 
 // Test URL normalization logic
-const testUrls = [
-  'https://github.com/konard',
-  'http://github.com/konard',
-  'github.com/konard',
-  'konard',
-  'https://github.com/konard/test-repo',
-  'http://github.com/konard/test-repo',
-  'github.com/konard/test-repo',
-  'konard/test-repo'
-];
+const testUrls = ['https://github.com/konard', 'http://github.com/konard', 'github.com/konard', 'konard', 'https://github.com/konard/test-repo', 'http://github.com/konard/test-repo', 'github.com/konard/test-repo', 'konard/test-repo'];
 
 function normalizeGitHubUrl(githubUrl) {
   if (!githubUrl) return null;

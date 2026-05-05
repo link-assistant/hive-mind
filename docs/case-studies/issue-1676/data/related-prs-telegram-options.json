@@ -1,0 +1,12 @@
+[
+  { "headRefName": "issue-1662-f172a7412294", "mergedAt": "2026-04-24T08:48:29Z", "number": 1663, "title": "Support Telegram options before URL", "url": "https://github.com/link-assistant/hive-mind/pull/1663" },
+  { "headRefName": "issue-1325-9dc2a4c7bac3", "mergedAt": "2026-03-14T13:54:06Z", "number": 1326, "title": "feat(telegram-bot): support all options via /solve reply command", "url": "https://github.com/link-assistant/hive-mind/pull/1326" },
+  { "headRefName": "issue-1460-b2f96a68c582", "mergedAt": "2026-03-22T08:24:40Z", "number": 1461, "title": "Fix buildUserMention escaping and add diagnostic logging (#1460)", "url": "https://github.com/link-assistant/hive-mind/pull/1461" },
+  { "headRefName": "issue-1620-8ee3ad1bf3f3", "mergedAt": "2026-04-17T08:13:34Z", "number": 1621, "title": "feat: add Opus 4.7 support with corrected effort mapping", "url": "https://github.com/link-assistant/hive-mind/pull/1621" },
+  { "headRefName": "issue-1484-77d49b8cec3f", "mergedAt": "2026-03-28T18:41:59Z", "number": 1485, "title": "feat: add --auto-report-issue and --disable-report-issue flags (Issue #1484)", "url": "https://github.com/link-assistant/hive-mind/pull/1485" },
+  { "headRefName": "issue-1228-1db54d365b14", "mergedAt": "2026-03-14T21:02:15Z", "number": 1229, "title": "fix: deduplicate options display in /solve and /hive command responses", "url": "https://github.com/link-assistant/hive-mind/pull/1229" },
+  { "headRefName": "issue-1081-fc44dff2430e", "mergedAt": "2026-03-31T16:51:05Z", "number": 1111, "title": "feat: Add /stop and /start commands for telegram bot (Issue #1081)", "url": "https://github.com/link-assistant/hive-mind/pull/1111" },
+  { "headRefName": "issue-1473-ea36ead37948", "mergedAt": "2026-03-26T15:20:47Z", "number": 1477, "title": "fix: consolidate model files and fix model recognition logic (Issue #1473)", "url": "https://github.com/link-assistant/hive-mind/pull/1477" },
+  { "headRefName": "issue-1240-8c8a60cb5e70", "mergedAt": "2026-02-15T13:27:45Z", "number": 1241, "title": "fix: add retry with exponential backoff for bot launch 409 Conflict", "url": "https://github.com/link-assistant/hive-mind/pull/1241" },
+  { "headRefName": "issue-1320-731fa7828b01", "mergedAt": "2026-02-17T20:52:57Z", "number": 1321, "title": "perf: parallelize version gathering with Promise.all", "url": "https://github.com/link-assistant/hive-mind/pull/1321" }
+]

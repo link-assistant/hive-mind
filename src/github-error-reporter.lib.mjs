@@ -271,7 +271,7 @@ export const handleErrorWithIssueCreation = async options => {
 
   // --disable-report-issue takes highest precedence
   if (disableReport) {
-    await log('ℹ️  Issue reporting disabled via --disable-report-issue.');
+    await log('ℹ️  Error issue creation is disabled by CLI configuration.');
     return null;
   }
 

@@ -16,6 +16,8 @@ export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 import { buildCostInfoString } from './github-cost-info.lib.mjs';
 export { buildCostInfoString };
+// #1756: route gh exec calls through transient + rate-limit retry wrapper
+import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 // Issue #1625: Named marker constants (single source of truth) + in-memory
 // tracking for tool-posted comments. See tool-comments.lib.mjs for design.
 import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
@@ -858,9 +860,6 @@ export function isRateLimitError(error) {
  * @returns {Promise<Array>} Array of issues
  */
 export async function fetchAllIssuesWithPagination(baseCommand) {
-  const { exec } = await import('child_process');
-  const { promisify } = await import('util');
-  const execAsync = promisify(exec);
   // Import log and cleanErrorMessage from lib.mjs
   const { log, cleanErrorMessage } = await import('./lib.mjs');
   try {
@@ -876,7 +875,11 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
     const maxPageSize = isSearchCommand ? 100 : 1000;
     const improvedCommand = `${commandWithoutLimit} --limit ${maxPageSize}`;
     await log(`   🔎 Executing: ${improvedCommand}`, { verbose: true });
-    const { stdout } = await execAsync(improvedCommand, { encoding: 'utf8', env: process.env });
+    // #1756: use execGhWithRetry so transient 5xx (e.g., 504) auto-retry
+    const { stdout } = await execGhWithRetry(improvedCommand, {
+      execOptions: { encoding: 'utf8', env: process.env },
+      label: 'gh search/list issues (paginated)',
+    });
     const endTime = Date.now();
     const issues = JSON.parse(stdout || '[]');
     await log(`   ✅ Fetched ${issues.length} issues in ${Math.round((endTime - startTime) / 1000)}s`);
@@ -913,7 +916,11 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
       await log('   🔄 Falling back to default behavior...', { verbose: true });
       const fallbackCommand = baseCommand.includes('--limit') ? baseCommand : `${baseCommand} --limit 100`;
       await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay)); // Shorter delay for fallback
-      const { stdout } = await execAsync(fallbackCommand, { encoding: 'utf8', env: process.env });
+      // #1756: use execGhWithRetry on fallback too
+      const { stdout } = await execGhWithRetry(fallbackCommand, {
+        execOptions: { encoding: 'utf8', env: process.env },
+        label: 'gh search/list issues (fallback)',
+      });
       const issues = JSON.parse(stdout || '[]');
       await log(`   ⚠️  Fallback: fetched ${issues.length} issues (limited to 100)`, { level: 'warning' });
       return issues;

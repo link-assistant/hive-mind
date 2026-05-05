@@ -11,7 +11,7 @@ if (typeof globalThis.use === 'undefined') {
 import { log, cleanErrorMessage } from './lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
 
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 /**
  * Check if a PR body/title indicates it fixes/closes/resolves a specific issue number
  * GitHub auto-closes issues when PR body contains keywords like "fixes #123", "closes #123", "resolves #123"
@@ -124,14 +124,14 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
           await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay));
         }
 
-        // Execute GraphQL query
-        const { exec } = await import('child_process');
-        const { promisify } = await import('util');
-        const execAsync = promisify(exec);
-        const { stdout } = await execAsync(`gh api graphql -f query='${query}'`, {
-          encoding: 'utf8',
-          maxBuffer: githubLimits.bufferMaxSize,
-          env: process.env,
+        // Execute GraphQL query (#1756: route through execGhWithRetry for transient 5xx + rate-limit)
+        const { stdout } = await execGhWithRetry(`gh api graphql -f query='${query}'`, {
+          execOptions: {
+            encoding: 'utf8',
+            maxBuffer: githubLimits.bufferMaxSize,
+            env: process.env,
+          },
+          label: 'gh api graphql (batch PR check)',
         });
 
         const data = JSON.parse(stdout);
@@ -191,12 +191,13 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
 
         for (const issueNum of batch) {
           try {
-            const { exec } = await import('child_process');
-            const { promisify } = await import('util');
-            const execAsync = promisify(exec);
             const cmd = `gh api repos/${owner}/${repo}/issues/${issueNum}/timeline --paginate --jq '[.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null and .source.issue.state == "open")] | length'`;
 
-            const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
+            // #1756: route REST fallback through execGhWithRetry for transient 5xx + rate-limit
+            const { stdout } = await execGhWithRetry(cmd, {
+              execOptions: { encoding: 'utf8', env: process.env },
+              label: `gh api timeline (issue #${issueNum})`,
+            });
             const openPrCount = parseInt(stdout.trim()) || 0;
 
             results[issueNum] = {
@@ -271,14 +272,14 @@ export async function batchCheckArchivedRepositories(repositories) {
           await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay));
         }
 
-        // Execute GraphQL query
-        const { exec } = await import('child_process');
-        const { promisify } = await import('util');
-        const execAsync = promisify(exec);
-        const { stdout } = await execAsync(`gh api graphql -f query='${query}'`, {
-          encoding: 'utf8',
-          maxBuffer: githubLimits.bufferMaxSize,
-          env: process.env,
+        // Execute GraphQL query (#1756: route through execGhWithRetry for transient 5xx + rate-limit)
+        const { stdout } = await execGhWithRetry(`gh api graphql -f query='${query}'`, {
+          execOptions: {
+            encoding: 'utf8',
+            maxBuffer: githubLimits.bufferMaxSize,
+            env: process.env,
+          },
+          label: 'gh api graphql (batch archived check)',
         });
 
         const data = JSON.parse(stdout);
@@ -301,12 +302,13 @@ export async function batchCheckArchivedRepositories(repositories) {
 
         for (const repo of batch) {
           try {
-            const { exec } = await import('child_process');
-            const { promisify } = await import('util');
-            const execAsync = promisify(exec);
             const cmd = `gh api repos/${repo.owner}/${repo.name} --jq .archived`;
 
-            const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
+            // #1756: route REST fallback through execGhWithRetry for transient 5xx + rate-limit
+            const { stdout } = await execGhWithRetry(cmd, {
+              execOptions: { encoding: 'utf8', env: process.env },
+              label: `gh api repos (${repo.owner}/${repo.name})`,
+            });
             const isArchived = stdout.trim() === 'true';
 
             const repoKey = `${repo.owner}/${repo.name}`;

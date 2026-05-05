@@ -162,6 +162,12 @@ const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = u
 issueUrl = normalizedUrl || issueUrl;
 global.owner = owner;
 global.repo = repo;
+// Issue #1752: failures before PR creation can happen during checks that run
+// before the normal issue-mode setup below. Record the source issue as soon as
+// the URL is validated so the pre-exit notifier can still comment on it.
+if (isIssueUrl) {
+  global.issueNumber = urlNumber;
+}
 cleanupContext.owner = owner;
 cleanupContext.repo = repo;
 // Setup unhandled error handlers to ensure log path is always shown
@@ -331,6 +337,7 @@ if (autoContinueResult.isContinueMode) {
   } else {
     // We have a branch but no PR - we'll use the existing branch and create a PR later
     await log(`🔄 Using existing branch: ${prBranch} (no PR yet - will create one)`);
+    await log('   This branch was created by an earlier run; this run is reusing it rather than creating a fresh branch.');
     if (argv.verbose) {
       await log('   Branch will be checked out and PR will be created during auto-PR creation phase', {
         verbose: true,
@@ -1021,7 +1028,7 @@ try {
     const hasIssue = global.issueNumber;
     const logTargetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
     const logTargetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
-    const logTargetLabel = hasPR ? 'Pull Request' : 'Issue';
+    const logTargetLabel = hasPR ? 'Pull Request' : `original issue #${logTargetNumber}`;
 
     if (shouldAttachLogs && logTargetType && logTargetNumber) {
       await log(`\n📄 Attaching failure logs to ${logTargetLabel}...`);
@@ -1054,7 +1061,7 @@ try {
         });
 
         if (logUploadSuccess) {
-          await log(`  📎 Failure logs attached to ${logTargetLabel}`);
+          await log(`  📎 Failure logs posted to ${logTargetLabel}`);
         } else {
           // Issue #1212: Always show log upload failures (not just verbose)
           await log('  ⚠️  Failed to upload failure logs');

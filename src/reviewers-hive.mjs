@@ -5,7 +5,7 @@ const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text(
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { wrapDollarWithGhRetry, execGhWithRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const { getLinoYargsFactory, hideBin, parseCliArgumentsWithLino } = await import('./cli-arguments.lib.mjs');
 const path = (await use('path')).default;
@@ -378,20 +378,19 @@ async function reviewer(reviewerId) {
 // Function to check if a PR already has approvals
 async function hasApprovals(prUrl) {
   try {
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
-
     // Extract owner, repo, and PR number from URL
     const urlMatch = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
     if (!urlMatch) return false;
 
     const [, prOwner, prRepo, prNumber] = urlMatch;
 
-    // Check for reviews using GitHub API
+    // Check for reviews using GitHub API (#1756: retry on transient 5xx + rate-limit)
     const cmd = `gh api repos/${prOwner}/${prRepo}/pulls/${prNumber}/reviews --paginate --jq '[.[] | select(.state == "APPROVED")] | length'`;
 
-    const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
+    const { stdout } = await execGhWithRetry(cmd, {
+      execOptions: { encoding: 'utf8', env: process.env },
+      label: `gh api reviews (PR #${prNumber})`,
+    });
     const approvalCount = parseInt(stdout.trim()) || 0;
 
     if (approvalCount > 0) {
@@ -432,25 +431,24 @@ async function fetchPullRequests() {
 
       await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
 
-      // Use async exec to avoid escaping issues
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
-      const { stdout } = await execAsync(searchCmd, { encoding: 'utf8', env: process.env });
+      // #1756: route through execGhWithRetry to retry transient 5xx + rate-limit
+      const { stdout } = await execGhWithRetry(searchCmd, {
+        execOptions: { encoding: 'utf8', env: process.env },
+        label: 'gh search prs (all PRs)',
+      });
       prs = JSON.parse(stdout || '[]');
     } else {
-      // Use label filter
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
-
       // For repositories, use gh pr list which works better
       if (scope === 'repository') {
         const listCmd = `gh pr list --repo ${owner}/${repo} --state open --label "${argv.reviewLabel}" --limit 100 --json url,title,number,isDraft`;
         await log(`   🔎 Command: ${listCmd}`, { verbose: true });
 
         try {
-          const { stdout } = await execAsync(listCmd, { encoding: 'utf8', env: process.env });
+          // #1756: retry on transient 5xx + rate-limit
+          const { stdout } = await execGhWithRetry(listCmd, {
+            execOptions: { encoding: 'utf8', env: process.env },
+            label: 'gh pr list (label filter)',
+          });
           prs = JSON.parse(stdout || '[]');
         } catch (listError) {
           await log(`   ⚠️  List failed: ${listError.message.split('\n')[0]}`, { verbose: true });
@@ -481,7 +479,11 @@ async function fetchPullRequests() {
         await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
 
         try {
-          const { stdout } = await execAsync(searchCmd, { encoding: 'utf8', env: process.env });
+          // #1756: retry on transient 5xx + rate-limit
+          const { stdout } = await execGhWithRetry(searchCmd, {
+            execOptions: { encoding: 'utf8', env: process.env },
+            label: 'gh search prs (label filter)',
+          });
           prs = JSON.parse(stdout || '[]');
         } catch (searchError) {
           await log(`   ⚠️  Search failed: ${searchError.message.split('\n')[0]}`, { verbose: true });

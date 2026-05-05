@@ -1,0 +1,14 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "That options should ask AI to keep track of all requirements for the repository in `./docs/requirements/*.md` files. With main file to be `./docs/requirements/README.md`.\n\nAs it does affect files in the repository, that option should be turned off by default. So for AI it should be recommended to read these requirements to understand the context of the system and that is required from it before working with any issue. And also if any new requirements are added or modified or removed as the result of issue or comments to pull request `./docs/requirements/*.md` files should be updated.\n\nTo enforce it we should have addition to system message about tracking of requirements for all supported tools.\n\nAlso if `./docs/requirements/*.md` were not updated at pull request at all, we should do auto-restart or auto-resume.\n\nAs the result it will allow user not to repeat himself too much, and yet there is no need to fully read the code to understand the requirements fully. So requirements should be kept short, and yet contain all requirements. If user overrides some of them at any stage changes should be reflected in the requirements folder.\n\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nPlease plan and execute everything in a single pull request, you have unlimited time and context, as context autocompacts and you can continue indefinetely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "createdAt": "2026-05-02T06:51:00Z",
+  "labels": [
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6jw", "name": "documentation", "description": "Improvements or additions to documentation", "color": "0075ca" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6mA", "name": "enhancement", "description": "New feature or request", "color": "a2eeef" }
+  ],
+  "number": 1743,
+  "state": "OPEN",
+  "title": "`--requirements-tracking`",
+  "updatedAt": "2026-05-02T06:51:00Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1743"
+}

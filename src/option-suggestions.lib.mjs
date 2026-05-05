@@ -188,6 +188,7 @@ const KNOWN_OPTION_NAMES = [
   'prompt-general-purpose-sub-agent',
   'prompt-issue-reporting',
   'prompt-architecture-care',
+  'requirements-tracking',
   'prompt-case-studies',
   'prompt-playwright-mcp',
   'prompt-check-sibling-pull-requests',

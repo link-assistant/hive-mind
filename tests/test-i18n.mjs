@@ -1,81 +1,145 @@
 #!/usr/bin/env node
+// Tests for src/i18n.lib.mjs
+// Run with: node tests/test-i18n.mjs
 
-import { initI18n, t, getCurrentLocale, detectLocale } from '../src/i18n.lib.mjs';
+import assert from 'assert';
+import { initI18n, t, getCurrentLocale, setLocale, detectLocale, normalizeLocale, getSupportedLocales, getUserLocale, setUserLocale, clearUserLocale, resolveLocaleFromTelegramCtx, preloadAllLocales } from '../src/i18n.lib.mjs';
 
-async function testI18n() {
-  console.log('🧪 Testing i18n functionality...\n');
+let passed = 0;
+let failed = 0;
 
-  console.log('1. Testing locale detection...');
-  const detectedLocale = detectLocale();
-  console.log(`   Detected locale: ${detectedLocale}`);
-  console.log(`   Environment LANG: ${process.env.LANG || 'not set'}`);
-  console.log('   ✅ Locale detection works\n');
-
-  console.log('2. Testing English translations...');
-  await initI18n('en');
-  console.log(`   Current locale: ${getCurrentLocale()}`);
-  console.log(`   Translation test: ${t('error')}`);
-  console.log(`   Expected: Error`);
-  if (t('error') !== 'Error') {
-    console.error('   ❌ English translation failed!');
-    process.exit(1);
+async function test(name, fn) {
+  try {
+    await fn();
+    console.log(`  ✅ ${name}`);
+    passed++;
+  } catch (err) {
+    console.error(`  ❌ ${name}: ${err.message}`);
+    failed++;
   }
-  console.log('   ✅ English translations work\n');
-
-  console.log('3. Testing Russian translations...');
-  await initI18n('ru');
-  console.log(`   Current locale: ${getCurrentLocale()}`);
-  console.log(`   Translation test: ${t('error')}`);
-  console.log(`   Expected: Ошибка`);
-  if (t('error') !== 'Ошибка') {
-    console.error('   ❌ Russian translation failed!');
-    process.exit(1);
-  }
-  console.log('   ✅ Russian translations work\n');
-
-  console.log('4. Testing parameter substitution...');
-  await initI18n('en');
-  const translatedWithParam = t('error.url_type_not_supported', { type: 'test-type' });
-  console.log(`   Translation: ${translatedWithParam}`);
-  console.log(`   Expected: URL type 'test-type' is not supported`);
-  if (translatedWithParam !== "URL type 'test-type' is not supported") {
-    console.error('   ❌ Parameter substitution failed!');
-    process.exit(1);
-  }
-  console.log('   ✅ Parameter substitution works\n');
-
-  console.log('5. Testing fallback for missing keys...');
-  await initI18n('ru');
-  const missingKey = t('non.existent.key');
-  console.log(`   Translation: ${missingKey}`);
-  console.log(`   Expected: non.existent.key (fallback to key)`);
-  if (missingKey !== 'non.existent.key') {
-    console.error('   ❌ Fallback failed!');
-    process.exit(1);
-  }
-  console.log('   ✅ Fallback works\n');
-
-  console.log('6. Testing complex Russian translation...');
-  await initI18n('ru');
-  const complexTranslation = t('warning.could_not_check_fork_status', { message: 'тестовое сообщение' });
-  console.log(`   Translation: ${complexTranslation}`);
-  console.log(`   Expected: Предупреждение: Не удалось проверить статус форка: тестовое сообщение`);
-  if (complexTranslation !== 'Предупреждение: Не удалось проверить статус форка: тестовое сообщение') {
-    console.error('   ❌ Complex Russian translation failed!');
-    process.exit(1);
-  }
-  console.log('   ✅ Complex Russian translation works\n');
-
-  console.log('7. Testing auto-initialization with system locale...');
-  const autoLocale = await initI18n();
-  console.log(`   Auto-detected locale: ${autoLocale}`);
-  console.log(`   Current locale: ${getCurrentLocale()}`);
-  console.log('   ✅ Auto-initialization works\n');
-
-  console.log('✅ All i18n tests passed successfully!');
 }
 
-testI18n().catch(error => {
-  console.error('❌ Test failed with error:', error);
-  process.exit(1);
+console.log('🧪 Running i18n tests...\n');
+
+// 1. Locale detection / normalization
+console.log('1) Locale normalization');
+await test('normalizeLocale handles raw codes', () => {
+  assert.strictEqual(normalizeLocale('en'), 'en');
+  assert.strictEqual(normalizeLocale('RU'), 'ru');
+  assert.strictEqual(normalizeLocale('zh-CN'), 'zh');
+  assert.strictEqual(normalizeLocale('hi_IN'), 'hi');
+  assert.strictEqual(normalizeLocale('en_US.UTF-8'), 'en');
+  assert.strictEqual(normalizeLocale('fr'), null);
+  assert.strictEqual(normalizeLocale(''), null);
+  assert.strictEqual(normalizeLocale(null), null);
 });
+
+await test('detectLocale returns supported locale or default', () => {
+  const orig = process.env.LANG;
+  process.env.LANG = 'ru_RU.UTF-8';
+  assert.strictEqual(detectLocale(), 'ru');
+  process.env.LANG = 'fr_FR';
+  assert.strictEqual(detectLocale(), 'en');
+  process.env.LANG = orig || '';
+});
+
+await test('getSupportedLocales returns all four', () => {
+  const list = getSupportedLocales();
+  assert.deepStrictEqual(list.sort(), ['en', 'hi', 'ru', 'zh']);
+});
+
+// 2. Translations
+console.log('\n2) Translations');
+await test('English translations load and t() returns them', async () => {
+  await initI18n('en');
+  assert.strictEqual(getCurrentLocale(), 'en');
+  assert.strictEqual(t('error'), 'Error');
+  assert.strictEqual(t('success.process_completed'), 'Process completed');
+});
+
+await test('Russian translations work', async () => {
+  await initI18n('ru');
+  assert.strictEqual(getCurrentLocale(), 'ru');
+  assert.strictEqual(t('error'), 'Ошибка');
+});
+
+await test('Chinese translations work', async () => {
+  await initI18n('zh');
+  assert.strictEqual(t('error'), '错误');
+});
+
+await test('Hindi translations work', async () => {
+  await initI18n('hi');
+  assert.strictEqual(t('error'), 'त्रुटि');
+});
+
+await test('Parameter substitution works', async () => {
+  await initI18n('en');
+  assert.strictEqual(t('error.url_type_not_supported', { type: 'foo' }), "URL type 'foo' is not supported");
+});
+
+await test('Missing key returns the key itself', async () => {
+  await initI18n('ru');
+  assert.strictEqual(t('this.key.does.not.exist'), 'this.key.does.not.exist');
+});
+
+await test('Newline escapes are decoded', async () => {
+  await initI18n('en');
+  const msg = t('telegram.no_github_link_in_reply');
+  assert.ok(msg.includes('\n'), 'expected literal newlines in translation');
+  assert.ok(!msg.includes('\\n'), 'expected backslash-n to be unescaped');
+});
+
+await test('Per-call locale override', async () => {
+  await initI18n('en');
+  assert.strictEqual(t('error', {}, { locale: 'ru' }), 'Ошибка');
+  assert.strictEqual(t('error', {}, { locale: 'zh' }), '错误');
+});
+
+// 3. Telegram per-user locale
+console.log('\n3) Per-user (Telegram) locale store');
+await test('setUserLocale + getUserLocale', () => {
+  setUserLocale(123, 'ru');
+  assert.strictEqual(getUserLocale(123), 'ru');
+  setUserLocale(123, 'zh-CN'); // normalised
+  assert.strictEqual(getUserLocale(123), 'zh');
+});
+
+await test('setUserLocale rejects invalid', () => {
+  const ok = setUserLocale(456, 'fr');
+  assert.strictEqual(ok, false);
+  assert.strictEqual(getUserLocale(456), null);
+});
+
+await test('clearUserLocale removes the entry', () => {
+  setUserLocale(789, 'hi');
+  assert.strictEqual(getUserLocale(789), 'hi');
+  clearUserLocale(789);
+  assert.strictEqual(getUserLocale(789), null);
+});
+
+await test('resolveLocaleFromTelegramCtx priority order', async () => {
+  await initI18n('en');
+  // Plain ctx → uses ctx.from.language_code
+  const ctx1 = { from: { id: 1, language_code: 'ru' } };
+  assert.strictEqual(resolveLocaleFromTelegramCtx(ctx1), 'ru');
+  // Per-user override beats Telegram
+  setUserLocale(1, 'zh');
+  assert.strictEqual(resolveLocaleFromTelegramCtx(ctx1), 'zh');
+  clearUserLocale(1);
+  // Unsupported language_code falls through to current default
+  setLocale('en');
+  const ctx2 = { from: { id: 2, language_code: 'fr' } };
+  assert.strictEqual(resolveLocaleFromTelegramCtx(ctx2), 'en');
+});
+
+// 4. Preload
+console.log('\n4) Preload');
+await test('preloadAllLocales does not throw', async () => {
+  await preloadAllLocales();
+  // After preload all locales are accessible via per-call override
+  assert.strictEqual(t('error', {}, { locale: 'hi' }), 'त्रुटि');
+});
+
+console.log(`\nResults: ${passed} passed, ${failed} failed`);
+process.exit(failed === 0 ? 0 : 1);

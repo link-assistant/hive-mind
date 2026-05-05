@@ -299,7 +299,7 @@ await initializeSentry({
 
 // Initialize i18n: pre-load every supported locale so per-user translations
 // can resolve synchronously from the cache when handling Telegram updates.
-const { initI18n, t, getSupportedLocales, preloadAllLocales, normalizeLocale, setUserLocale, clearUserLocale, resolveLocaleFromTelegramCtx } = await import('./i18n.lib.mjs');
+const { initI18n, t, preloadAllLocales, resolveLocaleFromTelegramCtx } = await import('./i18n.lib.mjs');
 await initI18n();
 await preloadAllLocales();
 
@@ -682,42 +682,8 @@ bot.command('version', async ctx => {
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, t('telegram.version_information_title', {}, { locale: versionLocale }) + '\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
 
-// /language [code] — set or display the per-user language for bot replies.
-// Without an argument it shows the current language. With a supported code it
-// stores the choice in memory for this bot process (no persistence).
-bot.command('language', async ctx => {
-  VERBOSE && console.log('[VERBOSE] /language command received');
-  if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
-  const userId = ctx.from?.id;
-  const locale = resolveLocaleFromTelegramCtx(ctx);
-  const supported = getSupportedLocales();
-  const supportedList = supported.join(', ');
-  // Parse the argument from the message text (e.g. "/language ru" -> "ru").
-  const text = ctx.message?.text || '';
-  const parts = text.trim().split(/\s+/);
-  const arg = parts.length > 1 ? parts[1] : null;
-  if (!arg) {
-    const langName = t(`language.${locale}`, {}, { locale });
-    await ctx.reply(t('telegram.language_current', { language: langName, supported: supportedList }, { locale }), { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-    return;
-  }
-  // "default"/"reset"/"clear" removes any per-user override.
-  if (['default', 'reset', 'clear'].includes(arg.toLowerCase())) {
-    clearUserLocale(userId);
-    const newLocale = resolveLocaleFromTelegramCtx(ctx);
-    const langName = t(`language.${newLocale}`, {}, { locale: newLocale });
-    await ctx.reply(t('telegram.language_set', { language: langName }, { locale: newLocale }), { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-    return;
-  }
-  const target = normalizeLocale(arg);
-  if (!target) {
-    await ctx.reply(t('telegram.language_invalid', { supported: supportedList }, { locale }), { reply_to_message_id: ctx.message.message_id });
-    return;
-  }
-  setUserLocale(userId, target);
-  const langName = t(`language.${target}`, {}, { locale: target });
-  await ctx.reply(t('telegram.language_set', { language: langName }, { locale: target }), { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-});
+const { registerLanguageCommand } = await import('./telegram-language-command.lib.mjs');
+registerLanguageCommand(bot, { VERBOSE, isOldMessage, isForwardedOrReply });
 
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
 const sharedCommandOpts = { VERBOSE, isOldMessage, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage };

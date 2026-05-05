@@ -275,11 +275,12 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-await asyncTest('telegram-bot.mjs uses /solve_queue in hint text (not /solve-queue)', async () => {
-  const content = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
-  // The hint text should use /solve_queue (with underscore)
+await asyncTest('locales/en.lino uses /solve_queue in hint text (not /solve-queue)', async () => {
+  // After i18n refactor, user-facing hint strings live in src/locales/<lang>.lino,
+  // not inline in telegram-bot.mjs. The original regression intent (issue #1232) is
+  // preserved by checking the canonical English source file.
+  const content = await readFile(join(__dirname, '..', 'src', 'locales', 'en.lino'), 'utf-8');
   assert.ok(content.includes('Use /solve_queue to check the queue status'), 'Should use /solve_queue in hint text');
-  // Should NOT use /solve-queue (with hyphen) in user-facing hint text
   assert.ok(!content.includes('Use /solve-queue to check'), 'Should NOT use /solve-queue in hint text');
 });
 

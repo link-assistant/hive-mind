@@ -19,7 +19,10 @@ for (const [name, value] of Object.entries(REQUIRED_CLAUDE_QUIET_ENV)) {
 assert.ok(!Object.prototype.hasOwnProperty.call(REQUIRED_CLAUDE_QUIET_ENV, 'CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS'), 'REQUIRED_CLAUDE_QUIET_ENV must not disable git instructions — includeGitInstructions keeps them on');
 
 const claudeLibContent = await fs.readFile(path.join(process.cwd(), 'src/claude.lib.mjs'), 'utf-8');
-assert.ok(claudeLibContent.includes('ensureClaudeQuietConfig({ log })'), 'claude.lib should verify global Claude quiet config before launching Claude');
+// Issue #378: claude.lib now also threads the resolved work locale into the
+// ensureClaudeQuietConfig call so Claude Code's own `language` setting follows
+// --work-language. The call must still be present and start with `log`.
+assert.ok(/ensureClaudeQuietConfig\(\{\s*log\s*[,)]/.test(claudeLibContent), 'claude.lib should verify global Claude quiet config before launching Claude');
 assert.ok(claudeLibContent.includes('--dangerously-skip-permissions'), 'claude.lib should still pass --dangerously-skip-permissions as belt-and-suspenders for the bypassPermissions defaultMode');
 
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'claude-quiet-config-'));

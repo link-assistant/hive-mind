@@ -1,1 +1,35 @@
-{"url":"https://api.github.com/repos/lefinepro/kefine/issues/comments/4387931323","html_url":"https://github.com/lefinepro/kefine/pull/55#issuecomment-4387931323","issue_url":"https://api.github.com/repos/lefinepro/kefine/issues/55","id":4387931323,"node_id":"IC_kwDOQxqkxM8AAAABBYqEuw","user":{"login":"konard","id":1431904,"node_id":"MDQ6VXNlcjE0MzE5MDQ=","avatar_url":"https://avatars.githubusercontent.com/u/1431904?u=eef2c91c80a671714d3fd8c08ef91b297840056b&v=4","gravatar_id":"","url":"https://api.github.com/users/konard","html_url":"https://github.com/konard","followers_url":"https://api.github.com/users/konard/followers","following_url":"https://api.github.com/users/konard/following{/other_user}","gists_url":"https://api.github.com/users/konard/gists{/gist_id}","starred_url":"https://api.github.com/users/konard/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/konard/subscriptions","organizations_url":"https://api.github.com/users/konard/orgs","repos_url":"https://api.github.com/users/konard/repos","events_url":"https://api.github.com/users/konard/events{/privacy}","received_events_url":"https://api.github.com/users/konard/received_events","type":"User","user_view_type":"public","site_admin":false},"created_at":"2026-05-06T12:29:42Z","updated_at":"2026-05-06T12:29:42Z","author_association":"CONTRIBUTOR","body":"## Working session summary\n\nCI is passing (SUCCESS) for PR #55. The fix is complete.\n\nThe root cause was in `e2e/task-lifecycle.spec.ts`: the test was clicking `[data-part=\"brand\"]` to open the sidebar before clicking the theme/locale toggle buttons. The sidebar popover opens with a 220ms delay and renders in the browser's top layer (because it's a `popover=\"manual\"` element), which made it spatially overlap the toolbar buttons the test was about to click. The privacy link inside the popover was intercepting pointer events.\n\nThe fix removes the two extraneous brand button clicks from the test - they weren't needed for verifying that theme/locale changes preserve the editor state, and the toolbar buttons are always accessible without opening the sidebar first.\n\nPR #55 now has all CI checks passing: https://github.com/lefinepro/kefine/pull/55\n\n---\n*This summary was automatically extracted from the AI working session output.*","reactions":{"url":"https://api.github.com/repos/lefinepro/kefine/issues/comments/4387931323/reactions","total_count":0,"+1":0,"-1":0,"laugh":0,"hooray":0,"confused":0,"heart":0,"rocket":0,"eyes":0},"performed_via_github_app":null,"pin":null}
+{
+  "url": "https://api.github.com/repos/lefinepro/kefine/issues/comments/4387931323",
+  "html_url": "https://github.com/lefinepro/kefine/pull/55#issuecomment-4387931323",
+  "issue_url": "https://api.github.com/repos/lefinepro/kefine/issues/55",
+  "id": 4387931323,
+  "node_id": "IC_kwDOQxqkxM8AAAABBYqEuw",
+  "user": {
+    "login": "konard",
+    "id": 1431904,
+    "node_id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1431904?u=eef2c91c80a671714d3fd8c08ef91b297840056b&v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/konard",
+    "html_url": "https://github.com/konard",
+    "followers_url": "https://api.github.com/users/konard/followers",
+    "following_url": "https://api.github.com/users/konard/following{/other_user}",
+    "gists_url": "https://api.github.com/users/konard/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/konard/subscriptions",
+    "organizations_url": "https://api.github.com/users/konard/orgs",
+    "repos_url": "https://api.github.com/users/konard/repos",
+    "events_url": "https://api.github.com/users/konard/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/konard/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "created_at": "2026-05-06T12:29:42Z",
+  "updated_at": "2026-05-06T12:29:42Z",
+  "author_association": "CONTRIBUTOR",
+  "body": "## Working session summary\n\nCI is passing (SUCCESS) for PR #55. The fix is complete.\n\nThe root cause was in `e2e/task-lifecycle.spec.ts`: the test was clicking `[data-part=\"brand\"]` to open the sidebar before clicking the theme/locale toggle buttons. The sidebar popover opens with a 220ms delay and renders in the browser's top layer (because it's a `popover=\"manual\"` element), which made it spatially overlap the toolbar buttons the test was about to click. The privacy link inside the popover was intercepting pointer events.\n\nThe fix removes the two extraneous brand button clicks from the test - they weren't needed for verifying that theme/locale changes preserve the editor state, and the toolbar buttons are always accessible without opening the sidebar first.\n\nPR #55 now has all CI checks passing: https://github.com/lefinepro/kefine/pull/55\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+  "reactions": { "url": "https://api.github.com/repos/lefinepro/kefine/issues/comments/4387931323/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+  "performed_via_github_app": null,
+  "pin": null
+}

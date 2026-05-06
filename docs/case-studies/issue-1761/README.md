@@ -9,20 +9,20 @@
 
 ## TL;DR
 
-In every working session iteration of `solve.mjs`'s **auto-restart-until-mergeable** mode (and the **temporary watch / auto-restart** mode), the per-iteration code posted the *log* comment first and the *summary* comment second. As a result, on the PR timeline the summary always appeared **below** the (often very long) log it summarises. The root cause is the order of two consecutive function calls inside two `executeToolIteration` success branches; this case study documents the timeline, root causes, and fix, and lands ordering tests so the bug cannot regress silently.
+In every working session iteration of `solve.mjs`'s **auto-restart-until-mergeable** mode (and the **temporary watch / auto-restart** mode), the per-iteration code posted the _log_ comment first and the _summary_ comment second. As a result, on the PR timeline the summary always appeared **below** the (often very long) log it summarises. The root cause is the order of two consecutive function calls inside two `executeToolIteration` success branches; this case study documents the timeline, root causes, and fix, and lands ordering tests so the bug cannot regress silently.
 
 The top-level (single-shot) flow in `src/solve.mjs` was already correct because it calls `maybeAttachWorkingSessionSummary` before `verifyResults` (which uploads the log). Only the two iteration-level call sites had the wrong order.
 
 ## Files in this folder
 
-| File | What it contains |
-| --- | --- |
-| `issue-1761.json` | The original issue body, author, labels, timestamps. |
-| `kefine-pr55-comment-4387930946-log.json` | Real "Auto-restart-until-mergeable Log (iteration 3)" comment from PR #55 — created at `2026-05-06T12:29:39Z`. |
+| File                                          | What it contains                                                                                                                               |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue-1761.json`                             | The original issue body, author, labels, timestamps.                                                                                           |
+| `kefine-pr55-comment-4387930946-log.json`     | Real "Auto-restart-until-mergeable Log (iteration 3)" comment from PR #55 — created at `2026-05-06T12:29:39Z`.                                 |
 | `kefine-pr55-comment-4387931323-summary.json` | Real "Working session summary" comment for the same iteration — created at `2026-05-06T12:29:42Z` (3 seconds **after** the log — wrong order). |
-| `kefine-pr55-comment-4387974056-log.json` | Real "Auto-restart-until-mergeable Log (iteration 4)" comment — `2026-05-06T12:33:23Z`. |
-| `kefine-pr55-comment-4387974553-summary.json` | Matching "Working session summary" — `2026-05-06T12:33:26Z` (again 3 s after the log). |
-| `kefine-pr55-all-comments.json` | Full conversation comment list of PR #55 (paginated). |
+| `kefine-pr55-comment-4387974056-log.json`     | Real "Auto-restart-until-mergeable Log (iteration 4)" comment — `2026-05-06T12:33:23Z`.                                                        |
+| `kefine-pr55-comment-4387974553-summary.json` | Matching "Working session summary" — `2026-05-06T12:33:26Z` (again 3 s after the log).                                                         |
+| `kefine-pr55-all-comments.json`               | Full conversation comment list of PR #55 (paginated).                                                                                          |
 
 ## Reconstructed timeline
 
@@ -41,7 +41,7 @@ The reporter filed the issue at `12:39:29Z`, ~6 minutes after observing the seco
 
 ## Requirements (from the issue body)
 
-1. **Functional fix** — the working session **summary** comment must always be posted *before* the working session **log** comment, every time both are emitted.
+1. **Functional fix** — the working session **summary** comment must always be posted _before_ the working session **log** comment, every time both are emitted.
 2. **Data archive** — download all logs and data referenced by the issue into `./docs/case-studies/issue-1761/`.
 3. **Deep case study** — reconstruct the timeline, list every requirement, identify the root cause(s), propose solutions, and check for known reusable components/libraries.
 4. **Online research** — search for additional facts/evidence beyond the linked PR.
@@ -53,11 +53,11 @@ The reporter filed the issue at `12:39:29Z`, ~6 minutes after observing the seco
 
 `solve.mjs` runs in three distinct flows that all post the same two comments per session:
 
-| Flow | File | Helper that posts the **summary** | Helper that posts the **log** |
-| --- | --- | --- | --- |
-| Top-level single shot | `src/solve.mjs` | `maybeAttachWorkingSessionSummary(...)` | `verifyResults(...)` (which calls `attachLogToGitHub`) |
-| Auto-restart-until-mergeable | `src/solve.auto-merge.lib.mjs` | `maybeAttachWorkingSessionSummary(...)` | `attachLogToGitHub(...)` directly |
-| Watch / temporary auto-restart | `src/solve.watch.lib.mjs` | `maybeAttachWorkingSessionSummary(...)` | `attachLogToGitHub(...)` directly |
+| Flow                           | File                           | Helper that posts the **summary**       | Helper that posts the **log**                          |
+| ------------------------------ | ------------------------------ | --------------------------------------- | ------------------------------------------------------ |
+| Top-level single shot          | `src/solve.mjs`                | `maybeAttachWorkingSessionSummary(...)` | `verifyResults(...)` (which calls `attachLogToGitHub`) |
+| Auto-restart-until-mergeable   | `src/solve.auto-merge.lib.mjs` | `maybeAttachWorkingSessionSummary(...)` | `attachLogToGitHub(...)` directly                      |
+| Watch / temporary auto-restart | `src/solve.watch.lib.mjs`      | `maybeAttachWorkingSessionSummary(...)` | `attachLogToGitHub(...)` directly                      |
 
 In `solve.mjs` the summary is invoked **before** `verifyResults`, so the order is correct. In the other two files the success branch of `executeToolIteration` was structured as:
 

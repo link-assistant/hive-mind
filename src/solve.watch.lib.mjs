@@ -424,6 +424,42 @@ export const watchForFeedback = async params => {
             }
           }
 
+          // Issue #1761: Post the working session **summary** BEFORE uploading
+          // the working session **log** so the summary always appears above
+          // the log in PR comment chronological order. The summary acts as a
+          // human-readable header for the (potentially very long) log that
+          // follows, and reordering matches the top-level flow in
+          // src/solve.mjs (which calls maybeAttachWorkingSessionSummary
+          // before verifyResults / attachLogToGitHub).
+          //
+          // Issue #1728: Attach a "Working session summary" comment for this
+          // iteration if the AI didn't post any comments of its own (and
+          // --auto-attach-solution-summary is enabled, which it is by default).
+          // Same fix as in solve.auto-merge.lib.mjs — every working session,
+          // not just the top-level run, should honour the auto-attach flag.
+          try {
+            await maybeAttachWorkingSessionSummary({
+              argv,
+              resultSummary: toolResult.resultSummary,
+              workStartTime: iterationStartTime,
+              owner,
+              repo,
+              prNumber,
+              issueNumber,
+              success: true,
+            });
+          } catch (summaryError) {
+            reportError(summaryError, {
+              context: 'attach_watch_working_session_summary',
+              prNumber,
+              owner,
+              repo,
+              autoRestartCount,
+              operation: 'attach_working_session_summary',
+            });
+            await log(formatAligned('', `⚠️  Working session summary error: ${cleanErrorMessage(summaryError)}`, '', 2));
+          }
+
           // Issue #1107: Attach log after each auto-restart session with its own cost estimation
           // This ensures each restart has its own log comment instead of one combined log at the end
           const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
@@ -481,34 +517,6 @@ export const watchForFeedback = async params => {
             }
           }
 
-          // Issue #1728: Attach a "Working session summary" comment for this
-          // iteration if the AI didn't post any comments of its own (and
-          // --auto-attach-solution-summary is enabled, which it is by default).
-          // Same fix as in solve.auto-merge.lib.mjs — every working session,
-          // not just the top-level run, should honour the auto-attach flag.
-          try {
-            await maybeAttachWorkingSessionSummary({
-              argv,
-              resultSummary: toolResult.resultSummary,
-              workStartTime: iterationStartTime,
-              owner,
-              repo,
-              prNumber,
-              issueNumber,
-              success: true,
-            });
-          } catch (summaryError) {
-            reportError(summaryError, {
-              context: 'attach_watch_working_session_summary',
-              prNumber,
-              owner,
-              repo,
-              autoRestartCount,
-              operation: 'attach_working_session_summary',
-            });
-            await log(formatAligned('', `⚠️  Working session summary error: ${cleanErrorMessage(summaryError)}`, '', 2));
-          }
-
           // Issue #1763: Re-verify the PR body contains a closing keyword for
           // the issue after every iteration. The AI agent can rewrite the PR
           // description mid-session and any iteration may turn out to be the
@@ -536,6 +544,7 @@ export const watchForFeedback = async params => {
               await log(formatAligned('', `⚠️  PR issue link check error: ${cleanErrorMessage(issueLinkError)}`, '', 2));
             }
           }
+
 
           await log('');
           if (isTemporaryWatch) {

@@ -552,6 +552,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: '[EXPERIMENTAL] Enable live progress monitoring. Accepts "comment" (default, updates a per-session PR comment) or "pr" (updates PR description). Plain --working-session-live-progress means "comment". Works with or without --interactive-mode.',
     default: false,
   },
+  language: {
+    type: 'string',
+    description: 'Language for user-facing output (en, ru, zh, hi). Defaults to detected system locale. Affects terminal status/error messages and bot-generated PR/issue comments. Does not affect AI prompts.',
+    choices: ['en', 'ru', 'zh', 'hi'],
+  },
 };
 
 // Function to create yargs configuration - avoids duplication

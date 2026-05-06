@@ -85,6 +85,11 @@ export const createYargsConfig = yargsInstance =>
       choices: ['text', 'json'],
       default: 'text',
     })
+    .option('language', {
+      type: 'string',
+      description: 'Language for user-facing output (en, ru, zh, hi). Defaults to detected system locale.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
     .check(argv => {
       if (!argv['task-input'] && !argv._[0]) {
         throw new Error('Please provide a GitHub issue URL or task description');

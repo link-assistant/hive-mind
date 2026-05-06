@@ -297,6 +297,12 @@ await initializeSentry({
   environment: process.env.NODE_ENV || 'production',
 });
 
+// Initialize i18n: pre-load every supported locale so per-user translations
+// can resolve synchronously from the cache when handling Telegram updates.
+const { initI18n, t, preloadAllLocales, resolveLocaleFromTelegramCtx } = await import('./i18n.lib.mjs');
+await initI18n();
+await preloadAllLocales();
+
 const telegrafModule = await use('telegraf');
 const { Telegraf } = telegrafModule;
 
@@ -564,6 +570,7 @@ bot.command('help', async ctx => {
   message += '`/solve_queue` - Show solve queue status\n';
   message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
+  message += '*/language* `[en|ru|zh|hi]` - Set or show your preferred reply language (in-memory only, per-user)\n';
   message += '`/accept_invites` - Accept all pending GitHub invitations\n';
   message += '*/merge* - Merge queue (experimental)\n';
   message += 'Usage: `/merge <github-repo-url>`\n';
@@ -621,11 +628,12 @@ bot.command('limits', async ctx => {
     return;
   }
 
+  const userLocale = resolveLocaleFromTelegramCtx(ctx);
   if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /limits ignored: not a group chat');
     }
-    await ctx.reply('❌ The /limits command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(t('telegram.limits_only_in_groups', {}, { locale: userLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -638,7 +646,7 @@ bot.command('limits', async ctx => {
   }
 
   // Send "fetching" message to indicate work is in progress
-  const fetchingMessage = await ctx.reply('🔄 Fetching usage limits...', {
+  const fetchingMessage = await ctx.reply(t('telegram.fetching_limits', {}, { locale: userLocale }), {
     reply_to_message_id: ctx.message.message_id,
   });
 
@@ -651,7 +659,7 @@ bot.command('limits', async ctx => {
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
   const queueStatus = await solveQueue.formatStatus();
   const codexSection = formatCodexLimitsSection(limits.codex.success ? limits.codex : null, codexError);
-  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus]);
+  const message = t('telegram.usage_limits_title', {}, { locale: userLocale }) + '\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus]);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
 });
 bot.command('version', async ctx => {
@@ -663,15 +671,19 @@ bot.command('version', async ctx => {
     data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
   });
   if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
-  if (!_isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+  const versionLocale = resolveLocaleFromTelegramCtx(ctx);
+  if (!_isGroupChat(ctx)) return await ctx.reply(t('telegram.version_only_in_groups', {}, { locale: versionLocale }), { reply_to_message_id: ctx.message.message_id });
   if (!isTopicAuthorized(ctx)) return await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
-  const fetchingMessage = await ctx.reply('🔄 Gathering version information...', {
+  const fetchingMessage = await ctx.reply(t('telegram.gathering_version', {}, { locale: versionLocale }), {
     reply_to_message_id: ctx.message.message_id,
   });
   const result = await getVersionInfo(VERBOSE);
   if (!result.success) return await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2' });
-  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
+  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, t('telegram.version_information_title', {}, { locale: versionLocale }) + '\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
+
+const { registerLanguageCommand } = await import('./telegram-language-command.lib.mjs');
+registerLanguageCommand(bot, { VERBOSE, isOldMessage, isForwardedOrReply });
 
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
 const sharedCommandOpts = { VERBOSE, isOldMessage, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage };
@@ -704,11 +716,12 @@ async function handleSolveCommand(ctx) {
     },
   });
 
+  const solveLocale = resolveLocaleFromTelegramCtx(ctx);
   if (!solveEnabled) {
     if (VERBOSE) {
       console.log(`[VERBOSE] ${solveCommandDisplay} ignored: command disabled`);
     }
-    await ctx.reply('❌ The solve command is disabled on this bot instance.');
+    await ctx.reply(t('telegram.solve_disabled', {}, { locale: solveLocale }));
     return;
   }
 
@@ -737,7 +750,7 @@ async function handleSolveCommand(ctx) {
     if (VERBOSE) {
       console.log(`[VERBOSE] ${solveCommandDisplay} ignored: not a group chat`);
     }
-    await ctx.reply(`❌ The ${solveCommandDisplay} command only works in group chats. Please add this bot to a group and make it an admin.`, { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(t('telegram.solve_only_in_groups', { commandDisplay: solveCommandDisplay }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -802,7 +815,7 @@ async function handleSolveCommand(ctx) {
       if (VERBOSE) {
         console.log('[VERBOSE] No GitHub URL found in replied message');
       }
-      await safeReply(ctx, '❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`\n\nOr with options: `/solve --model opus`', { reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, t('telegram.no_github_link_in_reply', {}, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
       return;
     }
   }
@@ -811,7 +824,7 @@ async function handleSolveCommand(ctx) {
 
   const { malformed, errors: malformedErrors } = detectMalformedFlags(userArgs);
   if (malformed.length > 0) {
-    await safeReply(ctx, `❌ ${escapeMarkdown(malformedErrors.join('\n'))}\n\nPlease check your option syntax.`, { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(malformedErrors.join('\n'))}\n\n${t('telegram.option_syntax_check', {}, { locale: solveLocale })}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -828,13 +841,13 @@ async function handleSolveCommand(ctx) {
   userArgs = moveArgumentToFront(userArgs, validation.normalizedUrl, cleanNonPrintableChars);
   const { backend: solvePerCommandIsolation, filteredArgs: userArgsWithoutIsolation } = extractIsolationFromArgs(userArgs); // issue #1534
   if (solvePerCommandIsolation && !isValidPerCommandIsolation(solvePerCommandIsolation)) {
-    await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(solvePerCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, t('telegram.invalid_isolation', { value: escapeMarkdown(solvePerCommandIsolation) }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
   const mergedSolveArgs = mergeArgsWithOverrides(userArgsWithoutIsolation, solveOverrides);
   const { backend: solveOverrideIsolation, filteredArgs: args } = extractIsolationFromArgs(mergedSolveArgs);
   if (solveOverrideIsolation && !isValidPerCommandIsolation(solveOverrideIsolation)) {
-    await safeReply(ctx, `❌ Invalid locked --isolation value '${escapeMarkdown(solveOverrideIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, t('telegram.invalid_locked_isolation', { value: escapeMarkdown(solveOverrideIsolation) }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
   const effectiveSolveIsolation = solveOverrideIsolation || solvePerCommandIsolation;
@@ -863,7 +876,7 @@ async function handleSolveCommand(ctx) {
   }
   const { malformed: mergedMalformed, errors: mergedMalformedErrors } = detectMalformedFlags(args);
   if (mergedMalformed.length > 0) {
-    await safeReply(ctx, `❌ ${escapeMarkdown(mergedMalformedErrors.join('\n'))}\n\nPlease check your option syntax.`, { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(mergedMalformedErrors.join('\n'))}\n\n${t('telegram.option_syntax_check', {}, { locale: solveLocale })}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Validate merged arguments using solve's yargs config
@@ -871,7 +884,7 @@ async function handleSolveCommand(ctx) {
   try {
     parsedSolveArgs = await parseArgsWithYargs(args, yargs, createSolveYargsConfig);
   } catch (error) {
-    await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, {
+    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdown(error.message || String(error)) }, { locale: solveLocale }), {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
@@ -909,20 +922,20 @@ async function handleSolveCommand(ctx) {
   const existingItem = solveQueue.findByUrl(normalizedUrl);
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
-    await safeReply(ctx, `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve_queue to check the queue status.`, { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, t('telegram.url_status_active', { statusText, url: escapeMarkdown(normalizedUrl), status: existingItem.status }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Issue #1567: Prevent concurrent sessions on the same PR/issue
   const activeSession = await hasActiveSessionForUrlAsync(normalizedUrl, VERBOSE);
   if (activeSession.isActive) {
-    await safeReply(ctx, `❌ A working session is already running for this URL.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nSession: \`${activeSession.sessionName}\`\n\n💡 Wait for the current session to complete, or use /solve\\_stop to cancel it.`, { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
   const check = await solveQueue.canStartCommand({ tool: solveTool }); // Skip Claude limits for agent (#1159)
   const queueStats = solveQueue.getStats();
   // Handle rejection: threshold strategy is 'reject' — fail immediately (issue #1267)
   if (check.rejected) {
-    await safeReply(ctx, `❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${escapeMarkdown(check.rejectReason || 'Unknown')}`, { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, t('telegram.solve_rejected', { infoBlock, reason: escapeMarkdown(check.rejectReason || 'Unknown') }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -970,11 +983,12 @@ async function handleHiveCommand(ctx) {
     },
   });
 
+  const hiveLocale = resolveLocaleFromTelegramCtx(ctx);
   if (!hiveEnabled) {
     if (VERBOSE) {
       console.log('[VERBOSE] /hive ignored: command disabled');
     }
-    await ctx.reply('❌ The /hive command is disabled on this bot instance.');
+    await ctx.reply(t('telegram.hive_disabled', {}, { locale: hiveLocale }));
     return;
   }
 
@@ -998,7 +1012,7 @@ async function handleHiveCommand(ctx) {
     if (VERBOSE) {
       console.log('[VERBOSE] /hive ignored: not a group chat');
     }
-    await ctx.reply('❌ The /hive command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(t('telegram.hive_only_in_groups', {}, { locale: hiveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1041,13 +1055,13 @@ async function handleHiveCommand(ctx) {
 
   const { backend: hivePerCommandIsolation, filteredArgs: normalizedArgsWithoutIsolation } = extractIsolationFromArgs(normalizedArgs); // issue #1534
   if (hivePerCommandIsolation && !isValidPerCommandIsolation(hivePerCommandIsolation)) {
-    await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(hivePerCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, t('telegram.invalid_isolation', { value: escapeMarkdown(hivePerCommandIsolation) }, { locale: hiveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
   const mergedHiveArgs = mergeArgsWithOverrides(normalizedArgsWithoutIsolation, hiveOverrides);
   const { backend: hiveOverrideIsolation, filteredArgs: args } = extractIsolationFromArgs(mergedHiveArgs);
   if (hiveOverrideIsolation && !isValidPerCommandIsolation(hiveOverrideIsolation)) {
-    await safeReply(ctx, `❌ Invalid locked --isolation value '${escapeMarkdown(hiveOverrideIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, t('telegram.invalid_locked_isolation', { value: escapeMarkdown(hiveOverrideIsolation) }, { locale: hiveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
   const effectiveHiveIsolation = hiveOverrideIsolation || hivePerCommandIsolation;

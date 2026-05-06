@@ -60,7 +60,22 @@ export const formatClaudeQuietConfigSummary = () => {
 
 const isPlainObject = value => value && typeof value === 'object' && !Array.isArray(value);
 
-export const ensureClaudeQuietConfig = async ({ settingsPath, log } = {}) => {
+// Map our 2-letter locale to the BCP-47-like language string Claude Code accepts.
+// See https://code.claude.com/docs/en/settings#available-settings for the
+// supported `language` values.
+const LOCALE_TO_CLAUDE_LANGUAGE = Object.freeze({
+  en: 'English',
+  ru: 'Russian',
+  zh: 'Chinese (Simplified)',
+  hi: 'Hindi',
+});
+
+export function resolveClaudeLanguageSetting(locale) {
+  if (!locale) return null;
+  return LOCALE_TO_CLAUDE_LANGUAGE[locale] || null;
+}
+
+export const ensureClaudeQuietConfig = async ({ settingsPath, log, workLanguage = null } = {}) => {
   const resolvedPath = settingsPath || path.join(os.homedir(), '.claude', 'settings.json');
   let settings = {};
   try {
@@ -118,7 +133,18 @@ export const ensureClaudeQuietConfig = async ({ settingsPath, log } = {}) => {
   }
   settings.env = existingEnv;
 
-  const changed = updatedSettingsKeys.length > 0 || updatedEnvKeys.length > 0;
+  // Issue #378: write Claude Code's `language` setting from --work-language.
+  // When workLanguage is null, we deliberately leave any existing value alone
+  // so the user's manual override stays intact between solve invocations.
+  const desiredLanguage = resolveClaudeLanguageSetting(workLanguage);
+  let updatedLanguage = false;
+  if (desiredLanguage && settings.language !== desiredLanguage) {
+    settings.language = desiredLanguage;
+    updatedSettingsKeys.push('language');
+    updatedLanguage = true;
+  }
+
+  const changed = updatedSettingsKeys.length > 0 || updatedEnvKeys.length > 0 || updatedLanguage;
   try {
     if (changed) {
       await fs.mkdir(path.dirname(resolvedPath), { recursive: true });

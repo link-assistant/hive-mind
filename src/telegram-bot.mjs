@@ -416,6 +416,19 @@ function mergeArgsWithOverrides(userArgs, overrides) {
   return [...filteredArgs, ...overrides];
 }
 
+// Inject --language LOCALE into spawn args if no language flag is already present.
+// Issue #378: telegram bot resolves the user's effective locale and propagates
+// it to spawned solve/hive sessions so the AI tool replies in the same language.
+function injectLanguageIfMissing(args, locale) {
+  if (!locale || !args || !Array.isArray(args)) return args;
+  const langFlags = new Set(['--language', '--ui-language', '--work-language']);
+  for (const arg of args) {
+    const flag = arg.startsWith('--') ? arg.split('=')[0] : null;
+    if (flag && langFlags.has(flag)) return args;
+  }
+  return [...args, '--language', locale];
+}
+
 /** Validate GitHub URL for Telegram bot commands. Returns { valid, error?, parsed?, normalizedUrl? } */
 async function getCommandUrlArg(args, createYargsConfig, positionalNames) {
   const parsedUrl = createYargsConfig ? await getFirstParsedPositionalArg(args, yargs, createYargsConfig, positionalNames) : null;
@@ -695,7 +708,7 @@ const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCo
 const { registerSubscribeCommands } = await import('./telegram-subscribers.lib.mjs'); // #1688
 registerSubscribeCommands(bot, sharedCommandOpts);
 const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs');
-const { handleTaskCommand, TASK_COMMAND_NAMES } = registerTaskCommands(bot, { ...sharedCommandOpts, taskEnabled, safeReply, executeAndUpdateMessage });
+const { handleTaskCommand, TASK_COMMAND_NAMES } = registerTaskCommands(bot, { ...sharedCommandOpts, taskEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
 async function handleSolveCommand(ctx) {
@@ -943,11 +956,13 @@ async function handleSolveCommand(ctx) {
   const solveUrlContext = validation.parsed ? { owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, normalized: validation.parsed.normalized || normalizedUrl } : null;
 
   const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
+  // Issue #378: propagate user's effective Telegram locale to the spawned solve session.
+  const argsWithLocale = injectLanguageIfMissing(args, solveLocale);
   if (check.canStart && toolQueuedCount === 0) {
     const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext);
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext);
   } else {
-    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext });
+    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext });
     let queueMessage = `📋 Solve command queued (${solveTool} queue position #${toolQueuedCount + 1})\n\n${infoBlock}`; // tool-specific position (#1551)
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
@@ -1111,7 +1126,9 @@ async function handleHiveCommand(ctx) {
   }
 
   const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
-  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock, effectiveHiveIsolation, hiveTool);
+  // Issue #378: propagate user's effective Telegram locale to the spawned hive session.
+  const hiveArgsWithLocale = injectLanguageIfMissing(args, hiveLocale);
+  await executeAndUpdateMessage(ctx, startingMessage, 'hive', hiveArgsWithLocale, infoBlock, effectiveHiveIsolation, hiveTool);
 }
 
 bot.command(/^hive$/i, handleHiveCommand);

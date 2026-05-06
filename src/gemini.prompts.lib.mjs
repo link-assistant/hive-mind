@@ -6,6 +6,7 @@
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
+import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Gemini
@@ -227,7 +228,7 @@ Visual UI work and screenshots.
    - When you work on visual UI changes, include a render or screenshot of the final result in the pull request description.
    - When you save screenshots to the repository, use permanent links in the PR description such as https://github.com/${screenshotRepoPath}/blob/${branchName}/docs/screenshots/result.png?raw=true.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${buildWorkLanguageDirective()}`;
 };
 
 export default {

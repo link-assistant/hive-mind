@@ -719,7 +719,13 @@ export const executeClaudeCommand = async params => {
       await log(`🔄 Resuming from session: ${argv.resume}`);
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
     }
-    await ensureClaudeQuietConfig({ log });
+    let claudeWorkLanguage = null;
+    try {
+      claudeWorkLanguage = (await import('./i18n.lib.mjs')).getWorkLocale?.() ?? null;
+    } catch {
+      /* ignore */
+    }
+    await ensureClaudeQuietConfig({ log, workLanguage: claudeWorkLanguage });
     const { mcpConfigPath, disallowedToolsList } = await resolveClaudeSessionToolFlags({ argv, log, fallbackBuildMcpConfigWithoutPlaywright: buildMcpConfigWithoutPlaywright });
     if (mcpConfigPath) claudeArgs += ` --strict-mcp-config --mcp-config "${mcpConfigPath}"`;
     if (disallowedToolsList.length) claudeArgs += ` --disallowedTools ${disallowedToolsList.join(' ')}`;

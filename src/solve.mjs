@@ -84,9 +84,15 @@ try {
 }
 global.verboseMode = argv.verbose;
 
-// Initialize i18n based on --language (or detected system locale)
+// Initialize i18n based on --language / --ui-language / --work-language
+// (or detected system locale). --language sets both tracks by default;
+// --ui-language and --work-language can override each track independently.
 const { initI18n } = await import('./i18n.lib.mjs');
-await initI18n(argv.language);
+await initI18n({
+  language: argv.language,
+  uiLanguage: argv.uiLanguage,
+  workLanguage: argv.workLanguage,
+});
 
 setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
 setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file

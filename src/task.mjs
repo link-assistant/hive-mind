@@ -50,9 +50,13 @@ try {
   process.exit(1);
 }
 
-// Initialize i18n based on --language (or detected system locale)
+// Initialize i18n based on --language / --ui-language / --work-language
 const { initI18n } = await import('./i18n.lib.mjs');
-await initI18n(argv.language);
+await initI18n({
+  language: argv.language,
+  uiLanguage: argv.uiLanguage,
+  workLanguage: argv.workLanguage,
+});
 
 const taskInput = argv['task-input'] || argv.taskInput || argv._[0];
 const selectedModel = argv.model || getDefaultTaskModel(argv.tool);

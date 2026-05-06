@@ -973,7 +973,6 @@ No further AI sessions will be started automatically for this run. Please review
             }
           }
 
-
           await log('');
           await log(formatAligned('✅', `${argv.tool.toUpperCase()} execution completed:`, 'Checking if PR is now mergeable...'));
         }

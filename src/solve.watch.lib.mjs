@@ -545,7 +545,6 @@ export const watchForFeedback = async params => {
             }
           }
 
-
           await log('');
           if (isTemporaryWatch) {
             await log(formatAligned('✅', `${argv.tool.toUpperCase()} execution completed:`, 'Checking for remaining changes...'));

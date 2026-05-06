@@ -554,7 +554,17 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   language: {
     type: 'string',
-    description: 'Language for user-facing output (en, ru, zh, hi). Defaults to detected system locale. Affects terminal status/error messages and bot-generated PR/issue comments. Does not affect AI prompts.',
+    description: 'Default language for both --ui-language and --work-language (en, ru, zh, hi). Defaults to detected system locale. Each track can be overridden independently.',
+    choices: ['en', 'ru', 'zh', 'hi'],
+  },
+  'ui-language': {
+    type: 'string',
+    description: 'Language for user-facing output (en, ru, zh, hi). Affects terminal status/error messages and bot-generated PR/issue comments. Defaults to --language.',
+    choices: ['en', 'ru', 'zh', 'hi'],
+  },
+  'work-language': {
+    type: 'string',
+    description: "Working language passed to the AI tool (Claude/Codex/etc). Used as the tool's preferred language for translations and prompts. Defaults to --language.",
     choices: ['en', 'ru', 'zh', 'hi'],
   },
 };

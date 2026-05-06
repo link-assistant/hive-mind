@@ -103,7 +103,17 @@ const createReviewYargsConfig = yargsInstance =>
     })
     .option('language', {
       type: 'string',
-      description: 'Language for user-facing output (en, ru, zh, hi). Defaults to detected system locale.',
+      description: 'Default language for both --ui-language and --work-language (en, ru, zh, hi). Defaults to detected system locale.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
+    .option('ui-language', {
+      type: 'string',
+      description: 'Language for user-facing output (en, ru, zh, hi). Defaults to --language.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
+    .option('work-language', {
+      type: 'string',
+      description: 'Working language passed to the AI tool (en, ru, zh, hi). Defaults to --language.',
       choices: ['en', 'ru', 'zh', 'hi'],
     })
     .check(parsed => {
@@ -133,9 +143,13 @@ const prUrl = argv['pr-url'] || argv.prUrl || argv._[0];
 // Set global verbose mode for log function
 global.verboseMode = argv.verbose;
 
-// Initialize i18n based on --language (or detected system locale)
+// Initialize i18n based on --language / --ui-language / --work-language
 const { initI18n } = await import('./i18n.lib.mjs');
-await initI18n(argv.language);
+await initI18n({
+  language: argv.language,
+  uiLanguage: argv.uiLanguage,
+  workLanguage: argv.workLanguage,
+});
 
 // Create permanent log file immediately with timestamp
 const scriptDir = path.dirname(process.argv[1]);

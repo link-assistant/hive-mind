@@ -82,8 +82,20 @@ async function editTelegramMessage(ctx, message, text) {
   }
 }
 
+// Issue #378: inject --language LOCALE into spawn args if no language flag is
+// already present, so spawned task sessions inherit the user's effective locale.
+function injectLanguageIfMissing(args, locale) {
+  if (!locale || !args || !Array.isArray(args)) return args;
+  const langFlags = new Set(['--language', '--ui-language', '--work-language']);
+  for (const arg of args) {
+    const flag = arg.startsWith('--') ? arg.split('=')[0] : null;
+    if (flag && langFlags.has(flag)) return args;
+  }
+  return [...args, '--language', locale];
+}
+
 export function registerTaskCommands(bot, options) {
-  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue } = options;
+  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, resolveLocale = null } = options;
 
   async function handleTaskCommand(ctx) {
     const commandName = getTaskCommandNameFromText(ctx.message?.text) || 'task';
@@ -179,7 +191,9 @@ export function registerTaskCommands(bot, options) {
 
     const taskUrlContext = { owner: parsedIssue.owner, repo: parsedIssue.repo, number: parsedIssue.number, type: parsedIssue.type, normalized: parsedIssue.normalized || built.issueUrl };
     const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'task', filteredArgs, infoBlock, perCommandIsolation || null, getTaskToolFromArgs(filteredArgs), taskUrlContext);
+    const taskLocale = resolveLocale ? resolveLocale(ctx) : null;
+    const argsForExec = injectLanguageIfMissing(filteredArgs, taskLocale);
+    await executeAndUpdateMessage(ctx, startingMessage, 'task', argsForExec, infoBlock, perCommandIsolation || null, getTaskToolFromArgs(argsForExec), taskUrlContext);
   }
 
   bot.command(

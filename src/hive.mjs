@@ -292,9 +292,8 @@ if (isRunningDirectly) {
     // Set global verbose mode
     global.verboseMode = argv.verbose;
 
-    // Initialize i18n based on --language (or detected system locale)
     const { initI18n } = await import('./i18n.lib.mjs');
-    await initI18n(argv.language);
+    await initI18n({ language: argv.language, uiLanguage: argv.uiLanguage, workLanguage: argv.workLanguage });
 
     setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
     setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file

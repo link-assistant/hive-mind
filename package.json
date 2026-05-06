@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "1.65.2",
+  "version": "1.66.0",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -76,6 +76,7 @@
     "dayjs": "^1.11.19",
     "decimal.js-light": "^2.5.1",
     "lino-arguments": "^0.3.0",
+    "lino-objects-codec": "^0.3.6",
     "secretlint": "^11.2.5",
     "semver": "^7.7.3"
   },

@@ -173,6 +173,53 @@ This `README.md` plus `data/` (raw issue JSON, screenshot) and `external/`
    - `test-issue-1758-start-screen-deprecation.mjs` — banner present /
      suppressible.
 
+## 7.1. Orphan tests parked under `needs-triage`
+
+Switching from a hard-coded list to folder-based discovery surfaced **16 test
+files that were never in `LEGACY_DEFAULT_TESTS` and that fail when run today**.
+None is a regression introduced by this PR — they are pre-existing silent
+breakages. To preserve the previous user-facing behaviour ("`npm test` is
+green") while keeping them discoverable, every one is marked
+`@hive-mind-test-suite needs-triage`. Run them explicitly with:
+
+```sh
+node scripts/run-tests.mjs --suite needs-triage
+```
+
+Files parked:
+
+- `tests/playwright-mcp-prompts.test.mjs`
+- `tests/test-activity-timeout-1510.mjs`
+- `tests/test-agent-budget-stats-1526.mjs`
+- `tests/test-auto-init-repository.mjs`
+- `tests/test-claude-revert-conflict.mjs`
+- `tests/test-internal-server-error-retry.mjs`
+- `tests/test-issue-1572-push-sync.mjs`
+- `tests/test-issue-1600-comprehensive.mjs`
+- `tests/test-issue-1600-log-fixtures.mjs`
+- `tests/test-issue-1706-sub-session-size.mjs`
+- `tests/test-merge-changesets-1452.mjs`
+- `tests/test-opusplan-support.mjs`
+- `tests/test-prompt-explore-sub-agent.mjs`
+- `tests/test-request-timeout-retry.mjs`
+- `tests/test-solution-summary.mjs`
+- `tests/test-telegram-solve-queue.mjs`
+
+Failure clusters observed (from a `--continue-on-failure` run):
+
+- **External network / API**: real Telegram, GitHub gist, or HTTP requests
+  time out or 401 in CI. These should adopt `skipUnlessIntegration()`.
+- **Sandbox/git assumptions**: tests that `chdir` into temp git repos and rely
+  on `/bin/sh` or specific git config. They need a portable shell spawn helper.
+- **Stale imports / dead code**: e.g. `test-solution-summary.mjs` imports
+  `checkForAiCreatedComments` which no longer exists.
+- **Token-consuming / dry-run mode missing**: they invoke the real agent path.
+  They should be migrated to use `--dry-run` or `skipUnlessIntegration()`.
+
+A follow-up issue should triage each cluster and either fix or remove the
+test. The point of this PR is to **expose** them — fixing 16 unrelated bugs
+inside the same PR would defeat the bisect-friendly history we want to keep.
+
 ## 8. Upstream / external follow-ups
 
 - `link-foundation/test-anywhere` — no change needed; we keep our files

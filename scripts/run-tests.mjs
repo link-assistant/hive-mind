@@ -95,6 +95,13 @@ Markers (declared inside the test file):
                                  \`HIVE_MIND_RUN_INTEGRATION=1\`.
   @hive-mind-test-skip            Helper / fixture module — never run as a test.
 
+Suites used today:
+  default          Token-free / dry-run-safe tests run in CI and locally.
+  github-integration  GitHub-API-touching tests run in their own CI step.
+  integration      Hand-rolled @hive-mind-integration files; opt-in only.
+  needs-triage     Pre-existing orphan tests parked while their failures are
+                   investigated under the issue #1758 follow-up.
+
 Notes:
   Files in tests/ matching *.mjs, *.test.mjs, *.test.js are discovered
   automatically; no allow-list is maintained.`);

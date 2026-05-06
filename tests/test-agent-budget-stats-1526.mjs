@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// @hive-mind-test-suite needs-triage
+// Pre-existing orphan test that was not in the legacy default suite and fails
+// when discovered automatically. Tracked under issue #1758 follow-up; opt in
+// via `node scripts/run-tests.mjs --suite needs-triage`.
 /**
  * Tests for Issue #1526: Agent CLI budget stats and improved usage format
  *

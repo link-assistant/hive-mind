@@ -37,7 +37,7 @@ const enUserPrompt = buildUserPrompt({
   isContinueMode: false,
   owner: 'test',
   repo: 'repo',
-  argv: { language: 'en' }
+  argv: { language: 'en' },
 });
 console.log('--- English User Prompt ---');
 console.log(enUserPrompt);
@@ -52,7 +52,7 @@ const ruUserPrompt = buildUserPrompt({
   isContinueMode: false,
   owner: 'test',
   repo: 'repo',
-  argv: { language: 'ru' }
+  argv: { language: 'ru' },
 });
 console.log('--- Russian User Prompt ---');
 console.log(ruUserPrompt);
@@ -65,7 +65,7 @@ const enSystemPrompt = buildSystemPrompt({
   issueNumber: '1',
   prNumber: '2',
   branchName: 'test-branch',
-  argv: { language: 'en' }
+  argv: { language: 'en' },
 });
 console.log('--- English System Prompt (truncated) ---');
 console.log(enSystemPrompt.substring(0, 500) + '...');
@@ -78,7 +78,7 @@ const ruSystemPrompt = buildSystemPrompt({
   issueNumber: '1',
   prNumber: '2',
   branchName: 'test-branch',
-  argv: { language: 'ru' }
+  argv: { language: 'ru' },
 });
 console.log('--- Russian System Prompt (truncated) ---');
 console.log(ruSystemPrompt.substring(0, 500) + '...');
@@ -93,7 +93,7 @@ const enThinkPrompt = buildUserPrompt({
   isContinueMode: false,
   owner: 'test',
   repo: 'repo',
-  argv: { language: 'en', think: 'max' }
+  argv: { language: 'en', think: 'max' },
 });
 console.log('English with think=max:', enThinkPrompt.split('\n').pop());
 
@@ -105,7 +105,7 @@ const ruThinkPrompt = buildUserPrompt({
   isContinueMode: false,
   owner: 'test',
   repo: 'repo',
-  argv: { language: 'ru', think: 'max' }
+  argv: { language: 'ru', think: 'max' },
 });
 console.log('Russian with think=max:', ruThinkPrompt.split('\n').pop(), '\n');
 

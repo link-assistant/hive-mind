@@ -47,8 +47,11 @@ const toolComments = await import('./tool-comments.lib.mjs');
 const { AUTO_RESTART_MARKER, postTrackedComment } = toolComments;
 
 // Issue #1728: Per-iteration working session summary attachment helper
+// Issue #1763: Per-iteration PR ↔ issue link verification (in case the AI
+// agent overwrites the PR body without a closing keyword and the iteration
+// ends up being the last one).
 const resultsLib = await import('./solve.results.lib.mjs');
-const { maybeAttachWorkingSessionSummary } = resultsLib;
+const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = resultsLib;
 
 /**
  * Monitor for feedback in a loop and trigger restart when detected
@@ -511,6 +514,34 @@ export const watchForFeedback = async params => {
                 operation: 'upload_session_log',
               });
               await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
+            }
+          }
+
+          // Issue #1763: Re-verify the PR body contains a closing keyword for
+          // the issue after every iteration. The AI agent can rewrite the PR
+          // description mid-session and any iteration may turn out to be the
+          // last one (interrupt, hit iteration cap, billing limit, etc.), so
+          // we cannot rely on a single end-of-run check.
+          if (prNumber && issueNumber && owner && repo) {
+            try {
+              await log(formatAligned('🔗', 'Verifying PR issue link after iteration...', '', 2));
+              await ensurePullRequestIssueLink({
+                prNumber,
+                issueNumber,
+                owner,
+                repo,
+                argv,
+              });
+            } catch (issueLinkError) {
+              reportError(issueLinkError, {
+                context: 'ensure_pr_issue_link_watch_iteration',
+                prNumber,
+                owner,
+                repo,
+                autoRestartCount,
+                operation: 'ensure_pr_issue_link',
+              });
+              await log(formatAligned('', `⚠️  PR issue link check error: ${cleanErrorMessage(issueLinkError)}`, '', 2));
             }
           }
 

@@ -60,8 +60,10 @@ const toolComments = await import('./tool-comments.lib.mjs');
 const { READY_TO_MERGE_MARKER, AUTO_RESTART_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
 
 // Issue #1728: Per-iteration working session summary attachment helper
+// Issue #1763: Per-iteration PR ↔ issue link verification (so a clobbered
+// PR body is restored before the next stop condition fires).
 const resultsLib = await import('./solve.results.lib.mjs');
-const { maybeAttachWorkingSessionSummary } = resultsLib;
+const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = resultsLib;
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
@@ -939,6 +941,35 @@ No further AI sessions will be started automatically for this run. Please review
                 operation: 'upload_session_log',
               });
               await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
+            }
+          }
+
+          // Issue #1763: Re-verify the PR body contains a closing keyword for
+          // the issue after every auto-restart-until-mergeable iteration. The
+          // AI agent can rewrite the PR description mid-session and any
+          // iteration may end up being the last one (mergeable, max-iters,
+          // billing limit, etc.), so this check cannot be deferred to the
+          // top-level verifyResults path.
+          if (prNumber && issueNumber && owner && repo) {
+            try {
+              await log(formatAligned('🔗', 'Verifying PR issue link after iteration...', '', 2));
+              await ensurePullRequestIssueLink({
+                prNumber,
+                issueNumber,
+                owner,
+                repo,
+                argv,
+              });
+            } catch (issueLinkError) {
+              reportError(issueLinkError, {
+                context: 'ensure_pr_issue_link_auto_restart_iteration',
+                prNumber,
+                owner,
+                repo,
+                iteration,
+                operation: 'ensure_pr_issue_link',
+              });
+              await log(formatAligned('', `⚠️  PR issue link check error: ${cleanErrorMessage(issueLinkError)}`, '', 2));
             }
           }
 

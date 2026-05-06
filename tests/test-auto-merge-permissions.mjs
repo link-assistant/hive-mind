@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite needs-triage
+// Pre-existing orphan test that was not in the legacy default suite and fails
+// in CI because it expects a particular GitHub API permission response. Tracked
+// under issue #1758 follow-up; opt in via
+// `node scripts/run-tests.mjs --suite needs-triage`.
 /**
  * Auto-merge permissions and fork-mode guard tests
  *

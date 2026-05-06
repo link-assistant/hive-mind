@@ -175,7 +175,7 @@ This `README.md` plus `data/` (raw issue JSON, screenshot) and `external/`
 
 ## 7.1. Orphan tests parked under `needs-triage`
 
-Switching from a hard-coded list to folder-based discovery surfaced **18 test
+Switching from a hard-coded list to folder-based discovery surfaced **19 test
 files that were never in `LEGACY_DEFAULT_TESTS` and that fail when run today**.
 None is a regression introduced by this PR — they are pre-existing silent
 breakages. To preserve the previous user-facing behaviour ("`npm test` is
@@ -202,6 +202,7 @@ Files parked:
 - `tests/test-issue-1706-sub-session-size.mjs`
 - `tests/test-merge-changesets-1452.mjs`
 - `tests/test-opusplan-support.mjs`
+- `tests/test-pr-creation-existing-branch.mjs`
 - `tests/test-prompt-explore-sub-agent.mjs`
 - `tests/test-request-timeout-retry.mjs`
 - `tests/test-solution-summary.mjs`
@@ -219,7 +220,7 @@ Failure clusters observed (from a `--continue-on-failure` run):
   They should be migrated to use `--dry-run` or `skipUnlessIntegration()`.
 
 A follow-up issue should triage each cluster and either fix or remove the
-test. The point of this PR is to **expose** them — fixing 18 unrelated bugs
+test. The point of this PR is to **expose** them — fixing 19 unrelated bugs
 inside the same PR would defeat the bisect-friendly history we want to keep.
 
 ## 8. Upstream / external follow-ups

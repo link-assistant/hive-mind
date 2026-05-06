@@ -40,10 +40,10 @@ echo ""
 
 # Run the container with proper volume mounts and argument passing
 docker run --rm -it \
-    -v ~/.config/gh:/workspace/.persisted-configs/gh:ro \
-    -v ~/.local/share/claude-profiles:/workspace/.persisted-configs/claude:ro \
-    -v ~/.config/claude-code:/workspace/.persisted-configs/claude-code:ro \
-    -v "$(pwd)/output:/workspace/output" \
+    -v ~/.config/gh:/home/box/.persisted-configs/gh:ro \
+    -v ~/.local/share/claude-profiles:/home/box/.persisted-configs/claude:ro \
+    -v ~/.config/claude-code:/home/box/.persisted-configs/claude-code:ro \
+    -v "$(pwd)/output:/home/box/output" \
     -e GITHUB_TOKEN="${GITHUB_TOKEN:-}" \
     -e CLAUDE_API_KEY="${CLAUDE_API_KEY:-}" \
     hive-mind-solver \

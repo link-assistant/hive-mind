@@ -1,0 +1,56 @@
+/tmp/js-template-1698/.github/workflows/release.yml:11:  # must go through this workflow (release.yml)
+/tmp/js-template-1698/.github/workflows/release.yml:84:  # Enforce 1500-line limit on .mjs files and release.yml
+/tmp/js-template-1698/.github/workflows/release.yml:265:        run: npm test
+/tmp/js-template-1698/.github/workflows/release.yml:279:        run: bun test
+/tmp/js-template-1698/.github/workflows/release.yml:289:        run: deno test --allow-read
+/tmp/js-template-1698/.github/workflows/release.yml:434:  # This job is in release.yml because npm trusted publishing
+/tmp/js-template-1698/package.json:15:    "test": "node --test tests/*.test.js",
+/tmp/js-template-1698/package.json:52:    "test-anywhere": "^0.8.48"
+/tmp/js-template-1698/README.md:8:- **Universal testing**: Uses [test-anywhere](https://github.com/link-foundation/test-anywhere) for cross-runtime tests
+/tmp/js-template-1698/README.md:37:bun test
+/tmp/js-template-1698/README.md:40:npm test
+/tmp/js-template-1698/README.md:41:deno test --allow-read
+/tmp/js-template-1698/README.md:79:- **Bun**: Primary runtime with highest performance, uses native test support (`bun test`)
+/tmp/js-template-1698/README.md:80:- **Node.js**: Alternative runtime, uses built-in test runner (`node --test`)
+/tmp/js-template-1698/README.md:81:- **Deno**: Secure runtime with built-in TypeScript support (`deno test`)
+/tmp/js-template-1698/README.md:83:The [test-anywhere](https://github.com/link-foundation/test-anywhere) framework provides a unified testing API that works identically across all runtimes.
+/tmp/js-template-1698/README.md:123:The GitHub Actions workflow (`.github/workflows/release.yml`) implements a fast-fail pipeline:
+/tmp/js-template-1698/README.md:129:3. **File line limits**: Enforces 1500-line limit on `.mjs` files and `release.yml`
+/tmp/js-template-1698/README.md:208:| `bun test`             | Run tests with Bun                      |
+/tmp/test-anywhere-1698/README.md:1:# test-anywhere
+/tmp/test-anywhere-1698/README.md:3:[![npm version](https://img.shields.io/npm/v/test-anywhere.svg)](https://www.npmjs.com/package/test-anywhere)
+/tmp/test-anywhere-1698/README.md:4:[![npm downloads](https://img.shields.io/npm/dm/test-anywhere.svg)](https://www.npmjs.com/package/test-anywhere)
+/tmp/test-anywhere-1698/README.md:5:[![CI/CD](https://github.com/link-foundation/test-anywhere/actions/workflows/release.yml/badge.svg)](https://github.com/link-foundation/test-anywhere/actions/workflows/release.yml)
+/tmp/test-anywhere-1698/README.md:6:[![License](https://img.shields.io/npm/l/test-anywhere.svg)](https://github.com/link-foundation/test-anywhere/blob/main/LICENSE)
+/tmp/test-anywhere-1698/README.md:23:npm install test-anywhere
+/tmp/test-anywhere-1698/README.md:29:bun add test-anywhere
+/tmp/test-anywhere-1698/README.md:37:import { test, assert } from 'npm:test-anywhere';
+/tmp/test-anywhere-1698/README.md:43:import { test, assert } from './node_modules/test-anywhere/index.js';
+/tmp/test-anywhere-1698/README.md:53:import { test, it, assert } from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:71:import { describe, it, assert } from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:97:node --test
+/tmp/test-anywhere-1698/README.md:99:npm test
+/tmp/test-anywhere-1698/README.md:107:import { test, assert } from 'npm:test-anywhere';
+/tmp/test-anywhere-1698/README.md:121:deno test --allow-read
+/tmp/test-anywhere-1698/README.md:131:import { test, assert } from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:146:bun test
+/tmp/test-anywhere-1698/README.md:255:import { test, setDefaultTimeout } from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:320:`test-anywhere` supports three assertion styles to provide maximum compatibility and ease of migration:
+/tmp/test-anywhere-1698/README.md:327:import { assert } from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:345:import { expect } from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:362:import { describe, it, expect } from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:396:} from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:421:} from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:443:import { describe, it, assert, expect, assertEquals } from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:470:import { beforeAll, describe, it } from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:522:import { getRuntime } from 'test-anywhere';
+/tmp/test-anywhere-1698/README.md:537:`test-anywhere` automatically detects the JavaScript runtime (Bun, Deno, or Node.js) and delegates to the appropriate native testing framework:
+/tmp/test-anywhere-1698/README.md:594:node --test --experimental-test-coverage \
+/tmp/test-anywhere-1698/README.md:625:Run with: `bun test --coverage`
+/tmp/test-anywhere-1698/README.md:654:    `node --test --experimental-test-coverage --test-coverage-lines=${THRESHOLD} --test-coverage-branches=${THRESHOLD} --test-coverage-functions=${THRESHOLD} tests/`,
+/tmp/test-anywhere-1698/README.md:671:node --test --experimental-test-coverage \
+/tmp/test-anywhere-1698/README.md:679:bun test --coverage --coverage-reporter=lcov
+/tmp/test-anywhere-1698/README.md:686:deno test --coverage=coverage --allow-read
+/tmp/test-anywhere-1698/README.md:695:bun test --coverage
+/tmp/test-anywhere-1698/README.md:714:deno test --coverage=cov_profile --allow-read
+/tmp/test-anywhere-1698/README.md:731:node --test --experimental-test-coverage tests/

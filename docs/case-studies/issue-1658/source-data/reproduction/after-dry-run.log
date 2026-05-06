@@ -1,0 +1,39 @@
+Validating solve overrides...
+✅ Solve overrides validated successfully
+Validating hive overrides...
+✅ Hive overrides validated successfully
+
+✅ Dry-run mode: All validations passed successfully!
+
+Configuration summary:
+  Token: test-token...
+  Allowed chats: (
+  -1002975819706
+  -1002861722681
+)
+  Commands enabled: { solve: true, hive: true }
+  Solve overrides: (
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-accept-invite
+  --tokens-budget-stats
+  --auto-attach-solution-summary
+  --isolation
+  screen
+)
+  Hive overrides: (
+  --all-issues
+  --once
+  --skip-issues-with-prs
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-accept-invite
+  --tokens-budget-stats
+  --auto-attach-solution-summary
+  --isolation
+  screen
+)
+
+🎉 Bot configuration is valid. Exiting without starting the bot.

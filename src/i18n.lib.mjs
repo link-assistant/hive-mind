@@ -1,243 +1,174 @@
-/**
- * Internationalization (i18n) module
- * Provides multi-language support for hive-mind tools
- */
+// i18n module for hive-mind.
+// - Translation files live in src/locales/<locale>.lino and are stored
+//   in Links Notation, parsed via lino-objects-codec.
+// - Supported locales: en (default fallback), ru, zh, hi.
+// - Public API: initI18n, t, getCurrentLocale, setLocale, getSupportedLocales,
+//   normalizeLocale, getUserLocale, setUserLocale, clearUserLocale,
+//   resolveLocaleFromTelegramCtx.
 
-// Translations
-const translations = {
-  en: {
-    // System prompts
-    systemPrompt: {
-      youAre: 'You are AI issue solver.',
-      thinkLow: 'You always think on every step.',
-      thinkMedium: 'You always think hard on every step.',
-      thinkHigh: 'You always think harder on every step.',
-      thinkMax: 'You always ultrathink on every step.',
+import { promises as fs } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { parseIndented } from 'lino-objects-codec';
 
-      generalGuidelines: 'General guidelines.',
-      initialResearch: 'Initial research.',
-      solutionDevelopment: 'Solution development and testing.',
-      preparingPullRequest: 'Preparing pull request.',
-      workflowAndCollaboration: 'Workflow and collaboration.',
-      selfReview: 'Self review.',
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-      // Guidelines
-      executeCommandsSaveLogs: 'When you execute commands, always save their logs to files for easy reading if the output gets large.',
-      runCommandsNoTimeout: 'When running commands, do not set a timeout yourself — let them run as long as needed (default timeout - 2 minutes is more than enough, if you can set 4 minutes), and once they finish, review the logs in the file.',
-      runSudoBackground: 'When running sudo commands (especially package installations like apt-get, yum, npm install, etc.), always run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.',
-      ciFailingDownloadLogs: 'When CI is failing, make sure you download the logs locally and carefully investigate them.',
-      largeFileReadChunks: 'When a code or log file has more than 2500 lines, read it in chunks of 2500 lines.',
-      complexProblemTracing: 'When facing a complex problem, do as much tracing as possible and turn on all verbose modes.',
-      createDebugScripts: 'When you create debug, test, or example/experiment scripts for fixing, always keep them in an examples or/and experiments folders so you can reuse them later.',
-      testAssumptions: 'When testing your assumptions, use the experiment scripts, and add it to experiments folder.',
-      experimentsRealWorld: 'When your experiments can show real world use case of the software, add it to examples folder.',
-      hardDivideConquer: 'When you face something extremely hard, use divide and conquer — it always helps.',
+const DEFAULT_LOCALE = 'en';
+const SUPPORTED_LOCALES = ['en', 'ru', 'zh', 'hi'];
 
-      // Initial research
-      readIssueDetails: 'When you read issue, read all details and comments thoroughly.',
-      screenshotsImages: 'When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it.',
-      needIssueDetails: (owner, repo, issueNumber) => `When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.`,
-      needRelatedCode: (owner) => `When you need related code, use gh search code --owner ${owner} [keywords].`,
-      needRepoContext: 'When you need repo context, read files in your working directory.',
-      studyRelatedWork: 'When you study related work, study related previous latest pull requests.',
-      issueNotDefined: 'When issue is not defined enough, write a comment to ask clarifying questions.',
-      gistsAuthentication: 'When accessing GitHub Gists (especially private ones), use gh gist view command instead of direct URL fetching to ensure proper authentication.',
-      fixingBugRootCause: 'When you are fixing a bug, please make sure you first find the actual root cause, do as much experiments as needed.',
-      bugTracingLogs: 'When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.',
-      latestCommentsPR: 'When you need latest comments on pull request (sorted newest first), use appropriate GitHub API commands.',
-      latestCommentsIssue: 'When you need latest comments on issue (sorted newest first), use appropriate GitHub API commands.',
+const localeCache = new Map(); // locale -> { key: string }
+const userLocales = new Map(); // userId/chatId -> locale (in-memory)
 
-      // Solution development
-      issueSolvable: 'When issue is solvable, implement code with tests.',
-      testStartSmall: 'When you test, start from small functions.',
-      testUnitTests: 'When you test, write unit tests with mocks.',
-      testIntegrations: 'When you test integrations, use existing framework.',
-      testSolutionDraft: 'When you test solution draft, include automated checks in pr.',
-      issueUnclear: 'When issue is unclear, write comment on issue asking questions.',
-      problemsNeedHelp: 'When you encounter any problems that you unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.',
-      needHumanHelp: (prNumber) => `When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.`,
+let currentLocale = DEFAULT_LOCALE;
+let fallbackLoaded = false;
 
-      // Preparing PR
-      finalizePR: 'When you finalize the pull request, follow style from merged prs for code, title, and description, and double-check the logic of all conditions and statements.',
-      followContributing: 'When you code, follow contributing guidelines.',
-      commitClearMessage: 'When you commit, write clear message.',
-      examplesStyle: (owner, repo) => `When you need examples of style, use gh pr list --repo ${owner}/${repo} --state merged --search [keywords].`,
-      openPRDescribe: 'When you open pr, describe solution draft and include tests.',
-      packageVersion: 'When there is a package with version and GitHub Actions workflows for automatic release, update the version (or other necessary release trigger) in your pull request to prepare for next release.',
-      updateExistingPR: (prNumber) => `When you update existing pr ${prNumber}, use gh pr edit to modify title and description.`,
-      finishImplementation: (prNumber) => `When you finish implementation, use gh pr ready ${prNumber}.`,
+export function getSupportedLocales() {
+  return [...SUPPORTED_LOCALES];
+}
 
-      // Workflow
-      checkBranch: 'When you check branch, verify with git branch --show-current.',
-      pushToBranch: (branchName) => `When you push, push only to branch ${branchName}.`,
-      createPR: (branchName, prNumber) => `When you finish, create a pull request from branch ${branchName}. (Note: PR ${prNumber} already exists, update it instead)`,
-      usePullRequests: 'When you organize workflow, use pull requests instead of direct merges to default branch (main or master).',
-      preserveHistory: 'When you manage commits, preserve commit history for later analysis.',
-      forwardMoving: 'When you contribute, keep repository history forward-moving with regular commits, pushes, and reverts if needed.',
-      faceConflict: 'When you face conflict, ask for help.',
-      respectBranch: (branchName) => `When you collaborate, respect branch protections by working only on ${branchName}.`,
-      mentionResult: 'When you mention result, include pull request url or comment url.',
-      prAlreadyExists: (prNumber) => `When you need to create pr, remember pr ${prNumber} already exists for this branch.`,
+export function normalizeLocale(input) {
+  if (!input || typeof input !== 'string') return null;
+  const lower = input.toLowerCase();
+  // Take only the language part (before "_" or "-")
+  const lang = lower.split(/[_\-.]/)[0];
+  if (SUPPORTED_LOCALES.includes(lang)) return lang;
+  return null;
+}
 
-      // Self review
-      checkSolution: 'When you check your solution draft, run all tests locally.',
-      compareStyle: 'When you compare with repo style, use gh pr diff [number].',
-      finalizeConfirm: 'When you finalize, confirm code, tests, and description are consistent.'
-    },
+export function detectLocale() {
+  const envLocale = process.env.LANG || process.env.LANGUAGE || process.env.LC_ALL || process.env.LC_MESSAGES || '';
+  return normalizeLocale(envLocale) || DEFAULT_LOCALE;
+}
 
-    // User prompts
-    userPrompt: {
-      issueToSolve: 'Issue to solve',
-      issueLinkedToPR: (prNumber) => `Issue linked to PR #${prNumber}`,
-      preparedBranch: 'Your prepared branch',
-      preparedWorkingDir: 'Your prepared working directory',
-      preparedPR: 'Your prepared Pull Request',
-      forkedRepository: 'Your forked repository',
-      originalRepository: 'Original repository (upstream)',
-      githubActionsOnFork: 'GitHub Actions on your fork',
+async function readLocaleFile(locale) {
+  const localesDir = path.join(__dirname, 'locales');
+  const linoFile = path.join(localesDir, `${locale}.lino`);
+  const data = await fs.readFile(linoFile, 'utf-8');
+  return parseIndentedToFlatMap(data);
+}
 
-      // Commands
-      think: 'Think.',
-      thinkHard: 'Think hard.',
-      thinkHarder: 'Think harder.',
-      ultrathink: 'Ultrathink.',
-      proceed: 'Proceed.',
-      continue: 'Continue.'
+// parseIndented returns { id, obj } where obj is the key->value map.
+// Some keys contain dots (e.g., error.invalid_github_url). The parser
+// supports them when the key is a plain reference (no spaces/quotes).
+function unescapeString(s) {
+  // Convert literal escape sequences (e.g., "\n" inside a quoted string in
+  // Links Notation) into the corresponding JS characters. This keeps the
+  // .lino files single-line and human-friendly.
+  return s.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\r/g, '\r').replace(/\\\\/g, '\\');
+}
+
+function parseIndentedToFlatMap(text) {
+  const parsed = parseIndented({ text });
+  // parsed: { id: <localeName>, obj: { key: value, ... } }
+  if (!parsed || !parsed.obj) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(parsed.obj)) {
+    out[k] = typeof v === 'string' ? unescapeString(v) : String(v);
+  }
+  return out;
+}
+
+export async function loadTranslations(locale) {
+  if (localeCache.has(locale)) return localeCache.get(locale);
+
+  let translations = {};
+  try {
+    translations = await readLocaleFile(locale);
+  } catch {
+    translations = {};
+  }
+  localeCache.set(locale, translations);
+
+  // Always have the fallback (English) ready
+  if (!fallbackLoaded && locale !== DEFAULT_LOCALE) {
+    try {
+      const fb = await readLocaleFile(DEFAULT_LOCALE);
+      localeCache.set(DEFAULT_LOCALE, fb);
+    } catch {
+      localeCache.set(DEFAULT_LOCALE, {});
     }
-  },
+    fallbackLoaded = true;
+  } else if (locale === DEFAULT_LOCALE) {
+    fallbackLoaded = true;
+  }
 
-  ru: {
-    // System prompts (Russian)
-    systemPrompt: {
-      youAre: 'Вы - ИИ решатель задач.',
-      thinkLow: 'Вы всегда думаете на каждом шаге.',
-      thinkMedium: 'Вы всегда усиленно думаете на каждом шаге.',
-      thinkHigh: 'Вы всегда очень усиленно думаете на каждом шаге.',
-      thinkMax: 'Вы всегда сверхусиленно думаете на каждом шаге.',
+  return translations;
+}
 
-      generalGuidelines: 'Общие рекомендации.',
-      initialResearch: 'Начальное исследование.',
-      solutionDevelopment: 'Разработка и тестирование решения.',
-      preparingPullRequest: 'Подготовка pull request.',
-      workflowAndCollaboration: 'Рабочий процесс и совместная работа.',
-      selfReview: 'Самопроверка.',
+export async function initI18n(localeInput = null) {
+  const requested = localeInput ? normalizeLocale(localeInput) : null;
+  const detectedLocale = requested || detectLocale();
+  currentLocale = detectedLocale;
+  await loadTranslations(detectedLocale);
+  if (detectedLocale !== DEFAULT_LOCALE) {
+    await loadTranslations(DEFAULT_LOCALE);
+  }
+  return detectedLocale;
+}
 
-      // Guidelines
-      executeCommandsSaveLogs: 'Когда вы выполняете команды, всегда сохраняйте их логи в файлы для удобного чтения, если вывод большой.',
-      runCommandsNoTimeout: 'При выполнении команд не устанавливайте таймаут самостоятельно — пусть они работают столько, сколько нужно (по умолчанию таймаут - 2 минуты, этого более чем достаточно, если можете установить 4 минуты), и после завершения проверьте логи в файле.',
-      runSudoBackground: 'При выполнении sudo команд (особенно установка пакетов как apt-get, yum, npm install и т.д.), всегда запускайте их в фоновом режиме, чтобы избежать проблем с таймаутом и ошибок прав доступа, когда процесс нужно завершить. Используйте параметр run_in_background или добавьте & к команде.',
-      ciFailingDownloadLogs: 'Когда CI падает, обязательно скачайте логи локально и тщательно их изучите.',
-      largeFileReadChunks: 'Когда файл кода или логов содержит более 2500 строк, читайте его частями по 2500 строк.',
-      complexProblemTracing: 'Когда сталкиваетесь со сложной проблемой, делайте максимально подробную трассировку и включайте все режимы verbose.',
-      createDebugScripts: 'Когда создаете отладочные, тестовые или примеры/экспериментальные скрипты для исправления, всегда храните их в папках examples или/и experiments, чтобы можно было использовать их позже.',
-      testAssumptions: 'Когда тестируете свои предположения, используйте экспериментальные скрипты и добавляйте их в папку experiments.',
-      experimentsRealWorld: 'Когда ваши эксперименты могут показать реальный случай использования программного обеспечения, добавьте их в папку examples.',
-      hardDivideConquer: 'Когда сталкиваетесь с чем-то чрезвычайно сложным, используйте подход "разделяй и властвуй" — это всегда помогает.',
+function applyParams(text, params) {
+  if (!params) return text;
+  let out = text;
+  for (const [k, v] of Object.entries(params)) {
+    out = out.replace(new RegExp(`{{${k}}}`, 'g'), String(v));
+  }
+  return out;
+}
 
-      // Initial research
-      readIssueDetails: 'Когда читаете задачу, читайте все детали и комментарии тщательно.',
-      screenshotsImages: 'Когда видите скриншоты или изображения в описаниях задач, описаниях pull request, комментариях или обсуждениях, используйте инструмент WebFetch (или fetch), чтобы сначала скачать изображение, затем используйте инструмент Read для просмотра и анализа.',
-      needIssueDetails: (owner, repo, issueNumber) => `Когда нужны детали задачи, используйте gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.`,
-      needRelatedCode: (owner) => `Когда нужен связанный код, используйте gh search code --owner ${owner} [ключевые слова].`,
-      needRepoContext: 'Когда нужен контекст репозитория, читайте файлы в вашей рабочей директории.',
-      studyRelatedWork: 'Когда изучаете связанную работу, изучайте связанные предыдущие последние pull requests.',
-      issueNotDefined: 'Когда задача недостаточно определена, напишите комментарий с уточняющими вопросами.',
-      gistsAuthentication: 'При доступе к GitHub Gists (особенно приватным), используйте команду gh gist view вместо прямой загрузки по URL для обеспечения правильной аутентификации.',
-      fixingBugRootCause: 'Когда исправляете баг, пожалуйста, убедитесь, что сначала нашли настоящую первопричину, делайте столько экспериментов, сколько нужно.',
-      bugTracingLogs: 'Когда исправляете баг и в коде недостаточно трассировки/логов, добавьте их и убедитесь, что они остаются в коде, но по умолчанию выключены.',
-      latestCommentsPR: 'Когда нужны последние комментарии к pull request (отсортированные от новых к старым), используйте соответствующие команды GitHub API.',
-      latestCommentsIssue: 'Когда нужны последние комментарии к задаче (отсортированные от новых к старым), используйте соответствующие команды GitHub API.',
+export function t(key, params = {}, options = {}) {
+  const locale = options.locale ? normalizeLocale(options.locale) || currentLocale : currentLocale;
+  const main = localeCache.get(locale) || {};
+  const fallback = localeCache.get(DEFAULT_LOCALE) || {};
+  const value = main[key] ?? fallback[key] ?? key;
+  return applyParams(value, params);
+}
 
-      // Solution development
-      issueSolvable: 'Когда задача решаема, реализуйте код с тестами.',
-      testStartSmall: 'Когда тестируете, начинайте с маленьких функций.',
-      testUnitTests: 'Когда тестируете, пишите юнит-тесты с моками.',
-      testIntegrations: 'Когда тестируете интеграции, используйте существующий фреймворк.',
-      testSolutionDraft: 'Когда тестируете черновик решения, включите автоматические проверки в pr.',
-      issueUnclear: 'Когда задача неясна, напишите комментарий к задаче с вопросами.',
-      problemsNeedHelp: 'Когда сталкиваетесь с проблемами, которые не можете решить самостоятельно (нужна обратная связь или помощь человека), напишите комментарий к pull request с просьбой о помощи.',
-      needHumanHelp: (prNumber) => `Когда нужна помощь человека, используйте gh pr comment ${prNumber} --body "ваше сообщение" для комментария к существующему PR.`,
+export function getCurrentLocale() {
+  return currentLocale;
+}
 
-      // Preparing PR
-      finalizePR: 'Когда завершаете pull request, следуйте стилю из объединенных pr для кода, заголовка и описания, и дважды проверьте логику всех условий и операторов.',
-      followContributing: 'Когда пишете код, следуйте руководству по внесению вклада.',
-      commitClearMessage: 'Когда делаете коммит, пишите четкое сообщение.',
-      examplesStyle: (owner, repo) => `Когда нужны примеры стиля, используйте gh pr list --repo ${owner}/${repo} --state merged --search [ключевые слова].`,
-      openPRDescribe: 'Когда открываете pr, опишите черновик решения и включите тесты.',
-      packageVersion: 'Когда есть пакет с версией и GitHub Actions workflows для автоматического релиза, обновите версию (или другой необходимый триггер релиза) в вашем pull request для подготовки к следующему релизу.',
-      updateExistingPR: (prNumber) => `Когда обновляете существующий pr ${prNumber}, используйте gh pr edit для изменения заголовка и описания.`,
-      finishImplementation: (prNumber) => `Когда завершаете реализацию, используйте gh pr ready ${prNumber}.`,
+export function setLocale(locale) {
+  const normalized = normalizeLocale(locale);
+  if (normalized) currentLocale = normalized;
+}
 
-      // Workflow
-      checkBranch: 'Когда проверяете ветку, проверьте с помощью git branch --show-current.',
-      pushToBranch: (branchName) => `Когда делаете push, делайте push только в ветку ${branchName}.`,
-      createPR: (branchName, prNumber) => `Когда заканчиваете, создайте pull request из ветки ${branchName}. (Примечание: PR ${prNumber} уже существует, обновите его вместо этого)`,
-      usePullRequests: 'Когда организуете рабочий процесс, используйте pull requests вместо прямых слияний в основную ветку (main или master).',
-      preserveHistory: 'Когда управляете коммитами, сохраняйте историю коммитов для последующего анализа.',
-      forwardMoving: 'Когда вносите вклад, поддерживайте историю репозитория в движении вперед с регулярными коммитами, push и откатами при необходимости.',
-      faceConflict: 'Когда сталкиваетесь с конфликтом, попросите помощи.',
-      respectBranch: (branchName) => `Когда сотрудничаете, соблюдайте защиту веток, работая только в ${branchName}.`,
-      mentionResult: 'Когда упоминаете результат, включите url pull request или url комментария.',
-      prAlreadyExists: (prNumber) => `Когда нужно создать pr, помните, что pr ${prNumber} уже существует для этой ветки.`,
+// In-memory per-user locale store (used by the Telegram bot).
+export function getUserLocale(userId) {
+  if (userId === undefined || userId === null) return null;
+  return userLocales.get(String(userId)) || null;
+}
 
-      // Self review
-      checkSolution: 'Когда проверяете свой черновик решения, запустите все тесты локально.',
-      compareStyle: 'Когда сравниваете со стилем репозитория, используйте gh pr diff [номер].',
-      finalizeConfirm: 'Когда завершаете, подтвердите, что код, тесты и описание согласованы.'
-    },
+export function setUserLocale(userId, locale) {
+  const normalized = normalizeLocale(locale);
+  if (!normalized || userId === undefined || userId === null) return false;
+  userLocales.set(String(userId), normalized);
+  return true;
+}
 
-    // User prompts (Russian)
-    userPrompt: {
-      issueToSolve: 'Задача для решения',
-      issueLinkedToPR: (prNumber) => `Задача, связанная с PR #${prNumber}`,
-      preparedBranch: 'Ваша подготовленная ветка',
-      preparedWorkingDir: 'Ваша подготовленная рабочая директория',
-      preparedPR: 'Ваш подготовленный Pull Request',
-      forkedRepository: 'Ваш форкнутый репозиторий',
-      originalRepository: 'Оригинальный репозиторий (upstream)',
-      githubActionsOnFork: 'GitHub Actions на вашем форке',
+export function clearUserLocale(userId) {
+  if (userId === undefined || userId === null) return false;
+  return userLocales.delete(String(userId));
+}
 
-      // Commands
-      think: 'Думай.',
-      thinkHard: 'Думай усиленно.',
-      thinkHarder: 'Думай очень усиленно.',
-      ultrathink: 'Сверхдумай.',
-      proceed: 'Продолжай.',
-      continue: 'Продолжай.'
+// Resolve the best locale for a Telegram update context.
+// Priority: per-user override -> ctx.from.language_code -> current default.
+export function resolveLocaleFromTelegramCtx(ctx) {
+  const userId = ctx?.from?.id;
+  const userOverride = getUserLocale(userId);
+  if (userOverride) return userOverride;
+  const fromTelegram = normalizeLocale(ctx?.from?.language_code);
+  if (fromTelegram) return fromTelegram;
+  return currentLocale;
+}
+
+// Pre-load every supported locale (handy for the Telegram bot at startup).
+export async function preloadAllLocales() {
+  for (const loc of SUPPORTED_LOCALES) {
+    try {
+      await loadTranslations(loc);
+    } catch {
+      // ignore - missing files fall back to English
     }
   }
-};
-
-/**
- * Get translation for a given language
- * @param {string} lang - Language code (en, ru)
- * @returns {object} Translation object
- */
-export function getTranslations(lang = 'en') {
-  const normalizedLang = lang.toLowerCase();
-  return translations[normalizedLang] || translations.en;
 }
-
-/**
- * Get available languages
- * @returns {Array<string>} Array of language codes
- */
-export function getAvailableLanguages() {
-  return Object.keys(translations);
-}
-
-/**
- * Check if a language is supported
- * @param {string} lang - Language code
- * @returns {boolean} True if language is supported
- */
-export function isLanguageSupported(lang) {
-  return Object.keys(translations).includes(lang.toLowerCase());
-}
-
-// Export default
-export default {
-  getTranslations,
-  getAvailableLanguages,
-  isLanguageSupported
-};

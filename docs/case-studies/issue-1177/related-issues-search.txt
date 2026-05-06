@@ -1,0 +1,2 @@
+link-assistant/hive-mind	1177	open	'ready' was not created by /merge command	bug	2026-01-25T15:45:53Z
+link-assistant/hive-mind	1143	closed	Merge queue in hive-telegram-bot	enhancement	2026-01-20T19:22:40Z

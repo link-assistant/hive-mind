@@ -1,0 +1,13 @@
+title:	Fix helm release CI workflow
+state:	OPEN
+author:	konard
+labels:	bug
+comments:	0
+assignees:	
+projects:	
+milestone:	
+number:	879
+--
+https://github.com/link-assistant/hive-mind/actions/runs/20053620299/job/57514684069
+
+Please download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions.

@@ -25,7 +25,7 @@ async function $(command) {
 async function debugPrUrlParsing() {
   try {
     // Test the exact URL parsing logic from solve.mjs
-    const issueUrl = 'https://github.com/deep-assistant/hive-mind/pull/169';
+    const issueUrl = 'https://github.com/link-assistant/hive-mind/pull/169';
     console.log(`🔗 Input URL: ${issueUrl}`);
 
     // Check if it's recognized as a PR URL
@@ -109,9 +109,7 @@ async function debugPrUrlParsing() {
         const prConversationComments = JSON.parse(prConversationCommentsResult.stdout.toString());
 
         const allPrComments = [...prReviewComments, ...prConversationComments];
-        const newPrComments = allPrComments.filter(comment =>
-          new Date(comment.created_at) > lastCommitTime
-        ).length;
+        const newPrComments = allPrComments.filter(comment => new Date(comment.created_at) > lastCommitTime).length;
 
         console.log(`   📊 Total PR comments: ${allPrComments.length}`);
         console.log(`   📊 New PR comments: ${newPrComments}`);
@@ -123,7 +121,6 @@ async function debugPrUrlParsing() {
     }
 
     return false;
-
   } catch (error) {
     console.error(`\\n❌ Error: ${error.message}`);
     return false;

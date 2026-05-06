@@ -1,0 +1,14 @@
+[
+  {
+    "title": "Yargs official documentation",
+    "url": "https://yargs.js.org/",
+    "accessed": "2026-04-24",
+    "relevance": "Documents normal yargs command and option parsing, including parse(hideBin(process.argv))."
+  },
+  {
+    "title": "yargs/yargs release notes",
+    "url": "https://github.com/yargs/yargs/releases",
+    "accessed": "2026-04-24",
+    "relevance": "Records that yargs 17.7.2 is the project version in use and that yargs 18 removed singleton usage, confirming singleton behavior was part of the older API surface."
+  }
+]

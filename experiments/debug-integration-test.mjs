@@ -22,7 +22,7 @@ function $(command, options = {}) {
       success: false,
       output: error.stdout || '',
       stderr: error.stderr || error.message,
-      code: error.status || 1
+      code: error.status || 1,
     };
   }
 }
@@ -79,11 +79,7 @@ if (userPromptMatch) {
 
 // Check for error patterns
 console.log('\n=== Checking for errors ===\n');
-const errorPatterns = [
-  /Error:|Failed to|Could not/i,
-  /git log.*failed/i,
-  /API.*failed/i,
-];
+const errorPatterns = [/Error:|Failed to|Could not/i, /git log.*failed/i, /API.*failed/i];
 
 errorPatterns.forEach((pattern, i) => {
   if (pattern.test(result.output)) {

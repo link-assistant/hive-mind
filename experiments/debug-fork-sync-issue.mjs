@@ -10,7 +10,7 @@ console.log('===============================\n');
 
 console.log('Issue Description:');
 console.log('- Fork is 45 commits behind upstream');
-console.log('- Current --fork mode doesn\'t update default branch properly');
+console.log("- Current --fork mode doesn't update default branch properly");
 console.log('- This causes conflicts in pull requests\n');
 
 console.log('Current Sync Logic Analysis:');
@@ -29,7 +29,7 @@ console.log('');
 console.log('Required Fix:');
 console.log('-------------');
 console.log('1. Always sync fork default branch with upstream on --fork mode');
-console.log('2. Ensure sync happens even if we\'re not currently on default branch');
+console.log("2. Ensure sync happens even if we're not currently on default branch");
 console.log('3. Push updated default branch to fork to keep it current');
 console.log('4. Handle cases where fork is significantly behind');
 console.log('');

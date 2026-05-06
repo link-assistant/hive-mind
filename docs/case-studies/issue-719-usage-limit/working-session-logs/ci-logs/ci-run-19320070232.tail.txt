@@ -1,0 +1,250 @@
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9062165Z   "name": "cp"
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9062498Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9063118Z [TRACE 2025-11-13T04:01:39.895Z] [VirtualCommands] register EXIT | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9063709Z   "registered": true
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9064057Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9064647Z [TRACE 2025-11-13T04:01:39.895Z] [VirtualCommands] register ENTER | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9065306Z   "name": "touch"
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9065649Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9066253Z [TRACE 2025-11-13T04:01:39.895Z] [VirtualCommands] register EXIT | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9066848Z   "registered": true
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9067165Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9067596Z [TRACE 2025-11-13T04:01:39.895Z] [VirtualCommands] register ENTER | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9067945Z   "name": "basename"
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9068152Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9068516Z [TRACE 2025-11-13T04:01:39.895Z] [VirtualCommands] register EXIT | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9068852Z   "registered": true
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9069078Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9069883Z [TRACE 2025-11-13T04:01:39.895Z] [VirtualCommands] register ENTER | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9070462Z   "name": "dirname"
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9070686Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9071453Z [TRACE 2025-11-13T04:01:39.895Z] [VirtualCommands] register EXIT | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9072038Z   "registered": true
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9072329Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9072693Z [TRACE 2025-11-13T04:01:39.896Z] [VirtualCommands] register ENTER | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9073043Z   "name": "yes"
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9073232Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9073575Z [TRACE 2025-11-13T04:01:39.896Z] [VirtualCommands] register EXIT | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9074092Z   "registered": true
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9074286Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9074638Z [TRACE 2025-11-13T04:01:39.896Z] [VirtualCommands] register ENTER | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9074967Z   "name": "seq"
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9075145Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9075502Z [TRACE 2025-11-13T04:01:39.896Z] [VirtualCommands] register EXIT | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9075845Z   "registered": true
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9076052Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9076400Z [TRACE 2025-11-13T04:01:39.896Z] [VirtualCommands] register ENTER | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9076726Z   "name": "test"
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9076913Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9077243Z [TRACE 2025-11-13T04:01:39.896Z] [VirtualCommands] register EXIT | {
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9077583Z   "registered": true
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9077784Z }
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9078350Z [TRACE 2025-11-13T04:01:39.896Z] [VirtualCommands] listCommands() returning 21 commands
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9079403Z [TRACE 2025-11-13T04:01:39.896Z] [Initialization] Built-in commands registered: cd, pwd, echo, sleep, true, false, which, exit, env, cat, ls, mkdir, rm, mv, cp, touch, basename, dirname, yes, seq, test
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9080443Z 🚀 Starting documentation validation tests...
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9080878Z 📏 Checking documentation file size limits...
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9081498Z ✅ OK: docs/CONFIG.md (224 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9081860Z ✅ OK: docs/CONTRIBUTING.md (86 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9082197Z ✅ OK: docs/DOCKER.md (134 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9082556Z ✅ OK: docs/RATE_LIMIT_ANALYSIS.md (166 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9082960Z ✅ OK: docs/SENTRY_TO_GITHUB_ISSUES.md (678 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9083344Z ✅ OK: docs/codex-limitations.md (135 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9083692Z ✅ OK: docs/flow.md (461 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9084127Z ✅ OK: docs/issue-94-claude-command-kills-solution.md (68 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9084660Z ✅ OK: docs/sentry-github-universal-integration.md (856 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9085111Z ✅ OK: docs/sentry-to-github-issues.md (574 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9085439Z ✅ OK: README.md (680 lines)
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9085753Z 📋 Checking README structure...
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9086038Z ✅ Quick Start section found
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9086610Z ✅ Architecture section found
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9086997Z ✅ Configuration section found
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9087173Z 
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9087300Z 📊 Test Summary:
+validate-docs	Validate documentation files	2025-11-13T04:01:39.9087608Z 🎉 All documentation tests passed!
+validate-docs	Post Use Node.js 20.x	﻿2025-11-13T04:01:39.9153726Z Post job cleanup.
+validate-docs	Post Run actions/checkout@v4	﻿2025-11-13T04:01:40.0796632Z Post job cleanup.
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.1718414Z [command]/usr/bin/git version
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.1759936Z git version 2.51.2
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.1803294Z Temporarily overriding HOME='/home/runner/work/_temp/0c52f1ff-849f-4034-b060-87e8c271c5b2' before making global git config changes
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.1804899Z Adding repository directory to the temporary git global config as a safe directory
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.1809388Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.1843089Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.1875229Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.2107544Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.2128515Z http.https://github.com/.extraheader
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.2145983Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.2179892Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+validate-docs	Complete job	﻿2025-11-13T04:01:40.2514016Z Cleaning up orphan processes
+publish	Set up job	﻿2025-11-13T04:01:46.1536333Z Current runner version: '2.329.0'
+publish	Set up job	2025-11-13T04:01:46.1561915Z ##[group]Runner Image Provisioner
+publish	Set up job	2025-11-13T04:01:46.1562768Z Hosted Compute Agent
+publish	Set up job	2025-11-13T04:01:46.1563320Z Version: 20251016.436
+publish	Set up job	2025-11-13T04:01:46.1564047Z Commit: 8ab8ac8bfd662a3739dab9fe09456aba92132568
+publish	Set up job	2025-11-13T04:01:46.1564760Z Build Date: 2025-10-15T20:44:12Z
+publish	Set up job	2025-11-13T04:01:46.1565339Z ##[endgroup]
+publish	Set up job	2025-11-13T04:01:46.1565977Z ##[group]Operating System
+publish	Set up job	2025-11-13T04:01:46.1566569Z Ubuntu
+publish	Set up job	2025-11-13T04:01:46.1566995Z 24.04.3
+publish	Set up job	2025-11-13T04:01:46.1567536Z LTS
+publish	Set up job	2025-11-13T04:01:46.1568005Z ##[endgroup]
+publish	Set up job	2025-11-13T04:01:46.1568469Z ##[group]Runner Image
+publish	Set up job	2025-11-13T04:01:46.1569124Z Image: ubuntu-24.04
+publish	Set up job	2025-11-13T04:01:46.1569655Z Version: 20251102.99.1
+publish	Set up job	2025-11-13T04:01:46.1570633Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20251102.99/images/ubuntu/Ubuntu2404-Readme.md
+publish	Set up job	2025-11-13T04:01:46.1572245Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20251102.99
+publish	Set up job	2025-11-13T04:01:46.1573564Z ##[endgroup]
+publish	Set up job	2025-11-13T04:01:46.1574687Z ##[group]GITHUB_TOKEN Permissions
+publish	Set up job	2025-11-13T04:01:46.1576816Z Contents: write
+publish	Set up job	2025-11-13T04:01:46.1577391Z Metadata: read
+publish	Set up job	2025-11-13T04:01:46.1577915Z Packages: write
+publish	Set up job	2025-11-13T04:01:46.1578492Z ##[endgroup]
+publish	Set up job	2025-11-13T04:01:46.1581345Z Secret source: Actions
+publish	Set up job	2025-11-13T04:01:46.1582313Z Prepare workflow directory
+publish	Set up job	2025-11-13T04:01:46.1916630Z Prepare all required actions
+publish	Set up job	2025-11-13T04:01:46.1957065Z Getting action download info
+publish	Set up job	2025-11-13T04:01:46.5485331Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+publish	Set up job	2025-11-13T04:01:46.6405647Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+publish	Set up job	2025-11-13T04:01:46.8426815Z Complete job name: publish
+publish	Checkout code	﻿2025-11-13T04:01:46.9135380Z ##[group]Run actions/checkout@v4
+publish	Checkout code	2025-11-13T04:01:46.9136315Z with:
+publish	Checkout code	2025-11-13T04:01:46.9136790Z   repository: deep-assistant/hive-mind
+publish	Checkout code	2025-11-13T04:01:46.9137552Z   token: ***
+publish	Checkout code	2025-11-13T04:01:46.9138013Z   ssh-strict: true
+publish	Checkout code	2025-11-13T04:01:46.9138452Z   ssh-user: git
+publish	Checkout code	2025-11-13T04:01:46.9138897Z   persist-credentials: true
+publish	Checkout code	2025-11-13T04:01:46.9139387Z   clean: true
+publish	Checkout code	2025-11-13T04:01:46.9139845Z   sparse-checkout-cone-mode: true
+publish	Checkout code	2025-11-13T04:01:46.9140373Z   fetch-depth: 1
+publish	Checkout code	2025-11-13T04:01:46.9140996Z   fetch-tags: false
+publish	Checkout code	2025-11-13T04:01:46.9141450Z   show-progress: true
+publish	Checkout code	2025-11-13T04:01:46.9141927Z   lfs: false
+publish	Checkout code	2025-11-13T04:01:46.9142348Z   submodules: false
+publish	Checkout code	2025-11-13T04:01:46.9142799Z   set-safe-directory: true
+publish	Checkout code	2025-11-13T04:01:46.9143542Z ##[endgroup]
+publish	Checkout code	2025-11-13T04:01:47.0223287Z Syncing repository: deep-assistant/hive-mind
+publish	Checkout code	2025-11-13T04:01:47.0225275Z ##[group]Getting Git version info
+publish	Checkout code	2025-11-13T04:01:47.0226080Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+publish	Checkout code	2025-11-13T04:01:47.0227304Z [command]/usr/bin/git version
+publish	Checkout code	2025-11-13T04:01:47.0302301Z git version 2.51.2
+publish	Checkout code	2025-11-13T04:01:47.0328365Z ##[endgroup]
+publish	Checkout code	2025-11-13T04:01:47.0343229Z Temporarily overriding HOME='/home/runner/work/_temp/974ee0ac-e8aa-4967-b45e-086d2c30fdde' before making global git config changes
+publish	Checkout code	2025-11-13T04:01:47.0344827Z Adding repository directory to the temporary git global config as a safe directory
+publish	Checkout code	2025-11-13T04:01:47.0348450Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+publish	Checkout code	2025-11-13T04:01:47.0388350Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+publish	Checkout code	2025-11-13T04:01:47.0392351Z ##[group]Initializing the repository
+publish	Checkout code	2025-11-13T04:01:47.0396144Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+publish	Checkout code	2025-11-13T04:01:47.0500014Z hint: Using 'master' as the name for the initial branch. This default branch name
+publish	Checkout code	2025-11-13T04:01:47.0502186Z hint: is subject to change. To configure the initial branch name to use in all
+publish	Checkout code	2025-11-13T04:01:47.0504047Z hint: of your new repositories, which will suppress this warning, call:
+publish	Checkout code	2025-11-13T04:01:47.0505470Z hint:
+publish	Checkout code	2025-11-13T04:01:47.0506147Z hint: 	git config --global init.defaultBranch <name>
+publish	Checkout code	2025-11-13T04:01:47.0507265Z hint:
+publish	Checkout code	2025-11-13T04:01:47.0507882Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+publish	Checkout code	2025-11-13T04:01:47.0508859Z hint: 'development'. The just-created branch can be renamed via this command:
+publish	Checkout code	2025-11-13T04:01:47.0509885Z hint:
+publish	Checkout code	2025-11-13T04:01:47.0510608Z hint: 	git branch -m <name>
+publish	Checkout code	2025-11-13T04:01:47.0511474Z hint:
+publish	Checkout code	2025-11-13T04:01:47.0512148Z hint: Disable this message with "git config set advice.defaultBranchName false"
+publish	Checkout code	2025-11-13T04:01:47.0513224Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+publish	Checkout code	2025-11-13T04:01:47.0515936Z [command]/usr/bin/git remote add origin https://github.com/deep-assistant/hive-mind
+publish	Checkout code	2025-11-13T04:01:47.0553752Z ##[endgroup]
+publish	Checkout code	2025-11-13T04:01:47.0554575Z ##[group]Disabling automatic garbage collection
+publish	Checkout code	2025-11-13T04:01:47.0557963Z [command]/usr/bin/git config --local gc.auto 0
+publish	Checkout code	2025-11-13T04:01:47.0586069Z ##[endgroup]
+publish	Checkout code	2025-11-13T04:01:47.0586839Z ##[group]Setting up auth
+publish	Checkout code	2025-11-13T04:01:47.0593183Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+publish	Checkout code	2025-11-13T04:01:47.0623877Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+publish	Checkout code	2025-11-13T04:01:47.0962486Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+publish	Checkout code	2025-11-13T04:01:47.0996379Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+publish	Checkout code	2025-11-13T04:01:47.1224024Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+publish	Checkout code	2025-11-13T04:01:47.1265841Z ##[endgroup]
+publish	Checkout code	2025-11-13T04:01:47.1267771Z ##[group]Fetching the repository
+publish	Checkout code	2025-11-13T04:01:47.1276847Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +09602b2cecc2d61de1fbd21bd2b7ce2c21475257:refs/remotes/pull/722/merge
+publish	Checkout code	2025-11-13T04:01:47.8968357Z From https://github.com/deep-assistant/hive-mind
+publish	Checkout code	2025-11-13T04:01:47.8970229Z  * [new ref]         09602b2cecc2d61de1fbd21bd2b7ce2c21475257 -> pull/722/merge
+publish	Checkout code	2025-11-13T04:01:47.9001026Z ##[endgroup]
+publish	Checkout code	2025-11-13T04:01:47.9002194Z ##[group]Determining the checkout info
+publish	Checkout code	2025-11-13T04:01:47.9003546Z ##[endgroup]
+publish	Checkout code	2025-11-13T04:01:47.9009273Z [command]/usr/bin/git sparse-checkout disable
+publish	Checkout code	2025-11-13T04:01:47.9052017Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+publish	Checkout code	2025-11-13T04:01:47.9081249Z ##[group]Checking out the ref
+publish	Checkout code	2025-11-13T04:01:47.9084953Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/722/merge
+publish	Checkout code	2025-11-13T04:01:47.9690240Z Note: switching to 'refs/remotes/pull/722/merge'.
+publish	Checkout code	2025-11-13T04:01:47.9691946Z 
+publish	Checkout code	2025-11-13T04:01:47.9692854Z You are in 'detached HEAD' state. You can look around, make experimental
+publish	Checkout code	2025-11-13T04:01:47.9694420Z changes and commit them, and you can discard any commits you make in this
+publish	Checkout code	2025-11-13T04:01:47.9697098Z state without impacting any branches by switching back to a branch.
+publish	Checkout code	2025-11-13T04:01:47.9698684Z 
+publish	Checkout code	2025-11-13T04:01:47.9699655Z If you want to create a new branch to retain commits you create, you may
+publish	Checkout code	2025-11-13T04:01:47.9702227Z do so (now or later) by using -c with the switch command. Example:
+publish	Checkout code	2025-11-13T04:01:47.9703570Z 
+publish	Checkout code	2025-11-13T04:01:47.9704129Z   git switch -c <new-branch-name>
+publish	Checkout code	2025-11-13T04:01:47.9705122Z 
+publish	Checkout code	2025-11-13T04:01:47.9705733Z Or undo this operation with:
+publish	Checkout code	2025-11-13T04:01:47.9706683Z 
+publish	Checkout code	2025-11-13T04:01:47.9707217Z   git switch -
+publish	Checkout code	2025-11-13T04:01:47.9707938Z 
+publish	Checkout code	2025-11-13T04:01:47.9709023Z Turn off this advice by setting config variable advice.detachedHead to false
+publish	Checkout code	2025-11-13T04:01:47.9710891Z 
+publish	Checkout code	2025-11-13T04:01:47.9712881Z HEAD is now at 09602b2 Merge 33e31b46878c9829a523979c7ef8c91beea048f7 into ddb2c3ae9c177ca2f2d8ebd0c5e064de3d6049e7
+publish	Checkout code	2025-11-13T04:01:47.9717822Z ##[endgroup]
+publish	Checkout code	2025-11-13T04:01:47.9743240Z [command]/usr/bin/git log -1 --format=%H
+publish	Checkout code	2025-11-13T04:01:47.9765963Z 09602b2cecc2d61de1fbd21bd2b7ce2c21475257
+publish	Setup Node.js	﻿2025-11-13T04:01:48.0083409Z ##[group]Run actions/setup-node@v4
+publish	Setup Node.js	2025-11-13T04:01:48.0084654Z with:
+publish	Setup Node.js	2025-11-13T04:01:48.0085509Z   node-version: 20.x
+publish	Setup Node.js	2025-11-13T04:01:48.0086611Z   registry-url: https://registry.npmjs.org
+publish	Setup Node.js	2025-11-13T04:01:48.0087911Z   always-auth: false
+publish	Setup Node.js	2025-11-13T04:01:48.0088883Z   check-latest: false
+publish	Setup Node.js	2025-11-13T04:01:48.0090131Z   token: ***
+publish	Setup Node.js	2025-11-13T04:01:48.0091151Z ##[endgroup]
+publish	Setup Node.js	2025-11-13T04:01:48.1929664Z Found in cache @ /opt/hostedtoolcache/node/20.19.5/x64
+publish	Setup Node.js	2025-11-13T04:01:48.1935767Z ##[group]Environment details
+publish	Setup Node.js	2025-11-13T04:01:48.5516989Z node: v20.19.5
+publish	Setup Node.js	2025-11-13T04:01:48.5518673Z npm: 10.8.2
+publish	Setup Node.js	2025-11-13T04:01:48.5520056Z yarn: 1.22.22
+publish	Setup Node.js	2025-11-13T04:01:48.5522848Z ##[endgroup]
+publish	Publish	﻿2025-11-13T04:01:48.5700218Z ##[group]Run if [ "false" != "true" ]; then
+publish	Publish	2025-11-13T04:01:48.5701749Z [36;1mif [ "false" != "true" ]; then[0m
+publish	Publish	2025-11-13T04:01:48.5703162Z [36;1m  echo "⊘ Publishing skipped (no new version detected)"[0m
+publish	Publish	2025-11-13T04:01:48.5704657Z [36;1m  echo "  new-version output: false"[0m
+publish	Publish	2025-11-13T04:01:48.5705789Z [36;1m  exit 0[0m
+publish	Publish	2025-11-13T04:01:48.5706602Z [36;1mfi[0m
+publish	Publish	2025-11-13T04:01:48.5707379Z [36;1m[0m
+publish	Publish	2025-11-13T04:01:48.5708437Z [36;1mecho "✓ New version detected, proceeding with publish"[0m
+publish	Publish	2025-11-13T04:01:48.5709801Z [36;1m[0m
+publish	Publish	2025-11-13T04:01:48.5710614Z [36;1m# Make scripts executable[0m
+publish	Publish	2025-11-13T04:01:48.5711814Z [36;1mchmod +x src/hive.mjs[0m
+publish	Publish	2025-11-13T04:01:48.5712908Z [36;1mchmod +x src/solve.mjs[0m
+publish	Publish	2025-11-13T04:01:48.5713918Z [36;1m[0m
+publish	Publish	2025-11-13T04:01:48.5714700Z [36;1m# Publish to NPM[0m
+publish	Publish	2025-11-13T04:01:48.5715747Z [36;1mnpm publish --access public[0m
+publish	Publish	2025-11-13T04:01:48.5716827Z [36;1m[0m
+publish	Publish	2025-11-13T04:01:48.5717617Z [36;1m# Create GitHub Release[0m
+publish	Publish	2025-11-13T04:01:48.5718701Z [36;1mVERSION=[0m
+publish	Publish	2025-11-13T04:01:48.5719875Z [36;1mPACKAGE_NAME=$(node -p "require('./package.json').name")[0m
+publish	Publish	2025-11-13T04:01:48.5721689Z [36;1mgh release create "v${VERSION}" \[0m
+publish	Publish	2025-11-13T04:01:48.5722906Z [36;1m  --title "${VERSION}" \[0m
+publish	Publish	2025-11-13T04:01:48.5724443Z [36;1m  --notes "https://www.npmjs.com/package/${PACKAGE_NAME}/v/${VERSION}"[0m
+publish	Publish	2025-11-13T04:01:48.5772382Z shell: /usr/bin/bash -e {0}
+publish	Publish	2025-11-13T04:01:48.5773379Z env:
+publish	Publish	2025-11-13T04:01:48.5774340Z   NPM_CONFIG_USERCONFIG: /home/runner/work/_temp/.npmrc
+publish	Publish	2025-11-13T04:01:48.5776123Z   NODE_AUTH_TOKEN: ***
+publish	Publish	2025-11-13T04:01:48.5777317Z   GITHUB_TOKEN: ***
+publish	Publish	2025-11-13T04:01:48.5778173Z ##[endgroup]
+publish	Publish	2025-11-13T04:01:48.5874941Z ⊘ Publishing skipped (no new version detected)
+publish	Publish	2025-11-13T04:01:48.5876360Z   new-version output: false
+publish	Post Setup Node.js	﻿2025-11-13T04:01:48.6094102Z Post job cleanup.
+publish	Post Checkout code	﻿2025-11-13T04:01:48.7877290Z Post job cleanup.
+publish	Post Checkout code	2025-11-13T04:01:48.8839155Z [command]/usr/bin/git version
+publish	Post Checkout code	2025-11-13T04:01:48.8875790Z git version 2.51.2
+publish	Post Checkout code	2025-11-13T04:01:48.8926171Z Temporarily overriding HOME='/home/runner/work/_temp/9aa3f71b-06c9-4896-b3de-aaaf2cab9d54' before making global git config changes
+publish	Post Checkout code	2025-11-13T04:01:48.8929508Z Adding repository directory to the temporary git global config as a safe directory
+publish	Post Checkout code	2025-11-13T04:01:48.8932901Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+publish	Post Checkout code	2025-11-13T04:01:48.8966036Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+publish	Post Checkout code	2025-11-13T04:01:48.8999694Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+publish	Post Checkout code	2025-11-13T04:01:48.9228631Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+publish	Post Checkout code	2025-11-13T04:01:48.9249041Z http.https://github.com/.extraheader
+publish	Post Checkout code	2025-11-13T04:01:48.9262732Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+publish	Post Checkout code	2025-11-13T04:01:48.9293460Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+publish	Complete job	﻿2025-11-13T04:01:48.9629530Z Cleaning up orphan processes

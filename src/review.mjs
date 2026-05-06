@@ -8,7 +8,7 @@ if (earlyArgs.includes('--version')) {
   try {
     const version = await getVersion();
     console.log(version);
-  } catch (versionError) {
+  } catch {
     console.error('Error: Unable to determine version');
     process.exit(1);
   }
@@ -19,14 +19,15 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   // Show help and exit
   console.log('Usage: review.mjs <pr-url> [options]');
   console.log('\nOptions:');
-  console.log('  --version          Show version number');
-  console.log('  --help, -h         Show help');
-  console.log('  --resume, -r       Resume from a previous session ID');
-  console.log('  --dry-run, -n      Prepare everything but do not execute Claude');
-  console.log('  --model, -m        Model to use (opus, sonnet, or full model ID) [default: opus]');
-  console.log('  --focus, -f        Focus areas for review [default: all]');
-  console.log('  --approve          If review passes, approve the PR');
-  console.log('  --verbose, -v      Enable verbose logging');
+  console.log('  --version               Show version number');
+  console.log('  --help, -h              Show help');
+  console.log('  --resume, -r            Resume from a previous session ID');
+  console.log('  --dry-run, -n           Prepare everything but do not execute Claude');
+  console.log('  --model, -m             Model to use (opus, sonnet, or full model ID) [default: opus]');
+  console.log('  --focus, -f             Focus areas for review [default: all]');
+  console.log('  --approve               If review passes, approve the PR');
+  console.log('  --verbose, -v           Enable verbose logging');
+  console.log('  --execute-tool-with-bun Execute the AI tool using bunx (experimental) [default: false]');
   process.exit(0);
 }
 
@@ -34,71 +35,107 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
-const yargs = (await use('yargs@latest')).default;
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 const os = (await use('os')).default;
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
 
 // Import shared functions from lib.mjs to follow DRY principle
 import { log, setLogFile, getLogFile, formatAligned } from './lib.mjs';
+import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import * as memoryCheck from './memory-check.mjs';
 
 // Import Claude execution functions
-import { executeClaude, executeClaudeCommand, validateClaudeConnection } from './claude.lib.mjs';
+import { executeClaudeCommand } from './claude.lib.mjs';
+import { defaultModels, getClaudeModelChoices, buildModelOptionDescription } from './models/index.mjs';
 
 // Configure command line arguments - GitHub PR URL as positional argument
-const argv = yargs(process.argv.slice(2))
-  .usage('Usage: $0 <pr-url> [options]')
-  .positional('pr-url', {
-    type: 'string',
-    description: 'The GitHub pull request URL to review'
-  })
-  .option('resume', {
-    type: 'string',
-    description: 'Resume from a previous session ID (when limit was reached)',
-    alias: 'r'
-  })
-  .option('dry-run', {
-    type: 'boolean',
-    description: 'Prepare everything but do not execute Claude',
-    alias: 'n'
-  })
-  .option('model', {
-    type: 'string',
-    description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
-    alias: 'm',
-    default: 'opus',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-1-20250805']
-  })
-  .option('focus', {
-    type: 'string',
-    description: 'Focus areas for review (security, performance, logic, style, tests)',
-    alias: 'f',
-    default: 'all'
-  })
-  .option('approve', {
-    type: 'boolean',
-    description: 'If review passes, approve the PR',
-    default: false
-  })
-  .option('verbose', {
-    type: 'boolean',
-    description: 'Enable verbose logging for debugging',
-    alias: 'v',
-    default: false
-  })
-  .demandCommand(1, 'The GitHub pull request URL is required')
-  .help('h')
-  .alias('h', 'help')
-  .argv;
+const createReviewYargsConfig = yargsInstance =>
+  yargsInstance
+    .usage('Usage: $0 <pr-url> [options]')
+    .command('$0 <pr-url>', 'Review a GitHub pull request', yargs =>
+      yargs.positional('pr-url', {
+        type: 'string',
+        description: 'The GitHub pull request URL to review',
+      })
+    )
+    .option('resume', {
+      type: 'string',
+      description: 'Resume from a previous session ID (when limit was reached)',
+      alias: 'r',
+    })
+    .option('dry-run', {
+      type: 'boolean',
+      description: 'Prepare everything but do not execute Claude',
+      alias: 'n',
+    })
+    .option('model', {
+      type: 'string',
+      description: buildModelOptionDescription(),
+      alias: 'm',
+      default: defaultModels.claude,
+      choices: getClaudeModelChoices(),
+    })
+    .option('focus', {
+      type: 'string',
+      description: 'Focus areas for review (security, performance, logic, style, tests)',
+      alias: 'f',
+      default: 'all',
+    })
+    .option('approve', {
+      type: 'boolean',
+      description: 'If review passes, approve the PR',
+      default: false,
+    })
+    .option('verbose', {
+      type: 'boolean',
+      description: 'Enable verbose logging for debugging',
+      alias: 'v',
+      default: false,
+    })
+    .option('execute-tool-with-bun', {
+      type: 'boolean',
+      description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
+      default: false,
+    })
+    .option('language', {
+      type: 'string',
+      description: 'Language for user-facing output (en, ru, zh, hi). Defaults to detected system locale.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
+    .check(parsed => {
+      if (!parsed['pr-url'] && !parsed.prUrl && !parsed._?.[0]) {
+        throw new Error('The GitHub pull request URL is required');
+      }
+      return true;
+    })
+    .parserConfiguration({
+      'boolean-negation': true,
+    })
+    .help('h')
+    .alias('h', 'help')
+    // Use yargs built-in strict mode to reject unrecognized options
+    // This prevents issues like #453 and #482 where unknown options are silently ignored
+    .strict();
 
-const prUrl = argv._[0];
+const argv = parseCliArgumentsWithLino({
+  argv: process.argv,
+  commandName: 'review',
+  createYargsConfig: createReviewYargsConfig,
+  positionalAliases: ['pr-url'],
+});
+
+const prUrl = argv['pr-url'] || argv.prUrl || argv._[0];
 
 // Set global verbose mode for log function
 global.verboseMode = argv.verbose;
+
+// Initialize i18n based on --language (or detected system locale)
+const { initI18n } = await import('./i18n.lib.mjs');
+await initI18n(argv.language);
 
 // Create permanent log file immediately with timestamp
 const scriptDir = path.dirname(process.argv[1]);
@@ -109,15 +146,19 @@ setLogFile(logFilePath);
 // Create the log file immediately
 await fs.writeFile(logFilePath, `# Review.mjs Log - ${new Date().toISOString()}\n\n`);
 await log(`📁 Log file: ${logFilePath}`);
-await log(`   (All output will be logged here)\n`);
+await log('   (All output will be logged here)\n');
 
 // Validate GitHub PR URL format
-if (!prUrl.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+$/)) {
-  await log('Error: Please provide a valid GitHub pull request URL (e.g., https://github.com/owner/repo/pull/123)', { level: 'error' });
+if (!prUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/)) {
+  await log('Error: Please provide a valid GitHub pull request URL (e.g., https://github.com/owner/repo/pull/123)', {
+    level: 'error',
+  });
   process.exit(1);
 }
 
-const claudePath = process.env.CLAUDE_PATH || 'claude';
+// Determine claude command path based on --execute-tool-with-bun option
+// When enabled, uses 'bunx claude' which may improve speed and memory usage
+const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
 
 // Extract repository and PR number from URL
 const urlParts = prUrl.split('/');
@@ -146,7 +187,7 @@ if (isResuming) {
   } catch (err) {
     reportError(err, {
       context: 'resume_session_lookup',
-      sessionId: argv.resume
+      sessionId: argv.resume,
     });
     await log(`Warning: Session log for ${argv.resume} not found, but continuing with resume attempt`);
     tempDir = path.join(os.tmpdir(), `gh-pr-reviewer-resume-${argv.resume}-${Date.now()}`);
@@ -159,19 +200,21 @@ if (isResuming) {
   await log(`Creating temporary directory: ${tempDir}\n`);
 }
 
+let limitReached = false;
+
 try {
   // Get PR details first
-  await log(`📊 Getting pull request details...`);
+  await log('📊 Getting pull request details...');
   const prDetailsResult = await $`gh pr view ${prUrl} --json title,body,headRefName,baseRefName,author,number,state,files`;
-  
+
   if (prDetailsResult.code !== 0) {
-    await log(`Error: Failed to get PR details`, { level: 'error' });
+    await log('Error: Failed to get PR details', { level: 'error' });
     await log(prDetailsResult.stderr ? prDetailsResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
-  
+
   const prDetails = JSON.parse(prDetailsResult.stdout.toString());
-  
+
   await log(`\n📄 Pull Request: #${prDetails.number} - ${prDetails.title}`);
   await log(`👤 Author: ${prDetails.author.login}`);
   await log(`🌿 Branch: ${prDetails.headRefName} → ${prDetails.baseRefName}`);
@@ -181,10 +224,10 @@ try {
   // Clone the repository using gh tool with authentication
   await log(`\nCloning repository ${owner}/${repo} using gh tool...\n`);
   const cloneResult = await $`gh repo clone ${owner}/${repo} ${tempDir}`;
-  
+
   // Verify clone was successful
   if (cloneResult.code !== 0) {
-    await log(`Error: Failed to clone repository`, { level: 'error' });
+    await log('Error: Failed to clone repository', { level: 'error' });
     await log(cloneResult.stderr ? cloneResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
@@ -200,25 +243,25 @@ try {
   // Fetch and checkout the PR branch
   await log(`🔀 Fetching and checking out PR branch: ${prDetails.headRefName}`);
   const fetchResult = await $`cd ${tempDir} && gh pr checkout ${prNumber}`;
-  
+
   if (fetchResult.code !== 0) {
-    await log(`Error: Failed to checkout PR branch`, { level: 'error' });
+    await log('Error: Failed to checkout PR branch', { level: 'error' });
     await log(fetchResult.stderr ? fetchResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
-  
-  await log(`✅ Successfully checked out PR branch\n`);
+
+  await log('✅ Successfully checked out PR branch\n');
 
   // Get the diff for the PR
-  await log(`📝 Getting PR diff...`);
+  await log('📝 Getting PR diff...');
   const diffResult = await $`gh pr diff ${prUrl}`;
-  
+
   if (diffResult.code !== 0) {
-    await log(`Error: Failed to get PR diff`, { level: 'error' });
+    await log('Error: Failed to get PR diff', { level: 'error' });
     await log(diffResult.stderr ? diffResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
-  
+
   const prDiff = diffResult.stdout.toString();
   await log(`✅ Got PR diff (${prDiff.length} characters)\n`);
 
@@ -254,7 +297,7 @@ Review this pull request thoroughly.`;
    - When you review commits, use gh pr view ${prNumber} --json commits.
 
 2. Review focus areas.
-   ${argv.focus === 'all' ? `- Review all aspects: logic, security, performance, style, tests, documentation.` : `- Focus specifically on: ${argv.focus}`}
+   ${argv.focus === 'all' ? '- Review all aspects: logic, security, performance, style, tests, documentation.' : `- Focus specifically on: ${argv.focus}`}
    - When reviewing logic, check for edge cases and error handling.
    - When reviewing security, look for vulnerabilities and unsafe patterns.
    - When reviewing performance, identify bottlenecks and inefficiencies.
@@ -306,7 +349,7 @@ Review this pull request thoroughly.`;
 
   // If dry-run, exit here
   if (argv.dryRun) {
-    await log(`✅ Command preparation complete`);
+    await log('✅ Command preparation complete');
     await log(`📂 Repository cloned to: ${tempDir}`);
     await log(`🔀 PR branch checked out: ${prDetails.headRefName}`);
     process.exit(0);
@@ -333,10 +376,11 @@ Review this pull request thoroughly.`;
     forkedRepo: null,
     feedbackLines: [],
     claudePath,
-    $
+    $,
   });
 
-  const { success: commandSuccess, sessionId, limitReached, messageCount, toolUseCount } = result;
+  const { success: commandSuccess, sessionId, limitReached: limitReachedResult } = result;
+  limitReached = limitReachedResult;
 
   // Handle command failure
   if (!commandSuccess) {
@@ -353,50 +397,49 @@ Review this pull request thoroughly.`;
     await log(`✅ Complete log file: ${getLogFile()}`);
 
     if (limitReached) {
-      await log(`\n⏰ LIMIT REACHED DETECTED!`);
-      await log(`\n🔄 To resume when limit resets, use:\n`);
+      await log('\n⏰ LIMIT REACHED DETECTED!');
+      await log('\n🔄 To resume when limit resets, use:\n');
       await log(`./review.mjs "${prUrl}" --resume ${sessionId}`);
-      await log(`\n   This will continue from where it left off with full context.\n`);
+      await log('\n   This will continue from where it left off with full context.\n');
     } else {
       // Check if review was submitted
-      await log(`\n🔍 Checking for submitted review...`);
-      
+      await log('\n🔍 Checking for submitted review...');
+
       try {
         // Get reviews for the PR
-        const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --jq '.[] | select(.user.login == "'$(gh api user --jq .login)'") | {state, submitted_at}'`;
-        
+        const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate --jq '.[] | select(.user.login == "'$(gh api user --jq .login)'") | {state, submitted_at}'`;
+
         if (reviewsResult.code === 0 && reviewsResult.stdout.toString().trim()) {
           await log(`✅ Review has been submitted to PR #${prNumber}`);
           await log(`📍 View at: ${prUrl}`);
         } else {
-          await log(`ℹ️  Review may be pending or saved as draft`);
+          await log('ℹ️  Review may be pending or saved as draft');
         }
       } catch (error) {
         reportError(error, {
           context: 'verify_review_status',
           prNumber,
-          level: 'warning'
+          level: 'warning',
         });
-        await log(`⚠️  Could not verify review status`);
+        await log('⚠️  Could not verify review status');
       }
-      
+
       // Show command to resume session in interactive mode
-      await log(`\n💡 To continue this session in Claude Code interactive mode:\n`);
+      await log('\n💡 To continue this session in Claude Code interactive mode:\n');
       await log(`   (cd ${tempDir} && claude --resume ${sessionId})`);
-      await log(``);
+      await log('');
     }
   } else {
-    await log(`❌ No session ID extracted`);
+    await log('❌ No session ID extracted');
     await log(`📁 Log file available: ${getLogFile()}`);
   }
 
-  await log(`\n✨ Review process complete. Check the PR for review comments.`);
+  await log('\n✨ Review process complete. Check the PR for review comments.');
   await log(`📍 Pull Request: ${prUrl}`);
-
 } catch (error) {
   reportError(error, {
     context: 'review_execution',
-    prUrl: argv._[0]
+    prUrl: prUrl,
   });
   await log('Error executing review:', error.message, { level: 'error' });
   process.exit(1);
@@ -411,7 +454,7 @@ Review this pull request thoroughly.`;
       reportError(cleanupError, {
         context: 'cleanup_temp_dir',
         level: 'warning',
-        tempDir
+        tempDir,
       });
       await log(' ⚠️  (failed)');
     }

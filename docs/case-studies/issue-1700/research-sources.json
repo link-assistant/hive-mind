@@ -1,0 +1,38 @@
+{
+  "issue": {
+    "url": "https://github.com/link-assistant/hive-mind/issues/1700",
+    "title": "/log and /terminal_watch does not work sometimes",
+    "author": "konard",
+    "createdAt": "2026-04-26"
+  },
+  "related_pull_requests": [
+    {
+      "url": "https://github.com/link-assistant/hive-mind/pull/1687",
+      "title": "/log Telegram command for isolation session logs",
+      "introduced": "decideLogDestination, parseSessionStatusOutput isolation field"
+    },
+    {
+      "url": "https://github.com/link-assistant/hive-mind/pull/1701",
+      "title": "Fix #1700: parser missed options.isolated"
+    }
+  ],
+  "related_issues": [
+    {
+      "url": "https://github.com/link-assistant/hive-mind/issues/1686",
+      "title": "/log command (parent feature)"
+    },
+    {
+      "url": "https://github.com/link-assistant/hive-mind/issues/1545",
+      "title": "Screen isolation status fallback"
+    }
+  ],
+  "external_repositories": [
+    {
+      "url": "https://github.com/link-foundation/start",
+      "package": "start-command (the `$` CLI)",
+      "version": "0.25.x",
+      "relevant_files": ["src/lib/status-formatter.js", "src/lib/execution-store.js", "src/lib/args-parser.js", "src/bin/cli.js"],
+      "key_findings": ["Default --status output format is `links-notation`, not `text`.", "Output formats: ['links-notation', 'json', 'text'].", "Isolation backend is reported at `options.isolated` in JSON output.", "Isolation backend is printed as `  isolated <backend>` under the `options` block in links-notation output.", "There is no top-level `isolation` field anywhere in start-command output."]
+    }
+  ]
+}

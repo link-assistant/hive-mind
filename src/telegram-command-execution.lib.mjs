@@ -73,6 +73,70 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
   });
 }
 
+/**
+ * Build the executeAndUpdateMessage function used by /solve and /hive in
+ * telegram-bot.mjs. The original function captures ~10 module-level closures
+ * (resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen,
+ * trackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot,
+ * formatExecutingWorkSessionMessage); the factory pattern lets us extract the
+ * function while still keeping all those handles available without making them
+ * module-global elsewhere. Splitting this out keeps telegram-bot.mjs under the
+ * 1500-line cap (issues #1141, #1730, #594).
+ *
+ * @param {Object} deps - Dependencies captured at bot startup time.
+ * @param {Function} deps.resolveIsolation
+ * @param {string|null} deps.ISOLATION_BACKEND
+ * @param {Object} deps.isolationRunner
+ * @param {boolean} deps.VERBOSE
+ * @param {Function} deps.executeStartScreen
+ * @param {Function} deps.trackSession
+ * @param {boolean} deps.AUTO_WATCH_MESSAGE
+ * @param {Function} deps.startAutoTerminalWatchForSession
+ * @param {Object} deps.bot
+ * @param {Function} deps.formatExecutingWorkSessionMessage
+ * @returns {Function} executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation, tool, urlContext, sessionExtras)
+ */
+export function buildExecuteAndUpdateMessage(deps) {
+  const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage } = deps;
+  return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null } = {}) {
+    const { chat, message_id: msgId } = startingMessage;
+    const safeEdit = async text => {
+      try {
+        await ctx.telegram.editMessageText(chat.id, msgId, undefined, text, { parse_mode: 'Markdown' });
+      } catch (e) {
+        console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
+      }
+    };
+    const requesterUserId = ctx.from?.id ?? null; // Issue #1688: suppress duplicate /subscribe DM
+    const baseSessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId, showLimits, limitsAtStart }; // #594: showLimits/limitsAtStart
+    const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
+    let result, session, sessionInfo;
+    if (iso) {
+      session = iso.runner.generateSessionId();
+      VERBOSE && console.log(`[VERBOSE] Using isolation (${iso.backend}), session: ${session}`);
+      result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, verbose: VERBOSE });
+      if (result.success) {
+        sessionInfo = { ...baseSessionInfo, isolationBackend: iso.backend, sessionId: session };
+        trackSession(session, sessionInfo, VERBOSE);
+      }
+    } else {
+      result = await executeStartScreen(commandName, args);
+      const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
+      session = match ? match[1] : 'unknown';
+      // Issue #1586: Non-isolation sessions auto-expire after 10 min — screen stays alive via `exec bash` so completion can't be detected reliably; this still blocks duplicate commands in the timeout window.
+      if (result.success && session !== 'unknown') {
+        sessionInfo = baseSessionInfo;
+        trackSession(session, sessionInfo, VERBOSE);
+      }
+    }
+    if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
+    if (result.success) {
+      await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, isolationBackend: iso?.backend || null, infoBlock }));
+      if (AUTO_WATCH_MESSAGE && commandName === 'solve' && sessionInfo?.isolationBackend) await startAutoTerminalWatchForSession({ bot, ctx, sessionId: session, sessionInfo, verbose: VERBOSE });
+    } else await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${infoBlock}`);
+  };
+}
+
 export async function executeStartScreen(command, args, options = {}) {
   const { verbose = false } = options;
 

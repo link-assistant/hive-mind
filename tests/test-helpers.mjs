@@ -4,6 +4,8 @@
  * Provides a minimal test runner with pass/fail counting and summary output.
  * Usage:
  *   import { test, asyncTest, printSummary, getFailCount } from './test-helpers.mjs';
+ *
+ * @hive-mind-test-skip
  */
 
 let testsPassed = 0;

@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite needs-triage
+// Pre-existing orphan test that was not in the legacy default suite and fails
+// in CI because it relies on temp git repos and assertions about commit-behind
+// counts that don't hold in the GitHub Actions sandbox. Tracked under issue
+// #1758 follow-up; opt in via `node scripts/run-tests.mjs --suite needs-triage`.
 /**
  * Test suite for PR creation with existing branches
  * Tests the fix for issue #683

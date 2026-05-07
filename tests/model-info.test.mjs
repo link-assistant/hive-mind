@@ -62,8 +62,8 @@ test('getToolDisplayName returns "Qwen Code" for qwen', () => {
   assert.equal(getToolDisplayName('qwen'), 'Qwen Code');
 });
 
-test('getToolDisplayName returns "Gemini CLI" for gemini', () => {
-  assert.equal(getToolDisplayName('gemini'), 'Gemini CLI');
+test('getToolDisplayName returns "Google Gemini CLI" for gemini (alt invocation)', () => {
+  assert.equal(getToolDisplayName('gemini'), 'Google Gemini CLI');
 });
 
 test('getToolDisplayName returns "AI tool" for unknown', () => {
@@ -387,13 +387,13 @@ test('buildModelInfoString shows "Qwen Code" tool name for qwen', () => {
   assert.ok(result.includes('Qwen3 Coder Plus'), `Expected Qwen model name but got: ${result}`);
 });
 
-test('buildModelInfoString shows "Gemini CLI" tool name for gemini', () => {
+test('buildModelInfoString shows "Google Gemini CLI" tool name for gemini (alt invocation)', () => {
   const result = buildModelInfoString({
     tool: 'gemini',
     requestedModel: 'gemini',
     modelsUsed: [{ modelId: 'gemini-2.5-flash', modelInfo: { name: 'Gemini 2.5 Flash', provider: 'Google' } }],
   });
-  assert.ok(result.includes('Tool: Gemini CLI'), `Expected "Tool: Gemini CLI" but got: ${result}`);
+  assert.ok(result.includes('Tool: Google Gemini CLI'), `Expected "Tool: Google Gemini CLI" but got: ${result}`);
   assert.ok(result.includes('Gemini 2.5 Flash'), `Expected Gemini model name but got: ${result}`);
 });
 

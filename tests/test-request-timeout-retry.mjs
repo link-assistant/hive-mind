@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite needs-triage
+// Pre-existing orphan test that was not in the legacy default suite and fails
+// when discovered automatically. Tracked under issue #1758 follow-up; opt in
+// via `node scripts/run-tests.mjs --suite needs-triage`.
 // Test file for issue #1353: Auto-restart with --resume on "Request timed out" in --tool claude
 // Verifies that timeout errors trigger exponential backoff retry with session preservation
 

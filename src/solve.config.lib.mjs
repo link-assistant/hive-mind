@@ -110,6 +110,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically use .gitkeep if CLAUDE.md is in .gitignore (pre-checks before creating file)',
     default: true,
   },
+  'auto-support-agents-md-as-claude-md': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Temporarily copy AGENTS.md/agents.md to CLAUDE.md while Claude runs, then remove the temporary copy',
+    default: false,
+  },
   'attach-logs': {
     type: 'boolean',
     description: 'Upload the solution draft log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',

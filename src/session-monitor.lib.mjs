@@ -281,6 +281,36 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
 
+        // Issue #594: when --show-limits was used at command time, capture an
+        //   end-of-task limits snapshot and append a delta block to the
+        //   completion message. The cached helpers respect a 20-min TTL so
+        //   parallel sessions don't stampede the upstream API.
+        const limitsExtraSections = [];
+        if (sessionInfo?.showLimits) {
+          try {
+            const showLimitsLib = await import('./telegram-show-limits.lib.mjs');
+            const limitsLib = await import('./limits.lib.mjs');
+            const endSnapshot = await showLimitsLib.captureLimitsSnapshot({
+              tool: sessionInfo.tool || 'claude',
+              verbose,
+              limitsLib,
+            });
+            sessionInfo.limitsAtEnd = endSnapshot;
+            const deltaBlock = showLimitsLib.formatLimitsDeltaBlock(sessionInfo.limitsAtStart || null, endSnapshot);
+            if (deltaBlock) limitsExtraSections.push(deltaBlock);
+            else {
+              // Either start snapshot was missing or tool changed — fall back
+              // to a plain end-of-task snapshot so the user still sees current state.
+              const endBlock = showLimitsLib.formatLimitsSnapshotBlock(endSnapshot, { title: '📊 Limits at end' });
+              if (endBlock) limitsExtraSections.push(endBlock);
+            }
+          } catch (limitsError) {
+            if (verbose) {
+              console.log(`[VERBOSE] Could not capture end-of-task limits for ${sessionName}: ${limitsError?.message || limitsError}`);
+            }
+          }
+        }
+
         const message = formatSessionCompletionMessage({
           sessionName,
           sessionInfo,
@@ -289,6 +319,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           exitCode: finalExitCode,
           infoBlock: sessionInfo?.infoBlock || '',
           pullRequestUrl,
+          extraSections: limitsExtraSections,
         });
 
         // Update the original reply message if messageId is available, otherwise send new message

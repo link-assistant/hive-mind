@@ -48,6 +48,9 @@ class SolveQueueItem {
     this.urlContext = options.urlContext || null;
     // Issue #1688: requester user ID for /subscribe duplicate-suppression.
     this.requesterUserId = options.ctx?.from?.id ?? null;
+    // Issue #594: --show-limits virtual option (hive-telegram-bot only).
+    this.showLimits = options.showLimits === true;
+    this.limitsAtStart = options.limitsAtStart || null;
     this.createdAt = new Date();
     this.startedAt = null;
     this.status = QueueItemStatus.QUEUED;
@@ -1407,6 +1410,11 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
           //   notifying the requester twice via /subscribe.
           urlContext: item.urlContext || null,
           requesterUserId: item.requesterUserId ?? null,
+          // Issue #594: --show-limits virtual option carries the start-of-task
+          //   snapshot from the queueing point through to the completion
+          //   handler so it can render an end-of-task delta.
+          showLimits: item.showLimits === true,
+          limitsAtStart: item.limitsAtStart || null,
         });
       }
     }

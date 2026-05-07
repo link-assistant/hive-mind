@@ -69,7 +69,11 @@ async function checkExistingForkOfRoot(rootRepo) {
       return null;
     }
 
-    const forks = forksResult.stdout.toString().trim().split('\n').filter(f => f);
+    const forks = forksResult.stdout
+      .toString()
+      .trim()
+      .split('\n')
+      .filter(f => f);
 
     if (forks.length > 0) {
       console.log(`   ✅ Found existing fork: ${forks[0]}`);
@@ -100,13 +104,13 @@ async function testForkConflictDetection() {
     {
       name: 'Original repository (zamtmn/zcad)',
       owner: 'zamtmn',
-      repo: 'zcad'
+      repo: 'zcad',
     },
     {
       name: 'Fork of original (veb86/zcadvelecAI)',
       owner: 'veb86',
-      repo: 'zcadvelecAI'
-    }
+      repo: 'zcadvelecAI',
+    },
   ];
 
   for (const testCase of testCases) {

@@ -1,0 +1,13 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "<img width=\"1290\" height=\"2796\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/eb0e9bfc-bc53-43c4-ad98-c671d5afc0d5\" />\n\n\n```\n/solve https://github.com/uselessgoddess/license/issues/24 --branch dev --model opus\n```\n\n```\n❌ Invalid options: Unknown argument: branch\n\nUse /help to see available options\n```\n\nAlso in that specific case and also in general our Telegram bot should suggest 3 options, that are closest match, as we cannot list all of them in /help, as we have to many of them.\n\nPlease download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions.",
+  "createdAt": "2026-01-05T13:09:10Z",
+  "labels": [
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6jw", "name": "documentation", "description": "Improvements or additions to documentation", "color": "0075ca" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6mA", "name": "enhancement", "description": "New feature or request", "color": "a2eeef" }
+  ],
+  "number": 1072,
+  "state": "OPEN",
+  "title": "Add --base-branch option as frequently used in /help, and also in all places in docs",
+  "updatedAt": "2026-01-05T13:09:10Z"
+}

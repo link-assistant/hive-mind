@@ -1,0 +1,36 @@
+[
+  { "path": "src/github-merge-repo-actions.lib.mjs", "repository": { "id": "R_kgDOPUU0qQ", "isFork": false, "isPrivate": false, "nameWithOwner": "link-assistant/hive-mind", "url": "https://github.com/link-assistant/hive-mind" }, "textMatches": [{ "fragment": " * @param {Object} params\n * @returns {Promise<{allAgree: boolean, mechanisms: Object, ciStatus: Object, workflowRuns: Array}>}\n */\nexport async function checkCIConsensus({ owner, repo, prNumber, sha, waitForAllRepoActionsFlag, verbose, getDetailedCIStatus, getWorkflowRunsForSha }) {\n  const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);\n  const checkRunsOK = ciStatus.status === 'success' || ciStatus.status === 'no_checks';\n", "matches": [{ "indices": [154, 170], "text": "checkCIConsensus" }], "property": "content", "type": "FileContent" }] },
+  {
+    "path": "docs/case-studies/issue-1573/README.md",
+    "repository": { "id": "R_kgDOPUU0qQ", "isFork": false, "isPrivate": false, "nameWithOwner": "link-assistant/hive-mind", "url": "https://github.com/link-assistant/hive-mind" },
+    "textMatches": [
+      { "fragment": "\nThe multi-mechanism CI consensus check (`checkCIConsensus`) would get stuck indefinitely when an unrelated branch in the same repository had a long-running CI job.\n", "matches": [{ "indices": [42, 58], "text": "checkCIConsensus" }], "property": "content", "type": "FileContent" },
+      { "fragment": "\n- `src/github-merge-repo-actions.lib.mjs` — Simplified repo-wide check (no branch filtering) + `getPRCommitShas()` with `--paginate` + `checkAllPRCommitsCI()` in `checkCIConsensus()`\n- `src/github-merge.lib.mjs` — Re-export new functions", "matches": [{ "indices": [166, 182], "text": "eckCIConsensus()" }], "property": "content", "type": "FileContent" }
+    ]
+  },
+  {
+    "path": "src/github-merge.lib.mjs",
+    "repository": { "id": "R_kgDOPUU0qQ", "isFork": false, "isPrivate": false, "nameWithOwner": "link-assistant/hive-mind", "url": "https://github.com/link-assistant/hive-mind" },
+    "textMatches": [
+      {
+        "fragment": "import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';\nexport { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };\n\nimport { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas } from './github-merge-repo-actions.lib.mjs'; // Issue #1503\nexport { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas };\n\nexport default {",
+        "matches": [
+          { "indices": [224, 240], "text": "checkCIConsensus" },
+          { "indices": [394, 410], "text": "checkCIConsensus" }
+        ],
+        "property": "content",
+        "type": "FileContent"
+      }
+    ]
+  },
+  {
+    "path": "src/solve.auto-merge.lib.mjs",
+    "repository": { "id": "R_kgDOPUU0qQ", "isFork": false, "isPrivate": false, "nameWithOwner": "link-assistant/hive-mind", "url": "https://github.com/link-assistant/hive-mind" },
+    "textMatches": [
+      { "fragment": "const githubMergeLib = await import('./github-merge.lib.mjs');\nconst { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;\n", "matches": [{ "indices": [273, 289], "text": "checkCIConsensus" }], "property": "content", "type": "FileContent" },
+      { "fragment": "          // Run multi-mechanism consensus: Check Runs API + Workflow Runs API + Repo-wide actions\n          const consensus = await checkCIConsensus({\n            owner,", "matches": [{ "indices": [133, 149], "text": "checkCIConsensus" }], "property": "content", "type": "FileContent" }
+    ]
+  },
+  { "path": "docs/case-studies/issue-1503/README.md", "repository": { "id": "R_kgDOPUU0qQ", "isFork": false, "isPrivate": false, "nameWithOwner": "link-assistant/hive-mind", "url": "https://github.com/link-assistant/hive-mind" }, "textMatches": [{ "fragment": "\n- `src/solve.auto-merge.lib.mjs` — Per-SHA counter, consensus check, min interval, repo-wide actions\n- `src/github-merge.lib.mjs` — Re-exports new repo-actions module\n- `src/github-merge-repo-actions.lib.mjs` — NEW: `getAllActiveRepoRuns`, `waitForAllRepoActions`, `checkCIConsensus`\n- `src/solve.config.lib.mjs` — `--wait-for-all-actions-in-repository-before-mergeable` flag\n- `tests/test-false-positive-iteration-count-1503.mjs` — 20 unit tests (11 original + 9 new)\n- `tests/test-repo-actions-consensus-1503.mjs` — NEW: 30 unit tests for consensus, repo-wide, intervals", "matches": [{ "indices": [273, 289], "text": "IConsensus`\n- `s" }], "property": "content", "type": "FileContent" }] },
+  { "path": "tests/test-repo-actions-consensus-1503.mjs", "repository": { "id": "R_kgDOPUU0qQ", "isFork": false, "isPrivate": false, "nameWithOwner": "link-assistant/hive-mind", "url": "https://github.com/link-assistant/hive-mind" }, "textMatches": [{ "fragment": " *\n * Tests for the enhanced reliability mechanisms:\n *   1. getAllActiveRepoRuns — finds all active runs across the entire repository\n *   2. checkCIConsensus — multi-mechanism consensus check\n *   3. Minimum 5-minute CI check interval enforcement\n *   4. --wait-for-all-actions-in-repository-before-mergeable flag\n *", "matches": [{ "indices": [145, 161], "text": "eckCIConsensus —" }], "property": "content", "type": "FileContent" }] }
+]

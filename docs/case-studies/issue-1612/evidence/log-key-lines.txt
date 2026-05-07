@@ -1,0 +1,661 @@
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10649:[2026-04-15T17:14:29.056Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: pending
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10663:[2026-04-15T17:16:33.611Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10665:[2026-04-15T17:16:34.115Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10680:[2026-04-15T17:16:47.267Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10682:[2026-04-15T17:16:47.786Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10692:[2026-04-15T17:16:52.036Z] [VERBOSE] [VERBOSE] repo-actions: 4 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10693:[2026-04-15T17:16:52.036Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10694:[2026-04-15T17:16:52.036Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10695:[2026-04-15T17:16:52.036Z] [VERBOSE] [VERBOSE] repo-actions:   Run GUT Tests (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10696:[2026-04-15T17:16:52.036Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10697:[2026-04-15T17:16:52.036Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(4 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10698:[2026-04-15T17:16:52.036Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=4 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10706:[2026-04-15T17:18:54.664Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10708:[2026-04-15T17:18:55.154Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10723:[2026-04-15T17:19:08.159Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10725:[2026-04-15T17:19:08.647Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10735:[2026-04-15T17:19:13.119Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10736:[2026-04-15T17:19:13.119Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10737:[2026-04-15T17:19:13.119Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10738:[2026-04-15T17:19:13.119Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10739:[2026-04-15T17:19:13.119Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10747:[2026-04-15T17:21:16.179Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10749:[2026-04-15T17:21:16.698Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10764:[2026-04-15T17:21:29.742Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10766:[2026-04-15T17:21:30.276Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10776:[2026-04-15T17:21:34.851Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10777:[2026-04-15T17:21:34.851Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10778:[2026-04-15T17:21:34.851Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10779:[2026-04-15T17:21:34.851Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10780:[2026-04-15T17:21:34.851Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10788:[2026-04-15T17:23:38.098Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10790:[2026-04-15T17:23:38.673Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10805:[2026-04-15T17:23:51.799Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10807:[2026-04-15T17:23:52.250Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10817:[2026-04-15T17:23:56.656Z] [VERBOSE] [VERBOSE] repo-actions: 7 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10818:[2026-04-15T17:23:56.656Z] [VERBOSE] [VERBOSE] repo-actions:   C# Build Validation (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10819:[2026-04-15T17:23:56.656Z] [VERBOSE] [VERBOSE] repo-actions:   C# and GDScript Interoperability Check (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10820:[2026-04-15T17:23:56.656Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10821:[2026-04-15T17:23:56.656Z] [VERBOSE] [VERBOSE] repo-actions:   Compile Check (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10822:[2026-04-15T17:23:56.656Z] [VERBOSE] [VERBOSE] repo-actions:   Run GUT Tests (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10823:[2026-04-15T17:23:56.656Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10824:[2026-04-15T17:23:56.656Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10825:[2026-04-15T17:23:56.656Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(7 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10826:[2026-04-15T17:23:56.656Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=7 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10834:[2026-04-15T17:25:59.412Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10836:[2026-04-15T17:25:59.935Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10851:[2026-04-15T17:26:13.098Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10853:[2026-04-15T17:26:13.619Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10863:[2026-04-15T17:26:18.163Z] [VERBOSE] [VERBOSE] repo-actions: 3 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10864:[2026-04-15T17:26:18.163Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10865:[2026-04-15T17:26:18.163Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10866:[2026-04-15T17:26:18.163Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10867:[2026-04-15T17:26:18.163Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(3 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10868:[2026-04-15T17:26:18.163Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=3 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10876:[2026-04-15T17:28:20.961Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10878:[2026-04-15T17:28:21.582Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10893:[2026-04-15T17:28:34.623Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10895:[2026-04-15T17:28:35.277Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10905:[2026-04-15T17:28:39.716Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10906:[2026-04-15T17:28:39.716Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10907:[2026-04-15T17:28:39.716Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10908:[2026-04-15T17:28:39.716Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10909:[2026-04-15T17:28:39.716Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10917:[2026-04-15T17:30:42.576Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10919:[2026-04-15T17:30:43.117Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10934:[2026-04-15T17:30:56.337Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10936:[2026-04-15T17:30:56.882Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10946:[2026-04-15T17:31:01.374Z] [VERBOSE] [VERBOSE] repo-actions: 3 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10947:[2026-04-15T17:31:01.374Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10948:[2026-04-15T17:31:01.374Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10949:[2026-04-15T17:31:01.374Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10950:[2026-04-15T17:31:01.376Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(3 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10951:[2026-04-15T17:31:01.376Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=3 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10959:[2026-04-15T17:33:04.339Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10961:[2026-04-15T17:33:04.876Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10976:[2026-04-15T17:33:18.071Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10978:[2026-04-15T17:33:18.609Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10988:[2026-04-15T17:33:23.024Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10989:[2026-04-15T17:33:23.024Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10990:[2026-04-15T17:33:23.025Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10991:[2026-04-15T17:33:23.025Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:10992:[2026-04-15T17:33:23.025Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11000:[2026-04-15T17:35:25.875Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11004:[2026-04-15T17:35:26.383Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11017:[2026-04-15T17:35:39.515Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11019:[2026-04-15T17:35:40.045Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11029:[2026-04-15T17:35:44.696Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11030:[2026-04-15T17:35:44.696Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11031:[2026-04-15T17:35:44.696Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11032:[2026-04-15T17:35:44.696Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11033:[2026-04-15T17:35:44.697Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11041:[2026-04-15T17:37:47.344Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11043:[2026-04-15T17:37:47.893Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11058:[2026-04-15T17:38:01.104Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11060:[2026-04-15T17:38:01.818Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11070:[2026-04-15T17:38:06.214Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11071:[2026-04-15T17:38:06.213Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11072:[2026-04-15T17:38:06.214Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11073:[2026-04-15T17:38:06.214Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11074:[2026-04-15T17:38:06.214Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11082:[2026-04-15T17:40:08.977Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11084:[2026-04-15T17:40:09.543Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11099:[2026-04-15T17:40:22.647Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11101:[2026-04-15T17:40:23.160Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11111:[2026-04-15T17:40:27.458Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11112:[2026-04-15T17:40:27.458Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11113:[2026-04-15T17:40:27.458Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11114:[2026-04-15T17:40:27.458Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11115:[2026-04-15T17:40:27.458Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11123:[2026-04-15T17:42:30.468Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11125:[2026-04-15T17:42:31.043Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11140:[2026-04-15T17:42:44.218Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11142:[2026-04-15T17:42:44.691Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11152:[2026-04-15T17:42:49.185Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11153:[2026-04-15T17:42:49.185Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11154:[2026-04-15T17:42:49.186Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11155:[2026-04-15T17:42:49.185Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11156:[2026-04-15T17:42:49.186Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11164:[2026-04-15T17:44:51.908Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11166:[2026-04-15T17:44:52.511Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11181:[2026-04-15T17:45:05.643Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11183:[2026-04-15T17:45:06.230Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11193:[2026-04-15T17:45:10.789Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11194:[2026-04-15T17:45:10.789Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11195:[2026-04-15T17:45:10.789Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11196:[2026-04-15T17:45:10.790Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11197:[2026-04-15T17:45:10.790Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11205:[2026-04-15T17:47:13.655Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11207:[2026-04-15T17:47:14.222Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11222:[2026-04-15T17:47:27.452Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11224:[2026-04-15T17:47:28.019Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11234:[2026-04-15T17:47:33.802Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11235:[2026-04-15T17:47:33.802Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11236:[2026-04-15T17:47:33.802Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11237:[2026-04-15T17:47:33.803Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11238:[2026-04-15T17:47:33.802Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11246:[2026-04-15T17:49:36.890Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11248:[2026-04-15T17:49:37.385Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11263:[2026-04-15T17:49:50.842Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11265:[2026-04-15T17:49:51.499Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11275:[2026-04-15T17:49:56.247Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11276:[2026-04-15T17:49:56.247Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11277:[2026-04-15T17:49:56.247Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11278:[2026-04-15T17:49:56.247Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11279:[2026-04-15T17:49:56.247Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11287:[2026-04-15T17:51:58.880Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11289:[2026-04-15T17:51:59.405Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11304:[2026-04-15T17:52:12.538Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11306:[2026-04-15T17:52:18.014Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11316:[2026-04-15T17:52:22.408Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11317:[2026-04-15T17:52:22.408Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11318:[2026-04-15T17:52:22.408Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11319:[2026-04-15T17:52:22.408Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11320:[2026-04-15T17:52:22.408Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11328:[2026-04-15T17:54:25.036Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11331:[2026-04-15T17:54:25.592Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11345:[2026-04-15T17:54:38.424Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11347:[2026-04-15T17:54:38.893Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11357:[2026-04-15T17:54:42.771Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11358:[2026-04-15T17:54:42.771Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11359:[2026-04-15T17:54:42.771Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11360:[2026-04-15T17:54:42.771Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11361:[2026-04-15T17:54:42.771Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11369:[2026-04-15T17:56:45.736Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11371:[2026-04-15T17:56:46.249Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11386:[2026-04-15T17:56:59.235Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11388:[2026-04-15T17:56:59.766Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11398:[2026-04-15T17:57:04.197Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11399:[2026-04-15T17:57:04.197Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11400:[2026-04-15T17:57:04.197Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11401:[2026-04-15T17:57:04.197Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11402:[2026-04-15T17:57:04.197Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11468:[2026-04-15T17:57:21.961Z] [VERBOSE] [VERBOSE] /merge: PR #1837 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-09-45-312Z.log:11470:[2026-04-15T17:57:22.457Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 4778c83
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22795:[2026-04-15T17:01:26.521Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: pending
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22809:[2026-04-15T17:03:31.224Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22813:[2026-04-15T17:03:31.854Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22827:[2026-04-15T17:03:45.199Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22828:[2026-04-15T17:03:45.666Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22838:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] repo-actions: 9 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22839:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] repo-actions:   GDScript Code Quality Lint (in_progress) on issue-1824-89bd456e9e8c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22840:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] repo-actions:   C# Build Validation (in_progress) on issue-1824-89bd456e9e8c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22841:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1824-89bd456e9e8c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22842:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] repo-actions:   Gameplay Critical Systems Validation (in_progress) on issue-1824-89bd456e9e8c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22843:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] repo-actions:   C# and GDScript Interoperability Check (in_progress) on issue-1824-89bd456e9e8c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22844:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] repo-actions:   Architecture Best Practices Check (in_progress) on issue-1824-89bd456e9e8c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22845:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] repo-actions:   Run GUT Tests (in_progress) on issue-1824-89bd456e9e8c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22846:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] repo-actions:   Compile Check (in_progress) on issue-1824-89bd456e9e8c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22847:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22848:[2026-04-15T17:03:50.717Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(9 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22849:[2026-04-15T17:03:50.717Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=9 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22857:[2026-04-15T17:05:53.539Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22859:[2026-04-15T17:05:54.062Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22874:[2026-04-15T17:06:07.092Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22876:[2026-04-15T17:06:07.624Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22886:[2026-04-15T17:06:12.363Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22887:[2026-04-15T17:06:12.364Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1826-328adfe76998
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22888:[2026-04-15T17:06:12.364Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1824-89bd456e9e8c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22889:[2026-04-15T17:06:12.364Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22890:[2026-04-15T17:06:12.364Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22898:[2026-04-15T17:08:15.479Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22900:[2026-04-15T17:08:16.042Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22915:[2026-04-15T17:08:28.978Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22917:[2026-04-15T17:08:29.468Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22927:[2026-04-15T17:08:33.953Z] [VERBOSE] [VERBOSE] repo-actions: 5 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22928:[2026-04-15T17:08:33.953Z] [VERBOSE] [VERBOSE] repo-actions:   C# and GDScript Interoperability Check (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22929:[2026-04-15T17:08:33.953Z] [VERBOSE] [VERBOSE] repo-actions:   Compile Check (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22930:[2026-04-15T17:08:33.953Z] [VERBOSE] [VERBOSE] repo-actions:   C# Build Validation (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22931:[2026-04-15T17:08:33.953Z] [VERBOSE] [VERBOSE] repo-actions:   Run GUT Tests (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22932:[2026-04-15T17:08:33.953Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22933:[2026-04-15T17:08:33.953Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(5 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22934:[2026-04-15T17:08:33.953Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=5 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22942:[2026-04-15T17:10:36.895Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22944:[2026-04-15T17:10:37.401Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22959:[2026-04-15T17:10:50.475Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22961:[2026-04-15T17:10:51.004Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22971:[2026-04-15T17:10:55.494Z] [VERBOSE] [VERBOSE] repo-actions: 8 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22972:[2026-04-15T17:10:55.495Z] [VERBOSE] [VERBOSE] repo-actions:   Compile Check (in_progress) on issue-1829-9e610da64c04
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22973:[2026-04-15T17:10:55.495Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1829-9e610da64c04
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22974:[2026-04-15T17:10:55.495Z] [VERBOSE] [VERBOSE] repo-actions:   Run GUT Tests (in_progress) on issue-1829-9e610da64c04
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22975:[2026-04-15T17:10:55.495Z] [VERBOSE] [VERBOSE] repo-actions:   C# and GDScript Interoperability Check (in_progress) on issue-1829-9e610da64c04
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22976:[2026-04-15T17:10:55.495Z] [VERBOSE] [VERBOSE] repo-actions:   C# Build Validation (in_progress) on issue-1829-9e610da64c04
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22977:[2026-04-15T17:10:55.495Z] [VERBOSE] [VERBOSE] repo-actions:   Run GUT Tests (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22978:[2026-04-15T17:10:55.495Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22979:[2026-04-15T17:10:55.495Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22980:[2026-04-15T17:10:55.495Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(8 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22981:[2026-04-15T17:10:55.495Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=8 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22989:[2026-04-15T17:12:58.179Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:22991:[2026-04-15T17:12:58.645Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23006:[2026-04-15T17:13:11.676Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23008:[2026-04-15T17:13:12.219Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23018:[2026-04-15T17:13:16.552Z] [VERBOSE] [VERBOSE] repo-actions: 5 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23019:[2026-04-15T17:13:16.552Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1829-9e610da64c04
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23020:[2026-04-15T17:13:16.553Z] [VERBOSE] [VERBOSE] repo-actions:   Run GUT Tests (in_progress) on issue-1829-9e610da64c04
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23021:[2026-04-15T17:13:16.553Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1829-9e610da64c04
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23022:[2026-04-15T17:13:16.553Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23023:[2026-04-15T17:13:16.553Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23024:[2026-04-15T17:13:16.553Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(5 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23025:[2026-04-15T17:13:16.553Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=5 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23033:[2026-04-15T17:15:19.284Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23035:[2026-04-15T17:15:19.836Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23051:[2026-04-15T17:15:32.954Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23052:[2026-04-15T17:15:33.432Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23062:[2026-04-15T17:15:37.797Z] [VERBOSE] [VERBOSE] repo-actions: 3 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23063:[2026-04-15T17:15:37.797Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1829-9e610da64c04
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23064:[2026-04-15T17:15:37.797Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23065:[2026-04-15T17:15:37.797Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23066:[2026-04-15T17:15:37.797Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(3 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23067:[2026-04-15T17:15:37.797Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=3 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23076:[2026-04-15T17:17:40.563Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23077:[2026-04-15T17:17:41.056Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23093:[2026-04-15T17:17:54.392Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23094:[2026-04-15T17:17:54.862Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23104:[2026-04-15T17:17:58.924Z] [VERBOSE] [VERBOSE] repo-actions: 3 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23105:[2026-04-15T17:17:58.924Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23106:[2026-04-15T17:17:58.924Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23107:[2026-04-15T17:17:58.924Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23108:[2026-04-15T17:17:58.924Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(3 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23109:[2026-04-15T17:17:58.924Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=3 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23117:[2026-04-15T17:20:02.189Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23119:[2026-04-15T17:20:02.895Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23134:[2026-04-15T17:20:16.220Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23136:[2026-04-15T17:20:16.774Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23146:[2026-04-15T17:20:20.842Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23147:[2026-04-15T17:20:20.842Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23148:[2026-04-15T17:20:20.842Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23149:[2026-04-15T17:20:20.842Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23150:[2026-04-15T17:20:20.843Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23158:[2026-04-15T17:22:23.547Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23160:[2026-04-15T17:22:24.117Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23175:[2026-04-15T17:22:37.139Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23177:[2026-04-15T17:22:37.707Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23187:[2026-04-15T17:22:41.656Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23188:[2026-04-15T17:22:41.656Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23189:[2026-04-15T17:22:41.656Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23190:[2026-04-15T17:22:41.656Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23191:[2026-04-15T17:22:41.657Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23199:[2026-04-15T17:24:44.518Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23201:[2026-04-15T17:24:45.046Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23216:[2026-04-15T17:24:58.010Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23218:[2026-04-15T17:24:58.498Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23228:[2026-04-15T17:25:03.349Z] [VERBOSE] [VERBOSE] repo-actions: 3 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23229:[2026-04-15T17:25:03.349Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23230:[2026-04-15T17:25:03.350Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23231:[2026-04-15T17:25:03.350Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23232:[2026-04-15T17:25:03.350Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(3 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23233:[2026-04-15T17:25:03.350Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=3 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23241:[2026-04-15T17:27:06.164Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23243:[2026-04-15T17:27:06.715Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23258:[2026-04-15T17:27:19.739Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23261:[2026-04-15T17:27:25.229Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23270:[2026-04-15T17:27:29.770Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23271:[2026-04-15T17:27:29.770Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23272:[2026-04-15T17:27:29.770Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23273:[2026-04-15T17:27:29.770Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23274:[2026-04-15T17:27:29.770Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23282:[2026-04-15T17:29:32.546Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23284:[2026-04-15T17:29:33.069Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23299:[2026-04-15T17:29:46.140Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23301:[2026-04-15T17:29:46.745Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23311:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] repo-actions: 9 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23312:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] repo-actions:   Compile Check (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23313:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] repo-actions:   Run GUT Tests (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23314:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] repo-actions:   C# and GDScript Interoperability Check (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23315:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] repo-actions:   C# Build Validation (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23316:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23317:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] repo-actions:   GDScript Code Quality Lint (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23318:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] repo-actions:   Gameplay Critical Systems Validation (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23319:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23320:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(9 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23321:[2026-04-15T17:29:51.801Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=9 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23322:[2026-04-15T17:29:51.801Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23330:[2026-04-15T17:31:54.663Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23332:[2026-04-15T17:31:55.159Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23347:[2026-04-15T17:32:08.298Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23349:[2026-04-15T17:32:08.864Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23359:[2026-04-15T17:32:13.132Z] [VERBOSE] [VERBOSE] repo-actions: 3 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23360:[2026-04-15T17:32:13.132Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23361:[2026-04-15T17:32:13.132Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23362:[2026-04-15T17:32:13.132Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23363:[2026-04-15T17:32:13.132Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(3 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23364:[2026-04-15T17:32:13.132Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=3 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23372:[2026-04-15T17:34:15.946Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23374:[2026-04-15T17:34:16.534Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23389:[2026-04-15T17:34:29.628Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23391:[2026-04-15T17:34:30.385Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23401:[2026-04-15T17:34:34.834Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23402:[2026-04-15T17:34:34.835Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23403:[2026-04-15T17:34:34.835Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23404:[2026-04-15T17:34:34.835Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23405:[2026-04-15T17:34:34.835Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23413:[2026-04-15T17:36:37.628Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23415:[2026-04-15T17:36:38.160Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23430:[2026-04-15T17:36:51.146Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23432:[2026-04-15T17:36:51.672Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23442:[2026-04-15T17:36:56.080Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23443:[2026-04-15T17:36:56.081Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23444:[2026-04-15T17:36:56.081Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23445:[2026-04-15T17:36:56.081Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23446:[2026-04-15T17:36:56.081Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23454:[2026-04-15T17:38:59.042Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23456:[2026-04-15T17:38:59.603Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23471:[2026-04-15T17:39:13.225Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23473:[2026-04-15T17:39:13.830Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23483:[2026-04-15T17:39:18.418Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23484:[2026-04-15T17:39:18.418Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23485:[2026-04-15T17:39:18.418Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23486:[2026-04-15T17:39:18.418Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23487:[2026-04-15T17:39:18.418Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23495:[2026-04-15T17:41:21.157Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23497:[2026-04-15T17:41:21.768Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23512:[2026-04-15T17:41:34.884Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23514:[2026-04-15T17:41:35.394Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23524:[2026-04-15T17:41:39.650Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23525:[2026-04-15T17:41:39.650Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23526:[2026-04-15T17:41:39.650Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23527:[2026-04-15T17:41:39.650Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23528:[2026-04-15T17:41:39.650Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23536:[2026-04-15T17:43:42.389Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23538:[2026-04-15T17:43:42.922Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23553:[2026-04-15T17:43:56.019Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23555:[2026-04-15T17:43:56.547Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23565:[2026-04-15T17:44:00.880Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23566:[2026-04-15T17:44:00.881Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23567:[2026-04-15T17:44:00.881Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23568:[2026-04-15T17:44:00.881Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23569:[2026-04-15T17:44:00.881Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23577:[2026-04-15T17:46:04.012Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23579:[2026-04-15T17:46:04.587Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23594:[2026-04-15T17:46:18.399Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23596:[2026-04-15T17:46:18.926Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23606:[2026-04-15T17:46:23.744Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23607:[2026-04-15T17:46:23.745Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23608:[2026-04-15T17:46:23.745Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23609:[2026-04-15T17:46:23.745Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23610:[2026-04-15T17:46:23.745Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23618:[2026-04-15T17:48:26.583Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23620:[2026-04-15T17:48:27.118Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23635:[2026-04-15T17:48:40.233Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23637:[2026-04-15T17:48:41.043Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23647:[2026-04-15T17:48:45.495Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23648:[2026-04-15T17:48:45.496Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23649:[2026-04-15T17:48:45.496Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23650:[2026-04-15T17:48:45.496Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23651:[2026-04-15T17:48:45.496Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23659:[2026-04-15T17:50:48.259Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23663:[2026-04-15T17:50:48.804Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23676:[2026-04-15T17:51:02.075Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23678:[2026-04-15T17:51:02.945Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23688:[2026-04-15T17:51:07.420Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23689:[2026-04-15T17:51:07.420Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23690:[2026-04-15T17:51:07.420Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23691:[2026-04-15T17:51:07.420Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23692:[2026-04-15T17:51:07.420Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23700:[2026-04-15T17:53:10.173Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23702:[2026-04-15T17:53:10.861Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23717:[2026-04-15T17:53:23.926Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23719:[2026-04-15T17:53:24.411Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23729:[2026-04-15T17:53:28.509Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23730:[2026-04-15T17:53:28.509Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23731:[2026-04-15T17:53:28.509Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23732:[2026-04-15T17:53:28.509Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23733:[2026-04-15T17:53:28.509Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23774:[2026-04-15T17:55:17.851Z] [VERBOSE] [VERBOSE] /merge: PR #1834 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T16-54-37-686Z.log:23805:[2026-04-15T17:55:18.360Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 853511c
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31147:[2026-04-15T17:18:00.103Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: pending
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31161:[2026-04-15T17:20:05.456Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31163:[2026-04-15T17:20:06.080Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31178:[2026-04-15T17:20:19.214Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31180:[2026-04-15T17:20:19.707Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31191:[2026-04-15T17:20:24.515Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31192:[2026-04-15T17:20:24.515Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31193:[2026-04-15T17:20:24.515Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31194:[2026-04-15T17:20:24.515Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31195:[2026-04-15T17:20:24.515Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31203:[2026-04-15T17:22:27.301Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31205:[2026-04-15T17:22:27.768Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31220:[2026-04-15T17:22:45.842Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31222:[2026-04-15T17:22:46.354Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31233:[2026-04-15T17:22:50.332Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31234:[2026-04-15T17:22:50.332Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31235:[2026-04-15T17:22:50.332Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31236:[2026-04-15T17:22:50.332Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31237:[2026-04-15T17:22:50.332Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31246:[2026-04-15T17:24:53.362Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31247:[2026-04-15T17:24:53.941Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31262:[2026-04-15T17:25:07.138Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31264:[2026-04-15T17:25:07.745Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31275:[2026-04-15T17:25:11.669Z] [VERBOSE] [VERBOSE] repo-actions: 3 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31276:[2026-04-15T17:25:11.669Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31277:[2026-04-15T17:25:11.669Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31278:[2026-04-15T17:25:11.669Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31279:[2026-04-15T17:25:11.669Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(3 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31280:[2026-04-15T17:25:11.669Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=3 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31288:[2026-04-15T17:27:14.386Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31290:[2026-04-15T17:27:14.897Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31305:[2026-04-15T17:27:27.812Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31307:[2026-04-15T17:27:28.338Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31318:[2026-04-15T17:27:32.959Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31319:[2026-04-15T17:27:32.959Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31320:[2026-04-15T17:27:32.960Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31321:[2026-04-15T17:27:32.960Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31322:[2026-04-15T17:27:32.960Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31330:[2026-04-15T17:29:35.800Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31332:[2026-04-15T17:29:36.255Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31347:[2026-04-15T17:29:49.296Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31349:[2026-04-15T17:29:49.803Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31360:[2026-04-15T17:29:54.085Z] [VERBOSE] [VERBOSE] repo-actions:   Run GUT Tests (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31361:[2026-04-15T17:29:54.084Z] [VERBOSE] [VERBOSE] repo-actions: 7 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31362:[2026-04-15T17:29:54.085Z] [VERBOSE] [VERBOSE] repo-actions:   Compile Check (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31363:[2026-04-15T17:29:54.085Z] [VERBOSE] [VERBOSE] repo-actions:   C# and GDScript Interoperability Check (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31364:[2026-04-15T17:29:54.085Z] [VERBOSE] [VERBOSE] repo-actions:   C# Build Validation (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31365:[2026-04-15T17:29:54.085Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31366:[2026-04-15T17:29:54.085Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31367:[2026-04-15T17:29:54.085Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31368:[2026-04-15T17:29:54.085Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(7 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31369:[2026-04-15T17:29:54.085Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=7 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31377:[2026-04-15T17:31:56.876Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31379:[2026-04-15T17:31:57.364Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31394:[2026-04-15T17:32:10.688Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31396:[2026-04-15T17:32:11.170Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31407:[2026-04-15T17:32:15.528Z] [VERBOSE] [VERBOSE] repo-actions: 3 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31408:[2026-04-15T17:32:15.528Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1822-748feb4f7570
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31409:[2026-04-15T17:32:15.528Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31410:[2026-04-15T17:32:15.528Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31411:[2026-04-15T17:32:15.528Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(3 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31412:[2026-04-15T17:32:15.529Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=3 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31420:[2026-04-15T17:34:18.216Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31422:[2026-04-15T17:34:18.772Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31437:[2026-04-15T17:34:31.894Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31439:[2026-04-15T17:34:32.438Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31450:[2026-04-15T17:34:36.721Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31451:[2026-04-15T17:34:36.722Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31452:[2026-04-15T17:34:36.722Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31453:[2026-04-15T17:34:36.722Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31454:[2026-04-15T17:34:36.722Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31462:[2026-04-15T17:36:39.898Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31464:[2026-04-15T17:36:40.404Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31479:[2026-04-15T17:36:53.475Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31481:[2026-04-15T17:36:54.060Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31492:[2026-04-15T17:36:58.406Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31493:[2026-04-15T17:36:58.406Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31494:[2026-04-15T17:36:58.406Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31495:[2026-04-15T17:36:58.406Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31496:[2026-04-15T17:36:58.406Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31504:[2026-04-15T17:39:01.176Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31506:[2026-04-15T17:39:01.713Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31521:[2026-04-15T17:39:15.513Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31525:[2026-04-15T17:39:16.039Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31534:[2026-04-15T17:39:20.447Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31535:[2026-04-15T17:39:20.448Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31536:[2026-04-15T17:39:20.448Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31537:[2026-04-15T17:39:20.448Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31538:[2026-04-15T17:39:20.448Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31546:[2026-04-15T17:41:23.433Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31548:[2026-04-15T17:41:23.933Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31563:[2026-04-15T17:41:36.912Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31565:[2026-04-15T17:41:37.493Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31576:[2026-04-15T17:41:41.543Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31577:[2026-04-15T17:41:41.543Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31578:[2026-04-15T17:41:41.543Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31579:[2026-04-15T17:41:41.544Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31580:[2026-04-15T17:41:41.544Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31588:[2026-04-15T17:43:44.136Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31590:[2026-04-15T17:43:44.676Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31605:[2026-04-15T17:43:57.723Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31607:[2026-04-15T17:43:58.223Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31618:[2026-04-15T17:44:02.517Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31619:[2026-04-15T17:44:02.518Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31620:[2026-04-15T17:44:02.518Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31621:[2026-04-15T17:44:02.518Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31622:[2026-04-15T17:44:02.518Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31630:[2026-04-15T17:46:06.035Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31632:[2026-04-15T17:46:06.539Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31647:[2026-04-15T17:46:21.007Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31649:[2026-04-15T17:46:21.545Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31660:[2026-04-15T17:46:26.800Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31661:[2026-04-15T17:46:26.800Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31662:[2026-04-15T17:46:26.800Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31663:[2026-04-15T17:46:26.800Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31664:[2026-04-15T17:46:26.800Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31672:[2026-04-15T17:48:29.700Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31674:[2026-04-15T17:48:30.345Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31689:[2026-04-15T17:48:43.776Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31691:[2026-04-15T17:48:44.378Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31702:[2026-04-15T17:48:48.773Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31703:[2026-04-15T17:48:48.774Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31704:[2026-04-15T17:48:48.774Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31705:[2026-04-15T17:48:48.774Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31706:[2026-04-15T17:48:48.774Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31714:[2026-04-15T17:50:51.441Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31716:[2026-04-15T17:50:51.994Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31731:[2026-04-15T17:51:05.308Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31733:[2026-04-15T17:51:05.816Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31744:[2026-04-15T17:51:09.846Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31745:[2026-04-15T17:51:09.847Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31746:[2026-04-15T17:51:09.847Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31747:[2026-04-15T17:51:09.847Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31748:[2026-04-15T17:51:09.847Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31756:[2026-04-15T17:53:12.568Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31759:[2026-04-15T17:53:13.081Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31773:[2026-04-15T17:53:26.093Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31775:[2026-04-15T17:53:26.597Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31786:[2026-04-15T17:53:30.810Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31787:[2026-04-15T17:53:30.810Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31788:[2026-04-15T17:53:30.810Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31789:[2026-04-15T17:53:30.810Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31790:[2026-04-15T17:53:30.810Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31798:[2026-04-15T17:55:33.669Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31800:[2026-04-15T17:55:34.128Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31815:[2026-04-15T17:55:47.101Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31817:[2026-04-15T17:55:47.629Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31828:[2026-04-15T17:55:51.860Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31829:[2026-04-15T17:55:51.860Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31830:[2026-04-15T17:55:51.860Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31831:[2026-04-15T17:55:51.860Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=false(2 commits, 1 pending), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31832:[2026-04-15T17:55:51.860Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=1 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31871:[2026-04-15T17:56:35.840Z] [VERBOSE] [VERBOSE] /merge: PR #1836 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-08-54-854Z.log:31900:[2026-04-15T17:56:36.403Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 0a544b8
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27767:[2026-04-15T17:31:48.740Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: pending
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27782:[2026-04-15T17:33:53.439Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27784:[2026-04-15T17:33:53.939Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27800:[2026-04-15T17:34:07.077Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27802:[2026-04-15T17:34:07.573Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27812:[2026-04-15T17:34:11.882Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27813:[2026-04-15T17:34:11.883Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27814:[2026-04-15T17:34:11.883Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27815:[2026-04-15T17:34:11.883Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27816:[2026-04-15T17:34:11.883Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27824:[2026-04-15T17:36:14.630Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27826:[2026-04-15T17:36:15.204Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27842:[2026-04-15T17:36:28.353Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27844:[2026-04-15T17:36:28.850Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27854:[2026-04-15T17:36:32.909Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27855:[2026-04-15T17:36:32.910Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27856:[2026-04-15T17:36:32.910Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27857:[2026-04-15T17:36:32.910Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27858:[2026-04-15T17:36:32.910Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27866:[2026-04-15T17:38:35.625Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27868:[2026-04-15T17:38:36.369Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27884:[2026-04-15T17:38:49.556Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27886:[2026-04-15T17:38:50.040Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27896:[2026-04-15T17:38:54.633Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27897:[2026-04-15T17:38:54.633Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27898:[2026-04-15T17:38:54.633Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27899:[2026-04-15T17:38:54.633Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27900:[2026-04-15T17:38:54.633Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27908:[2026-04-15T17:40:57.346Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27910:[2026-04-15T17:40:57.856Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27926:[2026-04-15T17:41:10.988Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27928:[2026-04-15T17:41:11.504Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27938:[2026-04-15T17:41:16.263Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27939:[2026-04-15T17:41:16.263Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27940:[2026-04-15T17:41:16.263Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27941:[2026-04-15T17:41:16.263Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27942:[2026-04-15T17:41:16.263Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27950:[2026-04-15T17:43:19.158Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27952:[2026-04-15T17:43:19.727Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27969:[2026-04-15T17:43:32.999Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27970:[2026-04-15T17:43:33.539Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27980:[2026-04-15T17:43:37.861Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27981:[2026-04-15T17:43:37.861Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27982:[2026-04-15T17:43:37.861Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27983:[2026-04-15T17:43:37.861Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27984:[2026-04-15T17:43:37.861Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27992:[2026-04-15T17:45:40.680Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:27994:[2026-04-15T17:45:41.234Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28010:[2026-04-15T17:45:54.452Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28012:[2026-04-15T17:45:55.060Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28022:[2026-04-15T17:45:59.780Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28023:[2026-04-15T17:45:59.781Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28024:[2026-04-15T17:45:59.781Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28025:[2026-04-15T17:45:59.781Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28026:[2026-04-15T17:45:59.781Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28034:[2026-04-15T17:48:03.035Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28036:[2026-04-15T17:48:03.908Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28052:[2026-04-15T17:48:17.872Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28054:[2026-04-15T17:48:18.638Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28064:[2026-04-15T17:48:23.070Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28065:[2026-04-15T17:48:23.070Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28066:[2026-04-15T17:48:23.070Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28067:[2026-04-15T17:48:23.070Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28068:[2026-04-15T17:48:23.071Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28076:[2026-04-15T17:50:25.977Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28078:[2026-04-15T17:50:26.615Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28094:[2026-04-15T17:50:39.788Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28096:[2026-04-15T17:50:40.265Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28106:[2026-04-15T17:50:44.127Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28107:[2026-04-15T17:50:44.127Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28108:[2026-04-15T17:50:44.127Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28109:[2026-04-15T17:50:44.127Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28110:[2026-04-15T17:50:44.127Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28118:[2026-04-15T17:52:46.925Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28120:[2026-04-15T17:52:47.450Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28136:[2026-04-15T17:53:00.713Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28138:[2026-04-15T17:53:01.284Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28148:[2026-04-15T17:53:06.189Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28149:[2026-04-15T17:53:06.189Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28150:[2026-04-15T17:53:06.189Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28151:[2026-04-15T17:53:06.190Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28152:[2026-04-15T17:53:06.190Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28160:[2026-04-15T17:55:09.255Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28162:[2026-04-15T17:55:09.717Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28178:[2026-04-15T17:55:22.602Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28180:[2026-04-15T17:55:23.134Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28190:[2026-04-15T17:55:27.026Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28191:[2026-04-15T17:55:27.027Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28192:[2026-04-15T17:55:27.027Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28193:[2026-04-15T17:55:27.027Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28194:[2026-04-15T17:55:27.027Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28202:[2026-04-15T17:57:29.603Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28204:[2026-04-15T17:57:30.115Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28220:[2026-04-15T17:57:43.152Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28222:[2026-04-15T17:57:43.651Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28232:[2026-04-15T17:57:48.240Z] [VERBOSE] [VERBOSE] repo-actions: 2 active run(s) in Jhon-Crow/godot-topdown-MVP
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28233:[2026-04-15T17:57:48.240Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1825-fefc5291893b
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28234:[2026-04-15T17:57:48.240Z] [VERBOSE] [VERBOSE] repo-actions:   Build Windows Portable EXE (in_progress) on issue-1818-8c84382063a9
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28235:[2026-04-15T17:57:48.241Z] [VERBOSE] [VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(8), AllCommits=true(2 commits), RepoActions=false(2 active) → DISAGREE
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28236:[2026-04-15T17:57:48.241Z] [INFO]   🔄 CI mechanisms DISAGREE: CheckRuns=success, WorkflowRuns=0 in-progress, AllCommits=0 pending of 2, RepoActions=2 active
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28302:[2026-04-15T17:58:12.883Z] [VERBOSE] [VERBOSE] /merge: PR #1838 detailed CI status: success
+docs/case-studies/issue-1612/external/solve-2026-04-15T17-22-47-385Z.log:28304:[2026-04-15T17:58:13.399Z] [VERBOSE] [VERBOSE] /merge: Found 8 workflow runs for SHA 9109b93

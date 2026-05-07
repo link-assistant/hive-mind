@@ -1,6 +1,7 @@
 # Issue #400 Root Cause Analysis
 
 ## Problem Statement
+
 When solving issue #357, the system created a new branch `issue-357-4b779939` even though a branch `issue-357-f71743cd` already existed for the same issue.
 
 ## Root Cause
@@ -15,6 +16,7 @@ The `processAutoContinueForIssue` function in `src/solve.auto-continue.lib.mjs` 
 **Missing:** The system does NOT check for branches matching `issue-{issueNumber}-*` in the **main repository** (only in forks).
 
 This means if a branch exists in the main repo but:
+
 - Has no PR yet, OR
 - Has a PR that's not properly linked to the issue
 

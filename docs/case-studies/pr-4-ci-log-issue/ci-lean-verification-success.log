@@ -1,0 +1,197 @@
+build	Set up job	﻿2025-10-13T02:51:38.5775578Z Current runner version: '2.328.0'
+build	Set up job	2025-10-13T02:51:38.5800644Z ##[group]Runner Image Provisioner
+build	Set up job	2025-10-13T02:51:38.5801424Z Hosted Compute Agent
+build	Set up job	2025-10-13T02:51:38.5801944Z Version: 20250912.392
+build	Set up job	2025-10-13T02:51:38.5802527Z Commit: d921fda672a98b64f4f82364647e2f10b2267d0b
+build	Set up job	2025-10-13T02:51:38.5803160Z Build Date: 2025-09-12T15:23:14Z
+build	Set up job	2025-10-13T02:51:38.5803721Z ##[endgroup]
+build	Set up job	2025-10-13T02:51:38.5804182Z ##[group]Operating System
+build	Set up job	2025-10-13T02:51:38.5804697Z Ubuntu
+build	Set up job	2025-10-13T02:51:38.5805090Z 24.04.3
+build	Set up job	2025-10-13T02:51:38.5805561Z LTS
+build	Set up job	2025-10-13T02:51:38.5805963Z ##[endgroup]
+build	Set up job	2025-10-13T02:51:38.5806409Z ##[group]Runner Image
+build	Set up job	2025-10-13T02:51:38.5806924Z Image: ubuntu-24.04
+build	Set up job	2025-10-13T02:51:38.5807347Z Version: 20250929.60.1
+build	Set up job	2025-10-13T02:51:38.5808484Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250929.60/images/ubuntu/Ubuntu2404-Readme.md
+build	Set up job	2025-10-13T02:51:38.5809776Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250929.60
+build	Set up job	2025-10-13T02:51:38.5810855Z ##[endgroup]
+build	Set up job	2025-10-13T02:51:38.5811860Z ##[group]GITHUB_TOKEN Permissions
+build	Set up job	2025-10-13T02:51:38.5813698Z Contents: read
+build	Set up job	2025-10-13T02:51:38.5814234Z Metadata: read
+build	Set up job	2025-10-13T02:51:38.5814682Z Packages: read
+build	Set up job	2025-10-13T02:51:38.5815152Z ##[endgroup]
+build	Set up job	2025-10-13T02:51:38.5817066Z Secret source: Actions
+build	Set up job	2025-10-13T02:51:38.5817925Z Prepare workflow directory
+build	Set up job	2025-10-13T02:51:38.6123210Z Prepare all required actions
+build	Set up job	2025-10-13T02:51:38.6162754Z Getting action download info
+build	Set up job	2025-10-13T02:51:38.9753987Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+build	Set up job	2025-10-13T02:51:39.1566108Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+build	Set up job	2025-10-13T02:51:39.3079809Z Complete job name: build
+build	Checkout repository	﻿2025-10-13T02:51:39.3731113Z ##[group]Run actions/checkout@v4
+build	Checkout repository	2025-10-13T02:51:39.3731995Z with:
+build	Checkout repository	2025-10-13T02:51:39.3732501Z   repository: konard/p-vs-np
+build	Checkout repository	2025-10-13T02:51:39.3733278Z   token: ***
+build	Checkout repository	2025-10-13T02:51:39.3733724Z   ssh-strict: true
+build	Checkout repository	2025-10-13T02:51:39.3734182Z   ssh-user: git
+build	Checkout repository	2025-10-13T02:51:39.3734675Z   persist-credentials: true
+build	Checkout repository	2025-10-13T02:51:39.3735129Z   clean: true
+build	Checkout repository	2025-10-13T02:51:39.3735610Z   sparse-checkout-cone-mode: true
+build	Checkout repository	2025-10-13T02:51:39.3736108Z   fetch-depth: 1
+build	Checkout repository	2025-10-13T02:51:39.3736537Z   fetch-tags: false
+build	Checkout repository	2025-10-13T02:51:39.3736930Z   show-progress: true
+build	Checkout repository	2025-10-13T02:51:39.3737447Z   lfs: false
+build	Checkout repository	2025-10-13T02:51:39.3738089Z   submodules: false
+build	Checkout repository	2025-10-13T02:51:39.3738492Z   set-safe-directory: true
+build	Checkout repository	2025-10-13T02:51:39.3739337Z ##[endgroup]
+build	Checkout repository	2025-10-13T02:51:39.4784154Z Syncing repository: konard/p-vs-np
+build	Checkout repository	2025-10-13T02:51:39.4786168Z ##[group]Getting Git version info
+build	Checkout repository	2025-10-13T02:51:39.4786964Z Working directory is '/home/runner/work/p-vs-np/p-vs-np'
+build	Checkout repository	2025-10-13T02:51:39.4788118Z [command]/usr/bin/git version
+build	Checkout repository	2025-10-13T02:51:39.4842051Z git version 2.51.0
+build	Checkout repository	2025-10-13T02:51:39.4864818Z ##[endgroup]
+build	Checkout repository	2025-10-13T02:51:39.4877404Z Temporarily overriding HOME='/home/runner/work/_temp/b3d505c6-1d59-4b42-bd3b-4a68afdef539' before making global git config changes
+build	Checkout repository	2025-10-13T02:51:39.4879227Z Adding repository directory to the temporary git global config as a safe directory
+build	Checkout repository	2025-10-13T02:51:39.4881920Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/p-vs-np/p-vs-np
+build	Checkout repository	2025-10-13T02:51:39.4913138Z Deleting the contents of '/home/runner/work/p-vs-np/p-vs-np'
+build	Checkout repository	2025-10-13T02:51:39.4916039Z ##[group]Initializing the repository
+build	Checkout repository	2025-10-13T02:51:39.4919695Z [command]/usr/bin/git init /home/runner/work/p-vs-np/p-vs-np
+build	Checkout repository	2025-10-13T02:51:39.5001720Z hint: Using 'master' as the name for the initial branch. This default branch name
+build	Checkout repository	2025-10-13T02:51:39.5155018Z hint: is subject to change. To configure the initial branch name to use in all
+build	Checkout repository	2025-10-13T02:51:39.5157148Z hint: of your new repositories, which will suppress this warning, call:
+build	Checkout repository	2025-10-13T02:51:39.5158292Z hint:
+build	Checkout repository	2025-10-13T02:51:39.5158955Z hint: 	git config --global init.defaultBranch <name>
+build	Checkout repository	2025-10-13T02:51:39.5159938Z hint:
+build	Checkout repository	2025-10-13T02:51:39.5161212Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+build	Checkout repository	2025-10-13T02:51:39.5162644Z hint: 'development'. The just-created branch can be renamed via this command:
+build	Checkout repository	2025-10-13T02:51:39.5163763Z hint:
+build	Checkout repository	2025-10-13T02:51:39.5164262Z hint: 	git branch -m <name>
+build	Checkout repository	2025-10-13T02:51:39.5164920Z hint:
+build	Checkout repository	2025-10-13T02:51:39.5165619Z hint: Disable this message with "git config set advice.defaultBranchName false"
+build	Checkout repository	2025-10-13T02:51:39.5166991Z Initialized empty Git repository in /home/runner/work/p-vs-np/p-vs-np/.git/
+build	Checkout repository	2025-10-13T02:51:39.5169625Z [command]/usr/bin/git remote add origin https://github.com/konard/p-vs-np
+build	Checkout repository	2025-10-13T02:51:39.5171774Z ##[endgroup]
+build	Checkout repository	2025-10-13T02:51:39.5172824Z ##[group]Disabling automatic garbage collection
+build	Checkout repository	2025-10-13T02:51:39.5173758Z [command]/usr/bin/git config --local gc.auto 0
+build	Checkout repository	2025-10-13T02:51:39.5175831Z ##[endgroup]
+build	Checkout repository	2025-10-13T02:51:39.5176792Z ##[group]Setting up auth
+build	Checkout repository	2025-10-13T02:51:39.5178925Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build	Checkout repository	2025-10-13T02:51:39.5182217Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build	Checkout repository	2025-10-13T02:51:39.5407158Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	Checkout repository	2025-10-13T02:51:39.5442284Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build	Checkout repository	2025-10-13T02:51:39.5624595Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+build	Checkout repository	2025-10-13T02:51:39.5655338Z ##[endgroup]
+build	Checkout repository	2025-10-13T02:51:39.5656098Z ##[group]Fetching the repository
+build	Checkout repository	2025-10-13T02:51:39.5663546Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +aa226ec6953e1a87a535a2ec164b9c94a5aa7ea7:refs/remotes/pull/4/merge
+build	Checkout repository	2025-10-13T02:51:40.0313855Z From https://github.com/konard/p-vs-np
+build	Checkout repository	2025-10-13T02:51:40.0315030Z  * [new ref]         aa226ec6953e1a87a535a2ec164b9c94a5aa7ea7 -> pull/4/merge
+build	Checkout repository	2025-10-13T02:51:40.0340446Z ##[endgroup]
+build	Checkout repository	2025-10-13T02:51:40.0341488Z ##[group]Determining the checkout info
+build	Checkout repository	2025-10-13T02:51:40.0342993Z ##[endgroup]
+build	Checkout repository	2025-10-13T02:51:40.0349606Z [command]/usr/bin/git sparse-checkout disable
+build	Checkout repository	2025-10-13T02:51:40.0386376Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+build	Checkout repository	2025-10-13T02:51:40.0412753Z ##[group]Checking out the ref
+build	Checkout repository	2025-10-13T02:51:40.0417079Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/4/merge
+build	Checkout repository	2025-10-13T02:51:40.0470340Z Note: switching to 'refs/remotes/pull/4/merge'.
+build	Checkout repository	2025-10-13T02:51:40.0470918Z 
+build	Checkout repository	2025-10-13T02:51:40.0471328Z You are in 'detached HEAD' state. You can look around, make experimental
+build	Checkout repository	2025-10-13T02:51:40.0472265Z changes and commit them, and you can discard any commits you make in this
+build	Checkout repository	2025-10-13T02:51:40.0473533Z state without impacting any branches by switching back to a branch.
+build	Checkout repository	2025-10-13T02:51:40.0474294Z 
+build	Checkout repository	2025-10-13T02:51:40.0474759Z If you want to create a new branch to retain commits you create, you may
+build	Checkout repository	2025-10-13T02:51:40.0475832Z do so (now or later) by using -c with the switch command. Example:
+build	Checkout repository	2025-10-13T02:51:40.0476434Z 
+build	Checkout repository	2025-10-13T02:51:40.0476704Z   git switch -c <new-branch-name>
+build	Checkout repository	2025-10-13T02:51:40.0477156Z 
+build	Checkout repository	2025-10-13T02:51:40.0477426Z Or undo this operation with:
+build	Checkout repository	2025-10-13T02:51:40.0478043Z 
+build	Checkout repository	2025-10-13T02:51:40.0478291Z   git switch -
+build	Checkout repository	2025-10-13T02:51:40.0478667Z 
+build	Checkout repository	2025-10-13T02:51:40.0479224Z Turn off this advice by setting config variable advice.detachedHead to false
+build	Checkout repository	2025-10-13T02:51:40.0480050Z 
+build	Checkout repository	2025-10-13T02:51:40.0481000Z HEAD is now at aa226ec Merge ec303b67491c3f45792f639896f0e0b262fb98eb into a13f57c830856ee4ee8c6c3a59d778196a4b6cb1
+build	Checkout repository	2025-10-13T02:51:40.0483761Z ##[endgroup]
+build	Checkout repository	2025-10-13T02:51:40.0516495Z [command]/usr/bin/git log -1 --format=%H
+build	Checkout repository	2025-10-13T02:51:40.0539736Z aa226ec6953e1a87a535a2ec164b9c94a5aa7ea7
+build	Install Elan (Lean version manager)	﻿2025-10-13T02:51:40.0724910Z ##[group]Run curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+build	Install Elan (Lean version manager)	2025-10-13T02:51:40.0726231Z [36;1mcurl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y[0m
+build	Install Elan (Lean version manager)	2025-10-13T02:51:40.0727105Z [36;1mecho "$HOME/.elan/bin" >> $GITHUB_PATH[0m
+build	Install Elan (Lean version manager)	2025-10-13T02:51:40.0753377Z shell: /usr/bin/bash -e {0}
+build	Install Elan (Lean version manager)	2025-10-13T02:51:40.0753905Z ##[endgroup]
+build	Install Elan (Lean version manager)	2025-10-13T02:51:40.1637926Z info: downloading installer
+build	Install Elan (Lean version manager)	2025-10-13T02:51:41.1711714Z info: default toolchain set to 'stable'
+build	Verify Lean installation	﻿2025-10-13T02:51:41.2354863Z ##[group]Run lean --version
+build	Verify Lean installation	2025-10-13T02:51:41.2355265Z [36;1mlean --version[0m
+build	Verify Lean installation	2025-10-13T02:51:41.2355521Z [36;1mlake --version[0m
+build	Verify Lean installation	2025-10-13T02:51:41.2384788Z shell: /usr/bin/bash -e {0}
+build	Verify Lean installation	2025-10-13T02:51:41.2385206Z ##[endgroup]
+build	Verify Lean installation	2025-10-13T02:51:42.4778066Z info: downloading https://releases.lean-lang.org/lean4/v4.23.0/lean-4.23.0-linux.tar.zst
+build	Verify Lean installation	2025-10-13T02:51:46.4147221Z info: installing /home/runner/.elan/toolchains/leanprover--lean4---v4.23.0
+build	Verify Lean installation	2025-10-13T02:51:51.0494039Z Lean (version 4.23.0, x86_64-unknown-linux-gnu, commit 50aaf682e9b74ab92880292a25c68baa1cc81c87, Release)
+build	Verify Lean installation	2025-10-13T02:51:51.3182699Z Lake version 5.0.0-src+50aaf68 (Lean version 4.23.0)
+build	Cache Lean dependencies	﻿2025-10-13T02:51:51.3884961Z ##[group]Run actions/cache@v4
+build	Cache Lean dependencies	2025-10-13T02:51:51.3885378Z with:
+build	Cache Lean dependencies	2025-10-13T02:51:51.3885605Z   path: .lake
+build	Cache Lean dependencies	~/.elan
+build	Cache Lean dependencies	
+build	Cache Lean dependencies	2025-10-13T02:51:51.3886025Z   key: Linux-lean-b76f46f206d72f30c89f6cdf9e0c7b8b804c85726b2971bc91fc997a003b01de
+build	Cache Lean dependencies	2025-10-13T02:51:51.3886462Z   restore-keys: Linux-lean-
+build	Cache Lean dependencies	
+build	Cache Lean dependencies	2025-10-13T02:51:51.3886791Z   enableCrossOsArchive: false
+build	Cache Lean dependencies	2025-10-13T02:51:51.3887058Z   fail-on-cache-miss: false
+build	Cache Lean dependencies	2025-10-13T02:51:51.3887324Z   lookup-only: false
+build	Cache Lean dependencies	2025-10-13T02:51:51.3887555Z   save-always: false
+build	Cache Lean dependencies	2025-10-13T02:51:51.3888035Z ##[endgroup]
+build	Cache Lean dependencies	2025-10-13T02:51:51.7386223Z Cache hit for: Linux-lean-b76f46f206d72f30c89f6cdf9e0c7b8b804c85726b2971bc91fc997a003b01de
+build	Cache Lean dependencies	2025-10-13T02:51:53.0348333Z Received 58720256 of 573013999 (10.2%), 56.0 MBs/sec
+build	Cache Lean dependencies	2025-10-13T02:51:54.0347249Z Received 192937984 of 573013999 (33.7%), 92.0 MBs/sec
+build	Cache Lean dependencies	2025-10-13T02:51:55.0346873Z Received 369098752 of 573013999 (64.4%), 117.3 MBs/sec
+build	Cache Lean dependencies	2025-10-13T02:51:56.0369767Z Received 536870912 of 573013999 (93.7%), 128.0 MBs/sec
+build	Cache Lean dependencies	2025-10-13T02:51:56.3159485Z Received 573013999 of 573013999 (100.0%), 127.6 MBs/sec
+build	Cache Lean dependencies	2025-10-13T02:51:56.3161247Z Cache Size: ~546 MB (573013999 B)
+build	Cache Lean dependencies	2025-10-13T02:51:56.3206845Z [command]/usr/bin/tar -xf /home/runner/work/_temp/614e8489-3d5b-4019-a2e5-72a32349fd81/cache.tzst -P -C /home/runner/work/p-vs-np/p-vs-np --use-compress-program unzstd
+build	Cache Lean dependencies	2025-10-13T02:51:59.9402475Z Cache restored successfully
+build	Cache Lean dependencies	2025-10-13T02:52:00.0171058Z Cache restored from key: Linux-lean-b76f46f206d72f30c89f6cdf9e0c7b8b804c85726b2971bc91fc997a003b01de
+build	Build Lean project	﻿2025-10-13T02:52:00.0281492Z ##[group]Run if [ -f "lakefile.lean" ]; then
+build	Build Lean project	2025-10-13T02:52:00.0282026Z [36;1mif [ -f "lakefile.lean" ]; then[0m
+build	Build Lean project	2025-10-13T02:52:00.0282324Z [36;1m  lake build[0m
+build	Build Lean project	2025-10-13T02:52:00.0282609Z [36;1melse[0m
+build	Build Lean project	2025-10-13T02:52:00.0282880Z [36;1m  echo "No lakefile.lean found - skipping build"[0m
+build	Build Lean project	2025-10-13T02:52:00.0283373Z [36;1m  echo "To use Lean verification, add Lean source files (.lean) and a lakefile.lean"[0m
+build	Build Lean project	2025-10-13T02:52:00.0283900Z [36;1mfi[0m
+build	Build Lean project	2025-10-13T02:52:00.0311161Z shell: /usr/bin/bash -e {0}
+build	Build Lean project	2025-10-13T02:52:00.0311497Z ##[endgroup]
+build	Build Lean project	2025-10-13T02:52:00.6740649Z info: p-vs-np: no previous manifest, creating one from scratch
+build	Build Lean project	2025-10-13T02:52:00.6741823Z info: toolchain not updated; no toolchain information found
+build	Build Lean project	2025-10-13T02:52:00.7742146Z ℹ [2/6] Replayed proofs.Basic
+build	Build Lean project	2025-10-13T02:52:00.7742939Z info: proofs/Basic.lean:59:0: modus_ponens (p q : Prop) (hp : p) (hpq : p → q) : q
+build	Build Lean project	2025-10-13T02:52:00.7743584Z info: proofs/Basic.lean:60:0: add_comm (m n : Nat) : m + n = n + m
+build	Build Lean project	2025-10-13T02:52:00.7744255Z info: proofs/Basic.lean:61:0: factorial_pos (n : Nat) : 0 < factorial n
+build	Build Lean project	2025-10-13T02:52:00.7745106Z info: proofs/Basic.lean:62:0: list_length_append {α : Type} (l1 l2 : List α) : (l1 ++ l2).length = l1.length + l2.length
+build	Build Lean project	2025-10-13T02:52:00.7746713Z info: proofs/Basic.lean:65:0: ✓ Basic Lean proofs verified successfully
+build	Build Lean project	2025-10-13T02:52:00.7747297Z Build completed successfully (6 jobs).
+build	Run Lean tests	﻿2025-10-13T02:52:00.7984622Z ##[group]Run if [ -f "lakefile.lean" ]; then
+build	Run Lean tests	2025-10-13T02:52:00.7985096Z [36;1mif [ -f "lakefile.lean" ]; then[0m
+build	Run Lean tests	2025-10-13T02:52:00.7985410Z [36;1m  lake test || echo "No tests defined"[0m
+build	Run Lean tests	2025-10-13T02:52:00.7985683Z [36;1melse[0m
+build	Run Lean tests	2025-10-13T02:52:00.7985949Z [36;1m  echo "No lakefile.lean found - skipping tests"[0m
+build	Run Lean tests	2025-10-13T02:52:00.7986248Z [36;1mfi[0m
+build	Run Lean tests	2025-10-13T02:52:00.8012530Z shell: /usr/bin/bash -e {0}
+build	Run Lean tests	2025-10-13T02:52:00.8012938Z ##[endgroup]
+build	Run Lean tests	2025-10-13T02:52:01.4166363Z error: p-vs-np: no test driver configured
+build	Run Lean tests	2025-10-13T02:52:01.4380455Z No tests defined
+build	Post Cache Lean dependencies	﻿2025-10-13T02:52:01.5072259Z Post job cleanup.
+build	Post Cache Lean dependencies	2025-10-13T02:52:01.6524319Z Cache hit occurred on the primary key Linux-lean-b76f46f206d72f30c89f6cdf9e0c7b8b804c85726b2971bc91fc997a003b01de, not saving cache.
+build	Post Checkout repository	﻿2025-10-13T02:52:01.6646260Z Post job cleanup.
+build	Post Checkout repository	2025-10-13T02:52:01.7741888Z [command]/usr/bin/git version
+build	Post Checkout repository	2025-10-13T02:52:01.7793068Z git version 2.51.0
+build	Post Checkout repository	2025-10-13T02:52:01.7840851Z Temporarily overriding HOME='/home/runner/work/_temp/b7e48845-2333-4ec4-89c1-f2c200d50d55' before making global git config changes
+build	Post Checkout repository	2025-10-13T02:52:01.7842129Z Adding repository directory to the temporary git global config as a safe directory
+build	Post Checkout repository	2025-10-13T02:52:01.7847224Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/p-vs-np/p-vs-np
+build	Post Checkout repository	2025-10-13T02:52:01.7889208Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build	Post Checkout repository	2025-10-13T02:52:01.7925591Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build	Post Checkout repository	2025-10-13T02:52:01.8170700Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	Post Checkout repository	2025-10-13T02:52:01.8196219Z http.https://github.com/.extraheader
+build	Post Checkout repository	2025-10-13T02:52:01.8210104Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+build	Post Checkout repository	2025-10-13T02:52:01.8246418Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build	Complete job	﻿2025-10-13T02:52:01.8594071Z Cleaning up orphan processes

@@ -1,0 +1,450 @@
+build (8.18)	Set up job	﻿2025-10-13T02:51:39.4650259Z Current runner version: '2.328.0'
+build (8.18)	Set up job	2025-10-13T02:51:39.4673120Z ##[group]Runner Image Provisioner
+build (8.18)	Set up job	2025-10-13T02:51:39.4673998Z Hosted Compute Agent
+build (8.18)	Set up job	2025-10-13T02:51:39.4674511Z Version: 20250912.392
+build (8.18)	Set up job	2025-10-13T02:51:39.4675088Z Commit: d921fda672a98b64f4f82364647e2f10b2267d0b
+build (8.18)	Set up job	2025-10-13T02:51:39.4675810Z Build Date: 2025-09-12T15:23:14Z
+build (8.18)	Set up job	2025-10-13T02:51:39.4676699Z ##[endgroup]
+build (8.18)	Set up job	2025-10-13T02:51:39.4677244Z ##[group]Operating System
+build (8.18)	Set up job	2025-10-13T02:51:39.4677872Z Ubuntu
+build (8.18)	Set up job	2025-10-13T02:51:39.4678318Z 24.04.3
+build (8.18)	Set up job	2025-10-13T02:51:39.4678765Z LTS
+build (8.18)	Set up job	2025-10-13T02:51:39.4679215Z ##[endgroup]
+build (8.18)	Set up job	2025-10-13T02:51:39.4679708Z ##[group]Runner Image
+build (8.18)	Set up job	2025-10-13T02:51:39.4680275Z Image: ubuntu-24.04
+build (8.18)	Set up job	2025-10-13T02:51:39.4680767Z Version: 20250929.60.1
+build (8.18)	Set up job	2025-10-13T02:51:39.4681777Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250929.60/images/ubuntu/Ubuntu2404-Readme.md
+build (8.18)	Set up job	2025-10-13T02:51:39.4683092Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250929.60
+build (8.18)	Set up job	2025-10-13T02:51:39.4684263Z ##[endgroup]
+build (8.18)	Set up job	2025-10-13T02:51:39.4685306Z ##[group]GITHUB_TOKEN Permissions
+build (8.18)	Set up job	2025-10-13T02:51:39.4687563Z Contents: read
+build (8.18)	Set up job	2025-10-13T02:51:39.4688131Z Metadata: read
+build (8.18)	Set up job	2025-10-13T02:51:39.4688577Z Packages: read
+build (8.18)	Set up job	2025-10-13T02:51:39.4689189Z ##[endgroup]
+build (8.18)	Set up job	2025-10-13T02:51:39.4691290Z Secret source: Actions
+build (8.18)	Set up job	2025-10-13T02:51:39.4692318Z Prepare workflow directory
+build (8.18)	Set up job	2025-10-13T02:51:39.5016973Z Prepare all required actions
+build (8.18)	Set up job	2025-10-13T02:51:39.5056428Z Getting action download info
+build (8.18)	Set up job	2025-10-13T02:51:39.8168956Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+build (8.18)	Set up job	2025-10-13T02:51:39.9955715Z Download action repository 'ocaml/setup-ocaml@v2' (SHA:8cc6339f55862749298d198ef84788b8d6acdacc)
+build (8.18)	Set up job	2025-10-13T02:51:40.4989319Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+build (8.18)	Set up job	2025-10-13T02:51:40.7522945Z Complete job name: build (8.18)
+build (8.18)	Checkout repository	﻿2025-10-13T02:51:40.8370192Z ##[group]Run actions/checkout@v4
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8371522Z with:
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8372328Z   repository: konard/p-vs-np
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8373511Z   token: ***
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8374323Z   ssh-strict: true
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8375098Z   ssh-user: git
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8375892Z   persist-credentials: true
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8377004Z   clean: true
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8377823Z   sparse-checkout-cone-mode: true
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8378795Z   fetch-depth: 1
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8379575Z   fetch-tags: false
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8380372Z   show-progress: true
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8381189Z   lfs: false
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8381927Z   submodules: false
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8382739Z   set-safe-directory: true
+build (8.18)	Checkout repository	2025-10-13T02:51:40.8383879Z ##[endgroup]
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9444218Z Syncing repository: konard/p-vs-np
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9448220Z ##[group]Getting Git version info
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9450420Z Working directory is '/home/runner/work/p-vs-np/p-vs-np'
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9452854Z [command]/usr/bin/git version
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9525939Z git version 2.51.0
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9551191Z ##[endgroup]
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9564957Z Temporarily overriding HOME='/home/runner/work/_temp/dd3dc96e-84f4-4203-b3d6-66ff3895b669' before making global git config changes
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9568618Z Adding repository directory to the temporary git global config as a safe directory
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9571896Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/p-vs-np/p-vs-np
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9605713Z Deleting the contents of '/home/runner/work/p-vs-np/p-vs-np'
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9609654Z ##[group]Initializing the repository
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9613113Z [command]/usr/bin/git init /home/runner/work/p-vs-np/p-vs-np
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9716558Z hint: Using 'master' as the name for the initial branch. This default branch name
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9719306Z hint: is subject to change. To configure the initial branch name to use in all
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9722155Z hint: of your new repositories, which will suppress this warning, call:
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9723964Z hint:
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9725471Z hint: 	git config --global init.defaultBranch <name>
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9727355Z hint:
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9728457Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9730228Z hint: 'development'. The just-created branch can be renamed via this command:
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9731990Z hint:
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9732739Z hint: 	git branch -m <name>
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9733594Z hint:
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9734742Z hint: Disable this message with "git config set advice.defaultBranchName false"
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9736870Z Initialized empty Git repository in /home/runner/work/p-vs-np/p-vs-np/.git/
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9739858Z [command]/usr/bin/git remote add origin https://github.com/konard/p-vs-np
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9771618Z ##[endgroup]
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9773018Z ##[group]Disabling automatic garbage collection
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9774667Z [command]/usr/bin/git config --local gc.auto 0
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9802843Z ##[endgroup]
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9804176Z ##[group]Setting up auth
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9809061Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build (8.18)	Checkout repository	2025-10-13T02:51:40.9837946Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build (8.18)	Checkout repository	2025-10-13T02:51:41.0174688Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build (8.18)	Checkout repository	2025-10-13T02:51:41.0202731Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build (8.18)	Checkout repository	2025-10-13T02:51:41.0428734Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+build (8.18)	Checkout repository	2025-10-13T02:51:41.0460774Z ##[endgroup]
+build (8.18)	Checkout repository	2025-10-13T02:51:41.0462163Z ##[group]Fetching the repository
+build (8.18)	Checkout repository	2025-10-13T02:51:41.0470972Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +aa226ec6953e1a87a535a2ec164b9c94a5aa7ea7:refs/remotes/pull/4/merge
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3357430Z From https://github.com/konard/p-vs-np
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3359890Z  * [new ref]         aa226ec6953e1a87a535a2ec164b9c94a5aa7ea7 -> pull/4/merge
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3391575Z ##[endgroup]
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3393924Z ##[group]Determining the checkout info
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3397151Z ##[endgroup]
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3398716Z [command]/usr/bin/git sparse-checkout disable
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3440091Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3468782Z ##[group]Checking out the ref
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3471495Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/4/merge
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3528222Z Note: switching to 'refs/remotes/pull/4/merge'.
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3529455Z 
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3530208Z You are in 'detached HEAD' state. You can look around, make experimental
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3531980Z changes and commit them, and you can discard any commits you make in this
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3534782Z state without impacting any branches by switching back to a branch.
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3536789Z 
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3537966Z If you want to create a new branch to retain commits you create, you may
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3540645Z do so (now or later) by using -c with the switch command. Example:
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3542292Z 
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3542924Z   git switch -c <new-branch-name>
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3543985Z 
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3544564Z Or undo this operation with:
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3545521Z 
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3546027Z   git switch -
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3547045Z 
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3547888Z Turn off this advice by setting config variable advice.detachedHead to false
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3549014Z 
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3550283Z HEAD is now at aa226ec Merge ec303b67491c3f45792f639896f0e0b262fb98eb into a13f57c830856ee4ee8c6c3a59d778196a4b6cb1
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3555549Z ##[endgroup]
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3572762Z [command]/usr/bin/git log -1 --format=%H
+build (8.18)	Checkout repository	2025-10-13T02:51:41.3594018Z aa226ec6953e1a87a535a2ec164b9c94a5aa7ea7
+build (8.18)	Check for Coq files	﻿2025-10-13T02:51:41.3813493Z ##[group]Run if [ -f "_CoqProject" ] || find . -name "*.v" -print -quit | grep -q .; then
+build (8.18)	Check for Coq files	2025-10-13T02:51:41.3815560Z [36;1mif [ -f "_CoqProject" ] || find . -name "*.v" -print -quit | grep -q .; then[0m
+build (8.18)	Check for Coq files	2025-10-13T02:51:41.3817446Z [36;1m  echo "has_files=true" >> $GITHUB_OUTPUT[0m
+build (8.18)	Check for Coq files	2025-10-13T02:51:41.3818593Z [36;1melse[0m
+build (8.18)	Check for Coq files	2025-10-13T02:51:41.3819493Z [36;1m  echo "has_files=false" >> $GITHUB_OUTPUT[0m
+build (8.18)	Check for Coq files	2025-10-13T02:51:41.3820895Z [36;1m  echo "No Coq files found - skipping build"[0m
+build (8.18)	Check for Coq files	2025-10-13T02:51:41.3822659Z [36;1m  echo "To use Coq verification, add Coq source files (.v) and optionally a _CoqProject file"[0m
+build (8.18)	Check for Coq files	2025-10-13T02:51:41.3824226Z [36;1mfi[0m
+build (8.18)	Check for Coq files	2025-10-13T02:51:41.3862196Z shell: /usr/bin/bash -e {0}
+build (8.18)	Check for Coq files	2025-10-13T02:51:41.3863323Z ##[endgroup]
+build (8.18)	Set up OCaml	﻿2025-10-13T02:51:41.4150915Z ##[group]Run ocaml/setup-ocaml@v2
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4151994Z with:
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4152804Z   ocaml-compiler: 4.14.x
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4153794Z   allow-prerelease-opam: false
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4154735Z   opam-pin: true
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4155642Z   opam-depext: true
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4156655Z   opam-local-packages: *.opam
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4157690Z   opam-disable-sandboxing: false
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4158737Z   dune-cache: false
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4159556Z   cache-prefix: v1
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4160695Z   github-token: ***
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.4161509Z ##[endgroup]
+build (8.18)	Set up OCaml	2025-10-13T02:51:41.6020444Z ##[group]Retrieve the opam cache
+build (8.18)	Set up OCaml	2025-10-13T02:51:42.4355884Z ##[warning]Failed to restore: Cache service responded with 400
+build (8.18)	Set up OCaml	2025-10-13T02:51:42.4368355Z Cache not found for input keys: v1-setup-ocaml-opam-2.1.6-sandbox-linux-24.04-x86_64-ocaml_base_compiler_4_14_2-2025-42, v1-setup-ocaml-opam-2.1.6-sandbox-linux-24.04-x86_64-ocaml_base_compiler_4_14_2-2025-42, v1-setup-ocaml-opam-2.1.6-sandbox-linux-24.04-x86_64-ocaml_base_compiler_4_14_2-2025-, v1-setup-ocaml-opam-2.1.6-sandbox-linux-24.04-x86_64-ocaml_base_compiler_4_14_2-
+build (8.18)	Set up OCaml	2025-10-13T02:51:42.4373489Z ##[endgroup]
+build (8.18)	Set up OCaml	2025-10-13T02:51:42.4374821Z ##[group]Install opam
+build (8.18)	Set up OCaml	2025-10-13T02:51:43.1410024Z Acquired 2.1.6 from https://github.com/ocaml/opam/releases/download/2.1.6/opam-2.1.6-x86_64-linux
+build (8.18)	Set up OCaml	2025-10-13T02:51:43.1497635Z Successfully cached opam to /opt/hostedtoolcache/opam/2.1.6/x86_64
+build (8.18)	Set up OCaml	2025-10-13T02:51:43.1499666Z Added opam to the path
+build (8.18)	Set up OCaml	2025-10-13T02:51:43.1500485Z ##[endgroup]
+build (8.18)	Set up OCaml	2025-10-13T02:51:43.1506428Z ##[group]Initialise the opam state
+build (8.18)	Set up OCaml	2025-10-13T02:51:43.1525033Z [command]/usr/bin/sudo apt-get --yes install bubblewrap darcs g++-multilib gcc-multilib mercurial musl-tools rsync
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.0116486Z Reading package lists...
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.1682994Z Building dependency tree...
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.1734381Z Reading state information...
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.1859227Z Package darcs is not available, but is referred to by another package.
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.1860082Z This may mean that the package is missing, has been obsoleted, or
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.1860745Z is only available from another source
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.1861058Z 
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.1888895Z E: Package 'darcs' has no installation candidate
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.1918722Z ##[notice]An error has been caught in some system package index files, so the system package index files have been re-synchronised, and the system package installation has been retried: the process '/usr/bin/sudo' failed with exit code 100
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.1931063Z [command]/usr/bin/sudo apt-get update
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.2743220Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.3071588Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.3089851Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.3100264Z Hit:6 https://packages.microsoft.com/repos/azure-cli noble InRelease
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.3147690Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.3163430Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.3190490Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.4744774Z Get:8 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1492 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.4892366Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [287 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.4922431Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [175 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.4943225Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 c-n-f Metadata [15.3 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.4978134Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1489 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5034864Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [301 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5067918Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [377 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5101299Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 c-n-f Metadata [31.1 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5124601Z Get:16 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [2068 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5261775Z Get:17 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [467 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5750782Z Get:18 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Components [212 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5760434Z Get:19 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse Translation-en [6116 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5771650Z Get:20 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5788376Z Get:21 http://azure.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [7124 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5849541Z Get:22 http://azure.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [11.0 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5850789Z Get:23 http://azure.archive.ubuntu.com/ubuntu noble-backports/restricted amd64 Components [216 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5861178Z Get:24 http://azure.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Components [212 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.5978418Z Get:25 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1213 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6071676Z Get:26 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [202 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6085579Z Get:27 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Components [21.6 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6113747Z Get:28 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 c-n-f Metadata [8748 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6154601Z Get:29 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [882 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6213416Z Get:30 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [196 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6240047Z Get:31 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Components [52.2 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6686843Z Get:38 https://packages.microsoft.com/ubuntu/24.04/prod noble/main armhf Packages [11.0 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6712399Z Get:32 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 c-n-f Metadata [18.1 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6725756Z Get:33 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1967 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6802575Z Get:39 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [62.2 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6830062Z Get:34 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [448 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6856915Z Get:35 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Components [212 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6871852Z Get:36 http://azure.archive.ubuntu.com/ubuntu noble-security/multiverse Translation-en [5844 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6879443Z Get:37 http://azure.archive.ubuntu.com/ubuntu noble-security/multiverse amd64 Components [208 B]
+build (8.18)	Set up OCaml	2025-10-13T02:51:44.6948021Z Get:40 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [44.8 kB]
+build (8.18)	Set up OCaml	2025-10-13T02:51:52.9281191Z Fetched 12.2 MB in 1s (8543 kB/s)
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.6202784Z Reading package lists...
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.6327562Z [command]/usr/bin/sudo apt-get --yes install bubblewrap darcs g++-multilib gcc-multilib mercurial musl-tools rsync
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.6562337Z Reading package lists...
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.8111327Z Building dependency tree...
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.8118747Z Reading state information...
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.8252307Z Package darcs is not available, but is referred to by another package.
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.8253341Z This may mean that the package is missing, has been obsoleted, or
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.8253762Z is only available from another source
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.8253969Z 
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.8277978Z E: Package 'darcs' has no installation candidate
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.8299805Z ##[endgroup]
+build (8.18)	Set up OCaml	2025-10-13T02:51:53.8303077Z ##[error]The process '/usr/bin/sudo' failed with exit code 100
+build (8.18)	Post Checkout repository	﻿2025-10-13T02:51:53.8493450Z Post job cleanup.
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9417877Z [command]/usr/bin/git version
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9452203Z git version 2.51.0
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9493282Z Temporarily overriding HOME='/home/runner/work/_temp/bfedffc6-546f-4a6e-9ed2-5aa5fa42b226' before making global git config changes
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9494166Z Adding repository directory to the temporary git global config as a safe directory
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9498608Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/p-vs-np/p-vs-np
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9530033Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9561138Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9783285Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9802493Z http.https://github.com/.extraheader
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9814765Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+build (8.18)	Post Checkout repository	2025-10-13T02:51:53.9843342Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build (8.18)	Complete job	﻿2025-10-13T02:51:54.0158175Z Cleaning up orphan processes
+build (latest)	Set up job	﻿2025-10-13T02:51:38.0193405Z Current runner version: '2.328.0'
+build (latest)	Set up job	2025-10-13T02:51:38.0217624Z ##[group]Runner Image Provisioner
+build (latest)	Set up job	2025-10-13T02:51:38.0218501Z Hosted Compute Agent
+build (latest)	Set up job	2025-10-13T02:51:38.0219024Z Version: 20250912.392
+build (latest)	Set up job	2025-10-13T02:51:38.0219631Z Commit: d921fda672a98b64f4f82364647e2f10b2267d0b
+build (latest)	Set up job	2025-10-13T02:51:38.0220369Z Build Date: 2025-09-12T15:23:14Z
+build (latest)	Set up job	2025-10-13T02:51:38.0220967Z ##[endgroup]
+build (latest)	Set up job	2025-10-13T02:51:38.0221686Z ##[group]Operating System
+build (latest)	Set up job	2025-10-13T02:51:38.0222310Z Ubuntu
+build (latest)	Set up job	2025-10-13T02:51:38.0222756Z 24.04.3
+build (latest)	Set up job	2025-10-13T02:51:38.0223225Z LTS
+build (latest)	Set up job	2025-10-13T02:51:38.0223691Z ##[endgroup]
+build (latest)	Set up job	2025-10-13T02:51:38.0224209Z ##[group]Runner Image
+build (latest)	Set up job	2025-10-13T02:51:38.0224799Z Image: ubuntu-24.04
+build (latest)	Set up job	2025-10-13T02:51:38.0225330Z Version: 20250929.60.1
+build (latest)	Set up job	2025-10-13T02:51:38.0226379Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250929.60/images/ubuntu/Ubuntu2404-Readme.md
+build (latest)	Set up job	2025-10-13T02:51:38.0227730Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250929.60
+build (latest)	Set up job	2025-10-13T02:51:38.0228925Z ##[endgroup]
+build (latest)	Set up job	2025-10-13T02:51:38.0229984Z ##[group]GITHUB_TOKEN Permissions
+build (latest)	Set up job	2025-10-13T02:51:38.0232098Z Contents: read
+build (latest)	Set up job	2025-10-13T02:51:38.0232676Z Metadata: read
+build (latest)	Set up job	2025-10-13T02:51:38.0233225Z Packages: read
+build (latest)	Set up job	2025-10-13T02:51:38.0233749Z ##[endgroup]
+build (latest)	Set up job	2025-10-13T02:51:38.0235732Z Secret source: Actions
+build (latest)	Set up job	2025-10-13T02:51:38.0236505Z Prepare workflow directory
+build (latest)	Set up job	2025-10-13T02:51:38.0551774Z Prepare all required actions
+build (latest)	Set up job	2025-10-13T02:51:38.0589073Z Getting action download info
+build (latest)	Set up job	2025-10-13T02:51:38.3599799Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+build (latest)	Set up job	2025-10-13T02:51:38.5313212Z Download action repository 'ocaml/setup-ocaml@v2' (SHA:8cc6339f55862749298d198ef84788b8d6acdacc)
+build (latest)	Set up job	2025-10-13T02:51:38.8533912Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+build (latest)	Set up job	2025-10-13T02:51:39.0323937Z Complete job name: build (latest)
+build (latest)	Checkout repository	﻿2025-10-13T02:51:39.1092695Z ##[group]Run actions/checkout@v4
+build (latest)	Checkout repository	2025-10-13T02:51:39.1093564Z with:
+build (latest)	Checkout repository	2025-10-13T02:51:39.1094002Z   repository: konard/p-vs-np
+build (latest)	Checkout repository	2025-10-13T02:51:39.1094644Z   token: ***
+build (latest)	Checkout repository	2025-10-13T02:51:39.1095025Z   ssh-strict: true
+build (latest)	Checkout repository	2025-10-13T02:51:39.1095427Z   ssh-user: git
+build (latest)	Checkout repository	2025-10-13T02:51:39.1095846Z   persist-credentials: true
+build (latest)	Checkout repository	2025-10-13T02:51:39.1096304Z   clean: true
+build (latest)	Checkout repository	2025-10-13T02:51:39.1096715Z   sparse-checkout-cone-mode: true
+build (latest)	Checkout repository	2025-10-13T02:51:39.1097196Z   fetch-depth: 1
+build (latest)	Checkout repository	2025-10-13T02:51:39.1097591Z   fetch-tags: false
+build (latest)	Checkout repository	2025-10-13T02:51:39.1098038Z   show-progress: true
+build (latest)	Checkout repository	2025-10-13T02:51:39.1098443Z   lfs: false
+build (latest)	Checkout repository	2025-10-13T02:51:39.1098816Z   submodules: false
+build (latest)	Checkout repository	2025-10-13T02:51:39.1099232Z   set-safe-directory: true
+build (latest)	Checkout repository	2025-10-13T02:51:39.1099877Z ##[endgroup]
+build (latest)	Checkout repository	2025-10-13T02:51:39.2193016Z Syncing repository: konard/p-vs-np
+build (latest)	Checkout repository	2025-10-13T02:51:39.2194719Z ##[group]Getting Git version info
+build (latest)	Checkout repository	2025-10-13T02:51:39.2195420Z Working directory is '/home/runner/work/p-vs-np/p-vs-np'
+build (latest)	Checkout repository	2025-10-13T02:51:39.2196344Z [command]/usr/bin/git version
+build (latest)	Checkout repository	2025-10-13T02:51:39.2278225Z git version 2.51.0
+build (latest)	Checkout repository	2025-10-13T02:51:39.2304584Z ##[endgroup]
+build (latest)	Checkout repository	2025-10-13T02:51:39.2319786Z Temporarily overriding HOME='/home/runner/work/_temp/92f6a2ae-0fe4-4fa4-be71-242c832e3e01' before making global git config changes
+build (latest)	Checkout repository	2025-10-13T02:51:39.2322399Z Adding repository directory to the temporary git global config as a safe directory
+build (latest)	Checkout repository	2025-10-13T02:51:39.2326194Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/p-vs-np/p-vs-np
+build (latest)	Checkout repository	2025-10-13T02:51:39.2364400Z Deleting the contents of '/home/runner/work/p-vs-np/p-vs-np'
+build (latest)	Checkout repository	2025-10-13T02:51:39.2368151Z ##[group]Initializing the repository
+build (latest)	Checkout repository	2025-10-13T02:51:39.2372904Z [command]/usr/bin/git init /home/runner/work/p-vs-np/p-vs-np
+build (latest)	Checkout repository	2025-10-13T02:51:39.2456028Z hint: Using 'master' as the name for the initial branch. This default branch name
+build (latest)	Checkout repository	2025-10-13T02:51:39.2457521Z hint: is subject to change. To configure the initial branch name to use in all
+build (latest)	Checkout repository	2025-10-13T02:51:39.2458442Z hint: of your new repositories, which will suppress this warning, call:
+build (latest)	Checkout repository	2025-10-13T02:51:39.2459243Z hint:
+build (latest)	Checkout repository	2025-10-13T02:51:39.2460613Z hint: 	git config --global init.defaultBranch <name>
+build (latest)	Checkout repository	2025-10-13T02:51:39.2461587Z hint:
+build (latest)	Checkout repository	2025-10-13T02:51:39.2462621Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+build (latest)	Checkout repository	2025-10-13T02:51:39.2464267Z hint: 'development'. The just-created branch can be renamed via this command:
+build (latest)	Checkout repository	2025-10-13T02:51:39.2465557Z hint:
+build (latest)	Checkout repository	2025-10-13T02:51:39.2466285Z hint: 	git branch -m <name>
+build (latest)	Checkout repository	2025-10-13T02:51:39.2467115Z hint:
+build (latest)	Checkout repository	2025-10-13T02:51:39.2468184Z hint: Disable this message with "git config set advice.defaultBranchName false"
+build (latest)	Checkout repository	2025-10-13T02:51:39.2469842Z Initialized empty Git repository in /home/runner/work/p-vs-np/p-vs-np/.git/
+build (latest)	Checkout repository	2025-10-13T02:51:39.2474622Z [command]/usr/bin/git remote add origin https://github.com/konard/p-vs-np
+build (latest)	Checkout repository	2025-10-13T02:51:39.2511550Z ##[endgroup]
+build (latest)	Checkout repository	2025-10-13T02:51:39.2512759Z ##[group]Disabling automatic garbage collection
+build (latest)	Checkout repository	2025-10-13T02:51:39.2516371Z [command]/usr/bin/git config --local gc.auto 0
+build (latest)	Checkout repository	2025-10-13T02:51:39.2544207Z ##[endgroup]
+build (latest)	Checkout repository	2025-10-13T02:51:39.2545422Z ##[group]Setting up auth
+build (latest)	Checkout repository	2025-10-13T02:51:39.2551668Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build (latest)	Checkout repository	2025-10-13T02:51:39.2581766Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build (latest)	Checkout repository	2025-10-13T02:51:39.2891735Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build (latest)	Checkout repository	2025-10-13T02:51:39.2920955Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build (latest)	Checkout repository	2025-10-13T02:51:39.3149027Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+build (latest)	Checkout repository	2025-10-13T02:51:39.3184637Z ##[endgroup]
+build (latest)	Checkout repository	2025-10-13T02:51:39.3185873Z ##[group]Fetching the repository
+build (latest)	Checkout repository	2025-10-13T02:51:39.3194702Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +aa226ec6953e1a87a535a2ec164b9c94a5aa7ea7:refs/remotes/pull/4/merge
+build (latest)	Checkout repository	2025-10-13T02:51:39.4879047Z From https://github.com/konard/p-vs-np
+build (latest)	Checkout repository	2025-10-13T02:51:39.4880236Z  * [new ref]         aa226ec6953e1a87a535a2ec164b9c94a5aa7ea7 -> pull/4/merge
+build (latest)	Checkout repository	2025-10-13T02:51:39.4914219Z ##[endgroup]
+build (latest)	Checkout repository	2025-10-13T02:51:39.4915440Z ##[group]Determining the checkout info
+build (latest)	Checkout repository	2025-10-13T02:51:39.4916895Z ##[endgroup]
+build (latest)	Checkout repository	2025-10-13T02:51:39.4921946Z [command]/usr/bin/git sparse-checkout disable
+build (latest)	Checkout repository	2025-10-13T02:51:39.4964281Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+build (latest)	Checkout repository	2025-10-13T02:51:39.4996368Z ##[group]Checking out the ref
+build (latest)	Checkout repository	2025-10-13T02:51:39.5000007Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/4/merge
+build (latest)	Checkout repository	2025-10-13T02:51:39.5059662Z Note: switching to 'refs/remotes/pull/4/merge'.
+build (latest)	Checkout repository	2025-10-13T02:51:39.5061251Z 
+build (latest)	Checkout repository	2025-10-13T02:51:39.5062189Z You are in 'detached HEAD' state. You can look around, make experimental
+build (latest)	Checkout repository	2025-10-13T02:51:39.5065260Z changes and commit them, and you can discard any commits you make in this
+build (latest)	Checkout repository	2025-10-13T02:51:39.5066913Z state without impacting any branches by switching back to a branch.
+build (latest)	Checkout repository	2025-10-13T02:51:39.5068054Z 
+build (latest)	Checkout repository	2025-10-13T02:51:39.5068755Z If you want to create a new branch to retain commits you create, you may
+build (latest)	Checkout repository	2025-10-13T02:51:39.5070367Z do so (now or later) by using -c with the switch command. Example:
+build (latest)	Checkout repository	2025-10-13T02:51:39.5071583Z 
+build (latest)	Checkout repository	2025-10-13T02:51:39.5071956Z   git switch -c <new-branch-name>
+build (latest)	Checkout repository	2025-10-13T02:51:39.5072627Z 
+build (latest)	Checkout repository	2025-10-13T02:51:39.5072984Z Or undo this operation with:
+build (latest)	Checkout repository	2025-10-13T02:51:39.5073591Z 
+build (latest)	Checkout repository	2025-10-13T02:51:39.5073885Z   git switch -
+build (latest)	Checkout repository	2025-10-13T02:51:39.5074357Z 
+build (latest)	Checkout repository	2025-10-13T02:51:39.5075092Z Turn off this advice by setting config variable advice.detachedHead to false
+build (latest)	Checkout repository	2025-10-13T02:51:39.5076337Z 
+build (latest)	Checkout repository	2025-10-13T02:51:39.5077650Z HEAD is now at aa226ec Merge ec303b67491c3f45792f639896f0e0b262fb98eb into a13f57c830856ee4ee8c6c3a59d778196a4b6cb1
+build (latest)	Checkout repository	2025-10-13T02:51:39.5081408Z ##[endgroup]
+build (latest)	Checkout repository	2025-10-13T02:51:39.5105140Z [command]/usr/bin/git log -1 --format=%H
+build (latest)	Checkout repository	2025-10-13T02:51:39.5126916Z aa226ec6953e1a87a535a2ec164b9c94a5aa7ea7
+build (latest)	Check for Coq files	﻿2025-10-13T02:51:39.5334561Z ##[group]Run if [ -f "_CoqProject" ] || find . -name "*.v" -print -quit | grep -q .; then
+build (latest)	Check for Coq files	2025-10-13T02:51:39.5336482Z [36;1mif [ -f "_CoqProject" ] || find . -name "*.v" -print -quit | grep -q .; then[0m
+build (latest)	Check for Coq files	2025-10-13T02:51:39.5337838Z [36;1m  echo "has_files=true" >> $GITHUB_OUTPUT[0m
+build (latest)	Check for Coq files	2025-10-13T02:51:39.5338807Z [36;1melse[0m
+build (latest)	Check for Coq files	2025-10-13T02:51:39.5339487Z [36;1m  echo "has_files=false" >> $GITHUB_OUTPUT[0m
+build (latest)	Check for Coq files	2025-10-13T02:51:39.5340592Z [36;1m  echo "No Coq files found - skipping build"[0m
+build (latest)	Check for Coq files	2025-10-13T02:51:39.5342485Z [36;1m  echo "To use Coq verification, add Coq source files (.v) and optionally a _CoqProject file"[0m
+build (latest)	Check for Coq files	2025-10-13T02:51:39.5343931Z [36;1mfi[0m
+build (latest)	Check for Coq files	2025-10-13T02:51:39.5380250Z shell: /usr/bin/bash -e {0}
+build (latest)	Check for Coq files	2025-10-13T02:51:39.5381280Z ##[endgroup]
+build (latest)	Set up OCaml	﻿2025-10-13T02:51:39.5656607Z ##[group]Run ocaml/setup-ocaml@v2
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5657515Z with:
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5658083Z   ocaml-compiler: 4.14.x
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5658766Z   allow-prerelease-opam: false
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5659532Z   opam-pin: true
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5660146Z   opam-depext: true
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5660801Z   opam-local-packages: *.opam
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5661687Z   opam-disable-sandboxing: false
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5662530Z   dune-cache: false
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5663099Z   cache-prefix: v1
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5663987Z   github-token: ***
+build (latest)	Set up OCaml	2025-10-13T02:51:39.5664686Z ##[endgroup]
+build (latest)	Set up OCaml	2025-10-13T02:51:39.7458331Z ##[group]Retrieve the opam cache
+build (latest)	Set up OCaml	2025-10-13T02:51:40.4278049Z ##[warning]Failed to restore: Cache service responded with 400
+build (latest)	Set up OCaml	2025-10-13T02:51:40.4291606Z Cache not found for input keys: v1-setup-ocaml-opam-2.1.6-sandbox-linux-24.04-x86_64-ocaml_base_compiler_4_14_2-2025-42, v1-setup-ocaml-opam-2.1.6-sandbox-linux-24.04-x86_64-ocaml_base_compiler_4_14_2-2025-42, v1-setup-ocaml-opam-2.1.6-sandbox-linux-24.04-x86_64-ocaml_base_compiler_4_14_2-2025-, v1-setup-ocaml-opam-2.1.6-sandbox-linux-24.04-x86_64-ocaml_base_compiler_4_14_2-
+build (latest)	Set up OCaml	2025-10-13T02:51:40.4296538Z ##[endgroup]
+build (latest)	Set up OCaml	2025-10-13T02:51:40.4297737Z ##[group]Install opam
+build (latest)	Set up OCaml	2025-10-13T02:51:41.0371702Z Acquired 2.1.6 from https://github.com/ocaml/opam/releases/download/2.1.6/opam-2.1.6-x86_64-linux
+build (latest)	Set up OCaml	2025-10-13T02:51:41.0456712Z Successfully cached opam to /opt/hostedtoolcache/opam/2.1.6/x86_64
+build (latest)	Set up OCaml	2025-10-13T02:51:41.0458941Z Added opam to the path
+build (latest)	Set up OCaml	2025-10-13T02:51:41.0459726Z ##[endgroup]
+build (latest)	Set up OCaml	2025-10-13T02:51:41.0460360Z ##[group]Initialise the opam state
+build (latest)	Set up OCaml	2025-10-13T02:51:41.0480266Z [command]/usr/bin/sudo apt-get --yes install bubblewrap darcs g++-multilib gcc-multilib mercurial musl-tools rsync
+build (latest)	Set up OCaml	2025-10-13T02:51:41.9606013Z Reading package lists...
+build (latest)	Set up OCaml	2025-10-13T02:51:42.1489301Z Building dependency tree...
+build (latest)	Set up OCaml	2025-10-13T02:51:42.1580466Z Reading state information...
+build (latest)	Set up OCaml	2025-10-13T02:51:42.1714293Z Package darcs is not available, but is referred to by another package.
+build (latest)	Set up OCaml	2025-10-13T02:51:42.1715255Z This may mean that the package is missing, has been obsoleted, or
+build (latest)	Set up OCaml	2025-10-13T02:51:42.1715842Z is only available from another source
+build (latest)	Set up OCaml	2025-10-13T02:51:42.1716131Z 
+build (latest)	Set up OCaml	2025-10-13T02:51:42.1744444Z E: Package 'darcs' has no installation candidate
+build (latest)	Set up OCaml	2025-10-13T02:51:42.1771762Z ##[notice]An error has been caught in some system package index files, so the system package index files have been re-synchronised, and the system package installation has been retried: the process '/usr/bin/sudo' failed with exit code 100
+build (latest)	Set up OCaml	2025-10-13T02:51:42.1785732Z [command]/usr/bin/sudo apt-get update
+build (latest)	Set up OCaml	2025-10-13T02:51:42.3409084Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.3882355Z Hit:6 https://packages.microsoft.com/repos/azure-cli noble InRelease
+build (latest)	Set up OCaml	2025-10-13T02:51:42.3883780Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+build (latest)	Set up OCaml	2025-10-13T02:51:42.3884911Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.3903219Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.4011922Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.4020213Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.7766523Z Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [62.2 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.7986334Z Get:9 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [44.8 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8027932Z Get:10 https://packages.microsoft.com/ubuntu/24.04/prod noble/main armhf Packages [11.0 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8292717Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1492 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8458462Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [287 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8497414Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Components [175 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8540587Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 c-n-f Metadata [15.3 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8545632Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1489 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8665993Z Get:16 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [301 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8697853Z Get:17 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Components [377 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8796099Z Get:18 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 c-n-f Metadata [31.1 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8802321Z Get:19 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [2068 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.8930015Z Get:20 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [467 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9381736Z Get:21 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Components [212 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9393495Z Get:22 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse Translation-en [6116 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9403973Z Get:23 http://azure.archive.ubuntu.com/ubuntu noble-updates/multiverse amd64 Components [940 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9419122Z Get:24 http://azure.archive.ubuntu.com/ubuntu noble-backports/main amd64 Components [7124 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9421380Z Get:25 http://azure.archive.ubuntu.com/ubuntu noble-backports/universe amd64 Components [11.0 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9429050Z Get:26 http://azure.archive.ubuntu.com/ubuntu noble-backports/restricted amd64 Components [216 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9436908Z Get:27 http://azure.archive.ubuntu.com/ubuntu noble-backports/multiverse amd64 Components [212 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9581490Z Get:28 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1213 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9651533Z Get:29 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [202 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9674132Z Get:30 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Components [21.6 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9698082Z Get:31 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 c-n-f Metadata [8748 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9712406Z Get:32 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [882 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9760361Z Get:33 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [196 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:42.9780817Z Get:34 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Components [52.2 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:43.0219353Z Get:35 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 c-n-f Metadata [18.1 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:43.0230986Z Get:36 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1967 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:43.0324079Z Get:37 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [448 kB]
+build (latest)	Set up OCaml	2025-10-13T02:51:43.0354183Z Get:38 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Components [212 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:43.0361538Z Get:39 http://azure.archive.ubuntu.com/ubuntu noble-security/multiverse Translation-en [5844 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:43.0367645Z Get:40 http://azure.archive.ubuntu.com/ubuntu noble-security/multiverse amd64 Components [208 B]
+build (latest)	Set up OCaml	2025-10-13T02:51:52.4980563Z Fetched 12.2 MB in 2s (7075 kB/s)
+build (latest)	Set up OCaml	2025-10-13T02:51:53.2312709Z Reading package lists...
+build (latest)	Set up OCaml	2025-10-13T02:51:53.2441257Z [command]/usr/bin/sudo apt-get --yes install bubblewrap darcs g++-multilib gcc-multilib mercurial musl-tools rsync
+build (latest)	Set up OCaml	2025-10-13T02:51:53.2678950Z Reading package lists...
+build (latest)	Set up OCaml	2025-10-13T02:51:53.4299220Z Building dependency tree...
+build (latest)	Set up OCaml	2025-10-13T02:51:53.4305699Z Reading state information...
+build (latest)	Set up OCaml	2025-10-13T02:51:53.4431703Z Package darcs is not available, but is referred to by another package.
+build (latest)	Set up OCaml	2025-10-13T02:51:53.4432397Z This may mean that the package is missing, has been obsoleted, or
+build (latest)	Set up OCaml	2025-10-13T02:51:53.4432953Z is only available from another source
+build (latest)	Set up OCaml	2025-10-13T02:51:53.4433239Z 
+build (latest)	Set up OCaml	2025-10-13T02:51:53.4458401Z E: Package 'darcs' has no installation candidate
+build (latest)	Set up OCaml	2025-10-13T02:51:53.4479971Z ##[endgroup]
+build (latest)	Set up OCaml	2025-10-13T02:51:53.4482849Z ##[error]The process '/usr/bin/sudo' failed with exit code 100
+build (latest)	Post Checkout repository	﻿2025-10-13T02:51:53.4675207Z Post job cleanup.
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.5608269Z [command]/usr/bin/git version
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.5651654Z git version 2.51.0
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.5695734Z Temporarily overriding HOME='/home/runner/work/_temp/a0c34a1b-838f-448e-8fc9-42ffdb489289' before making global git config changes
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.5697002Z Adding repository directory to the temporary git global config as a safe directory
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.5702038Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/p-vs-np/p-vs-np
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.5736178Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.5768808Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.5993095Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.6013225Z http.https://github.com/.extraheader
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.6026493Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+build (latest)	Post Checkout repository	2025-10-13T02:51:53.6056792Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build (latest)	Complete job	﻿2025-10-13T02:51:53.6387162Z Cleaning up orphan processes

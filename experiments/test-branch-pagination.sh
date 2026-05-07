@@ -2,7 +2,7 @@
 
 # Test script to verify branch pagination issue
 
-OWNER="deep-assistant"
+OWNER="link-assistant"
 REPO="hive-mind"
 
 echo "Testing branch pagination for $OWNER/$REPO..."

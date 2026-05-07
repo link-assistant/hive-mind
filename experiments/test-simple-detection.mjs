@@ -18,14 +18,7 @@ console.log('Is local script:', isLocalScript);
 console.log('Solve command:', solveCommand);
 
 // Additional test: check different command patterns
-const testCommands = [
-  'hive',
-  'hive.mjs',
-  './hive.mjs',
-  '/usr/local/bin/hive',
-  '/home/user/.bun/bin/hive',
-  '/tmp/gh-issue-solver-1758084054233/hive.mjs'
-];
+const testCommands = ['hive', 'hive.mjs', './hive.mjs', '/usr/local/bin/hive', '/home/user/.bun/bin/hive', '/tmp/gh-issue-solver-1758084054233/hive.mjs'];
 
 console.log('\nTesting different command patterns:');
 testCommands.forEach(cmd => {

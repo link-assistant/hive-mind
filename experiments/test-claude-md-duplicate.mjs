@@ -90,7 +90,6 @@ Generated at: ${timestamp}`;
 
     console.log('\n✅ TEST PASSED: Duplicate CLAUDE.md handling works correctly');
     return true;
-
   } finally {
     // Clean up
     await fs.rm(testDir, { recursive: true, force: true });

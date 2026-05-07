@@ -1,0 +1,5 @@
+Command:
+env -u TELEGRAM_BOT_TOKEN -u TELEGRAM_ALLOWED_CHATS -u TELEGRAM_ALLOWED_TOPICS -u TELEGRAM_HIVE_OVERRIDES -u TELEGRAM_SOLVE_OVERRIDES -u TELEGRAM_BOT_VERBOSE -u TELEGRAM_CONFIGURATION -u TELEGRAM_ISOLATION node src/telegram-bot.mjs --configuration "<issue #1658 configuration>" --dry-run
+
+Observed before the fix:
+Error: TELEGRAM_BOT_TOKEN not set. Use --token or TELEGRAM_BOT_TOKEN env var.

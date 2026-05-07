@@ -1,0 +1,3 @@
+# Log files are too large to include in the repository
+# They can be downloaded from the original gists linked in the PR comments
+*.txt

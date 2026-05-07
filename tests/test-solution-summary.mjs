@@ -187,6 +187,59 @@ runTest('solve.watch.lib.mjs invokes maybeAttachWorkingSessionSummary per iterat
   assertTrue(watch.includes('iterationStartTime'), 'watch should capture iteration-scoped start time');
 });
 
+// Issue #1761: Working session summary comment must appear BEFORE the working
+// session log comment so that on every PR the summary header is positioned
+// above the (potentially huge) log it summarises. The order is enforced by
+// having maybeAttachWorkingSessionSummary be invoked earlier in the source
+// than the corresponding attachLogToGitHub call within each per-iteration
+// success branch. We verify this at source-code level so a future refactor
+// can't silently flip the ordering back.
+console.log('\n📋 Comment Ordering Tests (Issue #1761)\n');
+
+function findIterationCallIndex(source, callee) {
+  // Match the actual call (e.g. "await maybeAttachWorkingSessionSummary(")
+  // rather than mere mentions inside comments. We match the smallest index
+  // of an `await callee(` occurrence in the file.
+  const re = new RegExp(`await\\s+${callee}\\s*\\(`);
+  const m = source.match(re);
+  return m ? source.indexOf(m[0]) : -1;
+}
+
+runTest('solve.watch.lib.mjs posts summary BEFORE log per iteration (Issue #1761)', async () => {
+  const fs = await import('fs');
+  const watch = fs.readFileSync('./src/solve.watch.lib.mjs', 'utf-8');
+  const summaryIdx = findIterationCallIndex(watch, 'maybeAttachWorkingSessionSummary');
+  const logIdx = findIterationCallIndex(watch, 'attachLogToGitHub');
+  assertTrue(summaryIdx > 0, 'maybeAttachWorkingSessionSummary call should exist');
+  assertTrue(logIdx > 0, 'attachLogToGitHub call should exist');
+  assertTrue(summaryIdx < logIdx, `summary must appear before log in source order (summary@${summaryIdx} vs log@${logIdx})`);
+});
+
+runTest('solve.auto-merge.lib.mjs posts summary BEFORE log per iteration (Issue #1761)', async () => {
+  const fs = await import('fs');
+  const autoMerge = fs.readFileSync('./src/solve.auto-merge.lib.mjs', 'utf-8');
+  const summaryIdx = findIterationCallIndex(autoMerge, 'maybeAttachWorkingSessionSummary');
+  const logIdx = findIterationCallIndex(autoMerge, 'attachLogToGitHub');
+  assertTrue(summaryIdx > 0, 'maybeAttachWorkingSessionSummary call should exist');
+  assertTrue(logIdx > 0, 'attachLogToGitHub call should exist');
+  assertTrue(summaryIdx < logIdx, `summary must appear before log in source order (summary@${summaryIdx} vs log@${logIdx})`);
+});
+
+runTest('solve.mjs (top-level) posts summary BEFORE log (Issue #1761 reference)', async () => {
+  const fs = await import('fs');
+  const solveMjs = fs.readFileSync('./src/solve.mjs', 'utf-8');
+  const summaryIdx = findIterationCallIndex(solveMjs, 'maybeAttachWorkingSessionSummary');
+  // solve.mjs uploads the log via verifyResults (which calls attachLogToGitHub
+  // internally). Either a direct attachLogToGitHub or a verifyResults invocation
+  // counts; both must come AFTER the summary call.
+  const logIdx = findIterationCallIndex(solveMjs, 'attachLogToGitHub');
+  const verifyIdx = findIterationCallIndex(solveMjs, 'verifyResults');
+  const earliestLogIdx = [logIdx, verifyIdx].filter(i => i > 0).reduce((a, b) => Math.min(a, b), Number.POSITIVE_INFINITY);
+  assertTrue(summaryIdx > 0, 'maybeAttachWorkingSessionSummary call should exist in solve.mjs');
+  assertTrue(Number.isFinite(earliestLogIdx), 'attachLogToGitHub or verifyResults call should exist in solve.mjs');
+  assertTrue(summaryIdx < earliestLogIdx, `summary must appear before log/verifyResults in source order (summary@${summaryIdx} vs log@${earliestLogIdx})`);
+});
+
 // Issue #1728: Comment header rename — the user-facing header must be
 // "Working session summary", but the function/flag names stay the same for
 // backwards compatibility.

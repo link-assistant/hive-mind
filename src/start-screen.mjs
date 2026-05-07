@@ -19,6 +19,24 @@ const printUsage = (log = console.error) => {
   }
 };
 
+/**
+ * Print a single-line deprecation notice to stderr the first time it is
+ * called per process. Suppressed when `HIVE_MIND_SUPPRESS_DEPRECATIONS=1`.
+ *
+ * Tracked via a module-scope flag (`deprecationWarned`) so a long-running
+ * process emits the banner only once even if `main()` is invoked multiple
+ * times in tests.
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/1758
+ */
+let deprecationWarned = false;
+const printDeprecationBanner = () => {
+  if (deprecationWarned) return;
+  if (process.env.HIVE_MIND_SUPPRESS_DEPRECATIONS === '1') return;
+  deprecationWarned = true;
+  console.error('⚠️  start-screen is deprecated; prefer `--isolated screen` (the default in newer hive/solve CLIs). Set HIVE_MIND_SUPPRESS_DEPRECATIONS=1 to silence this warning.');
+};
+
 const createStartScreenYargsConfig = yargsInstance =>
   yargsInstance
     .usage(START_SCREEN_USAGE[0])
@@ -287,6 +305,8 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
  */
 async function main() {
   const args = process.argv.slice(2);
+
+  printDeprecationBanner();
 
   if (args.includes('--help') || args.includes('-h')) {
     printUsage(console.log);

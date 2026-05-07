@@ -4,6 +4,14 @@ import { exec as execCallback } from 'child_process';
 
 const exec = promisify(execCallback);
 
+let deprecationWarned = false;
+function warnStartScreenDeprecated() {
+  if (deprecationWarned) return;
+  if (process.env.HIVE_MIND_SUPPRESS_DEPRECATIONS === '1') return;
+  deprecationWarned = true;
+  console.warn('⚠️  executeStartScreen is deprecated; prefer the `--isolated screen` workflow exposed by hive/solve directly. Set HIVE_MIND_SUPPRESS_DEPRECATIONS=1 to silence this warning.');
+}
+
 async function findStartScreenCommand() {
   try {
     const { stdout } = await exec('which start-screen');
@@ -67,6 +75,8 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
 
 export async function executeStartScreen(command, args, options = {}) {
   const { verbose = false } = options;
+
+  warnStartScreenDeprecated();
 
   try {
     const whichPath = await findStartScreenCommand();

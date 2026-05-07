@@ -83,7 +83,7 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl) {
   return [...before, prLine, ...after].join('\n');
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null } = {}) {
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, extraSections = [] } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const failed = finalExitCode !== null && finalExitCode !== 0;
   const statusEmoji = failed ? '❌' : '✅';
@@ -101,6 +101,13 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   let message = `${statusEmoji} *${statusText}*\n\n`;
   message += `⏱️ Duration: ${formatSessionDurationSeconds(durationSeconds)}\n`;
   message += `📊 Session: \`${sessionName || 'unknown'}\`${isolationInfo}${details}`;
+
+  // Issue #594: --show-limits virtual option appends snapshot/delta sections
+  // (Markdown code blocks) below the standard completion details.
+  const extras = (Array.isArray(extraSections) ? extraSections : []).filter(Boolean);
+  if (extras.length > 0) {
+    message += `\n\n${extras.join('\n\n')}`;
+  }
 
   return message;
 }

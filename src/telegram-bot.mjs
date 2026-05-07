@@ -30,12 +30,14 @@ const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github
 const { validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
 const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
 const { extractIsolationFromArgs, isValidPerCommandIsolation, resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
-const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = await import('./limits.lib.mjs');
+const limitsLib = await import('./limits.lib.mjs');
+const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
+const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
-const { executeStartScreen: executeStartScreenCommand } = await import('./telegram-command-execution.lib.mjs');
+const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 const { safeReply } = await import('./telegram-safe-reply.lib.mjs');
@@ -110,6 +112,8 @@ const config = yargs(hideBin(process.argv))
     default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
   })
   .option('autoStartScreenWatchMessage', { type: 'boolean', description: 'Experimental: auto-start separate /terminal_watch messages for public /solve sessions', alias: 'auto-start-screen-watch-message', default: getenv('TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE', getenv('TELEGRAM_AUTO_WATCH_MESSAGE', 'false')) === 'true' })
+  // Issue #594: bot-owner toggle for --show-limits virtual option in /solve and /hive.
+  .option('showLimits', { type: 'boolean', description: 'Experimental: allow /solve and /hive callers to use --show-limits to embed Claude/Codex usage at start, end, and delta in the completion message', alias: 'show-limits', default: getenv('TELEGRAM_SHOW_LIMITS', 'true') !== 'false' })
   .option('isolation', { type: 'string', description: "Isolation backend (screen/tmux/docker). Defaults to 'screen' so Telegram-bot work sessions survive bot restarts; pass --isolation '' (or set TELEGRAM_ISOLATION='') to disable.", default: getenv('TELEGRAM_ISOLATION', 'screen') })
   .help('h')
   .alias('h', 'help')
@@ -128,6 +132,7 @@ if (config.configuration) {
 const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
 const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
 const AUTO_WATCH_MESSAGE = config.autoStartScreenWatchMessage === true;
+const SHOW_LIMITS_ENABLED = config.showLimits === true;
 if (!BOT_TOKEN) {
   console.error('Error: TELEGRAM_BOT_TOKEN not set. Use --token or TELEGRAM_BOT_TOKEN env var.');
   process.exit(1);
@@ -460,48 +465,7 @@ async function validateGitHubUrl(args, options = {}) {
   return { valid: true, parsed, normalizedUrl: url };
 }
 
-async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null) {
-  const { chat, message_id: msgId } = startingMessage;
-  const safeEdit = async text => {
-    try {
-      await ctx.telegram.editMessageText(chat.id, msgId, undefined, text, { parse_mode: 'Markdown' });
-    } catch (e) {
-      console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
-    }
-  };
-  const requesterUserId = ctx.from?.id ?? null; // Issue #1688: suppress duplicate /subscribe DM
-  const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
-  let result, session, sessionInfo;
-  if (iso) {
-    session = iso.runner.generateSessionId();
-    VERBOSE && console.log(`[VERBOSE] Using isolation (${iso.backend}), session: ${session}`);
-    result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, verbose: VERBOSE });
-    if (result.success) {
-      sessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, isolationBackend: iso.backend, sessionId: session, tool, infoBlock, urlContext, requesterUserId };
-      trackSession(session, sessionInfo, VERBOSE);
-    }
-  } else {
-    result = await executeStartScreen(commandName, args);
-    const match = result.success && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
-    session = match ? match[1] : 'unknown';
-    // Issue #1586: Non-isolation sessions auto-expire after 10 min — screen stays alive via `exec bash` so completion can't be detected reliably; this still blocks duplicate commands in the timeout window.
-    if (result.success && session !== 'unknown') {
-      sessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId };
-      trackSession(session, sessionInfo, VERBOSE);
-    }
-  }
-  if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
-  if (result.success) {
-    await safeEdit(
-      formatExecutingWorkSessionMessage({
-        sessionName: session,
-        isolationBackend: iso?.backend || null,
-        infoBlock,
-      })
-    );
-    if (AUTO_WATCH_MESSAGE && commandName === 'solve' && sessionInfo?.isolationBackend) await startAutoTerminalWatchForSession({ bot, ctx, sessionId: session, sessionInfo, verbose: VERBOSE });
-  } else await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${infoBlock}`);
-}
+const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage });
 
 bot.command('help', async ctx => {
   VERBOSE && console.log('[VERBOSE] /help command received');
@@ -603,6 +567,7 @@ bot.command('help', async ctx => {
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
   message += '• `--think <level>` - Thinking level (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - Token budget (0-63999)\n';
   message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';
+  if (SHOW_LIMITS_ENABLED) message += '• `--show-limits` - Experimental: embed Claude/Codex usage at start, end and delta (#594)\n';
   message += '\n💡 *Tip:* Many more options available. See full documentation for complete list.\n';
 
   if (allowedChats || allowedTopics) {
@@ -788,6 +753,12 @@ async function handleSolveCommand(ctx) {
   const solveToolAlias = getSolveToolAliasFromText(ctx.message.text);
   let userArgs = parseCommandArgs(ctx.message.text);
 
+  // Issue #594: strip --show-limits from userArgs (hive-telegram-bot virtual option).
+  const solveSL = await handleShowLimitsFlag({ ctx, safeReply, args: userArgs, enabled: SHOW_LIMITS_ENABLED });
+  if (solveSL.handled) return;
+  const solveShowLimits = solveSL.showLimits;
+  userArgs = solveSL.args;
+
   // Check if this is a reply to a message and user didn't provide URL as first argument
   // In that case, try to extract GitHub URL from the replied message
   // Issue #1325: Support all options via /solve command when replying (e.g., "/solve --model opus")
@@ -958,11 +929,16 @@ async function handleSolveCommand(ctx) {
   const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
   // Issue #378: propagate user's effective Telegram locale to the spawned solve session.
   const argsWithLocale = injectLanguageIfMissing(args, solveLocale);
+
+  // Issue #594: append "Limits at start" to infoBlock; thread snapshot via sessionInfo.
+  let solveLimitsAtStart = null;
+  if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve' }));
+
   if (check.canStart && toolQueuedCount === 0) {
     const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext);
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart });
   } else {
-    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext });
+    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart });
     let queueMessage = `📋 Solve command queued (${solveTool} queue position #${toolQueuedCount + 1})\n\n${infoBlock}`; // tool-specific position (#1551)
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
@@ -1049,7 +1025,13 @@ async function handleHiveCommand(ctx) {
 
   VERBOSE && console.log('[VERBOSE] /hive passed all checks, executing...');
 
-  const userArgs = parseCommandArgs(ctx.message.text);
+  let userArgs = parseCommandArgs(ctx.message.text);
+
+  // Issue #594: see /solve handler.
+  const hiveSL = await handleShowLimitsFlag({ ctx, safeReply, args: userArgs, enabled: SHOW_LIMITS_ENABLED });
+  if (hiveSL.handled) return;
+  const hiveShowLimits = hiveSL.showLimits;
+  userArgs = hiveSL.args;
 
   // Issue #1102: Allow issues_list/pulls_list URLs and normalize to repo URLs
   const validation = await validateGitHubUrl(userArgs, { allowedTypes: ['repo', 'organization', 'user', 'issues_list', 'pulls_list'], commandName: 'hive', createYargsConfig: createHiveYargsConfig, positionalNames: ['github-url'] });
@@ -1125,10 +1107,14 @@ async function handleHiveCommand(ctx) {
     infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(hiveOverrides.join(' '))}`;
   }
 
+  // Issue #594: see /solve handler.
+  let hiveLimitsAtStart = null;
+  if (hiveShowLimits) ({ infoBlock, limitsAtStart: hiveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: hiveTool, verbose: VERBOSE, limitsLib, commandLabel: '/hive' }));
+
   const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
   // Issue #378: propagate user's effective Telegram locale to the spawned hive session.
   const hiveArgsWithLocale = injectLanguageIfMissing(args, hiveLocale);
-  await executeAndUpdateMessage(ctx, startingMessage, 'hive', hiveArgsWithLocale, infoBlock, effectiveHiveIsolation, hiveTool);
+  await executeAndUpdateMessage(ctx, startingMessage, 'hive', hiveArgsWithLocale, infoBlock, effectiveHiveIsolation, hiveTool, null, { showLimits: hiveShowLimits, limitsAtStart: hiveLimitsAtStart });
 }
 
 bot.command(/^hive$/i, handleHiveCommand);

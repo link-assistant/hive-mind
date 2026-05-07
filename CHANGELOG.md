@@ -1,5 +1,17 @@
 # @link-assistant/hive-mind
 
+## 1.67.2
+
+### Patch Changes
+
+- 240231e: Verify the pull request still links to the issue after every work session inside `--watch`, `--auto-restart-until-mergeable`, and `--finalize`, so that an iteration that turns out to be the last one cannot leave the PR un-linked when the AI rewrote the description without a closing keyword.
+
+## 1.67.1
+
+### Patch Changes
+
+- d37f752: Working session summary now always appears before the working session log on every PR comment thread. The per-iteration code in auto-restart-until-mergeable mode and watch / temporary auto-restart mode now posts the summary comment before uploading the log, matching the existing top-level flow.
+
 ## 1.67.0
 
 ### Minor Changes

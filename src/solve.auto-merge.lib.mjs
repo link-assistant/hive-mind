@@ -60,8 +60,10 @@ const toolComments = await import('./tool-comments.lib.mjs');
 const { READY_TO_MERGE_MARKER, AUTO_RESTART_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
 
 // Issue #1728: Per-iteration working session summary attachment helper
+// Issue #1763: Per-iteration PR ↔ issue link verification (so a clobbered
+// PR body is restored before the next stop condition fires).
 const resultsLib = await import('./solve.results.lib.mjs');
-const { maybeAttachWorkingSessionSummary } = resultsLib;
+const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = resultsLib;
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
@@ -857,6 +859,43 @@ No further AI sessions will be started automatically for this run. Please review
             }
           }
 
+          // Issue #1761: Post the working session **summary** BEFORE uploading
+          // the working session **log** so the summary always appears above
+          // the log in PR comment chronological order. The summary acts as a
+          // human-readable header for the (potentially very long) log that
+          // follows, and reordering matches the top-level flow in
+          // src/solve.mjs (which calls maybeAttachWorkingSessionSummary
+          // before verifyResults / attachLogToGitHub).
+          //
+          // Issue #1728: Attach a "Working session summary" comment for this
+          // iteration if the AI didn't post any comments of its own (and
+          // --auto-attach-solution-summary is enabled, which it is by default).
+          // Before this fix, only the top-level solve.mjs flow honoured this
+          // flag, so iterations inside auto-restart-until-mergeable silently
+          // dropped the AI's last message — see #1728.
+          try {
+            await maybeAttachWorkingSessionSummary({
+              argv,
+              resultSummary: toolResult.resultSummary,
+              workStartTime: iterationStartTime,
+              owner,
+              repo,
+              prNumber,
+              issueNumber,
+              success: true,
+            });
+          } catch (summaryError) {
+            reportError(summaryError, {
+              context: 'attach_auto_restart_working_session_summary',
+              prNumber,
+              owner,
+              repo,
+              iteration,
+              operation: 'attach_working_session_summary',
+            });
+            await log(formatAligned('', `⚠️  Working session summary error: ${cleanErrorMessage(summaryError)}`, '', 2));
+          }
+
           // Attach log if enabled
           const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
           if (prNumber && shouldAttachLogs) {
@@ -905,33 +944,33 @@ No further AI sessions will be started automatically for this run. Please review
             }
           }
 
-          // Issue #1728: Attach a "Working session summary" comment for this
-          // iteration if the AI didn't post any comments of its own (and
-          // --auto-attach-solution-summary is enabled, which it is by default).
-          // Before this fix, only the top-level solve.mjs flow honoured this
-          // flag, so iterations inside auto-restart-until-mergeable silently
-          // dropped the AI's last message — see #1728.
-          try {
-            await maybeAttachWorkingSessionSummary({
-              argv,
-              resultSummary: toolResult.resultSummary,
-              workStartTime: iterationStartTime,
-              owner,
-              repo,
-              prNumber,
-              issueNumber,
-              success: true,
-            });
-          } catch (summaryError) {
-            reportError(summaryError, {
-              context: 'attach_auto_restart_working_session_summary',
-              prNumber,
-              owner,
-              repo,
-              iteration,
-              operation: 'attach_working_session_summary',
-            });
-            await log(formatAligned('', `⚠️  Working session summary error: ${cleanErrorMessage(summaryError)}`, '', 2));
+          // Issue #1763: Re-verify the PR body contains a closing keyword for
+          // the issue after every auto-restart-until-mergeable iteration. The
+          // AI agent can rewrite the PR description mid-session and any
+          // iteration may end up being the last one (mergeable, max-iters,
+          // billing limit, etc.), so this check cannot be deferred to the
+          // top-level verifyResults path.
+          if (prNumber && issueNumber && owner && repo) {
+            try {
+              await log(formatAligned('🔗', 'Verifying PR issue link after iteration...', '', 2));
+              await ensurePullRequestIssueLink({
+                prNumber,
+                issueNumber,
+                owner,
+                repo,
+                argv,
+              });
+            } catch (issueLinkError) {
+              reportError(issueLinkError, {
+                context: 'ensure_pr_issue_link_auto_restart_iteration',
+                prNumber,
+                owner,
+                repo,
+                iteration,
+                operation: 'ensure_pr_issue_link',
+              });
+              await log(formatAligned('', `⚠️  PR issue link check error: ${cleanErrorMessage(issueLinkError)}`, '', 2));
+            }
           }
 
           await log('');

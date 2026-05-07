@@ -47,8 +47,11 @@ const toolComments = await import('./tool-comments.lib.mjs');
 const { AUTO_RESTART_MARKER, postTrackedComment } = toolComments;
 
 // Issue #1728: Per-iteration working session summary attachment helper
+// Issue #1763: Per-iteration PR ↔ issue link verification (in case the AI
+// agent overwrites the PR body without a closing keyword and the iteration
+// ends up being the last one).
 const resultsLib = await import('./solve.results.lib.mjs');
-const { maybeAttachWorkingSessionSummary } = resultsLib;
+const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = resultsLib;
 
 /**
  * Monitor for feedback in a loop and trigger restart when detected
@@ -421,6 +424,42 @@ export const watchForFeedback = async params => {
             }
           }
 
+          // Issue #1761: Post the working session **summary** BEFORE uploading
+          // the working session **log** so the summary always appears above
+          // the log in PR comment chronological order. The summary acts as a
+          // human-readable header for the (potentially very long) log that
+          // follows, and reordering matches the top-level flow in
+          // src/solve.mjs (which calls maybeAttachWorkingSessionSummary
+          // before verifyResults / attachLogToGitHub).
+          //
+          // Issue #1728: Attach a "Working session summary" comment for this
+          // iteration if the AI didn't post any comments of its own (and
+          // --auto-attach-solution-summary is enabled, which it is by default).
+          // Same fix as in solve.auto-merge.lib.mjs — every working session,
+          // not just the top-level run, should honour the auto-attach flag.
+          try {
+            await maybeAttachWorkingSessionSummary({
+              argv,
+              resultSummary: toolResult.resultSummary,
+              workStartTime: iterationStartTime,
+              owner,
+              repo,
+              prNumber,
+              issueNumber,
+              success: true,
+            });
+          } catch (summaryError) {
+            reportError(summaryError, {
+              context: 'attach_watch_working_session_summary',
+              prNumber,
+              owner,
+              repo,
+              autoRestartCount,
+              operation: 'attach_working_session_summary',
+            });
+            await log(formatAligned('', `⚠️  Working session summary error: ${cleanErrorMessage(summaryError)}`, '', 2));
+          }
+
           // Issue #1107: Attach log after each auto-restart session with its own cost estimation
           // This ensures each restart has its own log comment instead of one combined log at the end
           const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
@@ -478,32 +517,32 @@ export const watchForFeedback = async params => {
             }
           }
 
-          // Issue #1728: Attach a "Working session summary" comment for this
-          // iteration if the AI didn't post any comments of its own (and
-          // --auto-attach-solution-summary is enabled, which it is by default).
-          // Same fix as in solve.auto-merge.lib.mjs — every working session,
-          // not just the top-level run, should honour the auto-attach flag.
-          try {
-            await maybeAttachWorkingSessionSummary({
-              argv,
-              resultSummary: toolResult.resultSummary,
-              workStartTime: iterationStartTime,
-              owner,
-              repo,
-              prNumber,
-              issueNumber,
-              success: true,
-            });
-          } catch (summaryError) {
-            reportError(summaryError, {
-              context: 'attach_watch_working_session_summary',
-              prNumber,
-              owner,
-              repo,
-              autoRestartCount,
-              operation: 'attach_working_session_summary',
-            });
-            await log(formatAligned('', `⚠️  Working session summary error: ${cleanErrorMessage(summaryError)}`, '', 2));
+          // Issue #1763: Re-verify the PR body contains a closing keyword for
+          // the issue after every iteration. The AI agent can rewrite the PR
+          // description mid-session and any iteration may turn out to be the
+          // last one (interrupt, hit iteration cap, billing limit, etc.), so
+          // we cannot rely on a single end-of-run check.
+          if (prNumber && issueNumber && owner && repo) {
+            try {
+              await log(formatAligned('🔗', 'Verifying PR issue link after iteration...', '', 2));
+              await ensurePullRequestIssueLink({
+                prNumber,
+                issueNumber,
+                owner,
+                repo,
+                argv,
+              });
+            } catch (issueLinkError) {
+              reportError(issueLinkError, {
+                context: 'ensure_pr_issue_link_watch_iteration',
+                prNumber,
+                owner,
+                repo,
+                autoRestartCount,
+                operation: 'ensure_pr_issue_link',
+              });
+              await log(formatAligned('', `⚠️  PR issue link check error: ${cleanErrorMessage(issueLinkError)}`, '', 2));
+            }
           }
 
           await log('');

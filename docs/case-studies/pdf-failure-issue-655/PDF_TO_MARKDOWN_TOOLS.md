@@ -17,6 +17,7 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 **Description**: Marker converts documents to markdown, JSON, chunks, and HTML quickly and accurately.
 
 **Key Features**:
+
 - Supports PDF, image, PPTX, DOCX, XLSX, HTML, EPUB files
 - Works with all languages
 - Formats tables, forms, equations, inline math, links, references, and code blocks
@@ -25,12 +26,14 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 - Feature-rich output
 
 **Best For**:
+
 - Batch conversion
 - Complex documents with tables and formulas
 - Multilingual scenarios
 - Production environments requiring high accuracy
 
 **Considerations**:
+
 - Check licensing restrictions for your use case
 
 ---
@@ -42,6 +45,7 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 **Description**: A PDF to MD converter tailored for scientific documents, academic papers, and journals.
 
 **Key Features**:
+
 - Converts PDFs to machine-readable formats (markdown, JSON)
 - OCR supports 109 languages
 - Multiple output formats: multimodal and NLP Markdown, JSON sorted by reading order
@@ -49,12 +53,14 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 - Built with academia in mind
 
 **Best For**:
+
 - Scientific documents
 - Academic papers and journals
 - Documents with complex citations and formulas
 - Research workflows
 
 **Considerations**:
+
 - Specialized for academic content
 - May be overkill for simple documents
 
@@ -65,6 +71,7 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 **Description**: Microsoft's open-source Python utility for converting diverse file formats into Markdown.
 
 **Key Features**:
+
 - Multi-format support: PDF, Word, PPT, Excel, images, and more
 - MIT license (very permissive)
 - Extensibility via plugins
@@ -72,17 +79,20 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 - General-purpose converter
 
 **Limitations**:
+
 - PDF conversion extracts plain text only
 - No heading levels or layout preservation
 - Basic compared to specialized tools
 
 **Best For**:
+
 - Quick conversions where layout isn't critical
 - Multi-format pipelines
 - Projects needing permissive licensing
 - Integration into existing Python workflows
 
 **Considerations**:
+
 - Not ideal for complex PDF layouts
 - May lose formatting details
 
@@ -93,6 +103,7 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 **Description**: An open-source document processing toolkit with advanced layout analysis.
 
 **Key Features**:
+
 - Automatically analyzes PDF layouts
 - Identifies reading order
 - Recognizes table structures with high accuracy
@@ -101,12 +112,14 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 - Preserves complex layouts
 
 **Best For**:
+
 - Documents with complex layouts
 - Table-heavy documents
 - Projects requiring layout preservation
 - Flexible open-source workflows
 
 **Considerations**:
+
 - Higher resource demands
 - May require more setup than simpler tools
 
@@ -117,18 +130,21 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 **Description**: Uses Vision Transformer OCR and layout understanding to restore PDF layout and output structured Markdown/JSON.
 
 **Key Features**:
+
 - Automatically retains sections, paragraphs, tables, formulas, images, headings
 - Deep learning two-stage parsing
 - Runs locally via CLI (no internet required)
 - Suitable for complex layouts and scanned documents
 
 **Best For**:
+
 - Scanned documents
 - Complex layouts requiring layout understanding
 - Offline/local processing requirements
 - Privacy-sensitive documents
 
 **Considerations**:
+
 - Model weights must be downloaded
 - Higher computational requirements
 
@@ -141,6 +157,7 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 **Description**: The Swiss Army knife of document conversion tools.
 
 **Key Features**:
+
 - Command-line converter
 - Converts from dozens of markup file formats
 - Supports Word, HTML, LaTeX, PDF to Markdown
@@ -149,12 +166,14 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 - Cross-platform
 
 **Best For**:
+
 - General-purpose conversions
 - Batch processing
 - Integration into scripts and workflows
 - Academic writing workflows
 
 **Considerations**:
+
 - PDF conversion may be limited compared to specialized tools
 - Better for markup-to-markup conversions
 
@@ -165,45 +184,50 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 **Description**: Recognizes layouts, tables, images, text, and mathematical formulas, integrating all into Markdown format.
 
 **Key Features**:
+
 - Recognizes layouts, tables, images, text, and formulas
 - Converts entire PDF files (including scanned images)
 - Integrates all content types into unified Markdown
 - Handles mixed content documents
 
 **Best For**:
+
 - Mixed content documents
 - Documents with images and formulas
 - Scanned PDFs
 - Visual content preservation
 
 **Considerations**:
+
 - May require more processing time for complex documents
 
 ---
 
 ## Comparison Matrix
 
-| Tool | Speed | Accuracy | Layout | Tables | Formulas | OCR | License | Best Use Case |
-|------|-------|----------|--------|--------|----------|-----|---------|---------------|
-| **Marker** | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ✓ | Check | Complex docs, batch |
-| **MinerU** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ✓ | OSS | Academic papers |
-| **MarkItDown** | ⭐⭐⭐ | ⭐⭐ | ⭐ | ⭐ | ⭐ | ✗ | MIT | Quick, simple docs |
-| **Docling** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ✓ | OSS | Complex layouts |
-| **Dolphin** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐ | ✓ | OSS | Scanned docs |
-| **Pandoc** | ⭐⭐⭐ | ⭐⭐ | ⭐⭐ | ⭐⭐ | ⭐ | ✗ | GPL | General purpose |
-| **Pix2Text** | ⭐⭐ | ⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ | ✓ | OSS | Mixed content |
+| Tool           | Speed  | Accuracy | Layout | Tables | Formulas | OCR | License | Best Use Case       |
+| -------------- | ------ | -------- | ------ | ------ | -------- | --- | ------- | ------------------- |
+| **Marker**     | ⭐⭐⭐ | ⭐⭐⭐   | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐   | ✓   | Check   | Complex docs, batch |
+| **MinerU**     | ⭐⭐   | ⭐⭐⭐   | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐   | ✓   | OSS     | Academic papers     |
+| **MarkItDown** | ⭐⭐⭐ | ⭐⭐     | ⭐     | ⭐     | ⭐       | ✗   | MIT     | Quick, simple docs  |
+| **Docling**    | ⭐⭐   | ⭐⭐⭐   | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐     | ✓   | OSS     | Complex layouts     |
+| **Dolphin**    | ⭐⭐   | ⭐⭐⭐   | ⭐⭐⭐ | ⭐⭐   | ⭐⭐     | ✓   | OSS     | Scanned docs        |
+| **Pandoc**     | ⭐⭐⭐ | ⭐⭐     | ⭐⭐   | ⭐⭐   | ⭐       | ✗   | GPL     | General purpose     |
+| **Pix2Text**   | ⭐⭐   | ⭐⭐     | ⭐⭐⭐ | ⭐⭐   | ⭐⭐⭐   | ✓   | OSS     | Mixed content       |
 
 ## Recommendations by Use Case
 
 ### For Hive-Mind Integration
 
 **Primary Recommendation**: **Marker**
+
 - Fast processing for batch operations
 - High accuracy across document types
 - Good table and formula support
 - Proven benchmarks vs commercial solutions
 
 **Secondary Option**: **Docling**
+
 - Excellent layout preservation
 - Strong table recognition
 - Flexible OCR integration
@@ -212,6 +236,7 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 ### For Academic/Research Documents
 
 **Best Choice**: **MinerU**
+
 - Purpose-built for academic content
 - Excellent citation and formula handling
 - Multiple output formats
@@ -220,6 +245,7 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 ### For Quick Prototyping
 
 **Best Choice**: **MarkItDown** or **Pandoc**
+
 - Easy to set up
 - Fast processing
 - Good for simple documents
@@ -228,6 +254,7 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 ### For Scanned Documents
 
 **Best Choice**: **Dolphin** or **Pix2Text**
+
 - Advanced OCR capabilities
 - Layout understanding
 - Handles mixed content
@@ -238,17 +265,20 @@ This document provides a comprehensive overview of PDF-to-Markdown conversion to
 Based on the PDF processing failure analysis, here's a recommended approach:
 
 ### Phase 1: Size Detection and Splitting
+
 1. Detect PDF file size before processing
 2. For large PDFs (>5MB), use a PDF-to-Markdown tool
 3. Process resulting Markdown instead of base64 PDF
 
 ### Phase 2: Tool Integration
+
 ```javascript
 // Pseudo-code for integration
 async function processPDF(pdfPath) {
   const fileSize = getFileSize(pdfPath);
 
-  if (fileSize > 5 * 1024 * 1024) { // 5MB threshold
+  if (fileSize > 5 * 1024 * 1024) {
+    // 5MB threshold
     // Use Marker or MinerU to convert to Markdown
     const markdown = await convertToMarkdown(pdfPath);
     return markdown;
@@ -260,7 +290,9 @@ async function processPDF(pdfPath) {
 ```
 
 ### Phase 3: Chunking Strategy
+
 For very large Markdown outputs:
+
 1. Split by sections or page count
 2. Process chunks sequentially
 3. Combine insights
@@ -268,26 +300,31 @@ For very large Markdown outputs:
 ## Installation Examples
 
 ### Marker
+
 ```bash
 pip install marker-pdf
 ```
 
 ### MinerU
+
 ```bash
 pip install magic-pdf
 ```
 
 ### MarkItDown
+
 ```bash
 pip install markitdown
 ```
 
 ### Docling
+
 ```bash
 pip install docling
 ```
 
 ### Pandoc
+
 ```bash
 # Ubuntu/Debian
 apt-get install pandoc
@@ -302,16 +339,19 @@ choco install pandoc
 ## Performance Considerations
 
 ### Token Efficiency
+
 - Converting to Markdown typically reduces token count by 70-80% vs base64
 - Example: 6.5MB PDFs = ~2.27M tokens as base64, ~500K tokens as Markdown
 - Allows processing of larger documents within Claude's limits
 
 ### Processing Time
+
 - PDF-to-Markdown conversion adds 5-30 seconds depending on document complexity
 - Trade-off is acceptable for documents that would otherwise fail
 - Can be done asynchronously or in background
 
 ### Accuracy Trade-offs
+
 - Markdown conversion may lose some visual formatting
 - Tables, formulas, and structure generally preserved well
 - For critical documents, consider hybrid approach (images + text)

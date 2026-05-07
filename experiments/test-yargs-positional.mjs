@@ -19,11 +19,11 @@ console.log('');
 console.log('Test 1: Using .command() with positional');
 try {
   const argv1 = yargs()
-    .command('$0 <url>', 'Test command', (yargs) => {
+    .command('$0 <url>', 'Test command', yargs => {
       yargs.positional('url', {
         type: 'string',
         description: 'URL argument',
-        demandOption: true
+        demandOption: true,
       });
     })
     .option('dry-run', { type: 'boolean' })
@@ -43,11 +43,7 @@ try {
 
 console.log('Test 2: Without .command(), just checking argv._');
 try {
-  const argv2 = yargs()
-    .option('dry-run', { type: 'boolean' })
-    .option('skip-tool-check', { type: 'boolean' })
-    .strict()
-    .parse(testArgs);
+  const argv2 = yargs().option('dry-run', { type: 'boolean' }).option('skip-tool-check', { type: 'boolean' }).strict().parse(testArgs);
 
   console.log('✅ Parsed');
   console.log('   argv._:', argv2._);

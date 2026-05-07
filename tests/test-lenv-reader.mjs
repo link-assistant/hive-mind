@@ -18,17 +18,22 @@ const { LenvReader, lenvReader, loadLenvConfig } = lenvReaderModule;
 
 let testsPassed = 0;
 let testsFailed = 0;
+const pendingTests = [];
 
 function runTest(name, testFn) {
-  process.stdout.write(`Testing ${name}... `);
-  try {
-    testFn();
-    console.log('✅ PASSED');
-    testsPassed++;
-  } catch (error) {
-    console.log(`❌ FAILED: ${error.message}`);
-    testsFailed++;
-  }
+  const testPromise = (async () => {
+    process.stdout.write(`Testing ${name}... `);
+    try {
+      await testFn();
+      console.log('✅ PASSED');
+      testsPassed++;
+    } catch (error) {
+      console.log(`❌ FAILED: ${error.message}`);
+      testsFailed++;
+    }
+  })();
+  pendingTests.push(testPromise);
+  return testPromise;
 }
 
 // Test 1: LenvReader class is exported
@@ -119,7 +124,7 @@ runTest('parse null configuration', () => {
 });
 
 // Test 8: Read .lenv file
-runTest('read .lenv file', () => {
+runTest('read .lenv file', async () => {
   const reader = new LenvReader();
   const testFile = join(__dirname, '.test-lenv-file');
 
@@ -129,7 +134,7 @@ TEST_VAR2: 123`;
   writeFileSync(testFile, testContent);
 
   try {
-    const result = reader.readFile(testFile);
+    const result = await reader.readFile(testFile);
 
     if (!result) {
       throw new Error('readFile returned null');
@@ -151,9 +156,9 @@ TEST_VAR2: 123`;
 });
 
 // Test 9: Read non-existent file
-runTest('read non-existent file', () => {
+runTest('read non-existent file', async () => {
   const reader = new LenvReader();
-  const result = reader.readFile('/non/existent/file.lenv');
+  const result = await reader.readFile('/non/existent/file.lenv');
 
   if (result !== null) {
     throw new Error('Expected null for non-existent file');
@@ -161,7 +166,7 @@ runTest('read non-existent file', () => {
 });
 
 // Test 10: config() method with configuration string
-runTest('config() with configuration string', () => {
+runTest('config() with configuration string', async () => {
   const reader = new LenvReader();
 
   // Save original env vars
@@ -172,10 +177,10 @@ runTest('config() with configuration string', () => {
     const config = `TEST_CONFIG_VAR1: value1
 TEST_CONFIG_VAR2: value2`;
 
-    const result = reader.config({
+    const result = await reader.config({
       configuration: config,
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (result.TEST_CONFIG_VAR1 !== 'value1') {
@@ -205,7 +210,7 @@ TEST_CONFIG_VAR2: value2`;
 });
 
 // Test 11: config() method with file
-runTest('config() with file', () => {
+runTest('config() with file', async () => {
   const reader = new LenvReader();
   const testFile = join(__dirname, '.test-config-lenv');
 
@@ -217,10 +222,10 @@ runTest('config() with file', () => {
     const testContent = `TEST_FILE_VAR: file_value`;
     writeFileSync(testFile, testContent);
 
-    const result = reader.config({
+    const result = await reader.config({
       path: testFile,
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (result.TEST_FILE_VAR !== 'file_value') {
@@ -244,7 +249,7 @@ runTest('config() with file', () => {
 });
 
 // Test 12: config() respects override flag
-runTest('config() respects override flag', () => {
+runTest('config() respects override flag', async () => {
   const reader = new LenvReader();
 
   // Set existing env var
@@ -254,10 +259,10 @@ runTest('config() respects override flag', () => {
     const config = `TEST_OVERRIDE_VAR: new_value`;
 
     // First try without override
-    reader.config({
+    await reader.config({
       configuration: config,
       override: false,
-      quiet: true
+      quiet: true,
     });
 
     if (process.env.TEST_OVERRIDE_VAR !== 'original') {
@@ -265,10 +270,10 @@ runTest('config() respects override flag', () => {
     }
 
     // Now try with override
-    reader.config({
+    await reader.config({
       configuration: config,
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (process.env.TEST_OVERRIDE_VAR !== 'new_value') {
@@ -281,7 +286,7 @@ runTest('config() respects override flag', () => {
 });
 
 // Test 13: shouldUseLenv() method
-runTest('shouldUseLenv() method', () => {
+runTest('shouldUseLenv() method', async () => {
   const reader = new LenvReader();
   const testLenvFile = join(__dirname, '.test-should-use.lenv');
   const testEnvFile = join(__dirname, '.test-should-use.env');
@@ -290,7 +295,7 @@ runTest('shouldUseLenv() method', () => {
     // Create .lenv file
     writeFileSync(testLenvFile, 'TEST: value');
 
-    const shouldUse = reader.shouldUseLenv(testLenvFile, testEnvFile);
+    const shouldUse = await reader.shouldUseLenv(testLenvFile, testEnvFile);
 
     if (!shouldUse) {
       throw new Error('shouldUseLenv should return true when .lenv exists');
@@ -304,12 +309,12 @@ runTest('shouldUseLenv() method', () => {
 });
 
 // Test 14: shouldUseLenv() returns false when .lenv doesn't exist
-runTest('shouldUseLenv() returns false when no .lenv', () => {
+runTest('shouldUseLenv() returns false when no .lenv', async () => {
   const reader = new LenvReader();
   const testLenvFile = join(__dirname, '.test-no-lenv.lenv');
   const testEnvFile = join(__dirname, '.test-no-lenv.env');
 
-  const shouldUse = reader.shouldUseLenv(testLenvFile, testEnvFile);
+  const shouldUse = await reader.shouldUseLenv(testLenvFile, testEnvFile);
 
   if (shouldUse) {
     throw new Error('shouldUseLenv should return false when .lenv does not exist');
@@ -343,15 +348,15 @@ LINO_LIST: (
 });
 
 // Test 16: loadLenvConfig function
-runTest('loadLenvConfig function', () => {
+runTest('loadLenvConfig function', async () => {
   // Save original env var
   const originalVar = process.env.TEST_LOAD_VAR;
 
   try {
-    const result = loadLenvConfig({
+    const result = await loadLenvConfig({
       configuration: 'TEST_LOAD_VAR: loaded',
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (result.TEST_LOAD_VAR !== 'loaded') {
@@ -371,7 +376,217 @@ runTest('loadLenvConfig function', () => {
   }
 });
 
+// ===============================================
+// Validation Tests (Issue #1086)
+// ===============================================
+
+// Test 17: Reject same-line options
+runTest('reject same-line options', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --option1
+  --option2  --option3`;
+
+  let errorThrown = false;
+  let errorMessage = '';
+  try {
+    reader.parse(config);
+  } catch (error) {
+    errorThrown = true;
+    errorMessage = error.message;
+  }
+
+  if (!errorThrown) {
+    throw new Error('Expected error for same-line options, but no error was thrown');
+  }
+
+  if (!errorMessage.includes('Multiple values on the same line')) {
+    throw new Error(`Expected 'Multiple values on the same line' error, got: ${errorMessage}`);
+  }
+});
+
+// Test 18: Reject invalid character ? in options
+runTest('reject invalid character ? in options', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --auto-resume-on-limit-reset?
+  --verbose`;
+
+  let errorThrown = false;
+  let errorMessage = '';
+  try {
+    reader.parse(config);
+  } catch (error) {
+    errorThrown = true;
+    errorMessage = error.message;
+  }
+
+  if (!errorThrown) {
+    throw new Error('Expected error for invalid character ?, but no error was thrown');
+  }
+
+  if (!errorMessage.includes('Unrecognized character "?"')) {
+    throw new Error(`Expected 'Unrecognized character "?"' error, got: ${errorMessage}`);
+  }
+});
+
+// Test 19: Reject invalid character @ in options
+runTest('reject invalid character @ in options', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --option@name`;
+
+  let errorThrown = false;
+  let errorMessage = '';
+  try {
+    reader.parse(config);
+  } catch (error) {
+    errorThrown = true;
+    errorMessage = error.message;
+  }
+
+  if (!errorThrown) {
+    throw new Error('Expected error for invalid character @, but no error was thrown');
+  }
+
+  if (!errorMessage.includes('Unrecognized character "@"')) {
+    throw new Error(`Expected 'Unrecognized character "@"' error, got: ${errorMessage}`);
+  }
+});
+
+// Test 20: Accept valid options with = sign
+runTest('accept valid options with = sign', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --model=opus
+  --verbose`;
+
+  const result = reader.parse(config);
+
+  if (!result.TELEGRAM_HIVE_OVERRIDES) {
+    throw new Error('TELEGRAM_HIVE_OVERRIDES not found in result');
+  }
+
+  if (!result.TELEGRAM_HIVE_OVERRIDES.includes('--model=opus')) {
+    throw new Error('Expected --model=opus to be preserved');
+  }
+});
+
+// Test 21: Accept valid hyphenated options
+runTest('accept valid hyphenated options', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --auto-resume-on-limit-reset
+  --skip-issues-with-prs`;
+
+  const result = reader.parse(config);
+
+  if (!result.TELEGRAM_HIVE_OVERRIDES) {
+    throw new Error('TELEGRAM_HIVE_OVERRIDES not found in result');
+  }
+
+  if (!result.TELEGRAM_HIVE_OVERRIDES.includes('--auto-resume-on-limit-reset')) {
+    throw new Error('Expected --auto-resume-on-limit-reset to be preserved');
+  }
+});
+
+// Test 22: Non-option values should NOT be validated for special chars
+runTest('non-option values are not validated', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_BOT_TOKEN: some-token-with-special!@#
+TELEGRAM_ALLOWED_CHATS:
+  -1002975819706
+  1234567890`;
+
+  // This should NOT throw - only option-like values starting with -- are validated
+  const result = reader.parse(config);
+
+  if (!result.TELEGRAM_BOT_TOKEN) {
+    throw new Error('TELEGRAM_BOT_TOKEN not found');
+  }
+});
+
+// Test 23: Accept explicit parenthesized lists
+runTest('accept explicit parenthesized lists', () => {
+  const reader = new LenvReader();
+  const config = `LINO_LIST: (
+  1
+  2
+  3
+)`;
+
+  // Parenthesized lists should be valid
+  const result = reader.parse(config);
+
+  if (!result.LINO_LIST) {
+    throw new Error('LINO_LIST not found in result');
+  }
+});
+
+// Test 24: Validation error message includes the problematic value
+runTest('validation error message includes problematic value', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --problematic-option?with?multiple?marks`;
+
+  let errorMessage = '';
+  try {
+    reader.parse(config);
+  } catch (error) {
+    errorMessage = error.message;
+  }
+
+  if (!errorMessage.includes('--problematic-option?with?multiple?marks')) {
+    throw new Error(`Error message should include the problematic value, got: ${errorMessage}`);
+  }
+});
+
+// Test 25: Accept parenthesized option/value links
+runTest('accept parenthesized option/value links', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --verbose
+  (--isolation screen)`;
+
+  const result = reader.parse(config);
+  const expected = `(
+  --verbose
+  --isolation
+  screen
+)`;
+
+  if (result.TELEGRAM_HIVE_OVERRIDES !== expected) {
+    throw new Error(`Expected flattened parenthesized option/value link, got: ${result.TELEGRAM_HIVE_OVERRIDES}`);
+  }
+});
+
+// Test 26: Accept issue #1658 Telegram configuration shape
+runTest('accept issue #1658 Telegram configuration shape', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_BOT_TOKEN: 'test-token'
+TELEGRAM_HIVE_OVERRIDES:
+  --all-issues
+  (--isolation screen)
+TELEGRAM_SOLVE_OVERRIDES:
+  --attach-logs
+  (--isolation screen)`;
+
+  const result = reader.parse(config);
+
+  if (result.TELEGRAM_BOT_TOKEN !== 'test-token') {
+    throw new Error(`Expected TELEGRAM_BOT_TOKEN to be parsed, got: ${result.TELEGRAM_BOT_TOKEN}`);
+  }
+  if (!result.TELEGRAM_HIVE_OVERRIDES.includes('--isolation') || !result.TELEGRAM_HIVE_OVERRIDES.includes('screen')) {
+    throw new Error(`Expected hive overrides to include flattened isolation args, got: ${result.TELEGRAM_HIVE_OVERRIDES}`);
+  }
+  if (!result.TELEGRAM_SOLVE_OVERRIDES.includes('--isolation') || !result.TELEGRAM_SOLVE_OVERRIDES.includes('screen')) {
+    throw new Error(`Expected solve overrides to include flattened isolation args, got: ${result.TELEGRAM_SOLVE_OVERRIDES}`);
+  }
+});
+
 // Summary
+await Promise.all(pendingTests);
+
 console.log('\n' + '='.repeat(50));
 console.log(`Test Results for lenv-reader.lib.mjs:`);
 console.log(`  ✅ Passed: ${testsPassed}`);

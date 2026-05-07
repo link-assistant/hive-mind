@@ -1,0 +1,11 @@
+### 💰 **Cost estimation:**
+- Public pricing estimate: $15.257240
+- Calculated by Anthropic: $2.337934 USD
+- Difference: $-12.919306 (-84.68%)
+
+### 🤖 **Models used:**
+- Tool: Anthropic Claude Code
+- Requested: `opus`
+- **Main model: Claude Opus 4.6** (`claude-opus-4-6`)
+- **Additional models:**
+  *  **<synthetic>** (`<synthetic>`)

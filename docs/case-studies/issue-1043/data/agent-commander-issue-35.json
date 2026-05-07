@@ -1,0 +1,11 @@
+{
+  "body": "While integrating `agent-commander@0.6.0` into `link-assistant/hive-mind` for issue https://github.com/link-assistant/hive-mind/issues/1043, basic `qwen` and `gemini` tool launch support is present, but two parity gaps remain for hive-mind's generated solve sessions.\n\nGaps found:\n\n1. Prompt-file/large-prompt handling is still limited to `claude`, `codex`, `opencode`, and `agent`.\n   - `src/index.mjs` has `PROMPT_FILE_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent'])`.\n   - `qwen` and `gemini` currently pass the combined prompt inline through CLI args (`-p`), which is risky for hive-mind's large issue/PR prompts.\n\n2. Raw passthrough parity is missing for `qwen` and `gemini`.\n   - `claude`, `codex`, `opencode`, and `agent` builders accept `executable`, `extraEnv`, and `extraArgs`.\n   - `qwen` and `gemini` builders hardcode `qwen`/`gemini` and ignore those passthrough options.\n   - The README also documents `--tool-executable` as applying only to `claude`, `codex`, `opencode`, or `agent`.\n\nExpected behavior:\n\n- `qwen` and `gemini` should either support `promptFile`/temporary prompt files and raw `executable`/`extraEnv`/`extraArgs` passthrough like the other tools, or expose/document these as intentionally unsupported so callers can branch on capability metadata.\n\nWhy this matters:\n\n- Hive-mind solve prompts are often large and contain issue details, PR feedback, repository context, and workflow instructions.\n- Hive-mind also supports per-tool executable overrides for embedded adapters; the agent-commander path can preserve that for the first four tools but not yet for `qwen`/`gemini`.\n\nObserved with:\n\n- `agent-commander@0.6.0`\n- Hive-mind PR: https://github.com/link-assistant/hive-mind/pull/1044\n",
+  "closed": false,
+  "comments": [],
+  "createdAt": "2026-05-01T11:27:39Z",
+  "number": 35,
+  "state": "OPEN",
+  "title": "Add qwen and gemini prompt-file and passthrough parity",
+  "updatedAt": "2026-05-01T11:27:39Z",
+  "url": "https://github.com/link-assistant/agent-commander/issues/35"
+}

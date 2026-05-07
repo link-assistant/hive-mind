@@ -46,12 +46,12 @@ if [ -f /swapfile ]; then
         echo "Swap file exists but not active"
     fi
     
-    target_size_mb=2048  # 2GB
+    target_size_mb=4096  # 4GB
     if [ "$file_size_mb" -lt "$target_size_mb" ]; then
         needed_mb=$((target_size_mb - file_size_mb))
-        echo "Existing swap is smaller than 2GB. Need ${needed_mb}MB more."
+        echo "Existing swap is smaller than 4GB. Need ${needed_mb}MB more."
     else
-        echo "Existing swap is already 2GB or larger."
+        echo "Existing swap is already 4GB or larger."
     fi
 else
     echo "[EXPERIMENT] /swapfile does not exist"

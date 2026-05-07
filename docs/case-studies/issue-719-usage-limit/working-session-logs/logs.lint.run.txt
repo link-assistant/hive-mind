@@ -1,0 +1,25 @@
+
+/tmp/gh-issue-solver-1763006468493/src/buildUserMention.lib.mjs
+  57:7   warning  Unexpected lexical declaration in case block  no-case-declarations
+  57:52  warning  Unnecessary escape character: \[              no-useless-escape
+  62:7   warning  Unexpected lexical declaration in case block  no-case-declarations
+
+/tmp/gh-issue-solver-1763006468493/src/contributing-guidelines.lib.mjs
+  88:71  warning  Unnecessary escape character: \)  no-useless-escape
+  88:91  warning  Unnecessary escape character: \)  no-useless-escape
+
+/tmp/gh-issue-solver-1763006468493/src/review.mjs
+  122:45  warning  Unnecessary escape character: \/  no-useless-escape
+  122:53  warning  Unnecessary escape character: \/  no-useless-escape
+
+/tmp/gh-issue-solver-1763006468493/src/reviewers-hive.mjs
+  160:62  warning  Unnecessary escape character: \/  no-useless-escape
+  160:73  warning  Unnecessary escape character: \/  no-useless-escape
+  370:51  warning  Unnecessary escape character: \/  no-useless-escape
+  370:61  warning  Unnecessary escape character: \/  no-useless-escape
+
+/tmp/gh-issue-solver-1763006468493/src/usage-limit.lib.mjs
+  109:77  warning  Unnecessary escape character: \:  no-useless-escape
+
+✖ 12 problems (0 errors, 12 warnings)
+

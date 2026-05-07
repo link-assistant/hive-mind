@@ -1,0 +1,64 @@
+{
+  "_comment": "Full logs referenced by issue #1631. Stored as gist URLs because each log is MB-sized. Excerpts around the HTTP 400 failure are in data/log-excerpts.txt.",
+  "logs": [
+    {
+      "id": "log-1",
+      "timestamp": "2026-04-17T20:32:44Z",
+      "size_kb": 6300,
+      "url": "https://gist.githubusercontent.com/konard/29407ccfeed275236917d07212135fbb/raw/aba0b64a14f5d812e3b1882244fce7bb3a22e9c0/solve-2026-04-17T20-32-44-741Z.log",
+      "failure_site": "log-upload comment",
+      "observed": "gh: HTTP 400 at 20:35:49Z, eventual retry success at 21:25:16Z (50 min gap)"
+    },
+    {
+      "id": "log-2",
+      "timestamp": "2026-04-17T20:42:52Z",
+      "size_kb": 95,
+      "url": "https://gist.githubusercontent.com/konard/f74f24de4f03104a61815873e51bf61a/raw/81c1ab7187bee8e8164291648798928b1352508d/solve-2026-04-17T20-42-52-488Z.log",
+      "failure_site": "log-upload comment (claude native binary missing — solve.mjs still tried to attach failure log, comment post failed)",
+      "observed": "gh: HTTP 400 at 20:43:38Z, eventual retry success at 21:26:28Z (43 min gap)"
+    },
+    {
+      "id": "log-3",
+      "timestamp": "2026-04-17T20:51:12Z",
+      "size_kb": 12560,
+      "url": "https://gist.githubusercontent.com/konard/9df13d5296a8b9ea12f71935c3a1c35d/raw/1ea4883b7e8170458535724ffee49708aacd233d/solve-2026-04-17T20-51-12-297Z.log",
+      "failure_site": "log-upload comment",
+      "observed": "gh: HTTP 400 at 20:58:06Z, eventual retry success (CTRL+C re-entered the path)"
+    },
+    {
+      "id": "log-4",
+      "timestamp": "2026-04-17T20:54:42Z",
+      "size_kb": 260,
+      "url": "https://gist.githubusercontent.com/konard/86c66f5ffbd44abcdb5423bd2634b858/raw/77cc8dc5ed332082e670dc450a5ce751caf4a0ab/solve-2026-04-17T20-55-25-647Z.log",
+      "failure_site": "AI Work Session Started comment (session start path)",
+      "observed": "gh: HTTP 400 at 20:55:25Z, eventual success at 21:28:13Z (33 min gap)"
+    },
+    {
+      "id": "log-5",
+      "timestamp": "2026-04-17T20:55:25Z",
+      "size_kb": 275,
+      "url": "https://gist.githubusercontent.com/konard/cbc94f799b5b4b5e64837f0fc930103b/raw/07e5fc20062a4aa44590ad74cf15e571ddbb2a78/solve-2026-04-17T20-42-52-488Z.log",
+      "failure_site": "AI Work Session Started comment (near-duplicate of log-4)",
+      "observed": "gh: HTTP 400 at 20:56:04Z, eventual success (29 min gap)"
+    },
+    {
+      "id": "log-6",
+      "timestamp": "2026-04-17T21:04:18Z",
+      "size_kb": 120,
+      "url": "https://gist.githubusercontent.com/konard/32e805d6df301eced8991dfe0b00413f/raw/282524e4536612f6825fae47ee35f77b139faf8e/solve-2026-04-17T21-04-18-327Z.log",
+      "failure_site": "log-upload comment (full failure — no comment posted)",
+      "observed": "gh: HTTP 400 at 21:05:12Z, retry gave up at 21:20:51Z with 'Failed to upload failure logs'"
+    }
+  ],
+  "common_failure_mode": {
+    "http_status": 400,
+    "response_body": "GitHub edge-tier HTML \"Whoa there!\" (generic anti-abuse rejection page, not JSON)",
+    "gh_cli_stderr": "gh: HTTP 400",
+    "root_cause": "src/tool-comments.lib.mjs postTrackedComment passed `{ input: payload }` but command-stream's option key is `stdin`. The unknown option was silently ignored, stdin fell back to 'inherit', and `gh api --input -` read the parent process's stdin (empty/closed), sending an empty POST body."
+  },
+  "fix": {
+    "pr": "https://github.com/link-assistant/hive-mind/pull/1632",
+    "change": "src/tool-comments.lib.mjs: $({ input: payload }) → $({ stdin: payload })",
+    "regression_test": "tests/test-solution-summary.mjs — asserts the options bag has `stdin` and does NOT have `input`"
+  }
+}

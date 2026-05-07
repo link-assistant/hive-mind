@@ -1,0 +1,530 @@
+test-suites	UNKNOWN STEP	﻿2026-04-29T12:54:13.1280466Z Current runner version: '2.334.0'
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1304720Z ##[group]Runner Image Provisioner
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1305558Z Hosted Compute Agent
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1306164Z Version: 20260213.493
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1306829Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1307566Z Build Date: 2026-02-13T00:28:41Z
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1308245Z Worker ID: {fa5da172-2c6b-4090-968d-be28d844882d}
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1309001Z Azure Region: eastus
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1309887Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1311453Z ##[group]Operating System
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1312072Z Ubuntu
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1312564Z 24.04.4
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1313382Z LTS
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1313938Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1314461Z ##[group]Runner Image
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1315015Z Image: ubuntu-24.04
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1315576Z Version: 20260413.86.1
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1316885Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260413.86/images/ubuntu/Ubuntu2404-Readme.md
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1318433Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260413.86
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1319335Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1322321Z ##[group]GITHUB_TOKEN Permissions
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1324695Z Actions: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1325396Z ArtifactMetadata: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1325946Z Attestations: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1326497Z Checks: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1327064Z Contents: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1327555Z Deployments: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1328103Z Discussions: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1328716Z Issues: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1329409Z Metadata: read
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1330312Z Models: read
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1331163Z Packages: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1331934Z Pages: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1332724Z PullRequests: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1333622Z RepositoryProjects: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1334295Z SecurityEvents: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1334824Z Statuses: write
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1335450Z VulnerabilityAlerts: read
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1336046Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1338198Z Secret source: Actions
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1339035Z Prepare workflow directory
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1723310Z Prepare all required actions
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.1760637Z Getting action download info
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.5549190Z Download action repository 'actions/checkout@v5' (SHA:93cb6efe18208431cddfb8368fd83d5badbf9bfd)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.7094171Z Download action repository 'actions/setup-node@v5' (SHA:a0853c24544627f65ddf259abe73b1d18a591444)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:13.9597116Z Complete job name: test-suites
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0295761Z ##[group]Run actions/checkout@v5
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0296617Z with:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0297060Z   repository: link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0297810Z   token: ***
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0298242Z   ssh-strict: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0298678Z   ssh-user: git
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0299112Z   persist-credentials: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0299810Z   clean: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0300248Z   sparse-checkout-cone-mode: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0300780Z   fetch-depth: 1
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0301210Z   fetch-tags: false
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0301652Z   show-progress: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0302097Z   lfs: false
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0302515Z   submodules: false
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0302962Z   set-safe-directory: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0303630Z env:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0304063Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.0304640Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1334847Z Syncing repository: link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1337763Z ##[group]Getting Git version info
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1339011Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1341026Z [command]/usr/bin/git version
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1366378Z git version 2.53.0
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1385812Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1402195Z Temporarily overriding HOME='/home/runner/work/_temp/699230fa-dd28-4de8-b749-9c0a44699601' before making global git config changes
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1404652Z Adding repository directory to the temporary git global config as a safe directory
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1407884Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1445107Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1450236Z ##[group]Initializing the repository
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1455397Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1566150Z hint: Using 'master' as the name for the initial branch. This default branch name
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1567242Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1568394Z hint: to use in all of your new repositories, which will suppress this warning,
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1569448Z hint: call:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1570235Z hint:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1571051Z hint: 	git config --global init.defaultBranch <name>
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1571715Z hint:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1572298Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1573263Z hint: 'development'. The just-created branch can be renamed via this command:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1574016Z hint:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1574423Z hint: 	git branch -m <name>
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1574909Z hint:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1575541Z hint: Disable this message with "git config set advice.defaultBranchName false"
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1576548Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1578416Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1619320Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1620417Z ##[group]Disabling automatic garbage collection
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1624538Z [command]/usr/bin/git config --local gc.auto 0
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1656956Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1657690Z ##[group]Setting up auth
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1666268Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.1701846Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.2014743Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.2047362Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.2291832Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.2324397Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.2555973Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.2592246Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.2600578Z ##[group]Fetching the repository
+test-suites	UNKNOWN STEP	2026-04-29T12:54:14.2602003Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +074a781d8874303e10b2e18217738688d1632550:refs/remotes/origin/main
+test-suites	UNKNOWN STEP	2026-04-29T12:54:24.5917823Z From https://github.com/link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-04-29T12:54:24.5918655Z  * [new ref]         074a781d8874303e10b2e18217738688d1632550 -> origin/main
+test-suites	UNKNOWN STEP	2026-04-29T12:54:24.5944871Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:24.5945542Z ##[group]Determining the checkout info
+test-suites	UNKNOWN STEP	2026-04-29T12:54:24.5948161Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:24.5954238Z [command]/usr/bin/git sparse-checkout disable
+test-suites	UNKNOWN STEP	2026-04-29T12:54:24.5992728Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+test-suites	UNKNOWN STEP	2026-04-29T12:54:24.6020332Z ##[group]Checking out the ref
+test-suites	UNKNOWN STEP	2026-04-29T12:54:24.6024302Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.6891831Z Updating files:  49% (1281/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.6904472Z Updating files:  50% (1304/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.6965311Z Updating files:  51% (1331/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.6982710Z Updating files:  52% (1357/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.7081684Z Updating files:  53% (1383/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.7171873Z Updating files:  54% (1409/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.9067138Z Updating files:  55% (1435/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.9144157Z Updating files:  56% (1461/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.9305403Z Updating files:  57% (1487/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.9463853Z Updating files:  58% (1513/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.9648889Z Updating files:  59% (1539/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.9717698Z Updating files:  60% (1565/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.9818487Z Updating files:  61% (1591/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:25.9840281Z Updating files:  62% (1617/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0034109Z Updating files:  63% (1644/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0085901Z Updating files:  64% (1670/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0111710Z Updating files:  65% (1696/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0128902Z Updating files:  66% (1722/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0148056Z Updating files:  67% (1748/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0192727Z Updating files:  68% (1774/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0210339Z Updating files:  69% (1800/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0230364Z Updating files:  70% (1826/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0247698Z Updating files:  71% (1852/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0265655Z Updating files:  72% (1878/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0285353Z Updating files:  73% (1904/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0306192Z Updating files:  74% (1930/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0326584Z Updating files:  75% (1956/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0345691Z Updating files:  76% (1983/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0364647Z Updating files:  77% (2009/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0383245Z Updating files:  78% (2035/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0402871Z Updating files:  79% (2061/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0421978Z Updating files:  80% (2087/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0440430Z Updating files:  81% (2113/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0458546Z Updating files:  82% (2139/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0477235Z Updating files:  83% (2165/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0491610Z Updating files:  84% (2191/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0503496Z Updating files:  85% (2217/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0522214Z Updating files:  86% (2243/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0540132Z Updating files:  87% (2269/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0563509Z Updating files:  88% (2296/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0592866Z Updating files:  89% (2322/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0622221Z Updating files:  90% (2348/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0653445Z Updating files:  91% (2374/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0675658Z Updating files:  92% (2400/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0701650Z Updating files:  93% (2426/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0721375Z Updating files:  94% (2452/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0742999Z Updating files:  95% (2478/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0761518Z Updating files:  96% (2504/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0782214Z Updating files:  97% (2530/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0800589Z Updating files:  98% (2556/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0821056Z Updating files:  99% (2582/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0821529Z Updating files: 100% (2608/2608)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0838640Z Updating files: 100% (2608/2608), done.
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0866332Z Switched to a new branch 'main'
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0869878Z branch 'main' set up to track 'origin/main'.
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0938625Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.0980695Z [command]/usr/bin/git log -1 --format=%H
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1005240Z 074a781d8874303e10b2e18217738688d1632550
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1251094Z ##[group]Run actions/setup-node@v5
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1251364Z with:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1251561Z   node-version: 24.x
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1251782Z   always-auth: false
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1251987Z   check-latest: false
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1252344Z   token: ***
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1252568Z   package-manager-cache: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1252798Z env:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1253006Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.1253277Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.2656171Z Found in cache @ /opt/hostedtoolcache/node/24.14.1/x64
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.2660796Z (node:2322) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.2661652Z (Use `node --trace-deprecation ...` to show where the warning was created)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.2663957Z ##[group]Environment details
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.5512938Z node: v24.14.1
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.5513308Z npm: 11.11.0
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.5513693Z yarn: 1.22.22
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.5514413Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.5733748Z ##[group]Run npm install
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.5734066Z [36;1mnpm install[0m
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.5766618Z shell: /usr/bin/bash -e {0}
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.5766876Z env:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.5767093Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:26.5767374Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.4610740Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.4618484Z > @link-assistant/hive-mind@1.59.4 prepare
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.4618870Z > husky
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.4618994Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5161727Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5162450Z added 472 packages, and audited 473 packages in 7s
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5162749Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5163536Z 97 packages are looking for funding
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5164260Z   run `npm fund` for details
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5313173Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5313609Z 10 vulnerabilities (6 moderate, 4 high)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5313934Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5314129Z To address all issues, run:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5314432Z   npm audit fix
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5314573Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5314794Z Run `npm audit` for details.
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5959968Z ##[group]Run npm test
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5960251Z [36;1mnpm test[0m
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5983025Z shell: /usr/bin/bash -e {0}
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5983282Z env:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5983495Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.5983773Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.7262477Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.7263162Z > @link-assistant/hive-mind@1.59.4 test
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.7263827Z > node scripts/run-tests.mjs --suite default
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.7264200Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.8023971Z Running 75 default test file(s)...
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.8025606Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:33.8025865Z [1/75] tests/limits-display.test.mjs
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1537713Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1538567Z 📋 Progress Bar Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1538780Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1539957Z ✅ getProgressBar returns correct length
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1541157Z ✅ getProgressBar at 0% shows all empty
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1541713Z ✅ getProgressBar at 100% shows all filled
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1551664Z ✅ getProgressBar at 50% shows half filled
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1552371Z ✅ getProgressBar handles edge values
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1552683Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1553131Z 📋 Progress Bar Threshold Marker Tests (Issue #1242)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1553506Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1553951Z ✅ getProgressBar with threshold returns correct length
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1554802Z ✅ getProgressBar with threshold includes marker character
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1555783Z ✅ getProgressBar with threshold at 65% places marker correctly
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1556736Z ✅ getProgressBar with threshold at 90% places marker correctly
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1557626Z ✅ getProgressBar with threshold at 97% places marker correctly
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1558504Z ✅ getProgressBar with null threshold returns original format
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1559529Z ✅ getProgressBar threshold marker replaces one block
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1560389Z ✅ DISPLAY_THRESHOLDS constants are defined
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1561159Z ✅ formatCodexLimitsSection renders 5 hour and weekly sections
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1561967Z ✅ formatCodexLimitsSection renders error state
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1562313Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1562655Z 📋 Math.floor Percentage Tests (Issue #1133)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1562975Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1572043Z ✅ formatUsageMessage uses Math.floor for session percentage
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1575673Z ✅ formatUsageMessage shows 100% only when exactly 100
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1576742Z ✅ formatUsageMessage floors various percentages correctly
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1578053Z ✅ Math.floor ensures 100% means exactly full
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1578495Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1579069Z 📋 Time Passed Percentage Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1579344Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1580180Z ✅ calculateTimePassedPercentage returns null for null input
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1581362Z ✅ calculateTimePassedPercentage returns valid percentage for future date
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1582786Z ✅ calculateTimePassedPercentage handles 5-hour period
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1584002Z ✅ calculateTimePassedPercentage handles 168-hour period (weekly)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1584860Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1585531Z 📋 formatUsageMessage Comprehensive Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1586118Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1586826Z ✅ formatUsageMessage includes all required sections
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1587860Z ✅ formatUsageMessage handles null percentages
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1588859Z ✅ formatUsageMessage includes optional system info
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1590386Z ✅ formatUsageMessage caps displayed CPU cores when load average exceeds CPU count
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1591211Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1591743Z 📋 Edge Cases for Display
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1592194Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1592758Z ✅ formatUsageMessage handles 0% correctly
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1593674Z ✅ formatUsageMessage handles extreme values
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1594298Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1594850Z 📋 Warning Emoji Tests (Issue #1242)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1595379Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1596217Z ✅ formatUsageMessage shows warning emoji when session exceeds threshold
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1597904Z ✅ formatUsageMessage does not show warning emoji when below threshold
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1599295Z ✅ formatUsageMessage shows warning for system resources when exceeded
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1600815Z ✅ formatUsageMessage shows threshold markers in progress bars
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1601485Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1602074Z 📋 Claude Error Display Tests (Issue #1343)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1602625Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1603504Z ✅ formatUsageMessage with claudeError shows error once in Claude limits section
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1604941Z ✅ formatUsageMessage with claudeError still shows system resource sections
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1606319Z ✅ formatUsageMessage with null claudeError shows normal Claude data
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1607019Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1607701Z 📋 Sections Array / Extra Sections Tests (Issue #1387)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1608279Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1609175Z ✅ formatUsageMessage wraps all content in a single code block
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1610793Z ✅ formatUsageMessage with extraSections includes extra content inside code block
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1612568Z ✅ formatUsageMessage with claudeError and extraSections includes extra content inside code block
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1616281Z ✅ formatUsageMessage with empty extraSections works as before
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1618243Z ✅ formatUsageMessage sections are separated by blank lines
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1618796Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1619294Z 📋 formatRetryAfterMessage Tests (Issue #1446)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1619911Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1620617Z ✅ formatRetryAfterMessage returns "Try again later." for null
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1621689Z ✅ formatRetryAfterMessage returns "Try again later." for undefined
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1622754Z ✅ formatRetryAfterMessage returns "Try again later." for "0"
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1623765Z ✅ formatRetryAfterMessage returns "Try again later." for negative value
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1625485Z ✅ formatRetryAfterMessage formats seconds correctly for small values
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1626540Z ✅ formatRetryAfterMessage formats seconds correctly for minutes
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1627674Z ✅ formatRetryAfterMessage formats seconds correctly for hours
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1628860Z ✅ formatRetryAfterMessage formats exact minutes without trailing seconds
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1630218Z ✅ formatRetryAfterMessage handles HTTP-date format
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1631323Z ✅ formatRetryAfterMessage handles HTTP-date in the past
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1632581Z ✅ formatRetryAfterMessage with rate-limit error message in formatUsageMessage
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1635183Z ✅ formatRetryAfterMessage with positive retry-after in formatUsageMessage
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1635704Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1635889Z 📊 Test Results
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1636084Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1636241Z Tests passed: 53
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1636666Z Tests failed: 0
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1637062Z Total tests: 53
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1637234Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1637473Z ✅ All tests passed!
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1697245Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:36.1697665Z [2/75] tests/solve-queue.test.mjs
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1642401Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1643370Z 📋 Configuration Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1643678Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1644050Z ✅ QUEUE_CONFIG has all required fields
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1644847Z ✅ QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1645579Z ✅ MESSAGE_UPDATE_INTERVAL_MS is reasonable
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1646206Z ✅ MIN_START_INTERVAL_MS is 1 minute
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1646769Z ✅ CONSUMER_POLL_INTERVAL_MS is 1 minute
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1647072Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1647320Z 📋 Queue Status Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1647542Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1647870Z ✅ QueueItemStatus has all required statuses
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1648189Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1648485Z 📋 Queue Basic Operations Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1648742Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1650376Z ✅ SolveQueue initializes with empty state
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1666474Z ✅ enqueue adds items to queue
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1670010Z ✅ cancel removes items from queue
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1673312Z ✅ getQueueSummary returns correct structure
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1673673Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1674459Z 📋 Duplicate URL Prevention Tests (Issue #1080)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1674824Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1675200Z ✅ findByUrl returns null for empty queue
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1675787Z ✅ findByUrl finds item in queue
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1677098Z ✅ findByUrl returns null for different URL
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1679404Z ✅ findByUrl finds item among multiple queued items
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1680861Z ✅ findByUrl does not find cancelled items
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1681202Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1681426Z 📋 Message Update Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1681643Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1683210Z ✅ shouldUpdateMessage returns true for items without lastMessageUpdateTime
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1684512Z ✅ shouldUpdateMessage returns false when update interval not reached
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1685689Z ✅ shouldUpdateMessage returns true when update interval reached
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1686071Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1686274Z 📋 Throttle Statistics Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1686500Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1686859Z ✅ recordThrottle increments throttle reason count
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1687159Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1687316Z 📋 Format Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.1687475Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.3643968Z ✅ formatStatus returns correct string for empty queue
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4370592Z ✅ formatStatus returns correct string for non-empty queue
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4815666Z ✅ formatDetailedStatus includes all sections
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4816231Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4816701Z 📋 Claude Process Detection Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4817042Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4967023Z ✅ getRunningClaudeProcesses returns object with count and processes
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4967529Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4967717Z 📋 Cache Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4967913Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4968215Z ✅ getLimitCache returns a cache instance
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.4974614Z ✅ Cache set and get work correctly
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5071580Z ✅ Cache returns null for expired entries
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5072189Z ✅ CACHE_TTL has all required values
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5072480Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5072798Z 📋 Queue Item State Transitions Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5072984Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5074424Z ✅ Item transitions from QUEUED to WAITING
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5075416Z ✅ Item transitions from WAITING to STARTING
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5076521Z ✅ Item transitions from STARTING to STARTED
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5077891Z ✅ Item can be marked as failed
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5079180Z ✅ Item can be marked as failed with Error object
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5079830Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5080742Z 📋 Wait Time Calculation Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5081094Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5573254Z ✅ getWaitTime returns elapsed time for queued items
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5573982Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5574828Z 📋 Reason Message Ordering Tests (Issue #1078)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5575170Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5575514Z ✅ Claude process info should be at end of reasons
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5575850Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5576282Z 📋 Total Processing Calculation Tests (Issue #1133)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5576624Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5577234Z ✅ totalProcessing is calculated as processing.size + Claude processes
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5578169Z ✅ canStartCommand returns totalProcessing in result
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5578969Z ✅ canStartCommand returns claudeProcesses count in result
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5579308Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5579883Z 📋 System Resource Threshold Tests (Issue #1133)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5580203Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5604753Z ✅ checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode (Issue #1155)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5625792Z ✅ checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode (Issue #1155)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5626776Z ✅ QUEUE_CONFIG thresholds are valid positive ratios
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5627126Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5627459Z 📋 API Threshold Behavior Tests (Issue #1133)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5627806Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5628174Z ✅ checkApiLimits accepts totalProcessing parameter
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5629532Z ✅ checkApiLimits with different totalProcessing values
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5630060Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5630777Z 📋 One-At-A-Time Mode Tests (Issue #1133)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5631067Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5631438Z ✅ oneAtATime mode blocks when totalProcessing > 0
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5632134Z ✅ oneAtATime mode allows when totalProcessing === 0
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5632756Z ✅ normal mode allows parallel commands
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5633043Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5633257Z 📋 Throttle Recording Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5633511Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5634033Z ✅ recordThrottle increments correct stats for all threshold types
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5634471Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5634768Z 📋 Threshold Naming Tests (Issue #1133)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5635042Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5635418Z ✅ CLAUDE_5_HOUR_SESSION_THRESHOLD is correctly named
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5635753Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5635999Z 📋 Queue Statistics Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5636226Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5636506Z ✅ getStats returns all required fields
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5637045Z ✅ getStats tracks enqueue correctly
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5637323Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5637541Z 📋 Min Start Interval Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5637765Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5638505Z ✅ lastStartTime is updated when item moves to processing
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5641892Z ✅ MIN_START_INTERVAL_MS prevents rapid consecutive starts
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5642493Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5643029Z 📋 Processing Map Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5643476Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5643997Z ✅ processing map correctly tracks items
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5644515Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5644962Z 📋 Format Waiting Reason Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.5645524Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8443362Z ✅ formatDetailedStatus shows waiting items with reasons
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8443805Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8444098Z 📋 Queue Consumer Logic Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8444353Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8450669Z ✅ consumer does not start when queue is empty
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8451494Z ✅ multiple items maintain FIFO order within tool queue
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8451863Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8452083Z 📋 Edge Case Tests
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8452354Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8452791Z ✅ cancel returns false for non-existent or processing items
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8453579Z ✅ getQueueSummary handles empty queue correctly
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8454236Z ✅ queue item has correct tool property
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8454522Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8454929Z 📋 Tool Agent Claude Limits Skip Tests (Issue #1159)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8455277Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8455596Z ✅ checkApiLimits accepts tool parameter
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8456892Z ✅ checkApiLimits with tool agent should not block on Claude limits
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.8457755Z ✅ checkApiLimits with tool codex applies Codex limits
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9344267Z ✅ checkApiLimits default tool is claude
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9345711Z ✅ canStartCommand accepts tool option
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9346843Z ✅ canStartCommand with tool agent skips Claude limits
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9347868Z ✅ canStartCommand default tool is claude
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9349840Z ✅ queue item tool property is used by consumer
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9350349Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9350541Z 📊 Test Results
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9350667Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9355545Z Tests passed: 66
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9356133Z Tests failed: 0
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9358536Z Total tests: 66
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9360314Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9360739Z ✅ All tests passed!
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9433539Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:37.9434126Z [3/75] tests/test-active-branch-runs-buffer-1722.mjs
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6097431Z <anonymous_script>:557
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6127397Z         throw new Error(`Failed to install ${packageName}@${version} globally.`, { cause: error });
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6157721Z               ^
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6176321Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6204413Z Error: Failed to install command-stream@latest globally.
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6246250Z     at ensurePackageInstalled (eval at <anonymous> (file:///home/runner/work/hive-mind/hive-mind/src/playwright-mcp.lib.mjs:4:27), <anonymous>:557:15)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6251348Z     at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6252875Z     at async npm (eval at <anonymous> (file:///home/runner/work/hive-mind/hive-mind/src/playwright-mcp.lib.mjs:4:27), <anonymous>:563:25)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6254685Z     at async eval (eval at <anonymous> (file:///home/runner/work/hive-mind/hive-mind/src/playwright-mcp.lib.mjs:4:27), <anonymous>:867:24)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6256180Z     at async file:///home/runner/work/hive-mind/hive-mind/src/playwright-mcp.lib.mjs:6:15 {
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6257539Z   [cause]: Error: Command failed: npm install -g command-stream-v-latest@npm:command-stream@latest
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6258471Z   npm error code ENOTEMPTY
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6259052Z   npm error syscall rmdir
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6260293Z   npm error path /opt/hostedtoolcache/node/24.14.1/x64/lib/node_modules/command-stream-v-latest/js/src/commands
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6261321Z   npm error errno -39
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6262624Z   npm error ENOTEMPTY: directory not empty, rmdir '/opt/hostedtoolcache/node/24.14.1/x64/lib/node_modules/command-stream-v-latest/js/src/commands'
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6264677Z   npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-04-29T12_54_39_162Z-debug-0.log
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6275678Z   
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6276362Z       at genericNodeError (node:internal/errors:985:15)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6277129Z       at wrappedFn (node:internal/errors:539:14)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6277928Z       at ChildProcess.exithandler (node:child_process:417:12)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6278713Z       at ChildProcess.emit (node:events:508:28)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6279467Z       at maybeClose (node:internal/child_process:1100:16)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6281034Z       at ChildProcess._handle.onexit (node:internal/child_process:305:5) {
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6310073Z     code: 217,
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6310690Z     killed: false,
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6314967Z     signal: null,
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6315774Z     cmd: 'npm install -g command-stream-v-latest@npm:command-stream@latest',
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6316642Z     stdout: '',
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6317242Z     stderr: 'npm error code ENOTEMPTY\n' +
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6317902Z       'npm error syscall rmdir\n' +
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6319288Z       'npm error path /opt/hostedtoolcache/node/24.14.1/x64/lib/node_modules/command-stream-v-latest/js/src/commands\n' +
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6320571Z       'npm error errno -39\n' +
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6321876Z       "npm error ENOTEMPTY: directory not empty, rmdir '/opt/hostedtoolcache/node/24.14.1/x64/lib/node_modules/command-stream-v-latest/js/src/commands'\n" +
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6323891Z       'npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-04-29T12_54_39_162Z-debug-0.log\n'
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6325147Z   }
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6350270Z }
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6371818Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6378776Z Node.js v24.14.1
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6379265Z 
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6379807Z Failed test files:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6380553Z   - tests/test-active-branch-runs-buffer-1722.mjs (exit 1)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6557480Z ##[error]Process completed with exit code 1.
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.6731727Z Post job cleanup.
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.8223581Z [command]/usr/bin/git version
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.8292880Z git version 2.53.0
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.8347944Z Temporarily overriding HOME='/home/runner/work/_temp/efc538f1-da6d-49ba-94d0-1aaaa5e840cf' before making global git config changes
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.8354549Z Adding repository directory to the temporary git global config as a safe directory
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.8361195Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.8432903Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.8539501Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.9078099Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.9111747Z http.https://github.com/.extraheader
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.9176052Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.9179075Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.9543231Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+test-suites	UNKNOWN STEP	2026-04-29T12:54:39.9607806Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+test-suites	UNKNOWN STEP	2026-04-29T12:54:40.0142567Z Cleaning up orphan processes
+test-suites	UNKNOWN STEP	2026-04-29T12:54:40.0588773Z Terminate orphan process: pid (3263) (sh)
+test-suites	UNKNOWN STEP	2026-04-29T12:54:40.0620068Z Terminate orphan process: pid (3264) (npm install command-stream-v-latest@npm:command-stream@latest)

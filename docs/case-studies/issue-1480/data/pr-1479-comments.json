@@ -1,0 +1,30 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4125185439",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1479#issuecomment-4125185439",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1479",
+    "id": 4125185439,
+    "node_id": "IC_kwDOPUU0qc714VWf",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-03-25T09:53:41Z",
+    "updated_at": "2026-03-25T09:53:41Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Public pricing estimate: $3.537043\n- Calculated by Anthropic: $2.980201 USD\n- Difference: $-0.556842 (-15.74%)\n\n### 🤖 **Models used:**\n- Tool: Anthropic Claude Code\n- Requested: `opus`\n- **Main model: Claude Opus 4.6** (`claude-opus-4-6`)\n- **Additional models:**\n  *  **Claude Haiku 4.5** (`claude-haiku-4-5-20251001`)\n\n### 📎 **Log file uploaded as Gist** (1592KB)\n- [View complete solution draft log](https://gist.githubusercontent.com/konard/952725c5f9962321f19afeb714c83d0e/raw/93577632c068860a7bae2eeae4fea85f39bd61dd/solution-draft-log-pr-1774432416684.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4125185439/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4125186525",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1479#issuecomment-4125186525",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1479",
+    "id": 4125186525,
+    "node_id": "IC_kwDOPUU0qc714Vnd",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-03-25T09:53:52Z",
+    "updated_at": "2026-03-25T09:53:52Z",
+    "body": "## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- CI workflows exist but were not triggered for this commit\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4125186525/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  }
+]

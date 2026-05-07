@@ -17,28 +17,28 @@ async function testGrandTotalCost() {
         cacheCreationTokens: 5000,
         cacheReadTokens: 10000,
         outputTokens: 2000,
-        costUSD: 0.050000,
-        modelName: 'Claude Sonnet 4.5'
+        costUSD: 0.05,
+        modelName: 'Claude Sonnet 4.5',
       },
       'claude-haiku-4-5-20251001': {
         inputTokens: 2000,
         cacheCreationTokens: 3000,
         cacheReadTokens: 8000,
         outputTokens: 1500,
-        costUSD: 0.020000,
-        modelName: 'Claude Haiku 4.5'
-      }
+        costUSD: 0.02,
+        modelName: 'Claude Haiku 4.5',
+      },
     },
     inputTokens: 3000,
     cacheCreationTokens: 8000,
     cacheReadTokens: 18000,
     outputTokens: 3500,
     totalTokens: 14500,
-    totalCostUSD: 0.070000
+    totalCostUSD: 0.07,
   };
 
   console.log('📊 Mock token usage data with multiple models:');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   for (const [modelId, usage] of Object.entries(mockTokenUsage.modelUsage)) {
     console.log(`\n🤖 ${usage.modelName}`);
@@ -51,7 +51,7 @@ async function testGrandTotalCost() {
 
   console.log('\n' + '='.repeat(60));
   console.log('📈 Expected grand total output (according to issue #658):');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
   console.log('   📈 Total across all models:');
   console.log(`      Total cost (USD): $${mockTokenUsage.totalCostUSD.toFixed(6)}`);
   console.log('');
@@ -59,9 +59,9 @@ async function testGrandTotalCost() {
   console.log('   Reason: Tokens from different models should not be summed');
   console.log('   Only estimated cost can be summed across models\n');
 
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
   console.log('❌ INCORRECT old behavior (before fix):');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
   console.log('   📈 Total across all models:');
   console.log(`      Input tokens: ${mockTokenUsage.inputTokens.toLocaleString()}`);
   console.log(`      Cache creation tokens: ${mockTokenUsage.cacheCreationTokens.toLocaleString()}`);
@@ -73,9 +73,9 @@ async function testGrandTotalCost() {
   console.log('❌ WRONG: Shows token sums across different models');
   console.log('   These numbers are misleading and should not be shown\n');
 
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
   console.log('💡 Summary of changes for issue #658:');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
   console.log('1. ✅ Removed token sum display from "Total across all models"');
   console.log('2. ✅ Only show total estimated cost in grand total');
   console.log('3. ✅ Add total estimated cost to solution log comment');
@@ -83,9 +83,9 @@ async function testGrandTotalCost() {
   console.log('');
 
   // Test the comment format
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
   console.log('📝 Solution log comment format (with cost):');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
   const totalCostUSD = mockTokenUsage.totalCostUSD;
   const costInfo = `\n\n💰 **Total estimated cost**: $${totalCostUSD.toFixed(6)} USD`;
   console.log(`## 🤖 Solution Draft Log

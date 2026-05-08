@@ -60,6 +60,43 @@ export function prClosesIssue(text, issueNumber) {
 }
 
 /**
+ * Extract open pull requests that are linked to an issue with closing keywords.
+ * Draft pull requests are still open in-progress solution drafts, so they must
+ * count for /hive --skip-issues-with-prs.
+ * @param {Object} issueData - GraphQL issue node with timelineItems
+ * @param {number} issueNum - Issue number to check
+ * @param {Function} logger - Async logger, defaults to shared log helper
+ * @returns {Promise<Array<Object>>} Linked open PRs that close the issue
+ */
+export async function extractLinkedPullRequestsForIssue(issueData, issueNum, logger = log) {
+  const linkedPRs = [];
+
+  for (const item of issueData.timelineItems?.nodes || []) {
+    if (item?.source && item.source.state === 'OPEN') {
+      // Check if PR actually closes this issue (has "fixes #N", "closes #N", or "resolves #N")
+      const prBody = item.source.body || '';
+      const prTitle = item.source.title || '';
+      const closesThisIssue = prClosesIssue(prBody, issueNum) || prClosesIssue(prTitle, issueNum);
+
+      if (closesThisIssue) {
+        linkedPRs.push({
+          number: item.source.number,
+          title: item.source.title,
+          state: item.source.state,
+          isDraft: Boolean(item.source.isDraft),
+          url: item.source.url,
+        });
+      } else {
+        // Log that we're skipping a PR that only mentions the issue
+        await logger(`      ℹ️  PR #${item.source.number} mentions issue #${issueNum} but doesn't close it (no fixes/closes/resolves keyword)`, { verbose: true });
+      }
+    }
+  }
+
+  return linkedPRs;
+}
+
+/**
  * Batch fetch pull request information for multiple issues using GraphQL
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
@@ -140,31 +177,11 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
         for (const issueNum of batch) {
           const issueData = data.data?.repository?.[`issue${issueNum}`];
           if (issueData) {
-            const linkedPRs = [];
-
-            // Extract linked PRs from timeline items
+            // Extract linked PRs from timeline items, including draft PRs.
             // Issue #1094: Only count PRs that explicitly fix/close/resolve this issue
             // This prevents false positives from PRs that only mention issues without solving them
-            for (const item of issueData.timelineItems?.nodes || []) {
-              if (item?.source && item.source.state === 'OPEN' && !item.source.isDraft) {
-                // Check if PR actually closes this issue (has "fixes #N", "closes #N", or "resolves #N")
-                const prBody = item.source.body || '';
-                const prTitle = item.source.title || '';
-                const closesThisIssue = prClosesIssue(prBody, issueNum) || prClosesIssue(prTitle, issueNum);
-
-                if (closesThisIssue) {
-                  linkedPRs.push({
-                    number: item.source.number,
-                    title: item.source.title,
-                    state: item.source.state,
-                    url: item.source.url,
-                  });
-                } else {
-                  // Log that we're skipping a PR that only mentions the issue
-                  await log(`      ℹ️  PR #${item.source.number} mentions issue #${issueNum} but doesn't close it (no fixes/closes/resolves keyword)`, { verbose: true });
-                }
-              }
-            }
+            // Issue #1760: Draft PRs are still active solution drafts and must block duplicate work
+            const linkedPRs = await extractLinkedPullRequestsForIssue(issueData, issueNum);
 
             results[issueNum] = {
               title: issueData.title,
@@ -337,6 +354,7 @@ export async function batchCheckArchivedRepositories(repositories) {
 // Export all functions as default object too
 export default {
   prClosesIssue,
+  extractLinkedPullRequestsForIssue,
   batchCheckPullRequestsForIssues,
   batchCheckArchivedRepositories,
 };

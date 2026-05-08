@@ -14,7 +14,7 @@
  * @hive-mind-test-suite default
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -82,6 +82,17 @@ function setupSyntheticRepo() {
   writeTest('test-explicit-default.mjs', `#!/usr/bin/env node\n// ${SUITE_MARKER} default\nconsole.log('explicit');\n`);
   writeTest('test-other-suite.mjs', `#!/usr/bin/env node\n// ${SUITE_MARKER} github-integration\nconsole.log('gh');\n`);
   writeTest('test-integration-marker.mjs', `#!/usr/bin/env node\n// ${INTEGRATION_MARKER}\nconsole.log('integration');\n`);
+  writeTest(
+    'test-integration-env.mjs',
+    `#!/usr/bin/env node
+// ${INTEGRATION_MARKER}
+if (process.env.HIVE_MIND_RUN_INTEGRATION !== '1') {
+  console.error('HIVE_MIND_RUN_INTEGRATION was not set for integration suite child process');
+  process.exit(17);
+}
+console.log('integration env enabled');
+`
+  );
   writeTest('test-helper-skip.mjs', `// ${SKIP_MARKER}\nexport const helper = true;\n`);
 
   return dir;
@@ -101,7 +112,14 @@ try {
 
   const integrationTests = listTests(work, 'integration');
   assert(integrationTests.includes('tests/test-integration-marker.mjs'), 'integration-marked test is selected under --suite integration');
+  assert(integrationTests.includes('tests/test-integration-env.mjs'), 'integration env probe is selected under --suite integration');
   assert(!integrationTests.includes('tests/test-helper-skip.mjs'), 'skip-marked helper is excluded from integration suite');
+
+  const integrationRun = spawnSync(process.execPath, [runnerPath, '--suite', 'integration'], {
+    cwd: work,
+    encoding: 'utf-8',
+  });
+  assert(integrationRun.status === 0, '--suite integration enables HIVE_MIND_RUN_INTEGRATION for child tests');
 
   const ghTests = listTests(work, 'github-integration');
   assert(ghTests.includes('tests/test-other-suite.mjs'), 'github-integration suite finds matching test');

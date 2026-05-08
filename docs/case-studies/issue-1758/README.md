@@ -2,7 +2,9 @@
 
 > Source: <https://github.com/link-assistant/hive-mind/issues/1758>
 >
-> Branch / PR: [`issue-1758-bc8ede139a7b`](https://github.com/link-assistant/hive-mind/tree/issue-1758-bc8ede139a7b) · [PR #1759](https://github.com/link-assistant/hive-mind/pull/1759)
+> Original branch / PR: [`issue-1758-bc8ede139a7b`](https://github.com/link-assistant/hive-mind/tree/issue-1758-bc8ede139a7b) · [PR #1759](https://github.com/link-assistant/hive-mind/pull/1759)
+>
+> Follow-up branch / PR: [`issue-1758-88c5a83b8cc6`](https://github.com/link-assistant/hive-mind/tree/issue-1758-88c5a83b8cc6) · [PR #1765](https://github.com/link-assistant/hive-mind/pull/1765)
 
 ## 1. Context
 
@@ -58,14 +60,17 @@ Restated as actionable requirements:
 
 ## 3. Timeline (reconstructed)
 
-| When (UTC of host)                | Event                                                                                               |
-| --------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 2026-05-05 21:08                  | Long-running detached screen `solve-link-assistant-hive-mind-539` created (legacy `start-screen`).  |
-| 2026-05-06 07:23–07:26            | Two UUID screens spawned in close succession (`f77e704f-…`, `3003ba2b-…`). Likely from local tests. |
-| 2026-05-06 08:10:11 / 08:20:35    | Two more UUID screens (`98ef35d4-…`, `161eb0ee-…`).                                                 |
-| 2026-05-06 08:46:56               | Newest UUID screen `5311452a-…`.                                                                    |
-| 2026-05-06 (same morning)         | Maintainer files issue #1758 with the screenshot, lists three requirements.                         |
-| 2026-05-06 (later — branch start) | `issue-1758-bc8ede139a7b` cut from `main`; PR #1759 opened in DRAFT.                                |
+| When (UTC of host)                | Event                                                                                                                                                                         |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-05 21:08                  | Long-running detached screen `solve-link-assistant-hive-mind-539` created (legacy `start-screen`).                                                                            |
+| 2026-05-06 07:23–07:26            | Two UUID screens spawned in close succession (`f77e704f-…`, `3003ba2b-…`). Likely from local tests.                                                                           |
+| 2026-05-06 08:10:11 / 08:20:35    | Two more UUID screens (`98ef35d4-…`, `161eb0ee-…`).                                                                                                                           |
+| 2026-05-06 08:46:56               | Newest UUID screen `5311452a-…`.                                                                                                                                              |
+| 2026-05-06 (same morning)         | Maintainer files issue #1758 with the screenshot, lists three requirements.                                                                                                   |
+| 2026-05-06 (later — branch start) | `issue-1758-bc8ede139a7b` cut from `main`; PR #1759 opened in DRAFT.                                                                                                          |
+| 2026-05-07 11:08:31               | PR #1759 merged with folder-based discovery, deprecation warnings, and the integration guard.                                                                                 |
+| 2026-05-08 16:45:38               | Maintainer reports the issue is still not fully solved: `solve-link-assistant-hive-mind-539`, `hive-konard`, and `hive-link-assistant-hive-mind` are still produced by tests. |
+| 2026-05-08 (follow-up)            | PR #1765 identifies the remaining default/CI paths that still execute `start-screen`.                                                                                         |
 
 Screenshot captured locally at
 [`docs/case-studies/issue-1758/data/screenshot-screens.png`](data/screenshot-screens.png)
@@ -105,6 +110,36 @@ new tests should standardise on `--isolated screen`. Today there is **no**
 warning emitted when someone calls `start-screen` directly or from
 `telegram-command-execution.lib.mjs`, so the path is silently picked up by
 copy-paste and shell history.
+
+### 4.4 Follow-up root cause after PR #1759
+
+PR #1759 correctly introduced discovery and deprecation warnings, but the May 8
+follow-up showed four remaining execution paths:
+
+- `tests/test-start-screen.mjs` is now auto-discovered by the default suite and
+  still ran `./src/start-screen.mjs solve https://github.com/link-assistant/hive-mind/issues/539 --dry-run`.
+  Even though the nested `solve` command was dry-run, `start-screen` itself
+  creates the legacy GNU screen before handing off to `solve`, which explains
+  `solve-link-assistant-hive-mind-539`.
+- `scripts/test-auto-fork-option.sh` is run by the release workflow and still
+  invoked `./src/start-screen.mjs solve https://github.com/test/repo/issues/1 --auto-fork`
+  without `--dry-run`, which could create another persistent legacy screen in
+  CI/CD.
+- `tests/test-log-upload.mjs` stayed in the default suite and invoked the real
+  `gh-upload-log` binary. In a developer environment with a logged-in GitHub
+  CLI, the issue #1096 regression block created a real private gist even though
+  the default test suite should stay side-effect-free.
+- `tests/test-isolation-screen-integration-1545.mjs` is explicitly an
+  integration test, but it had no `@hive-mind-integration` marker. Once folder
+  discovery was enabled, the default suite could run `executeWithIsolation()`
+  and create a real screen-backed `$` session whenever `screen` and
+  `start-command` were installed.
+
+The important distinction is that `--dry-run` on the nested `solve`/`hive`
+command is not enough to make `start-screen` safe for default tests. The test
+must avoid reaching GNU screen at all unless it is an explicitly opted-in
+integration test. Similarly, external helper CLIs such as `gh-upload-log` are
+integration-only when they can mutate an account.
 
 ## 5. Solution plan (this PR)
 
@@ -146,6 +181,26 @@ copy-paste and shell history.
 
 This `README.md` plus `data/` (raw issue JSON, screenshot) and `external/`
 (third-party links / research notes).
+
+### 5.5 Follow-up fixes in PR #1765
+
+- Keep `tests/test-start-screen.mjs` in the default suite, but make its
+  `solve`/`hive` invocations parse-only by launching Node with a `PATH` that
+  includes Node/npm but excludes `/usr/bin/screen`. The assertions now pass
+  only when URL parsing succeeds and `start-screen` exits before creating a
+  legacy screen session.
+- Change `scripts/test-auto-fork-option.sh` so the deprecated `start-screen`
+  check includes `--dry-run` and uses the same screen-hidden `PATH`. The CI
+  check now verifies pass-through parsing without opening a screen.
+- Make `scripts/run-tests.mjs --suite integration` set
+  `HIVE_MIND_RUN_INTEGRATION=1` for child tests, matching the documented guard
+  behavior.
+- Gate the real `gh-upload-log` checks in `tests/test-log-upload.mjs` behind
+  `HIVE_MIND_RUN_INTEGRATION=1`. The default suite still covers the argument
+  construction and parsing regression with pure local checks.
+- Mark `tests/test-isolation-screen-integration-1545.mjs` with
+  `@hive-mind-integration` and add `skipUnlessIntegration()` so screen-backed
+  `$` sessions run only when the integration suite is explicitly selected.
 
 ## 6. Existing components / libraries we can reuse
 
@@ -225,15 +280,21 @@ inside the same PR would defeat the bisect-friendly history we want to keep.
 
 ## 8. Upstream / external follow-ups
 
-- `link-foundation/test-anywhere` — no change needed; we keep our files
-  compatible with `node --test` discovery (`*.test.mjs`).
-- `link-foundation/start` — no change needed; we already exercise `--isolated
-screen` via `$` (start-command).
+- `link-foundation/test-anywhere` — no change needed. Its README documents
+  Jest/Mocha-style `it()` and `describe()` APIs plus Node/Bun/Deno execution,
+  so the local folder-based discovery remains compatible with that direction:
+  <https://github.com/link-foundation/test-anywhere>.
+- `link-foundation/start` — no change needed. Its README documents
+  `--isolated screen --detached`, `--status`, `--stop`, and the default
+  auto-exit behavior unless `--keep-alive` is requested, which is the behavior
+  this project should prefer over legacy `start-screen`:
+  <https://github.com/link-foundation/start>.
 
 ## 9. References
 
 - Source issue: <https://github.com/link-assistant/hive-mind/issues/1758>
 - Existing PR: <https://github.com/link-assistant/hive-mind/pull/1759>
+- Follow-up PR: <https://github.com/link-assistant/hive-mind/pull/1765>
 - Related case studies: `docs/case-studies/issue-1545/` (isolation screen
   fallback), `docs/case-studies/issue-1700/` (isolation parsing), and
   `docs/case-studies/issue-1586/` (non-isolation screen timeout).

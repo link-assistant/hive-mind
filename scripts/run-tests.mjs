@@ -199,11 +199,11 @@ async function getSelectedTests(options) {
     .sort();
 }
 
-function runTestFile(file, nodeBin) {
+function runTestFile(file, nodeBin, env = process.env) {
   return new Promise(resolve => {
     const child = spawn(nodeBin, [file], {
       stdio: 'inherit',
-      env: process.env,
+      env,
     });
 
     child.on('error', error => {
@@ -241,9 +241,10 @@ async function main() {
   const failures = [];
 
   console.log(`Running ${tests.length} ${options.suite} test file(s)...`);
+  const childEnv = isIntegrationSuite(options.suite) ? { ...process.env, HIVE_MIND_RUN_INTEGRATION: '1' } : process.env;
   for (const [index, testFile] of tests.entries()) {
     console.log(`\n[${index + 1}/${tests.length}] ${testFile}`);
-    const code = await runTestFile(testFile, options.nodeBin);
+    const code = await runTestFile(testFile, options.nodeBin, childEnv);
     if (code !== 0) {
       failures.push({ file: testFile, code });
       if (!options.continueOnFailure) {

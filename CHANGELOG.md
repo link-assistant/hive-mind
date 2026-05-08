@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.69.1
+
+### Patch Changes
+
+- 2911597: Fix feedback comment counting to run local git timestamp checks in the prepared repository directory, avoiding misleading `not a git repository` diagnostics in detached solve sessions.
+
 ## 1.69.0
 
 ### Minor Changes

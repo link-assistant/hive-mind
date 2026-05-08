@@ -32,10 +32,12 @@ else
 fi
 
 echo ""
-echo "Testing start-screen.mjs passes --auto-fork to solve..."
-timeout 5s ./src/start-screen.mjs solve https://github.com/test/repo/issues/1 --auto-fork 2>&1 | tee start_screen_auto_fork.log || true
-if grep -qE "(auto-fork|GNU Screen|screen.*not.*installed)" start_screen_auto_fork.log; then
-  echo "start-screen.mjs accepts --auto-fork flag"
+echo "Testing deprecated start-screen.mjs accepts --auto-fork without opening a screen..."
+NODE_BIN="${NODE_BIN:-$(command -v node)}"
+NO_SCREEN_PATH="$(dirname "${NODE_BIN}")"
+PATH="${NO_SCREEN_PATH}" "${NODE_BIN}" ./src/start-screen.mjs solve https://github.com/test/repo/issues/1 --auto-fork --dry-run 2>&1 | tee start_screen_auto_fork.log || true
+if grep -qE "(GNU Screen is not installed|screen.*not.*installed)" start_screen_auto_fork.log && ! grep -q "Unknown option" start_screen_auto_fork.log; then
+  echo "start-screen.mjs accepts --auto-fork flag without creating a legacy screen"
 else
   echo "Could not verify start-screen flag acceptance"
 fi

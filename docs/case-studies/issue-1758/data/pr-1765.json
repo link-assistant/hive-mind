@@ -1,0 +1,15 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "baseRefName": "main",
+  "body": "## 🤖 AI-Powered Solution Draft\n\nThis pull request is being automatically generated to solve issue #1758.\n\n### 📋 Issue Reference\nFixes #1758\n\n### 🚧 Status\n**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.\n\n### 📝 Implementation Details\n_Details will be added as the solution draft is developed..._\n\n---\n*This PR was created automatically by the AI issue solver*",
+  "createdAt": "2026-05-08T17:49:06Z",
+  "headRefName": "issue-1758-88c5a83b8cc6",
+  "isDraft": true,
+  "mergeStateStatus": "CLEAN",
+  "number": 1765,
+  "reviewDecision": "",
+  "state": "OPEN",
+  "title": "[WIP] We should remove from tests tasks (both local tests and CI/CD tests), that don't execute in dry mode, also all tests should switch to `--isolated screen` modes, as we don't use regular start-screen commands anymore",
+  "updatedAt": "2026-05-08T17:49:07Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/1765"
+}

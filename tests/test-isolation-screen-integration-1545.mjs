@@ -14,11 +14,15 @@
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1545
  * @see https://github.com/link-foundation/start/pull/102
+ * @hive-mind-integration
  */
 
 import { execSync } from 'child_process';
 import { querySessionStatus, checkScreenSessionRunning, isSessionRunning, executeWithIsolation } from '../src/isolation-runner.lib.mjs';
 import { assert, skip, printSummary, getFailCount } from './test-helpers.mjs';
+import { skipUnlessIntegration } from './integration-guard.mjs';
+
+skipUnlessIntegration(import.meta.url);
 
 /**
  * Check if a tool is available

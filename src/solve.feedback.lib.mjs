@@ -8,7 +8,7 @@ import { reportError } from './sentry.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 export const detectAndCountFeedback = async params => {
-  const { prNumber, branchName, owner, repo, issueNumber, isContinueMode, argv, mergeStateStatus, prState, workStartTime, log, formatAligned, cleanErrorMessage, $ } = params;
+  const { prNumber, branchName, owner, repo, issueNumber, isContinueMode, argv, mergeStateStatus, prState, workStartTime, log, formatAligned, cleanErrorMessage, $, repositoryPath = null } = params;
 
   let newPrComments = 0;
   let newPrReviewComments = 0;
@@ -53,14 +53,18 @@ export const detectAndCountFeedback = async params => {
       if (argv.verbose) {
         await log(`   PR #${prNumber} on branch: ${branchName}`, { verbose: true });
         await log(`   Owner/Repo: ${owner}/${repo}`, { verbose: true });
+        if (repositoryPath) {
+          await log(`   Repository path: ${repositoryPath}`, { verbose: true });
+        }
       }
 
       // Get the last commit timestamp from the PR branch
       let lastCommitTime = null;
-      let lastCommitResult = await $`git log -1 --format="%aI" origin/${branchName}`;
+      const git$ = repositoryPath ? $({ cwd: repositoryPath }) : $;
+      let lastCommitResult = await git$`git log -1 --format="%aI" origin/${branchName}`;
       if (lastCommitResult.code !== 0) {
         // Fallback to local branch if remote doesn't exist
-        lastCommitResult = await $`git log -1 --format="%aI" ${branchName}`;
+        lastCommitResult = await git$`git log -1 --format="%aI" ${branchName}`;
       }
 
       if (lastCommitResult.code === 0) {

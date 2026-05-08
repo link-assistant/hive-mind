@@ -209,6 +209,7 @@ export const watchForFeedback = async params => {
         formatAligned,
         cleanErrorMessage,
         $,
+        repositoryPath: tempDir,
       });
 
       // Check if there's any feedback or if it's the first iteration in temporary mode

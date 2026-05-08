@@ -623,6 +623,7 @@ try {
     log,
     formatAligned,
     cleanErrorMessage,
+    tempDir,
     $,
   });
 

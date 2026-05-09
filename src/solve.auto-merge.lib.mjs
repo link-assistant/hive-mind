@@ -55,6 +55,10 @@ import { limitReset } from './config.lib.mjs';
 const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
 const { checkForExistingComment, checkForNonBotComments, getMergeBlockers } = autoMergeHelpers;
 
+// Issue #1769: cancelled/stale CI re-run failures need a human action stop, not polling forever.
+const cancelledCiRerunLib = await import('./cancelled-ci-rerun.lib.mjs');
+const { buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopForCancelledCIReview } = cancelledCiRerunLib;
+
 // Issue #1625: Shared marker constants + posting/tracking helpers
 const toolComments = await import('./tool-comments.lib.mjs');
 const { READY_TO_MERGE_MARKER, AUTO_RESTART_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
@@ -432,23 +436,37 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
       if (cancelledBlocker && !billingBlocker) {
         await log('');
         await log(formatAligned('🔄', 'CANCELLED CI/CD CHECKS DETECTED', ''));
-        await log(formatAligned('', 'Cancelled checks:', cancelledBlocker.details.join(', '), 2));
+        await log(formatAligned('', 'Cancelled checks:', (cancelledBlocker.details || []).join(', '), 2));
 
         // Attempt to re-trigger the cancelled/stale workflow runs
         const sha = cancelledBlocker.sha;
+        let runs = [];
+        let retriggerable = [];
+        let rerunTriggered = false;
+        let rerunAttempted = false;
+        const rerunFailures = [];
+
         if (sha) {
-          const runs = await getWorkflowRunsForSha(owner, repo, sha, argv.verbose);
-          const retriggerable = runs.filter(r => r.conclusion === 'cancelled' || r.conclusion === 'stale');
-          let rerunTriggered = false;
+          runs = await getWorkflowRunsForSha(owner, repo, sha, argv.verbose);
+          retriggerable = getRetriggerableWorkflowRuns(runs);
+
+          if (retriggerable.length === 0) {
+            await log(formatAligned('', '⚠️  No cancelled/stale workflow run found for this SHA', '', 2));
+            rerunFailures.push({
+              error: 'No cancelled/stale workflow run was found for this commit SHA.',
+            });
+          }
 
           for (const run of retriggerable) {
             await log(formatAligned('', `Re-triggering workflow "${run.name}" (${run.id})...`, '', 2));
+            rerunAttempted = true;
             const rerunResult = await rerunWorkflowRun(owner, repo, run.id, argv.verbose);
             if (rerunResult.success) {
               await log(formatAligned('', `✅ Re-triggered: ${run.name}`, '', 2));
               rerunTriggered = true;
             } else {
               await log(formatAligned('', `⚠️  Could not re-trigger ${run.name}: ${rerunResult.error}`, '', 2));
+              rerunFailures.push({ run, error: rerunResult.error });
             }
           }
 
@@ -457,6 +475,38 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             // Don't restart AI - just wait for re-triggered jobs to complete
             // The next iteration of the loop will check the new status
           }
+        } else {
+          await log(formatAligned('', '⚠️  Cancelled CI blocker did not include a commit SHA', '', 2));
+          rerunFailures.push({
+            error: 'Cancelled CI blocker did not include a commit SHA, so automatic workflow re-run could not identify the run.',
+          });
+        }
+
+        if (shouldStopForCancelledCIReview({ retriggerableRuns: retriggerable, rerunTriggered, rerunFailures })) {
+          await log(formatAligned('🛑', 'CANCELLED CI/CD NEEDS HUMAN REVIEW', 'Automatic re-run could not be started'));
+
+          try {
+            const commentBody = buildCancelledCIReviewComment({
+              blocker: cancelledBlocker,
+              runs,
+              rerunFailures,
+              rerunAttempted,
+              sha,
+            });
+            await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
+            await log(formatAligned('', '💬 Posted cancelled CI review notification to PR', '', 2));
+          } catch (commentError) {
+            reportError(commentError, {
+              context: 'post_cancelled_ci_review_comment',
+              owner,
+              repo,
+              prNumber,
+              operation: 'comment_on_pr',
+            });
+            await log(formatAligned('', '⚠️  Could not post cancelled CI review comment to PR', '', 2));
+          }
+
+          return { success: false, reason: 'ci_cancelled_requires_review', latestSessionId, latestAnthropicCost };
         }
         // Don't set shouldRestart for cancelled checks - wait for re-triggered jobs instead
       }

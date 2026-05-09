@@ -1,0 +1,269 @@
+{
+  "conclusion": "cancelled",
+  "createdAt": "2026-05-09T07:16:31Z",
+  "databaseId": 25595105760,
+  "displayTitle": "feat(app,docs): clarify host-Docker runtime contract and probe diagnostics",
+  "event": "pull_request",
+  "headBranch": "issue-215-36d0d217ca4a",
+  "headSha": "188b756629c97061b0b62d4b5450ed47224502ae",
+  "jobs": [
+    {
+      "completedAt": "2026-05-09T07:17:57Z",
+      "conclusion": "success",
+      "databaseId": 75139593628,
+      "name": "Dist deps prune",
+      "startedAt": "2026-05-09T07:16:35Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:36Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:36Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:03Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:36Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:44Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:03Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:53Z", "conclusion": "success", "name": "Build package", "number": 4, "startedAt": "2026-05-09T07:17:44Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:55Z", "conclusion": "success", "name": "Dist deps prune (lint)", "number": 5, "startedAt": "2026-05-09T07:17:53Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:55Z", "conclusion": "success", "name": "Post Install dependencies", "number": 9, "startedAt": "2026-05-09T07:17:55Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:55Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 10, "startedAt": "2026-05-09T07:17:55Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:55Z", "conclusion": "success", "name": "Complete job", "number": 11, "startedAt": "2026-05-09T07:17:55Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593628"
+    },
+    {
+      "completedAt": "2026-05-09T07:19:13Z",
+      "conclusion": "success",
+      "databaseId": 75139593633,
+      "name": "Test",
+      "startedAt": "2026-05-09T07:16:34Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:36Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:35Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:02Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:36Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:42Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:02Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:39Z", "conclusion": "success", "name": "Test (app)", "number": 4, "startedAt": "2026-05-09T07:17:42Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:40Z", "conclusion": "success", "name": "Test (session sync)", "number": 5, "startedAt": "2026-05-09T07:18:39Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:00Z", "conclusion": "success", "name": "Test (lib)", "number": 6, "startedAt": "2026-05-09T07:18:40Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:11Z", "conclusion": "success", "name": "Test (api)", "number": 7, "startedAt": "2026-05-09T07:19:00Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:12Z", "conclusion": "success", "name": "Post Install dependencies", "number": 13, "startedAt": "2026-05-09T07:19:11Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:12Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 14, "startedAt": "2026-05-09T07:19:12Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:12Z", "conclusion": "success", "name": "Complete job", "number": 15, "startedAt": "2026-05-09T07:19:12Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593633"
+    },
+    {
+      "completedAt": "2026-05-09T07:18:04Z",
+      "conclusion": "success",
+      "databaseId": 75139593636,
+      "name": "Build",
+      "startedAt": "2026-05-09T07:16:41Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:42Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:41Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:07Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:42Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:46Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:07Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:55Z", "conclusion": "success", "name": "Build (docker-git package)", "number": 4, "startedAt": "2026-05-09T07:17:46Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:55Z", "conclusion": "success", "name": "Build (session sync package)", "number": 5, "startedAt": "2026-05-09T07:17:55Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:02Z", "conclusion": "success", "name": "Build (api)", "number": 6, "startedAt": "2026-05-09T07:17:55Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:03Z", "conclusion": "success", "name": "Post Install dependencies", "number": 11, "startedAt": "2026-05-09T07:18:02Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:03Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 12, "startedAt": "2026-05-09T07:18:03Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:03Z", "conclusion": "success", "name": "Complete job", "number": 13, "startedAt": "2026-05-09T07:18:03Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593636"
+    },
+    {
+      "completedAt": "2026-05-09T07:17:53Z",
+      "conclusion": "success",
+      "databaseId": 75139593638,
+      "name": "E2E (Local package CLI)",
+      "startedAt": "2026-05-09T07:16:35Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:36Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:35Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:04Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:36Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:44Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:04Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:51Z", "conclusion": "success", "name": "Pack and run local package via Bun", "number": 4, "startedAt": "2026-05-09T07:17:44Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:51Z", "conclusion": "success", "name": "Post Install dependencies", "number": 7, "startedAt": "2026-05-09T07:17:51Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:51Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 8, "startedAt": "2026-05-09T07:17:51Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:51Z", "conclusion": "success", "name": "Complete job", "number": 9, "startedAt": "2026-05-09T07:17:51Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593638"
+    },
+    {
+      "completedAt": "2026-05-09T07:18:12Z",
+      "conclusion": "success",
+      "databaseId": 75139593640,
+      "name": "Types",
+      "startedAt": "2026-05-09T07:16:41Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:43Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:42Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:03Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:43Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:45Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:03Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:57Z", "conclusion": "success", "name": "Typecheck (app)", "number": 4, "startedAt": "2026-05-09T07:17:45Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:58Z", "conclusion": "success", "name": "Typecheck (session sync)", "number": 5, "startedAt": "2026-05-09T07:17:57Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:02Z", "conclusion": "success", "name": "Typecheck (lib)", "number": 6, "startedAt": "2026-05-09T07:17:58Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:09Z", "conclusion": "success", "name": "Typecheck (api)", "number": 7, "startedAt": "2026-05-09T07:18:02Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:10Z", "conclusion": "success", "name": "Post Install dependencies", "number": 13, "startedAt": "2026-05-09T07:18:09Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:10Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 14, "startedAt": "2026-05-09T07:18:10Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:10Z", "conclusion": "success", "name": "Complete job", "number": 15, "startedAt": "2026-05-09T07:18:10Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593640"
+    },
+    {
+      "completedAt": "2026-05-09T07:17:56Z",
+      "conclusion": "success",
+      "databaseId": 75139593642,
+      "name": "Lint Effect-TS",
+      "startedAt": "2026-05-09T07:16:34Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:36Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:35Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:06Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:36Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:48Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:06Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:52Z", "conclusion": "success", "name": "Lint Effect-TS (app)", "number": 4, "startedAt": "2026-05-09T07:17:48Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:52Z", "conclusion": "success", "name": "Lint Effect-TS (session sync)", "number": 5, "startedAt": "2026-05-09T07:17:52Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:54Z", "conclusion": "success", "name": "Lint Effect-TS (lib)", "number": 6, "startedAt": "2026-05-09T07:17:52Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:54Z", "conclusion": "success", "name": "Post Install dependencies", "number": 11, "startedAt": "2026-05-09T07:17:54Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:55Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 12, "startedAt": "2026-05-09T07:17:54Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:55Z", "conclusion": "success", "name": "Complete job", "number": 13, "startedAt": "2026-05-09T07:17:55Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593642"
+    },
+    {
+      "completedAt": "2026-05-09T07:22:46Z",
+      "conclusion": "success",
+      "databaseId": 75139593643,
+      "name": "E2E (OpenCode)",
+      "startedAt": "2026-05-09T07:16:34Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:35Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:35Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:05Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:35Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:37Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:05Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:18:38Z", "conclusion": "success", "name": "Docker info", "number": 4, "startedAt": "2026-05-09T07:18:37Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:22:44Z", "conclusion": "success", "name": "OpenCode autoconnect", "number": 5, "startedAt": "2026-05-09T07:18:38Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:22:44Z", "conclusion": "success", "name": "Post Install dependencies", "number": 9, "startedAt": "2026-05-09T07:22:44Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:22:44Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 10, "startedAt": "2026-05-09T07:22:44Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:22:44Z", "conclusion": "success", "name": "Complete job", "number": 11, "startedAt": "2026-05-09T07:22:44Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593643"
+    },
+    {
+      "completedAt": "2026-05-09T07:20:05Z",
+      "conclusion": "success",
+      "databaseId": 75139593644,
+      "name": "Lint",
+      "startedAt": "2026-05-09T07:16:35Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:36Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:36Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:02Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:36Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:40Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:02Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:16Z", "conclusion": "success", "name": "Lint (app)", "number": 4, "startedAt": "2026-05-09T07:17:40Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:16Z", "conclusion": "success", "name": "Lint (session sync)", "number": 5, "startedAt": "2026-05-09T07:19:16Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:20:00Z", "conclusion": "success", "name": "Lint (lib)", "number": 6, "startedAt": "2026-05-09T07:19:16Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:20:03Z", "conclusion": "success", "name": "Lint (api)", "number": 7, "startedAt": "2026-05-09T07:20:00Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:20:03Z", "conclusion": "success", "name": "Post Install dependencies", "number": 13, "startedAt": "2026-05-09T07:20:03Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:20:03Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 14, "startedAt": "2026-05-09T07:20:03Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:20:03Z", "conclusion": "success", "name": "Complete job", "number": 15, "startedAt": "2026-05-09T07:20:03Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593644"
+    },
+    {
+      "completedAt": "2026-05-09T07:21:44Z",
+      "conclusion": "success",
+      "databaseId": 75139593662,
+      "name": "E2E (Clone auto-open SSH)",
+      "startedAt": "2026-05-09T07:16:35Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:37Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:36Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:03Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:37Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:47Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:03Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:48Z", "conclusion": "success", "name": "Docker info", "number": 4, "startedAt": "2026-05-09T07:17:47Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:41Z", "conclusion": "success", "name": "Clone auto-open SSH", "number": 5, "startedAt": "2026-05-09T07:17:48Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:42Z", "conclusion": "success", "name": "Post Install dependencies", "number": 9, "startedAt": "2026-05-09T07:21:41Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:42Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 10, "startedAt": "2026-05-09T07:21:42Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:42Z", "conclusion": "success", "name": "Complete job", "number": 11, "startedAt": "2026-05-09T07:21:42Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593662"
+    },
+    {
+      "completedAt": "2026-05-09T07:56:55Z",
+      "conclusion": "cancelled",
+      "databaseId": 75139593668,
+      "name": "E2E (Clone cache)",
+      "startedAt": "2026-05-09T07:16:40Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:42Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:41Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:07Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:42Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:56:53Z", "conclusion": "cancelled", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:07Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:56:53Z", "conclusion": "skipped", "name": "Docker info", "number": 4, "startedAt": "2026-05-09T07:56:53Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:56:53Z", "conclusion": "skipped", "name": "Clone cache reuse", "number": 5, "startedAt": "2026-05-09T07:56:53Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:56:53Z", "conclusion": "success", "name": "Post Install dependencies", "number": 9, "startedAt": "2026-05-09T07:56:53Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:56:53Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 10, "startedAt": "2026-05-09T07:56:53Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:56:53Z", "conclusion": "success", "name": "Complete job", "number": 11, "startedAt": "2026-05-09T07:56:53Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593668"
+    },
+    {
+      "completedAt": "2026-05-09T07:19:14Z",
+      "conclusion": "success",
+      "databaseId": 75139593670,
+      "name": "E2E (Browser command)",
+      "startedAt": "2026-05-09T07:16:36Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:38Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:37Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:02Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:38Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:44Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:02Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:46Z", "conclusion": "success", "name": "Docker info", "number": 4, "startedAt": "2026-05-09T07:17:44Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:11Z", "conclusion": "success", "name": "Browser command startup", "number": 5, "startedAt": "2026-05-09T07:17:46Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:11Z", "conclusion": "success", "name": "Post Install dependencies", "number": 9, "startedAt": "2026-05-09T07:19:11Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:11Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 10, "startedAt": "2026-05-09T07:19:11Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:19:12Z", "conclusion": "success", "name": "Complete job", "number": 11, "startedAt": "2026-05-09T07:19:11Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593670"
+    },
+    {
+      "completedAt": "2026-05-09T07:21:45Z",
+      "conclusion": "success",
+      "databaseId": 75139593671,
+      "name": "E2E (Login context)",
+      "startedAt": "2026-05-09T07:16:36Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:38Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:37Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:03Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:38Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:43Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:03Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:43Z", "conclusion": "success", "name": "Docker info", "number": 4, "startedAt": "2026-05-09T07:17:43Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:42Z", "conclusion": "success", "name": "Login context notice", "number": 5, "startedAt": "2026-05-09T07:17:43Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:42Z", "conclusion": "success", "name": "Post Install dependencies", "number": 9, "startedAt": "2026-05-09T07:21:42Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:42Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 10, "startedAt": "2026-05-09T07:21:42Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:42Z", "conclusion": "success", "name": "Complete job", "number": 11, "startedAt": "2026-05-09T07:21:42Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593671"
+    },
+    {
+      "completedAt": "2026-05-09T07:21:23Z",
+      "conclusion": "success",
+      "databaseId": 75139593673,
+      "name": "E2E (Runtime volumes + SSH)",
+      "startedAt": "2026-05-09T07:16:34Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-09T07:16:36Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-09T07:16:35Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:02Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-09T07:16:36Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:33Z", "conclusion": "success", "name": "Install dependencies", "number": 3, "startedAt": "2026-05-09T07:17:02Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:17:34Z", "conclusion": "success", "name": "Docker info", "number": 4, "startedAt": "2026-05-09T07:17:33Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:21Z", "conclusion": "success", "name": "Runtime volumes + host SSH CLI", "number": 5, "startedAt": "2026-05-09T07:17:34Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:21Z", "conclusion": "success", "name": "Post Install dependencies", "number": 9, "startedAt": "2026-05-09T07:21:21Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:22Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 10, "startedAt": "2026-05-09T07:21:21Z", "status": "completed" },
+        { "completedAt": "2026-05-09T07:21:22Z", "conclusion": "success", "name": "Complete job", "number": 11, "startedAt": "2026-05-09T07:21:22Z", "status": "completed" }
+      ],
+      "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593673"
+    }
+  ],
+  "name": "Check",
+  "status": "completed",
+  "updatedAt": "2026-05-09T07:56:56Z",
+  "url": "https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760"
+}

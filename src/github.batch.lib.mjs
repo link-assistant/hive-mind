@@ -10,54 +10,10 @@ if (typeof globalThis.use === 'undefined') {
 // Import dependencies
 import { log, cleanErrorMessage } from './lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
+import { prClosesIssue } from './github-linking.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
-/**
- * Check if a PR body/title indicates it fixes/closes/resolves a specific issue number
- * GitHub auto-closes issues when PR body contains keywords like "fixes #123", "closes #123", "resolves #123"
- * See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
- * @param {string} text - PR body or title text
- * @param {number} issueNumber - Issue number to check for
- * @returns {boolean} True if the text contains a closing keyword for this issue
- */
-export function prClosesIssue(text, issueNumber) {
-  if (!text || typeof text !== 'string') {
-    return false;
-  }
-
-  // GitHub closing keywords (case-insensitive)
-  // Supports: fix, fixes, fixed, close, closes, closed, resolve, resolves, resolved
-  // Also supports variations with repository prefix like "fixes owner/repo#123"
-  const closingKeywords = ['fix', 'fixes', 'fixed', 'close', 'closes', 'closed', 'resolve', 'resolves', 'resolved'];
-
-  // Build regex pattern that matches any of the keywords followed by #N or repo#N
-  // Examples matched:
-  //   - "fixes #123"
-  //   - "Closes #123"
-  //   - "RESOLVED #123"
-  //   - "fixes owner/repo#123"
-  //   - "fix: #123" (common commit style)
-  const issueNum = issueNumber.toString();
-
-  for (const keyword of closingKeywords) {
-    // Pattern: keyword + optional colon/space + optional repo prefix + # + issue number
-    // Must be followed by word boundary (not part of larger number)
-    const patterns = [
-      // Standard format: "fixes #123"
-      new RegExp(`\\b${keyword}\\s*:?\\s*#${issueNum}\\b`, 'i'),
-      // With repo prefix: "fixes owner/repo#123"
-      new RegExp(`\\b${keyword}\\s*:?\\s*[\\w.-]+/[\\w.-]+#${issueNum}\\b`, 'i'),
-    ];
-
-    for (const pattern of patterns) {
-      if (pattern.test(text)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
+export { prClosesIssue };
 
 /**
  * Extract open pull requests that are linked to an issue with closing keywords.

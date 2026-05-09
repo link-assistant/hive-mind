@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.69.2
+
+### Patch Changes
+
+- 0ff36b4: Count open draft pull requests when `/hive --skip-issues-with-prs` checks linked solution drafts, preventing duplicate work while an existing PR is still in progress.
+
 ## 1.69.1
 
 ### Patch Changes

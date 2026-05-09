@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 1.69.3
+
+### Patch Changes
+
+- d7f95e8: Add experimental `--auto-support-agents-md-as-claude-md` support for temporarily exposing AGENTS.md as CLAUDE.md during Claude runs.
+- 890e81f: Stop auto-merge from waiting forever when cancelled CI cannot be re-run automatically.
+
 ## 1.69.2
 
 ### Patch Changes

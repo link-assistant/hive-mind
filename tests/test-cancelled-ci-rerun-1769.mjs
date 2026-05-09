@@ -11,12 +11,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  CANCELLED_CI_REVIEW_MARKER,
-  buildCancelledCIReviewComment,
-  getRetriggerableWorkflowRuns,
-  shouldStopForCancelledCIReview,
-} from '../src/cancelled-ci-rerun.lib.mjs';
+import { CANCELLED_CI_REVIEW_MARKER, buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopForCancelledCIReview } from '../src/cancelled-ci-rerun.lib.mjs';
 import { TOOL_GENERATED_COMMENT_MARKERS } from '../src/tool-comments.lib.mjs';
 
 const GREEN = '\x1b[32m';
@@ -53,21 +48,12 @@ const repoRoot = join(__dirname, '..');
 const autoMergeSrc = readFileSync(join(repoRoot, 'src', 'solve.auto-merge.lib.mjs'), 'utf8');
 
 test('cancelled CI auto-rerun failure exits with a human-review reason instead of waiting forever', () => {
-  assert(
-    autoMergeSrc.includes('ci_cancelled_requires_review'),
-    'watchUntilMergeable should return ci_cancelled_requires_review when cancelled CI cannot be re-triggered automatically',
-  );
+  assert(autoMergeSrc.includes('ci_cancelled_requires_review'), 'watchUntilMergeable should return ci_cancelled_requires_review when cancelled CI cannot be re-triggered automatically');
 });
 
 test('cancelled CI auto-rerun failure posts a review comment before exiting', () => {
-  assert(
-    autoMergeSrc.includes('buildCancelledCIReviewComment'),
-    'watchUntilMergeable should build a cancelled-CI review comment for manual action',
-  );
-  assert(
-    autoMergeSrc.includes('post_cancelled_ci_review_comment'),
-    'watchUntilMergeable should report comment-posting failures with a cancelled-CI-specific context',
-  );
+  assert(autoMergeSrc.includes('buildCancelledCIReviewComment'), 'watchUntilMergeable should build a cancelled-CI review comment for manual action');
+  assert(autoMergeSrc.includes('post_cancelled_ci_review_comment'), 'watchUntilMergeable should report comment-posting failures with a cancelled-CI-specific context');
 });
 
 test('cancelled/stale workflow runs are the only automatic rerun candidates', () => {
@@ -86,14 +72,8 @@ test('rerun permission failures require human review', () => {
   const retriggerableRuns = [{ id: 25595105760, name: 'Check', conclusion: 'cancelled' }];
   const rerunFailures = [{ run: retriggerableRuns[0], error: 'gh: Must have admin rights to Repository. (HTTP 403)' }];
 
-  assert(
-    shouldStopForCancelledCIReview({ retriggerableRuns, rerunTriggered: false, rerunFailures }),
-    'Expected rerun failures without a successful rerun to stop for human review',
-  );
-  assert(
-    !shouldStopForCancelledCIReview({ retriggerableRuns, rerunTriggered: true, rerunFailures }),
-    'Expected a successful automatic rerun to keep the watcher waiting',
-  );
+  assert(shouldStopForCancelledCIReview({ retriggerableRuns, rerunTriggered: false, rerunFailures }), 'Expected rerun failures without a successful rerun to stop for human review');
+  assert(!shouldStopForCancelledCIReview({ retriggerableRuns, rerunTriggered: true, rerunFailures }), 'Expected a successful automatic rerun to keep the watcher waiting');
 });
 
 test('human-review comment includes rerun failure, manual action, and timeout guidance', () => {
@@ -121,10 +101,7 @@ test('human-review comment includes rerun failure, manual action, and timeout gu
 });
 
 test('cancelled-CI review comments are marked as tool-generated comments', () => {
-  assert(
-    TOOL_GENERATED_COMMENT_MARKERS.includes(CANCELLED_CI_REVIEW_MARKER),
-    'Expected cancelled-CI review comments to be excluded from AI-authored comment detection',
-  );
+  assert(TOOL_GENERATED_COMMENT_MARKERS.includes(CANCELLED_CI_REVIEW_MARKER), 'Expected cancelled-CI review comments to be excluded from AI-authored comment detection');
 });
 
 console.log('\n================================================================================');

@@ -26,6 +26,7 @@ import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, maybeSwitchToFallbackModel } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
+import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 export { availableModels }; // Re-export for backward compatibility
 export { fetchModelInfo };
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -294,7 +295,6 @@ export const executeClaude = async params => {
   if (argv.verbose) {
     await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   }
-  // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
     issueNumber,
@@ -313,7 +313,6 @@ export const executeClaude = async params => {
     argv,
     claudeVersion: getClaudeVersion(),
   });
-  // Build the system prompt
   const systemPrompt = buildSystemPrompt({
     owner,
     repo,
@@ -329,7 +328,6 @@ export const executeClaude = async params => {
     argv,
     modelSupportsVision,
   });
-  // Log prompt details in verbose mode
   if (argv.verbose) {
     await log('\n📝 Final prompt structure:', { verbose: true });
     await log(`   Characters: ${prompt.length}`, { verbose: true });
@@ -349,35 +347,36 @@ export const executeClaude = async params => {
       await log('---END SYSTEM PROMPT---', { verbose: true });
     }
   }
-  // Escape prompts for shell usage
   const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
   const escapedSystemPrompt = systemPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-  // Execute the Claude command
-  return await executeClaudeCommand({
-    tempDir,
-    branchName,
-    prompt,
-    systemPrompt,
-    escapedPrompt,
-    escapedSystemPrompt,
-    argv,
-    log,
-    setLogFile,
-    getLogFile,
-    formatAligned,
-    getResourceSnapshot,
-    forkedRepo,
-    feedbackLines,
-    claudePath,
-    $,
-    // For interactive mode
-    owner,
-    repo,
-    prNumber,
-    // Issue #1708: forwarded so the bidirectional handler can poll
-    // issue title/body changes and uncommitted changes during the session.
-    issueNumber,
-  });
+
+  return await withAgentsMdAsClaudeMd({ tempDir, branchName, argv, prompt, fs, path, $, log, formatAligned }, () =>
+    executeClaudeCommand({
+      tempDir,
+      branchName,
+      prompt,
+      systemPrompt,
+      escapedPrompt,
+      escapedSystemPrompt,
+      argv,
+      log,
+      setLogFile,
+      getLogFile,
+      formatAligned,
+      getResourceSnapshot,
+      forkedRepo,
+      feedbackLines,
+      claudePath,
+      $,
+      // For interactive mode
+      owner,
+      repo,
+      prNumber,
+      // Issue #1708: forwarded so the bidirectional handler can poll
+      // issue title/body changes and uncommitted changes during the session.
+      issueNumber,
+    })
+  );
 };
 /** Check if a model supports vision (image input) using models.dev API @returns {Promise<boolean>} */
 export const checkModelVisionCapability = async modelId => {

@@ -1,0 +1,12 @@
+{
+  "number": 1768,
+  "url": "https://github.com/link-assistant/hive-mind/pull/1768",
+  "state": "OPEN",
+  "isDraft": true,
+  "baseRefName": "main",
+  "headRefName": "issue-1760-6e261031c17a",
+  "createdAt": "2026-05-08T19:32:21Z",
+  "updatedAt": "2026-05-08T19:32:23Z",
+  "initialTitleSummary": "[WIP] /hive command incorrectly detected a private repository issue as issue with no pull requests",
+  "initialBodySummary": "Generated placeholder solution draft body for issue #1760."
+}

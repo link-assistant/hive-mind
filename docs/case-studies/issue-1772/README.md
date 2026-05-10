@@ -8,7 +8,10 @@ Prepared PR: https://github.com/link-assistant/hive-mind/pull/1773
 
 The solver was run for https://github.com/lefinepro/kefine/issues/56 with `--base-branch feat/lefine-quote-description` in fork mode. The upstream repository had that custom base branch, but the existing fork only had `release` and older issue branches. `createOrCheckoutBranch()` tried to create the issue branch from `origin/feat/lefine-quote-description`, so Git failed before any work could start.
 
-The fix teaches branch creation to recover this fork-only gap: when `origin/<baseBranch>` is missing, fetch `upstream`, verify `upstream/<baseBranch>`, create or update the local base branch from upstream, push that base branch to the fork, then create the issue branch from the now-synced base.
+The fix has two layers:
+
+1. **Proactive sync (primary):** when `--base-branch` is passed in fork mode and `origin/<baseBranch>` is missing, the solver fetches `upstream`, verifies `upstream/<baseBranch>`, creates or updates the local base branch from upstream, and pushes that base branch to the fork — all _before_ attempting to create the issue branch. The system stays smart and reliable: the failure no longer occurs in the first place.
+2. **Reactive recovery (defense in depth):** if the proactive path was skipped (no upstream remote configured) or raced with a concurrent worker, the same recovery still kicks in when `git checkout -b ... origin/<baseBranch>` fails with the missing-ref error.
 
 ## Data Preserved
 
@@ -87,28 +90,29 @@ A second problem made the report harder to understand: the branch error handler 
 
 ## Fix
 
-The fix is intentionally placed in `createOrCheckoutBranch()`, where the failing branch creation already has the exact branch name, base branch, temp directory, logger, and command runner.
+The fix is in `createOrCheckoutBranch()` (`src/solve.branch.lib.mjs`), shared between a proactive pre-checkout sync and a reactive post-checkout recovery via the `ensureBaseBranchInFork()` helper.
 
-New behavior:
+New behavior when `--base-branch` is set:
 
-1. Try the existing fast path: `git checkout -b <issue-branch> origin/<baseBranch>`.
-2. If Git reports that `origin/<baseBranch>` is not a commit, check for an `upstream` remote.
-3. Fetch `upstream`.
-4. Verify `refs/remotes/upstream/<baseBranch>`.
-5. Create or update local `<baseBranch>` from `upstream/<baseBranch>`.
-6. Push `<baseBranch>` to `origin`, repairing the fork for later compare and PR creation logic.
-7. Create `<issue-branch>` from local `<baseBranch>`.
+1. **Proactive sync.** If an `upstream` remote exists and the requested base branch differs from the default branch, run a quick `git show-ref` for `refs/remotes/origin/<baseBranch>`. If origin does not yet have it, fetch `upstream`, verify `upstream/<baseBranch>`, create or update local `<baseBranch>` from `upstream/<baseBranch>`, then push to `origin`.
+2. **Fast path.** Run `git checkout -b <issue-branch> origin/<baseBranch>` as before.
+3. **Reactive recovery.** If the fast path still fails because `origin/<baseBranch>` is not a commit (e.g. no proactive sync ran, or a race), execute the same sync helper and retry.
+4. **Idempotent and narrow.** The proactive path is a no-op when `baseBranch == defaultBranch` (already synced by `setupUpstreamAndSync`), when origin already has the ref, or when no upstream remote is configured (no-fork mode).
 
 This mirrors the online fork-sync guidance: the fork branch must be synced from upstream before fork-based work can depend on it. The implementation uses Git directly rather than shelling out to `gh repo sync` so it works with the existing remotes, logs, and local checkout state.
 
 ## Alternatives Considered
 
-- Sync every upstream branch during fork setup. This is too broad for large repositories and changes more fork state than the requested solve needs.
-- Sync the requested custom base branch during repository setup. This is viable, but branch creation is the point where the missing `origin/<baseBranch>` failure is known and recoverable with narrow scope.
+- Sync every upstream branch during fork setup. This is too broad for large repositories and changes more fork state than the requested solve needs. The proactive sync we ship is targeted at exactly the requested `--base-branch`.
+- Sync the requested custom base branch during repository setup (`setupUpstreamAndSync`). Branch creation is the better seam because that is where we know the resolved `baseBranch`, the temp directory, the same logger, and the exact retry loop. We still get coverage even when callers reuse a pre-cloned working tree.
 - Create the issue branch directly from `upstream/<baseBranch>` without pushing the base branch to the fork. This would fix checkout but leave later PR creation and ahead/behind checks vulnerable because other code compares against `origin/<targetBranch>`.
 - Improve only the error message. That would reduce confusion but leave the solver unable to start work.
 
-## Regression Test
+### Note on `gh repo fork`
+
+`gh repo fork` already creates forks with **all** upstream branches by default (it requires `--default-branch-only` to opt out), so freshly created forks already satisfy the requirement to "fork with all branches" stated in the PR feedback. The remaining gap was _existing_ forks that pre-date a custom branch added later to upstream; the proactive sync covers that.
+
+## Regression Tests
 
 `tests/test-issue-1772-fork-custom-base-branch.mjs` creates a local upstream repository with `feat/lefine-quote-description`, clones a fork repository, deletes the custom base branch from the fork, fetches upstream, then calls `createOrCheckoutBranch()`.
 
@@ -117,7 +121,13 @@ The test verifies:
 - the issue branch is created;
 - the issue branch starts at the upstream custom base commit;
 - the custom base branch is pushed to fork origin;
-- the recovery path logs that the fork was missing the base branch and was updated.
+- the proactive sync path logs that origin lacks the base branch and that the fork was updated.
+
+`tests/test-issue-1772-proactive-base-sync.mjs` covers idempotency and scope boundaries:
+
+- no proactive sync runs when no `upstream` remote is configured (no-fork mode);
+- no proactive sync runs when the requested base branch equals the default branch (already covered by `setupUpstreamAndSync`);
+- no proactive sync runs when origin already has the base branch (idempotent fast path).
 
 ## External Reporting
 

@@ -209,35 +209,54 @@ function isMissingOriginBaseRefError(errorOutput, baseBranch) {
   return errorOutput.includes(`origin/${baseBranch}`) && (errorOutput.includes('is not a commit') || errorOutput.includes('not a valid object name') || errorOutput.includes('unknown revision'));
 }
 
-async function retryBranchCreationFromUpstreamBase({ checkoutResult, branchName, baseBranch, tempDir, log, formatAligned, $ }) {
-  const errorOutput = `${checkoutResult.stderr || ''}${checkoutResult.stdout || ''}`;
-  if (!isMissingOriginBaseRefError(errorOutput, baseBranch)) {
-    return checkoutResult;
+async function hasUpstreamRemote(tempDir, $) {
+  const result = await $({ cwd: tempDir })`git remote get-url upstream 2>/dev/null`;
+  return result.code === 0;
+}
+
+async function originHasBaseBranch(tempDir, baseBranch, $) {
+  const result = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/remotes/origin/${baseBranch}`;
+  return result.code === 0;
+}
+
+/**
+ * Ensure the requested base branch exists on the fork (origin) by syncing it from upstream.
+ * Returns true if origin/<baseBranch> exists at the end of the call (was already there or was synced).
+ * Returns false if syncing was attempted and failed (caller should propagate the original error).
+ *
+ * Design note (issue #1772 follow-up): when working in fork mode against a public upstream, the user
+ * expects their fork to mirror the upstream branch they want to base work on. Before relying on
+ * git's create-from-origin path, we proactively copy the upstream branch into the fork so that the
+ * branch creation, the later PR comparison, and any ahead/behind checks all see a consistent state.
+ */
+async function ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason = 'proactive' }) {
+  if (!(await hasUpstreamRemote(tempDir, $))) {
+    return false;
   }
 
-  await log(`${formatAligned('🔄', 'Base branch not in fork:', `checking upstream/${baseBranch}`)}`);
-  const upstreamRemoteResult = await $({ cwd: tempDir })`git remote get-url upstream 2>/dev/null`;
-  if (upstreamRemoteResult.code !== 0) {
-    return checkoutResult;
+  if (reason === 'proactive') {
+    await log(`${formatAligned('🔄', 'Syncing base branch:', `ensuring origin/${baseBranch} matches upstream`)}`);
+  } else {
+    await log(`${formatAligned('🔄', 'Base branch not in fork:', `checking upstream/${baseBranch}`)}`);
   }
 
   const fetchResult = await $({ cwd: tempDir })`git fetch upstream`;
   if (fetchResult.code !== 0) {
     await log(`${formatAligned('⚠️', 'Warning:', 'Failed to fetch upstream base branch')}`, { level: 'warning' });
-    return checkoutResult;
+    return false;
   }
 
   const upstreamRefResult = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/remotes/upstream/${baseBranch}`;
   if (upstreamRefResult.code !== 0) {
     await log(`${formatAligned('⚠️', 'Warning:', `Base branch not found in upstream/${baseBranch}`)}`, { level: 'warning' });
-    return checkoutResult;
+    return false;
   }
 
   await log(`${formatAligned('✅', 'Base branch found:', `upstream/${baseBranch}`)}`);
   const checkoutBaseResult = await $({ cwd: tempDir })`git checkout -B ${baseBranch} upstream/${baseBranch}`;
   if (checkoutBaseResult.code !== 0) {
     await log(`${formatAligned('⚠️', 'Warning:', `Failed to prepare local ${baseBranch}`)}`, { level: 'warning' });
-    return checkoutResult;
+    return false;
   }
 
   await log(`${formatAligned('🔄', 'Pushing to fork:', `${baseBranch} branch`)}`);
@@ -246,10 +265,41 @@ async function retryBranchCreationFromUpstreamBase({ checkoutResult, branchName,
     const pushError = (pushBaseResult.stderr || pushBaseResult.stdout || 'Unknown error').toString().trim();
     await log(`${formatAligned('⚠️', 'Warning:', `Failed to push ${baseBranch} to fork`)}`, { level: 'warning' });
     if (pushError) await log(`${formatAligned('', 'Push error:', pushError)}`, { level: 'warning' });
-    return checkoutResult;
+    return false;
   }
 
   await log(`${formatAligned('✅', 'Fork updated:', `Custom base branch ${baseBranch} pushed to fork`)}`);
+  return true;
+}
+
+async function proactivelySyncBaseBranchToFork({ baseBranch, defaultBranch, tempDir, log, formatAligned, $ }) {
+  // Default branch is already synced by setupUpstreamAndSync; skip to avoid redundant work.
+  if (baseBranch === defaultBranch) {
+    return;
+  }
+
+  if (!(await hasUpstreamRemote(tempDir, $))) {
+    return;
+  }
+
+  if (await originHasBaseBranch(tempDir, baseBranch, $)) {
+    return;
+  }
+
+  await ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason: 'proactive' });
+}
+
+async function retryBranchCreationFromUpstreamBase({ checkoutResult, branchName, baseBranch, tempDir, log, formatAligned, $ }) {
+  const errorOutput = `${checkoutResult.stderr || ''}${checkoutResult.stdout || ''}`;
+  if (!isMissingOriginBaseRefError(errorOutput, baseBranch)) {
+    return checkoutResult;
+  }
+
+  const synced = await ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason: 'reactive' });
+  if (!synced) {
+    return checkoutResult;
+  }
+
   await log(`${formatAligned('🌿', 'Retrying branch:', `${branchName} from ${baseBranch}`)}`);
   return await $({ cwd: tempDir })`git checkout -b ${branchName} ${baseBranch}`;
 }
@@ -282,6 +332,20 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
     }
 
     await log(`\n${formatAligned('🌿', 'Creating branch:', `${branchName} from ${baseBranch} (${branchSource})`)}`);
+
+    // Issue #1772: when a custom base branch is requested in fork mode, proactively copy it from
+    // upstream to the fork before branch creation. The fork's `gh repo fork` snapshot may pre-date
+    // upstream's custom branches, so we cannot assume origin already has the requested base.
+    if (argv.baseBranch) {
+      await proactivelySyncBaseBranchToFork({
+        baseBranch,
+        defaultBranch,
+        tempDir,
+        log,
+        formatAligned,
+        $,
+      });
+    }
 
     // IMPORTANT: Don't use 2>&1 here as it can interfere with exit codes
     // Git checkout -b outputs to stderr but that's normal

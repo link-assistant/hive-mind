@@ -127,7 +127,7 @@ try {
   assert.strictEqual(forkBaseRef, upstreamFeatureHead, 'custom base branch should be pushed to fork origin');
 
   const joinedLogs = logLines.join('\n');
-  assert(joinedLogs.includes('Base branch not in fork:'), 'should log missing fork base branch recovery');
+  assert(joinedLogs.includes('Syncing base branch:'), 'should log proactive fork base branch sync');
   assert(joinedLogs.includes('Fork updated:'), 'should log fork base branch update');
 
   console.log('PASS issue #1772 fork custom base branch regression');

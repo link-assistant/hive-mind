@@ -576,7 +576,7 @@ try {
   // CRITICAL: Validate that we have a PR number when required
   // This prevents continuing without a PR when one was supposed to be created
   if ((isContinueMode || argv.autoPullRequestCreation) && !prNumber) {
-    await handleNoPrAvailableError({ isContinueMode, tempDir, issueNumber, issueUrl, log, formatAligned });
+    await handleNoPrAvailableError({ isContinueMode, tempDir, issueNumber, issueUrl, owner, repo, log, formatAligned });
   }
 
   if (isContinueMode) {

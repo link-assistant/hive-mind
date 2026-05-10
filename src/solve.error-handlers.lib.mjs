@@ -175,7 +175,10 @@ export const createUnhandledRejectionHandler = options => {
 /**
  * Handles the case where no PR is available when one is required
  */
-export const handleNoPrAvailableError = async ({ isContinueMode, tempDir, issueNumber, issueUrl, log, formatAligned }) => {
+export const handleNoPrAvailableError = async ({ isContinueMode, tempDir, issueNumber, issueUrl, owner, repo, log, formatAligned }) => {
+  // Issue #1774: when an explicit target repo is known, surface --repo in the
+  // recovery hint so users do not hit the same fork-base resolution trap.
+  const repoFlag = owner && repo ? ` --repo ${owner}/${repo}` : '';
   await log('');
   await log(formatAligned('❌', 'FATAL ERROR:', 'No pull request available'), { level: 'error' });
   await log('');
@@ -199,7 +202,7 @@ export const handleNoPrAvailableError = async ({ isContinueMode, tempDir, issueN
   await log('');
   await log('  Option 1: Create PR manually and use --continue');
   await log(`     cd ${tempDir}`);
-  await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
+  await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"${repoFlag}`);
   await log('     # Then use the PR URL with solve.mjs');
   await log('');
   await log('  Option 2: Start fresh without continue mode');

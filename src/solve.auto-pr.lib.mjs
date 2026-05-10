@@ -5,6 +5,7 @@
 
 import { closingIssueNumbersContain, parseClosingIssueNumbers } from './pr-issue-linking.lib.mjs';
 import { buildPushRejectionExplanation, getRemoteBranchDivergenceSnapshot, synchronizeExistingIssueBranchBeforeAutoPrCreation } from './solve.branch-divergence.lib.mjs';
+import { emitForkAwareDiagnostic } from './solve.auto-pr-fork-diagnostic.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too.
 
@@ -1112,13 +1113,15 @@ ${prBody}`,
           // Build command with optional assignee and handle forks
           // Note: targetBranch is already defined above
           // IMPORTANT: Use --title-file instead of --title to avoid shell parsing issues with special characters
+          // --repo is always passed (Issue #1774) so a fork-of-fork target
+          // does not silently switch to the upstream parent via `gh repo clone`'s
+          // auto-added `upstream` remote.
           let command;
           if (argv.fork && forkedRepo) {
-            // For forks, specify the full head reference
             const forkUser = forkedRepo.split('/')[0];
             command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${forkUser}:${branchName} --repo ${owner}/${repo}`;
           } else {
-            command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName}`;
+            command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName} --repo ${owner}/${repo}`;
           }
           // Only add assignee if user has permissions
           if (currentUser && canAssign) {
@@ -1157,12 +1160,12 @@ ${prBody}`,
               });
               await log('     Retrying PR creation without assignee...');
 
-              // Rebuild command without --assignee flag
+              // Rebuild command without --assignee flag (Issue #1774: --repo always pinned)
               if (argv.fork && forkedRepo) {
                 const forkUser = forkedRepo.split('/')[0];
                 command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${forkUser}:${branchName} --repo ${owner}/${repo}`;
               } else {
-                command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName}`;
+                command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName} --repo ${owner}/${repo}`;
               }
 
               if (argv.verbose) {
@@ -1460,6 +1463,10 @@ ${prBody}`,
     await log('  🔍 What happened:');
     await log(`     ${prError.message}`);
     await log('');
+
+    // Issue #1774: fork-base resolution failure diagnostic.
+    await emitForkAwareDiagnostic({ errorMessage: prError.message, tempDir, owner, repo, defaultBranch, branchName, issueNumber, log, $, reportError });
+
     await log('  💡 The solve command cannot continue without a pull request.');
     await log('');
     await log('  🔧 How to fix:');
@@ -1470,14 +1477,14 @@ ${prBody}`,
     await log('');
     await log('  Option 2: Create PR manually first');
     await log(`     cd ${tempDir}`);
-    await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
+    await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}" --repo ${owner}/${repo}`);
     await log(`     Then use: ./solve.mjs "${issueUrl}" --continue`);
     await log('');
     await log('  Option 3: Debug the issue');
     await log(`     cd ${tempDir}`);
     await log('     git status');
     await log('     git log --oneline -5');
-    await log('     gh pr create --draft  # Try manually to see detailed error');
+    await log(`     gh pr create --draft --repo ${owner}/${repo}  # Try manually to see detailed error`);
     await log('');
 
     // Re-throw the error to stop execution - use prError.message directly

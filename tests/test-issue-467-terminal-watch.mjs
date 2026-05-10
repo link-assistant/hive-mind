@@ -9,7 +9,7 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { formatTerminalWatchMessage, parseTerminalWatchArgs, resolveTerminalWatchRepository, tailTextForTerminal, watchTerminalLogSession } from '../src/telegram-terminal-watch-command.lib.mjs';
+import { formatTerminalWatchMessage, parseTerminalWatchArgs, registerTerminalWatchCommand, resolveTerminalWatchRepository, tailTextForTerminal, watchTerminalLogSession } from '../src/telegram-terminal-watch-command.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -45,6 +45,10 @@ assertEqual(parsed.errors, [], 'accepts valid options without errors');
 
 const bad = parseTerminalWatchArgs(`/terminal_watch ${uuid} --size nope --height 3 --unknown`);
 assert(bad.errors.length === 3, 'reports invalid size, height, and unknown option', bad.errors);
+
+const aliasParsed = parseTerminalWatchArgs(`/watch ${uuid} --width 90`);
+assertEqual(aliasParsed.sessionId, uuid, 'extracts session id from /watch alias');
+assertEqual(aliasParsed.errors, [], 'accepts /watch alias without treating it as an argument');
 
 console.log('\n--- tailTextForTerminal() ---');
 const logText = ['line 1', 'line 2', 'line 3', 'line 4 is very long'].join('\n');
@@ -197,6 +201,179 @@ assert(changedEdits.length === 1, 'edits Telegram exactly once for one changed t
 assert(String(changedEdits[0]?.[3] || '').includes('Updates: 1'), 'counts only changed terminal snapshots as updates', { message: changedEdits[0]?.[3] });
 
 await fs.rm(noChangeTempDir, { recursive: true, force: true });
+
+console.log('\n--- /terminal_watch requester access and /watch alias (Issue #1778) ---');
+
+function createTerminalWatchHarness({ commandText, sessionInfo, repoVisibility, statusResult, logPath, fromId = 1778001, getChatMember, sendMessage, forwardMessage, copyMessage }) {
+  const handlers = new Map();
+  const replies = [];
+  const sentMessages = [];
+  const forwardedMessages = [];
+  const copiedMessages = [];
+  const editedMessages = [];
+  let getChatMemberCalls = 0;
+
+  const telegram = {
+    getChatMember: async (...args) => {
+      getChatMemberCalls++;
+      return getChatMember ? await getChatMember(...args) : { status: 'member' };
+    },
+    sendMessage: async (...args) => {
+      sentMessages.push(args);
+      if (sendMessage) return await sendMessage(...args);
+      return { message_id: 9001 };
+    },
+    forwardMessage: async (...args) => {
+      forwardedMessages.push(args);
+      if (forwardMessage) return await forwardMessage(...args);
+      return { message_id: 9002 };
+    },
+    copyMessage: async (...args) => {
+      copiedMessages.push(args);
+      if (copyMessage) return await copyMessage(...args);
+      return { message_id: 9003 };
+    },
+    editMessageText: async (...args) => {
+      editedMessages.push(args);
+      return true;
+    },
+  };
+
+  const bot = {
+    telegram,
+    command: (name, handler) => {
+      for (const commandName of Array.isArray(name) ? name : [name]) {
+        handlers.set(commandName, handler);
+      }
+    },
+  };
+
+  const ctx = {
+    chat: { id: -1001778, type: 'supergroup' },
+    from: { id: fromId, username: 'task_starter' },
+    message: { message_id: 501, text: commandText },
+    telegram,
+    reply: async (text, options) => {
+      replies.push([text, options]);
+      return { message_id: 7001, chat: { id: -1001778 }, text };
+    },
+  };
+
+  const register = async () => {
+    await registerTerminalWatchCommand(bot, {
+      isOldMessage: () => false,
+      isChatAuthorized: () => true,
+      isTopicAuthorized: () => false,
+      getTrackedSessionInfo: () => sessionInfo,
+      querySessionStatus: async () => statusResult,
+      isTerminalSessionStatus: status => status === 'executed',
+      detectRepositoryVisibility: async () => repoVisibility,
+      parseGitHubUrl: () => ({ valid: true, owner: 'owner', repo: 'repo' }),
+    });
+  };
+
+  return {
+    bot,
+    ctx,
+    handlers,
+    replies,
+    sentMessages,
+    forwardedMessages,
+    copiedMessages,
+    editedMessages,
+    register,
+    get getChatMemberCalls() {
+      return getChatMemberCalls;
+    },
+    logPath,
+  };
+}
+
+const aliasHarness = createTerminalWatchHarness({
+  commandText: `/watch ${uuid}`,
+  sessionInfo: { requesterUserId: 1778001, isolationBackend: 'screen', url: 'https://github.com/owner/repo/issues/1778' },
+  repoVisibility: { isPublic: true, visibility: 'public' },
+  statusResult: { exists: true, uuid, status: 'executed', isolation: 'screen', logPath, command: 'solve https://github.com/owner/repo/issues/1778' },
+  logPath,
+});
+await aliasHarness.register();
+assert(aliasHarness.handlers.has('watch'), 'registers /watch as an alias for /terminal_watch');
+
+const requesterTempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'terminal-watch-1778-'));
+const requesterLogPath = path.join(requesterTempDir, `${uuid}.log`);
+await fs.writeFile(requesterLogPath, 'requester session log\n');
+
+const requesterHarness = createTerminalWatchHarness({
+  commandText: `/terminal_watch ${uuid}`,
+  sessionInfo: { requesterUserId: 1778001, isolationBackend: 'screen', url: 'https://github.com/owner/repo/issues/1778' },
+  repoVisibility: { isPublic: true, visibility: 'public' },
+  statusResult: { exists: true, uuid, status: 'executed', isolation: 'screen', logPath: requesterLogPath, command: 'solve https://github.com/owner/repo/issues/1778' },
+  logPath: requesterLogPath,
+});
+await requesterHarness.register();
+await requesterHarness.handlers.get('terminal_watch')(requesterHarness.ctx);
+await new Promise(resolve => setTimeout(resolve, 20));
+assert(requesterHarness.getChatMemberCalls === 0, 'session requester does not need chat-owner lookup');
+assert(
+  requesterHarness.replies.some(([text]) => String(text).includes('Terminal watch complete')),
+  'session requester can start /terminal_watch for their own task'
+);
+
+const ownerHarness = createTerminalWatchHarness({
+  commandText: `/terminal_watch ${uuid}`,
+  sessionInfo: { requesterUserId: 1778001, isolationBackend: 'screen', url: 'https://github.com/owner/repo/issues/1778' },
+  repoVisibility: { isPublic: true, visibility: 'public' },
+  statusResult: { exists: true, uuid, status: 'executed', isolation: 'screen', logPath: requesterLogPath, command: 'solve https://github.com/owner/repo/issues/1778' },
+  logPath: requesterLogPath,
+  fromId: 1778002,
+  getChatMember: async () => ({ status: 'creator' }),
+});
+await ownerHarness.register();
+await ownerHarness.handlers.get('terminal_watch')(ownerHarness.ctx);
+await new Promise(resolve => setTimeout(resolve, 20));
+assert(ownerHarness.getChatMemberCalls === 1, 'non-requester chat owner still uses owner authorization path');
+assert(
+  ownerHarness.replies.some(([text]) => String(text).includes('Terminal watch complete')),
+  'chat owner can still start /terminal_watch for any task'
+);
+
+const dmError = new Error("Forbidden: bot can't initiate conversation with a user");
+dmError.code = 403;
+const dmHarness = createTerminalWatchHarness({
+  commandText: `/watch ${uuid}`,
+  sessionInfo: { requesterUserId: 1778001, isolationBackend: 'screen', url: 'https://github.com/owner/private-repo/issues/1778' },
+  repoVisibility: { isPublic: false, visibility: 'private' },
+  statusResult: { exists: true, uuid, status: 'executed', isolation: 'screen', logPath: requesterLogPath, command: 'solve https://github.com/owner/private-repo/issues/1778' },
+  logPath: requesterLogPath,
+  forwardMessage: async () => {
+    throw dmError;
+  },
+  copyMessage: async () => {
+    throw dmError;
+  },
+  sendMessage: async () => {
+    throw dmError;
+  },
+});
+await dmHarness.register();
+const dmWatchHandler = dmHarness.handlers.get('watch');
+const originalConsoleError = console.error;
+console.error = () => {};
+try {
+  if (dmWatchHandler) {
+    await dmWatchHandler(dmHarness.ctx);
+  }
+} finally {
+  console.error = originalConsoleError;
+}
+assert(typeof dmWatchHandler === 'function', 'can invoke the /watch alias handler');
+assert(dmHarness.getChatMemberCalls === 0, 'session requester private-repo watch does not need chat-owner lookup');
+assert(
+  dmHarness.replies.some(([text]) => String(text).includes('Please open a private chat with me and send /start')),
+  'DM delivery failure tells requester to start the bot privately'
+);
+
+await fs.rm(requesterTempDir, { recursive: true, force: true });
 
 console.log('\n' + '='.repeat(80));
 console.log(`Result: ${passed} passed, ${failed} failed`);

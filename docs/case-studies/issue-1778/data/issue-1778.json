@@ -1,0 +1,11 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "Now user cannot see terminal of his own task:\n\n<img width=\"747\" height=\"198\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/8e6246e5-ecfc-437e-bd1b-5b2eefc1478a\" />\n\nBut it is clear that we know that he is who started it:\n\n<img width=\"792\" height=\"414\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/749025a1-b2ac-4048-9928-2b1e48aef2b9\" />\n\nAs per display rules are the same - public repositories can go in common chat, and private repositories go only to private messages, and that may require to ask user to execute /start in private messages, we need detect fail to send private message, and ask user to do so, to get these messages received.\n\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nPlease plan and execute everything in a single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "comments": [],
+  "createdAt": "2026-05-10T20:49:51Z",
+  "number": 1778,
+  "state": "OPEN",
+  "title": "Make `/terminal_watch` command with alias of `/watch` available for users who started their tasks, not only for chat owner (chat owner still has access to all tasks)",
+  "updatedAt": "2026-05-10T20:50:38Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1778"
+}

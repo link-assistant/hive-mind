@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.69.5
+
+### Patch Changes
+
+- 31b0f7e: Add issue language auto-detection for solve work prompts and localize limits output.
+
 ## 1.69.4
 
 ### Patch Changes

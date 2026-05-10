@@ -205,6 +205,55 @@ export function validateBranchInArgs(args) {
   return null;
 }
 
+function isMissingOriginBaseRefError(errorOutput, baseBranch) {
+  return errorOutput.includes(`origin/${baseBranch}`) && (errorOutput.includes('is not a commit') || errorOutput.includes('not a valid object name') || errorOutput.includes('unknown revision'));
+}
+
+async function retryBranchCreationFromUpstreamBase({ checkoutResult, branchName, baseBranch, tempDir, log, formatAligned, $ }) {
+  const errorOutput = `${checkoutResult.stderr || ''}${checkoutResult.stdout || ''}`;
+  if (!isMissingOriginBaseRefError(errorOutput, baseBranch)) {
+    return checkoutResult;
+  }
+
+  await log(`${formatAligned('🔄', 'Base branch not in fork:', `checking upstream/${baseBranch}`)}`);
+  const upstreamRemoteResult = await $({ cwd: tempDir })`git remote get-url upstream 2>/dev/null`;
+  if (upstreamRemoteResult.code !== 0) {
+    return checkoutResult;
+  }
+
+  const fetchResult = await $({ cwd: tempDir })`git fetch upstream`;
+  if (fetchResult.code !== 0) {
+    await log(`${formatAligned('⚠️', 'Warning:', 'Failed to fetch upstream base branch')}`, { level: 'warning' });
+    return checkoutResult;
+  }
+
+  const upstreamRefResult = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/remotes/upstream/${baseBranch}`;
+  if (upstreamRefResult.code !== 0) {
+    await log(`${formatAligned('⚠️', 'Warning:', `Base branch not found in upstream/${baseBranch}`)}`, { level: 'warning' });
+    return checkoutResult;
+  }
+
+  await log(`${formatAligned('✅', 'Base branch found:', `upstream/${baseBranch}`)}`);
+  const checkoutBaseResult = await $({ cwd: tempDir })`git checkout -B ${baseBranch} upstream/${baseBranch}`;
+  if (checkoutBaseResult.code !== 0) {
+    await log(`${formatAligned('⚠️', 'Warning:', `Failed to prepare local ${baseBranch}`)}`, { level: 'warning' });
+    return checkoutResult;
+  }
+
+  await log(`${formatAligned('🔄', 'Pushing to fork:', `${baseBranch} branch`)}`);
+  const pushBaseResult = await $({ cwd: tempDir })`git push origin ${baseBranch} 2>&1`;
+  if (pushBaseResult.code !== 0) {
+    const pushError = (pushBaseResult.stderr || pushBaseResult.stdout || 'Unknown error').toString().trim();
+    await log(`${formatAligned('⚠️', 'Warning:', `Failed to push ${baseBranch} to fork`)}`, { level: 'warning' });
+    if (pushError) await log(`${formatAligned('', 'Push error:', pushError)}`, { level: 'warning' });
+    return checkoutResult;
+  }
+
+  await log(`${formatAligned('✅', 'Fork updated:', `Custom base branch ${baseBranch} pushed to fork`)}`);
+  await log(`${formatAligned('🌿', 'Retrying branch:', `${branchName} from ${baseBranch}`)}`);
+  return await $({ cwd: tempDir })`git checkout -b ${branchName} ${baseBranch}`;
+}
+
 export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto, owner, repo, prNumber }) {
   // Create a branch for the issue or checkout existing PR branch
   let branchName;
@@ -238,6 +287,15 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
     // Git checkout -b outputs to stderr but that's normal
     // Create branch from the specified base branch (origin/baseBranch)
     checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName} origin/${baseBranch}`;
+    checkoutResult = await retryBranchCreationFromUpstreamBase({
+      checkoutResult,
+      branchName,
+      baseBranch,
+      tempDir,
+      log,
+      formatAligned,
+      $,
+    });
   }
 
   if (checkoutResult.code !== 0) {

@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
+import { formatLimitResetsAt, formatLimitResetsIn, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 // Initialize dayjs plugins
 dayjs.extend(utc);
 
@@ -280,13 +281,14 @@ function formatBytes(bytes) {
 }
 
 /**
- * Format two byte values into a combined "used/total UNIT used" format
  * @param {number} usedBytes - Used size in bytes
  * @param {number} totalBytes - Total size in bytes
+ * @param {Object|string} options - Optional locale options
  * @returns {string} Formatted string (e.g., "2.8/11.7 GB used")
  */
-function formatBytesRange(usedBytes, totalBytes) {
-  if (totalBytes === 0) return '0/0 B used';
+function formatBytesRange(usedBytes, totalBytes, options = {}) {
+  const usedLabel = lt('used', {}, options);
+  if (totalBytes === 0) return `0/0 B ${usedLabel}`;
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   // Determine unit based on total (larger value)
@@ -295,7 +297,7 @@ function formatBytesRange(usedBytes, totalBytes) {
   const totalValue = totalBytes / Math.pow(k, i);
   // Use 1 decimal place for GB and above, none for smaller units
   const decimals = i >= 3 ? 1 : 0;
-  return `${usedValue.toFixed(decimals)}/${totalValue.toFixed(decimals)} ${sizes[i]} used`;
+  return `${usedValue.toFixed(decimals)}/${totalValue.toFixed(decimals)} ${sizes[i]} ${usedLabel}`;
 }
 
 function formatRoundedNumber(value, decimals = 2) {
@@ -305,6 +307,10 @@ function formatRoundedNumber(value, decimals = 2) {
 function getDisplayCpuCoresUsed(loadAvg5, cpuCount) {
   const boundedLoad = Math.min(Math.max(loadAvg5, 0), cpuCount);
   return formatRoundedNumber(boundedLoad);
+}
+
+function hasLimitPercentage(window) {
+  return window?.percentage !== null && window?.percentage !== undefined;
 }
 
 /**
@@ -1019,74 +1025,68 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
  * @param {Object} memory - Optional memory info from getMemoryInfo
  * @param {string|null} claudeError - Optional error message to show in Claude sections (e.g., auth expired)
  * @param {string[]} extraSections - Optional extra sections to append inside the code block (e.g. queue status)
+ * @param {Object|string} options - Optional locale options
  * @returns {string} Formatted message wrapped in a single code block
  * @see https://github.com/link-assistant/hive-mind/issues/1242
  */
-export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null, claudeError = null, extraSections = []) {
-  // Build sections as individual text blocks; they will all be joined and wrapped in a
-  // single code block at the end. This avoids fragile string-searching to inject content.
-
+export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null, claudeError = null, extraSections = [], options = {}) {
+  if (!Array.isArray(extraSections) && extraSections && typeof extraSections === 'object') {
+    options = extraSections;
+    extraSections = [];
+  }
+  const locale = resolveLimitLocale(options);
   const sections = [];
 
-  // Show current time
-  sections.push(`Current time: ${formatCurrentTime()}\n`);
+  sections.push(`${lt('current_time', {}, { locale })}: ${formatCurrentTime()}\n`);
 
-  // CPU load section (if provided)
-  // Threshold: Blocks new commands when usage >= 65%
   if (cpuLoad) {
-    let section = 'CPU\n';
+    let section = `${lt('cpu', {}, { locale })}\n`;
     const usedBar = getProgressBar(cpuLoad.usagePercentage, DISPLAY_THRESHOLDS.CPU);
     // Show 'used' label when below threshold, warning emoji when at/above threshold
     // See: https://github.com/link-assistant/hive-mind/issues/1267
-    const suffix = cpuLoad.usagePercentage >= DISPLAY_THRESHOLDS.CPU ? ' ⚠️' : ' used';
+    const suffix = cpuLoad.usagePercentage >= DISPLAY_THRESHOLDS.CPU ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     section += `${usedBar} ${cpuLoad.usagePercentage}%${suffix}\n`;
     // Linux load average is demand, not bounded CPU time. Keep the cores-used
     // display within CPU capacity and show raw load average only when saturated.
     const usedCpuCores = cpuLoad.usedCpuCores ?? getDisplayCpuCoresUsed(cpuLoad.loadAvg5, cpuLoad.cpuCount);
-    let cpuCoresLine = `${formatRoundedNumber(usedCpuCores)}/${cpuLoad.cpuCount} CPU cores used`;
+    let cpuCoresLine = `${formatRoundedNumber(usedCpuCores)}/${cpuLoad.cpuCount} ${lt('cpu_cores_used', {}, { locale })}`;
     if (cpuLoad.loadAvg5 > cpuLoad.cpuCount) {
-      cpuCoresLine += ` (5m load avg ${formatRoundedNumber(cpuLoad.loadAvg5)})`;
+      cpuCoresLine += ` (${lt('five_min_load_avg', {}, { locale })} ${formatRoundedNumber(cpuLoad.loadAvg5)})`;
     }
     section += `${cpuCoresLine}\n`;
     sections.push(section);
   }
 
-  // Memory section (if provided)
-  // Threshold: Blocks new commands when usage >= 65%
   if (memory) {
-    let section = 'RAM\n';
+    let section = `${lt('ram', {}, { locale })}\n`;
     const usedBar = getProgressBar(memory.usedPercentage, DISPLAY_THRESHOLDS.RAM);
-    const suffix = memory.usedPercentage >= DISPLAY_THRESHOLDS.RAM ? ' ⚠️' : ' used';
+    const suffix = memory.usedPercentage >= DISPLAY_THRESHOLDS.RAM ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     section += `${usedBar} ${memory.usedPercentage}%${suffix}\n`;
-    section += `${formatBytesRange(memory.usedBytes, memory.totalBytes)}\n`;
+    section += `${formatBytesRange(memory.usedBytes, memory.totalBytes, { locale })}\n`;
     sections.push(section);
   }
 
-  // Disk space section (if provided)
-  // Threshold: One-at-a-time mode when usage >= 90%
   if (diskSpace) {
-    let section = 'Disk space\n';
-    // Show used percentage with progress bar and threshold marker
+    let section = `${lt('disk_space', {}, { locale })}\n`;
     const usedBar = getProgressBar(diskSpace.usedPercentage, DISPLAY_THRESHOLDS.DISK);
-    const suffix = diskSpace.usedPercentage >= DISPLAY_THRESHOLDS.DISK ? ' ⚠️' : ' used';
+    const suffix = diskSpace.usedPercentage >= DISPLAY_THRESHOLDS.DISK ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     section += `${usedBar} ${diskSpace.usedPercentage}%${suffix}\n`;
-    section += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes)}\n`;
+    section += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes, { locale })}\n`;
     sections.push(section);
   }
 
   // GitHub API rate limits section (if provided)
   // Threshold: Blocks parallel claude commands when >= 75%
   if (githubRateLimit) {
-    let section = 'GitHub API\n';
-    // Show used percentage with progress bar and threshold marker
+    let section = `${lt('github_api', {}, { locale })}\n`;
     const usedBar = getProgressBar(githubRateLimit.usedPercentage, DISPLAY_THRESHOLDS.GITHUB_API);
-    const suffix = githubRateLimit.usedPercentage >= DISPLAY_THRESHOLDS.GITHUB_API ? ' ⚠️' : ' used';
+    const suffix = githubRateLimit.usedPercentage >= DISPLAY_THRESHOLDS.GITHUB_API ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     section += `${usedBar} ${githubRateLimit.usedPercentage}%${suffix}\n`;
-    section += `${githubRateLimit.used}/${githubRateLimit.limit} requests\n`;
+    section += `${githubRateLimit.used}/${githubRateLimit.limit} ${lt('requests', {}, { locale })}\n`;
     if (githubRateLimit.relativeReset) {
-      section += `Resets in ${githubRateLimit.relativeReset} (${githubRateLimit.resetTime})\n`;
+      section += `${formatLimitResetsIn(githubRateLimit.relativeReset, githubRateLimit.resetTime, { locale })}\n`;
     } else if (githubRateLimit.resetTime) {
-      section += `Resets ${githubRateLimit.resetTime}\n`;
+      section += `${formatLimitResetsAt(githubRateLimit.resetTime, { locale })}\n`;
     }
     sections.push(section);
   }
@@ -1094,81 +1094,77 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   // Claude limits section
   // When there's an error (e.g., auth expired), show it once and skip empty subsections
   if (claudeError) {
-    sections.push(`Claude limits\n${claudeError}\n`);
+    sections.push(`${lt('claude_limits', {}, { locale })}\n${claudeError}\n`);
   } else {
     // Claude 5 hour session (five_hour)
     // Threshold: One-at-a-time mode when usage >= 65%
-    let sessionSection = 'Claude 5 hour session\n';
-    if (usage && usage.currentSession.percentage !== null) {
-      // Add time passed progress bar first (no threshold marker for time)
+    let sessionSection = `${lt('claude_5_hour_session', {}, { locale })}\n`;
+    if (hasLimitPercentage(usage?.currentSession)) {
       const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
       if (timePassed !== null) {
         const timeBar = getProgressBar(timePassed);
-        sessionSection += `${timeBar} ${timePassed}% passed\n`;
+        sessionSection += `${timeBar} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
       }
 
-      // Add usage progress bar second with threshold marker
       // Use Math.floor so 100% only appears when usage is exactly 100%
       // See: https://github.com/link-assistant/hive-mind/issues/1133
       const pct = Math.floor(usage.currentSession.percentage);
       const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION);
-      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : ' used';
+      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
       sessionSection += `${bar} ${pct}%${suffix}\n`;
 
       if (usage.currentSession.resetTime) {
         const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
         if (relativeTime) {
-          sessionSection += `Resets in ${relativeTime} (${usage.currentSession.resetTime})\n`;
+          sessionSection += `${formatLimitResetsIn(relativeTime, usage.currentSession.resetTime, { locale })}\n`;
         } else {
-          sessionSection += `Resets ${usage.currentSession.resetTime}\n`;
+          sessionSection += `${formatLimitResetsAt(usage.currentSession.resetTime, { locale })}\n`;
         }
       }
     } else {
-      sessionSection += 'N/A\n';
+      sessionSection += `${lt('na', {}, { locale })}\n`;
     }
     sections.push(sessionSection);
 
     // Current week (all models / seven_day)
     // Threshold: One-at-a-time mode when usage >= 97%
-    let allModelsSection = 'Current week (all models)\n';
-    if (usage && usage.allModels.percentage !== null) {
-      // Add time passed progress bar first (no threshold marker for time)
+    let allModelsSection = `${lt('current_week_all_models', {}, { locale })}\n`;
+    if (hasLimitPercentage(usage?.allModels)) {
       const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
       if (timePassed !== null) {
         const timeBar = getProgressBar(timePassed);
-        allModelsSection += `${timeBar} ${timePassed}% passed\n`;
+        allModelsSection += `${timeBar} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
       }
 
-      // Add usage progress bar second with threshold marker
       // Use Math.floor so 100% only appears when usage is exactly 100%
       // See: https://github.com/link-assistant/hive-mind/issues/1133
       const pct = Math.floor(usage.allModels.percentage);
       const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
+      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
       allModelsSection += `${bar} ${pct}%${suffix}\n`;
 
       if (usage.allModels.resetTime) {
         const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
         if (relativeTime) {
-          allModelsSection += `Resets in ${relativeTime} (${usage.allModels.resetTime})\n`;
+          allModelsSection += `${formatLimitResetsIn(relativeTime, usage.allModels.resetTime, { locale })}\n`;
         } else {
-          allModelsSection += `Resets ${usage.allModels.resetTime}\n`;
+          allModelsSection += `${formatLimitResetsAt(usage.allModels.resetTime, { locale })}\n`;
         }
       }
     } else {
-      allModelsSection += 'N/A\n';
+      allModelsSection += `${lt('na', {}, { locale })}\n`;
     }
     sections.push(allModelsSection);
 
     // Current week (Sonnet only / seven_day_sonnet)
     // Threshold: One-at-a-time mode when usage >= 97% (same as all models)
-    let sonnetSection = 'Current week (Sonnet only)\n';
-    if (usage && usage.sonnetOnly.percentage !== null) {
+    let sonnetSection = `${lt('current_week_sonnet_only', {}, { locale })}\n`;
+    if (hasLimitPercentage(usage?.sonnetOnly)) {
       // Add time passed progress bar first (no threshold marker for time)
       const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);
       if (timePassed !== null) {
         const timeBar = getProgressBar(timePassed);
-        sonnetSection += `${timeBar} ${timePassed}% passed\n`;
+        sonnetSection += `${timeBar} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
       }
 
       // Add usage progress bar second with threshold marker
@@ -1176,19 +1172,19 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
       // See: https://github.com/link-assistant/hive-mind/issues/1133
       const pct = Math.floor(usage.sonnetOnly.percentage);
       const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
+      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
       sonnetSection += `${bar} ${pct}%${suffix}\n`;
 
       if (usage.sonnetOnly.resetTime) {
         const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);
         if (relativeTime) {
-          sonnetSection += `Resets in ${relativeTime} (${usage.sonnetOnly.resetTime})\n`;
+          sonnetSection += `${formatLimitResetsIn(relativeTime, usage.sonnetOnly.resetTime, { locale })}\n`;
         } else {
-          sonnetSection += `Resets ${usage.sonnetOnly.resetTime}\n`;
+          sonnetSection += `${formatLimitResetsAt(usage.sonnetOnly.resetTime, { locale })}\n`;
         }
       }
     } else {
-      sonnetSection += 'N/A\n';
+      sonnetSection += `${lt('na', {}, { locale })}\n`;
     }
     sections.push(sonnetSection);
   }
@@ -1208,11 +1204,13 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
  *
  * @param {Object|null} codexLimits - Result object from getCodexUsageLimits, or null
  * @param {string|null} codexError - Optional error message
+ * @param {Object|string} options - Optional locale options
  * @returns {string} Formatted section text
  */
-export function formatCodexLimitsSection(codexLimits, codexError = null) {
+export function formatCodexLimitsSection(codexLimits, codexError = null, options = {}) {
+  const locale = resolveLimitLocale(options);
   if (codexError) {
-    return `Codex limits\n${codexError}\n`;
+    return `${lt('codex_limits', {}, { locale })}\n${codexError}\n`;
   }
 
   const usage = codexLimits?.usage || null;
@@ -1220,63 +1218,63 @@ export function formatCodexLimitsSection(codexLimits, codexError = null) {
   const credits = codexLimits?.credits || null;
   const planType = codexLimits?.planType || null;
 
-  let section = 'Codex limits\n';
+  let section = `${lt('codex_limits', {}, { locale })}\n`;
   if (planType) {
-    section += `Plan: ${planType}\n`;
+    section += `${lt('plan', {}, { locale })}: ${planType}\n`;
   }
 
-  let sessionSection = 'Codex 5 hour session\n';
-  if (usage?.currentSession?.percentage !== null) {
+  let sessionSection = `${lt('codex_5_hour_session', {}, { locale })}\n`;
+  if (hasLimitPercentage(usage?.currentSession)) {
     const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
     if (timePassed !== null) {
-      sessionSection += `${getProgressBar(timePassed)} ${timePassed}% passed\n`;
+      sessionSection += `${getProgressBar(timePassed)} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
     }
     const pct = Math.floor(usage.currentSession.percentage);
     const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION ? ' ⚠️' : ' used';
+    const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     sessionSection += `${bar} ${pct}%${suffix}\n`;
     if (usage.currentSession.resetTime) {
       const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
-      sessionSection += relativeTime ? `Resets in ${relativeTime} (${usage.currentSession.resetTime})\n` : `Resets ${usage.currentSession.resetTime}\n`;
+      sessionSection += relativeTime ? `${formatLimitResetsIn(relativeTime, usage.currentSession.resetTime, { locale })}\n` : `${formatLimitResetsAt(usage.currentSession.resetTime, { locale })}\n`;
     }
   } else {
-    sessionSection += 'N/A\n';
+    sessionSection += `${lt('na', {}, { locale })}\n`;
   }
 
-  let weeklySection = 'Current week (all models)\n';
-  if (usage?.allModels?.percentage !== null) {
+  let weeklySection = `${lt('current_week_all_models', {}, { locale })}\n`;
+  if (hasLimitPercentage(usage?.allModels)) {
     const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
     if (timePassed !== null) {
-      weeklySection += `${getProgressBar(timePassed)} ${timePassed}% passed\n`;
+      weeklySection += `${getProgressBar(timePassed)} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
     }
     const pct = Math.floor(usage.allModels.percentage);
     const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CODEX_WEEKLY);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_WEEKLY ? ' ⚠️' : ' used';
+    const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_WEEKLY ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     weeklySection += `${bar} ${pct}%${suffix}\n`;
     if (usage.allModels.resetTime) {
       const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
-      weeklySection += relativeTime ? `Resets in ${relativeTime} (${usage.allModels.resetTime})\n` : `Resets ${usage.allModels.resetTime}\n`;
+      weeklySection += relativeTime ? `${formatLimitResetsIn(relativeTime, usage.allModels.resetTime, { locale })}\n` : `${formatLimitResetsAt(usage.allModels.resetTime, { locale })}\n`;
     }
   } else {
-    weeklySection += 'N/A\n';
+    weeklySection += `${lt('na', {}, { locale })}\n`;
   }
 
   section += `${sessionSection}\n${weeklySection}`;
 
   if (additionalRateLimits.length > 0) {
-    section += '\nAdditional Codex limits\n';
+    section += `\n${lt('additional_codex_limits', {}, { locale })}\n`;
     for (const limit of additionalRateLimits) {
       const sessionPct = limit.currentSession?.percentage;
       const weeklyPct = limit.allModels?.percentage;
-      const sessionText = sessionPct === null ? 'session N/A' : `session ${Math.floor(sessionPct)}%`;
-      const weeklyText = weeklyPct === null ? 'week N/A' : `week ${Math.floor(weeklyPct)}%`;
+      const sessionText = sessionPct === null || sessionPct === undefined ? `${lt('session', {}, { locale })} ${lt('na', {}, { locale })}` : `${lt('session', {}, { locale })} ${Math.floor(sessionPct)}%`;
+      const weeklyText = weeklyPct === null || weeklyPct === undefined ? `${lt('week', {}, { locale })} ${lt('na', {}, { locale })}` : `${lt('week', {}, { locale })} ${Math.floor(weeklyPct)}%`;
       section += `${limit.limitName}: ${sessionText}, ${weeklyText}\n`;
     }
   }
 
   if (credits) {
-    const creditSummary = credits.unlimited ? 'unlimited' : `${credits.balance ?? '0'} balance`;
-    section += `\nCodex credits\n${creditSummary}\n`;
+    const creditSummary = credits.unlimited ? lt('unlimited', {}, { locale }) : `${credits.balance ?? '0'} ${lt('balance', {}, { locale })}`;
+    section += `\n${lt('codex_credits', {}, { locale })}\n${creditSummary}\n`;
   }
 
   return section;

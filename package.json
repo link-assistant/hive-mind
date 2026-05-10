@@ -78,7 +78,8 @@
     "lino-arguments": "^0.3.0",
     "lino-objects-codec": "^0.3.6",
     "secretlint": "^11.2.5",
-    "semver": "^7.7.3"
+    "semver": "^7.7.3",
+    "tinyld": "^1.3.4"
   },
   "lint-staged": {
     "*.{js,mjs,json,md}": [

@@ -572,7 +572,22 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: "Working language passed to the AI tool (Claude/Codex/etc). Used as the tool's preferred language for translations and prompts. Defaults to --language.",
     choices: ['en', 'ru', 'zh', 'hi'],
   },
+  'prompt-language': {
+    type: 'string',
+    description: 'Deprecated alias for --work-language.',
+    choices: ['en', 'ru', 'zh', 'hi'],
+    hidden: true,
+  },
+  'auto-language': {
+    type: 'boolean',
+    description: 'Automatically detect the target issue or pull request language and set the AI work language to English or Russian when one language has more than 51% of all words. Explicit --work-language or --prompt-language takes precedence.',
+    default: false,
+  },
 };
+
+function hasRawOption(rawArgs, optionName) {
+  return rawArgs.some(arg => arg === optionName || arg.startsWith(`${optionName}=`));
+}
 
 // Function to create yargs configuration - avoids duplication
 export const createYargsConfig = yargsInstance => {
@@ -609,16 +624,6 @@ export const createYargsConfig = yargsInstance => {
         // Dynamic default based on tool selection (Issue #1473: centralized in models/index.mjs)
         return defaultModels[currentParsedArgs?.tool] || defaultModels.claude;
       },
-    })
-    .option('force-language', {
-      type: 'string',
-      description: 'Force specific language for prompts (en or ru)',
-      choices: ['en', 'ru']
-    })
-    .option('automatic-language-detection', {
-      type: 'boolean',
-      description: 'Automatically detect language from issue content (enabled by default, use --no-automatic-language-detection to disable)',
-      default: true
     })
     .parserConfiguration({
       'boolean-negation': true,
@@ -759,6 +764,12 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     if (argv.disableIssueAutoCreationOnError) {
       argv.disableReportIssue = true;
     }
+    const workLanguageExplicit = hasRawOption(rawArgs, '--work-language');
+    const promptLanguageExplicit = hasRawOption(rawArgs, '--prompt-language');
+    if (argv.promptLanguage && !workLanguageExplicit) {
+      argv.workLanguage = argv.promptLanguage;
+    }
+    argv._workLanguageExplicit = workLanguageExplicit || promptLanguageExplicit;
   }
 
   // --finalize normalization

@@ -51,6 +51,7 @@ class SolveQueueItem {
     // Issue #594: --show-limits virtual option (hive-telegram-bot only).
     this.showLimits = options.showLimits === true;
     this.limitsAtStart = options.limitsAtStart || null;
+    this.locale = options.locale || null;
     this.createdAt = new Date();
     this.startedAt = null;
     this.status = QueueItemStatus.QUEUED;
@@ -1415,6 +1416,7 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
           //   handler so it can render an end-of-task delta.
           showLimits: item.showLimits === true,
           limitsAtStart: item.limitsAtStart || null,
+          locale: item.locale || null,
         });
       }
     }

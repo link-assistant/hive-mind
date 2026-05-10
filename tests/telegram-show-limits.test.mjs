@@ -10,7 +10,10 @@
  */
 
 import assert from 'node:assert/strict';
+import { preloadAllLocales } from '../src/i18n.lib.mjs';
 import { extractShowLimitsFlag, pickLimitsToolKey, captureLimitsSnapshot, formatLimitsSnapshotBlock, formatLimitsDeltaBlock, appendInfoSection, handleShowLimitsFlag, captureStartSnapshotAndAppend, SHOW_LIMITS_FLAG_NAME, NO_SHOW_LIMITS_FLAG_NAME } from '../src/telegram-show-limits.lib.mjs';
+
+await preloadAllLocales();
 
 let passed = 0;
 let failed = 0;
@@ -201,6 +204,23 @@ await test('honors custom title', () => {
   assert.match(out, /📊 Custom title/);
 });
 
+await test('localizes snapshot labels', () => {
+  const snap = {
+    toolKey: 'claude',
+    success: true,
+    usage: {
+      currentSession: { percentage: 25 },
+      allModels: { percentage: 60 },
+      sonnetOnly: { percentage: 30 },
+    },
+  };
+  const out = formatLimitsSnapshotBlock(snap, { locale: 'ru' });
+  assert.match(out, /📊 Лимиты в начале \(Claude\)/);
+  assert.match(out, /5-часовой сеанс: 25%/);
+  assert.match(out, /7 дней, все модели: 60%/);
+  assert.doesNotMatch(out, /Limits at start/);
+});
+
 console.log('\n📋 formatLimitsDeltaBlock\n');
 
 await test('shows start, end, and delta for each window', () => {
@@ -248,6 +268,16 @@ await test('handles both snapshots failing', () => {
   const out = formatLimitsDeltaBlock(start, end);
   assert.match(out, /Start: err1/);
   assert.match(out, /End: err2/);
+});
+
+await test('localizes delta labels', () => {
+  const start = { toolKey: 'codex', success: true, usage: { currentSession: { percentage: 1 }, allModels: { percentage: 2 } } };
+  const end = { toolKey: 'codex', success: true, usage: { currentSession: { percentage: 5 }, allModels: { percentage: 6 } } };
+  const out = formatLimitsDeltaBlock(start, end, { locale: 'zh' });
+  assert.match(out, /📊 限额变化 \(Codex\)/);
+  assert.match(out, /5 小时会话: 1% → 5% \(\+4%\)/);
+  assert.match(out, /每周: 2% → 6% \(\+4%\)/);
+  assert.doesNotMatch(out, /Limits change/);
 });
 
 console.log('\n📋 appendInfoSection\n');
@@ -298,6 +328,15 @@ await test('rejects flag when admin disabled', async () => {
   assert.equal(r.showLimits, false);
   assert.equal(replies.length, 1);
   assert.match(replies[0], /disabled by the bot administrator/);
+});
+
+await test('localizes disabled reply', async () => {
+  const replies = [];
+  const safeReply = async (_ctx, text) => replies.push(text);
+  const r = await handleShowLimitsFlag({ ctx: { message: { message_id: 1 } }, safeReply, args: ['--show-limits'], enabled: false, locale: 'hi' });
+  assert.equal(r.handled, true);
+  assert.equal(replies.length, 1);
+  assert.match(replies[0], /बॉट व्यवस्थापक द्वारा अक्षम/);
 });
 
 await test('does not reject when --no-show-limits used while disabled', async () => {

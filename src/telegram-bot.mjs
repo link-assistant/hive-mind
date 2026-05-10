@@ -636,8 +636,8 @@ bot.command('limits', async ctx => {
   const codexError = limits.codex.success ? null : limits.codex.error;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
   const queueStatus = await solveQueue.formatStatus();
-  const codexSection = formatCodexLimitsSection(limits.codex.success ? limits.codex : null, codexError);
-  const message = t('telegram.usage_limits_title', {}, { locale: userLocale }) + '\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus]);
+  const codexSection = formatCodexLimitsSection(limits.codex.success ? limits.codex : null, codexError, { locale: userLocale });
+  const message = t('telegram.usage_limits_title', {}, { locale: userLocale }) + '\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus], { locale: userLocale });
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
 });
 bot.command('version', async ctx => {
@@ -754,7 +754,7 @@ async function handleSolveCommand(ctx) {
   let userArgs = parseCommandArgs(ctx.message.text);
 
   // Issue #594: strip --show-limits from userArgs (hive-telegram-bot virtual option).
-  const solveSL = await handleShowLimitsFlag({ ctx, safeReply, args: userArgs, enabled: SHOW_LIMITS_ENABLED });
+  const solveSL = await handleShowLimitsFlag({ ctx, safeReply, args: userArgs, enabled: SHOW_LIMITS_ENABLED, locale: solveLocale });
   if (solveSL.handled) return;
   const solveShowLimits = solveSL.showLimits;
   userArgs = solveSL.args;
@@ -932,13 +932,13 @@ async function handleSolveCommand(ctx) {
 
   // Issue #594: append "Limits at start" to infoBlock; thread snapshot via sessionInfo.
   let solveLimitsAtStart = null;
-  if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve' }));
+  if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve', locale: solveLocale }));
 
   if (check.canStart && toolQueuedCount === 0) {
     const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart });
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
   } else {
-    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart });
+    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
     let queueMessage = `📋 Solve command queued (${solveTool} queue position #${toolQueuedCount + 1})\n\n${infoBlock}`; // tool-specific position (#1551)
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
@@ -1028,7 +1028,7 @@ async function handleHiveCommand(ctx) {
   let userArgs = parseCommandArgs(ctx.message.text);
 
   // Issue #594: see /solve handler.
-  const hiveSL = await handleShowLimitsFlag({ ctx, safeReply, args: userArgs, enabled: SHOW_LIMITS_ENABLED });
+  const hiveSL = await handleShowLimitsFlag({ ctx, safeReply, args: userArgs, enabled: SHOW_LIMITS_ENABLED, locale: hiveLocale });
   if (hiveSL.handled) return;
   const hiveShowLimits = hiveSL.showLimits;
   userArgs = hiveSL.args;
@@ -1109,12 +1109,12 @@ async function handleHiveCommand(ctx) {
 
   // Issue #594: see /solve handler.
   let hiveLimitsAtStart = null;
-  if (hiveShowLimits) ({ infoBlock, limitsAtStart: hiveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: hiveTool, verbose: VERBOSE, limitsLib, commandLabel: '/hive' }));
+  if (hiveShowLimits) ({ infoBlock, limitsAtStart: hiveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: hiveTool, verbose: VERBOSE, limitsLib, commandLabel: '/hive', locale: hiveLocale }));
 
   const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
   // Issue #378: propagate user's effective Telegram locale to the spawned hive session.
   const hiveArgsWithLocale = injectLanguageIfMissing(args, hiveLocale);
-  await executeAndUpdateMessage(ctx, startingMessage, 'hive', hiveArgsWithLocale, infoBlock, effectiveHiveIsolation, hiveTool, null, { showLimits: hiveShowLimits, limitsAtStart: hiveLimitsAtStart });
+  await executeAndUpdateMessage(ctx, startingMessage, 'hive', hiveArgsWithLocale, infoBlock, effectiveHiveIsolation, hiveTool, null, { showLimits: hiveShowLimits, limitsAtStart: hiveLimitsAtStart, locale: hiveLocale });
 }
 
 bot.command(/^hive$/i, handleHiveCommand);

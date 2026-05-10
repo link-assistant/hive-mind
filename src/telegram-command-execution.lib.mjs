@@ -98,7 +98,7 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
  */
 export function buildExecuteAndUpdateMessage(deps) {
   const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage } = deps;
-  return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null } = {}) {
+  return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null, locale = null } = {}) {
     const { chat, message_id: msgId } = startingMessage;
     const safeEdit = async text => {
       try {
@@ -108,7 +108,7 @@ export function buildExecuteAndUpdateMessage(deps) {
       }
     };
     const requesterUserId = ctx.from?.id ?? null; // Issue #1688: suppress duplicate /subscribe DM
-    const baseSessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId, showLimits, limitsAtStart }; // #594: showLimits/limitsAtStart
+    const baseSessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId, showLimits, limitsAtStart, locale }; // #594: showLimits/limitsAtStart
     const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
     let result, session, sessionInfo;
     if (iso) {

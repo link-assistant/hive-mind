@@ -290,18 +290,20 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           try {
             const showLimitsLib = await import('./telegram-show-limits.lib.mjs');
             const limitsLib = await import('./limits.lib.mjs');
+            const { lt } = await import('./limits-i18n.lib.mjs');
             const endSnapshot = await showLimitsLib.captureLimitsSnapshot({
               tool: sessionInfo.tool || 'claude',
               verbose,
               limitsLib,
             });
             sessionInfo.limitsAtEnd = endSnapshot;
-            const deltaBlock = showLimitsLib.formatLimitsDeltaBlock(sessionInfo.limitsAtStart || null, endSnapshot);
+            const locale = sessionInfo.locale || null;
+            const deltaBlock = showLimitsLib.formatLimitsDeltaBlock(sessionInfo.limitsAtStart || null, endSnapshot, { locale });
             if (deltaBlock) limitsExtraSections.push(deltaBlock);
             else {
               // Either start snapshot was missing or tool changed — fall back
               // to a plain end-of-task snapshot so the user still sees current state.
-              const endBlock = showLimitsLib.formatLimitsSnapshotBlock(endSnapshot, { title: '📊 Limits at end' });
+              const endBlock = showLimitsLib.formatLimitsSnapshotBlock(endSnapshot, { title: `📊 ${lt('limits_at_end', {}, { locale })}`, locale });
               if (endBlock) limitsExtraSections.push(endBlock);
             }
           } catch (limitsError) {

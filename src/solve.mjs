@@ -84,16 +84,6 @@ try {
 }
 global.verboseMode = argv.verbose;
 
-// Initialize i18n based on --language / --ui-language / --work-language
-// (or detected system locale). --language sets both tracks by default;
-// --ui-language and --work-language can override each track independently.
-const { initI18n } = await import('./i18n.lib.mjs');
-await initI18n({
-  language: argv.language,
-  uiLanguage: argv.uiLanguage,
-  workLanguage: argv.workLanguage,
-});
-
 setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
 setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
 
@@ -180,6 +170,18 @@ if (isIssueUrl) {
 }
 cleanupContext.owner = owner;
 cleanupContext.repo = repo;
+if (argv.autoLanguage) {
+  const { applyAutoLanguageToArgv } = await import('./auto-language.lib.mjs');
+  await applyAutoLanguageToArgv({ argv, githubLib, owner, repo, number: urlNumber, isIssueUrl, isPrUrl, log });
+}
+// Initialize i18n based on --language / --ui-language / --work-language
+// (or detected system locale). --auto-language may set only the work track.
+const { initI18n } = await import('./i18n.lib.mjs');
+await initI18n({
+  language: argv.language,
+  uiLanguage: argv.uiLanguage,
+  workLanguage: argv.workLanguage,
+});
 // Setup unhandled error handlers to ensure log path is always shown
 const errorHandlerOptions = {
   log,

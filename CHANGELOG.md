@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 1.69.4
+
+### Patch Changes
+
+- 105172b: Fix auto-PR creation failure on fork-of-fork repositories. When `solve` runs against an issue in a repository that is itself a GitHub fork and the user has direct write access, `gh pr create` previously resolved the base repository to the upstream parent (because `gh repo clone` auto-adds an `upstream` remote for forks), producing a misleading "No commits between" error. The auto-PR command builder now always passes `--repo ${owner}/${repo}` so the PR is created against the explicit target. The fatal error block also detects the failure mode and prints a fork-aware diagnostic with the resolved remotes and a manual recovery command.
+- d89243f: Stabilize the version-info timing test that broke CI/CD by using the same 30 second reasonable bound as the broader version-info structure test. The version collector still runs commands in parallel, but individual commands can legally spend 5 seconds on a timeout and then another 5 seconds on a fallback, so the previous 10 second wall-clock assertion was too tight for GitHub-hosted runners.
+- db56b5a: Sync custom fork base branches proactively. When a user passes `--base-branch` in fork mode, the solver now copies the requested branch from `upstream` to the user's fork before creating the issue branch, and falls back to the same recovery if branch creation still trips on a missing `origin/<baseBranch>`. This prevents the `fatal: 'origin/<baseBranch>' is not a commit` failure that surfaced for issue #1772 when an existing fork pre-dated upstream's custom branch.
+
 ## 1.69.3
 
 ### Patch Changes

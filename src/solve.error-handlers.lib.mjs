@@ -5,31 +5,21 @@
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 // Import Sentry integration
 import { reportError } from './sentry.lib.mjs';
 
-// Import GitHub issue creator
-import { handleErrorWithIssueCreation } from './github-issue-creator.lib.mjs';
+// Import GitHub error reporter
+import { handleErrorWithIssueCreation } from './github-error-reporter.lib.mjs';
+
+export const isErrorIssueAutoCreationDisabled = argv => !!(argv?.disableReportIssue || argv?.disableIssueAutoCreationOnError);
 
 /**
  * Handles log attachment and PR closing on failure
  */
-export const handleFailure = async (options) => {
-  const {
-    error,
-    errorType,
-    shouldAttachLogs,
-    argv,
-    global,
-    owner,
-    repo,
-    log,
-    getLogFile,
-    attachLogToGitHub,
-    cleanErrorMessage,
-    sanitizeLogContent,
-    $
-  } = options;
+export const handleFailure = async options => {
+  const { error, errorType, shouldAttachLogs, argv, global, owner, repo, log, getLogFile, attachLogToGitHub, cleanErrorMessage, sanitizeLogContent, $ } = options;
+  const disableIssueCreation = isErrorIssueAutoCreationDisabled(argv);
 
   // Offer to create GitHub issue for the error
   try {
@@ -41,45 +31,61 @@ export const handleFailure = async (options) => {
         owner: global.owner || owner,
         repo: global.repo || repo,
         prNumber: global.createdPR?.number,
-        errorType
+        errorType,
       },
-      skipPrompt: !process.stdin.isTTY || argv.noIssueCreation
+      skipPrompt: !process.stdin.isTTY || argv.noIssueCreation || disableIssueCreation,
+      autoReport: argv.autoReportIssue,
+      disableReport: disableIssueCreation,
     });
   } catch (issueError) {
     reportError(issueError, {
       context: 'automatic_issue_creation',
-      operation: 'handle_error_with_issue_creation'
+      operation: 'handle_error_with_issue_creation',
     });
     await log(`⚠️  Could not create issue: ${issueError.message}`, { level: 'warning' });
   }
 
   // If --attach-logs is enabled, try to attach failure logs
-  if (shouldAttachLogs && getLogFile() && global.createdPR && global.createdPR.number) {
-    await log('\n📄 Attempting to attach failure logs...');
-    try {
-      const logUploadSuccess = await attachLogToGitHub({
-        logFile: getLogFile(),
-        targetType: 'pr',
-        targetNumber: global.createdPR.number,
-        owner: global.owner || owner,
-        repo: global.repo || repo,
-        $,
-        log,
-        sanitizeLogContent,
-        verbose: argv.verbose,
-        errorMessage: cleanErrorMessage(error)
-      });
-      if (logUploadSuccess) {
-        await log('📎 Failure log attached to Pull Request');
+  if (shouldAttachLogs && getLogFile()) {
+    // Issues #1212, #1462: Upload logs to PR if available, otherwise fall back to the issue
+    const hasPR = global.createdPR && global.createdPR.number;
+    const hasIssue = global.issueNumber;
+    const targetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
+    const targetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
+    const targetLabel = hasPR ? 'Pull Request' : `original issue #${targetNumber}`;
+
+    if (targetType && targetNumber) {
+      await log(`\n📄 Attempting to attach failure logs to ${targetLabel}...`);
+      try {
+        const logUploadSuccess = await attachLogToGitHub({
+          logFile: getLogFile(),
+          targetType,
+          targetNumber,
+          owner: global.owner || owner,
+          repo: global.repo || repo,
+          $,
+          log,
+          sanitizeLogContent,
+          verbose: argv.verbose,
+          errorMessage: cleanErrorMessage(error),
+          // Issue #1225: Pass model and tool info for PR comments
+          requestedModel: argv.originalModel || argv.model,
+          tool: argv.tool || 'claude',
+        });
+        if (logUploadSuccess) {
+          await log(`📎 Failure log posted to ${targetLabel}`);
+          if (!hasPR && hasIssue) global.prePullRequestFailureNotificationPosted = true;
+        }
+      } catch (attachError) {
+        reportError(attachError, {
+          context: 'attach_failure_log',
+          targetType,
+          targetNumber,
+          errorType,
+          operation: `attach_log_to_${targetType}`,
+        });
+        await log(`⚠️  Could not post failure log to ${targetLabel}: ${attachError.message}`, { level: 'warning' });
       }
-    } catch (attachError) {
-      reportError(attachError, {
-        context: 'attach_failure_log',
-        prNumber: global.createdPR?.number,
-        errorType,
-        operation: 'attach_log_to_pr'
-      });
-      await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
     }
   }
 
@@ -87,11 +93,7 @@ export const handleFailure = async (options) => {
   if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
     await log('\n🔒 Auto-closing pull request due to failure...');
     try {
-      const closeMessage = errorType === 'uncaughtException'
-        ? 'Auto-closed due to uncaught exception. Logs have been attached for debugging.'
-        : errorType === 'unhandledRejection'
-        ? 'Auto-closed due to unhandled rejection. Logs have been attached for debugging.'
-        : 'Auto-closed due to execution failure. Logs have been attached for debugging.';
+      const closeMessage = errorType === 'uncaughtException' ? 'Auto-closed due to uncaught exception. Logs have been attached for debugging.' : errorType === 'unhandledRejection' ? 'Auto-closed due to unhandled rejection. Logs have been attached for debugging.' : 'Auto-closed due to execution failure. Logs have been attached for debugging.';
 
       const result = await $`gh pr close ${global.createdPR.number} --repo ${global.owner || owner}/${global.repo || repo} --comment ${closeMessage}`;
       if (result.exitCode === 0) {
@@ -103,7 +105,7 @@ export const handleFailure = async (options) => {
         prNumber: global.createdPR?.number,
         owner,
         repo,
-        operation: 'close_pull_request'
+        operation: 'close_pull_request',
       });
       await log(`⚠️  Could not close pull request: ${closeError.message}`, { level: 'warning' });
     }
@@ -113,23 +115,10 @@ export const handleFailure = async (options) => {
 /**
  * Creates an uncaught exception handler
  */
-export const createUncaughtExceptionHandler = (options) => {
-  const {
-    log,
-    cleanErrorMessage,
-    absoluteLogPath,
-    shouldAttachLogs,
-    argv,
-    global,
-    owner,
-    repo,
-    getLogFile,
-    attachLogToGitHub,
-    sanitizeLogContent,
-    $
-  } = options;
+export const createUncaughtExceptionHandler = options => {
+  const { log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, $ } = options;
 
-  return async (error) => {
+  return async error => {
     await log(`\n❌ Uncaught Exception: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -146,7 +135,7 @@ export const createUncaughtExceptionHandler = (options) => {
       attachLogToGitHub,
       cleanErrorMessage,
       sanitizeLogContent,
-      $
+      $,
     });
 
     await safeExit(1, 'Error occurred');
@@ -156,23 +145,10 @@ export const createUncaughtExceptionHandler = (options) => {
 /**
  * Creates an unhandled rejection handler
  */
-export const createUnhandledRejectionHandler = (options) => {
-  const {
-    log,
-    cleanErrorMessage,
-    absoluteLogPath,
-    shouldAttachLogs,
-    argv,
-    global,
-    owner,
-    repo,
-    getLogFile,
-    attachLogToGitHub,
-    sanitizeLogContent,
-    $
-  } = options;
+export const createUnhandledRejectionHandler = options => {
+  const { log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, $ } = options;
 
-  return async (reason) => {
+  return async reason => {
     await log(`\n❌ Unhandled Rejection: ${cleanErrorMessage(reason)}`, { level: 'error' });
     await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -189,7 +165,7 @@ export const createUnhandledRejectionHandler = (options) => {
       attachLogToGitHub,
       cleanErrorMessage,
       sanitizeLogContent,
-      $
+      $,
     });
 
     await safeExit(1, 'Error occurred');
@@ -197,24 +173,68 @@ export const createUnhandledRejectionHandler = (options) => {
 };
 
 /**
+ * Handles the case where no PR is available when one is required
+ */
+export const handleNoPrAvailableError = async ({ isContinueMode, tempDir, issueNumber, issueUrl, owner, repo, log, formatAligned }) => {
+  // Issue #1774: when an explicit target repo is known, surface --repo in the
+  // recovery hint so users do not hit the same fork-base resolution trap.
+  const repoFlag = owner && repo ? ` --repo ${owner}/${repo}` : '';
+  await log('');
+  await log(formatAligned('❌', 'FATAL ERROR:', 'No pull request available'), { level: 'error' });
+  await log('');
+  await log('  🔍 What happened:');
+  if (isContinueMode) {
+    await log('     Continue mode is active but no PR number is available.');
+    await log('     This usually means PR creation failed or was skipped incorrectly.');
+  } else {
+    await log('     Auto-PR creation is enabled but no PR was created.');
+    await log('     PR creation may have failed without throwing an error.');
+  }
+  await log('');
+  await log('  💡 Why this is critical:');
+  await log('     The solve command requires a PR for:');
+  await log('     • Tracking work progress');
+  await log('     • Receiving and processing feedback');
+  await log('     • Managing code changes');
+  await log('     • Auto-merging when complete');
+  await log('');
+  await log('  🔧 How to fix:');
+  await log('');
+  await log('  Option 1: Create PR manually and use --continue');
+  await log(`     cd ${tempDir}`);
+  await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"${repoFlag}`);
+  await log('     # Then use the PR URL with solve.mjs');
+  await log('');
+  await log('  Option 2: Start fresh without continue mode');
+  await log(`     ./solve.mjs "${issueUrl}" --auto-pull-request-creation`);
+  await log('');
+  await log('  Option 3: Disable auto-PR creation (Claude will create it)');
+  await log(`     ./solve.mjs "${issueUrl}" --no-auto-pull-request-creation`);
+  await log('');
+  await safeExit(1, 'No PR available');
+};
+
+/**
  * Handles execution errors in the main catch block
  */
-export const handleMainExecutionError = async (options) => {
-  const {
-    error,
-    log,
-    cleanErrorMessage,
-    absoluteLogPath,
-    shouldAttachLogs,
-    argv,
-    global,
-    owner,
-    repo,
-    getLogFile,
-    attachLogToGitHub,
-    sanitizeLogContent,
-    $
-  } = options;
+export const handleMainExecutionError = async options => {
+  const { error, log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, $ } = options;
+
+  // Special handling for authentication errors
+  if (error.isAuthError) {
+    await log('\n❌ AUTHENTICATION ERROR', { level: 'error' });
+    await log('', { level: 'error' });
+    await log('   The AI tool authentication has failed.', { level: 'error' });
+    await log('   This error cannot be resolved by retrying.', { level: 'error' });
+    await log('', { level: 'error' });
+    await log(`   Error: ${cleanErrorMessage(error)}`, { level: 'error' });
+    await log('', { level: 'error' });
+    await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
+
+    // Don't try to attach logs or create issues for auth errors
+    await safeExit(1, 'Authentication error');
+    return;
+  }
 
   await log('Error executing command:', cleanErrorMessage(error));
   await log(`Stack trace: ${error.stack}`, { verbose: true });
@@ -233,7 +253,7 @@ export const handleMainExecutionError = async (options) => {
     attachLogToGitHub,
     cleanErrorMessage,
     sanitizeLogContent,
-    $
+    $,
   });
 
   await safeExit(1, 'Error occurred');

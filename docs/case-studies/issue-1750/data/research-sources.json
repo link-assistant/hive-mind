@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Telegram Bot API - Updating messages and editMessageText",
+    "url": "https://core.telegram.org/bots/api#editmessagetext",
+    "capturedAt": "2026-05-04T00:00:00Z",
+    "notes": ["The Bot API documents editMessageText as the method for editing text messages.", "The edited message text is limited to 1-4096 characters after entity parsing.", "The terminal watch message uses this method through Telegraf's editMessageText wrapper, so every unnecessary edit is a Telegram API call."]
+  },
+  {
+    "title": "Telegram Bot API - Paid Broadcasts",
+    "url": "https://core.telegram.org/bots/api#paid-broadcasts",
+    "capturedAt": "2026-05-04T00:00:00Z",
+    "notes": ["Telegram documents a default broadcast limit of 30 messages per second, with a paid option for higher broadcast throughput.", "The issue is not a broadcast feature, but reducing repeated editMessageText calls lowers pressure on Telegram rate limits and bot throughput."]
+  },
+  {
+    "title": "link-assistant/hive-mind PR 551 - Add Telegram terminal watch command",
+    "url": "https://github.com/link-assistant/hive-mind/pull/551",
+    "capturedAt": "2026-05-04T00:00:00Z",
+    "notes": ["Introduced /terminal_watch and the terminal-sized live message concept.", "The current issue is a regression in the watch loop behavior, not in the command surface."]
+  },
+  {
+    "title": "link-assistant/hive-mind PR 1721 - Fix /terminal_watch uploading log file in General topic",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1721",
+    "capturedAt": "2026-05-04T00:00:00Z",
+    "notes": ["Recent related change kept final terminal watch message edits but removed automatic log document uploads.", "The fix for issue 1750 preserves that behavior."]
+  }
+]

@@ -20,16 +20,12 @@ const { parseGitHubUrl } = await import('../src/github.lib.mjs');
  */
 function validateGitHubUrl(args, options = {}) {
   // Default options for /solve command (backward compatibility)
-  const {
-    allowedTypes = ['issue', 'pull'],
-    commandName = 'solve',
-    exampleUrl = 'https://github.com/owner/repo/issues/123'
-  } = options;
+  const { allowedTypes = ['issue', 'pull'], commandName = 'solve', exampleUrl = 'https://github.com/owner/repo/issues/123' } = options;
 
   if (args.length === 0) {
     return {
       valid: false,
-      error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]`
+      error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]`,
     };
   }
 
@@ -37,7 +33,7 @@ function validateGitHubUrl(args, options = {}) {
   if (!url.includes('github.com')) {
     return {
       valid: false,
-      error: 'First argument must be a GitHub URL'
+      error: 'First argument must be a GitHub URL',
     };
   }
 
@@ -46,16 +42,16 @@ function validateGitHubUrl(args, options = {}) {
   if (!parsed.valid) {
     return {
       valid: false,
-      error: parsed.error || 'Invalid GitHub URL'
+      error: parsed.error || 'Invalid GitHub URL',
     };
   }
 
   // Check if the URL type is allowed for this command
   if (!allowedTypes.includes(parsed.type)) {
-    const allowedTypesStr = allowedTypes.map(t => t === 'pull' ? 'pull request' : t).join(', ');
+    const allowedTypesStr = allowedTypes.map(t => (t === 'pull' ? 'pull request' : t)).join(', ');
     return {
       valid: false,
-      error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`
+      error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`,
     };
   }
 
@@ -70,117 +66,117 @@ console.log('===========================================\n');
 const solveValidTests = [
   {
     desc: 'Valid issue URL',
-    args: ['https://github.com/deep-assistant/hive-mind/issues/630'],
+    args: ['https://github.com/link-assistant/hive-mind/issues/630'],
     options: undefined, // Use defaults
-    shouldPass: true
+    shouldPass: true,
   },
   {
     desc: 'Valid PR URL',
     args: ['https://github.com/owner/repo/pull/123'],
     options: undefined,
-    shouldPass: true
+    shouldPass: true,
   },
   {
     desc: 'Valid issue URL with options',
     args: ['https://github.com/owner/repo/issues/456', '--auto-continue'],
     options: undefined,
-    shouldPass: true
+    shouldPass: true,
   },
   {
     desc: 'Valid PR URL with query params',
     args: ['https://github.com/owner/repo/pull/789?foo=bar'],
     options: undefined,
-    shouldPass: true
-  }
+    shouldPass: true,
+  },
 ];
 
 const solveInvalidTests = [
   {
     desc: 'Repository URL only (no issue/PR)',
-    args: ['https://github.com/deep-assistant/master-plan'],
+    args: ['https://github.com/link-assistant/master-plan'],
     options: undefined,
     shouldPass: false,
-    expectedError: 'URL must be a GitHub issue, pull request (not repo)'
+    expectedError: 'URL must be a GitHub issue, pull request (not repo)',
   },
   {
     desc: 'Repository URL with trailing slash',
     args: ['https://github.com/owner/repo/'],
     options: undefined,
     shouldPass: false,
-    expectedError: 'URL must be a GitHub issue, pull request (not repo)'
+    expectedError: 'URL must be a GitHub issue, pull request (not repo)',
   },
   {
     desc: 'User profile URL',
     args: ['https://github.com/owner'],
     options: undefined,
     shouldPass: false,
-    expectedError: 'URL must be a GitHub issue, pull request (not user)'
+    expectedError: 'URL must be a GitHub issue, pull request (not user)',
   },
   {
     desc: 'Issues list URL (no specific issue)',
     args: ['https://github.com/owner/repo/issues'],
     options: undefined,
     shouldPass: false,
-    expectedError: 'URL must be a GitHub issue, pull request (not issues_list)'
+    expectedError: 'URL must be a GitHub issue, pull request (not issues_list)',
   },
   {
     desc: 'Pull requests list URL (no specific PR)',
     args: ['https://github.com/owner/repo/pulls'],
     options: undefined,
     shouldPass: false,
-    expectedError: 'URL must be a GitHub issue, pull request (not pulls_list)'
+    expectedError: 'URL must be a GitHub issue, pull request (not pulls_list)',
   },
   {
     desc: 'Missing URL',
     args: [],
     options: undefined,
     shouldPass: false,
-    expectedError: 'Missing GitHub URL. Usage: /solve <github-url> [options]'
+    expectedError: 'Missing GitHub URL. Usage: /solve <github-url> [options]',
   },
   {
     desc: 'Non-GitHub URL',
     args: ['https://example.com/issues/123'],
     options: undefined,
     shouldPass: false,
-    expectedError: 'First argument must be a GitHub URL'
+    expectedError: 'First argument must be a GitHub URL',
   },
   {
     desc: 'GitHub Actions URL',
     args: ['https://github.com/owner/repo/actions/runs/123'],
     options: undefined,
     shouldPass: false,
-    expectedError: 'URL must be a GitHub issue, pull request (not action_run)'
+    expectedError: 'URL must be a GitHub issue, pull request (not action_run)',
   },
   {
     desc: 'GitHub file URL',
     args: ['https://github.com/owner/repo/blob/main/README.md'],
     options: undefined,
     shouldPass: false,
-    expectedError: 'URL must be a GitHub issue, pull request (not file)'
-  }
+    expectedError: 'URL must be a GitHub issue, pull request (not file)',
+  },
 ];
 
 // Test cases for /hive command (repo/organization/user)
 const hiveValidTests = [
   {
     desc: 'Valid repository URL',
-    args: ['https://github.com/deep-assistant/hive-mind'],
+    args: ['https://github.com/link-assistant/hive-mind'],
     options: {
       allowedTypes: ['repo', 'organization', 'user'],
       commandName: 'hive',
-      exampleUrl: 'https://github.com/owner/repo'
+      exampleUrl: 'https://github.com/owner/repo',
     },
-    shouldPass: true
+    shouldPass: true,
   },
   {
     desc: 'Valid organization URL',
-    args: ['https://github.com/deep-assistant'],
+    args: ['https://github.com/link-assistant'],
     options: {
       allowedTypes: ['repo', 'organization', 'user'],
       commandName: 'hive',
-      exampleUrl: 'https://github.com/owner/repo'
+      exampleUrl: 'https://github.com/owner/repo',
     },
-    shouldPass: true
+    shouldPass: true,
   },
   {
     desc: 'Valid repository URL with trailing slash',
@@ -188,10 +184,10 @@ const hiveValidTests = [
     options: {
       allowedTypes: ['repo', 'organization', 'user'],
       commandName: 'hive',
-      exampleUrl: 'https://github.com/owner/repo'
+      exampleUrl: 'https://github.com/owner/repo',
     },
-    shouldPass: true
-  }
+    shouldPass: true,
+  },
 ];
 
 const hiveInvalidTests = [
@@ -201,10 +197,10 @@ const hiveInvalidTests = [
     options: {
       allowedTypes: ['repo', 'organization', 'user'],
       commandName: 'hive',
-      exampleUrl: 'https://github.com/owner/repo'
+      exampleUrl: 'https://github.com/owner/repo',
     },
     shouldPass: false,
-    expectedError: 'URL must be a GitHub repo, organization, user (not issue)'
+    expectedError: 'URL must be a GitHub repo, organization, user (not issue)',
   },
   {
     desc: 'PR URL (not allowed for hive)',
@@ -212,10 +208,10 @@ const hiveInvalidTests = [
     options: {
       allowedTypes: ['repo', 'organization', 'user'],
       commandName: 'hive',
-      exampleUrl: 'https://github.com/owner/repo'
+      exampleUrl: 'https://github.com/owner/repo',
     },
     shouldPass: false,
-    expectedError: 'URL must be a GitHub repo, organization, user (not pull)'
+    expectedError: 'URL must be a GitHub repo, organization, user (not pull)',
   },
   {
     desc: 'Missing URL',
@@ -223,11 +219,11 @@ const hiveInvalidTests = [
     options: {
       allowedTypes: ['repo', 'organization', 'user'],
       commandName: 'hive',
-      exampleUrl: 'https://github.com/owner/repo'
+      exampleUrl: 'https://github.com/owner/repo',
     },
     shouldPass: false,
-    expectedError: 'Missing GitHub URL. Usage: /hive <github-url> [options]'
-  }
+    expectedError: 'Missing GitHub URL. Usage: /hive <github-url> [options]',
+  },
 ];
 
 let passed = 0;

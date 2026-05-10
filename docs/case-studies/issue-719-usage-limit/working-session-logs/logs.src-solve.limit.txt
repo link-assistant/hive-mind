@@ -1,0 +1,81 @@
+      forkedRepo,
+      feedbackLines,
+      forkActionsUrl,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile,
+      getLogFile,
+      formatAligned,
+      getResourceSnapshot,
+      claudePath,
+      $
+    });
+    toolResult = claudeResult;
+  }
+
+  const { success } = toolResult;
+  let sessionId = toolResult.sessionId;
+  let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
+  limitReached = toolResult.limitReached;
+  cleanupContext.limitReached = limitReached;
+
+  if (!success) {
+    // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
+    if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
+      await log('\n📄 Attaching failure logs to Pull Request...');
+      try {
+        // Build resume command if we have session info
+        const resumeCommand = sessionId ? `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}` : null;
+        const logUploadSuccess = await attachLogToGitHub({
+          logFile: getLogFile(),
+          targetType: 'pr',
+          targetNumber: global.createdPR.number,
+          owner,
+          repo,
+          $,
+          log,
+          sanitizeLogContent,
+          // For usage limit, use a dedicated comment format to make it clear and actionable
+          isUsageLimit: !!limitReached,
+          limitResetTime: limitReached ? toolResult.limitResetTime : null,
+          toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : 'AI tool',
+          resumeCommand,
+          // If not a usage limit case, fall back to generic failure format
+          errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`
+        });
+
+        if (logUploadSuccess) {
+          await log('  ✅ Failure logs uploaded successfully');
+        } else {
+          await log('  ⚠️  Failed to upload logs', { verbose: true });
+        }
+      } catch (uploadError) {
+        await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+      }
+    }
+
+    await safeExit(1, `${argv.tool.toUpperCase()} execution failed`);
+  }
+
+  // Check for uncommitted changes
+  // When limit is reached, force auto-commit of any uncommitted changes to preserve work
+  const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
+  const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
+  const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
+
+  // Remove CLAUDE.md now that Claude command has finished
+  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash);
+
+  // Show summary of session and log file
+  await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
+
+  // Search for newly created pull requests and comments
+  // Pass shouldRestart to prevent early exit when auto-restart is needed
+  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD);
+
+  // Start watch mode if enabled OR if we need to handle uncommitted changes
+  if (argv.verbose) {

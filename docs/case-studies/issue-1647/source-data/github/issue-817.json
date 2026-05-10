@@ -1,0 +1,14 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "Current `--interactive-mode` is read only.\n\nBut we can also monitor for comments in pull request when `--interactive-mode` is enabled.\n\nAnd queue all pull requests comments as input for `claude` tool, like explored in https://github.com/link-assistant/hive-mind/issues/814\n\nMeaning if user will add new comments during working session which are not comments from our system (created via interactive mode) we should use the comments as input for the model, giving for it queued feedback, so as soon as it finishes with current work, it will be able to address the feedback from the user.",
+  "createdAt": "2025-12-04T21:39:21Z",
+  "labels": [
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6jw", "name": "documentation", "description": "Improvements or additions to documentation", "color": "0075ca" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6mA", "name": "enhancement", "description": "New feature or request", "color": "a2eeef" }
+  ],
+  "number": 817,
+  "state": "OPEN",
+  "title": "Implement bidirectional interactive mode",
+  "updatedAt": "2026-04-18T16:19:28Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/817"
+}

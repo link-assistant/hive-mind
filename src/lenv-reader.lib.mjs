@@ -38,6 +38,43 @@ const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 
 const fs = await import('fs');
 
+function isCliOptionToken(value) {
+  return /^--[a-zA-Z0-9][a-zA-Z0-9=_.-]*$/.test(value) || /^-[a-zA-Z]$/.test(value);
+}
+
+function collectStringValues(value, result = []) {
+  if (value && typeof value === 'object' && Array.isArray(value.values)) {
+    if (value.id !== null && value.id !== undefined) {
+      result.push(String(value.id));
+    }
+    for (const child of value.values) {
+      collectStringValues(child, result);
+    }
+  } else if (value !== null && value !== undefined) {
+    result.push(String(value));
+  }
+  return result;
+}
+
+function validateNoBareSameLineOptions(content) {
+  let currentVar = 'configuration';
+
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed === '(' || trimmed === ')') continue;
+
+    const topLevelMatch = !/^\s/.test(line) ? trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*):(?:\s*(.*))?$/) : null;
+    const valueText = topLevelMatch ? (topLevelMatch[2] || '').trim() : trimmed;
+    if (topLevelMatch) currentVar = topLevelMatch[1];
+    if (!valueText || valueText === '(' || valueText === ')' || valueText.startsWith('(')) continue;
+
+    const parts = valueText.split(/\s+/).filter(Boolean);
+    if (parts.length > 1 && isCliOptionToken(parts[0])) {
+      throw new Error(`Invalid LINO format in "${currentVar}": Multiple values on the same line are not supported.\n` + `Found: "${parts.join(' ')}"\n` + `Each value must be on its own line with proper indentation, or grouped explicitly as a parenthesized link.`);
+    }
+  }
+}
+
 /**
  * LenvReader - Reads and parses .lenv files using LINO notation
  */
@@ -59,6 +96,8 @@ export class LenvReader {
     const result = {};
 
     try {
+      validateNoBareSameLineOptions(content);
+
       // Parse the entire content as LINO
       const parsed = this.parser.parse(content);
 
@@ -77,8 +116,22 @@ export class LenvReader {
 
         // The values are the variable value
         if (link.values && link.values.length > 0) {
+          // Check for invalid characters in option-like values
+          for (const valueStr of link.values.flatMap(v => collectStringValues(v))) {
+            // Options should match pattern: --option-name or -o (with optional =value)
+            if (typeof valueStr === 'string' && valueStr.startsWith('-')) {
+              // This looks like a command-line option, validate it
+              // Valid option pattern: -x, --option-name, --option-name=value
+              // Invalid characters: ?, !, @, #, $, %, ^, &, *, etc.
+              const invalidCharMatch = valueStr.match(/[^a-zA-Z0-9=_.-]/);
+              if (invalidCharMatch) {
+                throw new Error(`Invalid LINO format in "${varName}": Unrecognized character "${invalidCharMatch[0]}" in option.\n` + `Found: "${valueStr}"\n` + `Options should only contain letters, numbers, hyphens, underscores, and equals signs.`);
+              }
+            }
+          }
+
           // If there are multiple values, format them as LINO notation
-          const values = link.values.map(v => v.id || v);
+          const values = link.values.flatMap(v => collectStringValues(v));
 
           // If it's a single value, just use it as-is
           if (values.length === 1) {
@@ -98,6 +151,11 @@ export class LenvReader {
 
       return result;
     } catch (error) {
+      // Re-throw validation errors so users can correct their configuration
+      if (error.message.includes('Invalid LINO format')) {
+        throw error;
+      }
+      // For other parsing errors, log and return empty
       console.error(`Error parsing LINO configuration: ${error.message}`);
       return {};
     }
@@ -108,15 +166,17 @@ export class LenvReader {
    * @param {string} filePath - Path to .lenv file
    * @returns {Object} - Object with environment variable key-value pairs
    */
-  readFile(filePath) {
+  async readFile(filePath) {
     try {
-      if (!fs.existsSync(filePath)) {
-        return null;
-      }
+      // Check if file exists using access
+      await fs.promises.access(filePath);
 
-      const content = fs.readFileSync(filePath, 'utf8');
+      const content = await fs.promises.readFile(filePath, 'utf8');
       return this.parse(content);
     } catch (error) {
+      if (error.code === 'ENOENT') {
+        return null;
+      }
       console.error(`Error reading .lenv file ${filePath}: ${error.message}`);
       return null;
     }
@@ -131,13 +191,8 @@ export class LenvReader {
    * @param {boolean} options.quiet - Whether to suppress log messages (default: false)
    * @returns {Object} - Object with loaded variables
    */
-  config(options = {}) {
-    const {
-      path: configPath = '.lenv',
-      configuration = null,
-      override = false,
-      quiet = false
-    } = options;
+  async config(options = {}) {
+    const { path: configPath = '.lenv', configuration = null, override = false, quiet = false } = options;
 
     let envVars = {};
 
@@ -150,7 +205,7 @@ export class LenvReader {
     }
     // Priority 2: .lenv file
     else if (configPath) {
-      const fileVars = this.readFile(configPath);
+      const fileVars = await this.readFile(configPath);
       if (fileVars) {
         envVars = fileVars;
         if (!quiet && Object.keys(envVars).length > 0) {
@@ -174,12 +229,14 @@ export class LenvReader {
    * @param {string} lenvPath - Path to .lenv file
    * @returns {boolean} - True if .lenv should be used
    */
-  shouldUseLenv(lenvPath = '.lenv') {
+  async shouldUseLenv(lenvPath = '.lenv') {
     // If .lenv exists, use it (has priority)
-    if (fs.existsSync(lenvPath)) {
+    try {
+      await fs.promises.access(lenvPath);
       return true;
+    } catch {
+      return false;
     }
-    return false;
   }
 }
 
@@ -197,6 +254,6 @@ export const lenvReader = new LenvReader();
  * @param {Object} options - Configuration options
  * @returns {Object} - Loaded environment variables
  */
-export function loadLenvConfig(options = {}) {
-  return lenvReader.config(options);
+export async function loadLenvConfig(options = {}) {
+  return await lenvReader.config(options);
 }

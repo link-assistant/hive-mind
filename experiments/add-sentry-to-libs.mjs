@@ -5,17 +5,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-const libFiles = [
-  'solve.branch-errors.lib.mjs',
-  'solve.claude-execution.lib.mjs',
-  'solve.error-handlers.lib.mjs',
-  'solve.execution.lib.mjs',
-  'solve.feedback.lib.mjs',
-  'solve.repository.lib.mjs',
-  'solve.results.lib.mjs',
-  'solve.validation.lib.mjs',
-  'solve.watch.lib.mjs'
-];
+const libFiles = ['solve.branch-errors.lib.mjs', 'solve.claude-execution.lib.mjs', 'solve.error-handlers.lib.mjs', 'solve.execution.lib.mjs', 'solve.feedback.lib.mjs', 'solve.repository.lib.mjs', 'solve.results.lib.mjs', 'solve.validation.lib.mjs', 'solve.watch.lib.mjs'];
 
 const sentryImport = `
 // Import Sentry integration
@@ -47,10 +37,7 @@ async function addSentryImport(filePath) {
   }
 
   // Insert the Sentry import after the last import
-  const newContent =
-    content.slice(0, lastImportEnd) +
-    sentryImport +
-    content.slice(lastImportEnd);
+  const newContent = content.slice(0, lastImportEnd) + sentryImport + content.slice(lastImportEnd);
 
   await fs.writeFile(filePath, newContent);
   console.log(`✓ Added Sentry import to ${path.basename(filePath)}`);

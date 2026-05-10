@@ -1,0 +1,57 @@
+[
+  {
+    "title": "Hive Mind issue #1705",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1705",
+    "notes": "Primary requirement: support running Docker inside Hive Mind Docker and collect a case study."
+  },
+  {
+    "title": "Hive Mind PR #1736",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1736",
+    "notes": "Prepared pull request for this implementation."
+  },
+  {
+    "title": "Monitor43 PR #2 related comment",
+    "url": "https://github.com/comerc/monitor43/pull/2#issuecomment-4334939125",
+    "notes": "Real failure mode: AI could not run Docker/Testcontainers-backed BDD checks from inside the solving environment."
+  },
+  {
+    "title": "Box release v2.1.1",
+    "url": "https://github.com/link-foundation/box/releases/tag/v2.1.1",
+    "notes": "Latest Box release at implementation time; includes Docker Hub tags such as konard/box-dind:2.1.1."
+  },
+  {
+    "title": "Box issue #80 case study",
+    "url": "https://github.com/link-foundation/box/blob/v2.1.1/docs/case-studies/issue-80/CASE-STUDY.md",
+    "notes": "Upstream design rationale for Box Docker-in-Docker variants."
+  },
+  {
+    "title": "Docker Engine run reference",
+    "url": "https://docs.docker.com/engine/containers/run/",
+    "notes": "Primary Docker documentation for privileged container behavior."
+  },
+  {
+    "title": "Docker Engine install on Ubuntu",
+    "url": "https://docs.docker.com/engine/install/ubuntu/",
+    "notes": "Primary Docker documentation for installing Docker Engine packages on Ubuntu."
+  },
+  {
+    "title": "Sysbox upstream repository",
+    "url": "https://github.com/nestybox/sysbox",
+    "notes": "User namespace based runtime option for running container workloads without privileged containers."
+  },
+  {
+    "title": "Testcontainers supported Docker environments",
+    "url": "https://java.testcontainers.org/supported_docker_environment/",
+    "notes": "Testcontainers expects access to a Docker-compatible environment."
+  },
+  {
+    "title": "OWASP Docker Security Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html",
+    "notes": "Security background for avoiding broad Docker host access unless explicitly needed."
+  },
+  {
+    "title": "Quarkslab Docker socket risk analysis",
+    "url": "https://blog.quarkslab.com/why-is-exposing-the-docker-socket-a-really-bad-idea.html",
+    "notes": "Background on why mounting the host Docker socket is risky."
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "https://github.com/link-assistant/hive-mind/pull/1615 - here there is no link to https://github.com/link-assistant/hive-mind/issues/1614.\n\nCollect all logs from comments of https://github.com/link-assistant/hive-mind/pull/1615.\n\nWe expect that when pull request is closed the issue will be closed too, without the link, it will be impossible. We already had mechanism to guarantee this for Claude and Agent tools, please double check why Codex is different. Find root cause and fix it. It is also a good idea to reuse as much of the same logic between all tools as possible, so may be we need some refactoring for this.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.",
+  "comments": [],
+  "createdAt": "2026-04-16T06:15:11Z",
+  "labels": [{ "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" }],
+  "number": 1616,
+  "state": "OPEN",
+  "title": "When task executed with Codex no explicit link to the issue was added",
+  "updatedAt": "2026-04-16T06:15:11Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1616"
+}

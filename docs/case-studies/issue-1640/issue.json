@@ -1,0 +1,11 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "Full log:\n\nhttps://gist.githubusercontent.com/konard/36f4aa18069196d76c841d8ac3ede114/raw/e754c3c763e040a1452a99f8f842209bc258f237/solve-2026-04-18T13-53-23-971Z.log\n\nWe need to double check all problems/errors we report in console/terminal before pull request is created, but it is confirmed that issue exists. In all such cases we should also report comment to the issue, so the user will understand that is going on.\n\nAt the moment `/solve` command in telegram bot just does nothing, and user see it as no pull request created without any notifications.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.",
+  "comments": [],
+  "createdAt": "2026-04-18T14:11:19Z",
+  "number": 1640,
+  "state": "OPEN",
+  "title": "We should also notify user in issue comment, if we have any error that happens before pull request creation",
+  "updatedAt": "2026-04-18T14:11:19Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1640"
+}

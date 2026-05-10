@@ -1,0 +1,100 @@
+    }
+  }
+}
+
+[2025-12-09T19:22:06.698Z] [INFO] {
+  "type": "step_finish",
+  "timestamp": 1765308126697,
+  "sessionID": "ses_4fb713a14ffeUm85za0Ikh2XKC",
+  "part": {
+    "id": "prt_b0490541d001eWYgqN3sV7yier",
+    "sessionID": "ses_4fb713a14ffeUm85za0Ikh2XKC",
+    "messageID": "msg_b049041a7001y1Xq57y5eoi0xl",
+    "type": "step-finish",
+    "reason": "tool-calls",
+    "snapshot": "e00735dd9e912dee15d0789ce180f65bba31e955",
+    "cost": 0,
+    "tokens": {
+      "input": 121,
+      "output": 472,
+      "reasoning": 15,
+      "cache": {
+        "read": 102272,
+        "write": 0
+      }
+    }
+  }
+}
+
+[2025-12-09T19:22:07.562Z] [INFO] {
+  "type": "step_start",
+  "timestamp": 1765308127561,
+  "sessionID": "ses_4fb713a14ffeUm85za0Ikh2XKC",
+  "part": {
+    "id": "prt_b04905949001giOVFMBcIBI450",
+    "sessionID": "ses_4fb713a14ffeUm85za0Ikh2XKC",
+    "messageID": "msg_b04905609001iKjOwPiGYhXOHp",
+    "type": "step-start",
+    "snapshot": "e00735dd9e912dee15d0789ce180f65bba31e955"
+  }
+}
+
+[2025-12-09T19:22:09.427Z] [INFO] {
+  "type": "text",
+  "timestamp": 1765308129427,
+  "sessionID": "ses_4fb713a14ffeUm85za0Ikh2XKC",
+  "part": {
+    "id": "prt_b0490599b001lJPbX9y8FuTPwk",
+    "sessionID": "ses_4fb713a14ffeUm85za0Ikh2XKC",
+    "messageID": "msg_b04905609001iKjOwPiGYhXOHp",
+    "type": "text",
+    "text": "## ✅ Issue #890 Fixed: Session ID Extraction for `--tool agent`\n\nI've successfully resolved the issue where using `--tool agent` incorrectly displayed \"❌ No session ID extracted\" as an error message.\n\n### 🔍 Root Cause Analysis\nThe problem had two components:\n1. **Agent JSON Parsing**: The agent tool was outputting NDJSON format but wasn't parsing it to extract session IDs\n2. **Session Summary Logic**: The summary function treated missing session IDs as errors for all tools, but agent session IDs aren't meaningful for resuming like Claude sessions\n\n### 🛠️ Solution Implemented\n**Fixed Agent JSON Parsing** (`src/agent.lib.mjs`):\n- Added NDJSON parsing logic to extract `sessionID` from agent output\n- Agent now properly captures session IDs during execution\n\n**Fixed Session Summary Display** (`src/solve.results.lib.mjs`):\n- Modified `showSessionSummary` to handle agent tool differently\n- Agent tool now shows: \"ℹ️ Agent tool completed (session IDs not used for resuming)\"\n- Other tools continue showing appropriate session ID status\n\n### 📋 Changes Made\n- **2 files modified**: `src/agent.lib.mjs` and `src/solve.results.lib.mjs`\n- **1 case study updated**: `docs/case-studies/issue-890-session-id-extraction.md`\n- **All changes committed and pushed** to branch `issue-890-5654262c48ed`\n\n### 🚀 Result\n- Agent tool executions now complete without erroneous error messages\n- Session IDs are properly extracted from agent JSON output\n- Users get clear, appropriate feedback about tool completion status\n\n**Pull Request**: https://github.com/link-assistant/hive-mind/pull/891  \n**Status**: Ready for review ✅\n\nThe fix ensures that `--tool agent` works correctly without misleading error messages, while maintaining proper error reporting for other tools that do support resumable sessions.",
+    "time": {
+      "start": 1765308129427,
+      "end": 1765308129427
+    }
+  }
+}
+
+[2025-12-09T19:22:09.438Z] [INFO] {
+  "type": "step_finish",
+  "timestamp": 1765308129438,
+  "sessionID": "ses_4fb713a14ffeUm85za0Ikh2XKC",
+  "part": {
+    "id": "prt_b04906093001uiVF0vRjQy10Z4",
+    "sessionID": "ses_4fb713a14ffeUm85za0Ikh2XKC",
+    "messageID": "msg_b04905609001iKjOwPiGYhXOHp",
+    "type": "step-finish",
+    "reason": "stop",
+    "snapshot": "e00735dd9e912dee15d0789ce180f65bba31e955",
+    "cost": 0,
+    "tokens": {
+      "input": 56,
+      "output": 382,
+      "reasoning": 10,
+      "cache": {
+        "read": 102848,
+        "write": 0
+      }
+    }
+  }
+}
+
+[2025-12-09T19:22:09.524Z] [INFO] 
+
+✅ Agent command completed
+[2025-12-09T19:22:09.597Z] [INFO] 
+[2025-12-09T19:22:09.597Z] [INFO] ✅ AGENT execution completed: Checking for remaining changes...
+[2025-12-09T19:22:09.598Z] [INFO]    Checking immediately for uncommitted changes... 
+[2025-12-09T19:22:09.598Z] [INFO] 
+[2025-12-09T19:22:10.054Z] [INFO] 
+[2025-12-09T19:22:10.054Z] [INFO] ✅ CHANGES COMMITTED!        Exiting auto-restart mode
+[2025-12-09T19:22:10.054Z] [INFO]    All uncommitted changes have been resolved 
+[2025-12-09T19:22:10.055Z] [INFO] 
+[2025-12-09T19:22:10.055Z] [INFO] 
+[2025-12-09T19:22:10.055Z] [INFO] 📤 Pushing committed changes to GitHub...
+[2025-12-09T19:22:10.055Z] [INFO] 
+[2025-12-09T19:22:10.471Z] [INFO] ✅ Changes pushed successfully to remote branch
+[2025-12-09T19:22:10.471Z] [INFO]    Branch: issue-890-5654262c48ed
+[2025-12-09T19:22:10.472Z] [INFO] 
+[2025-12-09T19:22:10.472Z] [INFO] 📎 Uploading working session logs to Pull Request...

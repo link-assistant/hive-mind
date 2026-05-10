@@ -1,0 +1,142 @@
+https://github.com/xlab2016/space_db_private/pull/20#issuecomment-4104547747
+'## 💻 Bash tool use
+
+<details open>
+<summary>📋 Executed command</summary>
+
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Processor/Command.cs:13:        public Opcodes Opcode { get; set; } = Opcodes.Nop;
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:124:                        if (command.Opcode == Opcodes.DefExpr)
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:227:                        if (command.Opcode == Opcodes.DefExpr)
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:265:                case Opcodes.Nop:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:268:                case Opcodes.AddVertex:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:272:                case Opcodes.AddRelation:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:276:                case Opcodes.AddShape:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:280:                case Opcodes.Call:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:284:                case Opcodes.ACall:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:288:                case Opcodes.Pop:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:292:                case Opcodes.Push:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:296:                case Opcodes.Def:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:299:                case Opcodes.DefGen:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:302:                case Opcodes.CallObj:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:305:                case Opcodes.AwaitObj:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:308:                case Opcodes.StreamWaitObj:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:311:                case Opcodes.Await:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:314:                case Opcodes.Label:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:317:                case Opcodes.Cmp:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:320:                case Opcodes.Je:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:323:                case Opcodes.Jmp:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:326:                case Opcodes.GetObj:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:329:                case Opcodes.SetObj:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:332:                case Opcodes.StreamWait:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:336:                case Opcodes.Expr:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:339:                case Opcodes.DefExpr:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:342:                case Opcodes.Lambda:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:344:                case Opcodes.Equals:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:347:                case Opcodes.Lt:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:350:                case Opcodes.Not:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:354:                case Opcodes.SysCall:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:358:                case Opcodes.Ret:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:774:                if (cmd.Opcode == Opcodes.DefExpr)
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:797:                    case Opcodes.Push:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:828:                    case Opcodes.Pop:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:835:                    case Opcodes.GetObj:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:844:                    case Opcodes.Equals:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:851:                    case Opcodes.Lambda:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Interpretation/Interpreter.cs:1241:                if (block[i].Opcode != Opcodes.Label)
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:131:                case Opcodes.Nop:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:133:                case Opcodes.Ret:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:135:                case Opcodes.Def:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:137:                case Opcodes.DefGen:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:139:                case Opcodes.AwaitObj:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:141:                case Opcodes.Await:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:143:                case Opcodes.StreamWaitObj:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:145:                case Opcodes.GetObj:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:147:                case Opcodes.SetObj:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:149:                case Opcodes.StreamWait:
+/tmp/gh-issue-solver-1774130096902/src/Libs/Magic.Kernel/Compilation/ExecutableUnitTextSerializer.cs:151:                case Opcodes.Label:
+
+</details>
+
+<details open>
+<summary>📤 Output (✅ success)</summary>
+
+BUN_INSTALL='/home/hive/.bun'
+CAML_LD_LIBRARY_PATH='/home/hive/.opam/default/lib/stublibs:/home/hive/.opam/default/lib/ocaml/stublibs:/home/hive/.opam/default/lib/ocaml'
+CARGO_HOME='/home/hive/.cargo'
+DEBIAN_FRONTEND='noninteractive'
+DENO_INSTALL='/home/hive/.deno'
+DOTNET_BUNDLE_EXTRACT_BASE_DIR='/home/hive/.cache/dotnet_bundle_extract'
+GOPATH='/home/hive/.go/path'
+GOROOT='/home/hive/.go'
+HOME='/home/hive'
+HOSTNAME='13361778ea13'
+IFS=' 	
+'
+JAVA_HOME='/home/hive/.sdkman/candidates/java/current'
+KOTLIN_HOME='/home/hive/.sdkman/candidates/kotlin/current'
+MANPATH=''
+NVM_BIN='/home/hive/.nvm/versions/node/v20.20.1/bin'
+NVM_CD_FLAGS=''
+NVM_DIR='/home/hive/.nvm'
+NVM_INC='/home/hive/.nvm/versions/node/v20.20.1/include/node'
+OCAML_TOPLEVEL_PATH='/home/hive/.opam/default/lib/toplevel'
+OPAM_SWITCH_PREFIX='/home/hive/.opam/default'
+OPTIND='1'
+PATH='/home/sandbox/.deno/bin:/home/sandbox/.perl5/bin:/home/hive/.sdkman/candidates/kotlin/current/bin:/home/hive/.sdkman/candidates/java/current/bin:/home/hive/.go/bin:/home/hive/.go/path/bin:/home/hive/.pyenv/shims:/home/hive/.pyenv/bin:/home/hive/.nvm/versions/node/v20.20.1/bin:/home/hive/.node-bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/home/hive/.pyenv/bin:/home/hive/.rbenv/bin:/home/hive/.rbenv/shims:/home/hive/.swift/usr/bin:/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/hive/.local/bin:/home/hive/.cargo/bin:/home/hive/.deno/bin:/home/hive/.bun/bin:/home/hive/.go/bin:/home/hive/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/hive/.dotnet/tools'
+PERLBREW_HOME='/home/hive/.perlbrew'
+PERLBREW_ROOT='/home/sandbox/.perl5'
+PERLBREW_SHELLRC_VERSION='1.02'
+PPID='372872'
+PS1='$ '
+PS2='> '
+PS4='+ '
+PWD='/home/hive'
+PYENV_ROOT='/home/hive/.pyenv'
+PYENV_SHELL='bash'
+RBENV_ROOT='/home/hive/.rbenv'
+SDKMAN_BROKER_API='https://broker.sdkman.io'
+SDKMAN_CANDIDATES_API='https://api.sdkman.io/2'
+SDKMAN_CANDIDATES_DIR='/home/hive/.sdkman/candidates'
+SDKMAN_DIR='/home/hive/.sdkman'
+SDKMAN_PLATFORM='linuxx64'
+SHELL='/bin/sh'
+SHLVL='2'
+STY='372870.solve-xlab2016-space_db_private-19'
+TELEGRAM_ALLOWED_CHATS='(
+  -1002975819706
+  -1002861722681
+)'
+TELEGRAM_BOT_TOKEN='8490528355:AAGHeNpjZJqWEytzt4iw1kfW2ouXlyItHCY'
+TELEGRAM_BOT_VERBOSE='true'
+TELEGRAM_HIVE_OVERRIDES='(
+  --all-issues
+  --once
+  --skip-issues-with-prs
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-accept-invite
+  --tokens-budget-stats
+)'
+TELEGRAM_SOLVE_OVERRIDES='(
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-accept-invite
+  --tokens-budget-stats
+)'
+TERM='screen'
+TERMCAP='SC|screen|VT 100/ANSI X3.64 virtual terminal:DO=\E[%dB:LE=\E[%dD:RI=\E[%dC:UP=\E[%dA:bs:bt=\E[Z:cd=\E[J:ce=\E[K:cl=\E[H\E[J:cm=\E[%i%d;%dH:ct=\E[3g:do=^J:nd=\E[C:pt:rc=\E8:rs=\Ec:sc=\E7:st=\EH:up=\EM:le=^H:bl=^G:cr=^M:it#8:ho=\E[H:nw=\EE:ta=^I:is=\E)0:li#24:co#80:am:xn:xv:LP:sr=\EM:al=\E[L:AL=\E[%dL:cs=\E[%i%d;%dr:dl=\E[M:DL=\E[%dM:dc=\E[P:DC=\E[%dP:im=\E[4h:ei=\E[4l:mi:IC=\E[%d@:ks=\E[?1h\E=:ke=\E[?1l\E>:vi=\E[?25l:ve=\E[34h\E[?25h:vs=\E[34l:ti=\E[?1049h:te=\E[?1049l:Km=\E[M:k0=\E[10~:k1=\EOP:k2=\EOQ:k3=\EOR:k4=\EOS:k5=\E[15~:k6=\E[17~:k7=\E[18~:k8=\E[19~:k9=\E[20~:k;=\E[21~:F1=\E[23~:F2=\E[24~:kh=\E[1~:@1=\E[1~:kH=\E[4~:@7=\E[4~:kN=\E[6~:kP=\E[5~:kI=\E[2~:kD=\E[3~:ku=\EOA:kd=\EOB:kr=\EOC:kl=\EOD:'
+WINDOW='0'
+_='/home/hive/.bun/bin/solve'
+
+</details>
+
+---
+
+<details>
+<summary>📄 Raw JSON</summary>
+
+
+
+</details>'

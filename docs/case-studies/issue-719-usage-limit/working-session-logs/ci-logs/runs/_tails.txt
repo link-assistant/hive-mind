@@ -1,0 +1,175 @@
+==== ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log (tail) ====
+publish	Checkout code	2025-11-13T04:08:36.6842583Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/722/merge
+publish	Checkout code	2025-11-13T04:08:36.7454714Z Note: switching to 'refs/remotes/pull/722/merge'.
+publish	Checkout code	2025-11-13T04:08:36.7456142Z 
+publish	Checkout code	2025-11-13T04:08:36.7457113Z You are in 'detached HEAD' state. You can look around, make experimental
+publish	Checkout code	2025-11-13T04:08:36.7459592Z changes and commit them, and you can discard any commits you make in this
+publish	Checkout code	2025-11-13T04:08:36.7462351Z state without impacting any branches by switching back to a branch.
+publish	Checkout code	2025-11-13T04:08:36.7463519Z 
+publish	Checkout code	2025-11-13T04:08:36.7464178Z If you want to create a new branch to retain commits you create, you may
+publish	Checkout code	2025-11-13T04:08:36.7465756Z do so (now or later) by using -c with the switch command. Example:
+publish	Checkout code	2025-11-13T04:08:36.7467088Z 
+publish	Checkout code	2025-11-13T04:08:36.7467462Z   git switch -c <new-branch-name>
+publish	Checkout code	2025-11-13T04:08:36.7468135Z 
+publish	Checkout code	2025-11-13T04:08:36.7468474Z Or undo this operation with:
+publish	Checkout code	2025-11-13T04:08:36.7469077Z 
+publish	Checkout code	2025-11-13T04:08:36.7469443Z   git switch -
+publish	Checkout code	2025-11-13T04:08:36.7469921Z 
+publish	Checkout code	2025-11-13T04:08:36.7470685Z Turn off this advice by setting config variable advice.detachedHead to false
+publish	Checkout code	2025-11-13T04:08:36.7471841Z 
+publish	Checkout code	2025-11-13T04:08:36.7473562Z HEAD is now at 8703edd Merge 5e21cf3702d8b04583a0805bd084c02fb47e1413 into ddb2c3ae9c177ca2f2d8ebd0c5e064de3d6049e7
+publish	Checkout code	2025-11-13T04:08:36.7478556Z ##[endgroup]
+publish	Checkout code	2025-11-13T04:08:36.7509171Z [command]/usr/bin/git log -1 --format=%H
+publish	Checkout code	2025-11-13T04:08:36.7531420Z 8703edd691018de9cc6169171c9b9155299ee3ba
+publish	Setup Node.js	﻿2025-11-13T04:08:36.7846522Z ##[group]Run actions/setup-node@v4
+publish	Setup Node.js	2025-11-13T04:08:36.7847749Z with:
+publish	Setup Node.js	2025-11-13T04:08:36.7848594Z   node-version: 20.x
+publish	Setup Node.js	2025-11-13T04:08:36.7849684Z   registry-url: https://registry.npmjs.org
+publish	Setup Node.js	2025-11-13T04:08:36.7850986Z   always-auth: false
+publish	Setup Node.js	2025-11-13T04:08:36.7851945Z   check-latest: false
+publish	Setup Node.js	2025-11-13T04:08:36.7853389Z   token: ***
+publish	Setup Node.js	2025-11-13T04:08:36.7854272Z ##[endgroup]
+publish	Setup Node.js	2025-11-13T04:08:36.9803560Z Found in cache @ /opt/hostedtoolcache/node/20.19.5/x64
+publish	Setup Node.js	2025-11-13T04:08:36.9810115Z ##[group]Environment details
+publish	Setup Node.js	2025-11-13T04:08:39.3610126Z node: v20.19.5
+publish	Setup Node.js	2025-11-13T04:08:39.3610714Z npm: 10.8.2
+publish	Setup Node.js	2025-11-13T04:08:39.3611086Z yarn: 1.22.22
+publish	Setup Node.js	2025-11-13T04:08:39.3612476Z ##[endgroup]
+publish	Publish	﻿2025-11-13T04:08:39.3769088Z ##[group]Run if [ "false" != "true" ]; then
+publish	Publish	2025-11-13T04:08:39.3769540Z [36;1mif [ "false" != "true" ]; then[0m
+publish	Publish	2025-11-13T04:08:39.3769946Z [36;1m  echo "⊘ Publishing skipped (no new version detected)"[0m
+publish	Publish	2025-11-13T04:08:39.3770366Z [36;1m  echo "  new-version output: false"[0m
+publish	Publish	2025-11-13T04:08:39.3770668Z [36;1m  exit 0[0m
+publish	Publish	2025-11-13T04:08:39.3770890Z [36;1mfi[0m
+publish	Publish	2025-11-13T04:08:39.3771116Z [36;1m[0m
+publish	Publish	2025-11-13T04:08:39.3771402Z [36;1mecho "✓ New version detected, proceeding with publish"[0m
+publish	Publish	2025-11-13T04:08:39.3771746Z [36;1m[0m
+publish	Publish	2025-11-13T04:08:39.3771972Z [36;1m# Make scripts executable[0m
+publish	Publish	2025-11-13T04:08:39.3772409Z [36;1mchmod +x src/hive.mjs[0m
+publish	Publish	2025-11-13T04:08:39.3772719Z [36;1mchmod +x src/solve.mjs[0m
+publish	Publish	2025-11-13T04:08:39.3772981Z [36;1m[0m
+publish	Publish	2025-11-13T04:08:39.3773194Z [36;1m# Publish to NPM[0m
+publish	Publish	2025-11-13T04:08:39.3773478Z [36;1mnpm publish --access public[0m
+publish	Publish	2025-11-13T04:08:39.3773769Z [36;1m[0m
+publish	Publish	2025-11-13T04:08:39.3773985Z [36;1m# Create GitHub Release[0m
+publish	Publish	2025-11-13T04:08:39.3774287Z [36;1mVERSION=[0m
+publish	Publish	2025-11-13T04:08:39.3774604Z [36;1mPACKAGE_NAME=$(node -p "require('./package.json').name")[0m
+publish	Publish	2025-11-13T04:08:39.3774999Z [36;1mgh release create "v${VERSION}" \[0m
+publish	Publish	2025-11-13T04:08:39.3775325Z [36;1m  --title "${VERSION}" \[0m
+publish	Publish	2025-11-13T04:08:39.3775819Z [36;1m  --notes "https://www.npmjs.com/package/${PACKAGE_NAME}/v/${VERSION}"[0m
+publish	Publish	2025-11-13T04:08:39.3913885Z shell: /usr/bin/bash -e {0}
+publish	Publish	2025-11-13T04:08:39.3914207Z env:
+publish	Publish	2025-11-13T04:08:39.3914507Z   NPM_CONFIG_USERCONFIG: /home/runner/work/_temp/.npmrc
+publish	Publish	2025-11-13T04:08:39.3915197Z   NODE_AUTH_TOKEN: ***
+publish	Publish	2025-11-13T04:08:39.3915612Z   GITHUB_TOKEN: ***
+publish	Publish	2025-11-13T04:08:39.3915856Z ##[endgroup]
+publish	Publish	2025-11-13T04:08:39.3997813Z ⊘ Publishing skipped (no new version detected)
+publish	Publish	2025-11-13T04:08:39.4059767Z   new-version output: false
+publish	Post Setup Node.js	﻿2025-11-13T04:08:39.4145586Z Post job cleanup.
+publish	Post Checkout code	﻿2025-11-13T04:08:39.5807960Z Post job cleanup.
+publish	Post Checkout code	2025-11-13T04:08:39.6760202Z [command]/usr/bin/git version
+publish	Post Checkout code	2025-11-13T04:08:39.6803010Z git version 2.51.2
+publish	Post Checkout code	2025-11-13T04:08:39.6845843Z Temporarily overriding HOME='/home/runner/work/_temp/93e6b567-9955-4ce7-8b24-76ff3b66d25d' before making global git config changes
+publish	Post Checkout code	2025-11-13T04:08:39.6846808Z Adding repository directory to the temporary git global config as a safe directory
+publish	Post Checkout code	2025-11-13T04:08:39.6850994Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+publish	Post Checkout code	2025-11-13T04:08:39.6884282Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+publish	Post Checkout code	2025-11-13T04:08:39.6918929Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+publish	Post Checkout code	2025-11-13T04:08:39.7150893Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+publish	Post Checkout code	2025-11-13T04:08:39.7173260Z http.https://github.com/.extraheader
+publish	Post Checkout code	2025-11-13T04:08:39.7185524Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+publish	Post Checkout code	2025-11-13T04:08:39.7216497Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+publish	Complete job	﻿2025-11-13T04:08:39.7540204Z Cleaning up orphan processes
+
+==== ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log (grep summary) ====
+
+
+==== ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log (tail) ====
+publish	Checkout code	2025-11-13T04:09:05.3468971Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/722/merge
+publish	Checkout code	2025-11-13T04:09:05.4085126Z Note: switching to 'refs/remotes/pull/722/merge'.
+publish	Checkout code	2025-11-13T04:09:05.4086484Z 
+publish	Checkout code	2025-11-13T04:09:05.4087226Z You are in 'detached HEAD' state. You can look around, make experimental
+publish	Checkout code	2025-11-13T04:09:05.4088864Z changes and commit them, and you can discard any commits you make in this
+publish	Checkout code	2025-11-13T04:09:05.4090438Z state without impacting any branches by switching back to a branch.
+publish	Checkout code	2025-11-13T04:09:05.4091462Z 
+publish	Checkout code	2025-11-13T04:09:05.4092064Z If you want to create a new branch to retain commits you create, you may
+publish	Checkout code	2025-11-13T04:09:05.4093332Z do so (now or later) by using -c with the switch command. Example:
+publish	Checkout code	2025-11-13T04:09:05.4094202Z 
+publish	Checkout code	2025-11-13T04:09:05.4094792Z   git switch -c <new-branch-name>
+publish	Checkout code	2025-11-13T04:09:05.4095741Z 
+publish	Checkout code	2025-11-13T04:09:05.4096119Z Or undo this operation with:
+publish	Checkout code	2025-11-13T04:09:05.4096651Z 
+publish	Checkout code	2025-11-13T04:09:05.4096972Z   git switch -
+publish	Checkout code	2025-11-13T04:09:05.4097414Z 
+publish	Checkout code	2025-11-13T04:09:05.4098068Z Turn off this advice by setting config variable advice.detachedHead to false
+publish	Checkout code	2025-11-13T04:09:05.4099133Z 
+publish	Checkout code	2025-11-13T04:09:05.4100455Z HEAD is now at 6193be2 Merge fe8043d6ecd64fdbe045a35b09fdb55618b5982b into ddb2c3ae9c177ca2f2d8ebd0c5e064de3d6049e7
+publish	Checkout code	2025-11-13T04:09:05.4103803Z ##[endgroup]
+publish	Checkout code	2025-11-13T04:09:05.4133911Z [command]/usr/bin/git log -1 --format=%H
+publish	Checkout code	2025-11-13T04:09:05.4156409Z 6193be234b532cbe5438d9cf50e2076e26d5620e
+publish	Setup Node.js	﻿2025-11-13T04:09:05.4466090Z ##[group]Run actions/setup-node@v4
+publish	Setup Node.js	2025-11-13T04:09:05.4467239Z with:
+publish	Setup Node.js	2025-11-13T04:09:05.4468073Z   node-version: 20.x
+publish	Setup Node.js	2025-11-13T04:09:05.4469114Z   registry-url: https://registry.npmjs.org
+publish	Setup Node.js	2025-11-13T04:09:05.4470294Z   always-auth: false
+publish	Setup Node.js	2025-11-13T04:09:05.4471357Z   check-latest: false
+publish	Setup Node.js	2025-11-13T04:09:05.4472540Z   token: ***
+publish	Setup Node.js	2025-11-13T04:09:05.4473429Z ##[endgroup]
+publish	Setup Node.js	2025-11-13T04:09:05.6286202Z Found in cache @ /opt/hostedtoolcache/node/20.19.5/x64
+publish	Setup Node.js	2025-11-13T04:09:05.6293146Z ##[group]Environment details
+publish	Setup Node.js	2025-11-13T04:09:05.9872192Z node: v20.19.5
+publish	Setup Node.js	2025-11-13T04:09:05.9872766Z npm: 10.8.2
+publish	Setup Node.js	2025-11-13T04:09:05.9873154Z yarn: 1.22.22
+publish	Setup Node.js	2025-11-13T04:09:05.9873957Z ##[endgroup]
+publish	Publish	﻿2025-11-13T04:09:06.0017984Z ##[group]Run if [ "false" != "true" ]; then
+publish	Publish	2025-11-13T04:09:06.0018430Z [36;1mif [ "false" != "true" ]; then[0m
+publish	Publish	2025-11-13T04:09:06.0018808Z [36;1m  echo "⊘ Publishing skipped (no new version detected)"[0m
+publish	Publish	2025-11-13T04:09:06.0019216Z [36;1m  echo "  new-version output: false"[0m
+publish	Publish	2025-11-13T04:09:06.0019521Z [36;1m  exit 0[0m
+publish	Publish	2025-11-13T04:09:06.0019740Z [36;1mfi[0m
+publish	Publish	2025-11-13T04:09:06.0019941Z [36;1m[0m
+publish	Publish	2025-11-13T04:09:06.0020235Z [36;1mecho "✓ New version detected, proceeding with publish"[0m
+publish	Publish	2025-11-13T04:09:06.0020577Z [36;1m[0m
+publish	Publish	2025-11-13T04:09:06.0020796Z [36;1m# Make scripts executable[0m
+publish	Publish	2025-11-13T04:09:06.0021229Z [36;1mchmod +x src/hive.mjs[0m
+publish	Publish	2025-11-13T04:09:06.0021512Z [36;1mchmod +x src/solve.mjs[0m
+publish	Publish	2025-11-13T04:09:06.0021762Z [36;1m[0m
+publish	Publish	2025-11-13T04:09:06.0021979Z [36;1m# Publish to NPM[0m
+publish	Publish	2025-11-13T04:09:06.0022255Z [36;1mnpm publish --access public[0m
+publish	Publish	2025-11-13T04:09:06.0022531Z [36;1m[0m
+publish	Publish	2025-11-13T04:09:06.0022749Z [36;1m# Create GitHub Release[0m
+publish	Publish	2025-11-13T04:09:06.0023049Z [36;1mVERSION=[0m
+publish	Publish	2025-11-13T04:09:06.0023361Z [36;1mPACKAGE_NAME=$(node -p "require('./package.json').name")[0m
+publish	Publish	2025-11-13T04:09:06.0023745Z [36;1mgh release create "v${VERSION}" \[0m
+publish	Publish	2025-11-13T04:09:06.0024060Z [36;1m  --title "${VERSION}" \[0m
+publish	Publish	2025-11-13T04:09:06.0024459Z [36;1m  --notes "https://www.npmjs.com/package/${PACKAGE_NAME}/v/${VERSION}"[0m
+publish	Publish	2025-11-13T04:09:06.0067718Z shell: /usr/bin/bash -e {0}
+publish	Publish	2025-11-13T04:09:06.0068040Z env:
+publish	Publish	2025-11-13T04:09:06.0068322Z   NPM_CONFIG_USERCONFIG: /home/runner/work/_temp/.npmrc
+publish	Publish	2025-11-13T04:09:06.0068894Z   NODE_AUTH_TOKEN: ***
+publish	Publish	2025-11-13T04:09:06.0069238Z   GITHUB_TOKEN: ***
+publish	Publish	2025-11-13T04:09:06.0069465Z ##[endgroup]
+publish	Publish	2025-11-13T04:09:06.0149177Z ⊘ Publishing skipped (no new version detected)
+publish	Publish	2025-11-13T04:09:06.0211769Z   new-version output: false
+publish	Post Setup Node.js	﻿2025-11-13T04:09:06.0288815Z Post job cleanup.
+publish	Post Checkout code	﻿2025-11-13T04:09:06.1970499Z Post job cleanup.
+publish	Post Checkout code	2025-11-13T04:09:06.2913826Z [command]/usr/bin/git version
+publish	Post Checkout code	2025-11-13T04:09:06.2950144Z git version 2.51.2
+publish	Post Checkout code	2025-11-13T04:09:06.2999210Z Temporarily overriding HOME='/home/runner/work/_temp/e3037e72-aaeb-48c8-94dd-f3b86905d55c' before making global git config changes
+publish	Post Checkout code	2025-11-13T04:09:06.3000564Z Adding repository directory to the temporary git global config as a safe directory
+publish	Post Checkout code	2025-11-13T04:09:06.3004062Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+publish	Post Checkout code	2025-11-13T04:09:06.3039495Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+publish	Post Checkout code	2025-11-13T04:09:06.3073641Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+publish	Post Checkout code	2025-11-13T04:09:06.3303142Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+publish	Post Checkout code	2025-11-13T04:09:06.3323653Z http.https://github.com/.extraheader
+publish	Post Checkout code	2025-11-13T04:09:06.3337012Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+publish	Post Checkout code	2025-11-13T04:09:06.3368234Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+publish	Complete job	﻿2025-11-13T04:09:06.3691677Z Cleaning up orphan processes
+
+==== ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log (grep summary) ====
+
+
+==== ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320648438.log (tail) ====
+
+==== ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320648438.log (grep summary) ====
+
+

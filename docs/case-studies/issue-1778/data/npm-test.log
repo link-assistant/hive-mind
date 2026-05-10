@@ -2,9 +2,9 @@
 > @link-assistant/hive-mind@1.69.4 test
 > node scripts/run-tests.mjs --suite default
 
-Running 200 default test file(s)...
+Running 202 default test file(s)...
 
-[1/200] tests/docs-validation.mjs
+[1/202] tests/docs-validation.mjs
 🚀 Starting documentation validation tests...
 📏 Checking documentation file size limits...
 ✅ OK: docs/BEST-PRACTICES.hi.md (274 lines)
@@ -23,10 +23,10 @@ Running 200 default test file(s)...
 ✅ OK: docs/COMPARISON.md (298 lines)
 ✅ OK: docs/COMPARISON.ru.md (298 lines)
 ✅ OK: docs/COMPARISON.zh.md (298 lines)
-✅ OK: docs/CONFIGURATION.hi.md (572 lines)
-✅ OK: docs/CONFIGURATION.md (630 lines)
-✅ OK: docs/CONFIGURATION.ru.md (574 lines)
-✅ OK: docs/CONFIGURATION.zh.md (590 lines)
+✅ OK: docs/CONFIGURATION.hi.md (573 lines)
+✅ OK: docs/CONFIGURATION.md (631 lines)
+✅ OK: docs/CONFIGURATION.ru.md (575 lines)
+✅ OK: docs/CONFIGURATION.zh.md (591 lines)
 ✅ OK: docs/CONTRIBUTING.hi.md (143 lines)
 ✅ OK: docs/CONTRIBUTING.md (142 lines)
 ✅ OK: docs/CONTRIBUTING.ru.md (144 lines)
@@ -68,7 +68,7 @@ Running 200 default test file(s)...
 📊 Test Summary:
 🎉 All documentation tests passed!
 
-[2/200] tests/github-rate-limit.test.mjs
+[2/202] tests/github-rate-limit.test.mjs
 
 📋 isRateLimitError
 
@@ -109,7 +109,7 @@ Running 200 default test file(s)...
 
 📊 22 passed, 0 failed
 
-[3/200] tests/interruptible-sleep.test.mjs
+[3/202] tests/interruptible-sleep.test.mjs
 ✅ resolves after specified duration with interrupted=false
 ✅ resolves immediately on SIGINT with interrupted=true
 ✅ cleans up SIGINT listener after normal resolution
@@ -118,7 +118,7 @@ Running 200 default test file(s)...
 
 5 tests: 5 passed, 0 failed
 
-[4/200] tests/limits-display.test.mjs
+[4/202] tests/limits-display.test.mjs
 
 📋 Progress Bar Tests
 
@@ -202,16 +202,19 @@ Running 200 default test file(s)...
 ✅ formatRetryAfterMessage handles HTTP-date in the past
 ✅ formatRetryAfterMessage with rate-limit error message in formatUsageMessage
 ✅ formatRetryAfterMessage with positive retry-after in formatUsageMessage
+✅ formatUsageMessage localizes core labels for Russian
+✅ formatUsageMessage localizes core labels for Chinese and Hindi
+✅ formatCodexLimitsSection localizes additional Codex labels
 
 📊 Test Results
 
-Tests passed: 53
+Tests passed: 56
 Tests failed: 0
-Total tests: 53
+Total tests: 56
 
 ✅ All tests passed!
 
-[5/200] tests/model-info.test.mjs
+[5/202] tests/model-info.test.mjs
 
 📋 getToolDisplayName Tests
 
@@ -309,7 +312,7 @@ Total tests: 53
 📊 Results: 70 passed, 0 failed, 70 total
 
 
-[6/200] tests/playwright-mcp-cleanup.test.mjs
+[6/202] tests/playwright-mcp-cleanup.test.mjs
 
 📋 Playwright MCP Cleanup Tests
 
@@ -333,7 +336,7 @@ Total tests: 53
 ========================================
 
 
-[7/200] tests/pr-closes-issue.test.mjs
+[7/202] tests/pr-closes-issue.test.mjs
 
 📋 Basic Keyword Tests
 
@@ -393,7 +396,7 @@ Total tests: 32
 
 ✅ All tests passed!
 
-[8/200] tests/queue-config.test.mjs
+[8/202] tests/queue-config.test.mjs
 
 📋 QUEUE_CONFIG Tests
 
@@ -449,7 +452,7 @@ Total tests: 25
 
 ✅ All tests passed!
 
-[9/200] tests/solve-queue-reject.test.mjs
+[9/202] tests/solve-queue-reject.test.mjs
 
 📋 Issue #1555: Queued Item Rejection Tests
 
@@ -468,7 +471,7 @@ Total tests: 6
 
 ✅ All tests passed!
 
-[10/200] tests/solve-queue-tool-tracking.test.mjs
+[10/202] tests/solve-queue-tool-tracking.test.mjs
 
 📋 Tool-Specific Queue Tracking Tests (Issue #1159)
 
@@ -492,7 +495,7 @@ Total tests: 11
 
 ✅ All tests passed!
 
-[11/200] tests/solve-queue.test.mjs
+[11/202] tests/solve-queue.test.mjs
 
 📋 Configuration Tests
 
@@ -645,7 +648,7 @@ Total tests: 68
 
 ✅ All tests passed!
 
-[12/200] tests/telegram-show-limits.test.mjs
+[12/202] tests/telegram-show-limits.test.mjs
 
 📋 extractShowLimitsFlag
 
@@ -678,6 +681,7 @@ Total tests: 68
 ✅ handles N/A percentages
 ✅ returns empty string for null snapshot
 ✅ honors custom title
+✅ localizes snapshot labels
 
 📋 formatLimitsDeltaBlock
 
@@ -686,6 +690,7 @@ Total tests: 68
 ✅ returns empty string for mismatched tool keys
 ✅ returns empty string when either snapshot is null
 ✅ handles both snapshots failing
+✅ localizes delta labels
 
 📋 appendInfoSection
 
@@ -699,6 +704,7 @@ Total tests: 68
 ✅ passes through when flag absent
 ✅ honors flag when admin enabled
 ✅ rejects flag when admin disabled
+✅ localizes disabled reply
 ✅ does not reject when --no-show-limits used while disabled
 
 📋 captureStartSnapshotAndAppend
@@ -708,10 +714,10 @@ Total tests: 68
 ✅ uses codex fetcher for codex tool
 
 ============================================================
-Results: 36 passed, 0 failed
+Results: 39 passed, 0 failed
 ============================================================
 
-[13/200] tests/test-accept-invites-output.mjs
+[13/202] tests/test-accept-invites-output.mjs
 🧪 Running /accept_invites output unit tests...
 
 ================================================================================
@@ -791,7 +797,7 @@ Failed:       0
    ✅ Properly escapes special characters (underscore, hyphen, etc.)
 
 
-[14/200] tests/test-action-required-ci-stuck-1466.mjs
+[14/202] tests/test-action-required-ci-stuck-1466.mjs
 ================================================================================
 Unit Tests: Issue #1466 - Auto restart stuck at waiting for CI/CD
 ================================================================================
@@ -829,7 +835,7 @@ Unit Tests: Issue #1466 - Auto restart stuck at waiting for CI/CD
 Results: [32m14 passed[0m, 0 failed[0m
 ================================================================================
 
-[15/200] tests/test-active-branch-runs-buffer-1722.mjs
+[15/202] tests/test-active-branch-runs-buffer-1722.mjs
 
 📋 Issue #1722: /merge active branch CI detection
 
@@ -854,10 +860,10 @@ boom
 8 passed, 0 failed
 
 
-[16/200] tests/test-agent-commander-option.mjs
+[16/202] tests/test-agent-commander-option.mjs
 agent-commander option tests passed
 
-[17/200] tests/test-agent-error-detection.mjs
+[17/202] tests/test-agent-error-detection.mjs
 Testing simplified agent error detection...
 
 Issue #886: Trust exit code, only detect explicit JSON errors
@@ -974,7 +980,7 @@ Issue #1296 fix adds:
   - step_finish with reason "stop" now marks agent as completed successfully
   - This prevents false positive errors when timeout errors are recovered from
 
-[18/200] tests/test-agent-model-validation.mjs
+[18/202] tests/test-agent-model-validation.mjs
 🧪 Testing Agent Model Validation (Issue #1185)
 
 ✅ AGENT_MODELS contains opencode/gpt-5-nano as key
@@ -1002,7 +1008,7 @@ Issue #1296 fix adds:
 
 ✅ All tests passed!
 
-[19/200] tests/test-agent-token-usage.mjs
+[19/202] tests/test-agent-token-usage.mjs
 🧪 Running agent token usage tests (Issue #1250)...
 
 ================================================================================
@@ -1098,7 +1104,7 @@ Test Results for agent token usage (Issue #1250 / Issue #1313):
   ❌ Failed: 0
 ================================================================================
 
-[20/200] tests/test-agent-verbose-env.mjs
+[20/202] tests/test-agent-verbose-env.mjs
 Testing agent verbose environment variable propagation (Issue #1521)...
 
 Test 1: agent.lib.mjs sets LINK_ASSISTANT_AGENT_VERBOSE env var for agent process
@@ -1123,7 +1129,7 @@ All tests passed! ✅
 
 Issue #1521: Agent verbose env propagation is correctly implemented.
 
-[21/200] tests/test-agents-md-claude-support.mjs
+[21/202] tests/test-agents-md-claude-support.mjs
 Testing disabled option does not create CLAUDE.md... PASSED
 Testing enabled option creates and removes an untracked temporary CLAUDE.md... PASSED
 Testing existing different CLAUDE.md is left untouched... PASSED
@@ -1137,7 +1143,7 @@ Testing lowercase agents.md is supported... PASSED
 
 All AGENTS.md to CLAUDE.md support tests passed.
 
-[22/200] tests/test-auto-accept-invite-1373.mjs
+[22/202] tests/test-auto-accept-invite-1373.mjs
 🧪 Running --auto-accept-invite unit tests (Issue #1373)...
 
 ================================================================================
@@ -1173,7 +1179,7 @@ Failed:       0
    ✅ Skips non-pending (active) organization memberships
 
 
-[23/200] tests/test-auto-delete-branch-on-merge-401.mjs
+[23/202] tests/test-auto-delete-branch-on-merge-401.mjs
 Testing --auto-delete-branch-on-merge option is registered as boolean defaulting to false... PASSED
 Testing option is documented in docs/CONFIGURATION.md (English)... PASSED
 Testing option is documented in localized CONFIGURATION docs... PASSED
@@ -1183,7 +1189,7 @@ Testing auto-merge mode passes --auto-delete-branch-on-merge to mergePullRequest
 
 Results: 6 passed, 0 failed
 
-[24/200] tests/test-auto-input-until-mergeable-1708.mjs
+[24/202] tests/test-auto-input-until-mergeable-1708.mjs
 
 --- yargsOptions registers --auto-input-until-mergeable ---
   ✅ flag is present in yargsOptions
@@ -1272,7 +1278,24 @@ Results: 6 passed, 0 failed
 Result: 59 passed, 0 failed
 ================================================================================
 
-[25/200] tests/test-auto-report-issue.mjs
+[25/202] tests/test-auto-language.mjs
+🧪 Running auto-language tests...
+
+  ✅ extractLanguageWords tokenizes Latin and Cyrillic words
+  ✅ detectIssueLanguageFromText selects Russian above 51 percent of all words
+  ✅ detectIssueLanguageFromText selects English above 51 percent of all words
+  ✅ detectIssueLanguageFromText falls back to English when no language has majority
+  ✅ detectIssueLanguageFromText requires majority of all words
+  ✅ applyAutoLanguageToArgv sets workLanguage from issue text
+  ✅ applyAutoLanguageToArgv preserves explicit work language
+  ✅ parseArguments accepts --auto-language
+  ✅ parseArguments leaves --auto-language disabled by default
+  ✅ parseArguments maps hidden --prompt-language to workLanguage
+  ✅ parseArguments lets --work-language override --prompt-language
+
+Results: 11 passed, 0 failed
+
+[26/202] tests/test-auto-report-issue.mjs
 🧪 Auto Report Issue Tests (Issue #1484)
 
 Testing --disable-report-issue: returns null without creating issue... ℹ️  Error issue creation is disabled by CLI configuration.
@@ -1291,7 +1314,7 @@ Testing formatLogForIssue: inline for small logs... ✅ PASSED
 
 📊 Results: 10 passed, 0 failed out of 10 tests
 
-[26/200] tests/test-auto-restart-consistency-1567.mjs
+[27/202] tests/test-auto-restart-consistency-1567.mjs
 ================================================================================
 Unit Tests: Issue #1567 - Non-consistent auto-restart logic
 ================================================================================
@@ -1341,7 +1364,7 @@ Test Results for Issue #1567:
 
 [32m✅ All tests passed![0m
 
-[27/200] tests/test-auto-restart-counter-1323.mjs
+[28/202] tests/test-auto-restart-counter-1323.mjs
 ================================================================================
 Unit Tests: Issue #1323 - Auto-restart iteration counter and duplicate comments
 ================================================================================
@@ -1378,7 +1401,7 @@ Test Results for Issue #1323:
 
 [32m✅ All tests passed![0m
 
-[28/200] tests/test-auto-restart-limits-1664.mjs
+[29/202] tests/test-auto-restart-limits-1664.mjs
 ok - default auto iteration limit is 5
 ok - iteration limit helper allows exactly the configured number of executions
 ok - zero disables the auto iteration limit for explicit opt-out
@@ -1386,7 +1409,7 @@ ok - invalid limit values fall back to the safe default
 ok - auto-restart skips branch sync when uncommitted changes are present
 All 5 issue #1664 auto-restart limit tests passed.
 
-[29/200] tests/test-auto-restart-usage-limit-1356.mjs
+[30/202] tests/test-auto-restart-usage-limit-1356.mjs
 ================================================================================
 Unit Tests: Issue #1356 - Auto-restart usage limit detection and resume
 ================================================================================
@@ -1434,7 +1457,7 @@ Test Results for Issue #1356:
 
 [32m✅ All tests passed![0m
 
-[30/200] tests/test-auto-resume-comment-ordering-1571.mjs
+[31/202] tests/test-auto-resume-comment-ordering-1571.mjs
 Testing Issue #1571: skip post-processing when limit reached with auto-resume... [32m✓ PASSED[0m
 Testing Issue #1571: skip post-processing when limit reached with auto-restart... [32m✓ PASSED[0m
 Testing Issue #1571: do NOT skip post-processing when no limit reached... [32m✓ PASSED[0m
@@ -1453,7 +1476,7 @@ Test results: 11 passed, 0 failed
 
 All tests passed. Comment ordering fix for issue #1571 is working correctly.
 
-[31/200] tests/test-auto-resume-limit-reset.mjs
+[32/202] tests/test-auto-resume-limit-reset.mjs
 Testing shouldSkipFailureExit: returns true when limit reached with auto-resume... [32m✓ PASSED[0m
 Testing shouldSkipFailureExit: returns false when limit not reached... [32m✓ PASSED[0m
 Testing shouldSkipFailureExit: returns false when auto-resume disabled... [32m✓ PASSED[0m
@@ -1470,7 +1493,7 @@ Test results: 9 passed, 0 failed
 
 All tests passed. The --auto-resume-on-limit-reset fix is working correctly.
 
-[32/200] tests/test-base-branch-validation.mjs
+[33/202] tests/test-base-branch-validation.mjs
 🧪 Base Branch Validation Tests (Issue #1482)
 
 Testing valid: simple branch names... ✅ PASSED
@@ -1499,7 +1522,7 @@ Testing reject: case-insensitive URL detection... ✅ PASSED
 
 🎉 All tests passed!
 
-[33/200] tests/test-bidirectional-interactive.mjs
+[34/202] tests/test-bidirectional-interactive.mjs
 
 === Testing Utility Functions ===
 
@@ -1582,7 +1605,7 @@ Test Results for bidirectional-interactive.lib.mjs:
   ❌ Failed: 0
 ==================================================
 
-[34/200] tests/test-branch-ci-health-1425.mjs
+[35/202] tests/test-branch-ci-health-1425.mjs
 
 📋 Issue #1425: checkBranchCIHealth return shape tests
 
@@ -1610,7 +1633,7 @@ Test Results for bidirectional-interactive.lib.mjs:
 📊 Test Results: 12 passed, 0 failed
 
 
-[35/200] tests/test-branch-name-validation.mjs
+[36/202] tests/test-branch-name-validation.mjs
 🧪 Branch Name Validation Tests
 
 Testing isValidIssueBranchName - legacy 8-char format... ✅ PASSED
@@ -1631,7 +1654,7 @@ Testing detectBranchFormat - invalid... ✅ PASSED
 
 🎉 All tests passed!
 
-[36/200] tests/test-budget-stats-issue-1501.mjs
+[37/202] tests/test-budget-stats-issue-1501.mjs
 🧪 Running Issue #1501 regression tests: Cost and token calculation fixes
 
 ================================================================================
@@ -1662,7 +1685,7 @@ Testing single model does not show bold label... ✅ PASSED
 🏁 Test Results: 12 passed, 0 failed out of 12 total
 
 
-[37/200] tests/test-budget-stats-issue-1508.mjs
+[38/202] tests/test-budget-stats-issue-1508.mjs
 🧪 Running Issue #1508 regression tests...
 
 ================================================================================
@@ -1702,7 +1725,7 @@ Testing multi-model multi sub-sessions shows global sub-sessions AND per-model c
 🏁 Test Results: 15 passed, 0 failed out of 15 total
 
 
-[38/200] tests/test-budget-stats-issue-1539.mjs
+[39/202] tests/test-budget-stats-issue-1539.mjs
 🧪 Running Issue #1539 regression tests...
 
 ================================================================================
@@ -1738,7 +1761,7 @@ Testing mergeResultModelUsage handles missing contextWindow/maxOutputTokens grac
 🏁 Test Results: 11 passed, 0 failed out of 11 total
 
 
-[39/200] tests/test-budget-stats-issue-1590.mjs
+[40/202] tests/test-budget-stats-issue-1590.mjs
 
 📋 Issue #1590: Sub-agent per-call stats tests
 
@@ -1763,7 +1786,7 @@ Testing buildBudgetStatsString Total line appears after Sub-agent calls section 
 📊 Results: 17 passed, 0 failed
 
 
-[40/200] tests/test-budget-stats.mjs
+[41/202] tests/test-budget-stats.mjs
 🧪 Running token budget statistics unit tests (Issue #1491, #1501)...
 
 ================================================================================
@@ -1800,7 +1823,7 @@ Testing handles multiple compactifications with numbered sub-sessions... ✅ PAS
 🏁 Test Results: 18 passed, 0 failed out of 18 total
 
 
-[41/200] tests/test-build-cost-info-string.mjs
+[42/202] tests/test-build-cost-info-string.mjs
 🧪 Running buildCostInfoString unit tests (Issue #1015)...
 
 ================================================================================
@@ -1899,7 +1922,7 @@ Test Results for buildCostInfoString (Issues #1015, #1250 & #1557):
   ❌ Failed: 0
 ================================================================================
 
-[42/200] tests/test-build-resume-command.mjs
+[43/202] tests/test-build-resume-command.mjs
 Testing buildClaudeResumeCommand: generates command with (cd ... && claude --resume ...) pattern... [32m✓ PASSED[0m
 Testing buildClaudeResumeCommand: contains cd command... [32m✓ PASSED[0m
 Testing buildClaudeResumeCommand: contains quoted tempDir... [32m✓ PASSED[0m
@@ -1924,7 +1947,7 @@ Testing buildClaudeInitialCommand: uses custom claude path... [32m✓ PASSED[0
 Test results: 19 passed, 0 failed
 ==================================================
 
-[43/200] tests/test-cancelled-ci-rerun-1769.mjs
+[44/202] tests/test-cancelled-ci-rerun-1769.mjs
 ================================================================================
 Unit Tests: Issue #1769 - cancelled CI rerun failure handling
 ================================================================================
@@ -1940,13 +1963,13 @@ Unit Tests: Issue #1769 - cancelled CI rerun failure handling
 Results: 6 passed, 0 failed
 ================================================================================
 
-[44/200] tests/test-claude-code-install-method.mjs
+[45/202] tests/test-claude-code-install-method.mjs
 Claude Code install method tests passed
 
-[45/200] tests/test-claude-quiet-config.mjs
+[46/202] tests/test-claude-quiet-config.mjs
 Claude quiet configuration tests passed
 
-[46/200] tests/test-claude-think-prompt-gating.mjs
+[47/202] tests/test-claude-think-prompt-gating.mjs
 Testing Claude Think Prompt Gating
 
 === Models with effort support (should NOT get think prompt instructions) ===
@@ -2076,7 +2099,7 @@ Test Results: 107 passed, 0 failed
 
 All tests passed!
 
-[47/200] tests/test-codex-support.mjs
+[48/202] tests/test-codex-support.mjs
 ✅ Codex preferred default model is gpt-5.5
 ✅ Codex resolves gpt-5.5 model id
 ✅ Codex validates gpt-5.5-mini model id
@@ -2117,10 +2140,10 @@ All tests passed!
 
 Passed: 37  Failed: 0
 
-[48/200] tests/test-configure-claude-bin.mjs
+[49/202] tests/test-configure-claude-bin.mjs
 configure-claude bin tests passed
 
-[49/200] tests/test-detect-code-changes-1528.mjs
+[50/202] tests/test-detect-code-changes-1528.mjs
 🧪 Detect Code Changes Tests (Issue #1528)
 
 --- isExcludedFromCodeChanges ---
@@ -2181,7 +2204,7 @@ Results: 44 passed, 0 failed out of 44 tests
 
 ✅ All tests passed!
 
-[50/200] tests/test-display-cost-comparison.mjs
+[51/202] tests/test-display-cost-comparison.mjs
 🧪 Running displayCostComparison unit tests (Issues #1557 & #1703)...
 
 ================================================================================
@@ -2196,16 +2219,16 @@ Test Results for displayCostComparison (Issues #1557 & #1703):
   ❌ Failed: 0
 ================================================================================
 
-[51/200] tests/test-docker-box-migration.mjs
+[52/202] tests/test-docker-box-migration.mjs
 Docker Box migration checks passed
 
-[52/200] tests/test-docker-dind-variant.mjs
+[53/202] tests/test-docker-dind-variant.mjs
 Docker DinD variant checks passed
 
-[53/200] tests/test-docker-release-order.mjs
+[54/202] tests/test-docker-release-order.mjs
 Docker release-order contract tests passed
 
-[54/200] tests/test-docs-language-sync.mjs
+[55/202] tests/test-docs-language-sync.mjs
 Testing documentation language synchronization...
 
 Testing root README and top-level docs have all language siblings... ✅ PASSED
@@ -2216,7 +2239,7 @@ Total: 2 | ✅ Passed: 2 | ❌ Failed: 0
 
 🎉 Documentation language sync checks passed!
 
-[55/200] tests/test-docs-options-sync.mjs
+[56/202] tests/test-docs-options-sync.mjs
 Testing documentation-code options sync...
 
 Testing all non-hidden solve options are documented in CONFIGURATION.md... ✅ PASSED
@@ -2229,11 +2252,11 @@ Testing --allow-force-non-fork-repository-deletion is documented... ✅ PASSED
 === Test Summary ===
 Total: 6 | ✅ Passed: 6 | ❌ Failed: 0
 
-Stats: 96 non-hidden code options, 105 documented solve options
+Stats: 97 non-hidden code options, 106 documented solve options
 
 🎉 All documentation-code sync tests passed!
 
-[56/200] tests/test-entity-validation-1552.mjs
+[57/202] tests/test-entity-validation-1552.mjs
 🧪 Running GitHub entity validation unit tests (Issue #1552)...
 
 ================================================================================
@@ -2280,7 +2303,7 @@ Failed:       0
    ✅ Checks entities in hierarchical order (user -> repo -> issue/PR)
 
 
-[57/200] tests/test-execgh-transient-retry-1756.mjs
+[58/202] tests/test-execgh-transient-retry-1756.mjs
 
 📋 isTransientNetworkError (issue #1756)
 
@@ -2313,7 +2336,7 @@ Failed:       0
 
 📊 20 passed, 0 failed
 
-[58/200] tests/test-extract-isolation-from-args.mjs
+[59/202] tests/test-extract-isolation-from-args.mjs
 Testing extractIsolationFromArgs (issue #1534)
 ============================================================
 
@@ -2375,7 +2398,7 @@ Results: 26 passed, 0 failed, 26 total
 
 ✅ All tests passed!
 
-[59/200] tests/test-false-positive-ci-success-1480.mjs
+[60/202] tests/test-false-positive-ci-success-1480.mjs
 ================================================================================
 Unit Tests: Issue #1480 - `Ready to merge` false positives
 ================================================================================
@@ -2417,7 +2440,7 @@ Unit Tests: Issue #1480 - `Ready to merge` false positives
 Results: 21 passed, 0 failed
 ================================================================================
 
-[60/200] tests/test-false-positive-iteration-count-1503.mjs
+[61/202] tests/test-false-positive-iteration-count-1503.mjs
 ================================================================================
 Unit Tests: Issue #1503 - False positive from iteration count as checkCount
 ================================================================================
@@ -2467,7 +2490,7 @@ Unit Tests: Issue #1503 - False positive from iteration count as checkCount
 Results: 20 passed, 0 failed
 ================================================================================
 
-[61/200] tests/test-false-positive-ready-to-merge-1363.mjs
+[62/202] tests/test-false-positive-ready-to-merge-1363.mjs
 ================================================================================
 Unit Tests: Issue #1363 - `Ready to merge` as false positive
 ================================================================================
@@ -2508,7 +2531,7 @@ Test Results for Issue #1363:
 
 [32m✅ All tests passed![0m
 
-[62/200] tests/test-false-positive-workflow-run-race-1480.mjs
+[63/202] tests/test-false-positive-workflow-run-race-1480.mjs
 ================================================================================
 Unit Tests: Issue #1480 - `Ready to merge` posted as false positive
 ================================================================================
@@ -2578,7 +2601,7 @@ Unit Tests: Issue #1480 - `Ready to merge` posted as false positive
 Results: 31 passed, 0 failed out of 31 total
 ================================================================================
 
-[63/200] tests/test-feedback-lines-simple.mjs
+[64/202] tests/test-feedback-lines-simple.mjs
 🧪 Testing feedback lines logic (Issue #168)
 ============================================
 
@@ -2608,7 +2631,7 @@ Results: 31 passed, 0 failed out of 31 total
    Passed: 5/5
    🎉 ALL TESTS PASSED! Feedback lines bug is fixed.
 
-[64/200] tests/test-fork-parent-validation.mjs
+[65/202] tests/test-fork-parent-validation.mjs
 Testing validateForkParent export... ✅ PASSED
 Testing validateForkParent documentation... ✅ PASSED
 Testing validation called for existing forks... ✅ PASSED
@@ -2639,7 +2662,7 @@ Test Results for fork parent validation:
   ❌ Failed: 0
 ==================================================
 
-[65/200] tests/test-fork-screenshot-url-1561.mjs
+[66/202] tests/test-fork-screenshot-url-1561.mjs
 
 📋 claude prompts: Fork mode screenshot URLs
 
@@ -2684,7 +2707,7 @@ Test Results for fork parent validation:
 Results: 21 passed, 0 failed, 21 total
 ================================================================================
 
-[66/200] tests/test-format-release-notes-1271.mjs
+[67/202] tests/test-format-release-notes-1271.mjs
 Testing commit hash extraction (Issue #1271 fix)...
 
 Raw description extracted:
@@ -2722,7 +2745,7 @@ Testing PR link formatting...
 All tests PASSED! Issue #1271 fix verified.
 ======================================
 
-[67/200] tests/test-free-models.mjs
+[68/202] tests/test-free-models.mjs
 🧪 Running comprehensive free model tests...
 
 📊 Testing 5 OpenCode Zen models (nemotron-3-super-free is default) and 6 Kilo Gateway models
@@ -2918,7 +2941,7 @@ All tests PASSED! Issue #1271 fix verified.
 🎉 All comprehensive free model tests completed successfully!
 📊 Summary: 5 OpenCode + 6 Kilo = 11 total free models tested
 
-[68/200] tests/test-gemini-support.mjs
+[69/202] tests/test-gemini-support.mjs
 PASS: Gemini model defaults and aliases are centralized
 PASS: Gemini prompts include workspace context and case-study guidance
 PASS: parseGeminiJsonOutput extracts session, messages, tools, result, and usage
@@ -2927,7 +2950,7 @@ PASS: executeGeminiCommand uses structured headless stream-json invocation
 
 Gemini support tests: 5 passed, 0 failed
 
-[69/200] tests/test-gh-retry-1536.mjs
+[70/202] tests/test-gh-retry-1536.mjs
 🧪 Running ghRetry/ghCmdRetry unit tests (Issue #1536)...
 
 ================================================================================
@@ -3001,7 +3024,7 @@ Failed:       0
    ✅ ghCmdRetry logs stderr on failure for terminal/log parity
 
 
-[70/200] tests/test-git-identity.mjs
+[71/202] tests/test-git-identity.mjs
 🧪 Git Identity Validation Tests
 
 Testing checkGitIdentity - valid configuration... ✅ PASSED
@@ -3031,7 +3054,7 @@ Tests failed: 0
 
 ✅ All tests passed
 
-[71/200] tests/test-github-linking.mjs
+[72/202] tests/test-github-linking.mjs
 🧪 Testing GitHub Issue Linking Detection
 
 ============================================================
@@ -3116,7 +3139,7 @@ Total tests: 52
 
 🎉 All tests passed!
 
-[72/200] tests/test-github-pages-workflow-filter-1399.mjs
+[73/202] tests/test-github-pages-workflow-filter-1399.mjs
 ================================================================================
 Unit Tests: Issue #1399 — GitHub Pages deployment workflow causes infinite loop
 ================================================================================
@@ -3157,7 +3180,7 @@ Test Results for Issue #1399:
 
 [32m✅ All tests passed![0m
 
-[73/200] tests/test-hive-no-silent-failure.mjs
+[74/202] tests/test-hive-no-silent-failure.mjs
 Running hive command silent failure tests (Issue #504)...
 
   hive --help should show help... ✅ PASS
@@ -3173,10 +3196,10 @@ Test Summary:
 
 ✅ All tests passed!
 
-[74/200] tests/test-hive-screens.mjs
+[75/202] tests/test-hive-screens.mjs
 All hive-screens tests passed
 
-[75/200] tests/test-hive-solve-option-parity.mjs
+[76/202] tests/test-hive-solve-option-parity.mjs
 Testing hive-solve option parity...
 
 Testing all solve options are passthrough (or in exception list)... ✅ PASSED
@@ -3195,7 +3218,7 @@ Total: 10 | ✅ Passed: 10 | ❌ Failed: 0
 
 🎉 All tests passed!
 
-[76/200] tests/test-hive.mjs
+[77/202] tests/test-hive.mjs
 Testing hive.mjs exists... ✅ PASSED
 Testing hive.mjs usage... ✅ PASSED
 Testing hive.mjs --version... ✅ PASSED
@@ -3223,7 +3246,7 @@ Test Results for hive.mjs:
   ❌ Failed: 0
 ==================================================
 
-[77/200] tests/test-i18n.mjs
+[78/202] tests/test-i18n.mjs
 🧪 Running i18n tests...
 
 1) Locale normalization
@@ -3261,7 +3284,7 @@ Test Results for hive.mjs:
 
 Results: 21 passed, 0 failed
 
-[78/200] tests/test-interactive-mode-signal-1472.mjs
+[79/202] tests/test-interactive-mode-signal-1472.mjs
 
 🧪 Test Suite 1: Stream startup timeout configuration
 ────────────────────────────────────────────────────────────
@@ -3392,7 +3415,7 @@ Results: 70 passed, 0 failed, 70 total
 
 ✅ All tests passed!
 
-[79/200] tests/test-interactive-mode.mjs
+[80/202] tests/test-interactive-mode.mjs
 
 === Testing Utility Functions ===
 
@@ -3802,7 +3825,7 @@ Test Results for interactive-mode.lib.mjs:
   ❌ Failed: 0
 ==================================================
 
-[80/200] tests/test-invalid-workflow-file-1690.mjs
+[81/202] tests/test-invalid-workflow-file-1690.mjs
 ================================================================================
 Unit Tests: Issue #1690 - Auto-restart stuck on invalid workflow file
 ================================================================================
@@ -3833,7 +3856,7 @@ Unit Tests: Issue #1690 - Auto-restart stuck on invalid workflow file
 Results: [32m10 passed[0m, 0 failed[0m
 ================================================================================
 
-[81/200] tests/test-isolation-runner.mjs
+[82/202] tests/test-isolation-runner.mjs
 Testing isolation-runner.lib.mjs
 ============================================================
 
@@ -3864,7 +3887,7 @@ Results: 15 passed, 0 failed, 15 total
 
 ✅ All tests passed!
 
-[82/200] tests/test-isolation-screen-fallback-1545.mjs
+[83/202] tests/test-isolation-screen-fallback-1545.mjs
 Testing isolation screen fallback (issue #1545)
 ============================================================
 
@@ -3888,7 +3911,7 @@ Testing isolation screen fallback (issue #1545)
 Results: 5 passed, 0 failed, 5 total
 ============================================================
 
-[83/200] tests/test-issue-1102-fix.mjs
+[84/202] tests/test-issue-1102-fix.mjs
 ===========================================
 Issue #1102 Fix Tests
 ===========================================
@@ -3930,7 +3953,7 @@ Results: 16 passed, 0 failed
 
 ✅ All Issue #1102 fix tests passed!
 
-[84/200] tests/test-issue-1209-overrides.mjs
+[85/202] tests/test-issue-1209-overrides.mjs
 Testing issue #1209: solve options in overrides...
 
 
@@ -3984,7 +4007,7 @@ Total: 11 | ✅ Passed: 11 | ❌ Failed: 0
 
 🎉 All tests passed!
 
-[85/200] tests/test-issue-1228-options-deduplication.mjs
+[86/202] tests/test-issue-1228-options-deduplication.mjs
 Testing issue #1228: Options deduplication in bot responses...
 
 
@@ -4027,7 +4050,7 @@ Total: 19 | ✅ Passed: 19 | ❌ Failed: 0
 
 🎉 All tests passed!
 
-[86/200] tests/test-issue-1332-fork-name-from-pr-data.mjs
+[87/202] tests/test-issue-1332-fork-name-from-pr-data.mjs
 Testing solve.mjs declares forkRepoName at outer scope... ✅ PASSED
 Testing solve.mjs stores forkRepoName from headRepository in auto-continue path... ✅ PASSED
 Testing solve.mjs stores forkRepoName from headRepository in PR URL path... ✅ PASSED
@@ -4049,7 +4072,7 @@ Test Results for Issue #1332 (Fork name from PR data):
   ❌ Failed: 0
 ============================================================
 
-[87/200] tests/test-issue-1337-stderr-warning-detection.mjs
+[88/202] tests/test-issue-1337-stderr-warning-detection.mjs
 🧪 Testing stderr warning detection (isStderrError)
 
 ============================================================
@@ -4101,7 +4124,7 @@ Total tests: 25
 
 🎉 All tests passed! Issue #1337 fix verified.
 
-[88/200] tests/test-issue-1354-multiline-stderr-false-positive.mjs
+[89/202] tests/test-issue-1354-multiline-stderr-false-positive.mjs
 🧪 Testing Issue #1354: Multi-line stderr chunk false positive detection
 
 ======================================================================
@@ -4145,7 +4168,7 @@ Total tests: 17
 
 🎉 All tests passed! Issue #1354 fix verified.
 
-[89/200] tests/test-issue-1600-budget-stats.mjs
+[90/202] tests/test-issue-1600-budget-stats.mjs
 
 📋 Sub-session count in model title
 
@@ -4179,14 +4202,14 @@ Total tests: 9
 
 ✅ All tests passed!
 
-[90/200] tests/test-issue-1608-claude-prompt-png.mjs
+[91/202] tests/test-issue-1608-claude-prompt-png.mjs
 ✅ buildSystemPrompt returns a string with screenshot and case-study guidance enabled
 
 ================================================================================
 Results: 1 passed, 0 failed, 1 total
 ================================================================================
 
-[91/200] tests/test-issue-1616-pr-issue-link-preservation.mjs
+[92/202] tests/test-issue-1616-pr-issue-link-preservation.mjs
 Testing issue #1616 PR issue-link preservation
 ============================================================
 PASS: Missing issue link is detected as an update
@@ -4211,7 +4234,7 @@ Total tests: 16
 Passed: 16
 Failed: 0
 
-[92/200] tests/test-issue-1670-screen-status-monitoring.mjs
+[93/202] tests/test-issue-1670-screen-status-monitoring.mjs
 Testing issue #1670: screen status monitoring
 ============================================================
 
@@ -4283,7 +4306,7 @@ Results: 32 passed, 0 failed, 32 total
 /home/box/.bun/bin/$
 /home/box/.bun/bin/$
 
-[93/200] tests/test-issue-1680-session-monitoring.mjs
+[94/202] tests/test-issue-1680-session-monitoring.mjs
 Testing issue #1680: in-memory screen isolation monitoring
 ============================================================
   ✅ PASS: Session monitor keeps Telegram task state in memory
@@ -4293,7 +4316,7 @@ Testing issue #1680: in-memory screen isolation monitoring
 Session 6a0ec9c3-04b5-4c22-acc2-8f21e934036e has finished. Sending notification to chat 12345
 Failed to send completion notification for 6a0ec9c3-04b5-4c22-acc2-8f21e934036e: Error: temporary Telegram API failure
     at Object.editMessageText (file:///tmp/gh-issue-solver-1778446271987/tests/test-issue-1680-session-monitoring.mjs:49:15)
-    at monitorSessions (file:///tmp/gh-issue-solver-1778446271987/src/session-monitor.lib.mjs:329:30)
+    at monitorSessions (file:///tmp/gh-issue-solver-1778446271987/src/session-monitor.lib.mjs:331:30)
     at async file:///tmp/gh-issue-solver-1778446271987/tests/test-issue-1680-session-monitoring.mjs:72:1
   ✅ PASS: Monitor checks terminal $ --status on the first pass
   ✅ PASS: Monitor attempts to update the original Telegram message
@@ -4311,7 +4334,7 @@ Session 6a0ec9c3-04b5-4c22-acc2-8f21e934036e has finished. Sending notification 
 Results: 14 passed, 0 failed, 14 total
 ============================================================
 
-[94/200] tests/test-issue-1684-message-formatting.mjs
+[95/202] tests/test-issue-1684-message-formatting.mjs
 Testing issue #1684: Telegram bot UI/UX message formatting
 ============================================================
 
@@ -4360,7 +4383,7 @@ Testing issue #1684: Telegram bot UI/UX message formatting
 Results: 29 passed, 0 failed, 29 total
 ============================================================
 
-[95/200] tests/test-issue-1686-log-command.mjs
+[96/202] tests/test-issue-1686-log-command.mjs
 ================================================================================
 Unit Tests: /log command helpers (Issue #1686)
 ================================================================================
@@ -4422,7 +4445,7 @@ Unit Tests: /log command helpers (Issue #1686)
 Result: 45 passed, 0 failed
 ================================================================================
 
-[96/200] tests/test-issue-1688-subscribe-and-pr-link.mjs
+[97/202] tests/test-issue-1688-subscribe-and-pr-link.mjs
 Testing issue #1688: /subscribe + /unsubscribe + Issue/PR completion lines
 ============================================================
 
@@ -4482,7 +4505,7 @@ Session sess-3 has finished. Sending notification to chat 11
 Results: 41 passed, 0 failed, 41 total
 ============================================================
 
-[97/200] tests/test-issue-1694-stabilized-defaults.mjs
+[98/202] tests/test-issue-1694-stabilized-defaults.mjs
 
 ================================================================================
 Issue #1694: Stabilized option defaults
@@ -4519,7 +4542,7 @@ Results: 14 passed, 0 failed
 ================================================================================
 
 
-[98/200] tests/test-issue-1700-isolation-parsing.mjs
+[99/202] tests/test-issue-1700-isolation-parsing.mjs
 
 --- parseSessionStatusOutput() handles real start-command output ---
   ✅ links-notation: marks session as exists
@@ -4543,7 +4566,7 @@ Results: 14 passed, 0 failed
 Result: 14 passed, 0 failed
 ================================================================================
 
-[99/200] tests/test-issue-1710-budget-trace.mjs
+[100/202] tests/test-issue-1710-budget-trace.mjs
 ✅ every line is gated behind {verbose: true}
 ✅ renders peak input line with context limit when known
 ✅ renders cumulative line splitting cache writes by tier
@@ -4557,7 +4580,7 @@ Result: 14 passed, 0 failed
 
 📊 Tests: 10 passed, 0 failed
 
-[100/200] tests/test-issue-1710-format-fixes.mjs
+[101/202] tests/test-issue-1710-format-fixes.mjs
 
 📋 R1 — web_search billed at documented per-request rate
 
@@ -4584,7 +4607,7 @@ Result: 14 passed, 0 failed
 
 📊 Tests: 8 passed, 0 failed
 
-[101/200] tests/test-issue-1714-auto-accept-invite-hint.mjs
+[102/202] tests/test-issue-1714-auto-accept-invite-hint.mjs
 
 ================================================================================
 Issue #1714: --auto-accept-invite hint suppression after default flip
@@ -4615,7 +4638,7 @@ Results: 8 passed, 0 failed
 ================================================================================
 
 
-[102/200] tests/test-issue-1716-private-repo-skip-fork.mjs
+[103/202] tests/test-issue-1716-private-repo-skip-fork.mjs
 Testing solve.mjs computes skipForkForPrivateUpstream flag... ✅ PASSED
 Testing bypass requires !isRepoPublic && !argv.fork && hasWriteAccess... ✅ PASSED
 Testing visibility detection runs unconditionally... ✅ PASSED
@@ -4636,7 +4659,7 @@ Test Results for Issue #1716 (Skip fork for private upstream):
   ❌ Failed: 0
 ============================================================
 
-[103/200] tests/test-issue-1718-hive-passthrough-false.mjs
+[104/202] tests/test-issue-1718-hive-passthrough-false.mjs
 ✅ issue #1718 shape: working-session-live-progress is type=string default=false
 ✅ working-session-live-progress is on the hive auto-forward list
 ✅ hive.mjs guards against value === false for string/number options
@@ -4650,7 +4673,7 @@ Test Results for Issue #1716 (Skip fork for private upstream):
 
 10 passed, 0 failed
 
-[104/200] tests/test-issue-1720-terminal-watch-no-log.mjs
+[105/202] tests/test-issue-1720-terminal-watch-no-log.mjs
 ================================================================================
 Regression: /terminal_watch must not attach logs (Issue #1720)
 ================================================================================
@@ -4670,21 +4693,21 @@ Regression: /terminal_watch must not attach logs (Issue #1720)
 Result: 7 passed, 0 failed
 ================================================================================
 
-[105/200] tests/test-issue-1737-budget-stats.mjs
+[106/202] tests/test-issue-1737-budget-stats.mjs
 PASS renders Opus sub-sessions without peak request label
 PASS renders single sub-agent input as total input with context limit
 PASS calculateSessionTokens includes cache reads in peak context
 
 Tests: 3 passed, 0 failed
 
-[106/200] tests/test-issue-1741-haiku-context.mjs
+[107/202] tests/test-issue-1741-haiku-context.mjs
 PASS getCumulativeContextInputTokens excludes cache reads
 PASS Haiku sub-agent (issue 1741) renders new+writes only on detail line
 PASS Multi-call sub-agent estimator uses new+writes for per-call fill
 
 Tests: 3 passed, 0 failed
 
-[107/200] tests/test-issue-1758-integration-guard.mjs
+[108/202] tests/test-issue-1758-integration-guard.mjs
 Issue #1758 — integration guard
 ======================================================================
   ✅ guard exits 0 when HIVE_MIND_RUN_INTEGRATION is unset
@@ -4695,7 +4718,7 @@ Issue #1758 — integration guard
 ======================================================================
 Passed: 5, Failed: 0
 
-[108/200] tests/test-issue-1758-runner-discovery.mjs
+[109/202] tests/test-issue-1758-runner-discovery.mjs
 Issue #1758 — folder-based runner discovery
 ======================================================================
   ✅ plain test (no marker) is included in default suite
@@ -4712,7 +4735,7 @@ Issue #1758 — folder-based runner discovery
 ======================================================================
 Passed: 11, Failed: 0
 
-[109/200] tests/test-issue-1758-start-screen-deprecation.mjs
+[110/202] tests/test-issue-1758-start-screen-deprecation.mjs
 Issue #1758 — start-screen deprecation banner
 ======================================================================
   ✅ start-screen --help exits 0
@@ -4730,12 +4753,12 @@ Issue #1758 — start-screen deprecation banner
 ======================================================================
 Passed: 12, Failed: 0
 
-[110/200] tests/test-issue-1760-draft-linked-prs.mjs
+[111/202] tests/test-issue-1760-draft-linked-prs.mjs
 PASS counts open draft PRs that close the issue
 PASS ignores draft PRs that only mention the issue
 PASS ignores closed PRs even when they have closing keywords
 
-[111/200] tests/test-issue-1763-per-iteration-pr-issue-link.mjs
+[112/202] tests/test-issue-1763-per-iteration-pr-issue-link.mjs
 Testing issue #1763 per-iteration PR ↔ issue link verification
 ======================================================================
 PASS: src/solve.watch.lib.mjs imports/uses ensurePullRequestIssueLink
@@ -4762,19 +4785,19 @@ Total tests: 18
 Passed: 18
 Failed: 0
 
-[112/200] tests/test-issue-1766-feedback-git-cwd.mjs
+[113/202] tests/test-issue-1766-feedback-git-cwd.mjs
 Issue #1766 feedback git cwd regression passed
 
-[113/200] tests/test-issue-1772-fork-custom-base-branch.mjs
+[114/202] tests/test-issue-1772-fork-custom-base-branch.mjs
 PASS issue #1772 fork custom base branch regression
 
-[114/200] tests/test-issue-1772-proactive-base-sync.mjs
+[115/202] tests/test-issue-1772-proactive-base-sync.mjs
 PASS scenario 1: no upstream remote bypasses proactive sync
 PASS scenario 2: baseBranch == defaultBranch is a no-op
 PASS scenario 3: origin already has base branch - idempotent skip
 PASS issue #1772 proactive base branch sync coverage
 
-[115/200] tests/test-issue-1774-auto-pr-fork-repo-flag.mjs
+[116/202] tests/test-issue-1774-auto-pr-fork-repo-flag.mjs
 Testing every gh pr create command includes --repo ${owner}/${repo}... ✅ PASSED
 Testing command builder still has fork + non-fork branches in both paths... ✅ PASSED
 Testing fork-mode preserves --head ${forkUser}:${branchName}... ✅ PASSED
@@ -4787,7 +4810,7 @@ Testing Option 2 and Option 3 recovery commands include --repo... ✅ PASSED
 Tests passed: 8
 Tests failed: 0
 
-[116/200] tests/test-issue-467-terminal-watch.mjs
+[117/202] tests/test-issue-467-terminal-watch.mjs
 ================================================================================
 Unit Tests: Telegram terminal watch (Issue #467)
 ================================================================================
@@ -4842,7 +4865,7 @@ Unit Tests: Telegram terminal watch (Issue #467)
 Result: 32 passed, 0 failed
 ================================================================================
 
-[117/200] tests/test-issue-524-stop-uuid.mjs
+[118/202] tests/test-issue-524-stop-uuid.mjs
 ================================================================================
 Unit Tests: /stop <UUID> command (Issue #524)
 ================================================================================
@@ -4880,68 +4903,68 @@ Unit Tests: /stop <UUID> command (Issue #524)
 Result: 25 passed, 0 failed
 ================================================================================
 
-[118/200] tests/test-issue-882-fixes.mjs
+[119/202] tests/test-issue-882-fixes.mjs
 ✅ All tests for issue #882 fixes passed!
 TAP version 13
 # Subtest: Model mapping - Agent tool should map grok-code correctly
 ok 1 - Model mapping - Agent tool should map grok-code correctly
   ---
-  duration_ms: 0.632926
+  duration_ms: 0.430273
   ...
 # Subtest: Model mapping - Claude tool should not accept grok-code
 ok 2 - Model mapping - Claude tool should not accept grok-code
   ---
-  duration_ms: 0.170944
+  duration_ms: 0.141231
   ...
 # Subtest: Model mapping - Agent tool should accept sonnet
 ok 3 - Model mapping - Agent tool should accept sonnet
   ---
-  duration_ms: 0.100351
+  duration_ms: 0.089894
   ...
 # Subtest: Model mapping - Claude tool should accept sonnet
 ok 4 - Model mapping - Claude tool should accept sonnet
   ---
-  duration_ms: 0.177806
+  duration_ms: 0.182212
   ...
 # Subtest: Model mapping - Validation should throw for incompatible model-tool combinations
 ok 5 - Model mapping - Validation should throw for incompatible model-tool combinations
   ---
-  duration_ms: 0.46198
+  duration_ms: 0.332006
   ...
 # Subtest: Model mapping - Valid models list should be non-empty for each tool
 ok 6 - Model mapping - Valid models list should be non-empty for each tool
   ---
-  duration_ms: 0.14113
+  duration_ms: 0.115814
   ...
 # Subtest: Model mapping - OpenCode should handle grok-code correctly
 ok 7 - Model mapping - OpenCode should handle grok-code correctly
   ---
-  duration_ms: 0.086289
+  duration_ms: 0.078097
   ...
 # Subtest: Model mapping - Codex should handle gpt5 correctly
 ok 8 - Model mapping - Codex should handle gpt5 correctly
   ---
-  duration_ms: 0.161851
+  duration_ms: 0.109012
   ...
 # Subtest: Model mapping - Qwen should handle qwen alias correctly
 ok 9 - Model mapping - Qwen should handle qwen alias correctly
   ---
-  duration_ms: 0.173469
+  duration_ms: 0.112748
   ...
 # Subtest: Model mapping - Gemini should handle gemini alias correctly
 ok 10 - Model mapping - Gemini should handle gemini alias correctly
   ---
-  duration_ms: 0.138097
+  duration_ms: 0.091786
   ...
 # Subtest: Model mapping - Each tool has distinct model maps
 ok 11 - Model mapping - Each tool has distinct model maps
   ---
-  duration_ms: 0.138767
+  duration_ms: 0.10077
   ...
 # Subtest: Model mapping - Export model maps are objects
 ok 12 - Model mapping - Export model maps are objects
   ---
-  duration_ms: 0.095873
+  duration_ms: 0.061783
   ...
 1..12
 # tests 12
@@ -4951,9 +4974,9 @@ ok 12 - Model mapping - Export model maps are objects
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 47.095359
+# duration_ms 14.068489
 
-[119/200] tests/test-lenv-reader.mjs
+[120/202] tests/test-lenv-reader.mjs
 Testing LenvReader class export... Testing lenvReader singleton export... Testing loadLenvConfig function export... Testing parse simple LINO configuration... Testing parse LINO configuration with list... Testing parse empty configuration... Testing parse null configuration... Testing read .lenv file... Testing read non-existent file... Testing config() with configuration string... Testing config() with file... Testing config() respects override flag... Testing shouldUseLenv() method... Testing shouldUseLenv() returns false when no .lenv... Testing parse --configuration option format... Testing loadLenvConfig function... Testing reject same-line options... Testing reject invalid character ? in options... Testing reject invalid character @ in options... Testing accept valid options with = sign... Testing accept valid hyphenated options... Testing non-option values are not validated... Testing accept explicit parenthesized lists... Testing validation error message includes problematic value... Testing accept parenthesized option/value links... Testing accept issue #1658 Telegram configuration shape... ✅ PASSED
 ✅ PASSED
 ✅ PASSED
@@ -4987,7 +5010,7 @@ Test Results for lenv-reader.lib.mjs:
   ❌ Failed: 0
 ==================================================
 
-[120/200] tests/test-limit-reset-config.mjs
+[121/202] tests/test-limit-reset-config.mjs
 Testing limitReset.bufferMs default is 10 minutes (Issue #1236)... [32m✓ PASSED[0m
 Testing limitReset.jitterMs default is 5 minutes (Issue #1236)... [32m✓ PASSED[0m
 Testing limitReset.bufferMs is a positive number... [32m✓ PASSED[0m
@@ -5005,14 +5028,14 @@ Testing formatResetTimeWithRelative OR original time provides a valid string... 
 Test results: 12 passed, 0 failed
 ==================================================
 
-[121/200] tests/test-lino-arguments-cli.mjs
+[122/202] tests/test-lino-arguments-cli.mjs
 PASS: package depends on lino-arguments
 PASS: CLI argument parsers route through lino-arguments adapter
 PASS: memory-check CI installs package dependencies before CLI tests
 
 Total: 3, Passed: 3, Failed: 0
 
-[122/200] tests/test-lino.mjs
+[123/202] tests/test-lino.mjs
 📋 LinksNotationManager Export Tests
 
 Testing LinksNotationManager class export... Testing lino singleton export... Testing CACHE_FILES export... 
@@ -5072,7 +5095,7 @@ Test Results for lino.lib.mjs:
   ❌ Failed: 0
 ==================================================
 
-[123/200] tests/test-log-upload-output-1678.mjs
+[124/202] tests/test-log-upload-output-1678.mjs
 ok 1 - parses gh-upload-log v0.8 shared repository output
 ok 2 - parses multi-file repository uploads as multiple chunks
 ok 3 - keeps legacy dedicated repository output compatible
@@ -5080,7 +5103,7 @@ ok 4 - attachLogToGitHub no longer contains a truncated-log fallback
 
 4 issue #1678 log upload tests passed
 
-[124/200] tests/test-log-upload-output-1682.mjs
+[125/202] tests/test-log-upload-output-1682.mjs
 ok 1 - resolves the issue #1682 public shared-repository upload to a raw URL
 ok 2 - returns no URL when gh-upload-log success lacks a usable link
 ok 3 - keeps private repository uploads on a stable repository page URL
@@ -5088,7 +5111,7 @@ ok 4 - failure-log terminal status is not rendered with a green check mark
 
 4 issue #1682 log upload tests passed
 
-[125/200] tests/test-log-upload.mjs
+[126/202] tests/test-log-upload.mjs
 🧪 Running log-upload.lib.mjs tests...
 
 📋 Test 1: Command argument building (no empty strings)
@@ -5157,7 +5180,7 @@ ok 4 - failure-log terminal status is not rendered with a green check mark
 
 ✅ All tests passed!
 
-[126/200] tests/test-malformed-flags.mjs
+[127/202] tests/test-malformed-flags.mjs
 Testing Issue #1092: detects "--" followed by "model"... PASSED
 Testing Issue #1092: detects "--" followed by "verbose"... PASSED
 Testing Issue #1092: detects "--" followed by "tool"... PASSED
@@ -5188,7 +5211,7 @@ Test Results for malformed flag detection:
   Failed: 0
 ==================================================
 
-[127/200] tests/test-memory-check.mjs
+[128/202] tests/test-memory-check.mjs
 Testing memory-check.mjs exists... ✅ PASSED
 Testing memory-check.mjs --help... ✅ PASSED
 Testing memory-check.mjs basic execution... ✅ PASSED
@@ -5207,7 +5230,7 @@ Test Results for memory-check.mjs:
   Platform: linux
 ==================================================
 
-[128/200] tests/test-merge-queue-cancel-1588.mjs
+[129/202] tests/test-merge-queue-cancel-1588.mjs
 
 📋 Issue #1588: Cancel button and CI wait cancellation Tests
 
@@ -5223,7 +5246,7 @@ Test Results for memory-check.mjs:
 ✅ Issue #1588: waitForBranchCI should support isCancelled option
 ✅ Issue #1588: waitForCommitCI should support isCancelled option
 
-[129/200] tests/test-merge-queue.mjs
+[130/202] tests/test-merge-queue.mjs
 
 📋 Configuration Tests
 
@@ -5358,7 +5381,7 @@ Test Results for memory-check.mjs:
 📊 Test Results: 86 passed, 0 failed
 
 
-[130/200] tests/test-misleading-merge-logs-1712.mjs
+[131/202] tests/test-misleading-merge-logs-1712.mjs
 ================================================================================
 Unit Tests: Issue #1712 - Misleading "no CI checks yet" verbose log
 ================================================================================
@@ -5404,7 +5427,7 @@ Group 8: User-facing message renders multi-line for >1 details
 Results: [32m21 passed[0m, 0 failed[0m
 ================================================================================
 
-[131/200] tests/test-no-ci-checks-1345.mjs
+[132/202] tests/test-no-ci-checks-1345.mjs
 ================================================================================
 Unit Tests: Issue #1345 - --auto-restart-until-mergeable stuck on no CI checks
 ================================================================================
@@ -5449,7 +5472,7 @@ Test Results for Issue #1345:
 
 [32m✅ All tests passed![0m
 
-[132/200] tests/test-no-ci-checks-timeout-1442.mjs
+[133/202] tests/test-no-ci-checks-timeout-1442.mjs
 ================================================================================
 Unit Tests: Issue #1442 - No CI checks (workflow runs API detection)
 ================================================================================
@@ -5492,10 +5515,10 @@ Test Results for Issue #1442:
 
 [32m✅ All tests passed![0m
 
-[133/200] tests/test-no-direct-gh-exec-rule.mjs
+[134/202] tests/test-no-direct-gh-exec-rule.mjs
 ✅ no-direct-gh-exec rule tests passed
 
-[134/200] tests/test-opus-46-model-support.mjs
+[135/202] tests/test-opus-46-model-support.mjs
 Testing Claude Opus 4.5/4.6 Model Support (Issue #1221, Issue #1238)
 
 
@@ -5583,7 +5606,7 @@ Test Results: 54 passed, 0 failed
 
 All tests passed!
 
-[135/200] tests/test-opus-47-model-support.mjs
+[136/202] tests/test-opus-47-model-support.mjs
 Testing Claude Opus 4.7 Model Support (Issue #1620)
 
 
@@ -5787,7 +5810,7 @@ Test Results: 156 passed, 0 failed
 
 All tests passed!
 
-[136/200] tests/test-output-sanitization-options-1745.mjs
+[137/202] tests/test-output-sanitization-options-1745.mjs
 Testing dangerous output sanitization options are explicit and default false... PASSED
 Testing postTrackedComment sanitizes controlled GitHub comment body... github.com
   ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
@@ -5799,7 +5822,7 @@ PASSED
 
 Results: 2 passed, 0 failed
 
-[137/200] tests/test-owner-fork-detection.mjs
+[138/202] tests/test-owner-fork-detection.mjs
 Testing owner detection exists in setupRepository... ✅ PASSED
 Testing owner detection references issue #1206... ✅ PASSED
 Testing owner detection occurs before fork conflict detection... ✅ PASSED
@@ -5817,7 +5840,7 @@ Test Results for owner fork detection (Issue #1206):
   ❌ Failed: 0
 ==================================================
 
-[138/200] tests/test-post-finish-sweep-1745.mjs
+[139/202] tests/test-post-finish-sweep-1745.mjs
 Testing sweepPrConversationComments edits bot-authored comments containing tokens... github.com
   ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
   - Active account: true
@@ -5855,7 +5878,7 @@ PASSED
 
 Results: 4 passed, 0 failed
 
-[139/200] tests/test-pr-finalization.mjs
+[140/202] tests/test-pr-finalization.mjs
 🧪 Testing PR Finalization Logic (Issue #1162)
 
 ============================================================
@@ -5958,7 +5981,7 @@ Total tests: 64
 
 🎉 All tests passed!
 
-[140/200] tests/test-pr-verification-retry-1468.mjs
+[141/202] tests/test-pr-verification-retry-1468.mjs
 
 🧪 Test Suite: PR Verification Retry Logic (Issue #1468)
 
@@ -5977,7 +6000,7 @@ Total tests: 64
 📊 Results: 11 passed, 0 failed
 
 
-[141/200] tests/test-pre-pr-failure-notifier-1640.mjs
+[142/202] tests/test-pre-pr-failure-notifier-1640.mjs
 ✅ notifies only nonzero exits with known issue and no PR
 ✅ builds a pre-PR failure comment with the tracked failure marker
 ✅ builds fork-specific user guidance without administrator commands
@@ -5986,7 +6009,7 @@ Total tests: 64
 
 Pre-PR failure notifier tests: 5 passed, 0 failed
 
-[142/200] tests/test-preinstall-use-m-packages-1724.mjs
+[143/202] tests/test-preinstall-use-m-packages-1724.mjs
 ✅ aliasForPackage strips @ and replaces / for scoped names
 ✅ isRetryableNpmError detects ENOTEMPTY and friends
 ✅ computeBackoffMs grows exponentially
@@ -6000,12 +6023,12 @@ Pre-PR failure notifier tests: 5 passed, 0 failed
 [preinstall-use-m] ❌ giving up on command-stream@latest after 1 attempt(s)
 ✅ installWithRetry aborts immediately on non-retryable error
 [preinstall-use-m] ⚠️  attempt 1/3 failed for command-stream: Command failed: npm install
-[preinstall-use-m] ℹ️  command-stream-v-latest already present in /tmp/preinstall-1724-9svaU6; treating as success despite npm error
+[preinstall-use-m] ℹ️  command-stream-v-latest already present in /tmp/preinstall-1724-H45ZPf; treating as success despite npm error
 ✅ installWithRetry treats package-present-on-disk as recovered success
 
 Passed: 7 / 7
 
-[143/200] tests/test-premature-finish-signaling-1516.mjs
+[144/202] tests/test-premature-finish-signaling-1516.mjs
 
 🧪 Test Suite 1: Process group kill on stream timeout (Issue #1516)
 ────────────────────────────────────────────────────────────
@@ -6037,7 +6060,7 @@ Passed: 7 / 7
 ────────────────────────────────────────────────────────────
 🏁 Results: 18 passed, 0 failed
 
-[144/200] tests/test-private-repo-screenshots-1349.mjs
+[145/202] tests/test-private-repo-screenshots-1349.mjs
 
 📋 Tests for claude.prompts.lib.mjs
 
@@ -6078,7 +6101,7 @@ Passed: 7 / 7
 Results: 20 passed, 0 failed, 20 total
 ================================================================================
 
-[145/200] tests/test-prompt-file-location.mjs
+[146/202] tests/test-prompt-file-location.mjs
 [34m
 📋 Running: Prompt File Location Test[0m
 [34m────────────────────────────────────────────────────────────[0m
@@ -6114,7 +6137,7 @@ Results: 20 passed, 0 failed, 20 total
 ✅ Prompt File Location Test PASSED
 [0m
 
-[146/200] tests/test-queue-display-1267.mjs
+[147/202] tests/test-queue-display-1267.mjs
 ================================================================================
 Tests: Issue #1267 - Queue Display & Progress Bar Fixes
 ================================================================================
@@ -6145,10 +6168,10 @@ Test Results for Issue #1267:
   Total: 10
 ================================================================================
 
-[147/200] tests/test-queue-isolation-1551.mjs
+[148/202] tests/test-queue-isolation-1551.mjs
 ✅ Queue isolation test passed (issue #1551)
 
-[148/200] tests/test-qwen-support.mjs
+[149/202] tests/test-qwen-support.mjs
 PASS: Qwen model registry maps defaults and aliases
 PASS: Qwen stream-json parser extracts session, result, and error events
 PASS: Qwen stream-json parser extracts issue #1741 context-fill usage when emitted
@@ -6160,7 +6183,7 @@ Total: 6 tests
 Passed: 6
 Failed: 0
 
-[149/200] tests/test-ready-to-merge-after-solution-draft-1584.mjs
+[150/202] tests/test-ready-to-merge-after-solution-draft-1584.mjs
 ================================================================================
 Unit Tests: Issue #1584 - checkForExistingComment scope narrowing
 ================================================================================
@@ -6216,7 +6239,7 @@ Test Results for Issue #1584:
 
 [32m✅ All tests passed![0m
 
-[150/200] tests/test-ready-to-merge-cross-session-1389.mjs
+[151/202] tests/test-ready-to-merge-cross-session-1389.mjs
 ================================================================================
 Unit Tests: Issue #1389 - No ready-to-merge comment in new session
 ================================================================================
@@ -6255,7 +6278,7 @@ Test Results for Issue #1389:
 
 [32m✅ All tests passed![0m
 
-[151/200] tests/test-ready-to-merge-pagination-1645.mjs
+[152/202] tests/test-ready-to-merge-pagination-1645.mjs
 ================================================================================
 Unit Tests: Issue #1645 - Ready-to-merge deduplication pagination
 ================================================================================
@@ -6270,7 +6293,7 @@ Test Results for Issue #1645:
 ================================================================================
 
 
-[152/200] tests/test-repo-actions-consensus-1503.mjs
+[153/202] tests/test-repo-actions-consensus-1503.mjs
 ================================================================================
 Unit Tests: Issue #1503 - Repo-wide actions, CI consensus, and reliability
 ================================================================================
@@ -6351,13 +6374,13 @@ Unit Tests: Issue #1503 - Repo-wide actions, CI consensus, and reliability
 Results: 48 passed, 0 failed
 ========================================================================
 
-[153/200] tests/test-require-gh-paginate-rule.mjs
+[154/202] tests/test-require-gh-paginate-rule.mjs
 require-gh-paginate ESLint rule tests passed
 
-[154/200] tests/test-require-sanitized-output-rule.mjs
+[155/202] tests/test-require-sanitized-output-rule.mjs
 require-sanitized-output ESLint rule tests passed
 
-[155/200] tests/test-sanitization-stats-1745.mjs
+[156/202] tests/test-sanitization-stats-1745.mjs
 Testing counters start at zero after reset... PASSED
 Testing pattern detection increments patternMasks and totalMasked... github.com
   ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
@@ -6408,7 +6431,7 @@ PASSED
 
 Results: 11 passed, 0 failed
 
-[156/200] tests/test-sentry.mjs
+[157/202] tests/test-sentry.mjs
 🧪 Running Sentry Integration Tests
 
 Testing: instrument.mjs file exists... [32m✓ PASSED[0m
@@ -6435,7 +6458,7 @@ Total Tests: 15
 [32m🎉 All tests passed![0m
 
 
-[157/200] tests/test-session-false-positive-1586.mjs
+[158/202] tests/test-session-false-positive-1586.mjs
 Testing issue #1586: False positive active session detection
 ============================================================
 
@@ -6449,7 +6472,7 @@ Testing issue #1586: False positive active session detection
 
   Isolation session should correctly block duplicate URL:
   ✅ PASS: hasActiveSessionForUrl returns true for isolation session
-  ✅ PASS: sessionName matches isolation session (got iso-session-1778448024488)
+  ✅ PASS: sessionName matches isolation session (got iso-session-1778449345239)
 
   Old isolation session should still block (no timeout):
   ✅ PASS: hasActiveSessionForUrl returns true for old isolation session (no timeout)
@@ -6481,7 +6504,7 @@ Testing issue #1586: False positive active session detection
 Results: 18 passed, 0 failed, 18 total
 ============================================================
 
-[158/200] tests/test-session-monitor-isolation.mjs
+[159/202] tests/test-session-monitor-isolation.mjs
 Testing session-monitor.lib.mjs (isolation support)
 ============================================================
 
@@ -6505,7 +6528,7 @@ Testing session-monitor.lib.mjs (isolation support)
 Results: 8 passed, 0 failed, 8 total
 ============================================================
 
-[159/200] tests/test-solve-queue-command.mjs
+[160/202] tests/test-solve-queue-command.mjs
 ================================================================================
 Unit Tests: /solve_queue Command (Issue #1232)
 ================================================================================
@@ -6537,11 +6560,11 @@ Unit Tests: /solve_queue Command (Issue #1232)
 📋 Hint Text Regression Tests
 
 ✅ locales/en.lino uses /solve_queue in hint text (not /solve-queue)
-✅ telegram-bot.mjs includes /solve_queue in help text using backtick code block
+✅ help message includes /solve_queue using backtick code block
 ✅ telegram-bot.mjs includes solve_queue in text fallback handlers
 ✅ telegram-solve-queue.lib.mjs uses /solve_queue in log messages (not /solve-queue)
 ✅ telegram-solve-queue.lib.mjs uses [solve_queue] log tag (not [solve-queue])
-✅ telegram-bot.mjs includes /accept_invites in help text using backtick code block
+✅ help message includes /accept_invites using backtick code block
 ✅ telegram-accept-invitations.lib.mjs uses /accept_invites in log messages (not /accept-invites)
 
 ================================================================================
@@ -6551,7 +6574,7 @@ Test Results for /solve_queue command:
   Total: 22
 ================================================================================
 
-[160/200] tests/test-solve-reply-with-options.mjs
+[161/202] tests/test-solve-reply-with-options.mjs
 ================================================================================
 Unit Tests: /solve Reply with Options (Issue #1325)
 ================================================================================
@@ -6594,7 +6617,7 @@ Results: 17 passed, 0 failed, 17 total
 
 ✅ All tests passed!
 
-[161/200] tests/test-solve-validation-reset-time.mjs
+[162/202] tests/test-solve-validation-reset-time.mjs
 ✅ parseResetTime accepts time-only format
 ✅ parseResetTime accepts date+time format from usage-limit output
 ✅ calculateWaitTime accepts date+time format from usage-limit output
@@ -6603,7 +6626,7 @@ Results: 17 passed, 0 failed, 17 total
 Results: 3 passed, 0 failed, 3 total
 ============================================================
 
-[162/200] tests/test-solve.mjs
+[163/202] tests/test-solve.mjs
 Testing solve.mjs exists... ✅ PASSED
 Testing solve.mjs usage without args... ✅ PASSED
 Testing solve.mjs --version... ✅ PASSED
@@ -6628,7 +6651,7 @@ Test Results for solve.mjs:
   ❌ Failed: 0
 ==================================================
 
-[163/200] tests/test-sonnet-46-model-support.mjs
+[164/202] tests/test-sonnet-46-model-support.mjs
 Testing Claude Sonnet 4.6 Model Support (Issue #1329)
 
 
@@ -6696,7 +6719,7 @@ Test Results: 40 passed, 0 failed
 
 All tests passed!
 
-[164/200] tests/test-start-screen.mjs
+[165/202] tests/test-start-screen.mjs
 Testing screen name generation logic...
 
 Test: solve command with issue URL
@@ -6747,13 +6770,13 @@ Testing --dry-run mode for hive command with repo URL...
 ==================================================
 All tests PASSED! ✓
 
-[165/200] tests/test-stdio-interceptor-epipe.mjs
+[166/202] tests/test-stdio-interceptor-epipe.mjs
 Testing stdio interceptor broken pipe handling...
 
 ✅ stdout EPIPE is swallowed cleanly
 ✅ stderr EPIPE is swallowed cleanly
 
-[166/200] tests/test-synthetic-model-filter.mjs
+[167/202] tests/test-synthetic-model-filter.mjs
 Test 1: Synthetic model filtered from JSONL parsing
   ✅ Passed
 Test 2: Other angle-bracket internal models filtered
@@ -6771,7 +6794,7 @@ Test 7: Real-world scenario from issue #1486 log
 
 ✅ All 7 tests passed!
 
-[167/200] tests/test-task-split.mjs
+[168/202] tests/test-task-split.mjs
 PASS: parseTaskIssueUrl accepts issues and rejects pull requests
 PASS: buildTaskSplitPrompt requires exact task count
 PASS: extractTaskSplitJson reads fenced JSON
@@ -6784,7 +6807,7 @@ PASS: agent-commander dependency provides start-agent before PATH lookup
 
 Total: 9, Passed: 9, Failed: 0
 
-[168/200] tests/test-telegram-allowed-topics.mjs
+[169/202] tests/test-telegram-allowed-topics.mjs
 
 📋 parseLinks Tests
 
@@ -6819,7 +6842,7 @@ Results: 19 passed, 0 failed
 ==================================================
 
 
-[169/200] tests/test-telegram-bot-command-aliases.mjs
+[170/202] tests/test-telegram-bot-command-aliases.mjs
 Running telegram bot command aliases tests...
 
 PASS: /do command with basic URL
@@ -6849,7 +6872,7 @@ Passed: 20
 Failed: 0
 ==================================================
 
-[170/200] tests/test-telegram-bot-configuration-isolation-links-notation.mjs
+[171/202] tests/test-telegram-bot-configuration-isolation-links-notation.mjs
 ✅ exits successfully
 ✅ loads token from --configuration
 ✅ validates solve overrides
@@ -6860,7 +6883,7 @@ Failed: 0
 
 ✅ Issue #1658 Telegram configuration regression passed
 
-[171/200] tests/test-telegram-bot-dry-run.mjs
+[172/202] tests/test-telegram-bot-dry-run.mjs
 Testing telegram-bot --dry-run mode...
 
 
@@ -6942,7 +6965,7 @@ Result: ✅ PASSED - Validation passed as expected
 📝 The command from issue #487 now works correctly with --dry-run:
    hive-telegram-bot --token ... --allowed-chats "(...)" --no-hive --solve-overrides "(...)" --dry-run
 
-[172/200] tests/test-telegram-bot-hero-links-notation.mjs
+[173/202] tests/test-telegram-bot-hero-links-notation.mjs
 Testing telegram-bot hero example with Links Notation (Issue #623)...
 
 
@@ -7033,7 +7056,7 @@ Result: ✅ PASSED - Hero configuration validated successfully
 
 💡 Users can now use the Links Notation format for cleaner configuration.
 
-[173/200] tests/test-telegram-bot-launcher.mjs
+[174/202] tests/test-telegram-bot-launcher.mjs
 ================================================================================
 Unit Tests: Telegram Bot Launcher with Retry (Issue #1240)
 ================================================================================
@@ -7131,7 +7154,7 @@ Results: 42 passed, 0 failed, 42 total
 
 ✅ All tests passed!
 
-[174/200] tests/test-telegram-bot-version.mjs
+[175/202] tests/test-telegram-bot-version.mjs
 ================================================================================
 Unit Tests: Telegram Bot --version Output (Issue #1318)
 ================================================================================
@@ -7157,7 +7180,7 @@ Results: 8 passed, 0 failed, 8 total
 
 ✅ All tests passed!
 
-[175/200] tests/test-telegram-branch-validation.mjs
+[176/202] tests/test-telegram-branch-validation.mjs
 🧪 Telegram Bot Branch Validation Tests (Issue #1482)
 
 Testing valid: --base-branch with simple branch name... ✅ PASSED
@@ -7180,7 +7203,7 @@ Results: 14 passed, 0 failed, 14 total
 
 ✅ All tests passed!
 
-[176/200] tests/test-telegram-markdown-escaping.mjs
+[177/202] tests/test-telegram-markdown-escaping.mjs
 🧪 Running Telegram Markdown escaping unit tests...
 
 ================================================================================
@@ -7266,29 +7289,29 @@ Failed:       0
    ✅ Message construction integration test
 
 
-[177/200] tests/test-telegram-message-edit-error-handling.mjs
+[178/202] tests/test-telegram-message-edit-error-handling.mjs
 Testing executeItem catches editMessageText errors (issue #1062)... [VERBOSE] /solve_queue: SolveQueue initialized with separate tool queues
-[VERBOSE] /solve_queue: Enqueued: [solve-1778448153972-4pkeom9] https://github.com/owner/repo/issues/1 (queued) to claude queue, queue length: 1
+[VERBOSE] /solve_queue: Enqueued: [solve-1778449467802-5llexfj] https://github.com/owner/repo/issues/1 (queued) to claude queue, queue length: 1
 [VERBOSE] /solve_queue: Consumer started with separate tool queues
-[solve_queue] Failed to update message for item solve-1778448153972-4pkeom9: Test: Message too old to edit
-[VERBOSE] /solve_queue: Finished: [solve-1778448153972-4pkeom9] https://github.com/owner/repo/issues/1 (started)
+[solve_queue] Failed to update message for item solve-1778449467802-5llexfj: Test: Message too old to edit
+[VERBOSE] /solve_queue: Finished: [solve-1778449467802-5llexfj] https://github.com/owner/repo/issues/1 (started)
 [VERBOSE] /solve_queue: Stopping queue...
 ✅ PASSED
 Testing executeItem logs errors for failed items (issue #1062)... [VERBOSE] /solve_queue: SolveQueue initialized with separate tool queues
-[VERBOSE] /solve_queue: Enqueued: [solve-1778448153974-8y3i1fh] https://github.com/owner/repo/issues/1 (queued) to claude queue, queue length: 1
+[VERBOSE] /solve_queue: Enqueued: [solve-1778449467804-f1nuqfh] https://github.com/owner/repo/issues/1 (queued) to claude queue, queue length: 1
 [VERBOSE] /solve_queue: Consumer started with separate tool queues
-[solve_queue] Item failed: solve-1778448153974-8y3i1fh Error: Execution failed
+[solve_queue] Item failed: solve-1778449467804-f1nuqfh Error: Execution failed
     at queue.executeCallback (file:///tmp/gh-issue-solver-1778446271987/tests/test-telegram-message-edit-error-handling.mjs:166:11)
-    at SolveQueue.executeItem (file:///tmp/gh-issue-solver-1778446271987/src/telegram-solve-queue.lib.mjs:1159:35)
+    at SolveQueue.executeItem (file:///tmp/gh-issue-solver-1778446271987/src/telegram-solve-queue.lib.mjs:1161:35)
     at file:///tmp/gh-issue-solver-1778446271987/tests/test-telegram-message-edit-error-handling.mjs:182:15
     at runTestAsync (file:///tmp/gh-issue-solver-1778446271987/tests/test-telegram-message-edit-error-handling.mjs:49:11)
     at file:///tmp/gh-issue-solver-1778446271987/tests/test-telegram-message-edit-error-handling.mjs:137:7
-[solve_queue] Failed to update error message for item solve-1778448153974-8y3i1fh: Test: Network error
-[VERBOSE] /solve_queue: Finished: [solve-1778448153974-8y3i1fh] https://github.com/owner/repo/issues/1 (failed)
+[solve_queue] Failed to update error message for item solve-1778449467804-f1nuqfh: Test: Network error
+[VERBOSE] /solve_queue: Finished: [solve-1778449467804-f1nuqfh] https://github.com/owner/repo/issues/1 (failed)
 [VERBOSE] /solve_queue: Stopping queue...
 ✅ PASSED
 Testing updateItemMessage catches errors (issue #1062)... [VERBOSE] /solve_queue: SolveQueue initialized with separate tool queues
-[VERBOSE] /solve_queue: Enqueued: [solve-1778448153975-xkreo26] https://github.com/owner/repo/issues/1 (queued) to claude queue, queue length: 1
+[VERBOSE] /solve_queue: Enqueued: [solve-1778449467805-08xwbw2] https://github.com/owner/repo/issues/1 (queued) to claude queue, queue length: 1
 [VERBOSE] /solve_queue: Consumer started with separate tool queues
 [VERBOSE] /solve_queue: Failed to update message: Test: Rate limited
 [VERBOSE] /solve_queue: Stopping queue...
@@ -7301,7 +7324,7 @@ Test Results for Telegram message edit error handling (issue #1062):
   ❌ Failed: 0
 ==================================================
 
-[178/200] tests/test-telegram-message-filters.mjs
+[179/202] tests/test-telegram-message-filters.mjs
 ================================================================================
 Unit Tests: Telegram Message Filters (Issue #1207)
 ================================================================================
@@ -7402,7 +7425,7 @@ Results: 51 passed, 0 failed, 51 total
 
 ✅ All tests passed!
 
-[179/200] tests/test-telegram-message-formatting-issue-1460.mjs
+[180/202] tests/test-telegram-message-formatting-issue-1460.mjs
 
 🧪 Test Suite 1: buildUserMention Markdown escaping
 ────────────────────────────────────────────────────────────
@@ -7439,7 +7462,7 @@ Total: 18 | Passed: 18 ✅ | Failed: 0
 
 🎉 All tests passed!
 
-[180/200] tests/test-telegram-options-before-url.mjs
+[181/202] tests/test-telegram-options-before-url.mjs
 PASS: /codex accepts --model before issue URL
 PASS: /solve reply options without URL remain available for reply extraction
 PASS: /codex invalid --think reports each choice once after URL probing
@@ -7447,7 +7470,7 @@ PASS: /hive accepts options before repository URL
 
 Total: 4, Passed: 4, Failed: 0
 
-[181/200] tests/test-telegram-safe-reply-issue-1497.mjs
+[182/202] tests/test-telegram-safe-reply-issue-1497.mjs
 
 🧪 Test Suite 1: Root cause - /solve_queue underscore in Markdown
 ────────────────────────────────────────────────────────────
@@ -7488,7 +7511,7 @@ Total: 4, Passed: 4, Failed: 0
 Results: 20 passed, 0 failed, 20 total
 ════════════════════════════════════════════════════════════
 
-[182/200] tests/test-telegram-special-char-handling.mjs
+[183/202] tests/test-telegram-special-char-handling.mjs
 ================================================================================
 Unit Tests: Telegram Special Character Handling (Issue #1070)
 ================================================================================
@@ -7555,7 +7578,7 @@ Failed:       0
    ✅ Integration of both functions
 
 
-[183/200] tests/test-telegram-task-command.mjs
+[184/202] tests/test-telegram-task-command.mjs
 PASS: /task command is recognized
 PASS: /split adds --split by default and keeps user options
 PASS: /task does not add --split by default
@@ -7573,7 +7596,17 @@ PASS: task issue creation replies with the created issue URL
 
 Total: 14, Passed: 14, Failed: 0
 
-[184/200] tests/test-telegram-url-extraction.mjs
+[185/202] tests/test-telegram-ui-i18n.mjs
+🧪 Running Telegram UI i18n tests...
+
+  ✅ /help uses Russian UI strings when locale is ru
+  ✅ /help has translated strings for every supported Telegram locale
+  ✅ /solve info and queue messages are locale-aware
+  ✅ work session status messages use the requested locale
+
+Results: 4 passed, 0 failed
+
+[186/202] tests/test-telegram-url-extraction.mjs
 ===========================================
 Unit Tests: Telegram URL Extraction
 ===========================================
@@ -7606,7 +7639,7 @@ Results: 13 passed, 0 failed
 
 ✅ All tests passed!
 
-[185/200] tests/test-telegram-validate-url.mjs
+[187/202] tests/test-telegram-validate-url.mjs
 ===========================================
 Unit Tests: Telegram URL Validation
 ===========================================
@@ -7648,23 +7681,23 @@ Results: 19 passed, 0 failed
 
 ✅ All tests passed!
 
-[186/200] tests/test-test-runner-1698.test.mjs
+[188/202] tests/test-test-runner-1698.test.mjs
 TAP version 13
 # Subtest: issue \#1698 stable test entrypoints
     # Subtest: keeps package.json test as a stable runner command
     ok 1 - keeps package.json test as a stable runner command
       ---
-      duration_ms: 0.889929
+      duration_ms: 0.67611
       ...
     # Subtest: keeps the CI test-suites job behind npm test
     ok 2 - keeps the CI test-suites job behind npm test
       ---
-      duration_ms: 0.256814
+      duration_ms: 0.203444
       ...
     1..2
 ok 1 - issue \#1698 stable test entrypoints
   ---
-  duration_ms: 2.172595
+  duration_ms: 1.806357
   type: 'suite'
   ...
 1..1
@@ -7675,9 +7708,9 @@ ok 1 - issue \#1698 stable test entrypoints
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 13.228104
+# duration_ms 10.401644
 
-[187/200] tests/test-timeline-linked-prs.mjs
+[189/202] tests/test-timeline-linked-prs.mjs
 
 📋 Issue #1413: getLinkedPRsFromTimeline Tests
 
@@ -7694,7 +7727,7 @@ ok 1 - issue \#1698 stable test entrypoints
 📊 Test Results: 7 passed, 0 failed
 
 
-[188/200] tests/test-token-leak-issue-1745.mjs
+[190/202] tests/test-token-leak-issue-1745.mjs
 🧪 Issue #1745 regression: Telegram bot token leak via Bash tool comment
 
 Testing sanitizeCommentBody masks env-injected TELEGRAM_BOT_TOKEN... github.com
@@ -7750,7 +7783,7 @@ Testing formatTokenList handles empty list... ✅ PASSED
 ================================================================================
 Results: 13 passed, 0 failed
 
-[189/200] tests/test-token-sanitization.mjs
+[191/202] tests/test-token-sanitization.mjs
 🧪 Running token sanitization unit tests (Issue #1037)...
 
 ================================================================================
@@ -8318,7 +8351,7 @@ Test Results for Token Sanitization (Issue #1037):
    ✓ Real GitHub tokens (ghp_, gho_, ghu_, github_pat_) ARE masked
    ✓ Random hex strings outside safe contexts ARE masked
 
-[190/200] tests/test-tool-specific-defaults.mjs
+[192/202] tests/test-tool-specific-defaults.mjs
 Testing --claude-file description does not claim to be the default... ✅ PASSED
 Testing --gitkeep-file description mentions it is default for all tools... ✅ PASSED
 Testing --tool claude defaults to .gitkeep... ✅ PASSED
@@ -8338,7 +8371,7 @@ Test Results for tool-specific defaults:
   ❌ Failed: 0
 ==================================================
 
-[191/200] tests/test-unicode-sanitization.mjs
+[193/202] tests/test-unicode-sanitization.mjs
 
 === sanitizeUnicode: Basic Tests ===
 
@@ -8430,7 +8463,7 @@ Testing handles deeply nested object... ✅ PASSED
 Total: 62 | ✅ Passed: 62 | ❌ Failed: 0
 ==================================================
 
-[192/200] tests/test-url-hash-fragment.mjs
+[194/202] tests/test-url-hash-fragment.mjs
 ===========================================
 Unit Tests: URL Hash Fragment Handling
 Issue #991 Fix Verification
@@ -8469,7 +8502,7 @@ Results: 15 passed, 0 failed
 
 ✅ All tests passed!
 
-[193/200] tests/test-usage-limit-comment-auto-restart-1570.mjs
+[195/202] tests/test-usage-limit-comment-auto-restart-1570.mjs
 ================================================================================
 Unit Tests: Issue #1570 - Always notify user about usage limit reached
 ================================================================================
@@ -8513,7 +8546,7 @@ Test Results for Issue #1570:
 
 [32m✅ All tests passed![0m
 
-[194/200] tests/test-usage-limit.mjs
+[196/202] tests/test-usage-limit.mjs
 Testing isUsageLimitError: detects "limit reached"... [32m✓ PASSED[0m
 Testing isUsageLimitError: detects Claude-style "resets" message... [32m✓ PASSED[0m
 Testing isUsageLimitError: detects usage limit exceeded... [32m✓ PASSED[0m
@@ -8586,7 +8619,7 @@ Testing detectUsageLimit: detects agent rate limit error message (Issue #1287)..
 Test results: 67 passed, 0 failed
 ==================================================
 
-[195/200] tests/test-use-with-retry.mjs
+[197/202] tests/test-use-with-retry.mjs
 
 📋 isCorruptInstallError
 
@@ -8621,13 +8654,13 @@ Test results: 67 passed, 0 failed
 📊 18 test(s): ✅ 18 passed, ❌ 0 failed
 
 
-[196/200] tests/test-version-info.mjs
+[198/202] tests/test-version-info.mjs
 
 📋 getVersionInfo Tests
 
 ✅ getVersionInfo returns success object
 ✅ getVersionInfo includes gatherTimeMs metric
-   (actual time: 3385ms)
+   (actual time: 2975ms)
 ✅ getVersionInfo completes within the reasonable CI bound
 ✅ getVersionInfo includes hiveMind version
 ✅ getVersionInfo includes Node.js version from process
@@ -8654,7 +8687,7 @@ Test results: 67 passed, 0 failed
 Results: 20 passed, 0 failed, 20 total
 ============================================================
 
-[197/200] tests/test-version-parsing.mjs
+[199/202] tests/test-version-parsing.mjs
 
 📋 normalizeDate
 
@@ -8784,7 +8817,7 @@ Results: 20 passed, 0 failed, 20 total
 Results: 70 passed, 0 failed, 70 total
 ============================================================
 
-[198/200] tests/test-working-session-live-progress.mjs
+[200/202] tests/test-working-session-live-progress.mjs
 [34m
 Testing Progress Monitoring Module Utilities[0m
 [32m✓ Progress monitoring module exports createProgressMonitor[0m
@@ -8928,7 +8961,7 @@ Total: 90 tests[0m
 [32m
 ✨ All tests passed![0m
 
-[199/200] tests/useless-tools.test.mjs
+[201/202] tests/useless-tools.test.mjs
 
 📋 Useless Tools Disable Tests (issue #1627)
 
@@ -8958,7 +8991,7 @@ Total: 90 tests[0m
 📊 Results: 22 passed, 0 failed
 
 
-[200/200] tests/version-info.test.mjs
+[202/202] tests/version-info.test.mjs
 
 📋 formatVersionMessage - Browser Versions Tests
 
@@ -9004,4 +9037,4 @@ Total: 90 tests[0m
 Results: 22 passed, 0 failed, 22 total
 ============================================================
 
-All 200 selected test file(s) passed.
+All 202 selected test file(s) passed.

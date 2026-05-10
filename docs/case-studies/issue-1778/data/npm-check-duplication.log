@@ -191,6 +191,10 @@ Clone found (javascript):
    [1m[32mtests/test-telegram-validate-url.mjs[39m[22m [272:17 - 172:2]
 
 Clone found (javascript):
+ - [1m[32mtests/test-telegram-task-command.mjs[39m[22m [9:37 - 17:8] (8 lines, 54 tokens)
+   [1m[32mtests/test-telegram-ui-i18n.mjs[39m[22m [6:41 - 14:6]
+
+Clone found (javascript):
  - [1m[32mtests/test-telegram-solve-queue.mjs[39m[22m [16:3 - 24:28] (8 lines, 62 tokens)
    [1m[32mtests/test-tool-specific-defaults.mjs[39m[22m [9:16 - 20:6]
 
@@ -236,7 +240,7 @@ Clone found (javascript):
 
 Clone found (javascript):
  - [1m[32mtests/test-telegram-options-before-url.mjs[39m[22m [23:46 - 40:6] (17 lines, 117 tokens)
-   [1m[32mtests/test-telegram-task-command.mjs[39m[22m [9:37 - 26:6]
+   [1m[32mtests/test-telegram-ui-i18n.mjs[39m[22m [6:41 - 26:6]
 
 Clone found (javascript):
  - [1m[32mtests/test-telegram-message-formatting-issue-1460.mjs[39m[22m [13:35 - 34:71] (21 lines, 189 tokens)
@@ -408,7 +412,7 @@ Clone found (javascript):
 
 Clone found (javascript):
  - [1m[32mtests/test-task-split.mjs[39m[22m [10:28 - 27:61] (17 lines, 121 tokens)
-   [1m[32mtests/test-telegram-task-command.mjs[39m[22m [9:37 - 40:42]
+   [1m[32mtests/test-telegram-ui-i18n.mjs[39m[22m [6:41 - 40:42]
 
 Clone found (javascript):
  - [1m[32mtests/test-start-screen.mjs[39m[22m [162:7 - 170:56] (8 lines, 48 tokens)
@@ -552,7 +556,7 @@ Clone found (javascript):
 
 Clone found (javascript):
  - [1m[32mtests/test-queue-display-1267.mjs[39m[22m [282:32 - 288:2] (6 lines, 73 tokens)
-   [1m[32mtests/test-solve-queue-command.mjs[39m[22m [329:41 - 335:2]
+   [1m[32mtests/test-solve-queue-command.mjs[39m[22m [342:41 - 348:2]
 
 Clone found (javascript):
  - [1m[32mtests/test-prompt-explore-sub-agent.mjs[39m[22m [8:1 - 14:20] (6 lines, 59 tokens)
@@ -880,7 +884,7 @@ Clone found (javascript):
 
 Clone found (javascript):
  - [1m[32mtests/test-lino-arguments-cli.mjs[39m[22m [14:2 - 31:9] (17 lines, 117 tokens)
-   [1m[32mtests/test-telegram-task-command.mjs[39m[22m [9:37 - 26:6]
+   [1m[32mtests/test-telegram-ui-i18n.mjs[39m[22m [6:41 - 26:6]
 
 Clone found (javascript):
  - [1m[32mtests/test-limit-reset-config.mjs[39m[22m [15:29 - 40:31] (25 lines, 201 tokens)
@@ -1431,8 +1435,8 @@ Clone found (javascript):
    [1m[32mtests/test-telegram-message-filters.mjs[39m[22m [451:2 - 458:8]
 
 Clone found (javascript):
- - [1m[32mtests/test-i18n.mjs[39m[22m [6:22 - 14:6] (8 lines, 54 tokens)
-   [1m[32mtests/test-telegram-task-command.mjs[39m[22m [9:37 - 17:8]
+ - [1m[32mtests/test-i18n.mjs[39m[22m [6:22 - 16:4] (10 lines, 73 tokens)
+   [1m[32mtests/test-telegram-ui-i18n.mjs[39m[22m [6:41 - 16:6]
 
 Clone found (javascript):
  - [1m[32mtests/test-hive.mjs[39m[22m [9:1 - 15:9] (6 lines, 73 tokens)
@@ -1553,6 +1557,10 @@ Clone found (javascript):
 Clone found (javascript):
  - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [21:2 - 29:6] (8 lines, 59 tokens)
    [1m[32mtests/test-use-with-retry.mjs[39m[22m [16:32 - 24:4]
+
+Clone found (javascript):
+ - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [26:2 - 32:4] (6 lines, 47 tokens)
+   [1m[32mtests/test-telegram-ui-i18n.mjs[39m[22m [11:2 - 17:6]
 
 Clone found (javascript):
  - [1m[32mtests/test-gh-retry-1536.mjs[39m[22m [28:2 - 39:44] (11 lines, 76 tokens)
@@ -2323,6 +2331,14 @@ Clone found (javascript):
    [1m[32mtests/test-billing-limit-detection.mjs[39m[22m [745:1 - 752:2]
 
 Clone found (javascript):
+ - [1m[32mtests/test-auto-language.mjs[39m[22m [5:30 - 21:6] (16 lines, 108 tokens)
+   [1m[32mtests/test-telegram-ui-i18n.mjs[39m[22m [6:41 - 22:9]
+
+Clone found (javascript):
+ - [1m[32mtests/test-auto-language.mjs[39m[22m [17:3 - 31:38] (14 lines, 92 tokens)
+   [1m[32mtests/test-auto-report-issue.mjs[39m[22m [41:2 - 55:45]
+
+Clone found (javascript):
  - [1m[32mtests/test-auto-input-until-mergeable-1708.mjs[39m[22m [50:43 - 65:9] (15 lines, 133 tokens)
    [1m[32mtests/test-issue-1700-isolation-parsing.mjs[39m[22m [20:38 - 50:81]
 
@@ -2479,8 +2495,12 @@ Clone found (javascript):
    [1m[32mtests/test-invalid-workflow-file-1690.mjs[39m[22m [242:1 - 251:2]
 
 Clone found (javascript):
- - [1m[32mtests/telegram-show-limits.test.mjs[39m[22m [116:44 - 121:6] (5 lines, 59 tokens)
-   [1m[32mtests/telegram-show-limits.test.mjs[39m[22m [96:46 - 101:5]
+ - [1m[32mtests/telegram-show-limits.test.mjs[39m[22m [119:44 - 124:6] (5 lines, 59 tokens)
+   [1m[32mtests/telegram-show-limits.test.mjs[39m[22m [99:46 - 104:5]
+
+Clone found (javascript):
+ - [1m[32mtests/telegram-show-limits.test.mjs[39m[22m [209:9 - 217:2] (8 lines, 75 tokens)
+   [1m[32mtests/telegram-show-limits.test.mjs[39m[22m [150:9 - 158:2]
 
 Clone found (javascript):
  - [1m[32mtests/solve-queue-tool-tracking.test.mjs[39m[22m [13:24 - 44:16] (31 lines, 223 tokens)
@@ -2603,79 +2623,79 @@ Clone found (javascript):
    [1m[32mtests/useless-tools.test.mjs[39m[22m [22:2 - 36:9]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [18:2 - 36:14] (18 lines, 122 tokens)
-   [1m[32mtests/solve-queue-reject.test.mjs[39m[22m [15:2 - 36:5]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [21:2 - 39:14] (18 lines, 117 tokens)
+   [1m[32mtests/test-timeline-linked-prs.mjs[39m[22m [15:32 - 36:5]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [255:4 - 260:4] (5 lines, 47 tokens)
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [258:4 - 263:4] (5 lines, 47 tokens)
    [1m[32mtests/test-queue-display-1267.mjs[39m[22m [184:3 - 189:3]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [260:4 - 265:4] (5 lines, 47 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [233:3 - 238:3]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [263:4 - 268:4] (5 lines, 47 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [236:3 - 241:3]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [264:11 - 269:2] (5 lines, 47 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [259:10 - 264:11]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [267:11 - 272:2] (5 lines, 47 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [262:10 - 267:11]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [265:4 - 273:80] (8 lines, 57 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [238:3 - 246:55]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [268:4 - 276:80] (8 lines, 57 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [241:3 - 249:55]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [363:3 - 368:3] (5 lines, 47 tokens)
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [366:3 - 371:3] (5 lines, 47 tokens)
    [1m[32mtests/test-queue-display-1267.mjs[39m[22m [184:3 - 189:3]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [367:10 - 372:11] (5 lines, 47 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [237:11 - 242:2]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [370:10 - 375:11] (5 lines, 47 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [240:11 - 245:2]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [368:3 - 373:3] (5 lines, 47 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [233:3 - 238:3]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [371:3 - 376:3] (5 lines, 47 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [236:3 - 241:3]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [373:3 - 381:34] (8 lines, 57 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [238:3 - 246:55]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [376:3 - 384:34] (8 lines, 57 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [241:3 - 249:55]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [542:2 - 547:8] (5 lines, 63 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [514:5 - 519:8]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [545:2 - 550:8] (5 lines, 63 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [517:5 - 522:8]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [573:3 - 582:3] (9 lines, 107 tokens)
-   [1m[32mtests/test-queue-display-1267.mjs[39m[22m [184:3 - 548:3]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [576:3 - 585:3] (9 lines, 107 tokens)
+   [1m[32mtests/test-queue-display-1267.mjs[39m[22m [184:3 - 551:3]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [621:33 - 641:16] (20 lines, 159 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [418:2 - 438:8]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [624:33 - 644:16] (20 lines, 159 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [421:2 - 441:8]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [661:68 - 680:5] (19 lines, 179 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [360:52 - 202:2]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [664:68 - 683:5] (19 lines, 179 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [363:52 - 202:2]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [711:81 - 718:12] (7 lines, 155 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [570:62 - 700:8]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [714:81 - 721:12] (7 lines, 155 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [573:62 - 703:8]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [748:54 - 753:76] (5 lines, 49 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [724:48 - 729:59]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [751:54 - 756:76] (5 lines, 49 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [727:48 - 732:59]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [761:27 - 768:17] (7 lines, 155 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [570:62 - 700:8]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [764:27 - 771:17] (7 lines, 155 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [573:62 - 703:8]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [777:3 - 782:6] (5 lines, 60 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [420:3 - 426:7]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [780:3 - 785:6] (5 lines, 60 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [423:3 - 429:7]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [782:3 - 788:2] (6 lines, 152 tokens)
-   [1m[32mtests/limits-display.test.mjs[39m[22m [571:3 - 700:2]
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [785:3 - 791:2] (6 lines, 152 tokens)
+   [1m[32mtests/limits-display.test.mjs[39m[22m [574:3 - 703:2]
 
 Clone found (javascript):
- - [1m[32mtests/limits-display.test.mjs[39m[22m [888:44 - 906:2] (18 lines, 116 tokens)
+ - [1m[32mtests/limits-display.test.mjs[39m[22m [928:52 - 946:2] (18 lines, 116 tokens)
    [1m[32mtests/queue-config.test.mjs[39m[22m [282:43 - 459:2]
 
 Clone found (javascript):
@@ -2712,7 +2732,7 @@ Clone found (javascript):
 
 Clone found (javascript):
  - [1m[32msrc/usage-limit.lib.mjs[39m[22m [350:2 - 355:3] (5 lines, 73 tokens)
-   [1m[32msrc/work-session-formatting.lib.mjs[39m[22m [33:2 - 38:2]
+   [1m[32msrc/work-session-formatting.lib.mjs[39m[22m [40:2 - 45:2]
 
 Clone found (javascript):
  - [1m[32msrc/token-sanitization.lib.mjs[39m[22m [216:11 - 223:2] (7 lines, 64 tokens)
@@ -2732,7 +2752,7 @@ Clone found (javascript):
 
 Clone found (javascript):
  - [1m[32msrc/telegram-solve-queue.helpers.lib.mjs[39m[22m [121:2 - 127:8] (6 lines, 94 tokens)
-   [1m[32msrc/work-session-formatting.lib.mjs[39m[22m [33:2 - 39:17]
+   [1m[32msrc/work-session-formatting.lib.mjs[39m[22m [40:2 - 46:17]
 
 Clone found (javascript):
  - [1m[32msrc/telegram-solve-queue-command.lib.mjs[39m[22m [39:32 - 44:43] (5 lines, 68 tokens)
@@ -2788,7 +2808,7 @@ Clone found (javascript):
 
 Clone found (javascript):
  - [1m[32msrc/task.mjs[39m[22m [93:8 - 104:5] (11 lines, 112 tokens)
-   [1m[32msrc/telegram-command-execution.lib.mjs[39m[22m [37:4 - 53:8]
+   [1m[32msrc/telegram-command-execution.lib.mjs[39m[22m [38:4 - 54:8]
 
 Clone found (javascript):
  - [1m[32msrc/task.issue-creation.lib.mjs[39m[22m [142:2 - 170:7] (28 lines, 268 tokens)
@@ -3015,8 +3035,8 @@ Clone found (javascript):
    [1m[32mtests/test-auto-accept-invite-1373.mjs[39m[22m [47:10 - 51:10]
 
 Clone found (javascript):
- - [1m[32msrc/session-monitor.lib.mjs[39m[22m [535:3 - 550:4] (15 lines, 50 tokens)
-   [1m[32msrc/session-monitor.lib.mjs[39m[22m [481:3 - 501:4]
+ - [1m[32msrc/session-monitor.lib.mjs[39m[22m [537:3 - 552:4] (15 lines, 50 tokens)
+   [1m[32msrc/session-monitor.lib.mjs[39m[22m [483:3 - 503:4]
 
 Clone found (javascript):
  - [1m[32msrc/sentry.lib.mjs[39m[22m [194:2 - 201:8] (7 lines, 54 tokens)
@@ -3777,10 +3797,10 @@ Clone found (javascript):
 [90m┌────────────[39m[90m┬────────────────[39m[90m┬─────────────[39m[90m┬──────────────[39m[90m┬──────────────[39m[90m┬──────────────────[39m[90m┬───────────────────┐[39m
 [90m│[39m[31m Format     [39m[90m│[39m[31m Files analyzed [39m[90m│[39m[31m Total lines [39m[90m│[39m[31m Total tokens [39m[90m│[39m[31m Clones found [39m[90m│[39m[31m Duplicated lines [39m[90m│[39m[31m Duplicated tokens [39m[90m│[39m
 [90m├────────────[39m[90m┼────────────────[39m[90m┼─────────────[39m[90m┼──────────────[39m[90m┼──────────────[39m[90m┼──────────────────[39m[90m┼───────────────────┤[39m
-[90m│[39m javascript [90m│[39m 391            [90m│[39m 95586       [90m│[39m 838332       [90m│[39m 943          [90m│[39m 10305 (10.78%)   [90m│[39m 92455 (11.03%)    [90m│[39m
+[90m│[39m javascript [90m│[39m 396            [90m│[39m 96217       [90m│[39m 846693       [90m│[39m 948          [90m│[39m 10359 (10.77%)   [90m│[39m 92845 (10.97%)    [90m│[39m
 [90m├────────────[39m[90m┼────────────────[39m[90m┼─────────────[39m[90m┼──────────────[39m[90m┼──────────────[39m[90m┼──────────────────[39m[90m┼───────────────────┤[39m
-[90m│[39m [1mTotal:[22m     [90m│[39m 391            [90m│[39m 95586       [90m│[39m 838332       [90m│[39m 943          [90m│[39m 10305 (10.78%)   [90m│[39m 92455 (11.03%)    [90m│[39m
+[90m│[39m [1mTotal:[22m     [90m│[39m 396            [90m│[39m 96217       [90m│[39m 846693       [90m│[39m 948          [90m│[39m 10359 (10.77%)   [90m│[39m 92845 (10.97%)    [90m│[39m
 [90m└────────────[39m[90m┴────────────────[39m[90m┴─────────────[39m[90m┴──────────────[39m[90m┴──────────────[39m[90m┴──────────────────[39m[90m┴───────────────────┘[39m
-[90mFound 943 clones.[39m
+[90mFound 948 clones.[39m
 [32mHTML report saved to reports/jscpd/html/[39m
-[3m[90mDetection time:[39m[23m: 8.994s
+[3m[90mDetection time:[39m[23m: 8.836s

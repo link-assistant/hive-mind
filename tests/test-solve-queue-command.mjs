@@ -272,8 +272,21 @@ console.log('\n📋 Hint Text Regression Tests\n');
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { initI18n } from '../src/i18n.lib.mjs';
+import { buildTelegramHelpMessage } from '../src/telegram-ui-messages.lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+await initI18n('en');
+
+function buildEnglishHelpMessage() {
+  return buildTelegramHelpMessage({
+    locale: 'en',
+    chatId: -100123,
+    chatType: 'supergroup',
+    chatTitle: 'Test Chat',
+    modelDescription: 'model selection',
+  });
+}
 
 await asyncTest('locales/en.lino uses /solve_queue in hint text (not /solve-queue)', async () => {
   // After i18n refactor, user-facing hint strings live in src/locales/<lang>.lino,
@@ -284,8 +297,8 @@ await asyncTest('locales/en.lino uses /solve_queue in hint text (not /solve-queu
   assert.ok(!content.includes('Use /solve-queue to check'), 'Should NOT use /solve-queue in hint text');
 });
 
-await asyncTest('telegram-bot.mjs includes /solve_queue in help text using backtick code block', async () => {
-  const content = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
+await asyncTest('help message includes /solve_queue using backtick code block', async () => {
+  const content = buildEnglishHelpMessage();
   assert.ok(content.includes('`/solve_queue`'), 'Help text should include /solve_queue in backtick code block');
   // Should NOT use bold+escaped format which renders backslashes in Telegram
   assert.ok(!content.includes('*/solve\\\\_queue*'), 'Help text should NOT use */solve\\_queue* format (renders backslashes)');
@@ -308,8 +321,8 @@ await asyncTest('telegram-solve-queue.lib.mjs uses [solve_queue] log tag (not [s
   assert.ok(content.includes('[solve_queue]'), 'Should use [solve_queue] log tag');
 });
 
-await asyncTest('telegram-bot.mjs includes /accept_invites in help text using backtick code block', async () => {
-  const content = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
+await asyncTest('help message includes /accept_invites using backtick code block', async () => {
+  const content = buildEnglishHelpMessage();
   assert.ok(content.includes('`/accept_invites`'), 'Help text should include /accept_invites in backtick code block');
   // Should NOT use bold+escaped format which renders backslashes in Telegram
   assert.ok(!content.includes('*/accept\\\\_invites*'), 'Help text should NOT use */accept\\_invites* format (renders backslashes)');

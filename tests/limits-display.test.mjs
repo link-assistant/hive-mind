@@ -16,6 +16,9 @@
 
 import assert from 'node:assert/strict';
 import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, formatCodexLimitsSection, formatRetryAfterMessage, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
+import { preloadAllLocales } from '../src/i18n.lib.mjs';
+
+await preloadAllLocales();
 
 // Test utilities
 let testsPassed = 0;
@@ -886,6 +889,43 @@ test('formatRetryAfterMessage with positive retry-after in formatUsageMessage', 
   // Should contain "Resets in 5m"
   assert.ok(message.includes('Resets in 5m'), 'Should show "Resets in 5m" for retry-after: 300');
   assert.ok(message.includes('UTC'), 'Should include UTC timezone in reset time');
+});
+
+test('formatUsageMessage localizes core labels for Russian', () => {
+  const message = formatUsageMessage(null, { usedPercentage: 91, usedBytes: 9, totalBytes: 10 }, null, null, null, 'Ошибка авторизации', [], { locale: 'ru' });
+  assert.ok(message.includes('Текущее время:'), 'Should localize current time');
+  assert.ok(message.includes('Дисковое пространство'), 'Should localize disk section');
+  assert.ok(message.includes('Лимиты Claude'), 'Should localize Claude section');
+  assert.ok(!message.includes('Current time:'), 'Should not leave English current time label');
+});
+
+test('formatUsageMessage localizes core labels for Chinese and Hindi', () => {
+  const zh = formatUsageMessage(null, { usedPercentage: 91, usedBytes: 9, totalBytes: 10 }, null, null, null, 'auth failed', [], { locale: 'zh' });
+  const hi = formatUsageMessage(null, { usedPercentage: 91, usedBytes: 9, totalBytes: 10 }, null, null, null, 'auth failed', [], { locale: 'hi' });
+  assert.ok(zh.includes('当前时间:'), 'Should localize Chinese current time');
+  assert.ok(zh.includes('磁盘空间'), 'Should localize Chinese disk section');
+  assert.ok(hi.includes('वर्तमान समय:'), 'Should localize Hindi current time');
+  assert.ok(hi.includes('डिस्क स्थान'), 'Should localize Hindi disk section');
+});
+
+test('formatCodexLimitsSection localizes additional Codex labels', () => {
+  const section = formatCodexLimitsSection(
+    {
+      usage: {
+        currentSession: { percentage: null },
+        allModels: { percentage: null },
+      },
+      additionalRateLimits: [{ limitName: 'GPT-5', currentSession: { percentage: null }, allModels: { percentage: 42 } }],
+      credits: { unlimited: true },
+      planType: 'team',
+    },
+    null,
+    { locale: 'ru' }
+  );
+  assert.ok(section.includes('Лимиты Codex'), 'Should localize Codex header');
+  assert.ok(section.includes('Дополнительные лимиты Codex'), 'Should localize additional limits header');
+  assert.ok(section.includes('без ограничений'), 'Should localize unlimited credits');
+  assert.ok(!section.includes('Additional Codex limits'), 'Should not leave English additional limits header');
 });
 
 // ============================================================================

@@ -1,4 +1,11 @@
+import { t } from './i18n.lib.mjs';
+
 const FAILURE_STATUSES = new Set(['failed', 'cancelled', 'canceled', 'error']);
+
+function text(locale, key, fallback, params = {}) {
+  if (!locale) return fallback;
+  return t(key, params, { locale });
+}
 
 function parseDateValue(value) {
   if (!value) return null;
@@ -41,15 +48,17 @@ export function formatSessionDurationSeconds(seconds) {
   return parts.join(' ');
 }
 
-export function formatStartingWorkSessionMessage({ infoBlock = '' } = {}) {
+export function formatStartingWorkSessionMessage({ infoBlock = '', locale = null } = {}) {
   const details = infoBlock ? `\n\n${infoBlock}` : '';
-  return `🔄 Starting...${details}`;
+  return `${text(locale, 'telegram.work_session_starting', '🔄 Starting...')}${details}`;
 }
 
-export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', isolationBackend = null, infoBlock = '' } = {}) {
-  const isolationInfo = isolationBackend ? `\n🔒 Isolation: \`${isolationBackend}\`` : '';
+export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', isolationBackend = null, infoBlock = '', locale = null } = {}) {
+  const sessionLabel = text(locale, 'telegram.session_label', 'Session');
+  const isolationLabel = text(locale, 'telegram.isolation_label', 'Isolation');
+  const isolationInfo = isolationBackend ? `\n🔒 ${isolationLabel}: \`${isolationBackend}\`` : '';
   const details = infoBlock ? `\n\n${infoBlock}` : '';
-  return `⏳ Executing...\n\n📊 Session: \`${sessionName}\`${isolationInfo}${details}`;
+  return `${text(locale, 'telegram.work_session_executing', '⏳ Executing...')}\n\n📊 ${sessionLabel}: \`${sessionName}\`${isolationInfo}${details}`;
 }
 
 /**
@@ -63,18 +72,24 @@ export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', iso
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1688
  */
-export function appendPullRequestLine(infoBlock, pullRequestUrl) {
+export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null } = {}) {
   if (!pullRequestUrl || !infoBlock) return infoBlock || '';
   if (infoBlock.includes(pullRequestUrl)) return infoBlock;
 
   const lines = infoBlock.split('\n');
   let lastUrlLineIdx = -1;
+  const urlLabels = ['Issue', 'Pull request', 'URL'];
+  if (locale) {
+    urlLabels.push(t('telegram.info_issue_label', {}, { locale }));
+    urlLabels.push(t('telegram.info_pull_request_label', {}, { locale }));
+    urlLabels.push(t('telegram.info_url_label', {}, { locale }));
+  }
   for (let i = 0; i < lines.length; i++) {
-    if (/^(Issue|Pull request|URL):\s/.test(lines[i])) {
+    if (urlLabels.some(label => lines[i].startsWith(`${label}: `))) {
       lastUrlLineIdx = i;
     }
   }
-  const prLine = `Pull request: ${pullRequestUrl}`;
+  const prLine = `${text(locale, 'telegram.info_pull_request_label', 'Pull request')}: ${pullRequestUrl}`;
   if (lastUrlLineIdx === -1) {
     return `${infoBlock}\n${prLine}`;
   }
@@ -83,24 +98,28 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl) {
   return [...before, prLine, ...after].join('\n');
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, extraSections = [] } = {}) {
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, extraSections = [], locale = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const failed = finalExitCode !== null && finalExitCode !== 0;
   const statusEmoji = failed ? '❌' : '✅';
-  const statusText = failed ? `Work session failed (exit code: ${finalExitCode})` : 'Work session finished successfully';
-  const isolationInfo = sessionInfo?.isolationBackend ? `\n🔒 Isolation: \`${sessionInfo.isolationBackend}\`` : '';
+  const messageLocale = locale || sessionInfo?.locale || null;
+  const statusText = failed ? text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode }) : text(messageLocale, 'telegram.work_session_finished', 'Work session finished successfully');
+  const durationLabel = text(messageLocale, 'telegram.duration_label', 'Duration');
+  const sessionLabel = text(messageLocale, 'telegram.session_label', 'Session');
+  const isolationLabel = text(messageLocale, 'telegram.isolation_label', 'Isolation');
+  const isolationInfo = sessionInfo?.isolationBackend ? `\n🔒 ${isolationLabel}: \`${sessionInfo.isolationBackend}\`` : '';
   const startTime = parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
   const endTime = parseDateValue(statusResult?.endTime) || observedEndTime;
   const durationSeconds = Math.max(0, (endTime.getTime() - startTime.getTime()) / 1000);
   let resolvedInfoBlock = infoBlock || sessionInfo?.infoBlock || '';
   // Issue #1688: When the agent created a PR for an issue-driven /solve, append
   //   a 'Pull request:' line so the completion message includes both Issue and PR links.
-  if (pullRequestUrl) resolvedInfoBlock = appendPullRequestLine(resolvedInfoBlock, pullRequestUrl);
+  if (pullRequestUrl) resolvedInfoBlock = appendPullRequestLine(resolvedInfoBlock, pullRequestUrl, { locale: messageLocale });
   const details = resolvedInfoBlock ? `\n\n${resolvedInfoBlock}` : '';
 
   let message = `${statusEmoji} *${statusText}*\n\n`;
-  message += `⏱️ Duration: ${formatSessionDurationSeconds(durationSeconds)}\n`;
-  message += `📊 Session: \`${sessionName || 'unknown'}\`${isolationInfo}${details}`;
+  message += `⏱️ ${durationLabel}: ${formatSessionDurationSeconds(durationSeconds)}\n`;
+  message += `📊 ${sessionLabel}: \`${sessionName || 'unknown'}\`${isolationInfo}${details}`;
 
   // Issue #594: --show-limits virtual option appends snapshot/delta sections
   // (Markdown code blocks) below the standard completion details.

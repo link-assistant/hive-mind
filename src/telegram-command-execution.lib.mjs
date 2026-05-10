@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
+import { t } from './i18n.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -98,7 +99,7 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
  */
 export function buildExecuteAndUpdateMessage(deps) {
   const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage } = deps;
-  return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null } = {}) {
+  return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null, locale = null } = {}) {
     const { chat, message_id: msgId } = startingMessage;
     const safeEdit = async text => {
       try {
@@ -108,7 +109,7 @@ export function buildExecuteAndUpdateMessage(deps) {
       }
     };
     const requesterUserId = ctx.from?.id ?? null; // Issue #1688: suppress duplicate /subscribe DM
-    const baseSessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId, showLimits, limitsAtStart }; // #594: showLimits/limitsAtStart
+    const baseSessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId, showLimits, limitsAtStart, locale }; // #594: showLimits/limitsAtStart
     const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
     let result, session, sessionInfo;
     if (iso) {
@@ -131,9 +132,9 @@ export function buildExecuteAndUpdateMessage(deps) {
     }
     if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
     if (result.success) {
-      await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, isolationBackend: iso?.backend || null, infoBlock }));
+      await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, isolationBackend: iso?.backend || null, infoBlock, locale }));
       if (AUTO_WATCH_MESSAGE && commandName === 'solve' && sessionInfo?.isolationBackend) await startAutoTerminalWatchForSession({ bot, ctx, sessionId: session, sessionInfo, verbose: VERBOSE });
-    } else await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${infoBlock}`);
+    } else await safeEdit(`${t('telegram.error_executing_command', { commandName }, { locale })}:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${infoBlock}`);
   };
 }
 

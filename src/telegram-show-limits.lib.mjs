@@ -20,6 +20,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/594
  */
 
+import { lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
+
 const SHOW_LIMITS_FLAG = '--show-limits';
 const NO_SHOW_LIMITS_FLAG = '--no-show-limits';
 
@@ -106,9 +108,9 @@ function pct(value) {
   return Math.floor(num);
 }
 
-function formatPercentage(value) {
+function formatPercentage(value, locale = null) {
   const p = pct(value);
-  return p === null ? 'N/A' : `${p}%`;
+  return p === null ? lt('na', {}, { locale }) : `${p}%`;
 }
 
 /**
@@ -118,26 +120,28 @@ function formatPercentage(value) {
  * @param {Object} snapshot - Result of captureLimitsSnapshot for tool=claude
  * @returns {string}
  */
-function formatClaudeSnapshotCompact(snapshot) {
-  if (!snapshot) return 'Claude limits: N/A';
-  if (!snapshot.success) return `Claude limits: ${snapshot.error || 'unavailable'}`;
+function formatClaudeSnapshotCompact(snapshot, options = {}) {
+  const locale = resolveLimitLocale(options);
+  if (!snapshot) return `${lt('claude_limits', {}, { locale })}: ${lt('na', {}, { locale })}`;
+  if (!snapshot.success) return `${lt('claude_limits', {}, { locale })}: ${snapshot.error || lt('unavailable', {}, { locale })}`;
   const usage = snapshot.usage || {};
   const lines = [];
-  lines.push(`5h session: ${formatPercentage(usage.currentSession?.percentage)}`);
-  lines.push(`7d all models: ${formatPercentage(usage.allModels?.percentage)}`);
+  lines.push(`${lt('five_hour_session', {}, { locale })}: ${formatPercentage(usage.currentSession?.percentage, locale)}`);
+  lines.push(`${lt('seven_day_all_models', {}, { locale })}: ${formatPercentage(usage.allModels?.percentage, locale)}`);
   if (usage.sonnetOnly && usage.sonnetOnly.percentage !== null && usage.sonnetOnly.percentage !== undefined) {
-    lines.push(`7d Sonnet only: ${formatPercentage(usage.sonnetOnly.percentage)}`);
+    lines.push(`${lt('seven_day_sonnet_only', {}, { locale })}: ${formatPercentage(usage.sonnetOnly.percentage, locale)}`);
   }
   return lines.join('\n');
 }
 
-function formatCodexSnapshotCompact(snapshot) {
-  if (!snapshot) return 'Codex limits: N/A';
-  if (!snapshot.success) return `Codex limits: ${snapshot.error || 'unavailable'}`;
+function formatCodexSnapshotCompact(snapshot, options = {}) {
+  const locale = resolveLimitLocale(options);
+  if (!snapshot) return `${lt('codex_limits', {}, { locale })}: ${lt('na', {}, { locale })}`;
+  if (!snapshot.success) return `${lt('codex_limits', {}, { locale })}: ${snapshot.error || lt('unavailable', {}, { locale })}`;
   const usage = snapshot.usage || {};
   const lines = [];
-  lines.push(`5h session: ${formatPercentage(usage.currentSession?.percentage)}`);
-  lines.push(`Weekly: ${formatPercentage(usage.allModels?.percentage)}`);
+  lines.push(`${lt('five_hour_session', {}, { locale })}: ${formatPercentage(usage.currentSession?.percentage, locale)}`);
+  lines.push(`${lt('weekly', {}, { locale })}: ${formatPercentage(usage.allModels?.percentage, locale)}`);
   return lines.join('\n');
 }
 
@@ -150,11 +154,12 @@ function formatCodexSnapshotCompact(snapshot) {
  * @param {string} [options.title='📊 Limits at start'] Block title
  * @returns {string}
  */
-export function formatLimitsSnapshotBlock(snapshot, { title = '📊 Limits at start' } = {}) {
+export function formatLimitsSnapshotBlock(snapshot, { title = null, locale = null } = {}) {
   if (!snapshot) return '';
   const heading = snapshot.toolKey === 'codex' ? 'Codex' : 'Claude';
-  const body = snapshot.toolKey === 'codex' ? formatCodexSnapshotCompact(snapshot) : formatClaudeSnapshotCompact(snapshot);
-  return `${title} (${heading})\n\`\`\`\n${body}\n\`\`\``;
+  const localizedTitle = title || `📊 ${lt('limits_at_start', {}, { locale })}`;
+  const body = snapshot.toolKey === 'codex' ? formatCodexSnapshotCompact(snapshot, { locale }) : formatClaudeSnapshotCompact(snapshot, { locale });
+  return `${localizedTitle} (${heading})\n\`\`\`\n${body}\n\`\`\``;
 }
 
 function deltaFor(startPct, endPct) {
@@ -164,8 +169,8 @@ function deltaFor(startPct, endPct) {
   return e - s;
 }
 
-function formatDeltaValue(delta) {
-  if (delta === null || delta === undefined) return 'N/A';
+function formatDeltaValue(delta, locale = null) {
+  if (delta === null || delta === undefined) return lt('na', {}, { locale });
   if (delta === 0) return '±0%';
   const sign = delta > 0 ? '+' : '';
   return `${sign}${delta}%`;
@@ -177,37 +182,39 @@ function formatDeltaValue(delta) {
  *
  * @param {Object|null} startSnapshot
  * @param {Object|null} endSnapshot
+ * @param {Object|string} [options]
  * @returns {string}
  */
-export function formatLimitsDeltaBlock(startSnapshot, endSnapshot) {
+export function formatLimitsDeltaBlock(startSnapshot, endSnapshot, options = {}) {
   if (!startSnapshot || !endSnapshot) return '';
   if (startSnapshot.toolKey !== endSnapshot.toolKey) return '';
+  const locale = resolveLimitLocale(options);
   const heading = startSnapshot.toolKey === 'codex' ? 'Codex' : 'Claude';
   const lines = [];
 
   if (!startSnapshot.success && !endSnapshot.success) {
-    lines.push(`Start: ${startSnapshot.error || 'unavailable'}`);
-    lines.push(`End: ${endSnapshot.error || 'unavailable'}`);
+    lines.push(`${lt('start', {}, { locale })}: ${startSnapshot.error || lt('unavailable', {}, { locale })}`);
+    lines.push(`${lt('end', {}, { locale })}: ${endSnapshot.error || lt('unavailable', {}, { locale })}`);
   } else {
     const startUsage = startSnapshot.usage || {};
     const endUsage = endSnapshot.usage || {};
 
-    const sessionLabel = '5h session';
-    lines.push(`${sessionLabel}: ${formatPercentage(startUsage.currentSession?.percentage)} → ${formatPercentage(endUsage.currentSession?.percentage)} (${formatDeltaValue(deltaFor(startUsage.currentSession?.percentage, endUsage.currentSession?.percentage))})`);
+    const sessionLabel = lt('five_hour_session', {}, { locale });
+    lines.push(`${sessionLabel}: ${formatPercentage(startUsage.currentSession?.percentage, locale)} → ${formatPercentage(endUsage.currentSession?.percentage, locale)} (${formatDeltaValue(deltaFor(startUsage.currentSession?.percentage, endUsage.currentSession?.percentage), locale)})`);
 
-    const allModelsLabel = startSnapshot.toolKey === 'codex' ? 'Weekly' : '7d all models';
-    lines.push(`${allModelsLabel}: ${formatPercentage(startUsage.allModels?.percentage)} → ${formatPercentage(endUsage.allModels?.percentage)} (${formatDeltaValue(deltaFor(startUsage.allModels?.percentage, endUsage.allModels?.percentage))})`);
+    const allModelsLabel = startSnapshot.toolKey === 'codex' ? lt('weekly', {}, { locale }) : lt('seven_day_all_models', {}, { locale });
+    lines.push(`${allModelsLabel}: ${formatPercentage(startUsage.allModels?.percentage, locale)} → ${formatPercentage(endUsage.allModels?.percentage, locale)} (${formatDeltaValue(deltaFor(startUsage.allModels?.percentage, endUsage.allModels?.percentage), locale)})`);
 
     if (startSnapshot.toolKey === 'claude' && ((startUsage.sonnetOnly && startUsage.sonnetOnly.percentage !== null && startUsage.sonnetOnly.percentage !== undefined) || (endUsage.sonnetOnly && endUsage.sonnetOnly.percentage !== null && endUsage.sonnetOnly.percentage !== undefined))) {
-      lines.push(`7d Sonnet only: ${formatPercentage(startUsage.sonnetOnly?.percentage)} → ${formatPercentage(endUsage.sonnetOnly?.percentage)} (${formatDeltaValue(deltaFor(startUsage.sonnetOnly?.percentage, endUsage.sonnetOnly?.percentage))})`);
+      lines.push(`${lt('seven_day_sonnet_only', {}, { locale })}: ${formatPercentage(startUsage.sonnetOnly?.percentage, locale)} → ${formatPercentage(endUsage.sonnetOnly?.percentage, locale)} (${formatDeltaValue(deltaFor(startUsage.sonnetOnly?.percentage, endUsage.sonnetOnly?.percentage), locale)})`);
     }
   }
 
   // Note: delta is not precise because multiple parallel tasks may consume
   // from the same Anthropic/OpenAI budget windows during the run.
-  lines.push('Note: delta is approximate (parallel sessions share the same budget).');
+  lines.push(lt('note_delta_approx', {}, { locale }));
 
-  return `📊 Limits change (${heading})\n\`\`\`\n${lines.join('\n')}\n\`\`\``;
+  return `📊 ${lt('limits_change', {}, { locale })} (${heading})\n\`\`\`\n${lines.join('\n')}\n\`\`\``;
 }
 
 /**
@@ -241,10 +248,10 @@ export function appendInfoSection(infoBlock, addition) {
  * @param {boolean} options.enabled - Master switch (config.showLimits)
  * @returns {Promise<{ handled: boolean, args: string[], showLimits: boolean }>}
  */
-export async function handleShowLimitsFlag({ ctx, safeReply, args, enabled }) {
+export async function handleShowLimitsFlag({ ctx, safeReply, args, enabled, locale = null }) {
   const { showLimits, args: stripped } = extractShowLimitsFlag(args);
   if (showLimits === true && !enabled) {
-    await safeReply(ctx, '❌ `--show-limits` is disabled by the bot administrator.', { reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${lt('disabled_by_admin', {}, { locale })}`, { reply_to_message_id: ctx.message.message_id });
     return { handled: true, args: stripped, showLimits: false };
   }
   return { handled: false, args: stripped, showLimits: showLimits === true && enabled };
@@ -264,12 +271,12 @@ export async function handleShowLimitsFlag({ ctx, safeReply, args, enabled }) {
  * @param {string} [options.commandLabel='command'] - For verbose logging
  * @returns {Promise<{ infoBlock: string, limitsAtStart: Object|null }>}
  */
-export async function captureStartSnapshotAndAppend({ infoBlock, tool = 'claude', verbose = false, limitsLib, commandLabel = 'command' } = {}) {
+export async function captureStartSnapshotAndAppend({ infoBlock, tool = 'claude', verbose = false, limitsLib, commandLabel = 'command', locale = null } = {}) {
   let limitsAtStart = null;
   let nextInfoBlock = infoBlock || '';
   try {
     limitsAtStart = await captureLimitsSnapshot({ tool, verbose, limitsLib });
-    const block = formatLimitsSnapshotBlock(limitsAtStart, { title: '📊 Limits at start' });
+    const block = formatLimitsSnapshotBlock(limitsAtStart, { locale });
     if (block) nextInfoBlock = appendInfoSection(nextInfoBlock, block);
   } catch (e) {
     if (verbose) console.log(`[VERBOSE] ${commandLabel} --show-limits snapshot failed: ${e?.message || e}`);

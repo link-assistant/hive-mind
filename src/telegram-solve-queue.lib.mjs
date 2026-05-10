@@ -21,6 +21,7 @@ import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunni
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+import { t } from './i18n.lib.mjs';
 
 export const QueueItemStatus = {
   QUEUED: 'queued',
@@ -51,6 +52,7 @@ class SolveQueueItem {
     // Issue #594: --show-limits virtual option (hive-telegram-bot only).
     this.showLimits = options.showLimits === true;
     this.limitsAtStart = options.limitsAtStart || null;
+    this.locale = options.locale || null;
     this.createdAt = new Date();
     this.startedAt = null;
     this.status = QueueItemStatus.QUEUED;
@@ -1094,7 +1096,7 @@ export class SolveQueue {
         this.stats.totalStarted++;
 
         // Update message to show Starting status
-        await this.updateItemMessage(item, formatStartingWorkSessionMessage({ infoBlock: item.infoBlock }));
+        await this.updateItemMessage(item, formatStartingWorkSessionMessage({ infoBlock: item.infoBlock, locale: item.locale }));
 
         this.log(`Starting: ${item.toString()} from ${tool} queue`);
 
@@ -1142,7 +1144,7 @@ export class SolveQueue {
 
           if (shouldUpdate) {
             const position = i + 1; // Position within this tool's queue
-            await this.updateItemMessage(item, `⏳ Waiting (${tool} queue #${position})\n\n${item.infoBlock}\n\n*Reason:*\n${item.waitingReason}`);
+            await this.updateItemMessage(item, `${t('telegram.solve_waiting', { tool, position }, { locale: item.locale })}\n\n${item.infoBlock}\n\n*${t('telegram.reason_label', {}, { locale: item.locale })}:*\n${item.waitingReason}`);
           }
         }
       }
@@ -1186,10 +1188,11 @@ export class SolveQueue {
                   sessionName,
                   isolationBackend: result.isolationBackend,
                   infoBlock: item.infoBlock,
+                  locale: item.locale,
                 });
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
               } else {
-                const response = `❌ Error executing solve command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${item.infoBlock}`;
+                const response = `${t('telegram.error_executing_command', { commandName: 'solve' }, { locale: item.locale })}:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${item.infoBlock}`;
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
               }
             } catch (error) {
@@ -1415,6 +1418,7 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
           //   handler so it can render an end-of-task delta.
           showLimits: item.showLimits === true,
           limitsAtStart: item.limitsAtStart || null,
+          locale: item.locale || null,
         });
       }
     }

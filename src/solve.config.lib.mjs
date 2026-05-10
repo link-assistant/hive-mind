@@ -580,7 +580,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'auto-language': {
     type: 'boolean',
-    description: 'Automatically detect the target issue or pull request language and set the AI work language to English or Russian when one language has more than 51% of all words. Explicit --work-language or --prompt-language takes precedence.',
+    description: 'Experimental and disabled by default. Automatically detect the target issue or pull request language and set the AI work language to English or Russian when one language has more than 51% of all words. Explicit --work-language or --prompt-language takes precedence.',
     default: false,
   },
 };

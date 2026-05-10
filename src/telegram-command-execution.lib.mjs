@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
+import { t } from './i18n.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -131,9 +132,9 @@ export function buildExecuteAndUpdateMessage(deps) {
     }
     if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
     if (result.success) {
-      await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, isolationBackend: iso?.backend || null, infoBlock }));
+      await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, isolationBackend: iso?.backend || null, infoBlock, locale }));
       if (AUTO_WATCH_MESSAGE && commandName === 'solve' && sessionInfo?.isolationBackend) await startAutoTerminalWatchForSession({ bot, ctx, sessionId: session, sessionInfo, verbose: VERBOSE });
-    } else await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${infoBlock}`);
+    } else await safeEdit(`${t('telegram.error_executing_command', { commandName }, { locale })}:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${infoBlock}`);
   };
 }
 

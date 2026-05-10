@@ -45,6 +45,7 @@ const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync } = await import('./session-monitor.lib.mjs');
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
+const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -442,12 +443,12 @@ async function getCommandUrlArg(args, createYargsConfig, positionalNames) {
 }
 
 async function validateGitHubUrl(args, options = {}) {
-  const { allowedTypes = ['issue', 'pull'], commandName = 'solve', createYargsConfig = null, positionalNames = [] } = options;
+  const { allowedTypes = ['issue', 'pull'], commandName = 'solve', createYargsConfig = null, positionalNames = [], locale = null } = options;
   const rawUrl = await getCommandUrlArg(args, createYargsConfig, positionalNames);
-  if (!rawUrl) return { valid: false, error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]` };
+  if (!rawUrl) return { valid: false, error: t('telegram.missing_github_url', { commandName }, { locale }) };
   // Issue #1102: Clean non-printable chars (Zero-Width Space, BOM, etc.) from URLs
   const url = cleanNonPrintableChars(rawUrl);
-  if (!url.includes('github.com')) return { valid: false, error: 'First argument must be a GitHub URL' };
+  if (!url.includes('github.com')) return { valid: false, error: t('telegram.first_arg_must_be_github_url', {}, { locale }) };
   const parsed = parseGitHubUrl(url);
   if (!parsed.valid) return { valid: false, error: parsed.error || 'Invalid GitHub URL', suggestion: parsed.suggestion };
   if (!allowedTypes.includes(parsed.type)) {
@@ -456,10 +457,10 @@ async function validateGitHubUrl(args, options = {}) {
     const escapedUrl = escapeMarkdown(url),
       escapedBaseUrl = escapeMarkdown(baseUrl); // Issue #1102: escape for Markdown
     let error;
-    if (parsed.type === 'issues_list') error = `URL points to the issues list page, but you need a specific issue\n\n💡 How to fix:\n1. Open the repository: ${escapedUrl}\n2. Click on a specific issue\n3. Copy the URL (it should end with /issues/NUMBER)\n\nExample: \`${escapedBaseUrl}/issues/1\``;
-    else if (parsed.type === 'pulls_list') error = `URL points to the pull requests list page, but you need a specific pull request\n\n💡 How to fix:\n1. Open the repository: ${escapedUrl}\n2. Click on a specific pull request\n3. Copy the URL (it should end with /pull/NUMBER)\n\nExample: \`${escapedBaseUrl}/pull/1\``;
-    else if (parsed.type === 'repo') error = `URL points to a repository, but you need a specific ${allowedTypesStr}\n\n💡 How to fix:\n1. Go to: ${escapedUrl}/issues\n2. Click on an issue to solve\n3. Use the full URL with the issue number\n\nExample: \`${escapedBaseUrl}/issues/1\``;
-    else error = `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type.replace('_', ' ')})`;
+    if (parsed.type === 'issues_list') error = t('telegram.url_issues_list_error', { url: escapedUrl, example: `${escapedBaseUrl}/issues/1` }, { locale });
+    else if (parsed.type === 'pulls_list') error = t('telegram.url_pulls_list_error', { url: escapedUrl, example: `${escapedBaseUrl}/pull/1` }, { locale });
+    else if (parsed.type === 'repo') error = t('telegram.url_repo_error', { allowedTypes: allowedTypesStr, url: escapedUrl, example: `${escapedBaseUrl}/issues/1` }, { locale });
+    else error = t('telegram.url_must_be_type', { allowedTypes: allowedTypesStr, type: parsed.type.replace('_', ' ') }, { locale });
     return { valid: false, error };
   }
   return { valid: true, parsed, normalizedUrl: url };
@@ -486,104 +487,32 @@ bot.command('help', async ctx => {
   const chatType = ctx.chat.type;
   const chatTitle = ctx.chat.title || 'Private Chat';
   const topicId = ctx.message?.message_thread_id; // Forum topic ID (issue #1100)
-  let message = '🤖 *SwarmMindBot Help*\n\n';
-
-  // Show stopped status if chat is stopped (issue #1081)
-  if (isChatStopped(chatId)) {
-    const stopInfo = getChatStopInfo(chatId);
-    const reason = stopInfo?.reason || DEFAULT_STOP_REASON;
-    message += '🛑 *Bot Status: STOPPED*\n';
-    message += `Reason: ${reason}\n`;
-    if (stopInfo?.stoppedAt) {
-      message += `Stopped: ${stopInfo.stoppedAt.toISOString()}\n`;
-    }
-    message += 'Use /start (chat owner only) to resume.\n\n';
-  }
-
-  message += '📋 *Diagnostic Information:*\n';
-  message += `• Chat ID: \`${chatId}\`\n`;
-  if (topicId) message += `• Topic ID: \`${topicId}\`\n`;
-  message += `• Chat Type: ${chatType}\n`;
-  message += `• Chat Title: ${chatTitle}\n\n`;
-  message += '📝 *Available Commands:*\n\n';
-
-  if (solveEnabled) {
-    message += '*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - Solve a GitHub issue\n';
-    message += 'Usage: `/solve <github-url> [options]`\n';
-    message += 'Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`\n';
-    message += 'Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`\n';
-    message += 'Or reply to a message with a GitHub link: `/solve`\n';
-    if (solveOverrides.length > 0) {
-      message += `🔒 Locked options: \`${solveOverrides.join(' ')}\`\n`;
-    }
-    message += '\n';
-  } else {
-    message += '*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Disabled\n\n';
-  }
-
-  if (taskEnabled) {
-    message += '*/task* - Create a GitHub issue from a repository link and issue text\n';
-    message += 'Usage: `/task <github-repository-url>` followed by issue text, or reply with `/task`\n';
-    message += 'Example: `/task https://github.com/owner/repo` then the issue text on following lines\n';
-    message += '*/split* - Split a GitHub issue into smaller issues\n';
-    message += 'Usage: `/split <github-issue-url> [options]` or `/task --split <github-issue-url>`\n';
-    message += 'Example: `/split https://github.com/owner/repo/issues/123 --split-count 2`\n\n';
-  } else {
-    message += '*/task* / */split* - ❌ Disabled\n\n';
-  }
-
-  if (hiveEnabled) {
-    message += '*/hive* - Run hive command\n';
-    message += 'Usage: `/hive <github-url> [options]`\n';
-    message += 'Example: `/hive https://github.com/owner/repo`\n';
-    if (hiveOverrides.length > 0) {
-      message += `🔒 Locked options: \`${hiveOverrides.join(' ')}\`\n`;
-    }
-    message += '\n';
-  } else {
-    message += '*/hive* - ❌ Disabled\n\n';
-  }
-
-  message += '`/solve_queue` - Show solve queue status\n';
-  message += '*/limits* - Show usage limits\n';
-  message += '*/version* - Show bot and runtime versions\n';
-  message += '*/language* `[en|ru|zh|hi]` - Set or show your preferred reply language (in-memory only, per-user)\n';
-  message += '`/accept_invites` - Accept all pending GitHub invitations\n';
-  message += '*/merge* - Merge queue (experimental)\n';
-  message += 'Usage: `/merge <github-repo-url>`\n';
-  message += "Merges all PRs with 'ready' label sequentially.\n";
-  message += '*/subscribe* / */unsubscribe* - 🔔 Get private DM forward of /solve completion (experimental, #1688)\n';
-  message += '*/help* - Show this help message\n';
-  message += '*/stop* / */start* - Stop or resume accepting new tasks (owner only)\n';
-  message += '*/stop* `<uuid>` - Send CTRL+C to an isolated solve/hive session (owner only). Also works as a reply to a message containing the UUID.\n';
-  message += '*/log* - Fetch isolation session log (owner only). Usage: `/log <uuid>` or reply with `/log`\n';
-  message += '*/terminal\\_watch* - Live-update an isolation session log (owner only). Usage: `/terminal_watch <uuid>` or reply with `/terminal_watch`\n\n';
-  message += '🔔 *Session Notifications:* Completion notifications are automatic; use /subscribe for private DM forwards.\n';
-  if (ISOLATION_BACKEND) message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental)\n`;
-  message += '\n';
-  message += '⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /subscribe and /unsubscribe work in private and group chats.\n\n';
-  message += '🔧 *Common Options:*\n';
-  message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
-  message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
-  message += '• `--think <level>` - Thinking level (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - Token budget (0-63999)\n';
-  message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';
-  if (SHOW_LIMITS_ENABLED) message += '• `--show-limits` - Experimental: embed Claude/Codex usage at start, end and delta (#594)\n';
-  message += '\n💡 *Tip:* Many more options available. See full documentation for complete list.\n';
-
-  if (allowedChats || allowedTopics) {
-    const authorized = isTopicAuthorized(ctx);
-    message += `\n🔒 *Restricted Mode:* Authorized: ${authorized ? '✅ Yes' : '❌ No'}`;
-    if (!authorized && topicId) message += `\n💡 To allow this topic: \`TELEGRAM_ALLOWED_TOPICS="(${chatId} ${topicId})"\``;
-  }
-
-  message += '\n\n🔧 *Troubleshooting:*\n';
-  message += 'If bot is not receiving messages:\n';
-  message += '1. Check privacy mode in @BotFather\n';
-  message += '   • Send `/setprivacy` to @BotFather\n';
-  message += '   • Choose "Disable" for your bot\n';
-  message += '   • Remove bot from group and re-add\n';
-  message += '2. Or make bot an admin in the group\n';
-  message += '3. Restart bot with `--verbose` flag for diagnostics';
+  const helpLocale = resolveLocaleFromTelegramCtx(ctx);
+  const stopped = isChatStopped(chatId);
+  const stopInfo = stopped ? getChatStopInfo(chatId) : null;
+  const restrictedMode = Boolean(allowedChats || allowedTopics);
+  const authorized = restrictedMode ? isTopicAuthorized(ctx) : null;
+  const message = buildTelegramHelpMessage({
+    locale: helpLocale,
+    chatId,
+    chatType,
+    chatTitle,
+    topicId,
+    isStopped: stopped,
+    stopInfo,
+    stopReason: stopInfo?.reason || DEFAULT_STOP_REASON,
+    solveEnabled,
+    taskEnabled,
+    hiveEnabled,
+    solveOverrides,
+    hiveOverrides,
+    showLimitsEnabled: SHOW_LIMITS_ENABLED,
+    isolationBackend: ISOLATION_BACKEND,
+    modelDescription: buildModelOptionDescription(),
+    restrictedMode,
+    authorized,
+    allowTopicHint: topicId ? `TELEGRAM_ALLOWED_TOPICS="(${chatId} ${topicId})"` : '',
+  });
 
   await ctx.reply(message, { parse_mode: 'Markdown' });
 });
@@ -812,13 +741,13 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  const validation = await validateGitHubUrl(userArgs, { createYargsConfig: createSolveYargsConfig, positionalNames: ['issue-url'] });
+  const validation = await validateGitHubUrl(userArgs, { createYargsConfig: createSolveYargsConfig, positionalNames: ['issue-url'], locale: solveLocale });
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
     if (validation.suggestion) {
-      errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
+      errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: validation.suggestion }, { locale: solveLocale })}`;
     }
-    errorMsg += '\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`';
+    errorMsg += `\n\n${t('telegram.solve_invalid_url_help', {}, { locale: solveLocale })}`;
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
   }
@@ -896,10 +825,14 @@ async function handleSolveCommand(ctx) {
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
   // #1228: only user options; #1460: escape; #1688: 'Issue:' / 'Pull request:' label so completion can append PR link.
   const userOptionsRaw = userArgs.slice(1).join(' ');
-  const urlLabel = validation.parsed?.type === 'pull' ? 'Pull request' : 'Issue';
-  let infoBlock = `Requested by: ${requester}\n${urlLabel}: ${escapeMarkdown(normalizedUrl)}`;
-  if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
-  if (solveOverrides.length > 0) infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(solveOverrides.join(' '))}`;
+  let infoBlock = buildTelegramInfoBlock({
+    locale: solveLocale,
+    requester,
+    urlKind: validation.parsed?.type === 'pull' ? 'pullRequest' : 'issue',
+    url: escapeMarkdown(normalizedUrl),
+    optionsRaw: userOptionsRaw ? escapeMarkdown(userOptionsRaw) : '',
+    lockedOptions: solveOverrides.length > 0 ? escapeMarkdown(solveOverrides.join(' ')) : '',
+  });
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
 
   // Check for duplicate URL in queue (issue #1080)
@@ -935,12 +868,11 @@ async function handleSolveCommand(ctx) {
   if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve', locale: solveLocale }));
 
   if (check.canStart && toolQueuedCount === 0) {
-    const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
+    const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
   } else {
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
-    let queueMessage = `📋 Solve command queued (${solveTool} queue position #${toolQueuedCount + 1})\n\n${infoBlock}`; // tool-specific position (#1551)
-    if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
+    const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
     if (!solveQueue.executeCallback) {
@@ -1034,11 +966,11 @@ async function handleHiveCommand(ctx) {
   userArgs = hiveSL.args;
 
   // Issue #1102: Allow issues_list/pulls_list URLs and normalize to repo URLs
-  const validation = await validateGitHubUrl(userArgs, { allowedTypes: ['repo', 'organization', 'user', 'issues_list', 'pulls_list'], commandName: 'hive', createYargsConfig: createHiveYargsConfig, positionalNames: ['github-url'] });
+  const validation = await validateGitHubUrl(userArgs, { allowedTypes: ['repo', 'organization', 'user', 'issues_list', 'pulls_list'], commandName: 'hive', createYargsConfig: createHiveYargsConfig, positionalNames: ['github-url'], locale: hiveLocale });
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
-    if (validation.suggestion) errorMsg += `\n\n💡 Did you mean: \`${escapeMarkdown(validation.suggestion)}\``;
-    errorMsg += '\n\nExample: `/hive https://github.com/owner/repo`';
+    if (validation.suggestion) errorMsg += `\n\n${t('telegram.did_you_mean', { suggestion: escapeMarkdown(validation.suggestion) }, { locale: hiveLocale })}`;
+    errorMsg += `\n\n${t('telegram.hive_invalid_url_help', {}, { locale: hiveLocale })}`;
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
   }
@@ -1090,28 +1022,30 @@ async function handleHiveCommand(ctx) {
   try {
     await parseArgsWithYargs(args, yargs, createHiveYargsConfig);
   } catch (error) {
-    await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, {
+    await safeReply(ctx, t('telegram.invalid_options', { message: escapeMarkdown(error.message || String(error)) }, { locale: hiveLocale }), {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
   }
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  const escapedUrl = escapeMarkdown(args[0]);
   // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
   // Issue #1460: Escape options text to prevent Markdown parsing errors
   const userOptionsRaw = normalizedArgs.slice(1).join(' ');
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}`;
-  if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
-  if (hiveOverrides.length > 0) {
-    infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(hiveOverrides.join(' '))}`;
-  }
+  let infoBlock = buildTelegramInfoBlock({
+    locale: hiveLocale,
+    requester,
+    urlKind: 'url',
+    url: escapeMarkdown(args[0]),
+    optionsRaw: userOptionsRaw ? escapeMarkdown(userOptionsRaw) : '',
+    lockedOptions: hiveOverrides.length > 0 ? escapeMarkdown(hiveOverrides.join(' ')) : '',
+  });
 
   // Issue #594: see /solve handler.
   let hiveLimitsAtStart = null;
   if (hiveShowLimits) ({ infoBlock, limitsAtStart: hiveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: hiveTool, verbose: VERBOSE, limitsLib, commandLabel: '/hive', locale: hiveLocale }));
 
-  const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
+  const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: hiveLocale }), { reply_to_message_id: ctx.message.message_id });
   // Issue #378: propagate user's effective Telegram locale to the spawned hive session.
   const hiveArgsWithLocale = injectLanguageIfMissing(args, hiveLocale);
   await executeAndUpdateMessage(ctx, startingMessage, 'hive', hiveArgsWithLocale, infoBlock, effectiveHiveIsolation, hiveTool, null, { showLimits: hiveShowLimits, limitsAtStart: hiveLimitsAtStart, locale: hiveLocale });

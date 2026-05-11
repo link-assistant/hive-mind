@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.69.6
+
+### Patch Changes
+
+- c2c51fa: Allow Telegram `/terminal_watch` and `/watch` to be used by the user who started a tracked session while preserving chat-owner access and private-repository DM routing.
+
 ## 1.69.5
 
 ### Patch Changes

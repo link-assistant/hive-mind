@@ -1057,7 +1057,7 @@ const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
 const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
 const { registerLogCommand } = await import('./telegram-log-command.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
-registerStartStopCommands(bot, sharedCommandOpts);
+registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue });
 await registerLogCommand(bot, sharedCommandOpts);
 await registerTerminalWatchCommand(bot, sharedCommandOpts);
 

@@ -1,0 +1,8 @@
+🧪 Running Telegram UI i18n tests...
+
+  ✅ /help uses Russian UI strings when locale is ru
+  ✅ /help has translated strings for every supported Telegram locale
+  ✅ /solve info and queue messages are locale-aware
+  ✅ work session status messages use the requested locale
+
+Results: 4 passed, 0 failed

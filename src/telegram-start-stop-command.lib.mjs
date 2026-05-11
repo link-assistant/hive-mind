@@ -186,6 +186,62 @@ export function extractStopTarget(text, repliedTo) {
 }
 
 /**
+ * Update the queue card message in Telegram to show that the task was
+ * cancelled via /stop. Best-effort: silently swallows edit failures (e.g.,
+ * the card was already cleared by the consumer loop) — the dispatcher still
+ * sends its own ack reply, so the user always gets feedback.
+ *
+ * @param {Object} item - SolveQueueItem; reads .messageInfo and .ctx
+ * @param {string} url - GitHub issue/PR URL of the cancelled task
+ * @param {string|null} tool - Per-tool queue name (claude/agent/codex/...)
+ * @param {string} stopperName - Display name of the user who ran /stop
+ * @returns {Promise<boolean>} true when the card was edited
+ * @see https://github.com/link-assistant/hive-mind/issues/1783
+ */
+export async function updateQueueCardForCancellation(item, url, tool, stopperName) {
+  if (!item || !item.messageInfo || !item.ctx) return false;
+  const toolSuffix = tool ? ` from \`${tool}\` queue` : '';
+  const stopperSuffix = stopperName ? ` by ${stopperName}` : '';
+  const text = `🗑 *Cancelled*\n\n${url}\n\nRemoved${toolSuffix}${stopperSuffix} via /stop.`;
+  try {
+    const { chatId, messageId } = item.messageInfo;
+    await item.ctx.telegram.editMessageText(chatId, messageId, undefined, text, { parse_mode: 'Markdown' });
+    // Match the consumer's contract: once a card reaches a terminal state we
+    // forget the message coordinates so nothing else tries to edit it.
+    item.messageInfo = null;
+    return true;
+  } catch (error) {
+    console.error('[ERROR] /stop: failed to update queue card for cancellation:', error?.message || error);
+    return false;
+  }
+}
+
+/**
+ * Returns true when the user issuing /stop is the same user who originally
+ * requested the targeted task. Mirrors `isTerminalWatchSessionRequester` from
+ * /terminal_watch (PR #1779) so the two commands behave consistently.
+ *
+ * Accepts the requester either from a `SolveQueueItem` (URL flow) or from
+ * a tracked session info record (UUID flow).
+ *
+ * @param {Object} args
+ * @param {number|string|null|undefined} args.userId - ctx.from.id of the /stop sender
+ * @param {Object|null} [args.queueItem] - matched SolveQueueItem, if any
+ * @param {Object|null} [args.sessionInfo] - tracked session info, if any
+ * @returns {boolean}
+ * @see https://github.com/link-assistant/hive-mind/issues/1783
+ */
+export function isStopTargetRequester({ userId, queueItem = null, sessionInfo = null } = {}) {
+  if (userId === null || userId === undefined) return false;
+  const candidates = [queueItem?.requesterUserId, sessionInfo?.requesterUserId];
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) continue;
+    if (String(candidate) === String(userId)) return true;
+  }
+  return false;
+}
+
+/**
  * Registers the /start and /stop command handlers with the bot
  * @param {Object} bot - The Telegraf bot instance
  * @param {Object} options - Options object
@@ -205,6 +261,18 @@ export function extractStopTarget(text, repliedTo) {
 export function registerStartStopCommands(bot, options) {
   const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, getSolveQueue } = options;
   const stopIsolatedSessionImpl = options.stopIsolatedSession || (async (...args) => (await import('./isolation-runner.lib.mjs')).stopIsolatedSession(...args));
+  // Issue #1783: look the UUID up in the session monitor so /stop can let the
+  // user who started the task stop it (mirrors /terminal_watch from PR #1779).
+  // Test stubs can inject getTrackedSessionInfo directly via options.
+  // The real session-monitor.getTrackedSessionInfo is sync; we wrap it in an
+  // async tolerant helper so tests can pass either a sync or async stub.
+  async function lookupTrackedSessionInfo(sessionId) {
+    if (typeof options.getTrackedSessionInfo === 'function') {
+      return await options.getTrackedSessionInfo(sessionId);
+    }
+    const mod = await import('./session-monitor.lib.mjs');
+    return mod.getTrackedSessionInfo(sessionId);
+  }
 
   /**
    * Validate command context: checks old message, forwarded, group chat, authorized, and owner status.
@@ -253,16 +321,26 @@ export function registerStartStopCommands(bot, options) {
   }
 
   /**
-   * Owner-only auth check for the /stop UUID and /stop URL flows. Mirrors the
-   * /log auth model: in private DMs the user is implicitly the owner; in
-   * groups they must be the chat creator. Replies with the appropriate error
-   * directly when auth fails.
+   * Authorization check for the /stop UUID and /stop URL flows.
+   *
+   * In private DMs the user is implicitly authorized. In group chats the user
+   * is authorized when EITHER:
+   *   - They are the chat creator, OR
+   *   - They are the original requester of the task being stopped (the user
+   *     who ran the /solve or /hive that produced the queue item / session).
+   *
+   * This mirrors /terminal_watch and /watch (PR #1779) which already let the
+   * task requester act on their own session without requiring chat-owner
+   * privileges. See https://github.com/link-assistant/hive-mind/issues/1783.
    *
    * @param {Object} ctx - Telegraf context
    * @param {string} label - Short human-readable label for the variant ('UUID', 'URL')
+   * @param {Object} [opts]
+   * @param {Object|null} [opts.queueItem] - matched SolveQueueItem, if known
+   * @param {Object|null} [opts.sessionInfo] - tracked session info, if known
    * @returns {Promise<boolean>} true when authorized
    */
-  async function authorizeTargetedStop(ctx, label) {
+  async function authorizeTargetedStop(ctx, label, { queueItem = null, sessionInfo = null } = {}) {
     const message = ctx.message;
     const chatId = ctx.chat?.id;
     const chatType = ctx.chat?.type;
@@ -278,11 +356,17 @@ export function registerStartStopCommands(bot, options) {
         return false;
       }
     }
+
+    if (isStopTargetRequester({ userId: ctx.from?.id, queueItem, sessionInfo })) {
+      VERBOSE && console.log(`[VERBOSE] /stop <${label}> allowed for task requester ${ctx.from?.id}`);
+      return true;
+    }
+
     try {
       const member = await ctx.telegram.getChatMember(chatId, ctx.from.id);
       if (!member || member.status !== 'creator') {
-        VERBOSE && console.log(`[VERBOSE] /stop <${label}> ignored: user is not chat owner`);
-        await ctx.reply(`❌ /stop <${label}> is only available to the chat owner.`, { reply_to_message_id: message.message_id });
+        VERBOSE && console.log(`[VERBOSE] /stop <${label}> ignored: user is not chat owner or task requester`);
+        await ctx.reply(`❌ /stop <${label}> is only available to the chat owner or the user who started this task.`, { reply_to_message_id: message.message_id });
         return false;
       }
     } catch (error) {
@@ -350,6 +434,25 @@ export function registerStartStopCommands(bot, options) {
   }
 
   /**
+   * Find the candidate queue/processing item for a `/stop <url>` request
+   * without mutating queue state. Used by the dispatcher to look up the
+   * task's requesterUserId for authorization before any cancellation
+   * happens (#1783).
+   *
+   * @param {string} url - Normalized GitHub issue or PR URL
+   * @returns {{ action: 'no-queue'|'not-found'|'candidate', item?: Object, queue?: Object }}
+   */
+  function findQueueCandidateForUrl(url) {
+    if (typeof getSolveQueue !== 'function') {
+      return { action: 'no-queue' };
+    }
+    const queue = getSolveQueue({ verbose: VERBOSE });
+    const item = queue?.findByUrl?.(url);
+    if (!item) return { action: 'not-found' };
+    return { action: 'candidate', item, queue };
+  }
+
+  /**
    * Resolve a `/stop <url>` request against the in-memory solve queue.
    * Returns an action descriptor that the dispatcher executes.
    *
@@ -357,12 +460,9 @@ export function registerStartStopCommands(bot, options) {
    * @returns {{ action: 'no-queue'|'not-found'|'cancel-queued'|'stop-running'|'running-not-isolated', item?: Object, sessionId?: string|null, tool?: string|null }}
    */
   function resolveQueueLookupForUrl(url) {
-    if (typeof getSolveQueue !== 'function') {
-      return { action: 'no-queue' };
-    }
-    const queue = getSolveQueue({ verbose: VERBOSE });
-    const item = queue?.findByUrl?.(url);
-    if (!item) return { action: 'not-found' };
+    const candidate = findQueueCandidateForUrl(url);
+    if (candidate.action !== 'candidate') return candidate;
+    const { item, queue } = candidate;
 
     // Queued items have a defined .id and live in one of the per-tool queues.
     // The cancel(id) call walks every per-tool queue and returns true on hit.
@@ -409,7 +509,17 @@ export function registerStartStopCommands(bot, options) {
     if (target.kind === 'uuid') {
       const sessionId = target.value;
       VERBOSE && console.log(`[VERBOSE] /stop: detected UUID ${sessionId} (source=${target.source})`);
-      const ok = await authorizeTargetedStop(ctx, 'UUID');
+      // Look up the session's owner before auth so the original task requester
+      // can /stop their own session in a group even if they aren't the chat
+      // creator (#1783). Lookup failures are non-fatal: we fall through to the
+      // chat-owner-only check.
+      let sessionInfo = null;
+      try {
+        sessionInfo = await lookupTrackedSessionInfo(sessionId);
+      } catch (error) {
+        console.error('[ERROR] /stop: getTrackedSessionInfo failed:', error);
+      }
+      const ok = await authorizeTargetedStop(ctx, 'UUID', { sessionInfo });
       if (!ok) return;
       await runStopIsolatedSessionFlow(ctx, sessionId);
       return;
@@ -418,7 +528,13 @@ export function registerStartStopCommands(bot, options) {
     if (target.kind === 'url') {
       const url = target.value;
       VERBOSE && console.log(`[VERBOSE] /stop: detected URL ${url} (source=${target.source})`);
-      const ok = await authorizeTargetedStop(ctx, 'URL');
+
+      // Look up the queue item BEFORE auth so we can allow the original task
+      // requester to cancel their own task in a group (#1783). The lookup
+      // here does NOT mutate the queue — actual cancel happens below in
+      // resolveQueueLookupForUrl after auth has passed.
+      const candidate = findQueueCandidateForUrl(url);
+      const ok = await authorizeTargetedStop(ctx, 'URL', { queueItem: candidate.item || null });
       if (!ok) return;
 
       const lookup = resolveQueueLookupForUrl(url);
@@ -443,6 +559,14 @@ export function registerStartStopCommands(bot, options) {
       if (lookup.action === 'cancel-queued') {
         VERBOSE && console.log(`[VERBOSE] /stop: cancelled queued item ${lookup.item?.id} for ${url}`);
         const toolLabel = lookup.tool ? ` from \`${lookup.tool}\` queue` : '';
+
+        // Update the original queue card ("⏳ Waiting (claude queue #3)") to
+        // reflect that the task was cancelled. The queue stores the message
+        // coordinates on the item itself when the card was first posted —
+        // see telegram-bot.mjs where `item.messageInfo` is wired up.
+        const stopperName = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name || `user ${ctx.from?.id}`;
+        await updateQueueCardForCancellation(lookup.item, url, lookup.tool, stopperName);
+
         await ctx.reply(`🗑 Removed queued task for ${url}${toolLabel}.`, {
           parse_mode: 'Markdown',
           reply_to_message_id: message.message_id,

@@ -1,0 +1,11 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "## Summary\n\n- Allow tracked session requesters to use `/terminal_watch` and `/watch` for their own tasks while preserving chat-owner access to all sessions.\n- Register `/watch` as an alias, update argument parsing, and refresh Telegram `/help` text, including the new localized help-message keys from `main`.\n- Add Issue 1778 case-study data, screenshots, local logs, and a patch changeset.\n\n## Reproduction\n\nBefore this change, a non-owner user who started a task hit `❌ /terminal_watch is only available to the chat owner.` The focused regression coverage now verifies requester access, chat-owner fallback access, `/watch` parsing/registration, and private-repository DM failure guidance.\n\n## Verification\n\n- `node tests/test-issue-467-terminal-watch.mjs`\n- `node tests/test-issue-1720-terminal-watch-no-log.mjs`\n- `node tests/test-issue-1686-log-command.mjs`\n- `node tests/test-issue-1700-isolation-parsing.mjs`\n- `node tests/test-telegram-ui-i18n.mjs`\n- `git diff --check`\n- `npm ci`\n- `npm run format:check`\n- `npm run lint`\n- `npm test` (all 202 selected test files passed)\n- `npm run check:duplication` (passes; existing duplicate-code findings are preserved in the case-study log)\n\nNote: `npm ci` completed locally with the existing Node engine warning because this runner has Node 20.20.2 while the package declares `>=24`.\n\n## Evidence\n\n![Terminal watch denied](https://github.com/link-assistant/hive-mind/blob/issue-1778-4d0ea1ed0c9f/docs/case-studies/issue-1778/assets/terminal-watch-denied.png?raw=true)\n\n![Task requester detected](https://github.com/link-assistant/hive-mind/blob/issue-1778-4d0ea1ed0c9f/docs/case-studies/issue-1778/assets/task-owner-detected.png?raw=true)\n\n\nFixes #1778",
+  "createdAt": "2026-05-10T20:51:28Z",
+  "labels": [],
+  "mergedAt": "2026-05-11T09:33:06Z",
+  "number": 1779,
+  "state": "MERGED",
+  "title": "Allow terminal watch for task requesters",
+  "url": "https://github.com/link-assistant/hive-mind/pull/1779"
+}

@@ -1,0 +1,5 @@
+[
+  { "conclusion": "success", "createdAt": "2026-05-12T16:00:41Z", "databaseId": 25746373553, "displayTitle": "Clean up root repository folder", "headSha": "a5beebbbd8efcc436956f041b22bde514090e6c4", "status": "completed", "updatedAt": "2026-05-12T16:02:41Z", "url": "https://github.com/link-foundation/link-cli/actions/runs/25746373553", "workflowName": "WebAssembly CI" },
+  { "conclusion": "success", "createdAt": "2026-05-12T15:54:32Z", "databaseId": 25746021853, "displayTitle": "Clean up root repository folder", "headSha": "7c78b6bf3b559e9fc11f42eea996d1c91aff8ec1", "status": "completed", "updatedAt": "2026-05-12T15:56:35Z", "url": "https://github.com/link-foundation/link-cli/actions/runs/25746021853", "workflowName": "WebAssembly CI" },
+  { "conclusion": "success", "createdAt": "2026-05-12T15:54:25Z", "databaseId": 25746016783, "displayTitle": "Clean root repository layout", "headSha": "7c78b6bf3b559e9fc11f42eea996d1c91aff8ec1", "status": "completed", "updatedAt": "2026-05-12T15:56:32Z", "url": "https://github.com/link-foundation/link-cli/actions/runs/25746016783", "workflowName": "WebAssembly CI" }
+]

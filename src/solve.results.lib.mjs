@@ -361,6 +361,20 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
   }
 };
 
+const wasFileTouchedAfterCommit = async (tempDir, commitHash, fileName) => {
+  const changedCommitsResult = await $({ cwd: tempDir, silent: true })`git log --format=%H ${commitHash}..HEAD -- ${fileName}`;
+  if (changedCommitsResult.code === 0) {
+    return Boolean(changedCommitsResult.stdout?.trim());
+  }
+
+  if (changedCommitsResult.code !== 0) {
+    await log(`   Could not inspect ${fileName} changes after initial commit`, { verbose: true });
+    await log(`   git log output: ${changedCommitsResult.stderr || changedCommitsResult.stdout || 'no output'}`, { verbose: true });
+  }
+
+  return true;
+};
+
 // Revert the CLAUDE.md or .gitkeep commit to restore original state
 export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = null) => {
   try {
@@ -405,6 +419,16 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     }
 
     const commitToRevert = claudeCommitHash;
+
+    // Issue #1791: .gitkeep is a normal repository file in some projects, and
+    // user work may intentionally edit or delete it. Once later PR commits touch
+    // .gitkeep, final cleanup must not restore the pre-session version.
+    if (fileName === '.gitkeep' && (await wasFileTouchedAfterCommit(tempDir, commitToRevert, fileName))) {
+      await log(`   ${fileName} changed after the initial auto-commit; leaving PR changes untouched`, {
+        verbose: true,
+      });
+      return;
+    }
 
     // APPROACH 3: Check for modifications before reverting (proactive detection)
     // This is the main strategy - detect if the file was modified after initial commit

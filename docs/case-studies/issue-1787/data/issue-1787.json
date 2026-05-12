@@ -1,0 +1,12 @@
+{
+  "assignees": [],
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "https://gist.githubusercontent.com/konard/beca02529931f1040ccf6fcaee7a37d6/raw/497a3071371b5bdddd2341756749f67e71a37776/1f91e334-d119-4675-b945-46953f5a297e.log\n\nWe need to make sure an any fail on already existing pull request, we do post comment for the user to understand the problem.\n\nAlso in case of fork divergence, we should provide `--allow-fork-divergence-resolution-using-force-push-with-lease` option in both issue and pull request comments, in such cases, as command can be executed from /solve or solve in CLI, there is no need to specify examples, just give the option, that works with both ways. So we can just suggest use to use that option.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.\n\nPlease plan and execute everything in a single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "createdAt": "2026-05-12T12:26:39Z",
+  "labels": [{ "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" }],
+  "number": 1787,
+  "state": "OPEN",
+  "title": "Pull request existed, but we didn't notify the user about error in the pull request",
+  "updatedAt": "2026-05-12T14:10:14Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1787"
+}

@@ -1,5 +1,7 @@
 import { getTrackedToolCommentIds, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
 
+export const FORK_DIVERGENCE_RESOLUTION_OPTION = '--allow-fork-divergence-resolution-using-force-push-with-lease';
+
 const truncate = (value, maxLength = 2000) => {
   const text = value === null || value === undefined ? '' : String(value);
   if (text.length <= maxLength) return text;
@@ -8,9 +10,23 @@ const truncate = (value, maxLength = 2000) => {
 
 const fence = value => truncate(value || 'Unknown error').replaceAll('```', '` ` `');
 
+const isForkDivergenceFailure = reason => {
+  const normalizedReason = String(reason || '').toLowerCase();
+  return normalizedReason.includes('fork divergence') || (normalizedReason.includes('fork') && normalizedReason.includes('non-fast-forward')) || normalizedReason.includes('force-with-lease');
+};
+
 export function buildPrePullRequestFailureActionSection(reason = '') {
   const normalizedReason = String(reason || '').toLowerCase();
   const isForkOrRecoveryFailure = normalizedReason.includes('fork') || normalizedReason.includes('auto-recovery') || normalizedReason.includes('repository setup');
+
+  if (isForkDivergenceFailure(reason)) {
+    return `### What you can do
+- If the fork's default branch can be overwritten safely, rerun with \`${FORK_DIVERGENCE_RESOLUTION_OPTION}\` to allow a guarded force-with-lease sync.
+- If the fork has commits you need to preserve, resolve the divergence manually, then rerun the solver.
+- If this requires elevated Hive Mind access, ask a Hive Mind administrator to handle the affected fork or repository.
+
+Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this GitHub comment.`;
+  }
 
   if (isForkOrRecoveryFailure) {
     return `### What you can do
@@ -34,6 +50,42 @@ export function shouldNotifyIssueAboutPrePullRequestFailure({ code, globalState 
   if (globalState?.createdPR?.number) return false;
   if (globalState.prePullRequestFailureNotificationPosted || globalState.prePullRequestFailureNotificationInProgress) return false;
   return getTrackedToolCommentIds().size === 0;
+}
+
+export function resolvePreExitFailureNotificationTarget({ code, globalState }) {
+  if (code === 0) return null;
+  if (!globalState?.owner || !globalState?.repo) return null;
+  if (globalState.preExitFailureNotificationPosted || globalState.preExitFailureNotificationInProgress) return null;
+
+  const owner = globalState.owner;
+  const repo = globalState.repo;
+  const issueNumber = globalState.issueNumber || null;
+  const prNumber = globalState.createdPR?.number || globalState.prNumber || null;
+
+  if (prNumber) {
+    if (globalState.pullRequestFailureNotificationPosted || globalState.pullRequestFailureNotificationInProgress) return null;
+    return {
+      targetType: 'pr',
+      targetNumber: prNumber,
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+    };
+  }
+
+  if (!issueNumber) return null;
+  if (globalState.prePullRequestFailureNotificationPosted || globalState.prePullRequestFailureNotificationInProgress) return null;
+  if (getTrackedToolCommentIds().size !== 0) return null;
+
+  return {
+    targetType: 'issue',
+    targetNumber: issueNumber,
+    owner,
+    repo,
+    issueNumber,
+    prNumber: null,
+  };
 }
 
 export function buildPrePullRequestFailureComment({ reason, owner, repo, issueNumber, argv = {}, logAttachmentAttempted = false }) {
@@ -62,60 +114,124 @@ ${logLine}
 `;
 }
 
+export function buildExistingPullRequestFailureComment({ reason, owner, repo, prNumber, issueNumber = null, argv = {}, logAttachmentAttempted = false }) {
+  const tool = argv.tool || 'claude';
+  const modelLine = argv.model ? `\n- **Requested model**: \`${argv.model}\`` : '';
+  const issueLine = issueNumber ? `\n- **Linked issue**: #${issueNumber}` : '';
+  const logLine = logAttachmentAttempted ? 'Log attachment was attempted but failed. Check the solver terminal log for the complete failure output.' : 'Logs were not attached because `--attach-logs` was not enabled.';
+  const actionSection = buildPrePullRequestFailureActionSection(reason);
+
+  return `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}
+
+The automated solver stopped while continuing this existing pull request, so the failure details are posted here for review.
+
+### Failure
+- **Repository**: \`${owner}/${repo}\`
+- **Pull request**: #${prNumber}${issueLine}
+- **Tool**: \`${tool}\`${modelLine}
+
+**Reason**
+\`\`\`text
+${fence(reason)}
+\`\`\`
+
+${actionSection}
+
+${logLine}
+`;
+}
+
+const markNotificationPosted = ({ globalState, targetType }) => {
+  globalState.preExitFailureNotificationPosted = true;
+  if (targetType === 'pr') {
+    globalState.pullRequestFailureNotificationPosted = true;
+  } else {
+    globalState.prePullRequestFailureNotificationPosted = true;
+  }
+};
+
 export async function notifyIssueAboutPrePullRequestFailure(options) {
   const { code, reason, argv = {}, globalState = globalThis, $, log = async () => {}, getLogFile, shouldAttachLogs = false, attachLogToGitHub, sanitizeLogContent, rawCommand = null, postComment = postTrackedComment } = options;
 
-  if (!shouldNotifyIssueAboutPrePullRequestFailure({ code, globalState })) {
+  const target = resolvePreExitFailureNotificationTarget({ code, globalState });
+  if (!target) {
     return { notified: false, skipped: true };
   }
 
-  const owner = globalState.owner;
-  const repo = globalState.repo;
-  const issueNumber = globalState.issueNumber;
-  globalState.prePullRequestFailureNotificationInProgress = true;
+  const { owner, repo, issueNumber, prNumber, targetType, targetNumber } = target;
+  const targetLabel = targetType === 'pr' ? `pull request #${targetNumber}` : `issue #${targetNumber}`;
+  globalState.preExitFailureNotificationInProgress = true;
+  if (targetType === 'pr') {
+    globalState.pullRequestFailureNotificationInProgress = true;
+  } else {
+    globalState.prePullRequestFailureNotificationInProgress = true;
+  }
 
   try {
     if (shouldAttachLogs && getLogFile && attachLogToGitHub && sanitizeLogContent) {
-      await log(`\n📄 Notifying issue #${issueNumber} about pre-PR failure with logs...`);
-      const uploaded = await attachLogToGitHub({
-        logFile: getLogFile(),
-        targetType: 'issue',
-        targetNumber: issueNumber,
-        owner,
-        repo,
-        $,
-        log,
-        sanitizeLogContent,
-        verbose: argv.verbose,
-        errorMessage: `The solver stopped before creating a pull request.\n\nReason: ${reason || 'Unknown error'}`,
-        requestedModel: argv.originalModel || argv.model,
-        tool: argv.tool || 'claude',
-      });
-      if (uploaded) {
-        globalState.prePullRequestFailureNotificationPosted = true;
-        return { notified: true, method: 'log-upload' };
+      await log(`\n📄 Notifying ${targetLabel} about solver failure with logs...`);
+      const errorPrefix = targetType === 'pr' ? `The solver stopped while continuing pull request #${targetNumber}.` : 'The solver stopped before creating a pull request.';
+      try {
+        const uploaded = await attachLogToGitHub({
+          logFile: getLogFile(),
+          targetType,
+          targetNumber,
+          owner,
+          repo,
+          $,
+          log,
+          sanitizeLogContent,
+          verbose: argv.verbose,
+          errorMessage: `${errorPrefix}\n\nReason: ${reason || 'Unknown error'}`,
+          failureActionSection: buildPrePullRequestFailureActionSection(reason),
+          requestedModel: argv.originalModel || argv.model,
+          tool: argv.tool || 'claude',
+        });
+        if (uploaded) {
+          markNotificationPosted({ globalState, targetType });
+          return { notified: true, method: 'log-upload' };
+        }
+      } catch (error) {
+        const message = error && error.message ? error.message : String(error);
+        await log(`  ⚠️  Could not upload solver failure log: ${message}`, { level: 'warning' });
       }
     }
 
-    await log(`\n💬 Notifying issue #${issueNumber} about pre-PR failure...`);
-    const body = buildPrePullRequestFailureComment({
-      reason,
-      owner,
-      repo,
-      issueNumber,
-      argv,
-      rawCommand,
-      logAttachmentAttempted: shouldAttachLogs,
-    });
-    const posted = await postComment({ $, owner, repo, targetNumber: issueNumber, body });
+    await log(`\n💬 Notifying ${targetLabel} about solver failure...`);
+    const body =
+      targetType === 'pr'
+        ? buildExistingPullRequestFailureComment({
+            reason,
+            owner,
+            repo,
+            prNumber,
+            issueNumber,
+            argv,
+            rawCommand,
+            logAttachmentAttempted: shouldAttachLogs,
+          })
+        : buildPrePullRequestFailureComment({
+            reason,
+            owner,
+            repo,
+            issueNumber,
+            argv,
+            rawCommand,
+            logAttachmentAttempted: shouldAttachLogs,
+          });
+    const posted = await postComment({ $, owner, repo, targetNumber, body });
     if (posted.ok) {
-      globalState.prePullRequestFailureNotificationPosted = true;
-      await log(`  ✅ Pre-PR failure comment posted to issue #${issueNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
+      markNotificationPosted({ globalState, targetType });
+      await log(`  ✅ Solver failure comment posted to ${targetLabel}${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
       return { notified: true, method: 'comment', commentId: posted.commentId || null };
     }
-    await log(`  ⚠️  Could not post pre-PR failure comment: ${posted.stderr || 'unknown error'}`, { level: 'warning' });
+    await log(`  ⚠️  Could not post solver failure comment: ${posted.stderr || 'unknown error'}`, { level: 'warning' });
     return { notified: false, error: posted.stderr || 'unknown error' };
   } finally {
+    globalState.preExitFailureNotificationInProgress = false;
+    if (targetType === 'pr') {
+      globalState.pullRequestFailureNotificationInProgress = false;
+    }
     globalState.prePullRequestFailureNotificationInProgress = false;
   }
 }

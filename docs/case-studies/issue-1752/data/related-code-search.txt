@@ -1,0 +1,46 @@
+docs/CONFIGURATION.md:400:| `--auto-report-issue`                                            |       | boolean | false               | Automatically create a GitHub issue on failure without prompting (includes error details and logs)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+docs/CONFIGURATION.md:401:| `--disable-report-issue`                                         |       | boolean | false               | Disable error issue creation entirely (overrides --auto-report-issue)                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+docs/CONFIGURATION.md:402:| `--disable-issue-auto-creation-on-error`                         |       | boolean | false               | Disable creating a new GitHub error-report issue when solve fails, including the interactive prompt. Does not disable posting failure logs or comments to the original issue or pull request.                                                                                                                                                                                                                                                                                                                                            |
+src/solve.mjs:30:const { processAutoContinueForIssue } = autoContinue;
+src/solve.mjs:52:const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
+src/solve.mjs:283:const autoContinueResult = await processAutoContinueForIssue(argv, isIssueUrl, urlNumber, owner, repo);
+src/solve.mjs:339:    await log(`🔄 Using existing branch: ${prBranch} (no PR yet - will create one)`);
+src/solve.mjs:535:  const autoPrResult = await handleAutoPrCreation({
+src/github-error-reporter.lib.mjs:172:      console.log('\nℹ️  --auto-report-issue enabled: automatically creating GitHub issue...');
+src/github-error-reporter.lib.mjs:272:  // --disable-report-issue takes highest precedence
+src/github-error-reporter.lib.mjs:278:  // --auto-report-issue: create issue automatically without prompting
+src/solve.execution.lib.mjs:204:          await log('📎 Failure log attached to Pull Request');
+src/solve.config.lib.mjs:505:  'auto-report-issue': {
+src/solve.config.lib.mjs:510:  'disable-report-issue': {
+src/solve.config.lib.mjs:512:    description: 'Disable error issue creation entirely (no prompt, no automatic creation). Overrides --auto-report-issue if both are specified.',
+src/solve.config.lib.mjs:515:  'disable-issue-auto-creation-on-error': {
+src/solve.auto-pr.lib.mjs:97:export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
+src/solve.auto-pr.lib.mjs:659:          throw new Error('Push rejected - branch has diverged, manual resolution required');
+src/solve.results.lib.mjs:1067:          await log('📎 Failure log attached to Pull Request');
+src/solve.auto-continue.lib.mjs:421:export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, owner, repo) => {
+src/solve.auto-continue.lib.mjs:615:    await log(`✅ Using existing branch from ${repoType}: ${selectedBranch}`);
+src/solve.pre-pr-failure-notifier.lib.mjs:79:      await log(`\n📄 Notifying issue #${issueNumber} about pre-PR failure with logs...`);
+src/solve.pre-pr-failure-notifier.lib.mjs:100:    await log(`\n💬 Notifying issue #${issueNumber} about pre-PR failure...`);
+src/solve.pre-pr-failure-notifier.lib.mjs:116:    await log(`  ⚠️  Could not post pre-PR failure comment: ${posted.stderr || 'unknown error'}`, { level: 'warning' });
+tests/test-pre-pr-failure-notifier-1640.mjs:29:await test('builds a pre-PR failure comment with the tracked failure marker', async () => {
+tests/test-auto-report-issue.mjs:4: * Test suite for --auto-report-issue and issue-creation disable flags
+tests/test-auto-report-issue.mjs:57:// === Test --disable-report-issue flag ===
+tests/test-auto-report-issue.mjs:59:await runAsyncTest('--disable-report-issue: returns null without creating issue', async () => {
+tests/test-auto-report-issue.mjs:72:await runAsyncTest('--disable-report-issue overrides --auto-report-issue', async () => {
+tests/test-auto-report-issue.mjs:116:runTest('CLI option definitions include auto-report-issue', async () => {
+tests/test-auto-report-issue.mjs:117:  assert(SOLVE_OPTION_DEFINITIONS['auto-report-issue'], 'auto-report-issue should be defined');
+tests/test-auto-report-issue.mjs:118:  assert(SOLVE_OPTION_DEFINITIONS['auto-report-issue'].type === 'boolean', 'auto-report-issue should be boolean');
+tests/test-auto-report-issue.mjs:119:  assert(SOLVE_OPTION_DEFINITIONS['auto-report-issue'].default === false, 'auto-report-issue should default to false');
+tests/test-auto-report-issue.mjs:122:runTest('CLI option definitions include disable-report-issue', async () => {
+tests/test-auto-report-issue.mjs:123:  assert(SOLVE_OPTION_DEFINITIONS['disable-report-issue'], 'disable-report-issue should be defined');
+tests/test-auto-report-issue.mjs:124:  assert(SOLVE_OPTION_DEFINITIONS['disable-report-issue'].type === 'boolean', 'disable-report-issue should be boolean');
+tests/test-auto-report-issue.mjs:125:  assert(SOLVE_OPTION_DEFINITIONS['disable-report-issue'].default === false, 'disable-report-issue should default to false');
+tests/test-auto-report-issue.mjs:128:runTest('CLI option definitions include disable-issue-auto-creation-on-error', () => {
+tests/test-auto-report-issue.mjs:129:  assert(SOLVE_OPTION_DEFINITIONS['disable-issue-auto-creation-on-error'], 'disable-issue-auto-creation-on-error should be defined');
+tests/test-auto-report-issue.mjs:130:  assert(SOLVE_OPTION_DEFINITIONS['disable-issue-auto-creation-on-error'].type === 'boolean', 'disable-issue-auto-creation-on-error should be boolean');
+tests/test-auto-report-issue.mjs:131:  assert(SOLVE_OPTION_DEFINITIONS['disable-issue-auto-creation-on-error'].default === false, 'disable-issue-auto-creation-on-error should default to false');
+tests/test-auto-report-issue.mjs:134:await runAsyncTest('--disable-issue-auto-creation-on-error normalizes to disabled error issue creation', async () => {
+tests/test-auto-report-issue.mjs:135:  const argv = await parseSolveArgs(['https://github.com/link-assistant/hive-mind/issues/1752', '--disable-issue-auto-creation-on-error']);
+tests/test-auto-report-issue.mjs:140:await runAsyncTest('--disable-issue-auto-creation-on-error overrides --auto-report-issue at parse time', async () => {
+tests/test-auto-report-issue.mjs:141:  const argv = await parseSolveArgs(['https://github.com/link-assistant/hive-mind/issues/1752', '--auto-report-issue', '--disable-issue-auto-creation-on-error']);
+tests/test-issue-1716-private-repo-skip-fork.mjs:79:// Test 6: bypass is applied in the auto-continue / processAutoContinueForIssue path

@@ -1,0 +1,20 @@
+478f3500 1.69.7
+eecf357b Merge pull request #1781 from link-assistant/issue-1780-485fb3a1e9c1
+7c4b8cb9 Revert "Initial commit with task details"
+2ea2bb7a chore: add changeset for /stop URL support
+acfdb310 Stop tasks by issue or PR URL
+74dac0ee Merge remote-tracking branch 'origin/main' into issue-1780-485fb3a1e9c1
+03c5b3c4 1.69.6
+242177fd Merge pull request #1779 from link-assistant/issue-1778-4d0ea1ed0c9f
+b008ab29 Initial commit with task details
+fafe0055 Revert "Initial commit with task details"
+2b8e323b Merge remote-tracking branch 'origin/main' into issue-1778-4d0ea1ed0c9f
+bbf74742 1.69.5
+c2c51faa Allow terminal watch for task requesters
+42527654 Merge pull request #676 from link-assistant/issue-675-42b8cbee55d3
+70ca3177 Localize Telegram command UI
+274b32e1 Initial commit with task details
+4be75995 Fix language detection experiment formatting
+31b0f7e7 Add auto language detection and localize limits
+c3ee98a0 Merge remote-tracking branch 'origin/main' into issue-675-42b8cbee55d3
+6df467ec 1.69.4

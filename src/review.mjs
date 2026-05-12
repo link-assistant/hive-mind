@@ -35,83 +35,121 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
-const yargs = (await use('yargs@latest')).default;
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 const os = (await use('os')).default;
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
 
 // Import shared functions from lib.mjs to follow DRY principle
 import { log, setLogFile, getLogFile, formatAligned } from './lib.mjs';
+import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import * as memoryCheck from './memory-check.mjs';
 
 // Import Claude execution functions
 import { executeClaudeCommand } from './claude.lib.mjs';
+import { defaultModels, getClaudeModelChoices, buildModelOptionDescription } from './models/index.mjs';
 
 // Configure command line arguments - GitHub PR URL as positional argument
-// Use yargs().parse(args) instead of yargs(args).argv to ensure .strict() mode works
-const argv = yargs()
-  .usage('Usage: $0 <pr-url> [options]')
-  .positional('pr-url', {
-    type: 'string',
-    description: 'The GitHub pull request URL to review',
-  })
-  .option('resume', {
-    type: 'string',
-    description: 'Resume from a previous session ID (when limit was reached)',
-    alias: 'r',
-  })
-  .option('dry-run', {
-    type: 'boolean',
-    description: 'Prepare everything but do not execute Claude',
-    alias: 'n',
-  })
-  .option('model', {
-    type: 'string',
-    description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
-    alias: 'm',
-    default: 'opus',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
-  })
-  .option('focus', {
-    type: 'string',
-    description: 'Focus areas for review (security, performance, logic, style, tests)',
-    alias: 'f',
-    default: 'all',
-  })
-  .option('approve', {
-    type: 'boolean',
-    description: 'If review passes, approve the PR',
-    default: false,
-  })
-  .option('verbose', {
-    type: 'boolean',
-    description: 'Enable verbose logging for debugging',
-    alias: 'v',
-    default: false,
-  })
-  .option('execute-tool-with-bun', {
-    type: 'boolean',
-    description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
-    default: false,
-  })
-  .demandCommand(1, 'The GitHub pull request URL is required')
-  .parserConfiguration({
-    'boolean-negation': true,
-  })
-  .help('h')
-  .alias('h', 'help')
-  // Use yargs built-in strict mode to reject unrecognized options
-  // This prevents issues like #453 and #482 where unknown options are silently ignored
-  .strict()
-  .parse(process.argv.slice(2));
+const createReviewYargsConfig = yargsInstance =>
+  yargsInstance
+    .usage('Usage: $0 <pr-url> [options]')
+    .command('$0 <pr-url>', 'Review a GitHub pull request', yargs =>
+      yargs.positional('pr-url', {
+        type: 'string',
+        description: 'The GitHub pull request URL to review',
+      })
+    )
+    .option('resume', {
+      type: 'string',
+      description: 'Resume from a previous session ID (when limit was reached)',
+      alias: 'r',
+    })
+    .option('dry-run', {
+      type: 'boolean',
+      description: 'Prepare everything but do not execute Claude',
+      alias: 'n',
+    })
+    .option('model', {
+      type: 'string',
+      description: buildModelOptionDescription(),
+      alias: 'm',
+      default: defaultModels.claude,
+      choices: getClaudeModelChoices(),
+    })
+    .option('focus', {
+      type: 'string',
+      description: 'Focus areas for review (security, performance, logic, style, tests)',
+      alias: 'f',
+      default: 'all',
+    })
+    .option('approve', {
+      type: 'boolean',
+      description: 'If review passes, approve the PR',
+      default: false,
+    })
+    .option('verbose', {
+      type: 'boolean',
+      description: 'Enable verbose logging for debugging',
+      alias: 'v',
+      default: false,
+    })
+    .option('execute-tool-with-bun', {
+      type: 'boolean',
+      description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
+      default: false,
+    })
+    .option('language', {
+      type: 'string',
+      description: 'Default language for both --ui-language and --work-language (en, ru, zh, hi). Defaults to detected system locale.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
+    .option('ui-language', {
+      type: 'string',
+      description: 'Language for user-facing output (en, ru, zh, hi). Defaults to --language.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
+    .option('work-language', {
+      type: 'string',
+      description: 'Working language passed to the AI tool (en, ru, zh, hi). Defaults to --language.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
+    .check(parsed => {
+      if (!parsed['pr-url'] && !parsed.prUrl && !parsed._?.[0]) {
+        throw new Error('The GitHub pull request URL is required');
+      }
+      return true;
+    })
+    .parserConfiguration({
+      'boolean-negation': true,
+    })
+    .help('h')
+    .alias('h', 'help')
+    // Use yargs built-in strict mode to reject unrecognized options
+    // This prevents issues like #453 and #482 where unknown options are silently ignored
+    .strict();
 
-const prUrl = argv['pr-url'] || argv._[0];
+const argv = parseCliArgumentsWithLino({
+  argv: process.argv,
+  commandName: 'review',
+  createYargsConfig: createReviewYargsConfig,
+  positionalAliases: ['pr-url'],
+});
+
+const prUrl = argv['pr-url'] || argv.prUrl || argv._[0];
 
 // Set global verbose mode for log function
 global.verboseMode = argv.verbose;
+
+// Initialize i18n based on --language / --ui-language / --work-language
+const { initI18n } = await import('./i18n.lib.mjs');
+await initI18n({
+  language: argv.language,
+  uiLanguage: argv.uiLanguage,
+  workLanguage: argv.workLanguage,
+});
 
 // Create permanent log file immediately with timestamp
 const scriptDir = path.dirname(process.argv[1]);

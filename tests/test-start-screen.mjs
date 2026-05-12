@@ -2,7 +2,28 @@
 // Test script for start-screen command
 
 import { parseGitHubUrl } from '../src/github.lib.mjs';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const repoRoot = join(__dirname, '..');
+const startScreenPath = join(repoRoot, 'src', 'start-screen.mjs');
+const noScreenEnv = { PATH: dirname(process.execPath) };
+
+function runStartScreen(args, env = {}) {
+  const result = spawnSync(process.execPath, [startScreenPath, ...args], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+
+  return {
+    status: result.status,
+    output: `${result.stdout || ''}${result.stderr || ''}`,
+  };
+}
 
 // Test cases for screen name generation
 const testCases = [
@@ -148,14 +169,13 @@ try {
 
 // Test --dry-run mode for solve command with issue URL
 console.log('Testing --dry-run mode for solve command...');
-try {
-  const output = execSync('./src/start-screen.mjs solve https://github.com/link-assistant/hive-mind/issues/539 --dry-run 2>&1', {
-    encoding: 'utf8',
-    env: { ...process.env, PATH: process.env.PATH },
-  });
-  // Success case - screen is installed and command succeeded
-  if (output.includes('Creating screen session') || output.includes('Started solve in detached screen session') || output.includes('Command sent to session')) {
-    console.log('  solve --dry-run: ✓ PASSED\n');
+{
+  const { output } = runStartScreen(['solve', 'https://github.com/link-assistant/hive-mind/issues/539', '--dry-run'], noScreenEnv);
+
+  // Force screen unavailable so this default-suite test validates parsing
+  // without creating a persistent legacy GNU screen session.
+  if (output.includes('GNU Screen is not installed') || output.includes('Screen is not installed')) {
+    console.log('  solve --dry-run: ✓ PASSED (parse-only, screen disabled)\n');
   } else if (output.includes('Invalid GitHub URL')) {
     console.log('  solve --dry-run: ✗ FAILED - URL validation should pass for issue URLs\n');
     console.log(`  Output: ${output}\n`);
@@ -165,32 +185,15 @@ try {
     console.log(`  Output: ${output}\n`);
     allPassed = false;
   }
-} catch (error) {
-  const output = error.stdout || error.stderr || error.output?.join('') || '';
-  // Error case - screen not installed or other error
-  if (output.includes('Screen is not installed')) {
-    console.log('  solve --dry-run: ✓ PASSED (screen not installed)\n');
-  } else if (output.includes('Invalid GitHub URL')) {
-    console.log('  solve --dry-run: ✗ FAILED - URL validation should pass for issue URLs\n');
-    console.log(`  Output: ${output}\n`);
-    allPassed = false;
-  } else {
-    console.log('  solve --dry-run: ✗ FAILED - Unexpected error\n');
-    console.log(`  Output: ${output}\n`);
-    allPassed = false;
-  }
 }
 
 // Test --dry-run mode for hive command with user URL (the issue from #539)
 console.log('Testing --dry-run mode for hive command with user URL...');
-try {
-  const output = execSync('./src/start-screen.mjs hive https://github.com/konard --dry-run --once --verbose 2>&1', {
-    encoding: 'utf8',
-    env: { ...process.env, PATH: process.env.PATH },
-  });
-  // Success case - screen is installed and command succeeded
-  if (output.includes('Creating screen session') || output.includes('Started hive in detached screen session') || output.includes('Command sent to session')) {
-    console.log('  hive --dry-run user URL: ✓ PASSED\n');
+{
+  const { output } = runStartScreen(['hive', 'https://github.com/konard', '--dry-run', '--once', '--verbose'], noScreenEnv);
+
+  if (output.includes('GNU Screen is not installed') || output.includes('Screen is not installed')) {
+    console.log('  hive --dry-run user URL: ✓ PASSED (parse-only, screen disabled)\n');
   } else if (output.includes('Invalid GitHub URL') || output.includes('missing owner/repo')) {
     console.log('  hive --dry-run user URL: ✗ FAILED - URL validation should pass for user URLs\n');
     console.log(`  Output: ${output}\n`);
@@ -200,52 +203,21 @@ try {
     console.log(`  Output: ${output}\n`);
     allPassed = false;
   }
-} catch (error) {
-  const output = error.stdout || error.stderr || error.output?.join('') || '';
-  // Error case - screen not installed or other error
-  if (output.includes('Screen is not installed')) {
-    console.log('  hive --dry-run user URL: ✓ PASSED (screen not installed)\n');
-  } else if (output.includes('Invalid GitHub URL') || output.includes('missing owner/repo')) {
-    console.log('  hive --dry-run user URL: ✗ FAILED - URL validation should pass for user URLs\n');
-    console.log(`  Output: ${output}\n`);
-    allPassed = false;
-  } else {
-    console.log('  hive --dry-run user URL: ✗ FAILED - Unexpected error\n');
-    console.log(`  Output: ${output}\n`);
-    allPassed = false;
-  }
 }
 
 // Test --dry-run mode for hive command with repo URL
 console.log('Testing --dry-run mode for hive command with repo URL...');
-try {
-  const output = execSync('./src/start-screen.mjs hive https://github.com/link-assistant/hive-mind --dry-run --once 2>&1', {
-    encoding: 'utf8',
-    env: { ...process.env, PATH: process.env.PATH },
-  });
-  // Success case - screen is installed and command succeeded
-  if (output.includes('Creating screen session') || output.includes('Started hive in detached screen session') || output.includes('Command sent to session')) {
-    console.log('  hive --dry-run repo URL: ✓ PASSED\n');
+{
+  const { output } = runStartScreen(['hive', 'https://github.com/link-assistant/hive-mind', '--dry-run', '--once'], noScreenEnv);
+
+  if (output.includes('GNU Screen is not installed') || output.includes('Screen is not installed')) {
+    console.log('  hive --dry-run repo URL: ✓ PASSED (parse-only, screen disabled)\n');
   } else if (output.includes('Invalid GitHub URL')) {
     console.log('  hive --dry-run repo URL: ✗ FAILED - URL validation should pass for repo URLs\n');
     console.log(`  Output: ${output}\n`);
     allPassed = false;
   } else {
     console.log('  hive --dry-run repo URL: ✗ FAILED - Unexpected output\n');
-    console.log(`  Output: ${output}\n`);
-    allPassed = false;
-  }
-} catch (error) {
-  const output = error.stdout || error.stderr || error.output?.join('') || '';
-  // Error case - screen not installed or other error
-  if (output.includes('Screen is not installed')) {
-    console.log('  hive --dry-run repo URL: ✓ PASSED (screen not installed)\n');
-  } else if (output.includes('Invalid GitHub URL')) {
-    console.log('  hive --dry-run repo URL: ✗ FAILED - URL validation should pass for repo URLs\n');
-    console.log(`  Output: ${output}\n`);
-    allPassed = false;
-  } else {
-    console.log('  hive --dry-run repo URL: ✗ FAILED - Unexpected error\n');
     console.log(`  Output: ${output}\n`);
     allPassed = false;
   }

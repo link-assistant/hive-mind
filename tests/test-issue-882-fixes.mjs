@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 
 // Import the unified model mapping
-import { mapModelForTool, isModelCompatibleWithTool, validateToolModelCompatibility, getValidModelsForTool, claudeModels, agentModels, opencodeModels, codexModels } from '../src/model-mapping.lib.mjs';
+import { mapModelForTool, isModelCompatibleWithTool, validateToolModelCompatibility, getValidModelsForTool, claudeModels, agentModels, opencodeModels, codexModels, qwenModels, geminiModels } from '../src/models/index.mjs';
 
 test('Model mapping - Agent tool should map grok-code correctly', () => {
   const mapped = mapModelForTool('agent', 'grok-code');
@@ -36,7 +36,8 @@ test('Model mapping - Agent tool should accept sonnet', () => {
 
 test('Model mapping - Claude tool should accept sonnet', () => {
   const mapped = mapModelForTool('claude', 'sonnet');
-  assert.strictEqual(mapped, 'claude-sonnet-4-5-20250929', 'sonnet should map to claude-sonnet-4-5-20250929 for claude');
+  // Updated for Issue #1329: sonnet now maps to Sonnet 4.6
+  assert.strictEqual(mapped, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6 for claude');
 
   const isCompatible = isModelCompatibleWithTool('claude', 'sonnet');
   assert.strictEqual(isCompatible, true, 'sonnet should be compatible with claude tool');
@@ -60,6 +61,14 @@ test('Model mapping - Valid models list should be non-empty for each tool', () =
 
   const codexValidModels = getValidModelsForTool('codex');
   assert.ok(codexValidModels.length > 0, 'Codex should have valid models');
+
+  const qwenValidModels = getValidModelsForTool('qwen');
+  assert.ok(qwenValidModels.length > 0, 'Qwen should have valid models');
+  assert.ok(qwenValidModels.includes('qwen3-coder-plus'), 'Qwen valid models should include qwen3-coder-plus');
+
+  const geminiValidModels = getValidModelsForTool('gemini');
+  assert.ok(geminiValidModels.length > 0, 'Gemini should have valid models');
+  assert.ok(geminiValidModels.includes('gemini'), 'Gemini valid models should include gemini');
 });
 
 test('Model mapping - OpenCode should handle grok-code correctly', () => {
@@ -78,6 +87,22 @@ test('Model mapping - Codex should handle gpt5 correctly', () => {
   assert.strictEqual(isCompatible, true, 'gpt5 should be compatible with codex tool');
 });
 
+test('Model mapping - Qwen should handle qwen alias correctly', () => {
+  const mapped = mapModelForTool('qwen', 'qwen');
+  assert.strictEqual(mapped, 'qwen3-coder-plus', 'qwen should map to qwen3-coder-plus for qwen');
+
+  const isCompatible = isModelCompatibleWithTool('qwen', 'qwen3-coder-plus');
+  assert.strictEqual(isCompatible, true, 'qwen3-coder-plus should be compatible with qwen tool');
+});
+
+test('Model mapping - Gemini should handle gemini alias correctly', () => {
+  const mapped = mapModelForTool('gemini', 'gemini');
+  assert.strictEqual(mapped, 'gemini-2.5-flash', 'gemini should map to gemini-2.5-flash for gemini');
+
+  const isCompatible = isModelCompatibleWithTool('gemini', 'gemini-2.5-pro');
+  assert.strictEqual(isCompatible, true, 'gemini-2.5-pro should be compatible with gemini tool');
+});
+
 test('Model mapping - Each tool has distinct model maps', () => {
   // Verify that each tool maintains its own model mapping
   const claudeSonnet = mapModelForTool('claude', 'sonnet');
@@ -91,6 +116,8 @@ test('Model mapping - Export model maps are objects', () => {
   assert.strictEqual(typeof agentModels, 'object', 'agentModels should be an object');
   assert.strictEqual(typeof opencodeModels, 'object', 'opencodeModels should be an object');
   assert.strictEqual(typeof codexModels, 'object', 'codexModels should be an object');
+  assert.strictEqual(typeof qwenModels, 'object', 'qwenModels should be an object');
+  assert.strictEqual(typeof geminiModels, 'object', 'geminiModels should be an object');
 });
 
 console.log('✅ All tests for issue #882 fixes passed!');

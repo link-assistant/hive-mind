@@ -5,6 +5,7 @@ import { log, cleanErrorMessage } from './lib.mjs';
 import { batchCheckPullRequestsForIssues, batchCheckArchivedRepositories } from './github.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 /**
  * Recheck conditions for an issue right before processing
  * This ensures the issue should still be processed even if conditions changed since queuing

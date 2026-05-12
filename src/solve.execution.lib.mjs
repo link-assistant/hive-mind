@@ -12,8 +12,9 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 const os = (await use('os')).default;
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -194,6 +195,9 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           sanitizeLogContent,
           verbose: argv.verbose || false,
           errorMessage: cleanErrorMessage(error),
+          // Issue #1225: Pass model and tool info for PR comments
+          requestedModel: argv.originalModel || argv.model,
+          tool: argv.tool || 'claude',
         });
 
         if (logUploadSuccess) {

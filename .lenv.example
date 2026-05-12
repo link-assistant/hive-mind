@@ -27,8 +27,8 @@ TELEGRAM_ALLOWED_CHATS: (
 
 # Optional: Override options for /solve command in lino notation
 # These options will be locked and override any user-provided values
+# Note: --auto-continue is enabled by default, no need to specify it
 TELEGRAM_SOLVE_OVERRIDES: (
-  --auto-continue
   --attach-logs
   --verbose
   --tool
@@ -47,3 +47,7 @@ TELEGRAM_HIVE_OVERRIDES: (
 # Set to false to disable a command
 TELEGRAM_SOLVE: true
 TELEGRAM_HIVE: true
+
+# Optional: Experimental live terminal watch auto-start
+# Public /solve sessions only; private or unknown visibility never auto-starts.
+TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE: false

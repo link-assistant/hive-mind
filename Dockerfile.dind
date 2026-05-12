@@ -1,0 +1,128 @@
+# Hive Mind Docker-in-Docker image
+# Inherits from konard/box-dind so agents can run Docker-based tests inside the
+# Hive Mind container while the existing konard/hive-mind image remains unchanged.
+#
+# Runtime:
+#   docker run --rm --privileged konard/hive-mind-dind:latest docker ps
+#   docker run --rm --runtime=sysbox-runc konard/hive-mind-dind:latest docker ps
+#
+# Box image version: pinned to a specific release for stable, reproducible builds.
+# To upgrade: update the version tag below and in Dockerfile/coolify/Dockerfile.
+# Latest Box releases: https://github.com/link-foundation/box/releases
+
+FROM konard/box-dind:2.1.1
+ARG HIVE_MIND_VERSION=latest
+
+# --- Environment variables ---
+ENV HOME=/home/box
+ENV HIVE_MIND_IMAGE_VARIANT=dind
+# Prefer compatibility for nested Docker. overlay2 can fail on common
+# overlay-backed hosts; users can override this to overlay2 or fuse-overlayfs.
+ENV DIND_STORAGE_DRIVER="vfs"
+ENV NVM_DIR="/home/box/.nvm"
+ENV PYENV_ROOT="/home/box/.pyenv"
+ENV BUN_INSTALL="/home/box/.bun"
+ENV DENO_INSTALL="/home/box/.deno"
+ENV CARGO_HOME="/home/box/.cargo"
+ENV GOROOT="/home/box/.go"
+ENV GOPATH="/home/box/.go/path"
+ENV SDKMAN_DIR="/home/box/.sdkman"
+ENV PERLBREW_ROOT="/home/box/.perl5"
+ENV RBENV_ROOT="/home/box/.rbenv"
+
+# Quiet, deterministic Claude Code defaults for autonomous solve runs (issue #1642)
+ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
+    CLAUDE_CODE_DISABLE_CRON=1 \
+    CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
+    CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \
+    CLAUDE_CODE_DISABLE_FAST_MODE=1 \
+    CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1 \
+    CLAUDE_CODE_DISABLE_MOUSE=1 \
+    CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0 \
+    CLAUDE_CODE_ENABLE_TASKS=1 \
+    CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=4 \
+    CLAUDE_CODE_RESUME_INTERRUPTED_TURN=1 \
+    DISABLE_FEEDBACK_COMMAND=1
+
+ENV OPAM_SWITCH_PREFIX="/home/box/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/home/box/.opam/default/lib/stublibs:/home/box/.opam/default/lib/ocaml/stublibs:/home/box/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/home/box/.opam/default/lib/toplevel"
+
+ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/home/box/.pyenv/bin:/home/box/.pyenv/shims:/home/box/.rbenv/bin:/home/box/.rbenv/shims:/home/box/.swift/usr/bin:/home/box/.elan/bin:/home/box/.opam/default/bin:/home/box/.local/bin:/home/box/.cargo/bin:/home/box/.deno/bin:/home/box/.bun/bin:/home/box/.go/bin:/home/box/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+USER box
+WORKDIR /home/box
+
+RUN NODE_VERSION_DIR=$(ls -d /home/box/.nvm/versions/node/v* 2>/dev/null | head -1) && \
+    if [ -n "$NODE_VERSION_DIR" ] && [ -d "$NODE_VERSION_DIR/bin" ]; then \
+      ln -sf "$NODE_VERSION_DIR/bin" /home/box/.node-bin; \
+    fi
+
+ENV PATH="/home/box/.node-bin:${PATH}"
+
+# The Box full image includes the Rocq/Coq opam switch data. Keep an explicit
+# opam binary in ~/.local/bin so verification and interactive use are stable.
+RUN mkdir -p /home/box/.local/bin && \
+    ARCH="$(uname -m)" && \
+    case "$ARCH" in \
+      x86_64)  OPAM_ARCH="x86_64" ;; \
+      aarch64) OPAM_ARCH="arm64" ;; \
+      *)       OPAM_ARCH="$ARCH" ;; \
+    esac && \
+    OPAM_TAG=$(curl -fsSIL -o /dev/null -w '%{url_effective}' https://github.com/ocaml/opam/releases/latest | sed 's|.*/||') && \
+    curl -fsSL "https://github.com/ocaml/opam/releases/download/${OPAM_TAG}/opam-${OPAM_TAG}-${OPAM_ARCH}-linux" -o /home/box/.local/bin/opam && \
+    chmod +x /home/box/.local/bin/opam
+
+RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
+    bash /tmp/claude-code-install.sh && \
+    rm /tmp/claude-code-install.sh && \
+    claude --version
+
+RUN bun install -g @openai/codex && \
+    bun install -g @qwen-code/qwen-code && \
+    bun install -g @google/gemini-cli && \
+    bun install -g @github/copilot && \
+    bun install -g opencode-ai
+
+RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+    bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
+      test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
+    fi && \
+    bun install -g @link-assistant/claude-profiles && \
+    bun install -g @link-assistant/agent && \
+    bun install -g start-command && \
+    bun install -g gh-setup-git-identity && \
+    bun install -g gh-pull-all && \
+    bun install -g gh-load-issue && \
+    bun install -g gh-load-pull-request && \
+    bun install -g gh-upload-log
+
+RUN npm install -g @playwright/mcp@latest --no-fund --force
+
+RUN if command -v claude &>/dev/null; then \
+      claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
+    fi
+
+RUN if command -v codex &>/dev/null; then \
+      codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
+    fi
+
+RUN mkdir -p /home/box/.claude && \
+    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
+      configure-claude --settings-path /home/box/.claude/settings.json && \
+      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
+    elif command -v configure-claude >/dev/null 2>&1; then \
+      configure-claude --settings-path /home/box/.claude/settings.json && \
+      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
+    else \
+      echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline - solve re-applies it at runtime"; \
+    fi
+
+# Keep the final image as root so /usr/local/bin/dind-entrypoint.sh can start
+# dockerd, then hand the requested command to the box user through Box's
+# standard entrypoint.
+USER root
+SHELL ["/bin/bash", "-c"]
+ENTRYPOINT ["/usr/local/bin/dind-entrypoint.sh"]
+CMD ["/bin/bash"]

@@ -4,9 +4,10 @@
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
-const yargs = (await use('yargs@latest')).default;
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry, execGhWithRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
+const { getLinoYargsFactory, hideBin, parseCliArgumentsWithLino } = await import('./cli-arguments.lib.mjs');
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
 
@@ -45,97 +46,113 @@ const log = async (message, options = {}) => {
 };
 
 // Configure command line arguments
-const argv = yargs(process.argv.slice(2))
-  .usage('Usage: $0 <github-url> [options]')
-  .positional('github-url', {
-    type: 'string',
-    description: 'GitHub organization, repository, or user URL to monitor for pull requests',
-  })
-  .option('review-label', {
-    type: 'string',
-    description: 'GitHub label to identify PRs needing review',
-    default: 'needs-review',
-    alias: 'l',
-  })
-  .option('all-prs', {
-    type: 'boolean',
-    description: 'Review all open pull requests regardless of labels',
-    default: false,
-    alias: 'a',
-  })
-  .option('skip-draft', {
-    type: 'boolean',
-    description: 'Skip draft pull requests',
-    default: true,
-    alias: 'd',
-  })
-  .option('skip-approved', {
-    type: 'boolean',
-    description: 'Skip pull requests that already have approvals',
-    default: true,
-  })
-  .option('concurrency', {
-    type: 'number',
-    description: 'Number of concurrent review.mjs instances',
-    default: 2,
-    alias: 'c',
-  })
-  .option('reviews-per-pr', {
-    type: 'number',
-    description: 'Number of reviews to generate per PR (for diverse perspectives)',
-    default: 1,
-    alias: 'r',
-  })
-  .option('model', {
-    type: 'string',
-    description: 'Model to use for review.mjs (opus or sonnet)',
-    alias: 'm',
-    default: 'opus',
-    choices: ['opus', 'sonnet'],
-  })
-  .option('focus', {
-    type: 'string',
-    description: 'Focus areas for reviews (security, performance, logic, style, tests, all)',
-    default: 'all',
-    alias: 'f',
-  })
-  .option('auto-approve', {
-    type: 'boolean',
-    description: 'Auto-approve PRs that pass review criteria',
-    default: false,
-  })
-  .option('interval', {
-    type: 'number',
-    description: 'Polling interval in seconds',
-    default: 300, // 5 minutes
-    alias: 'i',
-  })
-  .option('max-prs', {
-    type: 'number',
-    description: 'Maximum number of PRs to process (0 = unlimited)',
-    default: 0,
-  })
-  .option('dry-run', {
-    type: 'boolean',
-    description: 'List PRs that would be reviewed without actually reviewing them',
-    default: false,
-  })
-  .option('verbose', {
-    type: 'boolean',
-    description: 'Enable verbose logging',
-    alias: 'v',
-    default: false,
-  })
-  .option('once', {
-    type: 'boolean',
-    description: 'Run once and exit instead of continuous monitoring',
-    default: false,
-  })
-  .demandCommand(1, 'GitHub URL is required')
-  .help('h')
-  .alias('h', 'help').argv;
+const createReviewersHiveYargsConfig = yargsInstance =>
+  yargsInstance
+    .usage('Usage: $0 <github-url> [options]')
+    .command('$0 <github-url>', 'Monitor pull requests for review', yargs =>
+      yargs.positional('github-url', {
+        type: 'string',
+        description: 'GitHub organization, repository, or user URL to monitor for pull requests',
+      })
+    )
+    .option('review-label', {
+      type: 'string',
+      description: 'GitHub label to identify PRs needing review',
+      default: 'needs-review',
+      alias: 'l',
+    })
+    .option('all-prs', {
+      type: 'boolean',
+      description: 'Review all open pull requests regardless of labels',
+      default: false,
+      alias: 'a',
+    })
+    .option('skip-draft', {
+      type: 'boolean',
+      description: 'Skip draft pull requests',
+      default: true,
+      alias: 'd',
+    })
+    .option('skip-approved', {
+      type: 'boolean',
+      description: 'Skip pull requests that already have approvals',
+      default: true,
+    })
+    .option('concurrency', {
+      type: 'number',
+      description: 'Number of concurrent review.mjs instances',
+      default: 2,
+      alias: 'c',
+    })
+    .option('reviews-per-pr', {
+      type: 'number',
+      description: 'Number of reviews to generate per PR (for diverse perspectives)',
+      default: 1,
+      alias: 'r',
+    })
+    .option('model', {
+      type: 'string',
+      description: 'Model to use for review.mjs (opus or sonnet)',
+      alias: 'm',
+      default: 'opus',
+      choices: ['opus', 'sonnet'],
+    })
+    .option('focus', {
+      type: 'string',
+      description: 'Focus areas for reviews (security, performance, logic, style, tests, all)',
+      default: 'all',
+      alias: 'f',
+    })
+    .option('auto-approve', {
+      type: 'boolean',
+      description: 'Auto-approve PRs that pass review criteria',
+      default: false,
+    })
+    .option('interval', {
+      type: 'number',
+      description: 'Polling interval in seconds',
+      default: 300, // 5 minutes
+      alias: 'i',
+    })
+    .option('max-prs', {
+      type: 'number',
+      description: 'Maximum number of PRs to process (0 = unlimited)',
+      default: 0,
+    })
+    .option('dry-run', {
+      type: 'boolean',
+      description: 'List PRs that would be reviewed without actually reviewing them',
+      default: false,
+    })
+    .option('verbose', {
+      type: 'boolean',
+      description: 'Enable verbose logging',
+      alias: 'v',
+      default: false,
+    })
+    .option('once', {
+      type: 'boolean',
+      description: 'Run once and exit instead of continuous monitoring',
+      default: false,
+    })
+    .demandCommand(1, 'GitHub URL is required')
+    .help('h')
+    .alias('h', 'help');
 
-const githubUrl = argv['github-url'] || argv._[0];
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  const helpYargs = createReviewersHiveYargsConfig(getLinoYargsFactory()(hideBin(process.argv)));
+  helpYargs.showHelp();
+  process.exit(0);
+}
+
+const argv = parseCliArgumentsWithLino({
+  argv: process.argv,
+  commandName: 'reviewers-hive',
+  createYargsConfig: createReviewersHiveYargsConfig,
+  positionalAliases: ['github-url'],
+});
+
+const githubUrl = argv['github-url'] || argv.githubUrl || argv._[0];
 
 // Set global verbose mode
 global.verboseMode = argv.verbose;
@@ -361,20 +378,19 @@ async function reviewer(reviewerId) {
 // Function to check if a PR already has approvals
 async function hasApprovals(prUrl) {
   try {
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
-
     // Extract owner, repo, and PR number from URL
     const urlMatch = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
     if (!urlMatch) return false;
 
     const [, prOwner, prRepo, prNumber] = urlMatch;
 
-    // Check for reviews using GitHub API
+    // Check for reviews using GitHub API (#1756: retry on transient 5xx + rate-limit)
     const cmd = `gh api repos/${prOwner}/${prRepo}/pulls/${prNumber}/reviews --paginate --jq '[.[] | select(.state == "APPROVED")] | length'`;
 
-    const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
+    const { stdout } = await execGhWithRetry(cmd, {
+      execOptions: { encoding: 'utf8', env: process.env },
+      label: `gh api reviews (PR #${prNumber})`,
+    });
     const approvalCount = parseInt(stdout.trim()) || 0;
 
     if (approvalCount > 0) {
@@ -415,25 +431,24 @@ async function fetchPullRequests() {
 
       await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
 
-      // Use async exec to avoid escaping issues
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
-      const { stdout } = await execAsync(searchCmd, { encoding: 'utf8', env: process.env });
+      // #1756: route through execGhWithRetry to retry transient 5xx + rate-limit
+      const { stdout } = await execGhWithRetry(searchCmd, {
+        execOptions: { encoding: 'utf8', env: process.env },
+        label: 'gh search prs (all PRs)',
+      });
       prs = JSON.parse(stdout || '[]');
     } else {
-      // Use label filter
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
-
       // For repositories, use gh pr list which works better
       if (scope === 'repository') {
         const listCmd = `gh pr list --repo ${owner}/${repo} --state open --label "${argv.reviewLabel}" --limit 100 --json url,title,number,isDraft`;
         await log(`   🔎 Command: ${listCmd}`, { verbose: true });
 
         try {
-          const { stdout } = await execAsync(listCmd, { encoding: 'utf8', env: process.env });
+          // #1756: retry on transient 5xx + rate-limit
+          const { stdout } = await execGhWithRetry(listCmd, {
+            execOptions: { encoding: 'utf8', env: process.env },
+            label: 'gh pr list (label filter)',
+          });
           prs = JSON.parse(stdout || '[]');
         } catch (listError) {
           await log(`   ⚠️  List failed: ${listError.message.split('\n')[0]}`, { verbose: true });
@@ -464,7 +479,11 @@ async function fetchPullRequests() {
         await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
 
         try {
-          const { stdout } = await execAsync(searchCmd, { encoding: 'utf8', env: process.env });
+          // #1756: retry on transient 5xx + rate-limit
+          const { stdout } = await execGhWithRetry(searchCmd, {
+            execOptions: { encoding: 'utf8', env: process.env },
+            label: 'gh search prs (label filter)',
+          });
           prs = JSON.parse(stdout || '[]');
         } catch (searchError) {
           await log(`   ⚠️  Search failed: ${searchError.message.split('\n')[0]}`, { verbose: true });

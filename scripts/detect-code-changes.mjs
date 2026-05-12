@@ -7,11 +7,18 @@
  * and outputs the results for use in GitHub Actions workflow conditions.
  *
  * Key behavior:
- * - For PRs: compares PR head against base branch
+ * - For PR synchronize events: compares GitHub's before..after PR head update
+ *   range, so all commits from the latest push control whether expensive CI jobs
+ *   rerun. If the event SHAs are unavailable, it falls back to GitHub Actions'
+ *   synthetic merge commit and compares HEAD^2^..HEAD^2.
+ * - For PR opened/reopened events: compares the full PR head against base branch
  * - For pushes: compares HEAD against HEAD^
- * - Excludes certain folders and file types from "code changes" detection
+ * - Uses positive matching to detect code changes (only files matching known
+ *   code extensions are considered code), so unknown file types like .gitkeep
+ *   are naturally excluded without needing explicit exclusion rules (issue #1528)
  *
- * Excluded from code changes (don't require changesets):
+ * Files NOT considered code changes (don't require changesets):
+ * - Any file not matching codePattern (e.g., .gitkeep, .txt, etc.)
  * - Markdown files (*.md) in any folder
  * - .changeset/ folder (changeset metadata)
  * - data/ folder (data files)
@@ -23,16 +30,20 @@
  *
  * Environment variables (set by GitHub Actions):
  *   - GITHUB_EVENT_NAME: 'pull_request' or 'push'
+ *   - GITHUB_EVENT_ACTION: PR activity type, e.g. 'opened' or 'synchronize'
  *   - GITHUB_BASE_SHA: Base commit SHA for PR
  *   - GITHUB_HEAD_SHA: Head commit SHA for PR
+ *   - GITHUB_BEFORE_SHA: Previous PR head SHA for synchronize events
+ *   - GITHUB_AFTER_SHA: New PR head SHA for synchronize events
  *
  * Outputs (written to GITHUB_OUTPUT):
  *   - mjs: 'true' if any .mjs files changed
  *   - package: 'true' if package.json changed
  *   - docs: 'true' if any .md files changed
  *   - workflow: 'true' if any .github/workflows/ files changed
- *   - docker: 'true' if Dockerfile, .dockerignore, or ubuntu-24-server-install.sh changed
+ *   - docker: 'true' if Dockerfile, Dockerfile.dind, coolify/Dockerfile, or .dockerignore changed
  *   - code: 'true' if any code files changed (excludes docs, changesets, experiments, data)
+ *   - helm: 'true' if any helm/ files changed
  */
 
 import { execSync } from 'child_process';
@@ -54,6 +65,147 @@ function exec(command) {
 }
 
 /**
+ * Check if a value is a commit SHA-like string from GitHub's event payload.
+ * @param {string|undefined} value - Candidate SHA
+ * @returns {boolean} True when the value looks like a Git commit SHA
+ */
+function isSha(value) {
+  return typeof value === 'string' && /^[0-9a-f]{7,40}$/i.test(value);
+}
+
+/**
+ * Check if a SHA is GitHub's all-zero sentinel for a missing previous commit.
+ * @param {string|undefined} value - Candidate SHA
+ * @returns {boolean} True when the value is only zeroes
+ */
+function isZeroSha(value) {
+  return typeof value === 'string' && /^0+$/.test(value);
+}
+
+/**
+ * Check whether a Git revision exists locally.
+ * @param {string} ref - Git revision
+ * @returns {boolean} True when the revision exists
+ */
+function commitExists(ref) {
+  try {
+    execSync(`git cat-file -e ${ref}^{commit}`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ensure a commit SHA from GitHub's event payload is available locally.
+ * @param {string|undefined} sha - Commit SHA
+ * @param {string} label - Human-readable label for logs
+ * @returns {boolean} True when the commit can be used
+ */
+function ensureShaAvailable(sha, label) {
+  if (!isSha(sha) || isZeroSha(sha)) {
+    return false;
+  }
+
+  if (commitExists(sha)) {
+    return true;
+  }
+
+  console.log(`${label} commit ${sha} not available locally, attempting fetch...`);
+  try {
+    execSync(`git fetch origin ${sha}`, { stdio: 'inherit' });
+  } catch (error) {
+    console.log(`Could not fetch ${label} commit ${sha}: ${error.message}`);
+  }
+
+  return commitExists(sha);
+}
+
+/**
+ * Count parents of a Git revision.
+ * @param {string} ref - Git revision
+ * @returns {number} Number of parents
+ */
+function getParentCount(ref = 'HEAD') {
+  const commit = exec(`git cat-file -p ${ref}`);
+  return commit.split('\n').filter(line => line.startsWith('parent ')).length;
+}
+
+/**
+ * Check if a Git revision is a merge commit.
+ * @param {string} ref - Git revision
+ * @returns {boolean} True when the revision has more than one parent
+ */
+function isMergeCommit(ref = 'HEAD') {
+  return getParentCount(ref) > 1;
+}
+
+/**
+ * List files changed between two Git revisions.
+ * @param {string} fromRef - Base revision
+ * @param {string} toRef - Head revision
+ * @param {string} description - Human-readable comparison description
+ * @returns {string[]|null} Changed file paths, or null when diff fails
+ */
+function diffChangedFiles(fromRef, toRef, description) {
+  console.log(`Comparing ${description}: ${fromRef}..${toRef}`);
+  try {
+    const output = execSync(`git diff --name-only ${fromRef} ${toRef}`, { encoding: 'utf-8' }).trim();
+    return output ? output.split('\n').filter(Boolean) : [];
+  } catch (error) {
+    console.error(`Error comparing ${description}: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Get files changed by the latest PR head update for synchronize events.
+ * @returns {string[]|null} Changed files, or null when the comparison cannot be built
+ */
+function getPullRequestSynchronizeChangedFiles() {
+  const beforeSha = process.env.GITHUB_BEFORE_SHA;
+  const afterSha = process.env.GITHUB_AFTER_SHA || process.env.GITHUB_HEAD_SHA;
+
+  if (ensureShaAvailable(beforeSha, 'Before') && ensureShaAvailable(afterSha, 'After')) {
+    return diffChangedFiles(beforeSha, afterSha, 'PR head update');
+  }
+
+  // actions/checkout checks out a synthetic merge commit for pull_request events:
+  // HEAD is the merge, HEAD^ is the base branch, and HEAD^2 is the PR head.
+  if (isMergeCommit('HEAD') && commitExists('HEAD^2') && commitExists('HEAD^2^')) {
+    console.log('Merge commit detected (pull_request synchronize event)');
+    return diffChangedFiles('HEAD^2^', 'HEAD^2', 'latest PR head commit');
+  }
+
+  const headSha = process.env.GITHUB_HEAD_SHA;
+  if (ensureShaAvailable(headSha, 'Head') && commitExists(`${headSha}^`)) {
+    return diffChangedFiles(`${headSha}^`, headSha, 'latest PR head commit');
+  }
+
+  return null;
+}
+
+/**
+ * Get the full PR diff for opened/reopened events.
+ * @returns {string[]|null} Changed files, or null when the comparison cannot be built
+ */
+function getPullRequestFullChangedFiles() {
+  const baseSha = process.env.GITHUB_BASE_SHA;
+  const headSha = process.env.GITHUB_HEAD_SHA;
+
+  if (ensureShaAvailable(baseSha, 'Base') && ensureShaAvailable(headSha, 'Head')) {
+    return diffChangedFiles(baseSha, headSha, 'full PR');
+  }
+
+  if (isMergeCommit('HEAD') && commitExists('HEAD^') && commitExists('HEAD^2')) {
+    console.log('Merge commit detected (pull_request event)');
+    return diffChangedFiles('HEAD^', 'HEAD^2', 'full PR');
+  }
+
+  return null;
+}
+
+/**
  * Write output to GitHub Actions output file
  * @param {string} name - Output name
  * @param {string} value - Output value
@@ -72,26 +224,20 @@ function setOutput(name, value) {
  */
 function getChangedFiles() {
   const eventName = process.env.GITHUB_EVENT_NAME || 'local';
+  const eventAction = process.env.GITHUB_EVENT_ACTION || '';
 
   if (eventName === 'pull_request') {
-    const baseSha = process.env.GITHUB_BASE_SHA;
-    const headSha = process.env.GITHUB_HEAD_SHA;
-
-    if (baseSha && headSha) {
-      console.log(`Comparing PR: ${baseSha}...${headSha}`);
-      try {
-        // Ensure we have the base commit
-        try {
-          execSync(`git cat-file -e ${baseSha}`, { stdio: 'ignore' });
-        } catch {
-          console.log('Base commit not available locally, attempting fetch...');
-          execSync(`git fetch origin ${baseSha}`, { stdio: 'inherit' });
-        }
-        const output = exec(`git diff --name-only ${baseSha} ${headSha}`);
-        return output ? output.split('\n').filter(Boolean) : [];
-      } catch (error) {
-        console.error(`Git diff failed: ${error.message}`);
+    if (eventAction === 'synchronize') {
+      const synchronizeFiles = getPullRequestSynchronizeChangedFiles();
+      if (synchronizeFiles) {
+        return synchronizeFiles;
       }
+      console.log('Could not build synchronize diff, falling back to full PR diff');
+    }
+
+    const fullPrFiles = getPullRequestFullChangedFiles();
+    if (fullPrFiles) {
+      return fullPrFiles;
     }
   }
 
@@ -119,7 +265,15 @@ function matchesPattern(filePath, pattern) {
 }
 
 /**
- * Check if a file should be excluded from code changes detection
+ * Check if a file should be excluded from code changes detection.
+ *
+ * This function handles known non-code directories and file types.
+ * Files that don't match any exclusion rule here are further checked
+ * against codePattern — only files matching that positive pattern
+ * are reported as code changes. This means unknown file types (like
+ * .gitkeep, .txt, etc.) are naturally excluded without needing
+ * explicit exclusion rules. See issue #1528.
+ *
  * @param {string} filePath - The file path to check
  * @returns {boolean} True if the file should be excluded
  */
@@ -174,12 +328,27 @@ function detectChanges() {
   setOutput('workflow', workflowChanged ? 'true' : 'false');
 
   // Detect docker-related changes
-  const dockerPattern = /^(Dockerfile|\.dockerignore|scripts\/ubuntu-24-server-install\.sh)$/;
+  // Note: ubuntu-24-server-install.sh was removed in issue #1394 - now using pinned konard/box base image
+  const dockerPattern = /^(Dockerfile|Dockerfile\.dind|coolify\/Dockerfile|\.dockerignore)$/;
   const dockerChanged = changedFiles.some(file => dockerPattern.test(file));
   setOutput('docker', dockerChanged ? 'true' : 'false');
 
-  // Detect code changes (excluding docs, changesets, experiments, data folders, and markdown files)
-  const codeChangedFiles = changedFiles.filter(file => !isExcludedFromCodeChanges(file));
+  // Detect helm chart changes
+  const helmChanged = changedFiles.some(file => file.startsWith('helm/'));
+  setOutput('helm', helmChanged ? 'true' : 'false');
+
+  // Detect code changes using positive matching (issue #1528):
+  // 1. First exclude known non-code directories/types (docs, changesets, experiments, data, markdown)
+  // 2. Then positively match against known code file patterns
+  // This ensures unknown file types (like .gitkeep) are naturally excluded
+  // without needing explicit exclusion rules for each one.
+  const nonExcludedFiles = changedFiles.filter(file => !isExcludedFromCodeChanges(file));
+
+  // Check if any code files changed (.mjs, .js, .json, .yml, .yaml, workflow files)
+  // Note: Docker files (Dockerfile etc.) are NOT included here — they are detected separately via
+  // docker=true. The release job is configured to also trigger on docker-changed=true. (see issue #1423)
+  const codePattern = /\.(mjs|js|json|yml|yaml)$|\.github\/workflows\//;
+  const codeChangedFiles = nonExcludedFiles.filter(file => codePattern.test(file));
 
   console.log('\nFiles considered as code changes:');
   if (codeChangedFiles.length === 0) {
@@ -187,15 +356,25 @@ function detectChanges() {
   } else {
     codeChangedFiles.forEach(file => console.log(`  ${file}`));
   }
+
+  // Log files that were changed but not considered code (for debugging)
+  const nonCodeFiles = changedFiles.filter(file => !codeChangedFiles.includes(file));
+  if (nonCodeFiles.length > 0) {
+    console.log('\nFiles NOT considered as code changes:');
+    nonCodeFiles.forEach(file => console.log(`  ${file}`));
+  }
   console.log('');
 
-  // Check if any code files changed (.mjs, .json, .yml, .yaml, or workflow files)
-  const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\//;
-  const codeChanged = codeChangedFiles.some(file => codePattern.test(file));
+  const codeChanged = codeChangedFiles.length > 0;
   setOutput('code', codeChanged ? 'true' : 'false');
 
   console.log('\nChange detection completed.');
 }
 
-// Run the detection
-detectChanges();
+// Export functions for testing (Issues #1528, #1665)
+export { getChangedFiles, isExcludedFromCodeChanges, isMergeCommit, matchesPattern };
+
+// Run the detection when executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  detectChanges();
+}

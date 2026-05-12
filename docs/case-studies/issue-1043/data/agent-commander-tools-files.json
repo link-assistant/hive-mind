@@ -1,0 +1,9 @@
+[
+  { "html_url": "https://github.com/link-assistant/agent-commander/blob/main/js/src/tools/agent.mjs", "name": "agent.mjs", "path": "js/src/tools/agent.mjs" },
+  { "html_url": "https://github.com/link-assistant/agent-commander/blob/main/js/src/tools/claude.mjs", "name": "claude.mjs", "path": "js/src/tools/claude.mjs" },
+  { "html_url": "https://github.com/link-assistant/agent-commander/blob/main/js/src/tools/codex.mjs", "name": "codex.mjs", "path": "js/src/tools/codex.mjs" },
+  { "html_url": "https://github.com/link-assistant/agent-commander/blob/main/js/src/tools/gemini.mjs", "name": "gemini.mjs", "path": "js/src/tools/gemini.mjs" },
+  { "html_url": "https://github.com/link-assistant/agent-commander/blob/main/js/src/tools/index.mjs", "name": "index.mjs", "path": "js/src/tools/index.mjs" },
+  { "html_url": "https://github.com/link-assistant/agent-commander/blob/main/js/src/tools/opencode.mjs", "name": "opencode.mjs", "path": "js/src/tools/opencode.mjs" },
+  { "html_url": "https://github.com/link-assistant/agent-commander/blob/main/js/src/tools/qwen.mjs", "name": "qwen.mjs", "path": "js/src/tools/qwen.mjs" }
+]

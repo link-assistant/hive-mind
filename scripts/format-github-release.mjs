@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 
 /**
  * Format GitHub release notes using the format-release-notes.mjs script

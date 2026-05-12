@@ -1,0 +1,101 @@
+# GitHub Actions Workflow to Automatically Accept Repository/Organization Invitations
+#
+# This workflow runs on a schedule (every hour) and accepts pending invitations.
+# You can also trigger it manually from the Actions tab.
+#
+# Setup:
+# 1. Create a Personal Access Token with 'repo:invite' and 'admin:org' scopes
+# 2. Add it as a repository secret named 'INVITE_TOKEN'
+# 3. Copy this workflow to .github/workflows/accept-invitations.yml
+#
+# Security Note:
+# - Consider using allowlist/denylist to control which invitations are accepted
+# - Review the pending invitations before enabling automatic acceptance
+
+name: Accept GitHub Invitations
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    # Allow manual trigger
+    inputs:
+      dry_run:
+        description: 'Dry run (preview only)'
+        type: boolean
+        default: false
+      repos_only:
+        description: 'Accept repository invitations only'
+        type: boolean
+        default: false
+      orgs_only:
+        description: 'Accept organization invitations only'
+        type: boolean
+        default: false
+
+jobs:
+  accept-invitations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Accept Repository Invitations
+        if: ${{ !inputs.orgs_only }}
+        run: |
+          echo "Fetching pending repository invitations..."
+
+          INVITATIONS=$(gh api /user/repository_invitations)
+          COUNT=$(echo "$INVITATIONS" | jq 'length')
+
+          if [[ "$COUNT" -eq 0 ]]; then
+            echo "No pending repository invitations."
+            exit 0
+          fi
+
+          echo "Found $COUNT pending invitation(s):"
+          echo "$INVITATIONS" | jq -r '.[] | "  - \(.repository.full_name) (from: \(.inviter.login))"'
+
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "Dry run - skipping acceptance"
+            exit 0
+          fi
+
+          echo ""
+          echo "Accepting invitations..."
+          echo "$INVITATIONS" | jq -r '.[].id' | while read -r id; do
+            REPO=$(echo "$INVITATIONS" | jq -r ".[] | select(.id == $id) | .repository.full_name")
+            echo "  Accepting: $REPO"
+            gh api -X PATCH "/user/repository_invitations/$id" || echo "    Failed!"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.INVITE_TOKEN }}
+
+      - name: Accept Organization Invitations
+        if: ${{ !inputs.repos_only }}
+        run: |
+          echo "Fetching pending organization invitations..."
+
+          MEMBERSHIPS=$(gh api /user/memberships/orgs)
+          PENDING=$(echo "$MEMBERSHIPS" | jq '[.[] | select(.state == "pending")]')
+          COUNT=$(echo "$PENDING" | jq 'length')
+
+          if [[ "$COUNT" -eq 0 ]]; then
+            echo "No pending organization invitations."
+            exit 0
+          fi
+
+          echo "Found $COUNT pending invitation(s):"
+          echo "$PENDING" | jq -r '.[] | "  - \(.organization.login) (role: \(.role))"'
+
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "Dry run - skipping acceptance"
+            exit 0
+          fi
+
+          echo ""
+          echo "Accepting invitations..."
+          echo "$PENDING" | jq -r '.[].organization.login' | while read -r org; do
+            echo "  Accepting: $org"
+            gh api -X PATCH "/user/memberships/orgs/$org" -f state=active || echo "    Failed!"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.INVITE_TOKEN }}

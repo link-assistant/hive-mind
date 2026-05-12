@@ -1,4 +1,4 @@
-# Hive Mind: Features & Benefits
+# Hive Mind: Features # Hive Mind: Features & Benefits Benefits (languages: en • [zh](FEATURES.zh.md) • [hi](FEATURES.hi.md) • [ru](FEATURES.ru.md))
 
 This document describes key features and unique benefits of Hive Mind, explaining why it stands out as an AI-powered autonomous issue solver.
 
@@ -184,6 +184,7 @@ All these are preinstalled, but Hive Mind can decide to install more if needed t
 - Session resumption after rate limits
 - Auto-continue when limits reset
 - Detailed logging with `--attach-logs`
+- Solution summary attachment with `--attach-solution-summary` or `--auto-attach-solution-summary`
 - Sentry integration for error tracking
 - Memory and resource monitoring
 
@@ -192,7 +193,7 @@ All these are preinstalled, but Hive Mind can decide to install more if needed t
 The most significant advantage of Hive Mind is **freeing your time**. When AI solver works, it typically takes:
 
 - **10-15 minutes** on Sonnet 4.5
-- **15-25 minutes** on Opus 4.5
+- **15-25 minutes** on Opus 4.6 (default `opus` alias)
 
 And usually not more than 4-5 working iterations per one issue in Pull Request continue mode.
 

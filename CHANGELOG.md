@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.69.13
+
+### Patch Changes
+
+- 52dfa8e: Preserve pull request `.gitkeep` edits during final cleanup so intentional `.gitkeep` deletions are not re-added.
+
 ## 1.69.12
 
 ### Patch Changes

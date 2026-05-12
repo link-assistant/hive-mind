@@ -1,5 +1,5 @@
-Issue to solve: https://github.com/link-assistant/hive-mind/issues/962
-Your prepared branch: issue-962-7502f60e53a0
-Your prepared working directory: /tmp/gh-issue-solver-1766423610256
+Issue to solve: undefined
+Your prepared branch: issue-644-cf3b8243
+Your prepared working directory: /tmp/gh-issue-solver-1762010397765
 
 Proceed.

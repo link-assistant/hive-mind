@@ -8,7 +8,7 @@ await handleSolveEarlyExit(earlyArgs);
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 globalThis.use = use;
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
@@ -86,6 +86,10 @@ global.verboseMode = argv.verbose;
 
 setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
 setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
+configureGitHubRateLimitLogging({
+  enabled: argv.githubRateLimitsLogging === true,
+  log,
+});
 
 // Early logs go to cwd; custom log dir takes effect after argv is parsed
 // Conditionally import tool-specific functions after argv is parsed

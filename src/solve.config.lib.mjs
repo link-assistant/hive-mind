@@ -461,6 +461,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
     default: true,
   },
+  'github-rate-limits-logging': {
+    type: 'boolean',
+    description: 'Log GitHub API rate-limit usage after each centralized gh command retry wrapper call. Disabled by default; use --github-rate-limits-logging to enable.',
+    default: false,
+  },
   'prompt-experiments-folder': {
     type: 'string',
     description: 'Path to experiments folder used in system prompt. Set to empty string to disable experiments folder prompt. Default: ./experiments',

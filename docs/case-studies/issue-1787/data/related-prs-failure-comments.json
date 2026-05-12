@@ -1,0 +1,12 @@
+[
+  { "mergedAt": "2026-05-09T17:30:08Z", "number": 1770, "title": "Stop auto-merge when cancelled CI cannot be re-run", "url": "https://github.com/link-assistant/hive-mind/pull/1770" },
+  { "mergedAt": "2026-05-04T17:08:17Z", "number": 1753, "title": "Fix pre-PR failure reporting", "url": "https://github.com/link-assistant/hive-mind/pull/1753" },
+  { "mergedAt": "2026-04-20T17:28:01Z", "number": 1652, "title": "fix(solve): explain missing delete_repo scope when fork auto-recovery fails (#1651)", "url": "https://github.com/link-assistant/hive-mind/pull/1652" },
+  { "mergedAt": "2026-04-18T15:29:42Z", "number": 1641, "title": "fix: notify issues on pre-PR solve failures", "url": "https://github.com/link-assistant/hive-mind/pull/1641" },
+  { "mergedAt": "2026-04-25T11:14:14Z", "number": 1683, "title": "Fix failure log upload links and status", "url": "https://github.com/link-assistant/hive-mind/pull/1683" },
+  { "mergedAt": "2026-04-25T08:01:26Z", "number": 1675, "title": "Fix screen completion message updates", "url": "https://github.com/link-assistant/hive-mind/pull/1675" },
+  { "mergedAt": "2026-03-28T16:52:23Z", "number": 1476, "title": "fix: add stream timeouts, diagnostic counters, and buffer forwarding for interactive mode (Issue #1472/#1475)", "url": "https://github.com/link-assistant/hive-mind/pull/1476" },
+  { "mergedAt": "2026-04-29T11:46:30Z", "number": 1719, "title": "fix(hive): stop forwarding `false` for string options + exit non-zero on worker failures (#1718)", "url": "https://github.com/link-assistant/hive-mind/pull/1719" },
+  { "mergedAt": "2026-04-24T17:58:01Z", "number": 1667, "title": "fix: retry capacity failures with fallback models", "url": "https://github.com/link-assistant/hive-mind/pull/1667" },
+  { "mergedAt": "2026-04-29T07:54:33Z", "number": 1709, "title": "feat(solve): --auto-input-until-mergeable streams comments+CI+status into live session (#1708)", "url": "https://github.com/link-assistant/hive-mind/pull/1709" }
+]

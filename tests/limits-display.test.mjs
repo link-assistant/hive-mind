@@ -459,6 +459,62 @@ test('formatUsageMessage caps displayed CPU cores when load average exceeds CPU 
   assert.ok(!message.includes('6.85/6 CPU cores'), 'Should not show raw load average as CPU cores used');
 });
 
+test('formatUsageMessage localizes Russian reset times and queue labels', () => {
+  const message = withFixedTime('2026-05-12T09:00:00.000Z', () =>
+    formatUsageMessage(
+      {
+        currentSession: {
+          percentage: 45,
+          resetTime: 'May 12, 12:38pm UTC',
+          resetsAt: '2026-05-12T12:38:00.000Z',
+        },
+        allModels: {
+          percentage: 30,
+          resetTime: 'May 13, 9:00am UTC',
+          resetsAt: '2026-05-13T09:00:00.000Z',
+        },
+        sonnetOnly: {
+          percentage: 10,
+          resetTime: 'May 13, 9:00am UTC',
+          resetsAt: '2026-05-13T09:00:00.000Z',
+        },
+      },
+      {
+        usedPercentage: 91,
+        usedBytes: 91 * 1024 * 1024 * 1024,
+        totalBytes: 100 * 1024 * 1024 * 1024,
+      },
+      {
+        usedPercentage: 10,
+        used: 500,
+        limit: 5000,
+        relativeReset: '4m',
+        resetTime: 'May 12, 9:04am UTC',
+        resetsAt: '2026-05-12T09:04:00.000Z',
+      },
+      { usagePercentage: 25, loadAvg5: 0.5, cpuCount: 2 },
+      {
+        usedPercentage: 40,
+        usedBytes: 4 * 1024 * 1024 * 1024,
+        totalBytes: 10 * 1024 * 1024 * 1024,
+      },
+      null,
+      ['Очереди\nclaude (ожидает: 1, выполняется: 0)\n'],
+      { locale: 'ru' }
+    )
+  );
+
+  assert.ok(message.includes('Текущее время:'), 'Should translate current time label');
+  assert.ok(message.includes('Сброс через'), 'Should translate reset-in label');
+  assert.ok(message.includes('Очереди'), 'Should include localized queue header');
+  assert.ok(message.includes('ожидает: 1'), 'Should include localized pending label');
+  assert.ok(message.includes('выполняется: 0'), 'Should include localized processing label');
+  assert.ok(!message.includes('Current time:'), 'Should not leak English current time label');
+  assert.ok(!message.includes('Resets in'), 'Should not leak English reset label');
+  assert.ok(!message.includes('May 12'), 'Should not reuse stale English reset time');
+  assert.ok(!message.includes('pending: 1'), 'Should not leak English queue pending label');
+});
+
 // ============================================================================
 // Edge Cases for Display
 // ============================================================================

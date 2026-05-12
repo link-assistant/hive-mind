@@ -15,7 +15,10 @@
 
 import assert from 'node:assert/strict';
 import { getVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
+import { preloadAllLocales } from '../src/i18n.lib.mjs';
 import { test, asyncTest, printSummary, getFailCount } from './test-helpers.mjs';
+
+await preloadAllLocales();
 
 // ============================================================================
 // getVersionInfo Tests
@@ -245,6 +248,41 @@ test('formatVersionMessage includes platform at the end', () => {
   const platformIndex = message.indexOf('*💻 Platform*');
   const lastSectionIndex = Math.max(message.indexOf('*🛠 Development Tools*'), message.indexOf('*🔨 C/C++*'), message.indexOf('*🐍 Python*'));
   assert.ok(platformIndex > lastSectionIndex, 'Platform section should be at the end');
+});
+
+test('formatVersionMessage localizes Russian UI labels', () => {
+  const versions = {
+    hiveMind: '1.69.10',
+    processVersion: '1.69.9',
+    needsRestart: true,
+    claudeCode: 'Claude Code 2.1.138',
+    node: 'v24.11.1',
+    playwrightMcp: '@playwright/mcp@0.0.75',
+    playwrightMcpClaudeStatus: 'playwright: connected',
+    playwrightMcpCodexStatus: null,
+    git: 'git version 2.43.0',
+    chrome: 'Google Chrome 147.0.7491.0',
+    platformEnvironment: 'docker container',
+    platformArch: 'AMD64',
+    platformOs: 'Ubuntu 24.04.4 LTS',
+    platformKernel: 'Linux 6.8.0-55-generic',
+  };
+
+  const message = formatVersionMessage(versions, { locale: 'ru' });
+
+  assert.ok(message.includes('• Версия: `1.69.10`'), 'Should translate Hive-Mind version label');
+  assert.ok(message.includes('требуется перезапуск'), 'Should translate restart warning');
+  assert.ok(message.includes('*🎭 AI-агенты*'), 'Should translate AI Agents section');
+  assert.ok(message.includes('*🌐 Браузеры*'), 'Should translate Browsers section');
+  assert.ok(message.includes('*🎭 Автоматизация браузера*'), 'Should translate Browser Automation section');
+  assert.ok(message.includes('*🛠 Инструменты разработки*'), 'Should translate Development Tools section');
+  assert.ok(message.includes('*💻 Платформа*'), 'Should translate Platform section');
+  assert.ok(message.includes('• Среда: `docker container`'), 'Should translate platform environment label');
+  assert.ok(message.includes('Claude Code: подключено'), 'Should translate MCP connected status');
+  assert.ok(message.includes('Codex: не подключено'), 'Should translate MCP disconnected status');
+  assert.ok(!message.includes('Version:'), 'Should not leak English Version label');
+  assert.ok(!message.includes('*💻 Platform*'), 'Should not leak English Platform section');
+  assert.ok(!message.includes('connected | Codex: not connected'), 'Should not leak English MCP statuses');
 });
 
 // ============================================================================

@@ -12,6 +12,7 @@
 
 import { escapeMarkdown, cleanNonPrintableChars, makeSpecialCharsVisible } from '../src/telegram-markdown.lib.mjs';
 import { buildUserMention } from '../src/buildUserMention.lib.mjs';
+import { installTelegramFormattingFallback, safeReply } from '../src/telegram-safe-reply.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -287,6 +288,50 @@ function stripMarkdown(text) {
   const plain = stripMarkdown(markdown);
   assert(!plain.includes('\\_'), 'All escaped underscores restored in complex message', `Got: ${plain}`);
   assert(!plain.includes(']('), 'All links converted in complex message', `Got: ${plain}`);
+}
+
+// Test: safeReply warns and falls back to useful plain text on formatting errors
+{
+  const calls = [];
+  const ctx = {
+    reply: async (text, options = {}) => {
+      calls.push({ text, options });
+      if (calls.length === 1) throw new Error("400: Bad Request: can't parse entities: Can't find end of the entity");
+      return { ok: true };
+    },
+  };
+  await safeReply(ctx, '*Broken help message', { fallbackLocale: 'ru' });
+  assertEqual(calls.length, 2, 'safeReply retries once as plain text');
+  assertEqual(calls[0].options.parse_mode, 'Markdown', 'First attempt uses Markdown');
+  assertEqual(calls[1].options.parse_mode, undefined, 'Fallback removes parse mode');
+  assert(calls[1].text.includes('Обнаружена ошибка форматирования'), 'Fallback warns in user locale');
+  assert(calls[1].text.includes('Broken help message'), 'Fallback includes original message content as plain text');
+}
+
+// Test: automatic Telegram client wrapper retries sendMessage/editMessageText
+{
+  const calls = [];
+  const telegram = {
+    sendMessage: async (chatId, text, options = {}) => {
+      calls.push({ method: 'sendMessage', chatId, text, options });
+      if (calls.length === 1) throw new Error("400: Bad Request: can't parse entities");
+      return { ok: true };
+    },
+    editMessageText: async (chatId, messageId, inlineMessageId, text, options = {}) => {
+      calls.push({ method: 'editMessageText', chatId, messageId, inlineMessageId, text, options });
+      if (calls.length === 3) throw new Error("400: Bad Request: can't parse entities");
+      return { ok: true };
+    },
+  };
+  installTelegramFormattingFallback(telegram, { fallbackLocale: 'ru', verbose: true });
+  await telegram.sendMessage(1, '*Broken send', { parse_mode: 'Markdown' });
+  await telegram.editMessageText(1, 2, undefined, '*Broken edit', { parse_mode: 'Markdown' });
+
+  assertEqual(calls.length, 4, 'send and edit each retry once');
+  assertEqual(calls[1].options.parse_mode, undefined, 'send fallback removes parse mode');
+  assertEqual(calls[3].options.parse_mode, undefined, 'edit fallback removes parse mode');
+  assert(calls[1].text.includes('Обнаружена ошибка форматирования'), 'send fallback warns');
+  assert(calls[3].text.includes('Обнаружена ошибка форматирования'), 'edit fallback warns');
 }
 
 // ═══════════════════════════════════════════════════════════════════

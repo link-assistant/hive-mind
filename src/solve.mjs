@@ -8,7 +8,7 @@ await handleSolveEarlyExit(earlyArgs);
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 globalThis.use = use;
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
@@ -86,6 +86,10 @@ global.verboseMode = argv.verbose;
 
 setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
 setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
+configureGitHubRateLimitLogging({
+  enabled: argv.githubRateLimitsLogging === true,
+  log,
+});
 
 // Early logs go to cwd; custom log dir takes effect after argv is parsed
 // Conditionally import tool-specific functions after argv is parsed
@@ -144,6 +148,14 @@ const cleanupWrapper = async () => {
 const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper, ({ code, reason }) => notifyIssueAboutPrePullRequestFailure({ code, reason, argv, globalState: global, $, log, getLogFile, shouldAttachLogs, attachLogToGitHub, sanitizeLogContent, rawCommand }));
 installGlobalExitHandlers();
+const markFailureNotificationPosted = targetType => {
+  global.preExitFailureNotificationPosted = true;
+  if (targetType === 'pr') {
+    global.pullRequestFailureNotificationPosted = true;
+  } else if (targetType === 'issue') {
+    global.prePullRequestFailureNotificationPosted = true;
+  }
+};
 
 // Now handle argument validation that was moved from early checks
 let issueUrl = argv['issue-url'] || argv._[0];
@@ -903,6 +915,7 @@ try {
           });
 
           if (logUploadSuccess) {
+            markFailureNotificationPosted('pr');
             await log('  ✅ Logs uploaded successfully');
           } else {
             // Issue #1212: Always show log upload failures (not just verbose)
@@ -927,6 +940,7 @@ try {
 
           const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: failureComment });
           if (posted.ok) {
+            markFailureNotificationPosted('pr');
             await log(`   Posted failure comment to PR${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
           }
         } catch (error) {
@@ -1081,6 +1095,7 @@ try {
         });
 
         if (logUploadSuccess) {
+          markFailureNotificationPosted(logTargetType);
           await log(`  📎 Failure logs posted to ${logTargetLabel}`);
         } else {
           // Issue #1212: Always show log upload failures (not just verbose)

@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict';
 
-import { isRateLimitError, parseRateLimitReset, computeRateLimitWait, ghWithRateLimitRetry, wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs';
+import { isRateLimitError, parseRateLimitReset, computeRateLimitWait, configureGitHubRateLimitLogging, isGitHubRateLimitLoggingEnabled, ghWithRateLimitRetry, wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs';
 import { limitReset } from '../src/config.lib.mjs';
 
 let testsPassed = 0;
@@ -242,6 +242,110 @@ await test('throws after maxAttempts of persistent rate-limit errors', async () 
   } finally {
     limitReset.bufferMs = origBuffer;
     limitReset.jitterMs = origJitter;
+  }
+});
+
+// ----------------------------------------------------------------------------
+// Optional GitHub rate-limit usage logging
+// ----------------------------------------------------------------------------
+
+console.log('\n📋 GitHub rate-limit usage logging\n');
+
+await test('is disabled by default and does not probe usage', async () => {
+  const logs = [];
+  let fetchCalls = 0;
+  configureGitHubRateLimitLogging({
+    enabled: false,
+    log: msg => logs.push(msg),
+    fetchUsage: async () => {
+      fetchCalls++;
+      return [{ resource: 'core', limit: 5000, used: 1, remaining: 4999, reset: 2_000_000_000 }];
+    },
+  });
+
+  try {
+    assert.equal(isGitHubRateLimitLoggingEnabled(), false);
+    const result = await ghWithRateLimitRetry(async () => 'ok', { label: 'gh api repos', log: () => {} });
+    assert.equal(result, 'ok');
+    assert.equal(fetchCalls, 0);
+    assert.deepEqual(logs, []);
+  } finally {
+    configureGitHubRateLimitLogging();
+  }
+});
+
+await test('logs actual usage after a successful wrapped gh call when enabled', async () => {
+  const logs = [];
+  let fetchCalls = 0;
+  configureGitHubRateLimitLogging({
+    enabled: true,
+    log: msg => logs.push(msg),
+    fetchUsage: async () => {
+      fetchCalls++;
+      return [
+        { resource: 'core', limit: 5000, used: 100 + fetchCalls, remaining: 4900 - fetchCalls, reset: 2_000_000_000 },
+        { resource: 'graphql', limit: 5000, used: 10, remaining: 4990, reset: 2_000_000_000 },
+      ];
+    },
+  });
+
+  try {
+    const result = await ghWithRateLimitRetry(async () => 'ok', { label: 'gh api repos', log: () => {} });
+    assert.equal(result, 'ok');
+    assert.equal(fetchCalls, 1);
+    assert.equal(logs.length, 1);
+    assert.match(logs[0], /GitHub rate limits after gh api repos/);
+    assert.match(logs[0], /core: 101\/5000 used/);
+    assert.match(logs[0], /graphql: 10\/5000 used/);
+  } finally {
+    configureGitHubRateLimitLogging();
+  }
+});
+
+await test('logs usage after a failed wrapped gh attempt without replacing the original error', async () => {
+  const logs = [];
+  let fetchCalls = 0;
+  configureGitHubRateLimitLogging({
+    enabled: true,
+    log: msg => logs.push(msg),
+    fetchUsage: async () => {
+      fetchCalls++;
+      return [{ resource: 'core', limit: 5000, used: 200, remaining: 4800, reset: 2_000_000_000 }];
+    },
+  });
+
+  try {
+    await assert.rejects(
+      ghWithRateLimitRetry(
+        async () => {
+          throw new Error('HTTP 404: Not Found');
+        },
+        { label: 'gh api missing', log: () => {} }
+      ),
+      /HTTP 404/
+    );
+    assert.equal(fetchCalls, 1);
+    assert.equal(logs.length, 1);
+    assert.match(logs[0], /GitHub rate limits after gh api missing/);
+  } finally {
+    configureGitHubRateLimitLogging();
+  }
+});
+
+await test('does not break wrapped gh calls when usage logging fails', async () => {
+  configureGitHubRateLimitLogging({
+    enabled: true,
+    log: () => {
+      throw new Error('logger failed');
+    },
+    fetchUsage: async () => [{ resource: 'core', limit: 5000, used: 300, remaining: 4700, reset: 2_000_000_000 }],
+  });
+
+  try {
+    const result = await ghWithRateLimitRetry(async () => 'ok', { label: 'gh api user', log: () => {} });
+    assert.equal(result, 'ok');
+  } finally {
+    configureGitHubRateLimitLogging();
   }
 });
 

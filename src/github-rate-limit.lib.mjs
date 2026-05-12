@@ -24,7 +24,15 @@ import { limitReset, retryLimits } from './config.lib.mjs';
 
 const exec = promisify(execCb);
 
+const GITHUB_RATE_LIMIT_USAGE_RESOURCES = ['core', 'graphql', 'search'];
 const RATE_LIMIT_PATTERNS = ['api rate limit exceeded', 'rate limit exceeded', 'you have exceeded a secondary rate limit', 'secondary rate limit', 'abuse detection', 'was submitted too quickly'];
+
+const githubRateLimitLogging = {
+  enabled: false,
+  log: null,
+  fetchUsage: null,
+  lastUsageByResource: null,
+};
 
 /**
  * Pull every plausible string out of a thrown error/result so pattern matches
@@ -117,6 +125,116 @@ export const fetchNextRateLimitReset = async () => {
     return new Date(soonestEpoch * 1000);
   } catch {
     return null;
+  }
+};
+
+const toFiniteNumber = value => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const normalizeRateLimitUsageEntry = (resource, entry) => {
+  if (!resource || !entry) return null;
+  const limit = toFiniteNumber(entry.limit);
+  const used = toFiniteNumber(entry.used);
+  const remaining = toFiniteNumber(entry.remaining);
+  const reset = toFiniteNumber(entry.reset);
+  if (limit === null || used === null || remaining === null) return null;
+  return {
+    resource,
+    limit,
+    used,
+    remaining,
+    reset,
+    resetDate: reset === null ? null : new Date(reset * 1000),
+  };
+};
+
+/**
+ * Fetch the current GitHub API usage buckets we commonly exercise via `gh`.
+ * This intentionally calls `gh api rate_limit` directly so the logging probe
+ * does not recursively pass through the retry/logging wrapper it supports.
+ *
+ * @returns {Promise<Array<{resource: string, limit: number, used: number, remaining: number, reset: number|null, resetDate: Date|null}>>}
+ */
+export const fetchGitHubRateLimitUsage = async () => {
+  try {
+    // eslint-disable-next-line gh-rate-limit/no-direct-gh-exec -- this IS the centralized rate-limit helper; routing through itself would recurse.
+    const { stdout } = await exec('gh api rate_limit');
+    const data = JSON.parse(stdout);
+    const resources = data?.resources || {};
+    return GITHUB_RATE_LIMIT_USAGE_RESOURCES.map(resource => normalizeRateLimitUsageEntry(resource, resources[resource])).filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * Enable optional debug logging of actual GitHub API quota usage after each
+ * centralized `gh` wrapper attempt. Disabled by default for backward
+ * compatibility and to avoid extra `gh api rate_limit` probes in normal runs.
+ *
+ * @param {object} [options]
+ * @param {boolean} [options.enabled=false]
+ * @param {(msg: string, options?: object) => Promise<void>|void} [options.log]
+ * @param {() => Promise<Array<object>>} [options.fetchUsage] - injectable for tests.
+ */
+export const configureGitHubRateLimitLogging = ({ enabled = false, log = null, fetchUsage = null } = {}) => {
+  githubRateLimitLogging.enabled = enabled === true;
+  githubRateLimitLogging.log = typeof log === 'function' ? log : null;
+  githubRateLimitLogging.fetchUsage = typeof fetchUsage === 'function' ? fetchUsage : fetchGitHubRateLimitUsage;
+  githubRateLimitLogging.lastUsageByResource = null;
+};
+
+export const isGitHubRateLimitLoggingEnabled = () => githubRateLimitLogging.enabled;
+
+const formatUsageReset = entry => {
+  if (!(entry.resetDate instanceof Date) || Number.isNaN(entry.resetDate.getTime())) return '';
+  return `, resets ${entry.resetDate.toISOString()}`;
+};
+
+const formatRateLimitUsageEntry = entry => {
+  const previous = githubRateLimitLogging.lastUsageByResource?.[entry.resource];
+  let deltaText = '';
+  if (previous && Number.isFinite(previous.used)) {
+    const delta = entry.used - previous.used;
+    if (delta > 0) {
+      deltaText = ` (+${delta} since last check)`;
+    } else if (delta === 0) {
+      deltaText = ' (no change)';
+    } else {
+      deltaText = ' (usage reset since last check)';
+    }
+  }
+  return `${entry.resource}: ${entry.used}/${entry.limit} used${deltaText}, ${entry.remaining} remaining${formatUsageReset(entry)}`;
+};
+
+const safelyLogRateLimitUsage = async (logger, message, options) => {
+  try {
+    await Promise.resolve(logger(message, options));
+  } catch {
+    // Debug logging must never replace the original gh result or error.
+  }
+};
+
+export const logGitHubRateLimitUsage = async ({ label = 'gh' } = {}) => {
+  if (!githubRateLimitLogging.enabled) return [];
+  const logger = githubRateLimitLogging.log || (msg => console.warn(msg));
+
+  try {
+    const rawUsage = await githubRateLimitLogging.fetchUsage();
+    const usage = (Array.isArray(rawUsage) ? rawUsage : []).map(entry => normalizeRateLimitUsageEntry(entry.resource || entry.name, entry)).filter(Boolean);
+    if (usage.length === 0) return [];
+
+    const details = usage.map(formatRateLimitUsageEntry).join('; ');
+    await safelyLogRateLimitUsage(logger, `📊 GitHub rate limits after ${label}: ${details}`);
+    githubRateLimitLogging.lastUsageByResource = Object.fromEntries(usage.map(entry => [entry.resource, entry]));
+    return usage;
+  } catch (error) {
+    if (global.verboseMode) {
+      await safelyLogRateLimitUsage(logger, `⚠️ GitHub rate-limit logging failed after ${label}: ${error.message}`, { verbose: true });
+    }
+    return [];
   }
 };
 
@@ -226,8 +344,11 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
 
   for (let i = 0; i < hardCap; i++) {
     try {
-      return await fn();
+      const result = await fn();
+      await logGitHubRateLimitUsage({ label });
+      return result;
     } catch (error) {
+      await logGitHubRateLimitUsage({ label });
       lastError = error;
 
       if (isRateLimitError(error)) {
@@ -324,6 +445,10 @@ export default {
   isTransientNetworkError,
   parseRateLimitReset,
   fetchNextRateLimitReset,
+  fetchGitHubRateLimitUsage,
+  configureGitHubRateLimitLogging,
+  isGitHubRateLimitLoggingEnabled,
+  logGitHubRateLimitUsage,
   computeRateLimitWait,
   ghWithRateLimitRetry,
   execGhWithRetry,

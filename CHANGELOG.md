@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.69.12
+
+### Patch Changes
+
+- 8ca35d6: Fix Telegram bot localization fallbacks for supported languages.
+
 ## 1.69.11
 
 ### Patch Changes

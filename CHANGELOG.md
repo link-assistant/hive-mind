@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.69.11
+
+### Patch Changes
+
+- bdca974: Notify existing pull requests when solver pre-exit failures happen before a working session can post its own failure comment.
+
 ## 1.69.10
 
 ### Patch Changes

@@ -2,12 +2,28 @@ if (typeof use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
 
-const linoModule = await use('links-notation');
+// Issue #1710: hosted CI npm-install flake — retry once on a corrupt install.
+const { useWithRetry } = await import('./use-with-retry.lib.mjs');
+const linoModule = await useWithRetry(globalThis.use, 'links-notation');
 const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 
 const fs = await import('fs');
 const path = await import('path');
 const os = await import('os');
+
+function collectStringValues(value, result = []) {
+  if (value && typeof value === 'object' && Array.isArray(value.values)) {
+    if (value.id !== null && value.id !== undefined) {
+      result.push(String(value.id));
+    }
+    for (const child of value.values) {
+      collectStringValues(child, result);
+    }
+  } else if (value !== null && value !== undefined) {
+    result.push(String(value));
+  }
+  return result;
+}
 
 export class LinksNotationManager {
   constructor() {
@@ -26,8 +42,7 @@ export class LinksNotationManager {
 
       if (link.values && link.values.length > 0) {
         for (const value of link.values) {
-          const val = value.id || value;
-          values.push(val);
+          values.push(...collectStringValues(value));
         }
       } else if (link.id) {
         values.push(link.id);
@@ -50,9 +65,11 @@ export class LinksNotationManager {
 
       if (link.values && link.values.length > 0) {
         for (const value of link.values) {
-          const num = parseInt(value.id || value);
-          if (!isNaN(num)) {
-            ids.push(num);
+          for (const linkValue of collectStringValues(value)) {
+            const num = parseInt(linkValue);
+            if (!isNaN(num)) {
+              ids.push(num);
+            }
           }
         }
       } else if (link.id) {
@@ -79,8 +96,7 @@ export class LinksNotationManager {
 
       if (link.values && link.values.length > 0) {
         for (const value of link.values) {
-          const linkStr = value.id || value;
-          if (typeof linkStr === 'string') {
+          for (const linkStr of collectStringValues(value)) {
             links.push(linkStr);
           }
         }
@@ -96,6 +112,48 @@ export class LinksNotationManager {
     return [];
   }
 
+  parseLinks(input) {
+    if (!input) return [];
+
+    const parsed = this.parser.parse(input);
+    if (!parsed || parsed.length === 0) return [];
+
+    const link = parsed[0];
+    const pairs = [];
+
+    if (link.values && link.values.length > 0) {
+      const flatNumbers = [];
+
+      for (const value of link.values) {
+        if (value.id === null && value.values && value.values.length >= 2) {
+          const source = parseInt(value.values[0]?.id || value.values[0], 10);
+          const target = parseInt(value.values[1]?.id || value.values[1], 10);
+          if (!isNaN(source) && !isNaN(target)) {
+            pairs.push({ source, target });
+          }
+        } else if (value.id) {
+          const num = parseInt(value.id, 10);
+          if (!isNaN(num)) {
+            flatNumbers.push(num);
+          }
+        }
+      }
+
+      for (let i = 0; i < flatNumbers.length - 1; i += 2) {
+        pairs.push({ source: flatNumbers[i], target: flatNumbers[i + 1] });
+      }
+    }
+
+    return pairs;
+  }
+
+  formatLinks(pairs) {
+    if (!pairs || pairs.length === 0) return '()';
+
+    const formattedValues = pairs.map(pair => `  ${pair.source} ${pair.target}`).join('\n');
+    return `(\n${formattedValues}\n)`;
+  }
+
   format(values) {
     if (!values || values.length === 0) return '()';
 
@@ -103,50 +161,59 @@ export class LinksNotationManager {
     return `(\n${formattedValues}\n)`;
   }
 
-  ensureCacheDir() {
-    if (!fs.existsSync(this.cacheDir)) {
-      fs.mkdirSync(this.cacheDir, { recursive: true });
+  async ensureCacheDir() {
+    try {
+      await fs.promises.access(this.cacheDir);
+      return false;
+    } catch {
+      await fs.promises.mkdir(this.cacheDir, { recursive: true });
       return true;
     }
-    return false;
   }
 
-  saveToCache(filename, values) {
-    this.ensureCacheDir();
+  async saveToCache(filename, values) {
+    await this.ensureCacheDir();
     const cacheFile = path.join(this.cacheDir, filename);
     const linksNotation = this.format(values);
-    fs.writeFileSync(cacheFile, linksNotation);
+    await fs.promises.writeFile(cacheFile, linksNotation);
     return cacheFile;
   }
 
-  loadFromCache(filename) {
+  async loadFromCache(filename) {
     const cacheFile = path.join(this.cacheDir, filename);
 
-    if (!fs.existsSync(cacheFile)) {
+    try {
+      await fs.promises.access(cacheFile);
+    } catch {
       return null;
     }
 
-    const content = fs.readFileSync(cacheFile, 'utf8');
+    const content = await fs.promises.readFile(cacheFile, 'utf8');
     return {
       raw: content,
       parsed: this.parse(content),
       numericIds: this.parseNumericIds(content),
       stringValues: this.parseStringValues(content),
-      file: cacheFile
+      file: cacheFile,
     };
   }
 
-  cacheExists(filename) {
+  async cacheExists(filename) {
     const cacheFile = path.join(this.cacheDir, filename);
-    return fs.existsSync(cacheFile);
+    try {
+      await fs.promises.access(cacheFile);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   getCachePath(filename) {
     return path.join(this.cacheDir, filename);
   }
 
-  requireCache(filename, errorMessage) {
-    const cache = this.loadFromCache(filename);
+  async requireCache(filename, errorMessage) {
+    const cache = await this.loadFromCache(filename);
 
     if (!cache) {
       const cacheFile = this.getCachePath(filename);
@@ -161,7 +228,7 @@ export class LinksNotationManager {
 }
 
 export const CACHE_FILES = {
-  TELEGRAM_CHATS: 'telegram-chats.lino'
+  TELEGRAM_CHATS: 'telegram-chats.lino',
 };
 
 export const lino = new LinksNotationManager();

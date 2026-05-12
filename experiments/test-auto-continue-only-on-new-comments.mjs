@@ -22,7 +22,7 @@ console.log('📋 Test 1: Checking help output...');
 try {
   const helpResult = await $`node ${solvePath} --help`;
   const helpOutput = helpResult.stdout.toString();
-  
+
   if (helpOutput.includes('auto-continue-only-on-new-comments')) {
     console.log('✅ Option appears in help output');
     console.log('   Found: auto-continue-only-on-new-comments');
@@ -41,7 +41,7 @@ try {
   // We'll test with a fake URL and dry-run to avoid actual execution
   const testUrl = 'https://github.com/test/repo/issues/1';
   const parseResult = await $`node ${solvePath} "${testUrl}" --auto-continue-only-on-new-comments --dry-run`;
-  
+
   if (parseResult.code !== 0) {
     // This is expected as we're using a fake URL
     const errorOutput = parseResult.stderr.toString();

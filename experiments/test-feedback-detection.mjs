@@ -24,7 +24,7 @@ function $(command) {
 console.log('Testing feedback detection with real PR...\n');
 
 // Test with the hive-mind repo PR #199 which has comments
-const testPrUrl = 'https://github.com/deep-assistant/hive-mind/pull/199';
+const testPrUrl = 'https://github.com/link-assistant/hive-mind/pull/199';
 console.log(`Testing PR: ${testPrUrl}\n`);
 
 // Run solve.mjs with --dry-run and --verbose

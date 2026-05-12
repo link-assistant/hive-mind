@@ -1,0 +1,26 @@
+{
+  "author": { "id": "MDQ6VXNlcjU2MjUzODky", "is_bot": false, "login": "ideav", "name": "" },
+  "body": "",
+  "comments": [
+    {
+      "id": "IC_kwDORExwRs8AAAABAWkXJw",
+      "author": { "login": "konard" },
+      "authorAssociation": "COLLABORATOR",
+      "body": "Провел аудит `index.php` и создал отдельные issue по подтвержденным уязвимостям:\n\n- #2119 Security: restrict wildcard CORS on authenticated API responses\n- #2120 Security: enable TLS certificate verification for OAuth token and userinfo requests\n- #2121 Security: do not expose fatal error messages, file paths, and line numbers to clients\n- #2122 Security: replace predictable md5(microtime()) session token generation\n- #2123 Security: validate OAuth state before redirecting to prevent open redirects\n- #2124 Security: protect TRACE_IT diagnostic logging from unauthenticated activation\n\nИсходная задача #2117 была именно на поиск и создание отдельных issue, поэтому изменений в код не вносил.",
+      "createdAt": "2026-04-25T09:22:48Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/ideav/crm/issues/2117#issuecomment-4318631719",
+      "viewerDidAuthor": true
+    }
+  ],
+  "createdAt": "2026-04-25T09:18:57Z",
+  "labels": [],
+  "number": 2117,
+  "state": "CLOSED",
+  "title": "index.php Найди уязвимости безопасности и сделай issue на каждую",
+  "updatedAt": "2026-04-25T09:23:09Z",
+  "url": "https://github.com/ideav/crm/issues/2117"
+}

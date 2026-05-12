@@ -1,0 +1,55 @@
+{
+  "body": "## Summary\n\nFixes #1092\n\nWhen a user types `-- model opus` (with a space after `--`) instead of `--model opus`, the system now detects this malformed pattern and produces a helpful error message with a suggestion, instead of silently using the default model.\n\n### The Problem\n\nIn the reported issue, a user typed `/solve https://... -- model opus` and the system:\n1. Tokenized `-- model` into `['--', 'model']` (split by space)\n2. Yargs interpreted `--` as the POSIX \"end of options\" marker (valid)\n3. `model` became a positional argument (silently ignored)\n4. The system used the default model (Sonnet 4.5) instead of Opus 4.5\n\n### The Solution\n\nAdded `detectMalformedFlags()` function that catches:\n- `\"-- option\"` as a single argument (space after `--`)\n- `['--', 'option']` as split tokens (Issue #1092 exact scenario)\n- `\"-option\"` (single dash for long option)\n- `\"---option\"` (triple dash)\n- `\"- -option\"` (space between dashes)\n\nThe function provides helpful error messages like:\n```\nMalformed option \"-- model\": Space after \"--\". Did you mean \"--model\"?\n```\n\n### Changes\n\n1. **src/option-suggestions.lib.mjs** - Added `detectMalformedFlags()` function and `KNOWN_OPTION_NAMES` list\n2. **src/solve.config.lib.mjs** - Integrated malformed flag detection into CLI argument parsing\n3. **src/telegram-bot.mjs** - Integrated malformed flag detection into Telegram bot\n4. **tests/test-malformed-flags.mjs** - Added 23 unit tests covering various scenarios\n5. **experiments/test-malformed-args.mjs** - Experiment script used during development\n6. **docs/case-studies/issue-1092/** - Case study documentation with analysis\n\n### Test Plan\n\n- [x] All 23 new unit tests pass\n- [x] Existing solve tests still pass\n- [x] ESLint passes\n- [x] Prettier formatting passes\n- [x] Edge cases tested (valid POSIX `--` marker, non-option words after `--`, etc.)\n\n### Test Commands\n\n```bash\n# Run new malformed flag tests\nnode tests/test-malformed-flags.mjs\n\n# Run existing solve tests\nnode tests/test-solve.mjs\n```\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+  "commits": [
+    { "authoredDate": "2026-01-10T14:34:47Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-01-10T14:34:47Z", "messageBody": "Adding CLAUDE.md with task information for AI processing.\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/1092", "messageHeadline": "Initial commit with task details", "oid": "82ece80be5ce39130a72d4a6979911946d20dfb2" },
+    {
+      "authoredDate": "2026-01-10T14:48:35Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.5" }
+      ],
+      "committedDate": "2026-01-10T14:48:35Z",
+      "messageBody": "When a user types \"-- model\" (with a space after --) instead of \"--model\",\nthe system now detects this malformed pattern and produces a helpful error\nmessage with a suggestion, instead of silently using the default model.\n\nChanges:\n- Added detectMalformedFlags() function in option-suggestions.lib.mjs\n- Integrated detection into both Telegram bot and CLI argument parsing\n- Added comprehensive unit tests (23 tests)\n- Created case study documentation in docs/case-studies/issue-1092/\n\nThe fix catches:\n- \"-- option\" as single arg (space after --)\n- [\"--\", \"option\"] as split tokens (POSIX-style, Issue #1092 exact scenario)\n- \"-option\" (single dash for long option)\n- \"---option\" (triple dash)\n- \"- -option\" (space between dashes)\n\nFixes #1092\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+      "messageHeadline": "fix: Detect malformed flag patterns like \"-- model\" (Issue #1092)",
+      "oid": "e13a2de47a2ac5d589b2afb020be7ec314d1f9aa"
+    },
+    {
+      "authoredDate": "2026-01-10T14:50:08Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.5" }
+      ],
+      "committedDate": "2026-01-10T14:50:08Z",
+      "messageBody": "🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+      "messageHeadline": "chore: Add changeset for malformed flags fix",
+      "oid": "65ee214c7d7f0177576ece99fb66b2fbeaa2eb53"
+    },
+    {
+      "authoredDate": "2026-01-10T14:54:20Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.5" }
+      ],
+      "committedDate": "2026-01-10T14:54:20Z",
+      "messageBody": "Consolidated imports and removed blank lines to get file under the\n1500 line limit while maintaining the malformed flag detection fix.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+      "messageHeadline": "fix: Reduce telegram-bot.mjs to under 1500 lines limit",
+      "oid": "aa60f45d4d2e00b98d666ea302543934c8745b23"
+    },
+    { "authoredDate": "2026-01-10T15:06:06Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-01-10T15:06:06Z", "messageBody": "This reverts commit 82ece80be5ce39130a72d4a6979911946d20dfb2.", "messageHeadline": "Revert \"Initial commit with task details\"", "oid": "7d6532d4a7d2d0b5cdda85c2311a760240478cec" }
+  ],
+  "files": [
+    { "path": ".changeset/fix-malformed-flags.md", "additions": 13, "deletions": 0, "changeType": "ADDED" },
+    { "path": "analyze-issue.md", "additions": 72, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1092/README.md", "additions": 157, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1092/screenshot.png", "additions": 0, "deletions": 0, "changeType": "ADDED" },
+    { "path": "experiments/test-malformed-args.mjs", "additions": 92, "deletions": 0, "changeType": "ADDED" },
+    { "path": "src/option-suggestions.lib.mjs", "additions": 120, "deletions": 0, "changeType": "MODIFIED" },
+    { "path": "src/solve.config.lib.mjs", "additions": 14, "deletions": 1, "changeType": "MODIFIED" },
+    { "path": "src/telegram-bot.mjs", "additions": 8, "deletions": 9, "changeType": "MODIFIED" },
+    { "path": "tests/test-malformed-flags.mjs", "additions": 193, "deletions": 0, "changeType": "ADDED" }
+  ],
+  "mergedAt": "2026-01-10T21:34:40Z",
+  "number": 1093,
+  "title": "fix: Detect malformed flag patterns like \"-- model\" (Issue #1092)",
+  "url": "https://github.com/link-assistant/hive-mind/pull/1093"
+}

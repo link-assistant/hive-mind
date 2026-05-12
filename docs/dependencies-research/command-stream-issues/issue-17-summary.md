@@ -33,12 +33,14 @@ $ CI=true ./memory-check.mjs --json
 ## Current Workarounds
 
 ### Applied to memory-check.mjs
+
 ```javascript
 // Redirect stderr to /dev/null for each command
 const { stdout } = await $silent`df -m . 2>/dev/null | tail -1 | awk '{print $4}'`;
 ```
 
 ### Applied to test-memory-check.mjs
+
 ```javascript
 // Filter trace logs before parsing JSON
 const lines = output.split('\n');
@@ -57,12 +59,14 @@ for (const line of lines) {
 ## Test Results
 
 ### Without CI environment
+
 ```bash
 $ ./tests/test-memory-check.mjs
 ✅ All 10 tests pass
 ```
 
 ### With CI environment
+
 ```bash
 $ CI=true ./tests/test-memory-check.mjs
 ❌ 4 tests fail (JSON parsing errors)
@@ -70,6 +74,7 @@ $ CI=true ./tests/test-memory-check.mjs
 ```
 
 ### With workarounds
+
 ```bash
 $ CI=true ./memory-check.mjs --json 2>/dev/null
 ✅ Clean JSON output
@@ -98,12 +103,14 @@ The following components emit trace logs when CI=true:
 ## Recommendations
 
 ### For Immediate Use
+
 1. Always add `2>/dev/null` to commands expecting JSON output
 2. Implement trace log filtering in test utilities
 3. Document CI behavior in CLAUDE.md
 4. Consider using execSync for critical JSON operations
 
 ### For command-stream Library
+
 1. Add `trace: false` option to $ configuration
 2. Respect `mirror: false` for trace logs
 3. Provide `COMMAND_STREAM_TRACE=false` env var

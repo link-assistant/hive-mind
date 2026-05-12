@@ -12,7 +12,7 @@ console.log('🧪 Testing hive.mjs pagination improvements...\n');
 const testCommandStructure = async (description, command) => {
   console.log(`📋 ${description}`);
   console.log(`   Command: ${command}`);
-  
+
   try {
     // We'll do a dry run to test command structure without actually fetching all issues
     const testCmd = command.replace(/--limit 1000/, '--limit 1'); // Small limit for testing
@@ -49,7 +49,7 @@ async function runTests() {
   console.log('\n📝 Summary of changes made:');
   console.log('   • Removed hardcoded --limit 100 restrictions');
   console.log('   • Increased default limit to 1000 (10x improvement)');
-  console.log('   • Added 5-second delays before and after API calls');  
+  console.log('   • Added 5-second delays before and after API calls');
   console.log('   • Added rate limiting with configurable intervals');
   console.log('   • Added fallback handling for API failures');
   console.log('   • Added warning when hitting the 1000 limit');
@@ -61,16 +61,16 @@ async function checkFileModification() {
   try {
     const hivePath = path.resolve('../hive.mjs');
     const content = await fs.readFile(hivePath, 'utf8');
-    
+
     console.log('🔍 Verifying hive.mjs modifications...');
-    
+
     // Check if our new function exists
     if (content.includes('fetchAllIssuesWithPagination')) {
       console.log('✅ New pagination function found in hive.mjs');
     } else {
       console.log('❌ New pagination function not found in hive.mjs');
     }
-    
+
     // Check if old hardcoded limits were removed
     const hardcodedLimits = content.match(/--limit 100/g);
     if (!hardcodedLimits || hardcodedLimits.length === 0) {
@@ -78,14 +78,13 @@ async function checkFileModification() {
     } else {
       console.log(`⚠️  Found ${hardcodedLimits.length} remaining hardcoded --limit 100 restrictions`);
     }
-    
+
     // Check for rate limiting code
     if (content.includes('setTimeout(resolve, 5000)')) {
       console.log('✅ 5-second rate limiting intervals found');
     } else {
       console.log('❌ 5-second rate limiting intervals not found');
     }
-    
   } catch (error) {
     console.log(`❌ Could not verify file modifications: ${error.message}`);
   }
@@ -97,7 +96,7 @@ console.log('');
 await runTests();
 
 console.log('\n🎉 Testing completed! The implementation should now:');
-console.log('   - Support fetching up to 1000 issues (instead of 100)');  
+console.log('   - Support fetching up to 1000 issues (instead of 100)');
 console.log('   - Add proper rate limiting with 5-second intervals');
 console.log('   - Respect GitHub API rate limits');
 console.log('   - Provide better logging and error handling');

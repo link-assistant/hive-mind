@@ -15,7 +15,7 @@ const branchNameRegex = {
   // Combined pattern for both formats
   any: /^issue-(\d+)-([a-f0-9]{8}|[a-f0-9]{12})$/,
   // Pattern for prefix matching: issue-{number}-
-  prefix: (issueNumber) => new RegExp(`^issue-${issueNumber}-([a-f0-9]{8}|[a-f0-9]{12})$`)
+  prefix: issueNumber => new RegExp(`^issue-${issueNumber}-([a-f0-9]{8}|[a-f0-9]{12})$`),
 };
 
 /**
@@ -56,7 +56,7 @@ export function parseIssueBranchName(branchName) {
 
   return {
     issueNumber: match[1],
-    randomId: match[2]
+    randomId: match[2],
   };
 }
 
@@ -100,18 +100,211 @@ export function detectBranchFormat(branchName) {
   return null;
 }
 
-export async function createOrCheckoutBranch({
-  isContinueMode,
-  prBranch,
-  issueNumber,
-  tempDir,
-  defaultBranch,
-  argv,
-  log,
-  formatAligned,
-  $,
-  crypto
-}) {
+/**
+ * Validates a branch name for use as --base-branch.
+ * Rejects URLs, invalid git ref characters, and enforces safe naming conventions.
+ * Based on git-check-ref-format rules: https://git-scm.com/docs/git-check-ref-format
+ *
+ * @param {string} branchName - The branch name to validate
+ * @returns {{ valid: boolean, reason?: string }} Validation result
+ */
+export function validateBranchName(branchName) {
+  if (!branchName || typeof branchName !== 'string') {
+    return { valid: false, reason: 'Branch name must be a non-empty string' };
+  }
+
+  const trimmed = branchName.trim();
+  if (trimmed !== branchName) {
+    return { valid: false, reason: 'Branch name must not have leading or trailing whitespace' };
+  }
+
+  // Reject URLs (the primary use case from issue #1482)
+  if (/^https?:\/\//i.test(branchName) || /^git@/i.test(branchName) || /^ssh:\/\//i.test(branchName)) {
+    return { valid: false, reason: `"${branchName}" looks like a URL, not a branch name. Use just the branch name (e.g. "main", "develop")` };
+  }
+
+  // Reject if it contains :// anywhere (catches other protocol-like URLs)
+  if (branchName.includes('://')) {
+    return { valid: false, reason: `"${branchName}" contains "://" which is not valid in a branch name` };
+  }
+
+  // Git ref format rules:
+  // Cannot contain ASCII control characters (bytes < 0x20) or DEL (0x7F)
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(branchName)) {
+    return { valid: false, reason: 'Branch name must not contain control characters' };
+  }
+
+  // Cannot contain space, ~, ^, :, ?, *, [, or backslash
+  if (/[ ~^:?*[\]\\]/.test(branchName)) {
+    return { valid: false, reason: 'Branch name contains invalid characters (spaces, ~, ^, :, ?, *, [, ] or \\ are not allowed)' };
+  }
+
+  // Cannot contain ..
+  if (branchName.includes('..')) {
+    return { valid: false, reason: 'Branch name must not contain ".."' };
+  }
+
+  // Cannot start with . or -
+  if (branchName.startsWith('.') || branchName.startsWith('-')) {
+    return { valid: false, reason: 'Branch name must not start with "." or "-"' };
+  }
+
+  // Cannot end with . or .lock
+  if (branchName.endsWith('.') || branchName.endsWith('.lock')) {
+    return { valid: false, reason: 'Branch name must not end with "." or ".lock"' };
+  }
+
+  // Cannot contain @{
+  if (branchName.includes('@{')) {
+    return { valid: false, reason: 'Branch name must not contain "@{"' };
+  }
+
+  // Cannot be exactly @
+  if (branchName === '@') {
+    return { valid: false, reason: 'Branch name must not be "@"' };
+  }
+
+  // Component-level checks: no component can start with . or end with .lock
+  const components = branchName.split('/');
+  for (const component of components) {
+    if (component === '') {
+      return { valid: false, reason: 'Branch name must not contain consecutive slashes or start/end with "/"' };
+    }
+    if (component.startsWith('.')) {
+      return { valid: false, reason: `Branch name component "${component}" must not start with "."` };
+    }
+    if (component.endsWith('.lock')) {
+      return { valid: false, reason: `Branch name component "${component}" must not end with ".lock"` };
+    }
+  }
+
+  // Reasonable length limit
+  if (branchName.length > 255) {
+    return { valid: false, reason: 'Branch name must not exceed 255 characters' };
+  }
+
+  return { valid: true };
+}
+
+// Issue #1482: Validate --base-branch/--target-branch values in an args array
+// Used by telegram-bot.mjs for early validation before spawning processes
+export function validateBranchInArgs(args) {
+  const branchFlags = ['--base-branch', '-b', '--target-branch', '-tb'];
+  for (let i = 0; i < args.length; i++) {
+    for (const flag of branchFlags) {
+      if (args[i] === flag && i + 1 < args.length) {
+        const v = validateBranchName(args[i + 1]);
+        if (!v.valid) return `Invalid ${flag} value: ${v.reason}`;
+      } else if (args[i].startsWith(flag + '=')) {
+        const v = validateBranchName(args[i].substring(flag.length + 1));
+        if (!v.valid) return `Invalid ${flag} value: ${v.reason}`;
+      }
+    }
+  }
+  return null;
+}
+
+function isMissingOriginBaseRefError(errorOutput, baseBranch) {
+  return errorOutput.includes(`origin/${baseBranch}`) && (errorOutput.includes('is not a commit') || errorOutput.includes('not a valid object name') || errorOutput.includes('unknown revision'));
+}
+
+async function hasUpstreamRemote(tempDir, $) {
+  const result = await $({ cwd: tempDir })`git remote get-url upstream 2>/dev/null`;
+  return result.code === 0;
+}
+
+async function originHasBaseBranch(tempDir, baseBranch, $) {
+  const result = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/remotes/origin/${baseBranch}`;
+  return result.code === 0;
+}
+
+/**
+ * Ensure the requested base branch exists on the fork (origin) by syncing it from upstream.
+ * Returns true if origin/<baseBranch> exists at the end of the call (was already there or was synced).
+ * Returns false if syncing was attempted and failed (caller should propagate the original error).
+ *
+ * Design note (issue #1772 follow-up): when working in fork mode against a public upstream, the user
+ * expects their fork to mirror the upstream branch they want to base work on. Before relying on
+ * git's create-from-origin path, we proactively copy the upstream branch into the fork so that the
+ * branch creation, the later PR comparison, and any ahead/behind checks all see a consistent state.
+ */
+async function ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason = 'proactive' }) {
+  if (!(await hasUpstreamRemote(tempDir, $))) {
+    return false;
+  }
+
+  if (reason === 'proactive') {
+    await log(`${formatAligned('🔄', 'Syncing base branch:', `ensuring origin/${baseBranch} matches upstream`)}`);
+  } else {
+    await log(`${formatAligned('🔄', 'Base branch not in fork:', `checking upstream/${baseBranch}`)}`);
+  }
+
+  const fetchResult = await $({ cwd: tempDir })`git fetch upstream`;
+  if (fetchResult.code !== 0) {
+    await log(`${formatAligned('⚠️', 'Warning:', 'Failed to fetch upstream base branch')}`, { level: 'warning' });
+    return false;
+  }
+
+  const upstreamRefResult = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/remotes/upstream/${baseBranch}`;
+  if (upstreamRefResult.code !== 0) {
+    await log(`${formatAligned('⚠️', 'Warning:', `Base branch not found in upstream/${baseBranch}`)}`, { level: 'warning' });
+    return false;
+  }
+
+  await log(`${formatAligned('✅', 'Base branch found:', `upstream/${baseBranch}`)}`);
+  const checkoutBaseResult = await $({ cwd: tempDir })`git checkout -B ${baseBranch} upstream/${baseBranch}`;
+  if (checkoutBaseResult.code !== 0) {
+    await log(`${formatAligned('⚠️', 'Warning:', `Failed to prepare local ${baseBranch}`)}`, { level: 'warning' });
+    return false;
+  }
+
+  await log(`${formatAligned('🔄', 'Pushing to fork:', `${baseBranch} branch`)}`);
+  const pushBaseResult = await $({ cwd: tempDir })`git push origin ${baseBranch} 2>&1`;
+  if (pushBaseResult.code !== 0) {
+    const pushError = (pushBaseResult.stderr || pushBaseResult.stdout || 'Unknown error').toString().trim();
+    await log(`${formatAligned('⚠️', 'Warning:', `Failed to push ${baseBranch} to fork`)}`, { level: 'warning' });
+    if (pushError) await log(`${formatAligned('', 'Push error:', pushError)}`, { level: 'warning' });
+    return false;
+  }
+
+  await log(`${formatAligned('✅', 'Fork updated:', `Custom base branch ${baseBranch} pushed to fork`)}`);
+  return true;
+}
+
+async function proactivelySyncBaseBranchToFork({ baseBranch, defaultBranch, tempDir, log, formatAligned, $ }) {
+  // Default branch is already synced by setupUpstreamAndSync; skip to avoid redundant work.
+  if (baseBranch === defaultBranch) {
+    return;
+  }
+
+  if (!(await hasUpstreamRemote(tempDir, $))) {
+    return;
+  }
+
+  if (await originHasBaseBranch(tempDir, baseBranch, $)) {
+    return;
+  }
+
+  await ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason: 'proactive' });
+}
+
+async function retryBranchCreationFromUpstreamBase({ checkoutResult, branchName, baseBranch, tempDir, log, formatAligned, $ }) {
+  const errorOutput = `${checkoutResult.stderr || ''}${checkoutResult.stdout || ''}`;
+  if (!isMissingOriginBaseRefError(errorOutput, baseBranch)) {
+    return checkoutResult;
+  }
+
+  const synced = await ensureBaseBranchInFork({ baseBranch, tempDir, log, formatAligned, $, reason: 'reactive' });
+  if (!synced) {
+    return checkoutResult;
+  }
+
+  await log(`${formatAligned('🌿', 'Retrying branch:', `${branchName} from ${baseBranch}`)}`);
+  return await $({ cwd: tempDir })`git checkout -b ${branchName} ${baseBranch}`;
+}
+
+export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto, owner, repo, prNumber }) {
   // Create a branch for the issue or checkout existing PR branch
   let branchName;
   let checkoutResult;
@@ -121,16 +314,52 @@ export async function createOrCheckoutBranch({
     branchName = prBranch;
     const repository = await import('./solve.repository.lib.mjs');
     const { checkoutPrBranch } = repository;
-    checkoutResult = await checkoutPrBranch(tempDir, branchName, null, null); // prForkRemote and prForkOwner not needed here
+    // Pass prNumber to enable PR refs fallback (refs/pull/{number}/head) when fork checkout fails
+    checkoutResult = await checkoutPrBranch(tempDir, branchName, null, null, prNumber);
   } else {
     // Traditional mode: create new branch for issue
     const randomHex = crypto.randomBytes(6).toString('hex');
     branchName = `issue-${issueNumber}-${randomHex}`;
-    await log(`\n${formatAligned('🌿', 'Creating branch:', `${branchName} from ${defaultBranch}`)}`);
+
+    // Use user-specified base branch if provided, otherwise use repository default
+    const baseBranch = argv.baseBranch || defaultBranch;
+    const branchSource = argv.baseBranch ? 'custom' : 'default';
+
+    // Defense-in-depth: validate base branch name even if already validated at CLI parsing (issue #1482)
+    const baseBranchValidation = validateBranchName(baseBranch);
+    if (!baseBranchValidation.valid) {
+      throw new Error(`Invalid base branch "${baseBranch}": ${baseBranchValidation.reason}`);
+    }
+
+    await log(`\n${formatAligned('🌿', 'Creating branch:', `${branchName} from ${baseBranch} (${branchSource})`)}`);
+
+    // Issue #1772: when a custom base branch is requested in fork mode, proactively copy it from
+    // upstream to the fork before branch creation. The fork's `gh repo fork` snapshot may pre-date
+    // upstream's custom branches, so we cannot assume origin already has the requested base.
+    if (argv.baseBranch) {
+      await proactivelySyncBaseBranchToFork({
+        baseBranch,
+        defaultBranch,
+        tempDir,
+        log,
+        formatAligned,
+        $,
+      });
+    }
 
     // IMPORTANT: Don't use 2>&1 here as it can interfere with exit codes
     // Git checkout -b outputs to stderr but that's normal
-    checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName}`;
+    // Create branch from the specified base branch (origin/baseBranch)
+    checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName} origin/${baseBranch}`;
+    checkoutResult = await retryBranchCreationFromUpstreamBase({
+      checkoutResult,
+      branchName,
+      baseBranch,
+      tempDir,
+      log,
+      formatAligned,
+      $,
+    });
   }
 
   if (checkoutResult.code !== 0) {
@@ -142,16 +371,16 @@ export async function createOrCheckoutBranch({
       const { handleBranchCheckoutError } = branchErrors;
       await handleBranchCheckoutError({
         branchName,
-        prNumber: null, // Will be set later
+        prNumber,
         errorOutput,
         issueUrl: argv['issue-url'] || argv._[0],
-        owner: null, // Will be set later
-        repo: null,  // Will be set later
+        owner,
+        repo,
         tempDir,
         argv,
         formatAligned,
         log,
-        $
+        $,
       });
     } else {
       const branchErrors = await import('./solve.branch-errors.lib.mjs');
@@ -160,10 +389,10 @@ export async function createOrCheckoutBranch({
         branchName,
         errorOutput,
         tempDir,
-        owner: null, // Will be set later
-        repo: null,  // Will be set later
+        owner,
+        repo,
         formatAligned,
-        log
+        log,
       });
     }
 
@@ -199,13 +428,13 @@ export async function createOrCheckoutBranch({
       isContinueMode,
       branchName,
       actualBranch,
-      prNumber: null, // Will be set later
-      owner: null, // Will be set later
-      repo: null,  // Will be set later
+      prNumber,
+      owner,
+      repo,
       tempDir,
       formatAligned,
       log,
-      $
+      $,
     });
     throw new Error('Branch verification mismatch');
   }
@@ -215,14 +444,18 @@ export async function createOrCheckoutBranch({
     await log(`${formatAligned('✅', 'Current branch:', actualBranch)}`);
     if (argv.verbose) {
       await log('   Branch operation: Checkout existing PR branch', { verbose: true });
-      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, { verbose: true });
+      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, {
+        verbose: true,
+      });
     }
   } else {
     await log(`${formatAligned('✅', 'Branch created:', branchName)}`);
     await log(`${formatAligned('✅', 'Current branch:', actualBranch)}`);
     if (argv.verbose) {
       await log('   Branch operation: Create new branch', { verbose: true });
-      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, { verbose: true });
+      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, {
+        verbose: true,
+      });
     }
   }
 

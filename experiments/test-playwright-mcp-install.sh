@@ -64,37 +64,47 @@ run_test "@playwright/mcp global installation" "npm list -g @playwright/mcp"
 # Test 6: Check if Claude CLI is installed
 run_test "Claude CLI installation" "command -v claude"
 
-# Test 7: Check if playwright MCP is configured in Claude CLI
+# Test 7: Check if Codex CLI is installed
+run_test "Codex CLI installation" "command -v codex"
+
+# Test 8: Check if playwright MCP is configured in Claude CLI
 if command -v claude &>/dev/null; then
     run_test "Playwright MCP in Claude configuration" "claude mcp list 2>/dev/null | grep -q playwright"
 
-    # Test 8: Get detailed playwright MCP configuration
+    # Get detailed playwright MCP configuration
     if claude mcp list 2>/dev/null | grep -q playwright; then
         echo ""
-        echo "Playwright MCP Configuration Details:"
+        echo "Claude Playwright MCP Configuration Details:"
         claude mcp get playwright 2>/dev/null || echo "  Could not retrieve configuration details"
     fi
 else
     echo -e "${YELLOW}Skipping Claude MCP configuration tests (Claude CLI not found)${NC}"
 fi
 
-# Test 9: Check if Playwright browsers are installed
+# Test 9: Check if playwright MCP is configured in Codex CLI
+if command -v codex &>/dev/null; then
+    run_test "Playwright MCP in Codex configuration" "codex mcp list 2>/dev/null | grep -q playwright"
+else
+    echo -e "${YELLOW}Skipping Codex MCP configuration tests (Codex CLI not found)${NC}"
+fi
+
+# Test 10: Check if Playwright browsers are installed
+# Check all browsers supported by Playwright MCP: chrome, firefox, webkit, msedge
 echo ""
-echo "Checking Playwright browsers:"
-for browser in chromium firefox webkit; do
-    if npx playwright show-trace 2>&1 | grep -q "browsers"; then
-        echo "  Browser check requires running: npx playwright install $browser"
+echo "Checking Playwright browsers (all supported by Playwright MCP):"
+BROWSERS_EXPECTED="chromium chrome firefox webkit msedge chromium_headless_shell"
+for browser in $BROWSERS_EXPECTED; do
+    # Check for browser directory in cache
+    BROWSER_DIR=$(ls -d "$HOME/.cache/ms-playwright/${browser}"* 2>/dev/null | head -1 || true)
+    if [ -n "$BROWSER_DIR" ] && [ -d "$BROWSER_DIR" ]; then
+        echo -e "  $browser: ${GREEN}✓${NC} ($(basename "$BROWSER_DIR"))"
     else
-        # Try to check browser installation
-        if [ -d "$HOME/.cache/ms-playwright/$browser"* ] 2>/dev/null; then
-            echo -e "  $browser: ${GREEN}✓${NC}"
-        else
-            echo -e "  $browser: ${YELLOW}Not installed${NC}"
-        fi
+        # Some browsers like msedge might not be available on all platforms
+        echo -e "  $browser: ${YELLOW}Not installed${NC}"
     fi
 done
 
-# Test 10: Test Playwright MCP execution (dry run)
+# Test 11: Test Playwright MCP execution (dry run)
 echo ""
 echo "Testing Playwright MCP execution:"
 if command -v npx &>/dev/null && npm list -g @playwright/mcp &>/dev/null; then
@@ -134,7 +144,8 @@ if [ $TESTS_FAILED -gt 0 ]; then
     echo "  1. Install Node.js 18+: nvm install 20"
     echo "  2. Install Playwright MCP: npm install -g @playwright/mcp"
     echo "  3. Install browsers: npx playwright install"
-    echo "  4. Configure Claude: claude mcp add playwright npx @playwright/mcp@latest"
+    echo "  4. Configure Claude: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080"
+    echo "  5. Configure Codex: codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080"
     exit 1
 else
     echo ""

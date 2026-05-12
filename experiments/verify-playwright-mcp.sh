@@ -36,19 +36,39 @@ else
     echo "✗ Not installed"
 fi
 
-# Check MCP configuration
-echo -n "5. Playwright MCP in Claude: "
+# Check Codex CLI
+echo -n "5. Codex CLI: "
+if command -v codex >/dev/null 2>&1; then
+    echo "✓ $(codex --version 2>/dev/null | head -1 || echo 'Installed')"
+else
+    echo "✗ Not installed"
+fi
+
+# Check Claude MCP configuration
+echo -n "6. Playwright MCP in Claude: "
 if command -v claude >/dev/null 2>&1; then
     if claude mcp list 2>/dev/null | grep -q playwright; then
         echo "✓ Configured"
         echo ""
-        echo "   Configuration details:"
+        echo "   Claude configuration details:"
         claude mcp get playwright 2>/dev/null | sed 's/^/   /'
     else
-        echo "✗ Not configured (run: claude mcp add playwright npx @playwright/mcp@latest)"
+        echo "✗ Not configured (run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless)"
     fi
 else
     echo "⚠ Claude not available"
+fi
+
+# Check Codex MCP configuration
+echo -n "7. Playwright MCP in Codex: "
+if command -v codex >/dev/null 2>&1; then
+    if codex mcp list 2>/dev/null | grep -q playwright; then
+        echo "✓ Configured"
+    else
+        echo "✗ Not configured (run: codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless)"
+    fi
+else
+    echo "⚠ Codex not available"
 fi
 
 echo ""
@@ -65,4 +85,7 @@ echo "npm install -g @playwright/mcp"
 echo "npx playwright install"
 echo ""
 echo "# Configure with Claude CLI:"
-echo "claude mcp add playwright npx @playwright/mcp@latest"
+echo "claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080"
+echo ""
+echo "# Configure with Codex CLI:"
+echo "codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080"

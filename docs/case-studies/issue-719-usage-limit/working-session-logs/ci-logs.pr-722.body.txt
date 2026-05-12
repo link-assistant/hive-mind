@@ -1,0 +1,17 @@
+This PR addresses issue #719 by:
+
+- Handling usage-limit outcomes for Claude, Codex, and OpenCode by surfacing a dedicated PR comment with reset time and resume instructions when `--attach-logs` is used.
+- Ensuring the run is marked as failed so status reflects the failure rather than success.
+- Adding a case study with analysis under `docs/case-studies/issue-719/`.
+
+Key changes:
+- `src/solve.mjs`: Pass `isUsageLimit`, `limitResetTime`, `toolName`, and `resumeCommand` to `attachLogToGitHub` when a tool run fails due to usage limit; fall back to generic failure template otherwise.
+- `src/github.lib.mjs`: Dedicated "Usage Limit Reached" comment format incl. reset time, session ID, resume instructions, and optional attached logs.
+- `src/claude.lib.mjs`, `src/codex.lib.mjs`, `src/opencode.lib.mjs`: Robust usage-limit detection with reset time extraction and clear console messaging.
+
+Case study:
+- Overview and analysis: `docs/case-studies/issue-719/case-study.md`
+- Referenced logs: `docs/case-studies/issue-719/comment-3521528245.md` and JSON sources.
+
+Fixes #719
+

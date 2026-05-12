@@ -57,7 +57,9 @@ Proceed.
     console.log('✓ Created initial commit with CLAUDE.md');
 
     // Step 2: Append new task info (simulate initial commit)
-    const appendedContent = initialContent + `
+    const appendedContent =
+      initialContent +
+      `
 ---
 
 Issue to solve: undefined
@@ -68,7 +70,7 @@ Proceed.
 `;
     await fs.writeFile(path.join(tempDir, 'CLAUDE.md'), appendedContent);
     await $({ cwd: tempDir })`git add CLAUDE.md`;
-    await $({ cwd: tempDir })`git commit -m "Initial commit with task details for issue #19"`;
+    await $({ cwd: tempDir })`git commit -m "Initial commit with task details"`;
 
     const initialCommitResult = await $({ cwd: tempDir })`git rev-parse HEAD`;
     const initialCommitHash = initialCommitResult.stdout.trim();
@@ -138,7 +140,7 @@ Proceed.
 `;
     await fs.writeFile(path.join(tempDir, 'CLAUDE.md'), newContent);
     await $({ cwd: tempDir })`git add CLAUDE.md`;
-    await $({ cwd: tempDir })`git commit -m "Initial commit with task details for issue #19"`;
+    await $({ cwd: tempDir })`git commit -m "Initial commit with task details"`;
 
     const initialCommitResult = await $({ cwd: tempDir })`git rev-parse HEAD`;
     const initialCommitHash = initialCommitResult.stdout.trim();
@@ -158,7 +160,10 @@ Proceed.
     await cleanupClaudeFile(tempDir, 'test-branch', initialCommitHash);
 
     // Step 5: Verify the result - CLAUDE.md should be deleted
-    const fileExists = await fs.access(path.join(tempDir, 'CLAUDE.md')).then(() => true).catch(() => false);
+    const fileExists = await fs
+      .access(path.join(tempDir, 'CLAUDE.md'))
+      .then(() => true)
+      .catch(() => false);
     const statusResult = await $({ cwd: tempDir })`git status --short`;
 
     console.log('\n📊 Results:');
@@ -197,7 +202,7 @@ Proceed.
 `;
     await fs.writeFile(path.join(tempDir, 'CLAUDE.md'), content);
     await $({ cwd: tempDir })`git add CLAUDE.md`;
-    await $({ cwd: tempDir })`git commit -m "Initial commit with task details for issue #19"`;
+    await $({ cwd: tempDir })`git commit -m "Initial commit with task details"`;
 
     const initialCommitResult = await $({ cwd: tempDir })`git rev-parse HEAD`;
     const initialCommitHash = initialCommitResult.stdout.trim();
@@ -217,7 +222,10 @@ Proceed.
     await cleanupClaudeFile(tempDir, 'test-branch', initialCommitHash);
 
     // Step 4: Verify the result
-    const fileExists = await fs.access(path.join(tempDir, 'CLAUDE.md')).then(() => true).catch(() => false);
+    const fileExists = await fs
+      .access(path.join(tempDir, 'CLAUDE.md'))
+      .then(() => true)
+      .catch(() => false);
     const statusResult = await $({ cwd: tempDir })`git status --short`;
 
     console.log('\n📊 Results:');

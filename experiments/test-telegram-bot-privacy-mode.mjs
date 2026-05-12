@@ -44,14 +44,14 @@ try {
   // Note: Privacy mode cannot be checked via API - it's a BotFather setting
   console.log('⚠️  IMPORTANT: Privacy Mode Settings\n');
   console.log('Privacy mode is a bot-level setting configured in @BotFather and cannot be');
-  console.log('checked via the Telegram Bot API. Here\'s what you need to know:\n');
+  console.log("checked via the Telegram Bot API. Here's what you need to know:\n");
 
   console.log('📖 What is Privacy Mode?');
   console.log('   When privacy mode is ENABLED (default for new bots):');
   console.log('   - Bot only receives messages starting with "/" (commands)');
   console.log('   - Bot only receives messages that mention the bot (@botusername)');
   console.log('   - Bot only receives replies to its own messages');
-  console.log('   - THIS IS THE MOST COMMON REASON BOTS DON\'T RECEIVE GROUP MESSAGES\n');
+  console.log("   - THIS IS THE MOST COMMON REASON BOTS DON'T RECEIVE GROUP MESSAGES\n");
 
   console.log('   When privacy mode is DISABLED:');
   console.log('   - Bot receives ALL messages in the group');
@@ -104,7 +104,7 @@ try {
 
   console.log('✅ Diagnostic complete!\n');
   console.log('🎯 Most Likely Issue:');
-  console.log('   If your bot is not receiving messages in a group, it\'s almost certainly');
+  console.log("   If your bot is not receiving messages in a group, it's almost certainly");
   console.log('   due to privacy mode being enabled. Follow Option 1 or 2 above to fix.\n');
 
   console.log('📚 Additional Resources:');

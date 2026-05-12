@@ -27,14 +27,20 @@ export const generateMinimalRestartPrompt = async (tempDir, $) => {
   const gitStatus = await $({ cwd: tempDir })`git status --porcelain`;
   const uncommittedFiles = gitStatus.stdout.toString().trim();
 
-  // Get brief diff summary (not full diff to keep it minimal)
+  // Get brief diff summaries (not full diffs to keep the prompt minimal)
   const gitDiffStat = await $({ cwd: tempDir })`git diff --stat`;
-  const diffSummary = gitDiffStat.stdout.toString().trim();
+  const unstagedDiffSummary = gitDiffStat.stdout.toString().trim();
+  const gitCachedDiffStat = await $({ cwd: tempDir })`git diff --cached --stat`;
+  const stagedDiffSummary = gitCachedDiffStat.stdout.toString().trim();
+  const summarySections = [];
+  if (unstagedDiffSummary) summarySections.push(`Unstaged changes:\n${unstagedDiffSummary}`);
+  if (stagedDiffSummary) summarySections.push(`Staged changes:\n${stagedDiffSummary}`);
+  const diffSummary = summarySections.join('\n\n') || 'No tracked-file diff summary available.';
 
   // Count changes
   const fileCount = uncommittedFiles.split('\n').filter(line => line.trim()).length;
 
-  return `🔄 Auto-restart: Previous session completed with uncommitted changes.
+  return `🔄 Auto-restart: resume the previous session and handle its uncommitted changes.
 
 Uncommitted files (${fileCount}):
 ${uncommittedFiles}
@@ -58,14 +64,7 @@ Follow the repository's commit message conventions from previous commits.`;
  * @param {object} $ - Command executor
  * @returns {Promise<string>} Full restart prompt
  */
-export const generateFullRestartPrompt = async (
-  issueUrl,
-  issueBody,
-  prNumber,
-  feedbackLines,
-  tempDir,
-  $
-) => {
+export const generateFullRestartPrompt = async (issueUrl, issueBody, prNumber, feedbackLines, tempDir, $) => {
   // Get uncommitted changes with full diff
   const gitStatus = await $({ cwd: tempDir })`git status --porcelain`;
   const uncommittedFiles = gitStatus.stdout.toString().trim();

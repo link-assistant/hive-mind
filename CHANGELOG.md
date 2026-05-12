@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.69.9
+
+### Patch Changes
+
+- 9d04a2f: Detect empty repositories before branch creation when Git reports an unborn branch name.
+
 ## 1.69.8
 
 ### Patch Changes

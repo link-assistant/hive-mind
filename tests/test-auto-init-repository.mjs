@@ -80,7 +80,7 @@ runTest('verifyDefaultBranchAndStatus accepts argv, owner, repo, issueUrl parame
 runTest('detectEmptyRepository function is implemented', () => {
   const repoSetupContent = readFileSync(join(srcDir, 'solve.repo-setup.lib.mjs'), 'utf-8');
   assert(repoSetupContent.includes('async function detectEmptyRepository'), 'detectEmptyRepository helper function should exist');
-  assert(repoSetupContent.includes('git rev-parse HEAD'), 'Should check for HEAD existence to detect empty repos');
+  assert(repoSetupContent.includes('git rev-parse --verify HEAD'), 'Should check for HEAD existence to detect empty repos');
   assert(repoSetupContent.includes('git branch -r'), 'Should check for remote branches as additional empty repo detection');
 });
 
@@ -164,8 +164,8 @@ runTest('Case study documentation created for issue #1230', () => {
 runTest('tryCommentOnIssueAboutEmptyRepo helper function is implemented', () => {
   const repoSetupContent = readFileSync(join(srcDir, 'solve.repo-setup.lib.mjs'), 'utf-8');
   assert(repoSetupContent.includes('async function tryCommentOnIssueAboutEmptyRepo'), 'tryCommentOnIssueAboutEmptyRepo helper should exist');
-  assert(repoSetupContent.includes('gh issue comment'), 'Should use gh issue comment to post to the issue');
-  assert(repoSetupContent.includes('Repository Initialization Required'), 'Comment body should explain the issue clearly');
+  assert(repoSetupContent.includes('postTrackedComment'), 'Should use tracked comments to post to the issue');
+  assert(repoSetupContent.includes('REPOSITORY_INITIALIZATION_REQUIRED_MARKER'), 'Comment body should explain the issue clearly');
   assert(repoSetupContent.includes('--auto-init-repository'), 'Comment should suggest --auto-init-repository flag');
 });
 

@@ -148,6 +148,14 @@ const cleanupWrapper = async () => {
 const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper, ({ code, reason }) => notifyIssueAboutPrePullRequestFailure({ code, reason, argv, globalState: global, $, log, getLogFile, shouldAttachLogs, attachLogToGitHub, sanitizeLogContent, rawCommand }));
 installGlobalExitHandlers();
+const markFailureNotificationPosted = targetType => {
+  global.preExitFailureNotificationPosted = true;
+  if (targetType === 'pr') {
+    global.pullRequestFailureNotificationPosted = true;
+  } else if (targetType === 'issue') {
+    global.prePullRequestFailureNotificationPosted = true;
+  }
+};
 
 // Now handle argument validation that was moved from early checks
 let issueUrl = argv['issue-url'] || argv._[0];
@@ -900,6 +908,7 @@ try {
           });
 
           if (logUploadSuccess) {
+            markFailureNotificationPosted('pr');
             await log('  ✅ Logs uploaded successfully');
           } else {
             // Issue #1212: Always show log upload failures (not just verbose)
@@ -924,6 +933,7 @@ try {
 
           const posted = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: failureComment });
           if (posted.ok) {
+            markFailureNotificationPosted('pr');
             await log(`   Posted failure comment to PR${posted.commentId ? ` (id=${posted.commentId})` : ''}`);
           }
         } catch (error) {
@@ -1078,6 +1088,7 @@ try {
         });
 
         if (logUploadSuccess) {
+          markFailureNotificationPosted(logTargetType);
           await log(`  📎 Failure logs posted to ${logTargetLabel}`);
         } else {
           // Issue #1212: Always show log upload failures (not just verbose)

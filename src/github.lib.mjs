@@ -35,6 +35,11 @@ const buildIssueFailureActionSection = targetType => {
 
 Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this issue comment.`;
 };
+const normalizeFailureActionSection = section => {
+  const text = section || '';
+  if (!text) return '';
+  return text.startsWith('\n') ? text : `\n\n${text}`;
+};
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
   const { $ } = await use('command-stream');
 
@@ -353,6 +358,7 @@ export async function attachLogToGitHub(options) {
     tool = null, // The tool used (claude, agent, opencode, codex)
     resultModelUsage = null, // Issue #1454
     budgetStatsData = null, // Issue #1491: budget stats for comment
+    failureActionSection = null,
   } = options;
   const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
@@ -444,6 +450,7 @@ export async function attachLogToGitHub(options) {
       await log('  🔧 Escaping code blocks in log content for safe embedding...', { verbose: true });
     }
     logContent = escapeCodeBlocksInLog(logContent);
+    const failureAction = normalizeFailureActionSection(failureActionSection ?? buildIssueFailureActionSection(targetType));
     // Create formatted comment
     let logComment;
     // Usage limit comments should be shown whenever isUsageLimit is true,
@@ -520,7 +527,7 @@ ${footerNote}`;
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
-\`\`\`${buildIssueFailureActionSection(targetType)}${modelInfoString}
+\`\`\`${failureAction}${modelInfoString}
 
 <details>
 <summary>Click to expand failure log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -718,7 +725,7 @@ ${uploadFooterNote}`;
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
-\`\`\`${buildIssueFailureActionSection(targetType)}${modelInfoString}
+\`\`\`${failureAction}${modelInfoString}
 
 ### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 - [View complete failure log](${logUrl})

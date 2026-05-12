@@ -566,8 +566,10 @@ bot.command('limits', async ctx => {
   const codexError = limits.codex.success ? null : limits.codex.error;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
   const queueStatus = await solveQueue.formatStatus({ locale: userLocale });
-  const codexSection = formatCodexLimitsSection(limits.codex.success ? limits.codex : null, codexError, { locale: userLocale });
-  const message = t('telegram.usage_limits_title', {}, { locale: userLocale }) + '\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus], { locale: userLocale });
+  const claudeSubscription = limits.claudeSubscription?.success ? limits.claudeSubscription.subscription : null;
+  const codexSubscription = limits.codexSubscription?.success ? limits.codexSubscription.subscription : null;
+  const codexSection = formatCodexLimitsSection(limits.codex.success ? limits.codex : null, codexError, { locale: userLocale, subscription: codexSubscription });
+  const message = t('telegram.usage_limits_title', {}, { locale: userLocale }) + '\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus], { locale: userLocale, subscription: claudeSubscription });
   await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown', fallbackLocale: userLocale, verbose: VERBOSE });
 });
 bot.command('version', async ctx => {

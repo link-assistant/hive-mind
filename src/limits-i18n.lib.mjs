@@ -74,6 +74,11 @@ const ENGLISH_LIMITS = {
   seven_day_sonnet_only: '7d Sonnet only',
   session: 'session',
   start: 'Start',
+  subscription_ends: 'Subscription ends {{time}}',
+  subscription_ends_in: 'Subscription ends in {{duration}} ({{time}})',
+  subscription_status: 'Subscription: {{status}}',
+  trial_ends: 'Trial ends {{time}}',
+  trial_ends_in: 'Trial ends in {{duration}} ({{time}})',
   unavailable: 'unavailable',
   unlimited: 'unlimited',
   used: 'used',
@@ -108,6 +113,20 @@ export function formatLimitResetsIn(duration, resetTime, options = {}) {
 
 export function formatLimitResetsAt(resetTime, options = {}) {
   return lt('resets_at', { time: resetTime }, options);
+}
+
+export function formatSubscriptionEnds(duration, resetTime, options = {}) {
+  if (duration) return lt('subscription_ends_in', { duration, time: resetTime }, options);
+  return lt('subscription_ends', { time: resetTime }, options);
+}
+
+export function formatTrialEnds(duration, resetTime, options = {}) {
+  if (duration) return lt('trial_ends_in', { duration, time: resetTime }, options);
+  return lt('trial_ends', { time: resetTime }, options);
+}
+
+export function formatSubscriptionStatus(status, options = {}) {
+  return lt('subscription_status', { status }, options);
 }
 
 export function formatLocalizedResetTime(isoDate, includeTimezone = true, options = {}) {

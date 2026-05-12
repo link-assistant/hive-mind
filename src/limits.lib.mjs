@@ -14,6 +14,8 @@ import utc from 'dayjs/plugin/utc.js';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 import { formatLimitResetsAt, formatLimitResetsIn, formatLocalizedCurrentTime, formatLocalizedRelativeTime, formatLocalizedResetTime, localizeCompactDuration, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
+import { formatSubscriptionLines, getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo } from './limits-subscription.lib.mjs';
+export { getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo };
 // Initialize dayjs plugins
 dayjs.extend(utc);
 
@@ -31,8 +33,8 @@ const execAsync = promisify(exec);
 /**
  * Default path to Claude credentials file
  */
-const DEFAULT_CREDENTIALS_PATH = join(homedir(), '.claude', '.credentials.json');
-const DEFAULT_CODEX_AUTH_PATH = join(homedir(), '.codex', 'auth.json');
+export const DEFAULT_CREDENTIALS_PATH = join(homedir(), '.claude', '.credentials.json');
+export const DEFAULT_CODEX_AUTH_PATH = join(homedir(), '.codex', 'auth.json');
 const DEFAULT_CODEX_CONFIG_PATH = join(homedir(), '.codex', 'config.toml');
 
 /**
@@ -41,7 +43,7 @@ const DEFAULT_CODEX_CONFIG_PATH = join(homedir(), '.codex', 'config.toml');
 const USAGE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
 const CODEX_USAGE_API_DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api';
 
-function decodeJwtPayload(token) {
+export function decodeJwtPayload(token) {
   if (!token || typeof token !== 'string') return null;
 
   try {
@@ -73,7 +75,7 @@ function mapCodexWindow(window) {
   };
 }
 
-async function readCodexAuth(authPath = DEFAULT_CODEX_AUTH_PATH, verbose = false) {
+export async function readCodexAuth(authPath = DEFAULT_CODEX_AUTH_PATH, verbose = false) {
   try {
     const content = await readFile(authPath, 'utf-8');
     const auth = JSON.parse(content);
@@ -121,7 +123,7 @@ async function getCodexUsageBaseUrl(configPath = DEFAULT_CODEX_CONFIG_PATH, verb
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Object|null} Credentials object or null if not found
  */
-async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH, verbose = false) {
+export async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH, verbose = false) {
   try {
     const content = await readFile(credentialsPath, 'utf-8');
     const credentials = JSON.parse(content);
@@ -1000,6 +1002,7 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     extraSections = [];
   }
   const locale = resolveLimitLocale(options);
+  const subscription = options?.subscription || null;
   const sections = [];
 
   sections.push(`${lt('current_time', {}, { locale })}: ${formatCurrentTime({ locale })}\n`);
@@ -1157,6 +1160,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
       sonnetSection += `${lt('na', {}, { locale })}\n`;
     }
     sections.push(sonnetSection);
+
+    const subscriptionLines = formatSubscriptionLines(subscription, { locale });
+    if (subscriptionLines) sections.push(subscriptionLines);
   }
 
   // Append any caller-provided extra sections (e.g. queue status) inside the code block
@@ -1187,6 +1193,7 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
   const additionalRateLimits = codexLimits?.additionalRateLimits || [];
   const credits = codexLimits?.credits || null;
   const planType = codexLimits?.planType || null;
+  const subscription = options?.subscription || null;
 
   let section = `${lt('codex_limits', {}, { locale })}\n`;
   if (planType) {
@@ -1248,6 +1255,9 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
     const creditSummary = credits.unlimited ? lt('unlimited', {}, { locale }) : `${credits.balance ?? '0'} ${lt('balance', {}, { locale })}`;
     section += `\n${lt('codex_credits', {}, { locale })}\n${creditSummary}\n`;
   }
+
+  const subscriptionLines = formatSubscriptionLines(subscription, { locale });
+  if (subscriptionLines) section += subscriptionLines;
 
   return section;
 }
@@ -1435,14 +1445,16 @@ export async function getCachedDiskInfo(verbose = false) {
 }
 
 export async function getAllCachedLimits(verbose = false) {
-  const [claude, codex, github, memory, cpu, disk] = await Promise.all([getCachedClaudeLimits(verbose), getCachedCodexLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose)]);
-  return { claude, codex, github, memory, cpu, disk };
+  const [claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription] = await Promise.all([getCachedClaudeLimits(verbose), getCachedCodexLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose), getCachedClaudeSubscription(verbose), getCachedCodexSubscription(verbose)]);
+  return { claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription };
 }
 
 export default {
   // Raw functions (no caching)
   getClaudeUsageLimits,
   getCodexUsageLimits,
+  getClaudeSubscriptionInfo,
+  getCodexSubscriptionInfo,
   getCpuLoadInfo,
   getMemoryInfo,
   getDiskSpaceInfo,
@@ -1461,6 +1473,8 @@ export default {
   // Cached functions
   getCachedClaudeLimits,
   getCachedCodexLimits,
+  getCachedClaudeSubscription,
+  getCachedCodexSubscription,
   getCachedGitHubLimits,
   getCachedMemoryInfo,
   getCachedCpuInfo,

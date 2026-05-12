@@ -1,0 +1,14 @@
+{
+  "_note": "Captured 2026-05-12 from a Codex CLI auth.json. The only meaningful subscription-end field across every Codex/Anthropic data source we tested.",
+  "https://api.openai.com/auth": {
+    "chatgpt_account_id": "<uuid>",
+    "chatgpt_plan_type": "pro",
+    "chatgpt_subscription_active_start": "2026-04-13T14:45:32+00:00",
+    "chatgpt_subscription_active_until": "2026-05-13T14:45:32+00:00",
+    "chatgpt_subscription_last_checked": "2026-04-15T04:56:24.221286+00:00",
+    "chatgpt_user_id": "user-...",
+    "groups": [],
+    "organizations": [{ "id": "org-...", "is_default": true, "role": "owner", "title": "Personal" }],
+    "user_id": "user-..."
+  }
+}

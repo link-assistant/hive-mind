@@ -15,7 +15,10 @@
  */
 
 import assert from 'node:assert/strict';
-import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, formatCodexLimitsSection, formatRetryAfterMessage, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, formatCodexLimitsSection, formatRetryAfterMessage, getCodexSubscriptionInfo, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
 import { preloadAllLocales } from '../src/i18n.lib.mjs';
 
 await preloadAllLocales();
@@ -513,6 +516,192 @@ test('formatUsageMessage localizes Russian reset times and queue labels', () => 
   assert.ok(!message.includes('Resets in'), 'Should not leak English reset label');
   assert.ok(!message.includes('May 12'), 'Should not reuse stale English reset time');
   assert.ok(!message.includes('pending: 1'), 'Should not leak English queue pending label');
+});
+
+// ============================================================================
+// Subscription End-Date Tests (Issue #1793)
+// ============================================================================
+
+console.log('\n📋 Subscription End-Date Tests (Issue #1793)\n');
+
+function encodeJwt(payload) {
+  const header = { alg: 'none', typ: 'JWT' };
+  const enc = obj => Buffer.from(JSON.stringify(obj)).toString('base64url');
+  return `${enc(header)}.${enc(payload)}.`;
+}
+
+function makeCodexJwt(claims) {
+  return encodeJwt({
+    iss: 'https://auth.openai.com',
+    sub: 'auth0|test',
+    'https://api.openai.com/auth': claims,
+  });
+}
+
+test('formatCodexLimitsSection renders subscription end line when subscription is provided', () => {
+  const section = formatCodexLimitsSection(
+    {
+      usage: {
+        currentSession: { percentage: 12 },
+        allModels: { percentage: 34 },
+      },
+      planType: 'pro',
+    },
+    null,
+    {
+      subscription: {
+        planType: 'pro',
+        endsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+      },
+    }
+  );
+  assert.ok(section.includes('Subscription ends'), 'Should render Subscription ends line');
+  assert.ok(/Subscription ends in \d+d/.test(section), 'Should include relative duration');
+});
+
+test('formatCodexLimitsSection does NOT render subscription line when endsAt is null', () => {
+  const section = formatCodexLimitsSection(
+    {
+      usage: {
+        currentSession: { percentage: 12 },
+        allModels: { percentage: 34 },
+      },
+      planType: 'pro',
+    },
+    null,
+    { subscription: null }
+  );
+  assert.ok(!section.includes('Subscription ends'), 'Should not render Subscription ends line when subscription is null');
+  assert.ok(!section.includes('Trial ends'), 'Should not render Trial ends line when subscription is null');
+});
+
+test('formatUsageMessage renders Trial ends line when claude_code_trial_ends_at is set', () => {
+  const usage = {
+    currentSession: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 3600_000).toISOString() },
+    allModels: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+    sonnetOnly: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+  };
+  const message = formatUsageMessage(usage, null, null, null, null, null, [], {
+    subscription: {
+      planType: 'max',
+      status: 'active',
+      trialEndsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+    },
+  });
+  assert.ok(message.includes('Trial ends'), 'Should render Trial ends line when trialEndsAt is set');
+  assert.ok(/Trial ends in \d+d/.test(message), 'Should include relative duration for trial');
+});
+
+test('formatUsageMessage renders Subscription: <status> when only subscription_status is known', () => {
+  const usage = {
+    currentSession: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 3600_000).toISOString() },
+    allModels: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+    sonnetOnly: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+  };
+  const message = formatUsageMessage(usage, null, null, null, null, null, [], {
+    subscription: {
+      planType: 'max',
+      status: 'active',
+      // No endsAt, no trialEndsAt — the paid-plan case where Anthropic does not publish renewal date.
+    },
+  });
+  assert.ok(message.includes('Subscription: active'), 'Should render Subscription: active when only status is present');
+  assert.ok(!message.includes('Subscription ends'), 'Should not render Subscription ends line without endsAt');
+  assert.ok(!message.includes('Trial ends'), 'Should not render Trial ends line without trialEndsAt');
+});
+
+test('formatUsageMessage does NOT render any subscription line when subscription is null', () => {
+  const usage = {
+    currentSession: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 3600_000).toISOString() },
+    allModels: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+    sonnetOnly: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+  };
+  const message = formatUsageMessage(usage);
+  assert.ok(!message.includes('Subscription'), 'Should not render any subscription line when no subscription option is passed');
+  assert.ok(!message.includes('Trial ends'), 'Should not render Trial ends line by default');
+});
+
+test('getCodexSubscriptionInfo decodes id_token and returns chatgpt_subscription_active_until', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'codex-auth-'));
+  const authPath = join(dir, 'auth.json');
+  const idToken = makeCodexJwt({
+    chatgpt_account_id: 'acct-123',
+    chatgpt_plan_type: 'pro',
+    chatgpt_subscription_active_start: '2026-04-13T14:45:32+00:00',
+    chatgpt_subscription_active_until: '2026-05-13T14:45:32+00:00',
+    chatgpt_subscription_last_checked: '2026-04-15T04:56:24.221286+00:00',
+  });
+  writeFileSync(
+    authPath,
+    JSON.stringify({
+      auth_mode: 'chatgpt',
+      OPENAI_API_KEY: null,
+      tokens: {
+        id_token: idToken,
+        access_token: makeCodexJwt({ chatgpt_plan_type: 'pro' }),
+        refresh_token: 'refresh',
+        account_id: 'acct-123',
+      },
+    })
+  );
+  try {
+    const result = await getCodexSubscriptionInfo({ authPath });
+    assert.equal(result.success, true, 'Should decode subscription claims');
+    assert.equal(result.subscription.planType, 'pro');
+    assert.equal(result.subscription.endsAt, '2026-05-13T14:45:32+00:00');
+    assert.equal(result.subscription.activeStart, '2026-04-13T14:45:32+00:00');
+    assert.equal(result.subscription.lastChecked, '2026-04-15T04:56:24.221286+00:00');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('getCodexSubscriptionInfo falls back to access_token when id_token is missing', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'codex-auth-'));
+  const authPath = join(dir, 'auth.json');
+  const accessToken = makeCodexJwt({
+    chatgpt_plan_type: 'plus',
+    chatgpt_subscription_active_until: '2026-06-01T00:00:00+00:00',
+  });
+  writeFileSync(
+    authPath,
+    JSON.stringify({
+      auth_mode: 'chatgpt',
+      tokens: { access_token: accessToken },
+    })
+  );
+  try {
+    const result = await getCodexSubscriptionInfo({ authPath });
+    assert.equal(result.success, true);
+    assert.equal(result.subscription.planType, 'plus');
+    assert.equal(result.subscription.endsAt, '2026-06-01T00:00:00+00:00');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('getCodexSubscriptionInfo returns error for non-chatgpt auth mode', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'codex-auth-'));
+  const authPath = join(dir, 'auth.json');
+  writeFileSync(authPath, JSON.stringify({ auth_mode: 'apikey', tokens: {} }));
+  try {
+    const result = await getCodexSubscriptionInfo({ authPath });
+    assert.equal(result.success, false);
+    assert.ok(/ChatGPT/.test(result.error), 'Error message should mention ChatGPT auth requirement');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('formatCodexLimitsSection renders subscription line in Russian locale', () => {
+  const section = formatCodexLimitsSection({ usage: { currentSession: { percentage: 5 }, allModels: { percentage: 5 } }, planType: 'pro' }, null, {
+    locale: 'ru',
+    subscription: {
+      planType: 'pro',
+      endsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5).toISOString(),
+    },
+  });
+  assert.ok(section.includes('Подписка'), 'Should localize Subscription to Russian');
 });
 
 // ============================================================================

@@ -17,6 +17,7 @@
 This case study examines the feasibility and implementation strategies for auto-restart functionality with session resume that preserves previous context while only providing new small prompts (listing uncommitted changes). The goal is to reduce token costs during auto-restart cycles while maintaining the AI's understanding of the work-in-progress.
 
 The test-anywhere PR #38 demonstrates a successful implementation where:
+
 - Initial execution consumed ~434KB of logs
 - Auto-restart detected uncommitted changes
 - Subsequent execution with minimal context consumed ~697KB (includes full history)
@@ -35,6 +36,7 @@ The Hive Mind's `solve.mjs` currently implements auto-restart functionality (sol
 4. **Commits and pushes changes** once complete
 
 The current flow:
+
 ```
 Claude Session 1 (Full Context) → Uncommitted Changes Detected →
 Temporary Watch Mode → Claude Session 2 (Full Context Again) →
@@ -44,18 +46,21 @@ Changes Committed → Push to Remote
 ### Cost Implications
 
 Each Claude session includes:
+
 - **Initial prompt**: Issue description, contributing guidelines, recent commits
 - **System prompt**: Guidelines, instructions, code patterns
 - **Tool outputs**: File reads, grep results, command outputs
 - **Conversation history**: Multi-turn interactions during solving
 
 **Current token usage pattern** (from calculateSessionTokens implementation):
+
 - `input_tokens`: Regular input tokens (full cost: $3/million for Sonnet 4.5)
 - `cache_creation_input_tokens`: Cache writes (1.25× cost: $3.75/million)
 - `cache_read_input_tokens`: Cache reads (0.1× cost: $0.30/million)
 - `output_tokens`: Generated responses (full cost: $15/million for Sonnet 4.5)
 
 **Problem**: When auto-restarting, the system currently re-sends the full context, which means:
+
 - If prompt caching is NOT used: Full input token cost again
 - If prompt caching IS used: Still pays for cache reads and new context
 - Large codebases with extensive context can result in 50k-200k+ input tokens per session
@@ -63,6 +68,7 @@ Each Claude session includes:
 ### Target Optimization
 
 The ideal implementation would:
+
 1. **Preserve session context** from the previous run
 2. **Resume with minimal new prompt** containing only:
    - List of uncommitted changes (git status output)
@@ -77,15 +83,18 @@ The ideal implementation would:
 The PR demonstrates auto-restart with the following characteristics:
 
 **Log uploads via GitHub Gists:**
+
 - Session 1: 434KB log file → https://gist.github.com/konard/d181c6389588758fbb59865058d6a236
 - Session 2: 697KB log file → https://gist.github.com/konard/cc12b3bf6d0dbcdcf14dfc17f28ecf35
 
 **Auto-restart tracking:**
+
 - Comment posted: "🔄 Auto-restart 1/3"
 - Indicates iteration counting (max 3 iterations)
 - Waits for session end before accepting feedback
 
 **Observed behavior:**
+
 1. Initial session completes with uncommitted changes
 2. System detects changes and triggers auto-restart
 3. New session starts with iteration counter
@@ -93,6 +102,7 @@ The PR demonstrates auto-restart with the following characteristics:
 5. Logs uploaded to track full execution
 
 **What we DON'T know from the PR:**
+
 - Whether `--resume` was used to preserve context
 - What prompt was provided in the auto-restart session
 - Token counts for each session
@@ -101,16 +111,16 @@ The PR demonstrates auto-restart with the following characteristics:
 
 ### Current Hive Mind Auto-Restart vs PR #38
 
-| Feature | Current Hive Mind | test-anywhere PR #38 |
-|---------|-------------------|----------------------|
-| **Uncommitted change detection** | ✅ Yes (solve.mjs:835) | ✅ Yes |
-| **Automatic restart** | ✅ Yes (temporary watch mode) | ✅ Yes |
-| **Iteration tracking** | ✅ Yes (max 3 by default) | ✅ Yes (shown in comment) |
-| **Session resume** | ❌ Not used in auto-restart | ❓ Unknown |
-| **Minimal context on restart** | ❌ Full context re-sent | ❓ Unknown |
-| **Log attachment** | ✅ Yes (via --attach-logs) | ✅ Yes (via Gist) |
-| **Iteration comments** | ❌ Not posted to PR | ✅ Yes (posted to PR) |
-| **Cost optimization** | ❓ Depends on prompt caching | ❓ Unknown |
+| Feature                          | Current Hive Mind             | test-anywhere PR #38      |
+| -------------------------------- | ----------------------------- | ------------------------- |
+| **Uncommitted change detection** | ✅ Yes (solve.mjs:835)        | ✅ Yes                    |
+| **Automatic restart**            | ✅ Yes (temporary watch mode) | ✅ Yes                    |
+| **Iteration tracking**           | ✅ Yes (max 3 by default)     | ✅ Yes (shown in comment) |
+| **Session resume**               | ❌ Not used in auto-restart   | ❓ Unknown                |
+| **Minimal context on restart**   | ❌ Full context re-sent       | ❓ Unknown                |
+| **Log attachment**               | ✅ Yes (via --attach-logs)    | ✅ Yes (via Gist)         |
+| **Iteration comments**           | ❌ Not posted to PR           | ✅ Yes (posted to PR)     |
+| **Cost optimization**            | ❓ Depends on prompt caching  | ❓ Unknown                |
 
 ## Claude CLI Session Management Capabilities
 
@@ -119,12 +129,14 @@ The PR demonstrates auto-restart with the following characteristics:
 The Hive Mind team has already documented Claude CLI session capabilities:
 
 **Key findings:**
+
 1. **`--resume <session-id>` DOES work** in non-interactive mode
 2. **Context IS preserved** when resuming sessions
 3. **New session ID is created** but conversation history is maintained
 4. **Session data stored** in `~/.claude/projects/[project-path]/[session-id].jsonl`
 
 **Current implementation in solve.mjs:**
+
 ```javascript
 // Line 909-910 in claude.lib.mjs
 if (argv.resume) {
@@ -134,6 +146,7 @@ if (argv.resume) {
 ```
 
 **Session tracking in solve.mjs:**
+
 ```javascript
 // Line 995-997 in claude.lib.mjs
 if (!sessionId && data.session_id) {
@@ -152,18 +165,19 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
   // Parses usage data from each API call
   // Returns comprehensive token breakdown:
   return {
-    modelUsage,              // Per-model breakdown
-    inputTokens,             // Total input
-    cacheCreationTokens,     // Cache writes
-    cacheReadTokens,         // Cache reads (0.1× cost!)
-    outputTokens,            // Total output
+    modelUsage, // Per-model breakdown
+    inputTokens, // Total input
+    cacheCreationTokens, // Cache writes
+    cacheReadTokens, // Cache reads (0.1× cost!)
+    outputTokens, // Total output
     totalTokens,
-    totalCostUSD             // Calculated cost
+    totalCostUSD, // Calculated cost
   };
 };
 ```
 
 **This means we can:**
+
 - Track token usage before and after implementing session resume
 - Compare costs between full-context and resume-based restarts
 - Measure the effectiveness of the optimization
@@ -175,15 +189,18 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
 From Claude API documentation:
 
 **Cache Duration:**
+
 - Default: 5 minutes minimum (auto-refreshes on each use)
 - Extended: 1 hour (at higher cost)
 
 **Cost Structure:**
+
 - Cache writes (5-min): 1.25× base cost ($3.75/M for Sonnet 4.5)
 - Cache reads: 0.1× base cost ($0.30/M for Sonnet 4.5)
 - Regular input: 1× base cost ($3.00/M for Sonnet 4.5)
 
 **Cacheable Content:**
+
 - System prompts
 - Tool definitions
 - Large document context
@@ -191,6 +208,7 @@ From Claude API documentation:
 - Minimum 1,024 tokens (Opus/Sonnet), 2,048 tokens (Haiku 3.5/3), 4,096 tokens (Haiku 4.5)
 
 **Limitations:**
+
 - Maximum 4 cache breakpoints per request
 - Cache invalidated if cached content changes
 - 20-block lookback window for cache matching
@@ -198,6 +216,7 @@ From Claude API documentation:
 ### Current Usage in Hive Mind
 
 **Evidence of prompt caching support:**
+
 ```javascript
 // Token tracking includes cache metrics (claude.lib.mjs:723-750)
 cacheCreationTokens: 0,
@@ -216,6 +235,7 @@ if (usage.cacheCreationTokens && cost.cache_write) {
 **Question**: Does Claude CLI automatically use prompt caching, or does it need to be explicitly enabled?
 
 Based on the code, the CLI appears to support it (tracks cache metrics), but we need to verify:
+
 1. Whether it's enabled by default
 2. What content gets cached
 3. Whether session resume leverages cached content
@@ -225,6 +245,7 @@ Based on the code, the CLI appears to support it (tracks cache metrics), but we 
 ### Solution 1: Session Resume with Minimal Context (Recommended)
 
 **Implementation approach:**
+
 ```javascript
 // In solve.mjs auto-restart section (line ~835)
 const shouldRestart = await checkForUncommittedChanges(...);
@@ -263,6 +284,7 @@ Please review these changes and commit them with an appropriate message.
 ```
 
 **Advantages:**
+
 - ✅ **Massive token savings**: Only send ~100-500 tokens vs 50k-200k tokens
 - ✅ **Preserves full context**: AI remembers all previous work
 - ✅ **Leverages existing infrastructure**: `--resume` already implemented
@@ -270,12 +292,14 @@ Please review these changes and commit them with an appropriate message.
 - ✅ **Maintains iteration limits**: Existing safety mechanism still works
 
 **Disadvantages:**
+
 - ❓ **Session resume reliability**: Success can vary (per documentation notes)
 - ❓ **Cache effectiveness**: Depends on whether resumed sessions use cached content
 - ⚠️ **Fallback needed**: If resume fails, need to fall back to full context
 - ⚠️ **Testing required**: Need to verify context preservation in practice
 
 **Estimated cost savings:**
+
 ```
 Scenario: Auto-restart with 100k token context
 
@@ -295,12 +319,13 @@ Savings: $0.030 - $0.0015 = $0.0285 per restart (95% reduction)
 ### Solution 2: Enhanced Prompt Caching (Fallback)
 
 **Implementation approach:**
+
 ```javascript
 // Add explicit cache control to system prompts
 const systemPromptWithCache = {
   type: 'text',
   text: systemPrompt,
-  cache_control: { type: 'ephemeral' }
+  cache_control: { type: 'ephemeral' },
 };
 
 // Structure prompts to maximize cache hits
@@ -308,16 +333,19 @@ const systemPromptWithCache = {
 ```
 
 **Advantages:**
+
 - ✅ **Works with current architecture**: Minimal changes needed
 - ✅ **No new dependencies**: Uses existing API features
 - ✅ **Gradual cost reduction**: 90% cost reduction on cached content
 
 **Disadvantages:**
+
 - ❌ **Limited savings**: Only 10× reduction, not 100× like session resume
 - ❌ **Still sends tokens**: Cache reads still count toward rate limits
 - ❌ **Cache invalidation**: Changes to any cached content breaks cache
 
 **Estimated cost savings:**
+
 ```
 Scenario: Auto-restart with 100k token context
 
@@ -333,6 +361,7 @@ Savings: $0.300 - $0.030 = $0.270 per restart (90% reduction)
 ### Solution 3: Hybrid Approach (Most Robust)
 
 **Implementation approach:**
+
 ```javascript
 // Try session resume first
 try {
@@ -354,22 +383,26 @@ try {
 ```
 
 **Advantages:**
+
 - ✅ **Best of both worlds**: Maximum savings with reliable fallback
 - ✅ **Progressive enhancement**: Graceful degradation if resume fails
 - ✅ **Observable**: Can track success rates and adjust strategy
 
 **Disadvantages:**
+
 - ⚠️ **More complex**: Requires additional error handling
 - ⚠️ **Testing overhead**: Need to verify both paths work correctly
 
 ### Solution 4: Stateful Context Management (Future Work)
 
 **Concept:**
+
 - Maintain external context store (database, file system)
 - Track "work state" separately from conversation
 - Provide incremental updates instead of full context
 
 **Why NOT recommended now:**
+
 - ❌ **Major architectural change**: Requires significant refactoring
 - ❌ **Maintenance burden**: New system to maintain
 - ❌ **Unclear benefits**: Session resume achieves similar goals
@@ -377,20 +410,22 @@ try {
 
 ## Cost Comparison Table
 
-| Approach | Input Tokens per Restart | Cost per Restart (Sonnet 4.5) | Cost Reduction | Complexity |
-|----------|--------------------------|-------------------------------|----------------|------------|
-| **Current (no caching)** | 100,000 | $0.300 | Baseline | Low |
-| **Current (with caching)** | 100,000 (cached) | $0.030 | 90% | Low |
-| **Session Resume** | 500 | $0.0015 | 99.5% | Medium |
-| **Hybrid (resume + cache)** | 500-100,000 | $0.0015-$0.030 | 90-99.5% | High |
+| Approach                    | Input Tokens per Restart | Cost per Restart (Sonnet 4.5) | Cost Reduction | Complexity |
+| --------------------------- | ------------------------ | ----------------------------- | -------------- | ---------- |
+| **Current (no caching)**    | 100,000                  | $0.300                        | Baseline       | Low        |
+| **Current (with caching)**  | 100,000 (cached)         | $0.030                        | 90%            | Low        |
+| **Session Resume**          | 500                      | $0.0015                       | 99.5%          | Medium     |
+| **Hybrid (resume + cache)** | 500-100,000              | $0.0015-$0.030                | 90-99.5%       | High       |
 
 **Assumptions:**
+
 - Average context size: 100k tokens (issue + guidelines + history)
 - Minimal restart prompt: 500 tokens
 - Sonnet 4.5 pricing: $3/M input, $0.30/M cache read
 - 3 restarts per issue on average
 
 **Annual savings projection** (hypothetical):
+
 ```
 Assumptions:
 - 1,000 issues solved per month
@@ -415,6 +450,7 @@ Without caching currently:
 **Objective**: Understand current token usage and validate assumptions
 
 **Tasks:**
+
 1. **Add detailed token logging** to auto-restart cycles
    - Log session IDs for original and restart sessions
    - Track input/output/cache tokens for each
@@ -431,6 +467,7 @@ Without caching currently:
    - Verify context preservation across 10+ test cases
 
 **Success criteria:**
+
 - Token usage data collected for 50+ auto-restarts
 - Session resume reliability > 90%
 - Context preservation validated
@@ -440,7 +477,9 @@ Without caching currently:
 **Objective**: Implement session resume for auto-restart
 
 **Tasks:**
+
 1. **Modify auto-restart logic** (solve.mjs:834-939)
+
    ```javascript
    // Store session ID from previous run
    const previousSessionId = sessionId;
@@ -453,11 +492,12 @@ Without caching currently:
      // ...params,
      prompt: minimalPrompt,
      systemPrompt: '', // Empty on resume
-     argv: { ...argv, resume: previousSessionId }
+     argv: { ...argv, resume: previousSessionId },
    });
    ```
 
 2. **Add fallback mechanism**
+
    ```javascript
    // If resume fails, retry with full context
    try {
@@ -474,6 +514,7 @@ Without caching currently:
    - Report cost savings in summary
 
 **Success criteria:**
+
 - Auto-restart uses session resume by default
 - Fallback works reliably
 - Token usage reduced by 95%+
@@ -483,6 +524,7 @@ Without caching currently:
 **Objective**: Monitor effectiveness and optimize
 
 **Tasks:**
+
 1. **Track metrics**
    - Resume success rate
    - Token usage before/after
@@ -500,19 +542,20 @@ Without caching currently:
    - Add troubleshooting guide
 
 **Success criteria:**
+
 - 95%+ resume success rate
 - 90%+ token usage reduction
 - No degradation in commit quality
 
 ## Risks & Mitigations
 
-| Risk | Impact | Probability | Mitigation |
-|------|--------|-------------|------------|
-| **Session resume unreliable** | Medium | Low | Implement fallback to full context |
-| **Context not preserved** | High | Low | Verify with test prompt before proceeding |
-| **Commit quality degrades** | High | Low | Monitor and adjust prompt if needed |
-| **Caching not enabled** | Medium | Medium | Implement explicit cache control |
-| **Rate limits still hit** | Low | Low | Resume doesn't send tokens, unlikely |
+| Risk                          | Impact | Probability | Mitigation                                |
+| ----------------------------- | ------ | ----------- | ----------------------------------------- |
+| **Session resume unreliable** | Medium | Low         | Implement fallback to full context        |
+| **Context not preserved**     | High   | Low         | Verify with test prompt before proceeding |
+| **Commit quality degrades**   | High   | Low         | Monitor and adjust prompt if needed       |
+| **Caching not enabled**       | Medium | Medium      | Implement explicit cache control          |
+| **Rate limits still hit**     | Low    | Low         | Resume doesn't send tokens, unlikely      |
 
 ## Questions for Further Research
 
@@ -545,6 +588,7 @@ Without caching currently:
 **Primary Recommendation**: Implement **Solution 3 (Hybrid Approach)** with session resume as primary strategy and full-context caching as fallback.
 
 **Rationale:**
+
 1. **Massive cost savings**: 95%+ reduction in auto-restart token costs
 2. **Leverages existing capabilities**: Claude CLI already supports `--resume`
 3. **Low risk**: Fallback ensures reliability
@@ -552,12 +596,14 @@ Without caching currently:
 5. **Aligns with issue request**: Studies test-anywhere PR #38 approach
 
 **Expected outcomes:**
+
 - $1,000+ annual savings (at 1k issues/month volume)
 - 95% token usage reduction on auto-restarts
 - No degradation in solution quality
 - Better resource utilization
 
 **Next steps:**
+
 1. Create experimental branch
 2. Implement token logging for current auto-restarts
 3. Test session resume with minimal context

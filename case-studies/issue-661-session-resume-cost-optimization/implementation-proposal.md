@@ -56,6 +56,7 @@ graph TD
 **Location**: `src/solve.mjs` (around line 797-841)
 
 **Current code**:
+
 ```javascript
 const { success, sessionId } = toolResult;
 // ... handling ...
@@ -67,6 +68,7 @@ const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, bra
 ```
 
 **Proposed modification**:
+
 ```javascript
 const { success, sessionId } = toolResult;
 
@@ -120,14 +122,7 @@ Follow the repository's commit message conventions from previous commits.
 /**
  * Generate full context prompt (fallback when resume fails)
  */
-export const generateFullRestartPrompt = async (
-  issueUrl,
-  issueBody,
-  prNumber,
-  feedbackLines,
-  tempDir,
-  $
-) => {
+export const generateFullRestartPrompt = async (issueUrl, issueBody, prNumber, feedbackLines, tempDir, $) => {
   // Get uncommitted changes with full diff
   const gitStatus = await $({ cwd: tempDir })`git status --porcelain`;
   const uncommittedFiles = gitStatus.stdout.toString().trim();
@@ -158,6 +153,7 @@ Previous session completed but left uncommitted changes.
 **Location**: `src/solve.watch.lib.mjs` (around line 150-250)
 
 **Current restart logic**:
+
 ```javascript
 // Execute solve command for this PR
 const solveCommand = buildSolveCommand(issueUrl, argv, prNumber);
@@ -170,6 +166,7 @@ try {
 ```
 
 **Proposed modification**:
+
 ```javascript
 // Build solve command with session resume if available
 const solveCommand = buildSolveCommandWithResume(
@@ -218,11 +215,7 @@ try {
  * Build solve command with session resume support for auto-restart
  */
 const buildSolveCommandWithResume = (issueUrl, argv, prNumber, previousSessionId, iteration) => {
-  const baseArgs = [
-    process.argv[0],
-    process.argv[1],
-    issueUrl
-  ];
+  const baseArgs = [process.argv[0], process.argv[1], issueUrl];
 
   // Add standard options
   if (argv.model) baseArgs.push('--model', argv.model);
@@ -247,6 +240,7 @@ const buildSolveCommandWithResume = (issueUrl, argv, prNumber, previousSessionId
 **Location**: `src/solve.mjs` and `src/solve.preparation.lib.mjs`
 
 **New argv option**:
+
 ```javascript
 // In solve.config.lib.mjs
 .option('minimal-restart-context', {
@@ -257,9 +251,10 @@ const buildSolveCommandWithResume = (issueUrl, argv, prNumber, previousSessionId
 ```
 
 **Prompt generation logic**:
+
 ```javascript
 // In solve.preparation.lib.mjs
-export const preparePromptsForSession = async (params) => {
+export const preparePromptsForSession = async params => {
   const { argv, issueUrl, issueBody, prNumber, feedbackLines, tempDir, $ } = params;
 
   // If minimal restart mode, generate minimal prompt
@@ -269,7 +264,7 @@ export const preparePromptsForSession = async (params) => {
     return {
       prompt: minimalPrompt,
       systemPrompt: '', // Empty system prompt for resume
-      isMinimalRestart: true
+      isMinimalRestart: true,
     };
   }
 
@@ -283,8 +278,9 @@ export const preparePromptsForSession = async (params) => {
 **Location**: `src/claude.lib.mjs` (around line 950-1000)
 
 **Proposed enhancement**:
+
 ```javascript
-export const executeClaudeWithResumeAndFallback = async (params) => {
+export const executeClaudeWithResumeAndFallback = async params => {
   const { argv, tempDir, ...otherParams } = params;
 
   // If resume is requested, try it first
@@ -295,7 +291,7 @@ export const executeClaudeWithResumeAndFallback = async (params) => {
       const resumeResult = await executeClaudeCommand({
         argv,
         tempDir,
-        ...otherParams
+        ...otherParams,
       });
 
       // Verify the session understood the context
@@ -316,7 +312,7 @@ export const executeClaudeWithResumeAndFallback = async (params) => {
       // Fall back to full context
       // Re-generate full prompt
       const fullPromptData = await generateFullRestartPrompt(
-        argv.url,
+        argv.url
         // ... other params
       );
 
@@ -325,7 +321,7 @@ export const executeClaudeWithResumeAndFallback = async (params) => {
         tempDir,
         prompt: fullPromptData.prompt,
         systemPrompt: fullPromptData.systemPrompt,
-        ...otherParams
+        ...otherParams,
       });
     }
   }
@@ -348,7 +344,7 @@ export const showTokenSavings = async (previousTokens, currentTokens, log) => {
 
   const inputSaved = previousTokens.inputTokens - currentTokens.inputTokens;
   const cacheSaved = previousTokens.cacheReadTokens - currentTokens.cacheReadTokens;
-  const percentSaved = ((inputSaved + cacheSaved) / previousTokens.totalTokens * 100).toFixed(1);
+  const percentSaved = (((inputSaved + cacheSaved) / previousTokens.totalTokens) * 100).toFixed(1);
 
   await log('');
   await log('💰 Token Usage Comparison (Auto-Restart Optimization)');
@@ -427,13 +423,13 @@ export const showTokenSavings = async (previousTokens, currentTokens, log) => {
 
 ## Success Metrics
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| **Resume success rate** | > 90% | Track successful vs. fallback executions |
-| **Token reduction** | > 90% | Compare tokens before/after |
-| **Cost savings** | > $500/month | Calculate from token usage (at 1k issues/month) |
-| **Commit quality** | No degradation | Manual review of 100 random commits |
-| **Iteration count** | Same or lower | Track average iterations per issue |
+| Metric                  | Target         | Measurement                                     |
+| ----------------------- | -------------- | ----------------------------------------------- |
+| **Resume success rate** | > 90%          | Track successful vs. fallback executions        |
+| **Token reduction**     | > 90%          | Compare tokens before/after                     |
+| **Cost savings**        | > $500/month   | Calculate from token usage (at 1k issues/month) |
+| **Commit quality**      | No degradation | Manual review of 100 random commits             |
+| **Iteration count**     | Same or lower  | Track average iterations per issue              |
 
 ## Rollback Plan
 

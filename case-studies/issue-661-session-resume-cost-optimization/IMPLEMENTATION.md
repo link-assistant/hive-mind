@@ -59,10 +59,12 @@ if (sessionId && argv['resume-on-auto-restart']) {
 **New file created**: `src/solve.minimal-restart-prompt.lib.mjs`
 
 **Key functions**:
+
 - `generateMinimalRestartPrompt(tempDir, $)` - Creates ~500 token prompt with git status
 - `generateFullRestartPrompt(...)` - Fallback with full context (not currently used)
 
 **Minimal prompt format**:
+
 ```
 🔄 Auto-restart: Previous session completed with uncommitted changes.
 
@@ -84,13 +86,11 @@ Follow the repository's commit message conventions from previous commits.
 
 ```javascript
 // Check if we should use session resume for auto-restart (issue #661)
-const shouldUseSessionResume = isTemporaryWatch &&
-                               argv['resume-on-auto-restart'] &&
-                               global.previousSessionId &&
-                               firstIterationInTemporaryMode;
+const shouldUseSessionResume = isTemporaryWatch && argv['resume-on-auto-restart'] && global.previousSessionId && firstIterationInTemporaryMode;
 ```
 
 **Features implemented**:
+
 - ✅ Session resume detection
 - ✅ Token tracking before/after
 - ✅ Minimal prompt generation
@@ -180,13 +180,14 @@ if (argv.minimalRestartContext && argv.resume) {
 
 Based on typical usage:
 
-| Metric | Without Resume | With Resume | Savings |
-|--------|---------------|-------------|---------|
-| Input tokens | 100,000 (cached) | 500 | 99,500 |
-| Cache read cost | $0.030 | $0.0015 | $0.0285 (95%) |
-| Per auto-restart | $0.030 | $0.0015 | 95% |
+| Metric           | Without Resume   | With Resume | Savings       |
+| ---------------- | ---------------- | ----------- | ------------- |
+| Input tokens     | 100,000 (cached) | 500         | 99,500        |
+| Cache read cost  | $0.030           | $0.0015     | $0.0285 (95%) |
+| Per auto-restart | $0.030           | $0.0015     | 95%           |
 
 **Projected annual savings** (at 1,000 issues/month, 3 restarts/issue average):
+
 - Monthly: $85.50
 - Annual: **$1,026**
 
@@ -203,6 +204,7 @@ Based on typical usage:
 ### Manual Testing Steps
 
 1. Create an issue that will have uncommitted changes:
+
    ```bash
    ./solve.mjs <issue-url> --resume-on-auto-restart --verbose
    ```

@@ -8,6 +8,7 @@
 // This reduces version gathering time from ~30-150s to ~5s (limited by slowest command).
 
 import { getVersion } from './version.lib.mjs';
+import { t } from './i18n.lib.mjs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -969,6 +970,40 @@ export async function getVersionInfo(verbose = false, processVersion = null) {
  * @param {string|null} version - Version string or null
  * @param {string} [key] - Tool key for version parser lookup
  */
+const ENGLISH_VERSION_LABELS = {
+  ai_agents: 'AI Agents',
+  browsers: 'Browsers',
+  browser_automation: 'Browser Automation',
+  connected: 'connected',
+  development_tools: 'Development Tools',
+  environment: 'Environment',
+  architecture: 'Architecture',
+  kernel: 'Kernel',
+  not_connected: 'not connected',
+  os: 'OS',
+  platform: 'Platform',
+  process_running_restart_needed: 'Process running: `{{processVersion}}` (restart needed)',
+  system: 'System',
+  version: 'Version',
+};
+
+function resolveVersionLocale(options = {}) {
+  if (typeof options === 'string') return options;
+  return options?.locale || null;
+}
+
+function vt(key, params = {}, options = {}) {
+  const fullKey = `version.${key}`;
+  const locale = resolveVersionLocale(options);
+  const value = t(fullKey, params, locale ? { locale } : {});
+  if (value !== fullKey) return value;
+  let fallback = ENGLISH_VERSION_LABELS[key] || key;
+  for (const [paramKey, paramValue] of Object.entries(params)) {
+    fallback = fallback.replace(new RegExp(`{{${paramKey}}}`, 'g'), String(paramValue));
+  }
+  return fallback;
+}
+
 function addVersionLine(lines, label, version, key) {
   if (version) {
     const display = key ? parseVersion(key, version) : version;
@@ -982,15 +1017,17 @@ function addVersionLine(lines, label, version, key) {
  * @param {Object} versions - Version information object
  * @returns {string} Formatted message
  */
-export function formatVersionMessage(versions) {
+export function formatVersionMessage(versions, options = {}) {
+  const locale = resolveVersionLocale(options);
+  const vOptions = { locale };
   const lines = [];
 
   // === Hive-Mind Package (single entry with restart warning) ===
   lines.push('*🤖 Hive-Mind*');
   if (versions.hiveMind) {
-    lines.push(`• Version: \`${versions.hiveMind}\``);
+    lines.push(`• ${vt('version', {}, vOptions)}: \`${versions.hiveMind}\``);
     if (versions.needsRestart) {
-      lines.push(`⚠️ _Process running: \`${versions.processVersion}\` (restart needed)_`);
+      lines.push(`⚠️ _${vt('process_running_restart_needed', { processVersion: versions.processVersion }, vOptions)}_`);
     }
   }
 
@@ -1006,7 +1043,7 @@ export function formatVersionMessage(versions) {
 
   if (agentLines.length > 0) {
     lines.push('');
-    lines.push('*🎭 AI Agents*');
+    lines.push(`*🎭 ${vt('ai_agents', {}, vOptions)}*`);
     lines.push(...agentLines);
   }
 
@@ -1173,7 +1210,7 @@ export function formatVersionMessage(versions) {
 
   if (browserLines.length > 0) {
     lines.push('');
-    lines.push('*🌐 Browsers*');
+    lines.push(`*🌐 ${vt('browsers', {}, vOptions)}*`);
     lines.push(...browserLines);
   }
 
@@ -1184,15 +1221,15 @@ export function formatVersionMessage(versions) {
   // Playwright MCP: show version with Claude Code and Codex connection status inline
   if (versions.playwrightMcp) {
     const mcpVersion = parseVersion('playwrightMcp', versions.playwrightMcp);
-    const claudeStatus = versions.playwrightMcpClaudeStatus ? 'connected' : 'not connected';
-    const codexStatus = versions.playwrightMcpCodexStatus ? 'connected' : 'not connected';
+    const claudeStatus = versions.playwrightMcpClaudeStatus ? vt('connected', {}, vOptions) : vt('not_connected', {}, vOptions);
+    const codexStatus = versions.playwrightMcpCodexStatus ? vt('connected', {}, vOptions) : vt('not_connected', {}, vOptions);
     browserAutoLines.push(`• Playwright MCP: \`${mcpVersion} | Claude Code: ${claudeStatus} | Codex: ${codexStatus}\``);
   }
   addVersionLine(browserAutoLines, 'Puppeteer Browsers', versions.puppeteerBrowsers, 'puppeteerBrowsers');
 
   if (browserAutoLines.length > 0) {
     lines.push('');
-    lines.push('*🎭 Browser Automation*');
+    lines.push(`*🎭 ${vt('browser_automation', {}, vOptions)}*`);
     lines.push(...browserAutoLines);
   }
 
@@ -1212,24 +1249,24 @@ export function formatVersionMessage(versions) {
 
   if (toolLines.length > 0) {
     lines.push('');
-    lines.push('*🛠 Development Tools*');
+    lines.push(`*🛠 ${vt('development_tools', {}, vOptions)}*`);
     lines.push(...toolLines);
   }
 
   // === Platform (detailed) ===
   {
     const platformLines = [];
-    if (versions.platformEnvironment) platformLines.push(`• Environment: \`${versions.platformEnvironment}\``);
-    if (versions.platformArch) platformLines.push(`• Architecture: \`${versions.platformArch}\``);
-    if (versions.platformOs) platformLines.push(`• OS: \`${versions.platformOs}\``);
-    if (versions.platformKernel) platformLines.push(`• Kernel: \`${versions.platformKernel}\``);
+    if (versions.platformEnvironment) platformLines.push(`• ${vt('environment', {}, vOptions)}: \`${versions.platformEnvironment}\``);
+    if (versions.platformArch) platformLines.push(`• ${vt('architecture', {}, vOptions)}: \`${versions.platformArch}\``);
+    if (versions.platformOs) platformLines.push(`• ${vt('os', {}, vOptions)}: \`${versions.platformOs}\``);
+    if (versions.platformKernel) platformLines.push(`• ${vt('kernel', {}, vOptions)}: \`${versions.platformKernel}\``);
     // Fallback to legacy single-line format
     if (platformLines.length === 0 && versions.platform) {
-      platformLines.push(`• System: \`${versions.platform}\``);
+      platformLines.push(`• ${vt('system', {}, vOptions)}: \`${versions.platform}\``);
     }
     if (platformLines.length > 0) {
       lines.push('');
-      lines.push('*💻 Platform*');
+      lines.push(`*💻 ${vt('platform', {}, vOptions)}*`);
       lines.push(...platformLines);
     }
   }

@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
-import { formatLimitResetsAt, formatLimitResetsIn, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
+import { formatLimitResetsAt, formatLimitResetsIn, formatLocalizedCurrentTime, formatLocalizedRelativeTime, formatLocalizedResetTime, localizeCompactDuration, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 // Initialize dayjs plugins
 dayjs.extend(utc);
 
@@ -203,56 +203,12 @@ export function formatRetryAfterMessage(retryAfter) {
  * @param {boolean} includeTimezone - Whether to include timezone suffix (default: true)
  * @returns {string} Human-readable reset time (e.g., "Dec 3, 6:59pm UTC")
  */
-function formatResetTime(isoDate, includeTimezone = true) {
-  if (!isoDate) return null;
-
-  try {
-    const date = dayjs(isoDate).utc();
-    if (!date.isValid()) return isoDate;
-
-    // dayjs format: MMM=Jan, D=day, h=12-hour, mm=minutes, a=am/pm
-    const timeStr = date.format('MMM D, h:mma');
-    return includeTimezone ? `${timeStr} UTC` : timeStr;
-  } catch {
-    return isoDate;
-  }
+function formatResetTime(isoDate, includeTimezone = true, options = {}) {
+  return formatLocalizedResetTime(isoDate, includeTimezone, options);
 }
 
-/**
- * Format relative time from now to a future date using dayjs
- *
- * @param {string} isoDate - ISO date string
- * @returns {string|null} Relative time string (e.g., "1h 34m" or "6d 20h 13m") or null if date is in the past
- */
-function formatRelativeTime(isoDate) {
-  if (!isoDate) return null;
-
-  try {
-    const now = dayjs();
-    const target = dayjs(isoDate);
-
-    if (!target.isValid()) return null;
-
-    const diffMs = target.diff(now);
-    if (diffMs < 0) return null; // Past date
-
-    const totalMinutes = Math.floor(diffMs / (1000 * 60));
-    const totalHours = Math.floor(totalMinutes / 60);
-    const totalDays = Math.floor(totalHours / 24);
-
-    const days = totalDays;
-    const hours = totalHours % 24;
-    const minutes = totalMinutes % 60;
-
-    // If hours >= 24, show days
-    if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m`;
-    }
-
-    return `${hours}h ${minutes}m`;
-  } catch {
-    return null;
-  }
+function formatRelativeTime(isoDate, options = {}) {
+  return formatLocalizedRelativeTime(isoDate, options);
 }
 
 /**
@@ -260,8 +216,8 @@ function formatRelativeTime(isoDate) {
  *
  * @returns {string} Current time in UTC (e.g., "Dec 3, 6:45pm UTC")
  */
-function formatCurrentTime() {
-  return dayjs().utc().format('MMM D, h:mma [UTC]');
+function formatCurrentTime(options = {}) {
+  return formatLocalizedCurrentTime(options);
 }
 
 /**
@@ -311,6 +267,15 @@ function getDisplayCpuCoresUsed(loadAvg5, cpuCount) {
 
 function hasLimitPercentage(window) {
   return window?.percentage !== null && window?.percentage !== undefined;
+}
+
+function getLocalizedResetTime(window, options = {}) {
+  if (!window) return null;
+  return formatResetTime(window.resetsAt, true, options) || window.resetTime || null;
+}
+
+function getLocalizedRelativeReset(window, options = {}, fallbackRelative = null) {
+  return formatRelativeTime(window?.resetsAt, options) || localizeCompactDuration(fallbackRelative, options);
 }
 
 /**
@@ -1037,7 +1002,7 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   const locale = resolveLimitLocale(options);
   const sections = [];
 
-  sections.push(`${lt('current_time', {}, { locale })}: ${formatCurrentTime()}\n`);
+  sections.push(`${lt('current_time', {}, { locale })}: ${formatCurrentTime({ locale })}\n`);
 
   if (cpuLoad) {
     let section = `${lt('cpu', {}, { locale })}\n`;
@@ -1083,10 +1048,12 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     const suffix = githubRateLimit.usedPercentage >= DISPLAY_THRESHOLDS.GITHUB_API ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     section += `${usedBar} ${githubRateLimit.usedPercentage}%${suffix}\n`;
     section += `${githubRateLimit.used}/${githubRateLimit.limit} ${lt('requests', {}, { locale })}\n`;
-    if (githubRateLimit.relativeReset) {
-      section += `${formatLimitResetsIn(githubRateLimit.relativeReset, githubRateLimit.resetTime, { locale })}\n`;
-    } else if (githubRateLimit.resetTime) {
-      section += `${formatLimitResetsAt(githubRateLimit.resetTime, { locale })}\n`;
+    const githubResetTime = getLocalizedResetTime(githubRateLimit, { locale });
+    const githubRelativeReset = getLocalizedRelativeReset(githubRateLimit, { locale }, githubRateLimit.relativeReset);
+    if (githubRelativeReset && githubResetTime) {
+      section += `${formatLimitResetsIn(githubRelativeReset, githubResetTime, { locale })}\n`;
+    } else if (githubResetTime) {
+      section += `${formatLimitResetsAt(githubResetTime, { locale })}\n`;
     }
     sections.push(section);
   }
@@ -1113,12 +1080,13 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
       const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
       sessionSection += `${bar} ${pct}%${suffix}\n`;
 
-      if (usage.currentSession.resetTime) {
-        const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
+      const sessionResetTime = getLocalizedResetTime(usage.currentSession, { locale });
+      if (sessionResetTime) {
+        const relativeTime = getLocalizedRelativeReset(usage.currentSession, { locale });
         if (relativeTime) {
-          sessionSection += `${formatLimitResetsIn(relativeTime, usage.currentSession.resetTime, { locale })}\n`;
+          sessionSection += `${formatLimitResetsIn(relativeTime, sessionResetTime, { locale })}\n`;
         } else {
-          sessionSection += `${formatLimitResetsAt(usage.currentSession.resetTime, { locale })}\n`;
+          sessionSection += `${formatLimitResetsAt(sessionResetTime, { locale })}\n`;
         }
       }
     } else {
@@ -1143,12 +1111,13 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
       const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
       allModelsSection += `${bar} ${pct}%${suffix}\n`;
 
-      if (usage.allModels.resetTime) {
-        const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
+      const allModelsResetTime = getLocalizedResetTime(usage.allModels, { locale });
+      if (allModelsResetTime) {
+        const relativeTime = getLocalizedRelativeReset(usage.allModels, { locale });
         if (relativeTime) {
-          allModelsSection += `${formatLimitResetsIn(relativeTime, usage.allModels.resetTime, { locale })}\n`;
+          allModelsSection += `${formatLimitResetsIn(relativeTime, allModelsResetTime, { locale })}\n`;
         } else {
-          allModelsSection += `${formatLimitResetsAt(usage.allModels.resetTime, { locale })}\n`;
+          allModelsSection += `${formatLimitResetsAt(allModelsResetTime, { locale })}\n`;
         }
       }
     } else {
@@ -1175,12 +1144,13 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
       const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
       sonnetSection += `${bar} ${pct}%${suffix}\n`;
 
-      if (usage.sonnetOnly.resetTime) {
-        const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);
+      const sonnetResetTime = getLocalizedResetTime(usage.sonnetOnly, { locale });
+      if (sonnetResetTime) {
+        const relativeTime = getLocalizedRelativeReset(usage.sonnetOnly, { locale });
         if (relativeTime) {
-          sonnetSection += `${formatLimitResetsIn(relativeTime, usage.sonnetOnly.resetTime, { locale })}\n`;
+          sonnetSection += `${formatLimitResetsIn(relativeTime, sonnetResetTime, { locale })}\n`;
         } else {
-          sonnetSection += `${formatLimitResetsAt(usage.sonnetOnly.resetTime, { locale })}\n`;
+          sonnetSection += `${formatLimitResetsAt(sonnetResetTime, { locale })}\n`;
         }
       }
     } else {
@@ -1233,9 +1203,10 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
     const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION);
     const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     sessionSection += `${bar} ${pct}%${suffix}\n`;
-    if (usage.currentSession.resetTime) {
-      const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
-      sessionSection += relativeTime ? `${formatLimitResetsIn(relativeTime, usage.currentSession.resetTime, { locale })}\n` : `${formatLimitResetsAt(usage.currentSession.resetTime, { locale })}\n`;
+    const sessionResetTime = getLocalizedResetTime(usage.currentSession, { locale });
+    if (sessionResetTime) {
+      const relativeTime = getLocalizedRelativeReset(usage.currentSession, { locale });
+      sessionSection += relativeTime ? `${formatLimitResetsIn(relativeTime, sessionResetTime, { locale })}\n` : `${formatLimitResetsAt(sessionResetTime, { locale })}\n`;
     }
   } else {
     sessionSection += `${lt('na', {}, { locale })}\n`;
@@ -1251,9 +1222,10 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
     const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CODEX_WEEKLY);
     const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_WEEKLY ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     weeklySection += `${bar} ${pct}%${suffix}\n`;
-    if (usage.allModels.resetTime) {
-      const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
-      weeklySection += relativeTime ? `${formatLimitResetsIn(relativeTime, usage.allModels.resetTime, { locale })}\n` : `${formatLimitResetsAt(usage.allModels.resetTime, { locale })}\n`;
+    const weeklyResetTime = getLocalizedResetTime(usage.allModels, { locale });
+    if (weeklyResetTime) {
+      const relativeTime = getLocalizedRelativeReset(usage.allModels, { locale });
+      weeklySection += relativeTime ? `${formatLimitResetsIn(relativeTime, weeklyResetTime, { locale })}\n` : `${formatLimitResetsAt(weeklyResetTime, { locale })}\n`;
     }
   } else {
     weeklySection += `${lt('na', {}, { locale })}\n`;

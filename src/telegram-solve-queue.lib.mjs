@@ -22,6 +22,7 @@ export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { t } from './i18n.lib.mjs';
+import { lt } from './limits-i18n.lib.mjs';
 
 export const QueueItemStatus = {
   QUEUED: 'queued',
@@ -31,6 +32,23 @@ export const QueueItemStatus = {
   FAILED: 'failed',
   CANCELLED: 'cancelled',
 };
+
+function getLocale(options = {}) {
+  if (typeof options === 'string') return options;
+  return options?.locale || null;
+}
+
+function appendWaitingForCurrentCommand(reason, locale) {
+  return `${reason} (${lt('queue_waiting_current_command', {}, { locale })})`;
+}
+
+function appendRemainingDuration(reason, ms, locale) {
+  return `${reason} (${lt('remaining', { duration: formatDuration(ms, { locale }) }, { locale })})`;
+}
+
+function queueStatusLabel(status, locale) {
+  return lt(`queue_status_${status}`, {}, { locale });
+}
 
 /**
  * Queue item representing a /solve command request
@@ -373,7 +391,7 @@ export class SolveQueue {
       if (toolQueue.length === 0) continue;
 
       // Check if first item in this tool's queue can start
-      const check = await this.canStartCommand({ tool });
+      const check = await this.canStartCommand({ tool, locale: toolQueue[0]?.locale || null });
 
       // When a 'reject' strategy threshold is exceeded, immediately reject
       // all items in this tool's queue instead of leaving them waiting.
@@ -411,16 +429,16 @@ export class SolveQueue {
    * @see https://github.com/link-assistant/hive-mind/issues/1555
    */
   async rejectAllItemsInQueue(tool, toolQueue, rejectReason) {
-    const reason = rejectReason || 'Resource limit exceeded';
     while (toolQueue.length > 0) {
       const item = toolQueue.shift();
+      const reason = rejectReason || lt('resource_limit_exceeded', {}, { locale: item.locale });
       item.setFailed(reason);
       this.failed.push(item);
       this.stats.totalFailed++;
 
       this.log(`Rejected queued item: ${item.toString()} from ${tool} queue - ${reason}`);
 
-      await this.updateItemMessage(item, `❌ Solve command rejected.\n\n${item.infoBlock}\n\n🚫 Reason: ${reason}`);
+      await this.updateItemMessage(item, t('telegram.solve_rejected', { infoBlock: item.infoBlock, reason }, { locale: item.locale }));
     }
     while (this.failed.length > 100) this.failed.shift();
   }
@@ -546,6 +564,7 @@ export class SolveQueue {
    */
   async canStartCommand(options = {}) {
     const tool = options.tool || 'claude';
+    const locale = getLocale(options);
     const reasons = [];
     let oneAtATime = false;
     let rejected = false;
@@ -558,8 +577,8 @@ export class SolveQueue {
     if (lastStartTime) {
       const timeSinceLastStart = Date.now() - lastStartTime;
       if (timeSinceLastStart < QUEUE_CONFIG.MIN_START_INTERVAL_MS) {
-        const waitSeconds = Math.ceil((QUEUE_CONFIG.MIN_START_INTERVAL_MS - timeSinceLastStart) / 1000);
-        reasons.push(formatWaitingReason('min_interval', 0, 0) + ` (${waitSeconds}s remaining)`);
+        const waitMs = QUEUE_CONFIG.MIN_START_INTERVAL_MS - timeSinceLastStart;
+        reasons.push(appendRemainingDuration(formatWaitingReason('min_interval', 0, 0, { locale }), waitMs, locale));
         this.recordThrottle('min_interval');
       }
     }
@@ -609,7 +628,7 @@ export class SolveQueue {
     // System resources apply to ALL tools, not just Claude
     // See: https://github.com/link-assistant/hive-mind/issues/1155
     // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
-    const resourceCheck = await this.checkSystemResources(totalProcessing);
+    const resourceCheck = await this.checkSystemResources(totalProcessing, { locale });
     if (resourceCheck.rejected) {
       rejected = true;
       rejectReason = resourceCheck.rejectReason;
@@ -628,7 +647,7 @@ export class SolveQueue {
     // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
     const hasRunningToolProcess = (externalProcessing.byTool[tool] || 0) > 0;
     const toolProcessingCount = this.getProcessingCountByTool(tool);
-    const limitCheck = await this.checkApiLimits(hasRunningToolProcess, toolProcessingCount, tool);
+    const limitCheck = await this.checkApiLimits(hasRunningToolProcess, toolProcessingCount, tool, { locale });
     if (limitCheck.rejected) {
       rejected = true;
       rejectReason = limitCheck.rejectReason;
@@ -646,16 +665,16 @@ export class SolveQueue {
       // Add claude_running info at the END (not beginning) of reasons
       // Since it's supplementary info, not the primary blocking reason
       // See: https://github.com/link-assistant/hive-mind/issues/1078
-      reasons.push(formatWaitingReason('claude_running', claudeProcessCount, 0) + ` (${claudeProcessCount} processes)`);
+      reasons.push(`${formatWaitingReason('claude_running', claudeProcessCount, 0, { locale })} (${lt('queue_processes', { count: claudeProcessCount }, { locale })})`);
     }
     if (tool === 'codex' && hasRunningCodex && reasons.length > 0) {
-      reasons.push(formatWaitingReason('codex_running', codexProcessCount, 0) + ` (${codexProcessCount} processes)`);
+      reasons.push(`${formatWaitingReason('codex_running', codexProcessCount, 0, { locale })} (${lt('queue_processes', { count: codexProcessCount }, { locale })})`);
     }
     if (tool === 'qwen' && hasRunningQwen && reasons.length > 0) {
-      reasons.push(formatWaitingReason('qwen_running', qwenProcessCount, 0) + ` (${qwenProcessCount} processes)`);
+      reasons.push(`${formatWaitingReason('qwen_running', qwenProcessCount, 0, { locale })} (${lt('queue_processes', { count: qwenProcessCount }, { locale })})`);
     }
     if (tool === 'gemini' && hasRunningGemini && reasons.length > 0) {
-      reasons.push(formatWaitingReason('gemini_running', geminiProcessCount, 0) + ` (${geminiProcessCount} processes)`);
+      reasons.push(`${formatWaitingReason('gemini_running', geminiProcessCount, 0, { locale })} (${lt('queue_processes', { count: geminiProcessCount }, { locale })})`);
     }
 
     const canStart = reasons.length === 0 && !rejected;
@@ -712,7 +731,8 @@ export class SolveQueue {
    * @param {number} totalProcessing - Total processing count (queue + external claude processes)
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean, rejected: boolean, rejectReason: string|null}>}
    */
-  async checkSystemResources(totalProcessing = 0) {
+  async checkSystemResources(totalProcessing = 0, options = {}) {
+    const locale = getLocale(options);
     const reasons = [];
     let oneAtATime = false;
     let rejected = false;
@@ -723,7 +743,7 @@ export class SolveQueue {
     if (memResult.success) {
       const usedRatio = memResult.memory.usedPercentage / 100;
       if (usedRatio >= QUEUE_CONFIG.thresholds.ram.value) {
-        const reason = formatWaitingReason('ram', memResult.memory.usedPercentage, QUEUE_CONFIG.thresholds.ram.value);
+        const reason = formatWaitingReason('ram', memResult.memory.usedPercentage, QUEUE_CONFIG.thresholds.ram.value, { locale });
         const strategy = QUEUE_CONFIG.thresholds.ram.strategy;
         this.recordThrottle(`ram_${strategy}`);
 
@@ -733,7 +753,7 @@ export class SolveQueue {
         } else if (strategy === 'dequeue-one-at-a-time') {
           oneAtATime = true;
           if (totalProcessing > 0) {
-            reasons.push(reason + ' (waiting for current command)');
+            reasons.push(appendWaitingForCurrentCommand(reason, locale));
           }
         } else {
           // 'enqueue' - block unconditionally
@@ -760,7 +780,7 @@ export class SolveQueue {
       }
 
       if (usageRatio >= QUEUE_CONFIG.thresholds.cpu.value) {
-        const reason = formatWaitingReason('cpu', usagePercent, QUEUE_CONFIG.thresholds.cpu.value);
+        const reason = formatWaitingReason('cpu', usagePercent, QUEUE_CONFIG.thresholds.cpu.value, { locale });
         const strategy = QUEUE_CONFIG.thresholds.cpu.strategy;
         this.recordThrottle(`cpu_${strategy}`);
 
@@ -770,7 +790,7 @@ export class SolveQueue {
         } else if (strategy === 'dequeue-one-at-a-time') {
           oneAtATime = true;
           if (totalProcessing > 0) {
-            reasons.push(reason + ' (waiting for current command)');
+            reasons.push(appendWaitingForCurrentCommand(reason, locale));
           }
         } else {
           // 'enqueue' - block unconditionally
@@ -788,7 +808,7 @@ export class SolveQueue {
       const usedPercent = 100 - diskResult.diskSpace.freePercentage;
       const usedRatio = usedPercent / 100;
       if (usedRatio >= QUEUE_CONFIG.thresholds.disk.value) {
-        const reason = formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.thresholds.disk.value);
+        const reason = formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.thresholds.disk.value, { locale });
         const strategy = QUEUE_CONFIG.thresholds.disk.strategy;
         this.recordThrottle(`disk_${strategy}`);
 
@@ -798,7 +818,7 @@ export class SolveQueue {
         } else if (strategy === 'dequeue-one-at-a-time') {
           oneAtATime = true;
           if (totalProcessing > 0) {
-            reasons.push(reason + ' (waiting for current command)');
+            reasons.push(appendWaitingForCurrentCommand(reason, locale));
           }
         } else {
           // 'enqueue' - block unconditionally
@@ -833,7 +853,8 @@ export class SolveQueue {
    * @param {string} tool - The tool being used ('claude', 'agent', 'codex', 'gemini', 'qwen', etc.)
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean, rejected: boolean, rejectReason: string|null}>}
    */
-  async checkApiLimits(hasRunningToolProcess = false, toolProcessingCount = 0, tool = 'claude') {
+  async checkApiLimits(hasRunningToolProcess = false, toolProcessingCount = 0, tool = 'claude', options = {}) {
+    const locale = getLocale(options);
     const reasons = [];
     let oneAtATime = false;
     let rejected = false;
@@ -862,7 +883,7 @@ export class SolveQueue {
         if (sessionPercent !== null) {
           const sessionRatio = sessionPercent / 100;
           if (sessionRatio >= QUEUE_CONFIG.thresholds.claude5Hour.value) {
-            const reason = formatWaitingReason('claude_5_hour_session', sessionPercent, QUEUE_CONFIG.thresholds.claude5Hour.value);
+            const reason = formatWaitingReason('claude_5_hour_session', sessionPercent, QUEUE_CONFIG.thresholds.claude5Hour.value, { locale });
             const strategy = QUEUE_CONFIG.thresholds.claude5Hour.strategy;
             this.recordThrottle(sessionRatio >= 1.0 ? 'claude_5_hour_session_100' : `claude_5_hour_session_${strategy}`);
 
@@ -872,7 +893,7 @@ export class SolveQueue {
             } else if (strategy === 'dequeue-one-at-a-time') {
               oneAtATime = true;
               if (totalToolProcessing > 0) {
-                reasons.push(reason + ' (waiting for current command)');
+                reasons.push(appendWaitingForCurrentCommand(reason, locale));
               }
             } else {
               // 'enqueue' - block unconditionally
@@ -887,7 +908,7 @@ export class SolveQueue {
         if (weeklyPercent !== null) {
           const weeklyRatio = weeklyPercent / 100;
           if (weeklyRatio >= QUEUE_CONFIG.thresholds.claudeWeekly.value) {
-            const reason = formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.thresholds.claudeWeekly.value);
+            const reason = formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.thresholds.claudeWeekly.value, { locale });
             const strategy = QUEUE_CONFIG.thresholds.claudeWeekly.strategy;
             this.recordThrottle(weeklyRatio >= 1.0 ? 'claude_weekly_100' : `claude_weekly_${strategy}`);
 
@@ -897,7 +918,7 @@ export class SolveQueue {
             } else if (strategy === 'dequeue-one-at-a-time') {
               oneAtATime = true;
               if (totalToolProcessing > 0) {
-                reasons.push(reason + ' (waiting for current command)');
+                reasons.push(appendWaitingForCurrentCommand(reason, locale));
               }
             } else {
               // 'enqueue' - block unconditionally
@@ -915,7 +936,7 @@ export class SolveQueue {
         if (sessionPercent !== null) {
           const sessionRatio = sessionPercent / 100;
           if (sessionRatio >= QUEUE_CONFIG.thresholds.codex5Hour.value) {
-            const reason = formatWaitingReason('codex_5_hour_session', sessionPercent, QUEUE_CONFIG.thresholds.codex5Hour.value);
+            const reason = formatWaitingReason('codex_5_hour_session', sessionPercent, QUEUE_CONFIG.thresholds.codex5Hour.value, { locale });
             const strategy = QUEUE_CONFIG.thresholds.codex5Hour.strategy;
             this.recordThrottle(sessionRatio >= 1.0 ? 'codex_5_hour_session_100' : `codex_5_hour_session_${strategy}`);
 
@@ -925,7 +946,7 @@ export class SolveQueue {
             } else if (strategy === 'dequeue-one-at-a-time') {
               oneAtATime = true;
               if (totalToolProcessing > 0) {
-                reasons.push(reason + ' (waiting for current command)');
+                reasons.push(appendWaitingForCurrentCommand(reason, locale));
               }
             } else {
               reasons.push(reason);
@@ -936,7 +957,7 @@ export class SolveQueue {
         if (weeklyPercent !== null) {
           const weeklyRatio = weeklyPercent / 100;
           if (weeklyRatio >= QUEUE_CONFIG.thresholds.codexWeekly.value) {
-            const reason = formatWaitingReason('codex_weekly', weeklyPercent, QUEUE_CONFIG.thresholds.codexWeekly.value);
+            const reason = formatWaitingReason('codex_weekly', weeklyPercent, QUEUE_CONFIG.thresholds.codexWeekly.value, { locale });
             const strategy = QUEUE_CONFIG.thresholds.codexWeekly.strategy;
             this.recordThrottle(weeklyRatio >= 1.0 ? 'codex_weekly_100' : `codex_weekly_${strategy}`);
 
@@ -946,7 +967,7 @@ export class SolveQueue {
             } else if (strategy === 'dequeue-one-at-a-time') {
               oneAtATime = true;
               if (totalToolProcessing > 0) {
-                reasons.push(reason + ' (waiting for current command)');
+                reasons.push(appendWaitingForCurrentCommand(reason, locale));
               }
             } else {
               reasons.push(reason);
@@ -967,7 +988,7 @@ export class SolveQueue {
         const usedPercent = githubResult.githubRateLimit.usedPercentage;
         const usedRatio = usedPercent / 100;
         if (usedRatio >= QUEUE_CONFIG.thresholds.githubApi.value) {
-          const reason = formatWaitingReason('github', usedPercent, QUEUE_CONFIG.thresholds.githubApi.value);
+          const reason = formatWaitingReason('github', usedPercent, QUEUE_CONFIG.thresholds.githubApi.value, { locale });
           const strategy = QUEUE_CONFIG.thresholds.githubApi.strategy;
           this.recordThrottle(usedRatio >= 1.0 ? 'github_100' : `github_${strategy}`);
 
@@ -977,7 +998,7 @@ export class SolveQueue {
           } else if (strategy === 'dequeue-one-at-a-time') {
             oneAtATime = true;
             if (totalToolProcessing > 0) {
-              reasons.push(reason + ' (waiting for current command)');
+              reasons.push(appendWaitingForCurrentCommand(reason, locale));
             }
           } else {
             // 'enqueue' - block unconditionally
@@ -1125,7 +1146,7 @@ export class SolveQueue {
       // First check if the tool's threshold triggers a 'reject' strategy.
       // If so, reject all items at once rather than iterating one by one.
       // See: https://github.com/link-assistant/hive-mind/issues/1555
-      const toolCheck = await this.canStartCommand({ tool });
+      const toolCheck = await this.canStartCommand({ tool, locale: toolQueue[0]?.locale || null });
       if (toolCheck.rejected) {
         await this.rejectAllItemsInQueue(tool, toolQueue, toolCheck.rejectReason);
         continue;
@@ -1134,9 +1155,10 @@ export class SolveQueue {
       for (let i = 0; i < toolQueue.length; i++) {
         const item = toolQueue[i];
         if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
+          const itemCheck = item.locale === (toolQueue[0]?.locale || null) ? toolCheck : await this.canStartCommand({ tool, locale: item.locale });
           const previousStatus = item.status;
           const previousReason = item.waitingReason;
-          const waitReason = toolCheck.reason || 'Waiting in queue';
+          const waitReason = itemCheck.reason || lt('queue_waiting_in_queue', {}, { locale: item.locale });
           item.setWaiting(waitReason);
 
           // Update message if status/reason changed or it's time for periodic update
@@ -1283,14 +1305,15 @@ export class SolveQueue {
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    * @see https://github.com/link-assistant/hive-mind/issues/1267
    */
-  async formatStatus() {
+  async formatStatus(options = {}) {
+    const locale = getLocale(options);
     // Always show per-tool breakdown for all known queues
     const externalProcessing = await this.getExternalProcessingSnapshot(Object.keys(this.queues));
-    let message = 'Queues\n';
+    let message = `${lt('queues', {}, { locale })}\n`;
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
       const processing = externalProcessing.byTool[tool] || 0;
-      message += `${tool} (pending: ${pending}, processing: ${processing})\n`;
+      message += `${tool} (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
     }
 
     return message;
@@ -1320,39 +1343,40 @@ export class SolveQueue {
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    * @see https://github.com/link-assistant/hive-mind/issues/1267
    */
-  async formatDetailedStatus() {
+  async formatDetailedStatus(options = {}) {
+    const locale = getLocale(options);
     const stats = this.getStats();
     const externalProcessing = await this.getExternalProcessingSnapshot(Object.keys(this.queues));
 
     // Get actual processing counts for each tool queue.
     // This combines pgrep with tracked isolation status so users see detached
     // screen-isolated work even when the direct AI CLI process count is lower.
-    let message = '📋 *Solve Queue Status*\n\n';
+    let message = `📋 *${lt('solve_queue_status', {}, { locale })}*\n\n`;
 
     // Show per-tool queue breakdown with items grouped by queue
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
       const processing = externalProcessing.byTool[tool] || 0;
-      message += `*${tool}* (pending: ${pending}, processing: ${processing})\n`;
+      message += `*${tool}* (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
 
       // Show first 5 queued items for this tool
       const displayItems = toolQueue.slice(0, 5);
       for (const item of displayItems) {
-        const waitTime = formatDuration(item.getWaitTime());
-        message += `  • ${item.url} (${item.status}, ${waitTime})\n`;
+        const waitTime = formatDuration(item.getWaitTime(), { locale });
+        message += `  • ${item.url} (${queueStatusLabel(item.status, locale)}, ${waitTime})\n`;
         if (item.waitingReason) {
           message += `    └ ${item.waitingReason}\n`;
         }
       }
       if (toolQueue.length > 5) {
-        message += `    ... and ${toolQueue.length - 5} more\n`;
+        message += `    ... ${lt('queue_and_more', { count: toolQueue.length - 5 }, { locale })}\n`;
       }
 
       message += '\n';
     }
 
     // Summary stats
-    message += `Completed: ${stats.completed}, Failed: ${stats.failed}\n`;
+    message += `${lt('queue_completed', {}, { locale })}: ${stats.completed}, ${lt('queue_failed', {}, { locale })}: ${stats.failed}\n`;
 
     return message;
   }

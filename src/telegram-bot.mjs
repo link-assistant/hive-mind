@@ -40,7 +40,7 @@ const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFro
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
-const { safeReply } = await import('./telegram-safe-reply.lib.mjs');
+const { installTelegramFormattingFallback, safeEditMessageText, safeReply } = await import('./telegram-safe-reply.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync } = await import('./session-monitor.lib.mjs');
@@ -315,6 +315,7 @@ const { Telegraf } = telegrafModule;
 const bot = new Telegraf(BOT_TOKEN, {
   handlerTimeout: Infinity, // Remove default 90s timeout; command handlers like /solve spawn long-running processes
 });
+installTelegramFormattingFallback(bot.telegram, { verbose: VERBOSE });
 
 // Track bot startup time (Unix seconds to match Telegram's message.date format)
 const BOT_START_TIME = Math.floor(Date.now() / 1000);
@@ -514,7 +515,7 @@ bot.command('help', async ctx => {
     allowTopicHint: topicId ? `TELEGRAM_ALLOWED_TOPICS="(${chatId} ${topicId})"` : '',
   });
 
-  await ctx.reply(message, { parse_mode: 'Markdown' });
+  await safeReply(ctx, message, { fallbackLocale: helpLocale });
 });
 
 bot.command('limits', async ctx => {
@@ -564,10 +565,10 @@ bot.command('limits', async ctx => {
   const claudeError = limits.claude.success ? null : limits.claude.error;
   const codexError = limits.codex.success ? null : limits.codex.error;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
-  const queueStatus = await solveQueue.formatStatus();
+  const queueStatus = await solveQueue.formatStatus({ locale: userLocale });
   const codexSection = formatCodexLimitsSection(limits.codex.success ? limits.codex : null, codexError, { locale: userLocale });
   const message = t('telegram.usage_limits_title', {}, { locale: userLocale }) + '\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus], { locale: userLocale });
-  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
+  await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown', fallbackLocale: userLocale, verbose: VERBOSE });
 });
 bot.command('version', async ctx => {
   VERBOSE && console.log('[VERBOSE] /version command received');
@@ -585,8 +586,8 @@ bot.command('version', async ctx => {
     reply_to_message_id: ctx.message.message_id,
   });
   const result = await getVersionInfo(VERBOSE);
-  if (!result.success) return await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2' });
-  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, t('telegram.version_information_title', {}, { locale: versionLocale }) + '\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
+  if (!result.success) return await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2', fallbackLocale: versionLocale, verbose: VERBOSE });
+  await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, t('telegram.version_information_title', {}, { locale: versionLocale }) + '\n\n' + formatVersionMessage(result.versions, { locale: versionLocale }), { parse_mode: 'Markdown', fallbackLocale: versionLocale, verbose: VERBOSE });
 });
 
 const { registerLanguageCommand } = await import('./telegram-language-command.lib.mjs');
@@ -598,7 +599,7 @@ registerAcceptInvitesCommand(bot, sharedCommandOpts);
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
 registerMergeCommand(bot, sharedCommandOpts);
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
-const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue });
+const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue, safeReply, resolveLocale: resolveLocaleFromTelegramCtx });
 const { registerSubscribeCommands } = await import('./telegram-subscribers.lib.mjs'); // #1688
 registerSubscribeCommands(bot, sharedCommandOpts);
 const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs');
@@ -848,7 +849,7 @@ async function handleSolveCommand(ctx) {
     await safeReply(ctx, t('telegram.url_session_running', { url: escapeMarkdown(normalizedUrl), session: activeSession.sessionName }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
-  const check = await solveQueue.canStartCommand({ tool: solveTool }); // Skip Claude limits for agent (#1159)
+  const check = await solveQueue.canStartCommand({ tool: solveTool, locale: solveLocale }); // Skip Claude limits for agent (#1159)
   const queueStats = solveQueue.getStats();
   // Handle rejection: threshold strategy is 'reject' — fail immediately (issue #1267)
   if (check.rejected) {

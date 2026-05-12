@@ -2,6 +2,7 @@
 
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
+import { lt } from './limits-i18n.lib.mjs';
 
 const execAsync = promisify(exec);
 
@@ -111,8 +112,9 @@ export function formatThresholdPercent(ratio) {
  * @returns {string} Human-readable duration
  * @see https://github.com/link-assistant/hive-mind/issues/1267
  */
-export function formatDuration(ms) {
+export function formatDuration(ms, options = {}) {
   if (ms < 0) ms = 0;
+  const locale = typeof options === 'string' ? options : options?.locale || null;
 
   const totalSeconds = Math.floor(ms / 1000);
   const days = Math.floor(totalSeconds / 86400);
@@ -120,11 +122,26 @@ export function formatDuration(ms) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
+  const labels =
+    locale && locale !== 'en'
+      ? {
+          day: lt('duration_day_short', {}, { locale }),
+          hour: lt('duration_hour_short', {}, { locale }),
+          minute: lt('duration_minute_short', {}, { locale }),
+          second: lt('duration_second_short', {}, { locale }),
+        }
+      : {
+          day: 'd',
+          hour: 'h',
+          minute: 'm',
+          second: 's',
+        };
+
   const parts = [];
-  if (days > 0) parts.push(`${days}d`);
-  if (hours > 0) parts.push(`${hours}h`);
-  if (minutes > 0) parts.push(`${minutes}m`);
-  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+  if (days > 0) parts.push(`${days}${locale && locale !== 'en' ? ' ' : ''}${labels.day}`);
+  if (hours > 0) parts.push(`${hours}${locale && locale !== 'en' ? ' ' : ''}${labels.hour}`);
+  if (minutes > 0) parts.push(`${minutes}${locale && locale !== 'en' ? ' ' : ''}${labels.minute}`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}${locale && locale !== 'en' ? ' ' : ''}${labels.second}`);
 
   return parts.join(' ');
 }
@@ -136,9 +153,44 @@ export function formatDuration(ms) {
  * @param {number} threshold - Threshold ratio (0.0 - 1.0)
  * @returns {string} Human-readable reason
  */
-export function formatWaitingReason(metric, currentValue, threshold) {
+export function formatWaitingReason(metric, currentValue, threshold, options = {}) {
+  const locale = typeof options === 'string' ? options : options?.locale || null;
   const thresholdPercent = formatThresholdPercent(threshold);
   const currentPercent = Math.round(currentValue);
+  const params = { currentPercent, thresholdPercent, metric };
+
+  if (locale && locale !== 'en') {
+    switch (metric) {
+      case 'ram':
+        return lt('reason_ram_usage', params, { locale });
+      case 'cpu':
+        return lt('reason_cpu_usage', params, { locale });
+      case 'disk':
+        return lt('reason_disk_usage', params, { locale });
+      case 'claude_5_hour_session':
+        return lt('reason_claude_5_hour_session', params, { locale });
+      case 'claude_weekly':
+        return lt('reason_claude_weekly', params, { locale });
+      case 'codex_5_hour_session':
+        return lt('reason_codex_5_hour_session', params, { locale });
+      case 'codex_weekly':
+        return lt('reason_codex_weekly', params, { locale });
+      case 'github':
+        return lt('reason_github_api', params, { locale });
+      case 'min_interval':
+        return lt('reason_min_interval', params, { locale });
+      case 'claude_running':
+        return lt('reason_claude_running', params, { locale });
+      case 'codex_running':
+        return lt('reason_codex_running', params, { locale });
+      case 'qwen_running':
+        return lt('reason_qwen_running', params, { locale });
+      case 'gemini_running':
+        return lt('reason_gemini_running', params, { locale });
+      default:
+        return lt('reason_threshold_exceeded', params, { locale });
+    }
+  }
 
   switch (metric) {
     case 'ram':

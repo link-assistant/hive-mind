@@ -54,6 +54,25 @@ const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 export const THRESHOLD_STRATEGIES = Object.freeze(['reject', 'enqueue', 'dequeue-one-at-a-time']);
 
 /**
+ * Valid per-tool concurrency modes (Issue #1474).
+ *
+ * - 'off' — no extra concurrency cap from the queue layer (default for
+ *   claude/codex/qwen/gemini).
+ * - 'global-one-at-a-time' — at most one in-flight item across the tool's
+ *   entire queue, regardless of model. Default for the agent queue today
+ *   because most testing happens with free models that share rate limits.
+ * - 'per-free-model-one-at-a-time' — for free models (see isFreeAgentModel),
+ *   at most one in-flight item per (tool, model). Non-free models run with
+ *   'off' semantics. Designed for the case where each free model has its own
+ *   provider-side rate limit.
+ * - 'per-model-one-at-a-time' — at most one in-flight item per (tool, model)
+ *   for every model.
+ *
+ * @type {readonly ['off', 'global-one-at-a-time', 'per-free-model-one-at-a-time', 'per-model-one-at-a-time']}
+ */
+export const CONCURRENCY_MODES = Object.freeze(['off', 'global-one-at-a-time', 'per-free-model-one-at-a-time', 'per-model-one-at-a-time']);
+
+/**
  * Validate a threshold strategy value
  * @param {string} strategy - The strategy to validate
  * @param {string} defaultStrategy - Default strategy if invalid
@@ -64,6 +83,19 @@ function validateStrategy(strategy, defaultStrategy = 'enqueue') {
     return defaultStrategy;
   }
   return strategy;
+}
+
+/**
+ * Validate a per-tool concurrency mode (Issue #1474).
+ * @param {string} mode - The mode to validate
+ * @param {string} defaultMode - Default mode if invalid
+ * @returns {string} Valid mode
+ */
+function validateConcurrencyMode(mode, defaultMode = 'off') {
+  if (!mode || !CONCURRENCY_MODES.includes(mode)) {
+    return defaultMode;
+  }
+  return mode;
 }
 
 /**
@@ -89,11 +121,17 @@ function normalizeMetricName(name) {
  *   (claude-5-hour (65% dequeue-one-at-a-time))
  *   (claude-weekly (97% dequeue-one-at-a-time))
  *   (github-api (50% enqueue))
+ *   (agent-concurrency per-free-model-one-at-a-time)
+ *   (claude-concurrency global-one-at-a-time)
  * )
  * ```
  *
+ * Issue #1474: `*-concurrency` entries set per-tool concurrency mode.
+ * They are returned under the special `concurrency` key, e.g.
+ * `{ concurrency: { agent: 'per-free-model-one-at-a-time' } }`.
+ *
  * @param {string} linoConfig - Configuration in links notation format
- * @returns {Object} Parsed threshold configurations { [metricName]: { value: number, strategy: string } }
+ * @returns {Object} Parsed threshold configurations and concurrency modes
  */
 export function parseQueueConfig(linoConfig) {
   if (!linoConfig || typeof linoConfig !== 'string') return {};
@@ -105,6 +143,7 @@ export function parseQueueConfig(linoConfig) {
     if (!parsed || !Array.isArray(parsed) || parsed.length === 0) return {};
 
     const config = {};
+    const concurrency = {};
 
     // The parser returns: [{ id: null, values: [...] }]
     // We need to drill down to find the metric configurations
@@ -134,10 +173,11 @@ export function parseQueueConfig(linoConfig) {
         // Extract all IDs from this nested structure
         const ids = extractIds(item.values);
 
-        // Find metric name, percentage, and strategy
+        // Find metric name, percentage, strategy, and concurrency mode
         let metricName = null;
         let thresholdValue = null;
         let strategy = null;
+        let concurrencyMode = null;
 
         for (const id of ids) {
           // Check for percentage
@@ -153,10 +193,25 @@ export function parseQueueConfig(linoConfig) {
             continue;
           }
 
+          // Issue #1474: check for concurrency mode
+          if (CONCURRENCY_MODES.includes(id)) {
+            concurrencyMode = id;
+            continue;
+          }
+
           // Otherwise it's likely the metric name
           if (!metricName) {
             metricName = id;
           }
+        }
+
+        // Issue #1474: concurrency entry — `(agent-concurrency <mode>)`
+        if (metricName && concurrencyMode !== null && metricName.endsWith('-concurrency')) {
+          const tool = metricName.slice(0, -'-concurrency'.length);
+          if (tool) {
+            concurrency[tool] = validateConcurrencyMode(concurrencyMode);
+          }
+          continue;
         }
 
         if (metricName && thresholdValue !== null) {
@@ -167,6 +222,10 @@ export function parseQueueConfig(linoConfig) {
           };
         }
       }
+    }
+
+    if (Object.keys(concurrency).length > 0) {
+      config.concurrency = concurrency;
     }
 
     return config;
@@ -192,6 +251,45 @@ const parseIntWithDefault = (envVar, defaultValue) => {
 
 // Parse links notation config from environment variable (if provided)
 const linoConfig = parseQueueConfig(getenv('HIVE_MIND_QUEUE_CONFIG', ''));
+
+/**
+ * Per-tool concurrency mode defaults (Issue #1474).
+ *
+ * The agent queue defaults to 'global-one-at-a-time' because the project is
+ * primarily tested against free-tier providers (OpenCode Zen, Kilo Gateway)
+ * whose rate limits are quickly tripped if two agent commands run in parallel.
+ * Operators who run their own paid keys can flip individual tools off via
+ * env var or HIVE_MIND_QUEUE_CONFIG.
+ */
+const CONCURRENCY_DEFAULTS = Object.freeze({
+  claude: 'off',
+  agent: 'global-one-at-a-time',
+  codex: 'off',
+  qwen: 'off',
+  gemini: 'off',
+});
+
+/**
+ * Resolve concurrency mode for a tool with priority:
+ * 1. HIVE_MIND_QUEUE_CONFIG (links notation, `(<tool>-concurrency <mode>)`)
+ * 2. HIVE_MIND_<TOOL>_CONCURRENCY env var
+ * 3. Built-in default for the tool
+ *
+ * @param {string} tool - Tool name (claude, agent, codex, qwen, gemini)
+ * @param {string} defaultMode - Default mode if nothing else is configured
+ * @returns {string} A valid concurrency mode from CONCURRENCY_MODES
+ */
+function resolveConcurrencyMode(tool, defaultMode) {
+  const fromLino = linoConfig.concurrency && linoConfig.concurrency[tool];
+  if (fromLino && CONCURRENCY_MODES.includes(fromLino)) {
+    return fromLino;
+  }
+  const envValue = getenv(`HIVE_MIND_${tool.toUpperCase()}_CONCURRENCY`, '');
+  if (envValue && CONCURRENCY_MODES.includes(envValue)) {
+    return envValue;
+  }
+  return validateConcurrencyMode(defaultMode, 'off');
+}
 
 /**
  * Get threshold configuration with priority:
@@ -280,6 +378,16 @@ export const QUEUE_CONFIG = {
 
   // Process detection
   CLAUDE_PROCESS_NAMES: ['claude'], // Process names to detect
+
+  // Issue #1474: per-tool concurrency mode.
+  // Priority: HIVE_MIND_QUEUE_CONFIG > HIVE_MIND_<TOOL>_CONCURRENCY > default.
+  concurrency: {
+    claude: resolveConcurrencyMode('claude', CONCURRENCY_DEFAULTS.claude),
+    agent: resolveConcurrencyMode('agent', CONCURRENCY_DEFAULTS.agent),
+    codex: resolveConcurrencyMode('codex', CONCURRENCY_DEFAULTS.codex),
+    qwen: resolveConcurrencyMode('qwen', CONCURRENCY_DEFAULTS.qwen),
+    gemini: resolveConcurrencyMode('gemini', CONCURRENCY_DEFAULTS.gemini),
+  },
 };
 
 /**
@@ -345,14 +453,25 @@ export function isOneAtATimeStrategy(metric) {
   return getStrategy(metric) === 'dequeue-one-at-a-time';
 }
 
+/**
+ * Get configured concurrency mode for a tool (Issue #1474).
+ * @param {string} tool - Tool name (claude, agent, codex, qwen, gemini)
+ * @returns {string} Concurrency mode from CONCURRENCY_MODES
+ */
+export function getConcurrencyMode(tool) {
+  return QUEUE_CONFIG.concurrency[tool] || 'off';
+}
+
 export default {
   QUEUE_CONFIG,
   DISPLAY_THRESHOLDS,
   THRESHOLD_STRATEGIES,
+  CONCURRENCY_MODES,
   thresholdToPercent,
   parseQueueConfig,
   getStrategy,
   isRejectStrategy,
   isEnqueueStrategy,
   isOneAtATimeStrategy,
+  getConcurrencyMode,
 };

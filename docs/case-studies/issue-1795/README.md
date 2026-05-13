@@ -23,13 +23,14 @@
 
 ## 2. Source data captured for this case study
 
-| Path                                                   | What it is                                                                                                 |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| [`data/issue-1795.json`](./data/issue-1795.json)       | Raw GitHub issue JSON.                                                                                     |
-| [`data/triggering-log.txt`](./data/triggering-log.txt) | Full failure log linked from the issue (`solve` invocation against `Gls-full/wildberres-bidder/issues/1`). |
-| `facts.md`                                             | Distilled facts from the log and codebase.                                                                 |
-| `root-causes.md`                                       | Per-symptom root cause with file/line citations into `src/solve.fork-detection.lib.mjs`.                   |
-| `solution-plans.md`                                    | Plan adopted in PR #1796 plus alternatives considered.                                                     |
+| Path                                                                                             | What it is                                                                                                 |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| [`data/issue-1795.json`](./data/issue-1795.json)                                                 | Raw GitHub issue JSON.                                                                                     |
+| [`data/triggering-log.txt`](./data/triggering-log.txt)                                           | Full failure log linked from the issue (`solve` invocation against `Gls-full/wildberres-bidder/issues/1`). |
+| [`data/current-access-snapshot-2026-05-13.json`](./data/current-access-snapshot-2026-05-13.json) | Live re-check of the current `konard` access level after PR review feedback.                               |
+| `facts.md`                                                                                       | Distilled facts from the log and codebase.                                                                 |
+| `root-causes.md`                                                                                 | Per-symptom root cause with file/line citations into `src/solve.fork-detection.lib.mjs`.                   |
+| `solution-plans.md`                                                                              | Plan adopted in PR #1796 plus alternatives considered.                                                     |
 
 ---
 
@@ -52,6 +53,29 @@ Two facts from the log are critical:
 1. The user has `pull: true`, so they can read everything in the repository and comment on issues.
 2. The current code never checked whether forking was allowed; it short-circuited the entire workflow on the basis of `push: false` alone.
 
+## 3.1 Current access re-check (2026-05-13 08:28 UTC)
+
+After PR review feedback, the live permissions for `konard` on
+`Gls-full/wildberres-bidder` were checked again. The result is captured in
+[`data/current-access-snapshot-2026-05-13.json`](./data/current-access-snapshot-2026-05-13.json).
+
+| Check                                      | Result                                                                     | Meaning for `solve`                                                             |
+| ------------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `gh api user --jq '{login:.login,id:.id}'` | `{"login":"konard","id":1431904}`                                          | The commands are authenticated as the same account mentioned in the issue.      |
+| `gh repo view ... --json viewerPermission` | `viewerPermission: "READ"`                                                 | GitHub classifies the account's effective repository role as read-only.         |
+| `gh api repos/... --jq .permissions`       | `{"admin":false,"maintain":false,"pull":true,"push":false,"triage":false}` | The account can read the private repo but cannot push branches to the upstream. |
+| `gh api repos/... --jq .allow_forking`     | `false`                                                                    | Fork mode is currently disabled by repository or organization owner settings.   |
+
+Conclusion: the account does have repository access, but it is **read-only**.
+Hive Mind cannot use direct branch and pull request creation unless the
+maintainer grants Write/Maintain/Admin access. Hive Mind also cannot use the
+fork workflow while `allow_forking` is false. The corrected behavior is:
+
+1. If `push/admin/maintain` is true, work directly in the upstream repository.
+2. If direct push is unavailable but private forking is allowed, use fork mode.
+3. If both direct push and forking are unavailable, stop early with a concrete
+   message explaining both blockers and the maintainer actions that fix them.
+
 ---
 
 ## 4. Requirements extracted from the issue
@@ -64,6 +88,7 @@ Two facts from the log are critical:
 | R4  | Compile the case study to `./docs/case-studies/issue-1795`.                                                                                  | _"compile that data to `./docs/case-studies/issue-{id}` folder"_                                                  |
 | R5  | If data is insufficient, add debug/verbose output for the next iteration.                                                                    | _"add debug output and verbose mode if not present"_                                                              |
 | R6  | If the issue affects another repository, file a reproducible upstream report.                                                                | _"If issue related to any other repository/project … please do so."_                                              |
+| R7  | Explain the exact current access level and maintainer action needed in beginner-friendly terms.                                              | PR review comment on 2026-05-13.                                                                                  |
 
 R6 does not apply here: the bug is entirely in `hive-mind`'s own auto-fork
 detection. No external project needs an upstream report.
@@ -100,5 +125,9 @@ detection. No external project needs an upstream report.
 - GitHub Docs — "Managing the forking policy for your repository" describes
   the `allow_forking` toggle:
   <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/managing-the-forking-policy-for-your-repository>.
+- GitHub Docs — "Repository roles for an organization" documents that the
+  Read role can pull/fork/comment, while Write/Maintain/Admin can push to the
+  assigned repository:
+  <https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/managing-repository-roles/repository-roles-for-an-organization>.
 - Related case study: [`docs/case-studies/issue-1716`](../issue-1716) — the
   reverse situation (private upstream **with** write access should not fork).

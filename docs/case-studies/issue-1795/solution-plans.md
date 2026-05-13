@@ -13,8 +13,11 @@ in `handleAutoForkOption`, then enable fork mode when forking is allowed.
     and returns `true`, `false`, or `null` (indeterminate).
   - In `handleAutoForkOption`, after the `(!isPublic)` branch detects a
     private repo with no write access, call `detectAllowForking`:
-    - `false` → keep the original fatal exit with an updated message that
-      mentions `allow_forking` and a tip for the owner to enable it.
+    - `false` → keep the fatal exit, but make the message explicit: the
+      account has read-only access, direct branch mode requires
+      `push/write`, fork mode is blocked by `allow_forking: false`, and the
+      maintainer can fix it either by granting Write/Maintain/Admin access or
+      enabling private forking.
     - `true` → set `argv.fork = true` and log
       `✅ Auto-fork: Read-only access to private repository, enabling fork mode (allow_forking=true)`.
     - `null` → emit a verbose warning and fall through to the
@@ -23,7 +26,7 @@ in `handleAutoForkOption`, then enable fork mode when forking is allowed.
 
 **Files changed (tests):**
 
-- `tests/test-issue-1795-private-readonly-auto-fork.mjs` — 14 unit tests
+- `tests/test-issue-1795-private-readonly-auto-fork.mjs` — 16 unit tests
   that grep the source for the new logic plus pure-data simulations of
   every branch (private + read-only + allow_forking: `true | false | null`,
   public + read-only, write-access-on-private). All previously passing
@@ -31,14 +34,41 @@ in `handleAutoForkOption`, then enable fork mode when forking is allowed.
 
 ### Why this preserves "everything that worked previously"
 
-| Pre-fix path                                       | Post-fix behaviour                      |
-| -------------------------------------------------- | --------------------------------------- |
-| Public + no write access → `argv.fork = true`      | Unchanged.                              |
-| Public + write access → bypass auto-fork           | Unchanged.                              |
-| Private + write access → bypass auto-fork          | Unchanged.                              |
-| Private + no write access + `allow_forking: true`  | **NEW:** `argv.fork = true`.            |
-| Private + no write access + `allow_forking: false` | Fatal exit (message slightly improved). |
-| Private + cannot fetch permissions at all          | Fatal exit (unchanged).                 |
+| Pre-fix path                                       | Post-fix behaviour                                             |
+| -------------------------------------------------- | -------------------------------------------------------------- |
+| Public + no write access → `argv.fork = true`      | Unchanged.                                                     |
+| Public + write access → bypass auto-fork           | Unchanged.                                                     |
+| Private + write access → bypass auto-fork          | Unchanged.                                                     |
+| Private + no write access + `allow_forking: true`  | **NEW:** `argv.fork = true`.                                   |
+| Private + no write access + `allow_forking: false` | Fatal exit with exact access details and maintainer fix steps. |
+| Private + cannot fetch permissions at all          | Fatal exit (unchanged).                                        |
+
+### Why direct branch mode is not used for the reported live repository
+
+The PR review asked whether Hive Mind should avoid forking and create a direct
+branch/PR because the account does have some access. The 2026-05-13 live
+re-check shows:
+
+```json
+{
+  "viewerPermission": "READ",
+  "permissions": {
+    "admin": false,
+    "maintain": false,
+    "pull": true,
+    "push": false,
+    "triage": false
+  },
+  "allow_forking": false
+}
+```
+
+Direct branch mode requires `push: true` (or `maintain`/`admin`) because Hive
+Mind must create a branch and push commits to the upstream repository. Here the
+account can read/comment but cannot push. Fork mode would normally be the next
+best path, but the repository currently has `allow_forking: false`, so the
+owner must either grant Write access or enable private forking before Hive Mind
+can produce a PR for that upstream.
 
 ### Why we did not gate the fix behind a new flag
 

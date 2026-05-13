@@ -46,6 +46,15 @@ async function detectAllowForking(owner, repo) {
   return null;
 }
 
+function describeRepoPermissionLevel(permissions) {
+  if (permissions.admin === true) return 'Admin';
+  if (permissions.maintain === true) return 'Maintain';
+  if (permissions.push === true) return 'Write';
+  if (permissions.triage === true) return 'Triage';
+  if (permissions.pull === true) return 'Read';
+  return 'No confirmed repository access';
+}
+
 /**
  * Handle the --auto-fork option: when the user lacks write access, attempt
  * to enable fork mode (including for private repositories where
@@ -80,32 +89,45 @@ export async function handleAutoForkOption({ owner, repo, argv, safeExit }) {
         // proceed via their own fork.
         const allowForking = await detectAllowForking(owner, repo);
         if (allowForking === false) {
+          const permissionLevel = describeRepoPermissionLevel(permissions);
+
           await log('');
           await log("❌ --auto-fork failed: Repository is private, you don't have write access, and forking is disabled", { level: 'error' });
           await log('');
           await log('   🔍 What happened:', { level: 'error' });
           await log(`      Repository ${owner}/${repo} is private`, { level: 'error' });
-          await log("      You don't have write access to this repository", { level: 'error' });
-          await log("      The repository owner has disabled forking ('allow_forking' is false)", { level: 'error' });
-          await log('      --auto-fork cannot create a fork of this repository', { level: 'error' });
+          await log(`      Your detected GitHub repository access level is ${permissionLevel}`, { level: 'error' });
+          await log(`      API permissions: ${JSON.stringify(permissions)}`, { level: 'error' });
+          await log('      Direct branch mode requires push/write access, but permissions.push is false', { level: 'error' });
+          await log("      Fork mode is also unavailable because the repository owner disabled private forking ('allow_forking' is false)", {
+            level: 'error',
+          });
           await log('');
           await log('   💡 Solution:', { level: 'error' });
-          await log('      • Request collaborator access from the repository owner', { level: 'error' });
-          await log(`        https://github.com/${owner}/${repo}/settings/access`, { level: 'error' });
-          await log('      • Or ask the owner to enable forking in repository Settings → General', { level: 'error' });
+          await log('      • To let Hive Mind work directly in this repository:', { level: 'error' });
+          await log(`        Ask an owner/admin to open https://github.com/${owner}/${repo}/settings/access`, { level: 'error' });
+          await log('        Then add this GitHub account or its team with the Write role (Maintain/Admin also works)', { level: 'error' });
+          await log('      • To let Hive Mind work through a fork instead:', { level: 'error' });
+          await log(`        Ask an owner/admin to open https://github.com/${owner}/${repo}/settings`, { level: 'error' });
+          await log('        Then enable Settings -> General -> Features -> Allow forking', { level: 'error' });
+          await log('        For organization-owned private repositories, the organization must also allow private repository forks', {
+            level: 'error',
+          });
           await log('');
           await safeExit(1, 'Auto-fork failed - private repository without access and forking is disabled');
           return;
         }
 
-        if (allowForking === null && argv.verbose) {
-          await log("   ⚠️  Could not determine 'allow_forking' for the private repository; attempting fork anyway", {
+        if (allowForking === true) {
+          await log('✅ Auto-fork: Read-only access to private repository, enabling fork mode (allow_forking=true)');
+        } else {
+          await log("✅ Auto-fork: Read-only access to private repository, attempting fork mode (allow_forking couldn't be confirmed)");
+          await log("   ⚠️  Could not determine 'allow_forking' for the private repository; letting gh repo fork report the exact result", {
             verbose: true,
             level: 'warning',
           });
         }
 
-        await log('✅ Auto-fork: Read-only access to private repository, enabling fork mode (allow_forking=true)');
         argv.fork = true;
         return;
       }

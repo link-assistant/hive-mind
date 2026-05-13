@@ -50,6 +50,28 @@ The branch confuses two distinct conditions:
 The pre-fix code conflated (1) and (2), so any private repo where the user
 had read-only access was treated as if the repo were inaccessible.
 
+## Current live state for `Gls-full/wildberres-bidder`
+
+The 2026-05-13 re-check confirms the issue reporter's intuition: the account
+does have access, but not the kind of access needed for every GitHub action.
+
+- `viewerPermission: "READ"` and `permissions.pull: true` mean the account can
+  read the private repository and participate in issue discussion.
+- `permissions.push: false` means Hive Mind cannot create a direct branch in
+  `Gls-full/wildberres-bidder`; GitHub requires Write/Maintain/Admin-level
+  repository access for direct pushes.
+- `allow_forking: false` means the fallback fork workflow is also blocked by
+  repository or organization owner settings.
+
+So, in the current live repository state, Hive Mind cannot choose direct branch
+mode and cannot choose fork mode. The correct product behavior is not to claim
+"no access"; it is to explain that the access is read-only and name the two
+owner-side fixes:
+
+1. grant the account/team the Write role (or Maintain/Admin) so direct branch
+   and pull request creation can be used, or
+2. enable private repository forking so Hive Mind can work through a fork.
+
 ## Contributing factors
 
 - **`auto-fork` defaults to `true`.** `src/solve.config.lib.mjs:93` sets

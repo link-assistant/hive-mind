@@ -14,6 +14,21 @@
 | Post-failure path still ran            | Token sanitization, code-block escaping, and a tracked comment to issue #1 (lines 76–91).                            |
 | Comment was actually posted to GitHub  | API response shows `comment id=4435534043` and `author_association: MEMBER` (line 91).                               |
 
+## Current live access re-check (2026-05-13 08:28 UTC)
+
+| Fact                                      | Evidence                                                                                                                               |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Authenticated account                     | `gh api user` returned `{"login":"konard","id":1431904}`.                                                                              |
+| Effective repository role                 | `gh repo view Gls-full/wildberres-bidder --json viewerPermission` returned `viewerPermission: "READ"`.                                 |
+| Repository is still private               | REST repo response returned `private: true`, `visibility: "private"`.                                                                  |
+| Account still cannot push upstream branch | REST permissions returned `{"admin":false,"maintain":false,"pull":true,"push":false,"triage":false}`.                                  |
+| Repository forking is currently disabled  | REST repo response returned `allow_forking: false`.                                                                                    |
+| Direct collaborator role endpoint         | `gh api repos/Gls-full/wildberres-bidder/collaborators/konard/permission` returned HTTP 404 for this token.                            |
+| Practical conclusion                      | `konard` can read/comment, cannot push direct branches, and cannot currently fork because repository/organization settings disable it. |
+
+The raw snapshot is stored in
+[`data/current-access-snapshot-2026-05-13.json`](./data/current-access-snapshot-2026-05-13.json).
+
 ## From `src/solve.fork-detection.lib.mjs` (pre-fix)
 
 | Fact                                                                          | Citation                                                           |

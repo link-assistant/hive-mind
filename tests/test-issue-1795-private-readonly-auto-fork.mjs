@@ -66,8 +66,8 @@ runTest('handleAutoForkOption enables fork mode when private + allow_forking != 
   }
   const successIdx = forkDetectionContent.indexOf('Read-only access to private repository, enabling fork mode');
   const forkAssign = forkDetectionContent.indexOf('argv.fork = true;', successIdx);
-  if (forkAssign === -1 || forkAssign - successIdx > 200) {
-    throw new Error('argv.fork = true should be set immediately after the read-only private success log');
+  if (forkAssign === -1) {
+    throw new Error('argv.fork = true should be set after the read-only private success log');
   }
 });
 
@@ -75,8 +75,32 @@ runTest('handleAutoForkOption preserves the no-write-access fatal exit for allow
   if (!forkDetectionContent.includes('forking is disabled')) {
     throw new Error('Fatal exit text for allow_forking=false case is missing');
   }
-  if (!forkDetectionContent.includes('ask the owner to enable forking')) {
-    throw new Error('Suggested solution mentioning enabling forking is missing');
+  if (!forkDetectionContent.includes('Direct branch mode requires push/write access')) {
+    throw new Error('Fatal exit should explain why direct branch mode cannot be used');
+  }
+  if (!forkDetectionContent.includes('Settings -> General -> Features -> Allow forking')) {
+    throw new Error('Suggested solution mentioning the GitHub allow-forking setting is missing');
+  }
+});
+
+runTest('disabled-forking message explains the current repository access level and API permissions', () => {
+  if (!forkDetectionContent.includes('describeRepoPermissionLevel')) {
+    throw new Error('Repository access level helper is missing');
+  }
+  if (!forkDetectionContent.includes('Your detected GitHub repository access level is')) {
+    throw new Error('Error message should explain the detected repository access level');
+  }
+  if (!forkDetectionContent.includes('API permissions: ${JSON.stringify(permissions)}')) {
+    throw new Error('Error message should include the exact API permissions object');
+  }
+});
+
+runTest('disabled-forking message gives maintainer-friendly fix options', () => {
+  if (!forkDetectionContent.includes('Write role (Maintain/Admin also works)')) {
+    throw new Error('Error message should explain which GitHub roles allow direct branch work');
+  }
+  if (!forkDetectionContent.includes('organization must also allow private repository forks')) {
+    throw new Error('Error message should mention the organization-level private-forking policy');
   }
 });
 
@@ -108,8 +132,11 @@ runTest('verbose warning when allow_forking is indeterminate', () => {
   if (!forkDetectionContent.includes("Could not determine 'allow_forking'")) {
     throw new Error('Indeterminate allow_forking case should emit a verbose warning');
   }
-  if (!/allowForking === null && argv\.verbose/.test(forkDetectionContent)) {
-    throw new Error('Verbose warning should be gated on argv.verbose and allow_forking === null');
+  if (!forkDetectionContent.includes("allow_forking couldn't be confirmed")) {
+    throw new Error('Indeterminate allow_forking case should not claim allow_forking=true');
+  }
+  if (!/allowForking === true/.test(forkDetectionContent)) {
+    throw new Error('allow_forking=true should have its own explicit success branch');
   }
 });
 

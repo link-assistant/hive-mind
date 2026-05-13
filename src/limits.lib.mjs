@@ -1271,17 +1271,20 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
  * Values are loaded from config.lib.mjs which supports environment variable overrides.
  *
  * IMPORTANT: The Claude Usage API has stricter rate limiting than regular APIs.
- * Calling it more frequently than every 20 minutes may result in null values being returned.
+ * Calling it too frequently may return null values or a 429 "Resets in Xm Xs" error.
+ * Default raised from 10 → 13 minutes in issue #1798 (the previous 10-minute TTL still
+ * occasionally tripped a ~3-minute rate-limit window).
  * See: https://github.com/link-assistant/hive-mind/issues/1074
+ * See: https://github.com/link-assistant/hive-mind/issues/1798
  *
  * Configurable via environment variables:
  * - HIVE_MIND_API_CACHE_TTL_MS: General API cache TTL (default: 180000 = 3 minutes)
- * - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 1200000 = 20 minutes)
+ * - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 780000 = 13 minutes)
  * - HIVE_MIND_SYSTEM_CACHE_TTL_MS: System metrics cache TTL (default: 120000 = 2 minutes)
  */
 export const CACHE_TTL = {
   API: cacheTtl.api, // 3 minutes for regular API calls (GitHub)
-  USAGE_API: cacheTtl.usageApi, // 20 minutes for Claude Usage API (rate limited)
+  USAGE_API: cacheTtl.usageApi, // 13 minutes for Claude Usage API (rate limited)
   SYSTEM: cacheTtl.system, // 2 minutes for system metrics (RAM, CPU, disk)
 };
 
@@ -1345,9 +1348,10 @@ export function resetLimitCache() {
 
 export async function getCachedClaudeLimits(verbose = false) {
   const cache = getLimitCache();
-  // Use USAGE_API TTL (20 minutes) for Claude limits to avoid rate limiting
-  // The Claude Usage API returns null values when called too frequently
+  // Use USAGE_API TTL (13 min by default, see issue #1798) for Claude limits to avoid rate limiting.
+  // The Claude Usage API returns null values or 429 errors when called too frequently.
   // See: https://github.com/link-assistant/hive-mind/issues/1074
+  // See: https://github.com/link-assistant/hive-mind/issues/1798
   const cached = cache.get('claude', CACHE_TTL.USAGE_API);
   if (cached) {
     if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude limits (TTL: ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes)');
@@ -1365,8 +1369,9 @@ export async function getCachedClaudeLimits(verbose = false) {
     cache.set('claude', result, CACHE_TTL.USAGE_API);
   } else if (result.error && result.error.includes('Rate limited')) {
     // Cache rate-limit errors to prevent hammering the API
-    // Use the same 20-minute TTL as successful responses
+    // Use the same USAGE_API TTL (13 min by default) as successful responses
     // See: https://github.com/link-assistant/hive-mind/issues/1446
+    // See: https://github.com/link-assistant/hive-mind/issues/1798
     cache.set('claude-rate-limited', result, CACHE_TTL.USAGE_API);
     if (verbose) console.log('[VERBOSE] /limits-cache: Cached rate-limit error for ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes');
   }

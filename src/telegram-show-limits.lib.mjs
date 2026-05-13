@@ -5,8 +5,8 @@
  * the args before they are forwarded to /solve, /hive (or /task --split). When
  * set, the bot:
  *   1. Fetches usage limits for the selected tool (Claude or Codex) using the
- *      shared cached helpers in limits.lib.mjs (TTL: 20 minutes for the usage
- *      API to avoid rate limiting).
+ *      shared cached helpers in limits.lib.mjs (USAGE_API TTL: 13 minutes by
+ *      default — see issue #1798 — to avoid rate limiting).
  *   2. Embeds a compact "Limits at start" snapshot below the infoBlock so the
  *      starting/executing message shows the user how much budget they had at
  *      the moment the command was queued.

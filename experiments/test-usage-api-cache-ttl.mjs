@@ -3,10 +3,11 @@
  * Test script for Usage API Cache TTL configuration
  *
  * This test verifies that the Claude Usage API cache TTL is properly configured
- * to 20 minutes (or the configured value via HIVE_MIND_USAGE_API_CACHE_TTL_MS)
- * to avoid rate limiting issues that cause null values.
+ * (default 13 minutes, raised from 10 in issue #1798) to avoid the
+ * "Resets in 3m Xs" rate-limit response that users still hit with the old TTL.
  *
  * See: https://github.com/link-assistant/hive-mind/issues/1074
+ * See: https://github.com/link-assistant/hive-mind/issues/1798
  */
 
 import { CACHE_TTL, getCachedClaudeLimits, getLimitCache, resetLimitCache } from '../src/limits.lib.mjs';
@@ -22,17 +23,19 @@ async function main() {
   console.log('=== Testing Usage API Cache TTL Configuration ===\n');
   console.log('Issue: https://github.com/link-assistant/hive-mind/issues/1074\n');
 
-  // Test 1: Verify CACHE_TTL.USAGE_API is at least 20 minutes
-  console.log('Test 1: Verify CACHE_TTL.USAGE_API is at least 20 minutes...\n');
+  // Test 1: Verify CACHE_TTL.USAGE_API is at least 13 minutes (issue #1798)
+  // The "Resets in 3m Xs" rate-limit window observed in issue #1798 means the
+  // cache TTL must exceed that window (10 min was not enough), so default is 13 min.
+  console.log('Test 1: Verify CACHE_TTL.USAGE_API is at least 13 minutes (issue #1798)...\n');
 
-  const minTtl = 20 * 60 * 1000; // 20 minutes in ms
+  const minTtl = 13 * 60 * 1000; // 13 minutes in ms (raised from 10 min in #1798)
   const usageApiTtl = CACHE_TTL.USAGE_API;
 
   console.log(`  CACHE_TTL.USAGE_API: ${formatMs(usageApiTtl)} (${usageApiTtl} ms)`);
   console.log(`  Minimum required:    ${formatMs(minTtl)} (${minTtl} ms)`);
 
   if (usageApiTtl >= minTtl) {
-    console.log('  ✅ PASS: Usage API TTL meets 20-minute minimum requirement\n');
+    console.log('  ✅ PASS: Usage API TTL meets 13-minute minimum requirement\n');
   } else {
     console.log('  ❌ FAIL: Usage API TTL is too low, may cause rate limiting\n');
     process.exitCode = 1;
@@ -126,7 +129,7 @@ async function main() {
   console.log('');
   console.log('Environment Variables:');
   console.log('  - HIVE_MIND_API_CACHE_TTL_MS:       General API cache TTL');
-  console.log('  - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 20 min)');
+  console.log('  - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 13 min, see #1798)');
   console.log('  - HIVE_MIND_SYSTEM_CACHE_TTL_MS:    System metrics cache TTL');
   console.log('');
 

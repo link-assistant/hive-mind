@@ -534,6 +534,19 @@ test('CACHE_TTL has all required values', () => {
   assert.ok(CACHE_TTL.SYSTEM !== undefined, 'CACHE_TTL.SYSTEM should be defined');
 });
 
+// The Claude Usage API returns a "Resets in 3m Xs" rate-limit error when called
+// too frequently, so the default cache TTL must exceed that ~3-minute window
+// with a comfortable safety margin. Issue #1798 raised the default from 10 → 13 min.
+// See: https://github.com/link-assistant/hive-mind/issues/1798
+test('CACHE_TTL.USAGE_API default is at least 13 minutes (issue #1798)', () => {
+  const thirteenMinutes = 13 * 60 * 1000;
+  assert.ok(CACHE_TTL.USAGE_API >= thirteenMinutes, `CACHE_TTL.USAGE_API (${CACHE_TTL.USAGE_API} ms) should be at least 13 minutes (${thirteenMinutes} ms) per issue #1798`);
+});
+
+test('CACHE_TTL.USAGE_API is longer than CACHE_TTL.API (rate-limit headroom)', () => {
+  assert.ok(CACHE_TTL.USAGE_API > CACHE_TTL.API, `CACHE_TTL.USAGE_API (${CACHE_TTL.USAGE_API} ms) must exceed CACHE_TTL.API (${CACHE_TTL.API} ms) — Usage API is rate-limited more strictly`);
+});
+
 // ============================================================================
 // Queue Item State Transitions Tests
 // ============================================================================

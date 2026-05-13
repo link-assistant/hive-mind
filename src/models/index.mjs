@@ -209,6 +209,30 @@ export const freeToBaseModelMap = {
   'trinity-large-preview-free': 'trinity-large-preview',
 };
 
+// Issue #1474: classify whether an agent model is a free variant that needs
+// per-model concurrency gating. Accepts either a short alias (e.g.
+// 'minimax-m2.5-free') or a fully-mapped id (e.g. 'opencode/minimax-m2.5-free',
+// 'kilo/glm-5-free'). Lifted from agent.lib.mjs::getBaseModelForPricing so the
+// queue can call it without importing the agent runner.
+export const isFreeAgentModel = model => {
+  if (!model || typeof model !== 'string') return false;
+  const tail = model.includes('/') ? model.split('/').pop() : model;
+  if (!tail) return false;
+  if (freeToBaseModelMap[tail]) return true;
+  return tail.endsWith('-free');
+};
+
+// Issue #1474: normalize an agent model alias to a stable key for per-model
+// concurrency tracking. We use the fully-mapped id when available so that
+// `minimax-m2.5-free` and `opencode/minimax-m2.5-free` share a slot (they hit
+// the same provider rate limit), while `kilo/minimax-m2.5-free` (different
+// provider) gets its own slot.
+export const normalizeAgentModelKey = model => {
+  if (!model || typeof model !== 'string') return '';
+  const mapped = agentModels[model];
+  return mapped || model;
+};
+
 // ─── VALIDATION-EXTENDED MODEL MAPS ──────────────────────────────────────────
 // These extend the base maps with full model ID identity entries for validation
 // (e.g., 'claude-sonnet-4-5-20250929' → 'claude-sonnet-4-5-20250929')

@@ -49,11 +49,30 @@ export function buildTelegramFormattingFallbackText(text, options = {}) {
   return `${getFormattingFallbackWarning(locale)}\n\n${stripTelegramMarkdown(text)}`;
 }
 
-function logFormattingFailure(scope, error, text, verbose = false) {
+function logFormattingFailure(scope, error, text, verbose = false, fallbackText = null) {
   const message = error?.description || error?.message || String(error || '');
   console.error(`[telegram-bot] ${scope}: formatted Telegram message failed: ${message}`);
   if (verbose) {
-    console.error(`[telegram-bot] ${scope}: Failing message (${Buffer.byteLength(String(text ?? ''), 'utf-8')} bytes): ${text}`);
+    const originalBytes = Buffer.byteLength(String(text ?? ''), 'utf-8');
+    console.error(`[telegram-bot] ${scope}: Failing message (${originalBytes} bytes): ${text}`);
+    // Issue #1801: when the parser rejects an entity, surface the byte offset
+    //   from the error along with a small window of the message around it to
+    //   make pinpointing the offending character trivial on the next iteration.
+    const offsetMatch = /byte offset (\d+)/i.exec(message);
+    if (offsetMatch) {
+      const offset = Number(offsetMatch[1]);
+      const buf = Buffer.from(String(text ?? ''), 'utf-8');
+      const start = Math.max(0, offset - 32);
+      const end = Math.min(buf.length, offset + 32);
+      // Decode the window; replacement character is used for bytes that fall
+      // mid-codepoint so we still print *something* useful.
+      const window = buf.slice(start, end).toString('utf-8');
+      console.error(`[telegram-bot] ${scope}: Byte offset ${offset} context [${start}..${end}]: ${JSON.stringify(window)}`);
+    }
+    if (fallbackText !== null) {
+      const fallbackBytes = Buffer.byteLength(String(fallbackText ?? ''), 'utf-8');
+      console.error(`[telegram-bot] ${scope}: Fallback message (${fallbackBytes} bytes): ${fallbackText}`);
+    }
   }
 }
 
@@ -65,8 +84,8 @@ export async function safeReply(ctx, text, options = {}) {
     return await ctx.reply(text, firstOptions);
   } catch (error) {
     if (!isTelegramFormattingError(error)) throw error;
-    logFormattingFailure('safeReply', error, text, verbose);
     const fallbackText = buildTelegramFormattingFallbackText(text, { fallbackLocale });
+    logFormattingFailure('safeReply', error, text, verbose, fallbackText);
     return await ctx.reply(fallbackText, { ...telegramOptions, parse_mode: undefined });
   }
 }
@@ -78,8 +97,8 @@ export async function safeEditMessageText(telegram, chatId, messageId, inlineMes
     return await telegram.editMessageText(chatId, messageId, inlineMessageId, text, firstOptions);
   } catch (error) {
     if (!isTelegramFormattingError(error)) throw error;
-    logFormattingFailure('safeEditMessageText', error, text, verbose);
     const fallbackText = buildTelegramFormattingFallbackText(text, { fallbackLocale });
+    logFormattingFailure('safeEditMessageText', error, text, verbose, fallbackText);
     return await telegram.editMessageText(chatId, messageId, inlineMessageId, fallbackText, { ...telegramOptions, parse_mode: undefined });
   }
 }
@@ -98,9 +117,10 @@ function wrapTelegramMethod(telegram, methodName, textIndex, optionsIndex, defau
       return await original.apply(this, args);
     } catch (error) {
       if (!isTelegramFormattingError(error) || typeof text !== 'string') throw error;
-      logFormattingFailure(methodName, error, text, verbose || defaults.verbose);
+      const fallbackText = buildTelegramFormattingFallbackText(text, { fallbackLocale: fallbackLocale || defaults.fallbackLocale });
+      logFormattingFailure(methodName, error, text, verbose || defaults.verbose, fallbackText);
       const retryArgs = [...args];
-      retryArgs[textIndex] = buildTelegramFormattingFallbackText(text, { fallbackLocale: fallbackLocale || defaults.fallbackLocale });
+      retryArgs[textIndex] = fallbackText;
       retryArgs[optionsIndex] = { ...telegramOptions, parse_mode: undefined };
       return await original.apply(this, retryArgs);
     }

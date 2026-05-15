@@ -478,9 +478,12 @@ test('MergeQueueProcessor formatFinalMessage does not show reasons for merged it
   const message = processor.formatFinalMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
-  // For merged items, there should be no reason appended
-  // Line should just be: ✅ \#200
-  assert.ok(!message.includes('\\#200:'), 'Should not have colon after PR number for merged items (no reason)');
+  // Issue #1805: the Results section now renders the PR title alongside the
+  // number (so the line is `✅ \#200: Merged PR` or, when a URL is known,
+  // `✅ [\#200: Merged PR](url)`). The line must still NOT carry the
+  // legacy `: <error>` suffix for successful merges.
+  assert.ok(message.includes('\\#200'), 'Should include the PR number');
+  assert.ok(!message.includes('CI checks failed'), 'No failure-reason text should leak in for merged items');
 });
 
 test('MergeQueueProcessor formatFinalMessage escapes special chars in skip reasons', () => {

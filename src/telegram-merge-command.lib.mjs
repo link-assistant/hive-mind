@@ -20,6 +20,7 @@
 
 import { parseRepositoryUrl, checkLabelPermissions, ensureReadyLabel } from './github-merge.lib.mjs';
 import { createMergeQueueProcessor, MergeStatus, MERGE_QUEUE_CONFIG } from './telegram-merge-queue.lib.mjs';
+import { executeStartScreen } from './telegram-command-execution.lib.mjs';
 
 /**
  * Active merge operations map (repoKey -> { processor, chatId, messageId })
@@ -88,6 +89,77 @@ function parseCommandArgs(text) {
   }
 
   return args;
+}
+
+/**
+ * Issue #1805: Parse boolean flags out of the tokenised `/merge` args.
+ * Supports `--flag`, `--flag=true`, `--flag=false`, `--no-flag` and the
+ * trailing positional repository URL. We keep the original positional order
+ * so callers can still treat `positionals[0]` as the repo URL.
+ *
+ * @param {string[]} args - The output of `parseCommandArgs(text)`.
+ * @returns {{ positionals: string[], flags: Record<string, boolean> }}
+ */
+export function parseMergeArgs(args) {
+  const flags = {};
+  const positionals = [];
+  for (const arg of args) {
+    if (typeof arg !== 'string') continue;
+    if (arg.startsWith('--')) {
+      const body = arg.slice(2);
+      if (!body) continue;
+      // --no-foo => foo=false
+      if (body.startsWith('no-')) {
+        const key = body.slice(3);
+        if (key) flags[key] = false;
+        continue;
+      }
+      const eqIdx = body.indexOf('=');
+      if (eqIdx === -1) {
+        flags[body] = true;
+      } else {
+        const key = body.slice(0, eqIdx);
+        const value = body.slice(eqIdx + 1).toLowerCase();
+        flags[key] = !(value === 'false' || value === '0' || value === 'no' || value === 'off');
+      }
+    } else {
+      positionals.push(arg);
+    }
+  }
+  return { positionals, flags };
+}
+
+/**
+ * Issue #1805: Spawner used by the merge queue's auto-resolve pass. For each
+ * skipped PR we dispatch a `solve <pr-url> --auto-merge` session through
+ * the same `start-screen` runtime the bot uses everywhere else. Keeping this
+ * in one place means the per-PR sessions behave exactly like any other
+ * `/solve` invocation (same logs, same /watch, same isolation backend).
+ *
+ * @param {Object} target - Info for the conflicted PR.
+ * @param {string} target.url - PR HTML URL passed to `solve`.
+ * @param {boolean} verbose - Forwarded to the underlying spawn.
+ * @returns {Promise<{ success: boolean, sessionName: string|null, error: string|null, warning: string|null }>}
+ */
+async function spawnAutoResolveSolve(target, verbose) {
+  if (!target || !target.url) {
+    return { success: false, sessionName: null, error: 'missing PR URL', warning: null };
+  }
+  const args = [target.url, '--auto-merge'];
+  try {
+    const result = await executeStartScreen('solve', args, { verbose });
+    if (result.warning) {
+      return { success: false, sessionName: null, error: null, warning: result.warning };
+    }
+    if (!result.success) {
+      return { success: false, sessionName: null, error: result.error || 'spawn failed', warning: null };
+    }
+    const match = result.output && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
+    const sessionName = match ? match[1] : null;
+    return { success: true, sessionName, error: null, warning: null };
+  } catch (error) {
+    return { success: false, sessionName: null, error: error.message || String(error), warning: null };
+  }
 }
 
 /**
@@ -175,13 +247,17 @@ export function registerMergeCommand(bot, options) {
 
     // Parse arguments
     const args = parseCommandArgs(ctx.message.text);
+    // Issue #1805: split positional args from `--auto-resolve` style flags so
+    // the repository URL parsing still sees only the URL token.
+    const { positionals, flags } = parseMergeArgs(args);
+    const autoResolve = flags['auto-resolve'] === true;
 
-    if (args.length === 0) {
-      return await ctx.reply("Missing repository URL\\.\n\nUsage: `/merge <repository-url>`\n\nExample: `/merge https://github.com/owner/repo`\n\nThis will merge all PRs with the 'ready' label, one by one, waiting for CI/CD between each merge\\.", { parse_mode: 'MarkdownV2', reply_to_message_id: ctx.message.message_id });
+    if (positionals.length === 0) {
+      return await ctx.reply("Missing repository URL\\.\n\nUsage: `/merge <repository-url> [--auto-resolve]`\n\nExample: `/merge https://github.com/owner/repo`\n\nThis will merge all PRs with the 'ready' label, one by one, waiting for CI/CD between each merge\\.\n\nWith `--auto-resolve` the bot also dispatches `/solve <pr> --auto-merge` for every PR that was skipped because of merge conflicts\\.", { parse_mode: 'MarkdownV2', reply_to_message_id: ctx.message.message_id });
     }
 
     // Parse and validate repository URL
-    const repoUrl = args[0];
+    const repoUrl = positionals[0];
     const parsedUrl = parseRepositoryUrl(repoUrl);
 
     if (!parsedUrl.valid) {
@@ -234,6 +310,11 @@ export function registerMergeCommand(bot, options) {
       // Create the merge queue processor
       const processor = await createMergeQueueProcessor(owner, repo, {
         verbose: VERBOSE,
+        // Issue #1805: forward the --auto-resolve flag and inject the spawner.
+        // The processor only sees the callback, so unit tests can stub it
+        // without spawning real screen sessions.
+        autoResolve,
+        spawnSolveSession: autoResolve ? target => spawnAutoResolveSolve(target, VERBOSE) : null,
         onProgress: async () => {
           // Update message with progress and cancel button
           try {

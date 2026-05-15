@@ -818,12 +818,12 @@ Thank you!`;
     await log(`\n${formatAligned('🍴', 'Fork mode:', 'DETECTED from PR')}`);
     await log(`${formatAligned('', 'Fork owner:', forkOwner)}`);
 
-    // Use actual head repo name from PR data (headRepository.name) if available, otherwise guess from base repo name
+    // Issue #1803: prefix flag controls fork CREATION; for lookup, trust forkRepoName from PR head data.
     const headRepoName = forkRepoName || repo;
     const standardForkName = `${forkOwner}/${headRepoName}`;
     const prefixedForkName = `${forkOwner}/${owner}-${headRepoName}`;
-    const expectedForkName = argv.prefixForkNameWithOwnerName ? prefixedForkName : standardForkName;
-    const alternateForkName = argv.prefixForkNameWithOwnerName ? standardForkName : prefixedForkName;
+    const expectedForkName = forkRepoName ? `${forkOwner}/${forkRepoName}` : argv.prefixForkNameWithOwnerName ? prefixedForkName : standardForkName;
+    const alternateForkName = forkRepoName ? null : argv.prefixForkNameWithOwnerName ? standardForkName : prefixedForkName;
 
     await log(`${formatAligned('✅', 'Using fork:', expectedForkName)}\n`);
 
@@ -832,9 +832,9 @@ Thank you!`;
     let forkCheckResult = await $`gh repo view ${expectedForkName} --json name 2>/dev/null`;
     let actualForkName = expectedForkName;
 
-    if (forkCheckResult.code !== 0 && !argv.prefixForkNameWithOwnerName) {
-      // Only try alternate name if NOT using --prefix-fork-name-with-owner-name
-      // When the option is enabled, we should only use the prefixed fork name
+    if (forkCheckResult.code !== 0 && alternateForkName && !argv.prefixForkNameWithOwnerName) {
+      // Only try alternate name if --prefix-fork-name-with-owner-name is off AND we're guessing
+      // (forkRepoName authoritative → alternateForkName is null and no fallback is attempted).
       forkCheckResult = await $`gh repo view ${alternateForkName} --json name 2>/dev/null`;
       if (forkCheckResult.code === 0) {
         actualForkName = alternateForkName;

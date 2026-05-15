@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.69.17
+
+### Patch Changes
+
+- 46422f1: Increase the default `HIVE_MIND_USAGE_API_CACHE_TTL_MS` from 10 → 13 minutes so the Claude Usage API (`/api/oauth/usage`) is queried less frequently and we stop tripping the upstream "Resets in 3m Xs" rate-limit message. Operators can still override the value via the environment variable. Resolves #1798.
+
 ## 1.69.16
 
 ### Patch Changes

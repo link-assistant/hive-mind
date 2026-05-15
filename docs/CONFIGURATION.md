@@ -97,13 +97,13 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 
 These settings control how long API responses are cached before making a new request.
 
-| Environment Variable               | Default | Description                                                                                                                                                       |
-| ---------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_API_CACHE_TTL_MS`       | 180000  | General API cache TTL in ms (3 minutes). Used for GitHub API.                                                                                                     |
-| `HIVE_MIND_USAGE_API_CACHE_TTL_MS` | 600000  | Claude Usage API cache TTL in ms (10 minutes). **Important:** The Claude Usage API has stricter rate limiting. Calling it more frequently may return null values. |
-| `HIVE_MIND_SYSTEM_CACHE_TTL_MS`    | 120000  | System metrics cache TTL in ms (2 minutes). Used for RAM, CPU, and disk space.                                                                                    |
+| Environment Variable               | Default | Description                                                                                                                                                                                        |
+| ---------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_API_CACHE_TTL_MS`       | 180000  | General API cache TTL in ms (3 minutes). Used for GitHub API.                                                                                                                                      |
+| `HIVE_MIND_USAGE_API_CACHE_TTL_MS` | 780000  | Claude Usage API cache TTL in ms (13 minutes). **Important:** The Claude Usage API has stricter rate limiting. Calling it more frequently may return null values or a 429 "Resets in Xm Xs" error. |
+| `HIVE_MIND_SYSTEM_CACHE_TTL_MS`    | 120000  | System metrics cache TTL in ms (2 minutes). Used for RAM, CPU, and disk space.                                                                                                                     |
 
-**Note:** The Claude Usage API (`/api/oauth/usage`) is rate-limited more strictly than other APIs. If you experience `null` values in the `/limits` command output, the API call frequency may be too high. The default 10-minute TTL is designed to avoid this issue. See [Issue #1074](https://github.com/link-assistant/hive-mind/issues/1074) for details.
+**Note:** The Claude Usage API (`/api/oauth/usage`) is rate-limited more strictly than other APIs. If you experience `null` values or `Resets in 3m Xs` errors in the `/limits` command output, the API call frequency is too high. The default 13-minute TTL was raised from 10 minutes in [issue #1798](https://github.com/link-assistant/hive-mind/issues/1798) to add a 3-minute safety margin above the observed rate-limit window. See [Issue #1074](https://github.com/link-assistant/hive-mind/issues/1074) for the original investigation.
 
 ### 5.2. Claude Code CLI Configurations
 

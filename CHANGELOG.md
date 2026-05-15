@@ -1,5 +1,21 @@
 # @link-assistant/hive-mind
 
+## 1.69.18
+
+### Patch Changes
+
+- 9aa5659: Fix `--auto-fork` mode failing when continuing an existing fork PR whose
+  fork name already contained the upstream-owner prefix. `setupRepository`
+  in `solve.repository.lib.mjs` was applying the
+  `--prefix-fork-name-with-owner-name` option to `forkRepoName` (which is
+  the authoritative head repo name from the PR's `headRepository.name`),
+  producing a doubled prefix like
+  `konard/labtgbot-labtgbot-telegram-claude-agent` and a 404 lookup. The
+  prefix option now only controls fork _creation_, not fork _lookup_:
+  when `forkRepoName` is present, the expected fork is
+  `${forkOwner}/${forkRepoName}` and no alternate-name fallback is
+  attempted. Resolves #1803.
+
 ## 1.69.17
 
 ### Patch Changes

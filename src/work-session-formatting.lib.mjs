@@ -1,4 +1,5 @@
 import { t } from './i18n.lib.mjs';
+import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 
 const FAILURE_STATUSES = new Set(['failed', 'cancelled', 'canceled', 'error']);
 
@@ -74,7 +75,7 @@ export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', iso
  */
 export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null } = {}) {
   if (!pullRequestUrl || !infoBlock) return infoBlock || '';
-  if (infoBlock.includes(pullRequestUrl)) return infoBlock;
+  if (infoBlock.includes(pullRequestUrl) || infoBlock.includes(escapeMarkdown(pullRequestUrl))) return infoBlock;
 
   const lines = infoBlock.split('\n');
   let lastUrlLineIdx = -1;
@@ -89,7 +90,10 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
       lastUrlLineIdx = i;
     }
   }
-  const prLine = `${text(locale, 'telegram.info_pull_request_label', 'Pull request')}: ${pullRequestUrl}`;
+  // Issue #1801: escape underscores/asterisks so Markdown parser doesn't open
+  //   an entity on URLs like .../save_visiogetbb/pull/8 that the Issue: line
+  //   above already had escaped at buildTelegramInfoBlock time.
+  const prLine = `${text(locale, 'telegram.info_pull_request_label', 'Pull request')}: ${escapeMarkdown(pullRequestUrl)}`;
   if (lastUrlLineIdx === -1) {
     return `${infoBlock}\n${prLine}`;
   }

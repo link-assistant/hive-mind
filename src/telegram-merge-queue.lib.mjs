@@ -44,7 +44,23 @@ export const MergeItemStatus = {
   MERGED: 'merged',
   FAILED: 'failed',
   SKIPPED: 'skipped',
+  // Issue #1805: states reached during the post-queue `--auto-resolve` pass.
+  // RESOLVING is set while a `/solve <pr> --auto-merge` session is being
+  // spawned for a previously-skipped PR; RESOLVE_FAILED records that the
+  // spawn (or the resolution itself) didn't succeed.
+  RESOLVING: 'resolving',
+  RESOLVE_FAILED: 'resolve_failed',
 };
+
+/**
+ * Marker that identifies SKIPPED items that the auto-resolve pass should
+ * pick up. The same string is returned by `checkPRMergeable()` for
+ * `mergeStateStatus === 'DIRTY'` (see github-merge.lib.mjs), so matching
+ * on it keeps the two modules in sync without sharing extra state.
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/1805
+ */
+export const MERGE_CONFLICT_SKIP_REASON = 'PR has merge conflicts';
 
 /**
  * Configuration for merge queue operations
@@ -134,6 +150,11 @@ class MergeQueueItem {
         return '❌';
       case MergeItemStatus.SKIPPED:
         return '⏭️';
+      // Issue #1805: auto-resolve pass states.
+      case MergeItemStatus.RESOLVING:
+        return '🛠️';
+      case MergeItemStatus.RESOLVE_FAILED:
+        return '⚠️';
       default:
         return '❓';
     }
@@ -152,6 +173,12 @@ export class MergeQueueProcessor {
     this.onProgress = options.onProgress || null;
     this.onComplete = options.onComplete || null;
     this.onError = options.onError || null;
+    // Issue #1805: when true the queue runs a second pass after the normal
+    // merge loop, spawning `/solve <pr> --auto-merge` for every PR that was
+    // SKIPPED due to merge conflicts. The actual spawner is injected so
+    // tests can run without touching the screen runtime.
+    this.autoResolve = options.autoResolve === true;
+    this.spawnSolveSession = typeof options.spawnSolveSession === 'function' ? options.spawnSolveSession : null;
 
     // State
     this.items = [];
@@ -161,6 +188,9 @@ export class MergeQueueProcessor {
     this.startedAt = null;
     this.completedAt = null;
     this.error = null;
+    // Issue #1805: track auto-resolve progress so the renderer can surface it.
+    this.autoResolveActive = false;
+    this.autoResolveCurrent = null;
 
     // Statistics
     this.stats = {
@@ -168,6 +198,11 @@ export class MergeQueueProcessor {
       merged: 0,
       failed: 0,
       skipped: 0,
+      // Issue #1805: number of skipped conflict PRs the auto-resolve pass
+      // successfully handed off to `solve`, and the number that failed to
+      // be handed off (e.g. screen runner missing).
+      autoResolved: 0,
+      autoResolveFailed: 0,
     };
   }
 
@@ -329,6 +364,15 @@ export class MergeQueueProcessor {
         }
       }
 
+      // Issue #1805: After the normal queue settles, optionally hand off
+      // every PR that was SKIPPED with a merge-conflict reason to the
+      // `/solve <pr> --auto-merge` flow. This lets a single `/merge`
+      // invocation both merge the easy PRs and dispatch conflict-resolution
+      // sessions for the rest.
+      if (this.autoResolve && !this.isCancelled) {
+        await this.runAutoResolve();
+      }
+
       this.completedAt = new Date();
       this.status = this.isCancelled ? MergeStatus.CANCELLED : MergeStatus.COMPLETED;
 
@@ -481,6 +525,100 @@ export class MergeQueueProcessor {
   cancel() {
     this.isCancelled = true;
     this.log('Cancellation requested');
+  }
+
+  /**
+   * Issue #1805: Return queue items that were skipped because of merge
+   * conflicts. These are the candidates the auto-resolve pass hands off
+   * to `/solve <pr> --auto-merge`.
+   *
+   * @returns {MergeQueueItem[]}
+   */
+  getConflictedItems() {
+    return this.items.filter(item => item.status === MergeItemStatus.SKIPPED && item.error === MERGE_CONFLICT_SKIP_REASON);
+  }
+
+  /**
+   * Issue #1805: Iterate every conflict-skipped item and hand it off to a
+   * `/solve <pr-url> --auto-merge` session via the injected
+   * `spawnSolveSession` callback. Each spawn is awaited so the bot doesn't
+   * fan out unbounded Claude sessions. The PR's status is updated as the
+   * spawn succeeds or fails.
+   *
+   * @returns {Promise<void>}
+   */
+  async runAutoResolve() {
+    const conflicted = this.getConflictedItems();
+    if (conflicted.length === 0) {
+      this.log('Auto-resolve: no merge-conflict skips to process');
+      return;
+    }
+
+    if (!this.spawnSolveSession) {
+      // Guard against misconfiguration — the queue can't resolve without a
+      // spawner. Surface this to the user via the same channel as other
+      // queue feedback rather than throwing.
+      this.log(`Auto-resolve: ${conflicted.length} conflict PR(s) but no spawnSolveSession callback provided`);
+      for (const item of conflicted) {
+        item.status = MergeItemStatus.RESOLVE_FAILED;
+        item.autoResolveError = 'auto-resolve is not configured';
+        this.stats.autoResolveFailed++;
+      }
+      if (this.onProgress) {
+        await this.onProgress(this.getProgressUpdate());
+      }
+      return;
+    }
+
+    this.autoResolveActive = true;
+    this.log(`Auto-resolve: dispatching ${conflicted.length} conflict PR(s) to /solve --auto-merge`);
+    try {
+      for (const item of conflicted) {
+        if (this.isCancelled) {
+          this.log('Auto-resolve: cancelled mid-pass');
+          break;
+        }
+
+        item.status = MergeItemStatus.RESOLVING;
+        this.autoResolveCurrent = item.pr.number;
+        if (this.onProgress) {
+          await this.onProgress(this.getProgressUpdate());
+        }
+
+        try {
+          const result = await this.spawnSolveSession({
+            url: item.pr.url,
+            owner: this.owner,
+            repo: this.repo,
+            prNumber: item.pr.number,
+            title: item.pr.title,
+          });
+
+          if (result && result.success) {
+            item.autoResolveSession = result.sessionName || result.session || null;
+            this.stats.autoResolved++;
+            this.log(`Auto-resolve: spawned solve session for PR #${item.pr.number}${item.autoResolveSession ? ` (session ${item.autoResolveSession})` : ''}`);
+          } else {
+            item.status = MergeItemStatus.RESOLVE_FAILED;
+            item.autoResolveError = (result && (result.error || result.warning)) || 'spawn failed';
+            this.stats.autoResolveFailed++;
+            this.log(`Auto-resolve: failed to spawn solve session for PR #${item.pr.number}: ${item.autoResolveError}`);
+          }
+        } catch (error) {
+          item.status = MergeItemStatus.RESOLVE_FAILED;
+          item.autoResolveError = error.message || String(error);
+          this.stats.autoResolveFailed++;
+          console.error(`[ERROR] /merge-queue: auto-resolve error for PR #${item.pr.number}: ${item.autoResolveError}`);
+        }
+
+        if (this.onProgress) {
+          await this.onProgress(this.getProgressUpdate());
+        }
+      }
+    } finally {
+      this.autoResolveActive = false;
+      this.autoResolveCurrent = null;
+    }
   }
 
   /**
@@ -658,6 +796,13 @@ export class MergeQueueProcessor {
       status: this.status,
       current: currentItem ? currentItem.getDescription() : null,
       currentStatus: currentItem ? currentItem.status : null,
+      // Issue #1805: surface auto-resolve progress so renderers/tests can
+      // show what's happening during the post-queue pass.
+      autoResolve: {
+        enabled: this.autoResolve,
+        active: this.autoResolveActive,
+        currentPrNumber: this.autoResolveCurrent,
+      },
       progress: {
         processed,
         total: this.stats.total,
@@ -666,10 +811,17 @@ export class MergeQueueProcessor {
       stats: { ...this.stats },
       items: this.items.map(item => ({
         prNumber: item.pr.number,
+        // Issue #1805: expose PR/issue URLs so renderers can produce
+        // clickable links instead of plain `\#NNN` text.
+        prUrl: item.pr.url || null,
+        issueNumber: item.issue ? item.issue.number : null,
+        issueUrl: item.issue ? item.issue.url || null : null,
         title: item.pr.title,
         status: item.status,
         error: item.error,
         emoji: item.getStatusEmoji(),
+        autoResolveSession: item.autoResolveSession || null,
+        autoResolveError: item.autoResolveError || null,
       })),
     };
   }
@@ -684,13 +836,24 @@ export class MergeQueueProcessor {
       status: this.status,
       duration: `${Math.floor(duration / 60)}m ${duration % 60}s`,
       stats: { ...this.stats },
+      autoResolve: {
+        enabled: this.autoResolve,
+        resolved: this.stats.autoResolved,
+        failed: this.stats.autoResolveFailed,
+      },
       items: this.items.map(item => ({
         prNumber: item.pr.number,
+        // Issue #1805: expose PR/issue URLs so renderers can produce
+        // clickable links instead of plain `\#NNN` text.
+        prUrl: item.pr.url || null,
         title: item.pr.title,
         issueNumber: item.issue ? item.issue.number : null,
+        issueUrl: item.issue ? item.issue.url || null : null,
         status: item.status,
         error: item.error,
         emoji: item.getStatusEmoji(),
+        autoResolveSession: item.autoResolveSession || null,
+        autoResolveError: item.autoResolveError || null,
       })),
     };
   }
@@ -748,11 +911,25 @@ export class MergeQueueProcessor {
       message += `⏱️ Waiting for post\\-merge CI \\(PR \\#${this.currentPostMergePR}\\)\\.\\.\\.\n\n`;
     }
 
-    // Current item being processed
-    if (update.current && !this.waitingForTargetBranchCI && !this.waitingForPostMergeCI) {
+    // Issue #1805: surface the auto-resolve pass when it is currently
+    // active. This appears in place of "current item" because by then the
+    // main queue loop has finished.
+    if (update.autoResolve && update.autoResolve.active && update.autoResolve.currentPrNumber) {
+      const activeItem = update.items.find(it => it.prNumber === update.autoResolve.currentPrNumber);
+      const link = activeItem ? this.formatPrLink(activeItem.prNumber, activeItem.title, activeItem.prUrl) : `\\#${update.autoResolve.currentPrNumber}`;
+      message += `🛠️ Auto\\-resolving ${link}\n\n`;
+    } else if (update.current && !this.waitingForTargetBranchCI && !this.waitingForPostMergeCI) {
+      // Current item being processed
       const statusEmoji = update.currentStatus === MergeItemStatus.WAITING_CI ? '⏱️' : '🔄';
-      // Issue #1339: escape the current item description for MarkdownV2
-      message += `${statusEmoji} ${this.escapeMarkdown(update.current)}\n\n`;
+      const currentItem = this.items[this.currentIndex];
+      if (currentItem) {
+        const link = this.formatPrLink(currentItem.pr.number, currentItem.pr.title, currentItem.pr.url);
+        const issueSuffix = this.formatIssueRef(currentItem.issue ? currentItem.issue.number : null, currentItem.issue ? currentItem.issue.url : null);
+        message += `${statusEmoji} ${link}${issueSuffix}\n\n`;
+      } else {
+        // Fallback: escape the description if we somehow don't have an item handle
+        message += `${statusEmoji} ${this.escapeMarkdown(update.current)}\n\n`;
+      }
     }
 
     // Show errors/failures/skips inline so user gets immediate feedback (Issue #1269, #1294)
@@ -762,8 +939,9 @@ export class MergeQueueProcessor {
       message += `⚠️ *Issues:*\n`;
       for (const item of problemItems.slice(0, 5)) {
         const statusEmoji = item.status === MergeItemStatus.FAILED ? '❌' : '⏭️';
-        // Issue #1339: escape the ellipsis '...' for MarkdownV2 (periods are reserved)
-        message += `  ${statusEmoji} \\#${item.prNumber}: ${this.escapeMarkdown(item.error.substring(0, 50))}${item.error.length > 50 ? '\\.\\.\\.' : ''}\n`;
+        // Issue #1805: emit the PR reference as a clickable link instead of plain text.
+        const prRef = this.formatPrLink(item.prNumber, '', item.prUrl);
+        message += `  ${statusEmoji} ${prRef}: ${this.escapeMarkdown(item.error.substring(0, 50))}${item.error.length > 50 ? '\\.\\.\\.' : ''}\n`;
       }
       if (problemItems.length > 5) {
         // Issue #1339: escape the ellipsis '...' for MarkdownV2
@@ -772,11 +950,10 @@ export class MergeQueueProcessor {
       message += '\n';
     }
 
-    // PRs list with emojis
+    // PRs list with emojis (Issue #1805: render as clickable MarkdownV2 links)
     message += `*Queue:*\n`;
     for (const item of update.items.slice(0, 10)) {
-      // Issue #1339: escape the ellipsis '...' for MarkdownV2 (periods are reserved)
-      message += `${item.emoji} \\#${item.prNumber}: ${this.escapeMarkdown(item.title.substring(0, 35))}${item.title.length > 35 ? '\\.\\.\\.' : ''}\n`;
+      message += `${item.emoji} ${this.formatPrLink(item.prNumber, item.title, item.prUrl)}\n`;
     }
 
     if (update.items.length > 10) {
@@ -830,7 +1007,20 @@ export class MergeQueueProcessor {
     message += `✅ Merged: ${report.stats.merged}  `;
     message += `❌ Failed: ${report.stats.failed}  `;
     message += `⏭️ Skipped: ${report.stats.skipped}  `;
-    message += `📋 Total: ${report.stats.total}\n\n`;
+    message += `📋 Total: ${report.stats.total}\n`;
+
+    // Issue #1805: surface the auto-resolve pass summary when it ran. We
+    // always show the line when the flag was set so users see "0 dispatched"
+    // when there was nothing to do.
+    if (report.autoResolve && report.autoResolve.enabled) {
+      message += `🛠️ Auto\\-resolve dispatched: ${report.autoResolve.resolved}`;
+      if (report.autoResolve.failed > 0) {
+        message += `  ⚠️ Auto\\-resolve failed: ${report.autoResolve.failed}`;
+      }
+      message += '\n';
+    }
+
+    message += '\n';
 
     // Issue #1341: Show branch CI health failure details if applicable
     if (this.branchCIFailedRuns && this.branchCIFailedRuns.length > 0) {
@@ -862,19 +1052,25 @@ export class MergeQueueProcessor {
       message += '\n';
     }
 
-    // Details
+    // Details (Issue #1805: render PR and issue references as clickable
+    // MarkdownV2 links so the user can jump directly to the PR or issue).
     if (report.items.length > 0) {
       message += `*Results:*\n`;
       for (const item of report.items) {
-        const issueRef = item.issueNumber ? ` \\(Issue \\#${item.issueNumber}\\)` : '';
+        const prLink = this.formatPrLink(item.prNumber, item.title, item.prUrl);
+        const issueRef = this.formatIssueRef(item.issueNumber, item.issueUrl);
         // Issue #1294: Show skip/fail reason so users understand what action is required
         let reasonText = '';
-        if (item.error && (item.status === MergeItemStatus.SKIPPED || item.status === MergeItemStatus.FAILED)) {
+        const isAutoResolveState = item.status === MergeItemStatus.RESOLVING || item.status === MergeItemStatus.RESOLVE_FAILED;
+        if (item.autoResolveError && isAutoResolveState) {
+          const truncated = item.autoResolveError.length > 50 ? item.autoResolveError.substring(0, 47) + '...' : item.autoResolveError;
+          reasonText = ` \\(${this.escapeMarkdown(truncated)}\\)`;
+        } else if (item.error && (item.status === MergeItemStatus.SKIPPED || item.status === MergeItemStatus.FAILED)) {
           // Truncate long reasons and escape for MarkdownV2
           const truncatedReason = item.error.length > 50 ? item.error.substring(0, 47) + '...' : item.error;
           reasonText = `: ${this.escapeMarkdown(truncatedReason)}`;
         }
-        message += `${item.emoji} \\#${item.prNumber}${issueRef}${reasonText}\n`;
+        message += `${item.emoji} ${prLink}${issueRef}${reasonText}\n`;
       }
     }
 
@@ -886,6 +1082,43 @@ export class MergeQueueProcessor {
    */
   escapeMarkdown(text) {
     return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+  }
+
+  /**
+   * Issue #1805: Escape `)` and `\` inside a URL for a MarkdownV2 inline link.
+   * URLs must NOT be passed through `escapeMarkdown()` because that would also
+   * mangle characters that are valid inside URLs (`.`, `-`, `_`, etc.).
+   */
+  escapeMarkdownLinkUrl(url) {
+    return String(url).replace(/[\\)]/g, '\\$&');
+  }
+
+  /**
+   * Issue #1805: Build a clickable MarkdownV2 link for a PR's `\#N: title`
+   * reference. Falls back to plain escaped text when no URL is available so
+   * the message still renders correctly on legacy items.
+   */
+  formatPrLink(prNumber, title, url, options = {}) {
+    const maxTitle = typeof options.maxTitle === 'number' ? options.maxTitle : 35;
+    const trimmedTitle = title || '';
+    const truncated = trimmedTitle.length > maxTitle ? trimmedTitle.substring(0, maxTitle) : trimmedTitle;
+    const ellipsis = trimmedTitle.length > maxTitle ? '\\.\\.\\.' : '';
+    const titlePart = trimmedTitle ? `: ${this.escapeMarkdown(truncated)}${ellipsis}` : '';
+    const label = `\\#${prNumber}${titlePart}`;
+    if (!url) return label;
+    return `[${label}](${this.escapeMarkdownLinkUrl(url)})`;
+  }
+
+  /**
+   * Issue #1805: Build the ` (Issue #N)` suffix as a clickable link. The
+   * outer parentheses are literal MarkdownV2 (escaped), so the inner inline
+   * link is not nested inside another entity.
+   */
+  formatIssueRef(issueNumber, url) {
+    if (!issueNumber) return '';
+    const label = `Issue \\#${issueNumber}`;
+    if (!url) return ` \\(${label}\\)`;
+    return ` \\([${label}](${this.escapeMarkdownLinkUrl(url)})\\)`;
   }
 
   /**

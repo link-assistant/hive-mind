@@ -105,4 +105,40 @@ export const createWorkerInactivityWatchdog = ({ child, warnMs = 0, killMs = 0, 
   };
 };
 
-export default { createWorkerInactivityWatchdog };
+// Hive-specific glue: derives thresholds from argv, decorates log lines with the
+// worker/issue prefix, and routes events through the hive log() function. Lives
+// here (rather than in hive.mjs) to keep hive.mjs under the 1500-line cap.
+export const wireHiveWorkerWatchdog = ({ argv, child, log, workerId, issueUrl }) => {
+  const warnMs = Number.isFinite(argv.workerInactivityWarnSeconds) && argv.workerInactivityWarnSeconds > 0 ? argv.workerInactivityWarnSeconds * 1000 : 0;
+  const killMs = Number.isFinite(argv.workerInactivityKillSeconds) && argv.workerInactivityKillSeconds > 0 ? argv.workerInactivityKillSeconds * 1000 : 0;
+  const verboseHeartbeatMs = argv.verbose && warnMs > 0 ? Math.max(60_000, Math.min(warnMs, 120_000)) : 0;
+  const prefix = `   Worker ${workerId} on ${issueUrl}:`;
+  const icons = { warn: '⚠️ ', heartbeat: '👀', sigterm: '🛑', sigkill: '💀' };
+  const watchdog = createWorkerInactivityWatchdog({
+    child,
+    warnMs,
+    killMs,
+    verboseHeartbeatMs,
+    onEvent: (msg, meta) => {
+      const tail = meta.kind === 'warn' && meta.lastLogLine ? ` Last log: "${meta.lastLogLine.slice(0, 200)}"` : '';
+      const decorated = `${prefix.replace(':', '')} ${icons[meta.kind] || ''} ${msg}${tail}`.trimEnd();
+      log(decorated, meta.kind === 'heartbeat' ? { verbose: true } : { level: meta.level }).catch(() => {});
+    },
+  });
+  // Auto-attach activity + stop listeners so callers don't repeat plumbing.
+  // Multiple 'data' listeners on the same stream is fine; they all see the buffer.
+  const onData = d =>
+    watchdog.markActivity(
+      d
+        .toString()
+        .split('\n')
+        .find(l => l.trim()) || ''
+    );
+  child.stdout?.on('data', onData);
+  child.stderr?.on('data', onData);
+  child.once('close', watchdog.stop);
+  child.once('error', watchdog.stop);
+  return watchdog;
+};
+
+export default { createWorkerInactivityWatchdog, wireHiveWorkerWatchdog };

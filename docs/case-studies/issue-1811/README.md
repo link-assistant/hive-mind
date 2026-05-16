@@ -36,11 +36,11 @@ auto-committed, pushed, printed its session summary, then entered
 The stall location in source is
 [`src/solve.results.lib.mjs`](../../../src/solve.results.lib.mjs)
 between the logs at lines 705 and 747 — specifically on the
-`await $\`gh api user --jq .login\`` shell call at line ~735. This call
-goes through `wrapDollarWithGhRetry`
+`await $\`gh api user --jq .login\``shell call at line ~735. This call
+goes through`wrapDollarWithGhRetry`
 ([`src/github-rate-limit.lib.mjs`](../../../src/github-rate-limit.lib.mjs)),
 which retries on rate-limit and transient network errors but **never
-imposes a timeout on the underlying `$` shell call**. If `gh` hangs the
+imposes a timeout on the underlying `$`shell call**. If`gh` hangs the
 wrapper hangs with it. The hive parent
 ([`src/hive.mjs`](../../../src/hive.mjs) `worker(workerId)`) has no
 inactivity watchdog on the spawned child process, so a silent child
@@ -64,14 +64,14 @@ in PR #1812.
 
 ## Quick facts
 
-| Symptom                                                            | Where                                                          |
-| ------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Worker never finishes issue #117; no error, no exit, no signal     | `src/hive.mjs:worker()` — no inactivity watchdog               |
-| Last log line is "🔍 Searching for created pull requests..."       | `src/solve.results.lib.mjs:verifyResults()` ~ line 705         |
-| Next line "Checking for pull requests from branch..." never prints | Stall is between lines 705 and 747                             |
-| `gh api user --jq .login` hangs indefinitely                       | `src/solve.results.lib.mjs` ~ line 735 (called via wrapped `$`)|
-| Rate-limit wrapper retries forever rather than timing out          | `src/github-rate-limit.lib.mjs:ghWithRateLimitRetry()`         |
-| Operator's Ctrl+C is needed to escape                              | hive.mjs spawn handlers (no inactivity warning, no kill)       |
+| Symptom                                                            | Where                                                           |
+| ------------------------------------------------------------------ | --------------------------------------------------------------- |
+| Worker never finishes issue #117; no error, no exit, no signal     | `src/hive.mjs:worker()` — no inactivity watchdog                |
+| Last log line is "🔍 Searching for created pull requests..."       | `src/solve.results.lib.mjs:verifyResults()` ~ line 705          |
+| Next line "Checking for pull requests from branch..." never prints | Stall is between lines 705 and 747                              |
+| `gh api user --jq .login` hangs indefinitely                       | `src/solve.results.lib.mjs` ~ line 735 (called via wrapped `$`) |
+| Rate-limit wrapper retries forever rather than timing out          | `src/github-rate-limit.lib.mjs:ghWithRateLimitRetry()`          |
+| Operator's Ctrl+C is needed to escape                              | hive.mjs spawn handlers (no inactivity warning, no kill)        |
 
 ## Linked artifacts
 

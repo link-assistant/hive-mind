@@ -6,14 +6,14 @@ noted otherwise.
 
 ## Implementation map
 
-| Requirement                       | Root cause     | Change                                                                                                                                                                                          |
-| --------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R1 — fix silent stall             | RC1, RC2       | Add `timeoutMs` to `ghWithRateLimitRetry` / `wrapDollarWithGhRetry`. Default short timeout for read-only `gh api` / `gh pr list` calls used in `verifyResults`. Surfaces a real, retryable error instead of an infinite await. |
-| R1 — visibility before fix lands  | RC3            | Add per-worker inactivity watchdog in `src/hive.mjs:worker()`. Warn on `--worker-inactivity-warn-seconds` (default 300 s); optional hard kill on `--worker-inactivity-kill-seconds` (default 0 = disabled).                    |
-| R2 — case study                   | n/a            | This directory: `README.md`, `timeline.md`, `requirements.md`, `root-causes.md`, `solutions.md`, `upstream-issue-draft.md`, `logs/`.                                                              |
-| R3 — debug visibility             | RC5            | Trace each shell call in `verifyResults` under `--verbose` (command, timeoutMs). Trace retry events in `ghWithRateLimitRetry`. Hive emits "worker N silent for Ms" under `--verbose` even without the warn threshold reached. |
-| R4 — upstream report              | RC4            | [`upstream-issue-draft.md`](./upstream-issue-draft.md) prepared for `cli/cli`. Submission is operator-driven (PR description links it; not auto-filed).                                          |
-| R5 — single PR                    | n/a            | All changes committed to `issue-1811-7f33adedb747`. Tests updated. Changeset entry added. PR #1812 description updated and marked ready when CI is green.                                         |
+| Requirement                      | Root cause | Change                                                                                                                                                                                                                         |
+| -------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| R1 — fix silent stall            | RC1, RC2   | Add `timeoutMs` to `ghWithRateLimitRetry` / `wrapDollarWithGhRetry`. Default short timeout for read-only `gh api` / `gh pr list` calls used in `verifyResults`. Surfaces a real, retryable error instead of an infinite await. |
+| R1 — visibility before fix lands | RC3        | Add per-worker inactivity watchdog in `src/hive.mjs:worker()`. Warn on `--worker-inactivity-warn-seconds` (default 300 s); optional hard kill on `--worker-inactivity-kill-seconds` (default 0 = disabled).                    |
+| R2 — case study                  | n/a        | This directory: `README.md`, `timeline.md`, `requirements.md`, `root-causes.md`, `solutions.md`, `upstream-issue-draft.md`, `logs/`.                                                                                           |
+| R3 — debug visibility            | RC5        | Trace each shell call in `verifyResults` under `--verbose` (command, timeoutMs). Trace retry events in `ghWithRateLimitRetry`. Hive emits "worker N silent for Ms" under `--verbose` even without the warn threshold reached.  |
+| R4 — upstream report             | RC4        | [`upstream-issue-draft.md`](./upstream-issue-draft.md) prepared for `cli/cli`. Submission is operator-driven (PR description links it; not auto-filed).                                                                        |
+| R5 — single PR                   | n/a        | All changes committed to `issue-1811-7f33adedb747`. Tests updated. Changeset entry added. PR #1812 description updated and marked ready when CI is green.                                                                      |
 
 ## Components and libraries considered
 
@@ -27,7 +27,7 @@ We evaluated existing options before writing new code:
      spawned `gh` is SIGKILLed (otherwise the wrapper rejects but the
      zombie keeps spinning and the next call may queue behind it).
    - **Verdict:** use the `AbortController` path instead (below) so
-     timeout *and* kill are atomic.
+     timeout _and_ kill are atomic.
 
 2. **`AbortController` + `command-stream` `signal` option** —
    `command-stream` accepts a `signal` per call. We attach a
@@ -42,13 +42,13 @@ We evaluated existing options before writing new code:
    - ❌ We already have our own retry loop in `ghWithRateLimitRetry`
      that understands GitHub's rate-limit reset header. Replacing it
      wholesale is out of scope; integrating `p-retry` adds little
-     value because the bug is *not* in retry logic, it's in the
+     value because the bug is _not_ in retry logic, it's in the
      missing timeout primitive.
    - **Verdict:** skip.
 
 4. **`child_process.spawn` `timeout` option** — Node lets you set a
    per-spawn timeout that sends SIGTERM after N ms.
-   - ✅ Used by the new `hive.mjs` watchdog *only* as a defense-in-depth
+   - ✅ Used by the new `hive.mjs` watchdog _only_ as a defense-in-depth
      `child_process.kill` after a hard kill threshold. We do **not**
      set it for warn-only mode because once `timeout` fires, the child
      is gone and we cannot decide policy.
@@ -79,8 +79,8 @@ We evaluated existing options before writing new code:
      (caller can override by passing `retryOnTimeout: false`).
 2. `wrapDollarWithGhRetry(dollar, options)` learns a
    `defaultTimeoutMs` and an optional per-call override:
-   `$.gh({ timeoutMs })\`gh api …\`` or via the call-site option
-   currently used for `verbose`.
+   `$.gh({ timeoutMs })\`gh api …\``or via the call-site option
+currently used for`verbose`.
 3. Log a one-line trace on first retry of any kind:
    `⏳ Retrying gh call after Ns (reason=transient_network, attempt=2)`.
 
@@ -92,7 +92,7 @@ We evaluated existing options before writing new code:
    `HIVE_MIND_GH_TIMEOUT_MS`).
 2. Under `argv.verbose`, log the resolved command and timeout
    immediately before each call (`[verifyResults] $ gh api user
-   (timeoutMs=15000)`).
+(timeoutMs=15000)`).
 3. On `GhTimeoutError`, surface a clearer log line so the operator
    knows where the stall was, and continue with a fallback path that
    does not depend on knowing the current user (best-effort search by
@@ -109,9 +109,9 @@ We evaluated existing options before writing new code:
    - If `Date.now() - lastActivityAt >= warnSeconds * 1000` and
      `Date.now() - lastWarnAt >= warnSeconds * 1000`, log
      `⚠️ Worker N silent for Xs (issue #ISSUE). Last log: "<last
-     output line>"` and update `lastWarnAt`.
+output line>"` and update `lastWarnAt`.
    - If `killSeconds > 0` and `Date.now() - lastActivityAt >=
-     killSeconds * 1000`, log
+killSeconds * 1000`, log
      `🛑 Worker N silent for Xs > kill threshold; sending SIGTERM` and
      call `child.kill('SIGTERM')`. If still alive after 10 s, send
      `SIGKILL`.

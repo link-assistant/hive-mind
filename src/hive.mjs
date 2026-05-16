@@ -2,7 +2,7 @@
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
-import { createWorkerInactivityWatchdog } from './hive-worker-watchdog.lib.mjs'; // issue #1811: parent-side watchdog for spawned workers.
+import { wireHiveWorkerWatchdog } from './hive-worker-watchdog.lib.mjs'; // issue #1811: parent-side watchdog for spawned workers.
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
   const { getVersion } = await import('./version.lib.mjs');
@@ -814,46 +814,12 @@ if (isRunningDirectly) {
                 env: process.env,
               });
 
-              // Issue #1811: parent-side inactivity watchdog. The worker child
-              // (solve.mjs) can stall silently — most notoriously inside
-              // verifyResults() when `gh api user` hangs because `gh` has no
-              // default network timeout. The watchdog logic lives in
-              // hive-worker-watchdog.lib.mjs so it can be unit-tested in
-              // isolation; we only wire it up here with hive-specific logging.
-              const warnMs = Number.isFinite(argv.workerInactivityWarnSeconds) && argv.workerInactivityWarnSeconds > 0 ? argv.workerInactivityWarnSeconds * 1000 : 0;
-              const killMs = Number.isFinite(argv.workerInactivityKillSeconds) && argv.workerInactivityKillSeconds > 0 ? argv.workerInactivityKillSeconds * 1000 : 0;
-              const verboseWatchdogMs = argv.verbose && warnMs > 0 ? Math.max(60_000, Math.min(warnMs, 120_000)) : 0;
-              const watchdog = createWorkerInactivityWatchdog({
-                child,
-                warnMs,
-                killMs,
-                verboseHeartbeatMs: verboseWatchdogMs,
-                onEvent: (msg, meta) => {
-                  const tail = meta.lastLogLine ? ` Last log: "${meta.lastLogLine.slice(0, 200)}"` : '';
-                  const decorated = (() => {
-                    switch (meta.kind) {
-                      case 'warn':
-                        return `   ⚠️  Worker ${workerId} on ${issueUrl}: ${msg}${tail}`;
-                      case 'heartbeat':
-                        return `   👀 Worker ${workerId} on ${issueUrl}: ${msg}`;
-                      case 'sigterm':
-                        return `   🛑 Worker ${workerId} on ${issueUrl}: ${msg}`;
-                      case 'sigkill':
-                        return `   💀 Worker ${workerId} on ${issueUrl}: ${msg}`;
-                      default:
-                        return `   Worker ${workerId} on ${issueUrl}: ${msg}`;
-                    }
-                  })();
-                  log(decorated, meta.kind === 'heartbeat' ? { verbose: true } : { level: meta.level }).catch(() => {});
-                },
-              });
-
+              wireHiveWorkerWatchdog({ argv, child, log, workerId, issueUrl }); // #1811
               // Handle stdout data - stream output in real-time
               child.stdout.on('data', data => {
                 const lines = data.toString().split('\n');
                 for (const line of lines) {
                   if (line.trim()) {
-                    watchdog.markActivity(line);
                     log(`   [${solveCommand} worker-${workerId}] ${line}`).catch(logError => {
                       reportError(logError, {
                         context: 'worker_stdout_log',
@@ -870,7 +836,6 @@ if (isRunningDirectly) {
                 const lines = data.toString().split('\n');
                 for (const line of lines) {
                   if (line.trim()) {
-                    watchdog.markActivity(line);
                     log(`   [${solveCommand} worker-${workerId} ERROR] ${line}`, { level: 'error' }).catch(logError => {
                       reportError(logError, {
                         context: 'worker_stderr_log',
@@ -884,14 +849,12 @@ if (isRunningDirectly) {
 
               // Handle process completion
               child.on('close', code => {
-                watchdog.stop();
                 exitCode = code || 0;
                 resolve();
               });
 
               // Handle process errors
               child.on('error', error => {
-                watchdog.stop();
                 exitCode = 1;
                 log(`   [${solveCommand} worker-${workerId} ERROR] Process error: ${error.message}`, {
                   level: 'error',

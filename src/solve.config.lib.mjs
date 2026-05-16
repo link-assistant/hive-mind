@@ -588,6 +588,25 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Experimental and disabled by default. Automatically detect the target issue or pull request language and set the AI work language to English or Russian when one language has more than 51% of all words. Explicit --work-language or --prompt-language takes precedence.',
     default: false,
   },
+  // Issue #1809: gemini-cli native flags surfaced as solve.mjs options so users
+  // can control sandboxing, extensions and MCP server allow-lists per run.
+  'gemini-sandbox': {
+    type: 'boolean',
+    description: 'Run gemini-cli inside its sandbox (passes --sandbox to gemini-cli). Only used when --tool gemini.',
+    default: false,
+  },
+  'gemini-extensions': {
+    type: 'string',
+    description: 'Comma-separated list of gemini-cli extensions to load (passes --extensions to gemini-cli). Only used when --tool gemini.',
+  },
+  'gemini-include-directories': {
+    type: 'string',
+    description: 'Extra directories to expose to gemini-cli (passes --include-directories to gemini-cli, in addition to tempDir/workspaceTmpDir which are always included). Only used when --tool gemini.',
+  },
+  'gemini-allowed-mcp-servers': {
+    type: 'string',
+    description: 'Comma-separated list of MCP server names that gemini-cli is allowed to call (passes --allowed-mcp-server-names to gemini-cli). Only used when --tool gemini.',
+  },
 };
 
 function hasRawOption(rawArgs, optionName) {

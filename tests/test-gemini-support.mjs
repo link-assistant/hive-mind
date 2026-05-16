@@ -11,7 +11,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { buildSystemPrompt, buildUserPrompt } from '../src/gemini.prompts.lib.mjs';
-import { executeGeminiCommand, parseGeminiJsonOutput } from '../src/gemini.lib.mjs';
+import { buildGeminiArgs, detectGeminiPlainTextError, executeGeminiCommand, parseGeminiJsonOutput } from '../src/gemini.lib.mjs';
 import { buildModelOptionDescription, defaultModels, getToolDisplayName, primaryModelNames, resolveModelId, validateModelName } from '../src/models/index.mjs';
 
 let testsPassed = 0;
@@ -43,7 +43,11 @@ async function asyncTest(name, fn) {
 
 function renderTaggedTemplateCommand(strings, values) {
   return strings.reduce((result, segment, index) => {
-    const value = index < values.length ? String(values[index]) : '';
+    let value = '';
+    if (index < values.length) {
+      const raw = values[index];
+      value = Array.isArray(raw) ? raw.map(String).join(' ') : String(raw);
+    }
     return result + segment + value;
   }, '');
 }
@@ -196,8 +200,173 @@ await asyncTest('executeGeminiCommand uses structured headless stream-json invoc
   assert.ok(captured.command.includes('--model gemini-2.5-flash'));
   assert.ok(captured.command.includes('--approval-mode yolo'));
   assert.ok(captured.command.includes('--skip-trust'));
-  assert.ok(captured.command.includes(`${os.tmpdir()}/gemini_prompt_`));
+  // Issue #1809: the prompt is now piped via command-stream stdin instead of a
+  // temp prompt file, so no $TMPDIR/gemini_prompt_ path should appear.
+  assert.ok(!captured.command.includes('gemini_prompt_'));
+  assert.equal(captured.options.stdin, 'System prompt\n\nProceed.\n');
   assert.ok(logs.some(line => line.includes('Gemini command completed')));
+});
+
+test('detectGeminiPlainTextError recognises upstream non-JSONL failures', () => {
+  const auth = detectGeminiPlainTextError('Please set an Auth method in your settings');
+  assert.equal(auth?.type, 'AuthenticationRequired');
+
+  const quota = detectGeminiPlainTextError('Quota exceeded for requests per minute');
+  assert.equal(quota?.type, 'QuotaExceeded');
+
+  const model = detectGeminiPlainTextError('Invalid model name "foo"');
+  assert.equal(model?.type, 'InvalidModel');
+
+  const arg = detectGeminiPlainTextError('Unknown argument --foo');
+  assert.equal(arg?.type, 'InvalidArgument');
+
+  assert.equal(detectGeminiPlainTextError(''), null);
+  assert.equal(detectGeminiPlainTextError('All good here'), null);
+});
+
+test('buildGeminiArgs threads verbose/sandbox/include-dirs/extensions/mcp flags', () => {
+  const base = buildGeminiArgs({ model: 'flash' }, 'gemini-2.5-flash', {
+    tempDir: '/tmp/work',
+    workspaceTmpDir: '/tmp/work-tmp',
+  });
+  assert.deepEqual(base.slice(0, 8), ['--output-format', 'stream-json', '--model', 'gemini-2.5-flash', '--approval-mode', 'yolo', '--skip-trust', '--include-directories']);
+  const includeIdx = base.indexOf('--include-directories');
+  assert.equal(base[includeIdx + 1], '/tmp/work,/tmp/work-tmp');
+  assert.ok(!base.includes('--debug'));
+  assert.ok(!base.includes('--sandbox'));
+
+  const verbose = buildGeminiArgs({ model: 'flash', verbose: true }, 'gemini-2.5-flash', { tempDir: '/tmp/work' });
+  assert.ok(verbose.includes('--debug'));
+
+  const resumed = buildGeminiArgs({ model: 'flash', resume: 'session-123' }, 'gemini-2.5-flash', { tempDir: '/tmp/work' });
+  assert.equal(resumed[0], '--resume');
+  assert.equal(resumed[1], 'session-123');
+
+  const fullyLoaded = buildGeminiArgs(
+    {
+      model: 'pro',
+      geminiSandbox: true,
+      geminiExtensions: 'ext-a,ext-b',
+      geminiAllowedMcpServers: ['mcp-1', 'mcp-2'],
+      geminiIncludeDirectories: ['/extra/dir'],
+    },
+    'gemini-2.5-pro',
+    { tempDir: '/tmp/work', workspaceTmpDir: '/tmp/work' }
+  );
+  assert.ok(fullyLoaded.includes('--sandbox'));
+  const incIdx = fullyLoaded.indexOf('--include-directories');
+  assert.equal(fullyLoaded[incIdx + 1], '/tmp/work,/extra/dir');
+  const extIdx = fullyLoaded.indexOf('--extensions');
+  assert.equal(fullyLoaded[extIdx + 1], 'ext-a,ext-b');
+  const mcpIdx = fullyLoaded.indexOf('--allowed-mcp-server-names');
+  assert.equal(fullyLoaded[mcpIdx + 1], 'mcp-1,mcp-2');
+});
+
+await asyncTest('executeGeminiCommand surfaces upstream auth failures even without JSONL events', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gemini-support-test-'));
+  const logs = [];
+
+  const fakeDollar = () => () => ({
+    stream: async function* stream() {
+      yield {
+        type: 'stderr',
+        data: Buffer.from('Please set an Auth method in your ~/.gemini/settings.json file\n'),
+      };
+      yield { type: 'exit', code: 41 };
+    },
+  });
+
+  const result = await executeGeminiCommand({
+    tempDir,
+    branchName: 'issue-1809-ad1b428698b3',
+    prompt: 'Proceed.\n',
+    systemPrompt: 'System prompt',
+    argv: { model: 'flash', verbose: false },
+    log: async message => {
+      logs.push(String(message));
+    },
+    formatAligned: (icon, label, value = '') => [icon, label, value].filter(Boolean).join(' '),
+    getResourceSnapshot: async () => ({ memory: 'Mem:\nMemAvailable: ok', load: '0.1' }),
+    geminiPath: 'gemini',
+    $: fakeDollar,
+    waitForRetryDelay: async () => {},
+  });
+
+  assert.equal(result.success, false);
+  assert.ok(logs.some(line => line.includes('Please set an Auth method')));
+  assert.ok(logs.some(line => line.includes('AuthenticationRequired')));
+});
+
+await asyncTest('executeGeminiCommand reports failure when no JSONL events are emitted', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gemini-support-test-'));
+  const logs = [];
+
+  const fakeDollar = () => () => ({
+    stream: async function* stream() {
+      yield { type: 'exit', code: 0 };
+    },
+  });
+
+  const result = await executeGeminiCommand({
+    tempDir,
+    branchName: 'issue-1809-ad1b428698b3',
+    prompt: 'Proceed.\n',
+    systemPrompt: 'System prompt',
+    argv: { model: 'flash', verbose: false },
+    log: async message => {
+      logs.push(String(message));
+    },
+    formatAligned: (icon, label, value = '') => [icon, label, value].filter(Boolean).join(' '),
+    getResourceSnapshot: async () => ({ memory: 'Mem:\nMemAvailable: ok', load: '0.1' }),
+    geminiPath: 'gemini',
+    $: fakeDollar,
+    waitForRetryDelay: async () => {},
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.messageCount, 0);
+  assert.equal(result.toolUseCount, 0);
+});
+
+await asyncTest('executeGeminiCommand passes --debug when verbose is enabled', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gemini-support-test-'));
+  let captured = null;
+
+  const fakeDollar =
+    options =>
+    (strings, ...values) => {
+      captured = {
+        options,
+        command: renderTaggedTemplateCommand(strings, values),
+      };
+      return {
+        stream: async function* stream() {
+          yield {
+            type: 'stdout',
+            data: Buffer.from('{"type":"result","response":"completed"}\n'),
+          };
+          yield { type: 'exit', code: 0 };
+        },
+      };
+    };
+
+  await executeGeminiCommand({
+    tempDir,
+    workspaceTmpDir: '/tmp/work-tmp',
+    branchName: 'issue-1809-ad1b428698b3',
+    prompt: 'Proceed.\n',
+    systemPrompt: 'System prompt',
+    argv: { model: 'flash', verbose: true },
+    log: async () => {},
+    formatAligned: (icon, label, value = '') => [icon, label, value].filter(Boolean).join(' '),
+    getResourceSnapshot: async () => ({ memory: 'Mem:\nMemAvailable: ok', load: '0.1' }),
+    geminiPath: 'gemini',
+    $: fakeDollar,
+  });
+
+  assert.ok(captured.command.includes('--debug'));
+  assert.ok(captured.command.includes('--include-directories'));
+  assert.ok(captured.command.includes(`${tempDir},/tmp/work-tmp`));
 });
 
 console.log(`\nGemini support tests: ${testsPassed} passed, ${testsFailed} failed`);

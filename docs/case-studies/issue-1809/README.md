@@ -40,12 +40,12 @@ solutions, the upstream issue we filed, and the changes shipped in PR #1810.
 
 ## Quick facts
 
-| Symptom | Where |
-| --- | --- |
-| Plain-text error `Please set an Auth method ...` instead of JSON | gemini-cli `validateNonInteractiveAuth` |
-| Our log shows `✅ Gemini command completed` despite auth failure | `src/gemini.lib.mjs` success path |
-| `stream-json` skips the structured `error` event for auth failures | gemini-cli only emits structured JSON when `OutputFormat.JSON` |
-| `messageCount: 0` and `toolUseCount: 0` are reported as success | Wrapper does not require a `result` event to consider the run successful |
+| Symptom                                                            | Where                                                                    |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Plain-text error `Please set an Auth method ...` instead of JSON   | gemini-cli `validateNonInteractiveAuth`                                  |
+| Our log shows `✅ Gemini command completed` despite auth failure   | `src/gemini.lib.mjs` success path                                        |
+| `stream-json` skips the structured `error` event for auth failures | gemini-cli only emits structured JSON when `OutputFormat.JSON`           |
+| `messageCount: 0` and `toolUseCount: 0` are reported as success    | Wrapper does not require a `result` event to consider the run successful |
 
 ## Linked artifacts
 

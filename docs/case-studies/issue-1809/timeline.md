@@ -91,7 +91,7 @@ The user files the issue with:
   - `packages/core/src/output/types.ts` — documents `JsonStreamEventType.RESULT`
     that should carry an error envelope.
   - `packages/core/src/output/stream-json-formatter.ts` — emit helper.
-  - `packages/cli/src/utils/errors.ts` — proves the structured path *does* exist
+  - `packages/cli/src/utils/errors.ts` — proves the structured path _does_ exist
     for STREAM_JSON, but it is bypassed during auth validation.
 - Cloned the docs and read:
   - `docs/cli/headless.md` — exit codes 0/1/41/42/53.

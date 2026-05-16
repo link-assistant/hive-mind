@@ -29,7 +29,7 @@ path. `OutputFormat.STREAM_JSON` and `OutputFormat.TEXT` both fall into the
 `else` branch, which prints a plain-text message via `debugLogger.error` and
 exits with code 41 without emitting a `result`/`error` JSONL event.
 
-`handleError` in `packages/cli/src/utils/errors.ts` *does* know how to emit a
+`handleError` in `packages/cli/src/utils/errors.ts` _does_ know how to emit a
 proper stream-json error event when `OutputFormat.STREAM_JSON` is active:
 
 ```ts
@@ -94,22 +94,22 @@ The wrapper passes only:
 But the latest gemini-cli (`docs/cli/cli-reference.md` and
 `docs/cli/headless.md`) supports several flags we never use, including:
 
-| Flag | Use in wrapper |
-| --- | --- |
-| `--debug` | toggle when `argv.verbose` |
-| `--include-directories` | propagate `workspaceTmpDir` for tool-side access |
+| Flag                         | Use in wrapper                                            |
+| ---------------------------- | --------------------------------------------------------- |
+| `--debug`                    | toggle when `argv.verbose`                                |
+| `--include-directories`      | propagate `workspaceTmpDir` for tool-side access          |
 | `--allowed-mcp-server-names` | mirror Claude's MCP allow-list once we add MCP for Gemini |
-| `--extensions` | opt-in for gemini-cli extensions |
-| `--sandbox` | wire through `argv.sandbox` |
-| `--prompt` (`-p`) | use explicit flag instead of relying on stdin |
-| `--session-id` | optional session id propagation |
+| `--extensions`               | opt-in for gemini-cli extensions                          |
+| `--sandbox`                  | wire through `argv.sandbox`                               |
+| `--prompt` (`-p`)            | use explicit flag instead of relying on stdin             |
+| `--session-id`               | optional session id propagation                           |
 
 Without these the wrapper cannot reach parity with `claude.lib.mjs`.
 
 ## RC5 — Wrapper: log labeling of stderr
 
 The chunk loop calls `log(errorOutput, { stream: 'stderr' })` (good). However
-for the case where `gemini` *prints to stdout* even though the content is an
+for the case where `gemini` _prints to stdout_ even though the content is an
 error (as happens with `process.exit(...)` after `debugLogger.error` — the
 internal logger writes to stderr but our terminal log was tagged `[INFO]`
 because we logged the chunk before classification), the wrapper had no way to
@@ -121,12 +121,12 @@ channel.
 
 From `docs/cli/headless.md`:
 
-| Code | Meaning |
-| --- | --- |
-| 0 | Success |
-| 1 | General error |
-| 41 | FATAL_AUTHENTICATION_ERROR |
-| 42 | FATAL_INPUT_ERROR |
-| 53 | FATAL_TURN_LIMITED_ERROR |
+| Code | Meaning                    |
+| ---- | -------------------------- |
+| 0    | Success                    |
+| 1    | General error              |
+| 41   | FATAL_AUTHENTICATION_ERROR |
+| 42   | FATAL_INPUT_ERROR          |
+| 53   | FATAL_TURN_LIMITED_ERROR   |
 
 Our wrapper must respect any non-zero exit code as a hard failure.

@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict';
 
-import { isRateLimitError, parseRateLimitReset, computeRateLimitWait, configureGitHubRateLimitLogging, isGitHubRateLimitLoggingEnabled, ghWithRateLimitRetry, wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs';
+import { isRateLimitError, parseRateLimitReset, computeRateLimitWait, configureGitHubRateLimitLogging, isGitHubRateLimitLoggingEnabled, ghWithRateLimitRetry, wrapDollarWithGhRetry, GhTimeoutError, callWithTimeout } from '../src/github-rate-limit.lib.mjs';
 import { limitReset } from '../src/config.lib.mjs';
 
 let testsPassed = 0;
@@ -402,6 +402,216 @@ await test('does not retry gh commands on non-rate-limit errors', async () => {
   const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {}, maxAttempts: 5 });
   await assert.rejects(() => wrapped`gh api repos/owner/repo`, /HTTP 404/);
   assert.equal(attempts, 1);
+});
+
+// ----------------------------------------------------------------------------
+// Issue #1811: GhTimeoutError + callWithTimeout
+// ----------------------------------------------------------------------------
+
+console.log('\n📋 callWithTimeout (issue #1811)\n');
+
+await test('resolves when fn finishes before the deadline', async () => {
+  const r = await callWithTimeout(() => Promise.resolve('done'), { timeoutMs: 50, commandPreview: 'gh api user' });
+  assert.equal(r, 'done');
+});
+
+await test('rejects with GhTimeoutError when fn never resolves', async () => {
+  let abortedInside = false;
+  const stall = signal =>
+    new Promise((_resolve, reject) => {
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          abortedInside = true;
+          reject(new Error('aborted'));
+        });
+      }
+      // Never resolve naturally.
+    });
+  await assert.rejects(
+    () => callWithTimeout(stall, { timeoutMs: 25, commandPreview: 'gh api user' }),
+    err => err instanceof GhTimeoutError && err.timeoutMs === 25 && err.command === 'gh api user'
+  );
+  // Signal must have fired so spawned children can be SIGTERMed.
+  assert.equal(abortedInside, true);
+});
+
+await test('timeoutMs <= 0 disables the timeout entirely', async () => {
+  let signalReceived = null;
+  const r = await callWithTimeout(
+    signal => {
+      signalReceived = signal;
+      return Promise.resolve('ok');
+    },
+    { timeoutMs: 0 }
+  );
+  assert.equal(r, 'ok');
+  // Disabled mode still passes a non-aborting signal so callers can rely on
+  // a stable signature; it just never fires.
+  assert.ok(signalReceived && typeof signalReceived.aborted === 'boolean');
+  assert.equal(signalReceived.aborted, false);
+});
+
+console.log('\n📋 ghWithRateLimitRetry with timeoutMs (issue #1811)\n');
+
+await test('retries on GhTimeoutError up to the transient budget', async () => {
+  let calls = 0;
+  const stall = () => new Promise(() => {});
+  const start = Date.now();
+  await assert.rejects(
+    () =>
+      ghWithRateLimitRetry(
+        signal => {
+          calls++;
+          // First two attempts hang; reject manually after a microtask so test
+          // budget isn't exhausted waiting for callWithTimeout's 5ms.
+          if (calls <= 3) return stall(signal);
+          return Promise.resolve('ok');
+        },
+        {
+          log: () => {},
+          timeoutMs: 5,
+          maxAttempts: 3,
+          maxApiRetries: 3,
+          // Avoid exponential-backoff sleeps in the test.
+          retryBaseMs: 0,
+        }
+      ),
+    err => err instanceof GhTimeoutError
+  );
+  // We attempted at least twice — exact count depends on retry budget impl.
+  assert.ok(calls >= 2, `expected >=2 attempts, got ${calls}`);
+  // Test must complete promptly — no minute-long hang.
+  assert.ok(Date.now() - start < 5000, 'test must finish quickly');
+});
+
+await test('retryOnTimeout=false throws GhTimeoutError immediately', async () => {
+  let calls = 0;
+  const stall = () => new Promise(() => {});
+  await assert.rejects(
+    () =>
+      ghWithRateLimitRetry(
+        () => {
+          calls++;
+          return stall();
+        },
+        { log: () => {}, timeoutMs: 5, retryOnTimeout: false }
+      ),
+    err => err instanceof GhTimeoutError
+  );
+  assert.equal(calls, 1);
+});
+
+console.log('\n📋 wrapDollarWithGhRetry options form (issue #1811)\n');
+
+await test('$({ timeoutMs }) returns a tagged-template function', async () => {
+  const calls = [];
+  const fakeDollar = (strings, ...values) => {
+    calls.push([...strings]);
+    return Promise.resolve('ok');
+  };
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {} });
+  const r = await wrapped({ timeoutMs: 5000 })`gh api user`;
+  assert.equal(r, 'ok');
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0], ['gh api user']);
+});
+
+await test('$({ timeoutMs }) per-call timeout fires on hung gh', async () => {
+  const hangingDollar = () => new Promise(() => {});
+  const wrapped = wrapDollarWithGhRetry(hangingDollar, {
+    log: () => {},
+    maxAttempts: 1,
+    maxApiRetries: 1,
+    retryBaseMs: 0,
+  });
+  const start = Date.now();
+  await assert.rejects(
+    () => wrapped({ timeoutMs: 10, retryOnTimeout: false })`gh api user`,
+    err => err instanceof GhTimeoutError && err.timeoutMs === 10
+  );
+  assert.ok(Date.now() - start < 1000, 'timeout must fire quickly');
+});
+
+await test('wrapper-level defaultTimeoutMs is applied when no per-call override', async () => {
+  const hangingDollar = () => new Promise(() => {});
+  const wrapped = wrapDollarWithGhRetry(hangingDollar, {
+    log: () => {},
+    defaultTimeoutMs: 10,
+    maxAttempts: 1,
+    maxApiRetries: 1,
+    retryBaseMs: 0,
+    retryOnTimeout: false,
+  });
+  const start = Date.now();
+  await assert.rejects(
+    () => wrapped`gh api user`,
+    err => err instanceof GhTimeoutError && err.timeoutMs === 10
+  );
+  assert.ok(Date.now() - start < 1000, 'default timeout must fire quickly');
+});
+
+await test('defaultTimeoutMs=0 disables wrapper-level timeout', async () => {
+  const fakeDollar = () => Promise.resolve('ok');
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {}, defaultTimeoutMs: 0 });
+  const r = await wrapped`gh api user`;
+  assert.equal(r, 'ok');
+});
+
+await test('verboseLog is called once per gh invocation with command preview', async () => {
+  const fakeDollar = () => Promise.resolve('ok');
+  const logged = [];
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, {
+    log: () => {},
+    defaultTimeoutMs: 5000,
+    verboseLog: msg => logged.push(msg),
+  });
+  await wrapped`gh api user --jq .login`;
+  assert.equal(logged.length, 1);
+  assert.match(logged[0], /gh api user --jq \.login/);
+  assert.match(logged[0], /timeoutMs=5000/);
+});
+
+await test('wrapper.gh({...}) is identical to wrapper({...})', async () => {
+  const fakeDollar = () => Promise.resolve('ok');
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {} });
+  const a = await wrapped({ timeoutMs: 1000 })`gh api user`;
+  const b = await wrapped.gh({ timeoutMs: 1000 })`gh api user`;
+  assert.equal(a, 'ok');
+  assert.equal(b, 'ok');
+});
+
+await test('supportsOptionsForm=true invokes dollar({signal}) when supported', async () => {
+  let optionsFormCalled = false;
+  let templateArgs = null;
+  const fakeDollar = (firstArg, ...rest) => {
+    if (firstArg && typeof firstArg === 'object' && !Array.isArray(firstArg)) {
+      optionsFormCalled = true;
+      return (strings, ...values) => {
+        templateArgs = [strings, values];
+        return Promise.resolve('ok');
+      };
+    }
+    templateArgs = [firstArg, rest];
+    return Promise.resolve('ok');
+  };
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, {
+    log: () => {},
+    supportsOptionsForm: true,
+  });
+  await wrapped`gh api user`;
+  assert.equal(optionsFormCalled, true, 'expected options-form path to be taken');
+  assert.ok(templateArgs, 'tagged-template should have been invoked once');
+});
+
+await test('supportsOptionsForm omitted preserves single-call behavior for naive fakes', async () => {
+  let calls = 0;
+  const fakeDollar = (strings, ...values) => {
+    calls++;
+    return Promise.resolve('ok');
+  };
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {} });
+  await wrapped`gh api user`;
+  assert.equal(calls, 1);
 });
 
 // ----------------------------------------------------------------------------

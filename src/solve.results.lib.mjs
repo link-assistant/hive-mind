@@ -20,7 +20,7 @@ const { wrapDollarWithGhRetry, GhTimeoutError } = await import('./github-rate-li
 // under that bound so a hung GitHub connection cannot stall the verify phase
 // forever. The wrapper also accepts an options-form override at any call site
 // (e.g. `$({ timeoutMs: 60000 })\`gh ...\``).
-const $ = wrapDollarWithGhRetry(__rawDollar$);
+const $ = wrapDollarWithGhRetry(__rawDollar$, { supportsOptionsForm: true });
 const path = (await use('path')).default;
 
 // Import shared library functions

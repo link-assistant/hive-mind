@@ -350,14 +350,21 @@ export const callWithTimeout = (fn, { timeoutMs = 0, commandPreview = '' } = {})
       controller.abort();
       reject(new GhTimeoutError(`gh call exceeded ${timeoutMs}ms${commandPreview ? `: ${commandPreview}` : ''}`, { timeoutMs, command: commandPreview }));
     }, timeoutMs);
-    // Don't keep the event loop alive just for this timer.
-    if (typeof timer.unref === 'function') timer.unref();
+    // NB: we deliberately do NOT `timer.unref()` here. The timer is always
+    // cleared in `fnPromise.finally()` so there is no leak, and an unref'd
+    // timer would let Node exit before firing whenever nothing else keeps the
+    // event loop alive (e.g. in unit tests with a synthetic never-resolving fn
+    // and no other pending I/O).
   });
   const fnPromise = Promise.resolve()
     .then(() => fn(controller.signal))
     .finally(() => {
       if (timer) clearTimeout(timer);
     });
+  // Silence whichever promise loses the race so its rejection does not surface
+  // as an unhandled rejection. The winner is still observed by the caller.
+  fnPromise.catch(() => {});
+  timeoutPromise.catch(() => {});
   return Promise.race([fnPromise, timeoutPromise]);
 };
 
@@ -518,6 +525,12 @@ export const execGhWithRetry = async (command, options = {}) => {
  *        form. Pass 0 to disable. Default: `timeouts.ghApiMs`.
  * @param {(msg: string) => Promise<void>|void} [options.verboseLog] - if set,
  *        called once per `gh` call with the resolved preview + timeoutMs.
+ * @param {boolean} [options.supportsOptionsForm] - if true, the wrapper will
+ *        invoke `dollar({ signal })` to obtain a configured tagged-template
+ *        that propagates AbortSignal-driven cancellation to the spawned `gh`
+ *        child process. This is supported by `command-stream` ≥0.7 but not by
+ *        every `$` implementation, so it is opt-in. solve.results.lib.mjs sets
+ *        this to true; tests with naive `$` fakes leave it unset.
  * @returns {((strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>) & {raw: typeof dollar, gh: Function}}
  */
 export const wrapDollarWithGhRetry = (dollar, options = {}) => {
@@ -526,6 +539,8 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
   delete baseOptions.defaultTimeoutMs;
   const baseVerboseLog = typeof baseOptions.verboseLog === 'function' ? baseOptions.verboseLog : null;
   delete baseOptions.verboseLog;
+  const supportsOptionsForm = baseOptions.supportsOptionsForm === true;
+  delete baseOptions.supportsOptionsForm;
 
   const buildCaller = perCallOptions => {
     const merged = { ...baseOptions, ...perCallOptions };
@@ -551,18 +566,26 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
       }
       return ghWithRateLimitRetry(
         signal => {
-          // Issue #1811: if command-stream's `$` accepts an options-form
-          // invocation (`$({ signal })`), use it so the spawned `gh` child is
-          // SIGTERMed when the timeout fires. Fall back to plain template-only
-          // invocation if not supported.
-          if (timeoutMs > 0 && signal && typeof dollar === 'function') {
+          // Issue #1811: if the caller opted in via `supportsOptionsForm: true`
+          // and command-stream's `$` accepts the options-form invocation
+          // (`$({ signal })`), use it so the spawned `gh` child is SIGTERMed
+          // when the timeout fires. We avoid the probe for arbitrary `$`
+          // implementations (and naive test fakes) so they aren't invoked
+          // twice per logical call.
+          if (supportsOptionsForm && timeoutMs > 0 && signal && typeof dollar === 'function') {
+            let configured;
             try {
-              const configured = dollar({ signal });
-              if (typeof configured === 'function') {
-                return configured(strings, ...values);
-              }
+              configured = dollar({ signal });
             } catch {
-              // Older command-stream versions: ignore and fall through.
+              configured = null;
+            }
+            if (typeof configured === 'function') {
+              return configured(strings, ...values);
+            }
+            // Silence any unhandled rejection from a dollar that returned a
+            // promise (i.e. doesn't support options form despite the opt-in).
+            if (configured && typeof configured.then === 'function' && typeof configured.catch === 'function') {
+              configured.catch(() => {});
             }
           }
           return dollar(strings, ...values);

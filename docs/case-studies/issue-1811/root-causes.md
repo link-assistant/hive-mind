@@ -1,7 +1,7 @@
 # Root Cause Analysis
 
 Three independent defects compose the symptom in
-[`logs/hive-issue-1811.log`](./logs/hive-issue-1811.log): an upstream
+[`logs/hive-issue-1811.txt`](./logs/hive-issue-1811.txt): an upstream
 `gh` defect (no default network timeout), a wrapper defect (no
 per-call timeout in our rate-limit retry layer) and a hive-level
 visibility defect (no inactivity watchdog on spawned workers).
@@ -41,8 +41,8 @@ calls, and the first (and most likely) is `gh api user`.
 **File:** `src/github-rate-limit.lib.mjs`.
 
 `ghWithRateLimitRetry(fn, options)` awaits `fn()` (which is `$\`...\``)
-and inspects the result. There is no `Promise.race` against a timeout,
-no `AbortController` wired through to `command-stream`, no
+and inspects the result. There is no `Promise.race`against a timeout,
+no`AbortController`wired through to`command-stream`, no
 `SIGTERM`-after-N-seconds escape hatch. When `fn()` never resolves the
 function never returns.
 
@@ -123,8 +123,8 @@ introduced for RC2.
 In the 5-issue reproduction run only the last issue (#117) stalled
 inside `verifyResults`. Issues #113–#116 went through the same path
 successfully. This is consistent with a transient `gh`/network hang,
-not a deterministic bug; which is why a *timeout* + *visibility* fix is
-correct and a *protocol redesign* would be overkill.
+not a deterministic bug; which is why a _timeout_ + _visibility_ fix is
+correct and a _protocol redesign_ would be overkill.
 
 ## Cross-check: the SIGINT timing
 
@@ -135,7 +135,7 @@ the SIGINT. So the order of events is:
 1. Worker is running Claude on #117, has been running for a while.
 2. Operator suspects the worker is stuck and presses Ctrl+C.
 3. Hive parent prints `🛑 Received interrupt signal, shutting down
-   gracefully...`.
+gracefully...`.
 4. Solve worker prints `⚠️ Session interrupted by user (CTRL+C)`
    and runs its full cleanup (auto-commit, push, session summary).
 5. Cleanup completes; `verifyResults()` is entered.
@@ -145,7 +145,7 @@ the SIGINT. So the order of events is:
 
 In other words: even after the operator explicitly tries to interrupt
 the run, the worker still gets stuck on the same `gh` call. This is a
-strong argument for *both* timeout and watchdog layers — SIGINT alone
+strong argument for _both_ timeout and watchdog layers — SIGINT alone
 is not a reliable way to recover, because `gh`'s missing default
 network timeout (RC4) means the underlying network read sometimes
 absorbs the signal.

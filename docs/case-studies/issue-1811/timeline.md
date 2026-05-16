@@ -1,7 +1,7 @@
 # Timeline / Sequence of Events
 
 All references are to
-[`logs/hive-issue-1811.log`](./logs/hive-issue-1811.log) (8.4 MB,
+[`logs/hive-issue-1811.txt`](./logs/hive-issue-1811.txt) (8.4 MB,
 90 302 lines). Line numbers below are 1-based file line numbers in that
 log.
 
@@ -28,12 +28,12 @@ serially. Five issues match the filter.
 Worker landmarks observed in the log:
 
 | Issue | Worker pickup | `🔍 Searching for created PRs…` | `🔍 Checking for pull requests from branch…` |
-| ----- | ------------- | ------------------------------- | --------------------------------------------- |
-| #113  | line 115      | line 16584                      | line 16586                                    |
-| #114  | line 16836    | line 39944                      | line 39946                                    |
-| #115  | line 40222    | line 57320                      | line 57322                                    |
-| #116  | line 57588    | line 78804                      | line 78806                                    |
-| #117  | line 79029    | line 90301                      | **never appears**                             |
+| ----- | ------------- | ------------------------------- | -------------------------------------------- |
+| #113  | line 115      | line 16584                      | line 16586                                   |
+| #114  | line 16836    | line 39944                      | line 39946                                   |
+| #115  | line 40222    | line 57320                      | line 57322                                   |
+| #116  | line 57588    | line 78804                      | line 78806                                   |
+| #117  | line 79029    | line 90301                      | **never appears**                            |
 
 For every successful issue the "Checking for pull requests from branch
 ..." log is emitted on the line right after "Searching for created
@@ -116,8 +116,7 @@ const userResult = await $`gh api user --jq .login`;
 await log(`🔍 Checking for pull requests from branch ${branchName}...`);
 ```
 
-The first `await` after the log line at 705 is the shell call at line
-735. `$` is `wrapDollarWithGhRetry(__rawDollar$)` from
+The first `await` after the log line at 705 is the shell call at line 735. `$` is `wrapDollarWithGhRetry(__rawDollar$)` from
 `src/github-rate-limit.lib.mjs`. `wrapDollarWithGhRetry` recognises
 `gh` invocations and runs them under `ghWithRateLimitRetry`, which:
 
@@ -151,7 +150,7 @@ Ctrl+C surfaces the cleanup logs but does not actually unblock the
 
 ## 7. Investigation (this PR)
 
-- Read `hive-issue-1811.log` end-to-end; isolated the
+- Read `hive-issue-1811.txt` end-to-end; isolated the
   "🔍 Searching…" → "🔍 Checking…" pattern as the offending region.
 - Read `src/solve.results.lib.mjs` (`verifyResults` definition).
 - Read `src/github-rate-limit.lib.mjs` (`ghWithRateLimitRetry`,

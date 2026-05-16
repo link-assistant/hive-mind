@@ -39,7 +39,8 @@ Acceptance criteria:
 Acceptance criteria:
 
 - Failing run log committed to
-  `docs/case-studies/issue-1811/logs/hive-issue-1811.log`.
+  `docs/case-studies/issue-1811/logs/hive-issue-1811.txt`
+  (renamed from `.log` so it is not excluded by the repo `.gitignore`).
 - Case study files present and cross-linked:
   - `README.md` (TL;DR + index)
   - `timeline.md` (reconstructed event sequence)

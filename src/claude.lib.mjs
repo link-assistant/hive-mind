@@ -16,7 +16,8 @@ import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage, getRawRequestInputTokens } from './claude.budget-stats.lib.mjs';
-import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
+import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
+import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
@@ -27,13 +28,14 @@ import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, maybeSwitchToFallbackModel } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
-export { availableModels }; // Re-export for backward compatibility
-export { fetchModelInfo };
-const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
+export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
+const showResumeCommand = async (sessionId, tempDir, claudePath, model, log, argv = null) => {
   if (!sessionId || !tempDir) return;
-  const cmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
-  await log('\n💡 To continue this session in Claude Code interactive mode:\n');
-  await log(`   ${cmd}\n`);
+  await log(`\n💡 To continue this session:\n`);
+  await log(`   Interactive mode:    ${buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model })}\n`);
+  await log(`   Autonomous mode:     ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, claudePath, model })}\n`);
+  // Issue #942: 3rd option - restart the entire /solve flow, not just the claude session.
+  if (argv && argv.url) await log(`   Solve resume mode:   ${buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: argv.tool || 'claude', model: argv.model, fallbackModel: argv.fallbackModel, tempDir })}\n`);
 };
 /** Format numbers with spaces as thousands separator (no commas) */
 export const formatNumber = num => {
@@ -1238,25 +1240,24 @@ export const executeClaudeCommand = async params => {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
           limitTimezone = limitInfo.timezone;
-
-          // Format and display user-friendly message
+          const hasSession = tempDir && sessionId;
+          // Issue #942: include all 3 resume options (interactive/autonomous/solve).
           const messageLines = formatUsageLimitMessage({
             tool: 'Anthropic Claude Code',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null,
+            interactiveResumeCommand: hasSession ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
+            autonomousResumeCommand: hasSession ? buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
+            solveResumeCommand: hasSession && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: argv.tool || 'claude', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null,
           });
-          for (const line of messageLines) {
-            await log(line, { level: 'warning' });
-          }
+          for (const line of messageLines) await log(line, { level: 'warning' });
         } else if (lastMessage.includes('context_length_exceeded')) {
           await log('\n\n❌ Context length exceeded. Try with a smaller issue or split the work.', { level: 'error' });
         } else {
           await log(`\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
-          if (sessionId && !argv.resume) {
-            await log(`📌 Session ID for resuming: ${sessionId}`);
-            await log('\nTo resume this session, run:');
-            await log(`   ${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}`);
+          if (sessionId && !argv.resume && tempDir) {
+            await log(`📌 Session ID: ${sessionId}`);
+            await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
           }
         }
       }
@@ -1275,7 +1276,7 @@ export const executeClaudeCommand = async params => {
         await log('\n📈 System resources after execution:', { verbose: true });
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
-        await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log);
+        await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
         return {
           success: false,
           sessionId,
@@ -1361,7 +1362,7 @@ export const executeClaudeCommand = async params => {
           await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
         }
       }
-      await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log);
+      await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
       return {
         success: true,
         sessionId,

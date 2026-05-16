@@ -5,13 +5,18 @@
  * Tests that the Claude CLI resume and initial commands are generated correctly
  * using the (cd ... && claude ...) pattern
  *
+ * Two types of resume commands are supported:
+ * - Interactive resume: Short command that opens Claude Code in interactive mode
+ * - Autonomous resume: Full command with all flags to run autonomously
+ *
  * Related issue: https://github.com/link-assistant/hive-mind/issues/942
  *
  * Note: These command builders are specifically designed for Claude CLI (--tool claude)
  * and are placed in the claude.command-builder.lib.mjs file as per user requirements.
  */
 
-import { buildClaudeResumeCommand, buildClaudeInitialCommand } from '../src/claude.command-builder.lib.mjs';
+import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildClaudeInitialCommand } from '../src/claude.command-builder.lib.mjs';
+import { buildSolveResumeCommand } from '../src/solve.results.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -167,6 +172,98 @@ runTest('buildClaudeResumeCommand: includes both model and custom path', () => {
   assertEqual(cmd, '(cd "/tmp/gh-issue-solver-1234567890" && /usr/local/bin/claude --resume abc123 --model opus)', 'Should include both custom path and model');
 });
 
+// === buildClaudeAutonomousResumeCommand tests ===
+
+runTest('buildClaudeAutonomousResumeCommand: generates command with (cd ... && claude --resume ...) pattern', () => {
+  const cmd = buildClaudeAutonomousResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123-def456-ghi789',
+  });
+
+  assertContains(cmd, '(cd "/tmp/gh-issue-solver-1234567890" && claude --resume abc123-def456-ghi789', 'Should generate correct pattern');
+});
+
+runTest('buildClaudeAutonomousResumeCommand: includes output-format stream-json', () => {
+  const cmd = buildClaudeAutonomousResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+  });
+
+  assertContains(cmd, '--output-format stream-json', 'Should include --output-format stream-json');
+});
+
+runTest('buildClaudeAutonomousResumeCommand: includes dangerously-skip-permissions', () => {
+  const cmd = buildClaudeAutonomousResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+  });
+
+  assertContains(cmd, '--dangerously-skip-permissions', 'Should include --dangerously-skip-permissions');
+});
+
+runTest('buildClaudeAutonomousResumeCommand: includes Continue prompt', () => {
+  const cmd = buildClaudeAutonomousResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+  });
+
+  assertContains(cmd, '-p "Continue."', 'Should include -p "Continue."');
+});
+
+runTest('buildClaudeAutonomousResumeCommand: includes model when specified', () => {
+  const cmd = buildClaudeAutonomousResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+    model: 'sonnet',
+  });
+
+  assertContains(cmd, '--model sonnet', 'Should include --model');
+});
+
+runTest('buildClaudeAutonomousResumeCommand: does not include model when not specified', () => {
+  const cmd = buildClaudeAutonomousResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+  });
+
+  assertNotContains(cmd, '--model', 'Should NOT include --model when not specified');
+});
+
+runTest('buildClaudeAutonomousResumeCommand: uses custom claude path', () => {
+  const cmd = buildClaudeAutonomousResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+    claudePath: '/usr/local/bin/claude',
+  });
+
+  assertContains(cmd, '/usr/local/bin/claude', 'Should use custom claude path');
+});
+
+runTest('buildClaudeAutonomousResumeCommand: uses subshell parentheses', () => {
+  const cmd = buildClaudeAutonomousResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+  });
+
+  assertTrue(cmd.startsWith('('), 'Should start with opening parenthesis');
+  assertTrue(cmd.endsWith(')'), 'Should end with closing parenthesis');
+});
+
+runTest('buildClaudeAutonomousResumeCommand: different from interactive resume command', () => {
+  const interactiveCmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+  });
+  const autonomousCmd = buildClaudeAutonomousResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+  });
+
+  assertTrue(autonomousCmd.length > interactiveCmd.length, 'Autonomous command should be longer than interactive');
+  assertContains(autonomousCmd, '--dangerously-skip-permissions', 'Autonomous should have skip permissions');
+  assertNotContains(interactiveCmd, '--dangerously-skip-permissions', 'Interactive should NOT have skip permissions');
+});
+
 // === buildClaudeInitialCommand tests ===
 
 runTest('buildClaudeInitialCommand: generates command with (cd ... && claude ...) pattern', () => {
@@ -228,6 +325,125 @@ runTest('buildClaudeInitialCommand: uses custom claude path', () => {
   });
 
   assertContains(cmd, '/usr/local/bin/claude', 'Should use custom claude path');
+});
+
+// === buildSolveResumeCommand tests (Issue #942 - 3rd resume option) ===
+
+runTest('buildSolveResumeCommand: includes node, script, and issue URL', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://github.com/owner/repo/issues/1',
+    sessionId: 'abc123',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/path/to/solve.mjs',
+  });
+
+  assertContains(cmd, '"/usr/bin/node"', 'Should quote nodePath');
+  assertContains(cmd, '"/path/to/solve.mjs"', 'Should quote scriptPath');
+  assertContains(cmd, '"https://github.com/owner/repo/issues/1"', 'Should quote issueUrl');
+  assertContains(cmd, '--resume "abc123"', 'Should include --resume with sessionId');
+});
+
+runTest('buildSolveResumeCommand: omits --tool for claude (default)', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tool: 'claude',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertNotContains(cmd, '--tool', 'Should NOT include --tool for claude');
+});
+
+runTest('buildSolveResumeCommand: includes --tool for codex', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tool: 'codex',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--tool "codex"', 'Should include --tool "codex"');
+});
+
+runTest('buildSolveResumeCommand: includes --tool for gemini', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tool: 'gemini',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--tool "gemini"', 'Should include --tool "gemini"');
+});
+
+runTest('buildSolveResumeCommand: includes model when specified', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    model: 'sonnet',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--model "sonnet"', 'Should include --model with value');
+});
+
+runTest('buildSolveResumeCommand: includes fallback-model when specified', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    fallbackModel: 'opus',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--fallback-model "opus"', 'Should include --fallback-model');
+});
+
+runTest('buildSolveResumeCommand: includes working-directory when tempDir provided', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--working-directory "/tmp/gh-issue-solver-1234567890"', 'Should preserve working directory');
+});
+
+runTest('buildSolveResumeCommand: handles paths with spaces via quoting', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tempDir: '/tmp/dir with spaces',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/path with spaces/solve.mjs',
+  });
+
+  assertContains(cmd, '"/path with spaces/solve.mjs"', 'Should quote script path with spaces');
+  assertContains(cmd, '"/tmp/dir with spaces"', 'Should quote tempDir with spaces');
+});
+
+runTest('buildSolveResumeCommand: combines tool, model, fallback-model, and working-directory', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tool: 'codex',
+    model: 'gpt-5',
+    fallbackModel: 'gpt-4',
+    tempDir: '/tmp/work',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--tool "codex"', 'Should preserve tool');
+  assertContains(cmd, '--model "gpt-5"', 'Should preserve model');
+  assertContains(cmd, '--fallback-model "gpt-4"', 'Should preserve fallback-model');
+  assertContains(cmd, '--working-directory "/tmp/work"', 'Should preserve working directory');
 });
 
 // === Summary ===

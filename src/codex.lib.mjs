@@ -17,6 +17,8 @@ import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
+const __codexBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'codex', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
@@ -1011,11 +1013,13 @@ export const executeCodexCommand = async params => {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
 
+          // Issue #942: build proper solve resume command (preserves tool/model/dir).
+          const solveResumeCmd = __codexBuildSolveResumeCmd(argv, sessionId, tempDir);
           const messageLines = formatUsageLimitMessage({
             tool: 'OpenAI Codex',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
+            solveResumeCommand: solveResumeCmd,
           });
 
           for (const line of messageLines) {
@@ -1096,11 +1100,13 @@ export const executeCodexCommand = async params => {
           limitResetTime = limitInfo.resetTime;
 
           // Format and display user-friendly message
+          // Issue #942: build proper solve resume command (preserves tool/model/dir).
+          const solveResumeCmd = __codexBuildSolveResumeCmd(argv, sessionId, tempDir);
           const messageLines = formatUsageLimitMessage({
             tool: 'OpenAI Codex',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
+            solveResumeCommand: solveResumeCmd,
           });
 
           for (const line of messageLines) {

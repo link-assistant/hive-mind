@@ -31,7 +31,7 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildSolveResumeCommand, maybeAttachWorkingSessionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildSolveResumeCommand, maybeAttachWorkingSessionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude, checkPlaywrightMcpAvailability } = claudeLib;
 const githubLinking = await import('./github-linking.lib.mjs');
@@ -868,16 +868,14 @@ try {
           await log(`⏰ Limit resets at: ${formattedResetTime}`);
         }
         await log('');
-        // Show claude resume command only for --tool claude (or default)
-        // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
-        const toolForResume = argv.tool || 'claude';
-        if (toolForResume === 'claude') {
-          const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
-          await log('💡 To continue this session in Claude Code interactive mode:');
-          await log('');
-          await log(`   ${claudeResumeCmd}`);
+        // Show dual resume commands (interactive + autonomous) only for --tool claude
+        if ((argv.tool || 'claude') === 'claude') {
+          await log('💡 To continue this session:');
+          await log(`   Interactive mode: ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+          await log(`   Autonomous mode:  ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
           await log('');
         } else if (argv.url) {
+          const toolForResume = argv.tool || 'claude';
           const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForResume, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
           await log(`💡 To continue this ${toolForResume} session with solve:`);
           await log('');
@@ -926,13 +924,13 @@ try {
           await log(`  ⚠️  Error uploading logs: ${uploadError.message}`);
         }
       } else if (prNumber) {
-        // Fallback: Post simple failure comment if logs are not attached
+        // Fallback: Post simple failure comment (no CLI commands in GitHub comments, only mention option)
         try {
           const resetTime = global.limitResetTime;
-          // Build Claude CLI resume command
-          const tool = argv.tool || 'claude';
-          const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : sessionId ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null;
-          const resumeSection = resumeCmd ? `To resume after the limit resets, use:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : `Session ID: \`${sessionId}\``;
+          // Issue #942: do not embed CLI commands in GitHub comments. Users
+          // interact via the Telegram bot, not the CLI. The full resume
+          // commands (interactive/autonomous/solve) live in the attached logs.
+          const resumeSection = sessionId ? `Session ID: \`${sessionId}\`\n\nUse the \`--auto-resume-on-limit-reset\` or \`--auto-restart-on-limit-reset\` option to automatically resume when the limit resets.` : 'Use the `--auto-resume-on-limit-reset` or `--auto-restart-on-limit-reset` option to automatically resume when the limit resets.';
           // Format the reset time with relative time and UTC conversion if available
           const timezone = global.limitTimezone || null;
           const formattedResetTime = resetTime ? formatResetTimeWithRelative(resetTime, timezone) : null;
@@ -1039,21 +1037,22 @@ try {
   // Skip failure exit if limit reached with auto-resume (continues to showSessionSummary/autoContinueWhenLimitResets)
   const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoResumeOnLimitReset;
   if (!success && !shouldSkipFailureExitForAutoLimitContinue) {
-    // Show claude resume command only for --tool claude (or default) on failure
+    // Issue #942: show all three resume options on failure for richer guidance.
+    //   1. Interactive claude  - opens Claude Code interactively (claude only)
+    //   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)
+    //   3. Solve resume        - re-enters solve.mjs with --resume, preserving tool/model/dir
     const toolForFailure = argv.tool || 'claude';
-    if (sessionId && toolForFailure === 'claude') {
-      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
+    if (sessionId) {
       await log('');
-      await log('💡 To continue this session in Claude Code interactive mode:');
-      await log('');
-      await log(`   ${claudeResumeCmd}`);
-      await log('');
-    } else if (sessionId && argv.url) {
-      const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
-      await log('');
-      await log(`💡 To continue this ${toolForFailure} session with solve:`);
-      await log('');
-      await log(`   ${solveResumeCmd}`);
+      await log('💡 To continue this session:');
+      if (toolForFailure === 'claude') {
+        await log(`   Interactive mode:    ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+        await log(`   Autonomous mode:     ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+      }
+      if (argv.url) {
+        const solveResumeCmd = buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
+        await log(`   Solve resume mode:   ${solveResumeCmd}`);
+      }
       await log('');
     }
 

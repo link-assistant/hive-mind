@@ -13,6 +13,8 @@ import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
+const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'gemini', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { defaultModels, geminiModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
@@ -539,11 +541,13 @@ export const executeGeminiCommand = async params => {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
 
+          // Issue #942: build proper solve resume command (preserves tool/model/dir).
+          const solveResumeCmd = __geminiBuildSolveResumeCmd(argv, sessionId, tempDir);
           const messageLines = formatUsageLimitMessage({
             tool: 'Gemini CLI',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId} --tool gemini` : null,
+            solveResumeCommand: solveResumeCmd,
           });
 
           for (const line of messageLines) {

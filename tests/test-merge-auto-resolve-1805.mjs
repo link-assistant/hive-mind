@@ -120,18 +120,34 @@ await asyncTest('Issue #1805: runAutoResolve dispatches each conflicted PR exact
     calls.push(target);
     return { success: true, sessionName: `session-${target.prNumber}` };
   };
-  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn });
+  // Issue #1807: the queue now waits for each spawned session to actually
+  // land its PR. Stub `getPRStatus` so the wait resolves immediately as
+  // MERGED instead of polling the real gh CLI.
+  const getPRStatus = async () => ({ state: 'MERGED', mergeStateStatus: 'CLEAN', mergeable: 'MERGEABLE', error: null });
+  const getMergeCommitSha = async () => ({ sha: 'deadbeefdeadbeef', error: null });
+  const p = new MergeQueueProcessor({ owner: 'o', repo: 'r', autoResolve: true, spawnSolveSession: spawn, getPRStatus, getMergeCommitSha });
   p.items = [makeStubItem({ prNumber: 1, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON }), makeStubItem({ prNumber: 2, status: MergeItemStatus.MERGED }), makeStubItem({ prNumber: 3, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON })];
+  // Issue #1807: skip the post-merge CI wait — exercised in dedicated tests.
+  p.waitForPostMergeCI = async () => ({ success: true, failedRuns: [], error: null });
+  // Pretend the conflicted PRs were tallied as skipped during the main loop,
+  // so we can verify runAutoResolve decrements that count on merge.
+  p.stats.skipped = 2;
+  // Speed up: avoid the real 5s post-merge sleep before fetching SHA.
+  p.sleep = async () => undefined;
   await p.runAutoResolve();
   assert.equal(calls.length, 2, 'spawner should be called for both conflict items');
   assert.equal(calls[0].prNumber, 1);
   assert.equal(calls[1].prNumber, 3);
-  assert.equal(p.stats.autoResolved, 2, 'stats.autoResolved bumped twice');
+  // Issue #1807: autoResolved is now bumped only when the PR actually merges.
+  assert.equal(p.stats.autoResolved, 2, 'stats.autoResolved bumped twice after merge');
   assert.equal(p.stats.autoResolveFailed, 0);
   assert.equal(p.items[0].autoResolveSession, 'session-1');
   assert.equal(p.items[2].autoResolveSession, 'session-3');
+  assert.equal(p.items[0].status, MergeItemStatus.MERGED, 'PR #1 should be MERGED after auto-resolve');
+  assert.equal(p.items[2].status, MergeItemStatus.MERGED, 'PR #3 should be MERGED after auto-resolve');
   assert.equal(p.autoResolveActive, false, 'flag should reset after the pass');
   assert.equal(p.autoResolveCurrent, null);
+  assert.equal(p.autoResolvePhase, null);
 });
 
 await asyncTest('Issue #1805: runAutoResolve marks RESOLVE_FAILED when no spawner is provided', async () => {
@@ -174,10 +190,15 @@ await asyncTest('Issue #1805: runAutoResolve stops mid-pass when cancelled', asy
     return { success: true };
   };
   p.spawnSolveSession = spawn;
+  // Issue #1807: stub getPRStatus so the wait loop exits quickly on cancel
+  // (it checks cancellation before its first poll anyway).
+  p.getPRStatus = async () => ({ state: 'OPEN', mergeStateStatus: 'DIRTY', mergeable: 'CONFLICTING', error: null });
   p.items = [makeStubItem({ prNumber: 41, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON }), makeStubItem({ prNumber: 42, status: MergeItemStatus.SKIPPED, error: MERGE_CONFLICT_SKIP_REASON })];
   await p.runAutoResolve();
   assert.equal(calls.length, 1, 'second dispatch should be skipped');
-  assert.equal(p.stats.autoResolved, 1);
+  // Issue #1807: the cancel happens before the first PR finishes merging, so
+  // autoResolved must stay 0 — the resolution wasn't completed.
+  assert.equal(p.stats.autoResolved, 0, 'autoResolved is only bumped after a successful merge');
 });
 
 test('Issue #1805: escapeMarkdownLinkUrl escapes only ) and backslash', () => {

@@ -1389,8 +1389,9 @@ import { getCommitDate, checkPreviousPRCommitsHadCI, checkWorkflowsHavePRTrigger
 export { getCommitDate, checkPreviousPRCommitsHadCI, checkWorkflowsHavePRTriggers };
 
 // Issue #1341: Re-export post-merge CI functions from separate module
-import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
-export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
+// Issue #1807: getPRStatus is used by the sequential auto-resolve pass to poll PR lifecycle state.
+import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus } from './github-merge-ci.lib.mjs';
+export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus };
 
 import { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas, getActivePRWorkflowRuns } from './github-merge-repo-actions.lib.mjs'; // Issue #1503, #1712
 export { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas, getActivePRWorkflowRuns };
@@ -1427,6 +1428,7 @@ export default {
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,
+  getPRStatus, // Issue #1807: sequential auto-resolve PR lifecycle polling
   getActiveRepoWorkflows,
   getCommitDate,
   checkPreviousPRCommitsHadCI,

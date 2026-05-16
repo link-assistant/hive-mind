@@ -662,6 +662,15 @@ export const mergeQueue = {
   // Issue #1341: Polling interval for post-merge CI status (in milliseconds)
   // Default: 30 seconds (30000ms) - balance between responsiveness and API rate limits
   postMergeCIPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_CI_POLL_INTERVAL_MS', 30 * 1000),
+  // Issue #1807: Timeout (ms) the sequential auto-resolve pass will wait for
+  // a single `/solve <pr> --auto-merge` session to land its PR. Conflict-
+  // resolution sessions can be long-running because Claude has to recompute
+  // merges and re-run CI; default is 4 hours.
+  autoResolveWaitTimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_AUTO_RESOLVE_WAIT_TIMEOUT_MS', 4 * 60 * 60 * 1000),
+  // Issue #1807: Polling interval (ms) for `gh pr view` lifecycle checks
+  // during the auto-resolve wait. 60 seconds balances responsiveness with
+  // GitHub API rate limits over the timeout window above.
+  autoResolvePollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_AUTO_RESOLVE_POLL_INTERVAL_MS', 60 * 1000),
 };
 
 // Helper function to validate configuration values

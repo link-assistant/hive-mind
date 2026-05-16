@@ -289,8 +289,42 @@ export async function getMergeCommitSha(owner, repo, prNumber, verbose = false) 
   }
 }
 
+/**
+ * Get the lifecycle state of a pull request (OPEN / CLOSED / MERGED) along
+ * with its mergeability state. Used by the sequential auto-resolve pass
+ * (issue #1807) to poll until a `/solve <pr> --auto-merge` session either
+ * lands the PR or fails.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{state: string|null, mergeStateStatus: string|null, mergeable: string|null, error: string|null}>}
+ */
+export async function getPRStatus(owner, repo, prNumber, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json state,mergeStateStatus,mergeable`);
+    const pr = JSON.parse(stdout.trim());
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${prNumber} state=${pr.state}, mergeStateStatus=${pr.mergeStateStatus}, mergeable=${pr.mergeable}`);
+    }
+    return {
+      state: pr.state || null,
+      mergeStateStatus: pr.mergeStateStatus || null,
+      mergeable: pr.mergeable || null,
+      error: null,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error getting PR #${prNumber} status: ${error.message}`);
+    }
+    return { state: null, mergeStateStatus: null, mergeable: null, error: error.message };
+  }
+}
+
 export default {
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,
+  getPRStatus,
 };

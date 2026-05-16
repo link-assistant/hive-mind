@@ -16,7 +16,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
 
-import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, syncReadyTags } from './github-merge.lib.mjs';
+import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus, syncReadyTags } from './github-merge.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
 import { getProgressBar } from './limits.lib.mjs';
 
@@ -102,6 +102,12 @@ export const MERGE_QUEUE_CONFIG = {
   CHECK_BRANCH_CI_HEALTH_BEFORE_START: mergeQueueConfig.checkBranchCIHealthBeforeStart,
   POST_MERGE_CI_TIMEOUT_MS: mergeQueueConfig.postMergeCITimeoutMs,
   POST_MERGE_CI_POLL_INTERVAL_MS: mergeQueueConfig.postMergeCIPollIntervalMs,
+
+  // Issue #1807: Sequential auto-resolve — wait for each `/solve --auto-merge`
+  // session to land its PR (or fail) before spawning the next one. These
+  // timeouts apply to the polling loop in `waitForAutoResolveCompletion`.
+  AUTO_RESOLVE_WAIT_TIMEOUT_MS: mergeQueueConfig.autoResolveWaitTimeoutMs,
+  AUTO_RESOLVE_POLL_INTERVAL_MS: mergeQueueConfig.autoResolvePollIntervalMs,
 };
 
 /**
@@ -191,6 +197,17 @@ export class MergeQueueProcessor {
     // Issue #1805: track auto-resolve progress so the renderer can surface it.
     this.autoResolveActive = false;
     this.autoResolveCurrent = null;
+    // Issue #1807: sequential auto-resolve — track which wait phase is active
+    // for the current auto-resolve item so the progress message can render
+    // distinct "spawning…", "waiting for merge…", and "waiting for CI…" lines.
+    // Values: null | 'spawning' | 'awaiting-resolution' | 'awaiting-ci'.
+    this.autoResolvePhase = null;
+    this.autoResolveWaitStartedAt = null;
+    // For dependency injection in tests (issue #1807) — when set, the
+    // sequential auto-resolve pass uses this in place of `getPRStatus()`.
+    this.getPRStatus = typeof options.getPRStatus === 'function' ? options.getPRStatus : getPRStatus;
+    // Same idea for `getMergeCommitSha` so tests don't need to stub gh.
+    this.getMergeCommitSha = typeof options.getMergeCommitSha === 'function' ? options.getMergeCommitSha : getMergeCommitSha;
 
     // Statistics
     this.stats = {
@@ -539,11 +556,17 @@ export class MergeQueueProcessor {
   }
 
   /**
-   * Issue #1805: Iterate every conflict-skipped item and hand it off to a
-   * `/solve <pr-url> --auto-merge` session via the injected
-   * `spawnSolveSession` callback. Each spawn is awaited so the bot doesn't
-   * fan out unbounded Claude sessions. The PR's status is updated as the
-   * spawn succeeds or fails.
+   * Issue #1805 / #1807: Iterate every conflict-skipped item and hand it off
+   * to a `/solve <pr-url> --auto-merge` session via the injected
+   * `spawnSolveSession` callback. Sessions are processed STRICTLY
+   * sequentially — for each PR we:
+   *   1. Spawn the solve session and confirm the spawn succeeded.
+   *   2. Poll the PR until it becomes MERGED or CLOSED, or until
+   *      `AUTO_RESOLVE_WAIT_TIMEOUT_MS` elapses.
+   *   3. If MERGED, await post-merge CI via `waitForPostMergeCI()` so the
+   *      release pipeline drains before the next resolution starts.
+   * This back-pressure is what keeps the conflict pass from spinning up
+   * eight parallel Claude sessions (issue #1807).
    *
    * @returns {Promise<void>}
    */
@@ -571,7 +594,7 @@ export class MergeQueueProcessor {
     }
 
     this.autoResolveActive = true;
-    this.log(`Auto-resolve: dispatching ${conflicted.length} conflict PR(s) to /solve --auto-merge`);
+    this.log(`Auto-resolve: dispatching ${conflicted.length} conflict PR(s) sequentially to /solve --auto-merge`);
     try {
       for (const item of conflicted) {
         if (this.isCancelled) {
@@ -581,10 +604,14 @@ export class MergeQueueProcessor {
 
         item.status = MergeItemStatus.RESOLVING;
         this.autoResolveCurrent = item.pr.number;
+        this.autoResolvePhase = 'spawning';
+        this.autoResolveWaitStartedAt = new Date();
         if (this.onProgress) {
           await this.onProgress(this.getProgressUpdate());
         }
 
+        // Step 1 — spawn the solve session.
+        let spawned = false;
         try {
           const result = await this.spawnSolveSession({
             url: item.pr.url,
@@ -596,8 +623,8 @@ export class MergeQueueProcessor {
 
           if (result && result.success) {
             item.autoResolveSession = result.sessionName || result.session || null;
-            this.stats.autoResolved++;
             this.log(`Auto-resolve: spawned solve session for PR #${item.pr.number}${item.autoResolveSession ? ` (session ${item.autoResolveSession})` : ''}`);
+            spawned = true;
           } else {
             item.status = MergeItemStatus.RESOLVE_FAILED;
             item.autoResolveError = (result && (result.error || result.warning)) || 'spawn failed';
@@ -611,6 +638,97 @@ export class MergeQueueProcessor {
           console.error(`[ERROR] /merge-queue: auto-resolve error for PR #${item.pr.number}: ${item.autoResolveError}`);
         }
 
+        if (!spawned) {
+          this.autoResolvePhase = null;
+          this.autoResolveWaitStartedAt = null;
+          if (this.onProgress) {
+            await this.onProgress(this.getProgressUpdate());
+          }
+          continue;
+        }
+
+        // Step 2 — wait for the spawned session to actually land (or fail)
+        // before starting the next one. This is the heart of issue #1807.
+        this.autoResolvePhase = 'awaiting-resolution';
+        this.autoResolveWaitStartedAt = new Date();
+        if (this.onProgress) {
+          await this.onProgress(this.getProgressUpdate());
+        }
+
+        const waitResult = await this.waitForAutoResolveCompletion(item);
+
+        if (waitResult.outcome === 'merged') {
+          // Treat the PR as merged for accounting purposes. We bump the
+          // dedicated `autoResolved` counter (kept for backwards-compat with
+          // issue #1805 reporting) and also fold the merge into `stats.merged`
+          // so the final report's success percentage reflects what the queue
+          // ultimately accomplished.
+          item.status = MergeItemStatus.MERGED;
+          item.completedAt = new Date();
+          this.stats.autoResolved++;
+          this.stats.merged++;
+          // The PR previously sat in `skipped` because of the merge conflict;
+          // now that it's merged via auto-resolve, decrement that counter so
+          // we don't double-count it.
+          if (this.stats.skipped > 0) this.stats.skipped--;
+          this.log(`Auto-resolve: PR #${item.pr.number} merged by solve session`);
+
+          // Best-effort: capture the merge commit SHA so post-merge CI wait
+          // has something to poll on.
+          try {
+            await this.sleep(5000);
+            const sha = await this.getMergeCommitSha(this.owner, this.repo, item.pr.number, this.verbose);
+            if (sha && sha.sha) {
+              item.mergeCommitSha = sha.sha;
+            }
+          } catch (error) {
+            this.log(`Auto-resolve: could not get merge commit SHA for PR #${item.pr.number}: ${error.message}`);
+          }
+
+          // Step 3 — drain the merged PR's CI before continuing. We reuse
+          // the same `waitForPostMergeCI` path the main loop already uses so
+          // release workflows finish before the next resolution starts.
+          if (MERGE_QUEUE_CONFIG.WAIT_FOR_POST_MERGE_CI && item.mergeCommitSha && !this.isCancelled) {
+            this.autoResolvePhase = 'awaiting-ci';
+            this.autoResolveWaitStartedAt = new Date();
+            if (this.onProgress) {
+              await this.onProgress(this.getProgressUpdate());
+            }
+            const postCi = await this.waitForPostMergeCI(item);
+            if (!postCi.success && MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE) {
+              // Stop the auto-resolve pass on CI failure so humans can
+              // investigate before more resolutions run on a broken branch.
+              // Mirrors the main loop's behaviour for issue #1341.
+              this.postMergeCIFailedRuns = postCi.failedRuns;
+              this.error = postCi.error;
+              this.log(`Auto-resolve: stopping pass after post-merge CI failure for PR #${item.pr.number}`);
+              break;
+            }
+          }
+        } else if (waitResult.outcome === 'closed') {
+          item.status = MergeItemStatus.RESOLVE_FAILED;
+          item.autoResolveError = 'PR was closed without merging';
+          this.stats.autoResolveFailed++;
+          this.log(`Auto-resolve: PR #${item.pr.number} was closed without merging`);
+        } else if (waitResult.outcome === 'cancelled') {
+          this.log(`Auto-resolve: cancelled while waiting for PR #${item.pr.number}`);
+          // Don't downgrade the item status — the user can resume later.
+          break;
+        } else if (waitResult.outcome === 'timeout') {
+          item.status = MergeItemStatus.RESOLVE_FAILED;
+          item.autoResolveError = `timed out after ${Math.round((MERGE_QUEUE_CONFIG.AUTO_RESOLVE_WAIT_TIMEOUT_MS || 0) / 60000)}m waiting for resolution`;
+          this.stats.autoResolveFailed++;
+          this.log(`Auto-resolve: timed out waiting for PR #${item.pr.number}`);
+        } else {
+          // 'error' — surface the cause but don't halt the whole pass.
+          item.status = MergeItemStatus.RESOLVE_FAILED;
+          item.autoResolveError = waitResult.error || 'unknown error while waiting';
+          this.stats.autoResolveFailed++;
+          this.log(`Auto-resolve: error waiting for PR #${item.pr.number}: ${item.autoResolveError}`);
+        }
+
+        this.autoResolvePhase = null;
+        this.autoResolveWaitStartedAt = null;
         if (this.onProgress) {
           await this.onProgress(this.getProgressUpdate());
         }
@@ -618,6 +736,89 @@ export class MergeQueueProcessor {
     } finally {
       this.autoResolveActive = false;
       this.autoResolveCurrent = null;
+      this.autoResolvePhase = null;
+      this.autoResolveWaitStartedAt = null;
+    }
+  }
+
+  /**
+   * Issue #1807: Poll the PR's lifecycle state until the spawned solve
+   * session either lands (MERGED), gives up (CLOSED without merge), or the
+   * caller hits a configured timeout. The polling cadence and overall
+   * timeout come from `MERGE_QUEUE_CONFIG`. Cancellation is checked between
+   * polls so the user can abort a long resolution wait via the inline
+   * cancel button.
+   *
+   * Implementation note: we deliberately use `gh pr view --json
+   * state,mergeStateStatus` rather than tracking the screen session
+   * itself. `start-screen` keeps the screen alive after `solve` exits
+   * (via `exec bash`), so the screen lifecycle is not a reliable
+   * completion signal. The PR's lifecycle, on the other hand, is the
+   * authoritative source of truth for "did the resolution succeed?".
+   *
+   * @param {MergeQueueItem} item
+   * @returns {Promise<{outcome: 'merged'|'closed'|'cancelled'|'timeout'|'error', error?: string}>}
+   */
+  async waitForAutoResolveCompletion(item) {
+    const timeout = MERGE_QUEUE_CONFIG.AUTO_RESOLVE_WAIT_TIMEOUT_MS;
+    const pollInterval = MERGE_QUEUE_CONFIG.AUTO_RESOLVE_POLL_INTERVAL_MS;
+    const startTime = Date.now();
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5;
+
+    this.log(`Auto-resolve: polling PR #${item.pr.number} until merged/closed (timeout=${Math.round(timeout / 60000)}m, poll=${Math.round(pollInterval / 1000)}s)`);
+
+    while (Date.now() - startTime < timeout) {
+      if (this.isCancelled) {
+        return { outcome: 'cancelled' };
+      }
+
+      let status;
+      try {
+        status = await this.getPRStatus(this.owner, this.repo, item.pr.number, this.verbose);
+      } catch (error) {
+        consecutiveErrors++;
+        this.log(`Auto-resolve: error polling PR #${item.pr.number} (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}): ${error.message}`);
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          return { outcome: 'error', error: error.message };
+        }
+        await this.cancellableSleep(pollInterval);
+        continue;
+      }
+
+      if (status && !status.error) {
+        consecutiveErrors = 0;
+        if (status.state === 'MERGED') {
+          return { outcome: 'merged' };
+        }
+        if (status.state === 'CLOSED') {
+          return { outcome: 'closed' };
+        }
+      } else if (status && status.error) {
+        consecutiveErrors++;
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          return { outcome: 'error', error: status.error };
+        }
+      }
+
+      await this.cancellableSleep(pollInterval);
+    }
+
+    return { outcome: 'timeout' };
+  }
+
+  /**
+   * Issue #1807: Sleep helper that bails out as soon as cancellation is
+   * requested. Used by the auto-resolve poll loop so a `cancel()` call
+   * doesn't have to wait a full polling interval before taking effect.
+   */
+  async cancellableSleep(ms) {
+    const step = Math.min(ms, 1000);
+    const deadline = Date.now() + ms;
+    while (Date.now() < deadline) {
+      if (this.isCancelled) return;
+      const remaining = deadline - Date.now();
+      await this.sleep(Math.min(step, remaining));
     }
   }
 
@@ -802,6 +1003,11 @@ export class MergeQueueProcessor {
         enabled: this.autoResolve,
         active: this.autoResolveActive,
         currentPrNumber: this.autoResolveCurrent,
+        // Issue #1807: expose the sequential wait phase so the progress
+        // renderer (and tests) can show whether we're spawning, waiting on
+        // resolution, or waiting on post-merge CI.
+        phase: this.autoResolvePhase,
+        waitElapsedMs: this.autoResolveWaitStartedAt ? Date.now() - this.autoResolveWaitStartedAt.getTime() : 0,
       },
       progress: {
         processed,
@@ -917,7 +1123,24 @@ export class MergeQueueProcessor {
     if (update.autoResolve && update.autoResolve.active && update.autoResolve.currentPrNumber) {
       const activeItem = update.items.find(it => it.prNumber === update.autoResolve.currentPrNumber);
       const link = activeItem ? this.formatPrLink(activeItem.prNumber, activeItem.title, activeItem.prUrl) : `\\#${update.autoResolve.currentPrNumber}`;
-      message += `🛠️ Auto\\-resolving ${link}\n\n`;
+      // Issue #1807: differentiate the wait phases so the user can tell at
+      // a glance whether we're still spawning, polling for merge, or
+      // waiting on post-merge CI to drain.
+      const phase = update.autoResolve.phase;
+      const elapsedMs = update.autoResolve.waitElapsedMs || 0;
+      const elapsedSec = Math.round(elapsedMs / 1000);
+      const elapsedMin = Math.floor(elapsedSec / 60);
+      const elapsedSecRemainder = elapsedSec % 60;
+      const elapsed = elapsedMs > 0 ? ` \\(${elapsedMin}m ${elapsedSecRemainder}s\\)` : '';
+      if (phase === 'awaiting-resolution') {
+        message += `🛠️ Auto\\-resolving ${link}: waiting for resolution${elapsed}\\.\\.\\.\n\n`;
+      } else if (phase === 'awaiting-ci') {
+        message += `🛠️ Auto\\-resolving ${link}: waiting for post\\-merge CI${elapsed}\\.\\.\\.\n\n`;
+      } else if (phase === 'spawning') {
+        message += `🛠️ Auto\\-resolving ${link}: dispatching solve session${elapsed}\\.\\.\\.\n\n`;
+      } else {
+        message += `🛠️ Auto\\-resolving ${link}\n\n`;
+      }
     } else if (update.current && !this.waitingForTargetBranchCI && !this.waitingForPostMergeCI) {
       // Current item being processed
       const statusEmoji = update.currentStatus === MergeItemStatus.WAITING_CI ? '⏱️' : '🔄';

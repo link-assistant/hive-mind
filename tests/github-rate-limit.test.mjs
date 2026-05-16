@@ -614,6 +614,85 @@ await test('supportsOptionsForm omitted preserves single-call behavior for naive
   assert.equal(calls, 1);
 });
 
+// Regression: $({ cwd: tempDir })`git ...` must forward cwd to the underlying
+// dollar. Previously the wrapper treated unknown option keys as gh-retry
+// options and silently dropped them, so cleanupClaudeFile (which relies on
+// $({ cwd: tempDir })`git ...`) ran git in the wrong directory. See the
+// test-issue-1791-gitkeep-cleanup failure investigated under issue #1811.
+await test('$({ cwd }) forwards cwd to underlying dollar for non-gh tagged templates', async () => {
+  const optionsFormCalls = [];
+  let templateCalled = false;
+  const fakeDollar = (firstArg, ...rest) => {
+    if (firstArg && typeof firstArg === 'object' && !Array.isArray(firstArg)) {
+      optionsFormCalls.push(firstArg);
+      return (strings, ...values) => {
+        templateCalled = true;
+        return Promise.resolve({ stdout: 'ok' });
+      };
+    }
+    return Promise.resolve({ stdout: 'tagged-direct' });
+  };
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {} });
+  await wrapped({ cwd: '/some/dir' })`git status`;
+  assert.equal(optionsFormCalls.length, 1, 'dollar({ cwd }) should be invoked once');
+  assert.equal(optionsFormCalls[0].cwd, '/some/dir');
+  assert.equal(templateCalled, true);
+});
+
+await test('$({ cwd }) forwards cwd to underlying dollar for gh tagged templates with no timeout', async () => {
+  const optionsFormCalls = [];
+  const fakeDollar = (firstArg, ...rest) => {
+    if (firstArg && typeof firstArg === 'object' && !Array.isArray(firstArg)) {
+      optionsFormCalls.push(firstArg);
+      return (strings, ...values) => Promise.resolve({ stdout: 'ok' });
+    }
+    return Promise.resolve({ stdout: 'tagged-direct' });
+  };
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {}, defaultTimeoutMs: 0 });
+  await wrapped({ cwd: '/some/dir' })`gh api user`;
+  assert.equal(optionsFormCalls.length, 1, 'dollar({ cwd }) should be invoked once');
+  assert.equal(optionsFormCalls[0].cwd, '/some/dir');
+});
+
+await test('$({ cwd }) and supportsOptionsForm merge cwd with signal for gh timeouts', async () => {
+  const optionsFormCalls = [];
+  const fakeDollar = (firstArg, ...rest) => {
+    if (firstArg && typeof firstArg === 'object' && !Array.isArray(firstArg)) {
+      optionsFormCalls.push(firstArg);
+      return (strings, ...values) => Promise.resolve({ stdout: 'ok' });
+    }
+    return Promise.resolve({ stdout: 'tagged-direct' });
+  };
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, {
+    log: () => {},
+    supportsOptionsForm: true,
+    defaultTimeoutMs: 1000,
+  });
+  await wrapped({ cwd: '/some/dir' })`gh api user`;
+  assert.equal(optionsFormCalls.length, 1);
+  assert.equal(optionsFormCalls[0].cwd, '/some/dir');
+  assert.ok(optionsFormCalls[0].signal, 'signal should be present alongside cwd');
+});
+
+await test('$({ timeoutMs }) does not leak timeoutMs into dollar options', async () => {
+  const optionsFormCalls = [];
+  let bareCalls = 0;
+  const fakeDollar = (firstArg, ...rest) => {
+    if (firstArg && typeof firstArg === 'object' && !Array.isArray(firstArg)) {
+      optionsFormCalls.push(firstArg);
+      return (strings, ...values) => Promise.resolve({ stdout: 'ok' });
+    }
+    bareCalls++;
+    return Promise.resolve({ stdout: 'tagged-direct' });
+  };
+  const wrapped = wrapDollarWithGhRetry(fakeDollar, { log: () => {} });
+  await wrapped({ timeoutMs: 5000 })`git status`;
+  // Pure wrapper-only options + no dollar options → dollar should be invoked
+  // as a plain tagged template, not via the options form.
+  assert.equal(optionsFormCalls.length, 0);
+  assert.equal(bareCalls, 1);
+});
+
 // ----------------------------------------------------------------------------
 // Summary
 // ----------------------------------------------------------------------------

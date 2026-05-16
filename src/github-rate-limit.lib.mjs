@@ -533,6 +533,22 @@ export const execGhWithRetry = async (command, options = {}) => {
  *        this to true; tests with naive `$` fakes leave it unset.
  * @returns {((strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>) & {raw: typeof dollar, gh: Function}}
  */
+// Issue #1811: keys the wrapper consumes itself for retry / timeout behavior.
+// Any other keys in a `$({ ... })` options-form invocation belong to the
+// underlying `dollar` (e.g. `cwd`, `env`, `stdin`, `signal`) and must be
+// forwarded so callers like `$({ cwd: tempDir })\`git ...\`` keep working.
+const WRAPPER_OWNED_OPTION_KEYS = new Set(['maxAttempts', 'transientMaxAttempts', 'transientDelay', 'transientBackoff', 'label', 'log', 'timeoutMs', 'retryOnTimeout', 'commandPreview', 'verboseLog', 'defaultTimeoutMs', 'supportsOptionsForm']);
+
+const splitWrapperOptions = perCallOptions => {
+  const wrapper = {};
+  const dollar = {};
+  for (const [key, value] of Object.entries(perCallOptions || {})) {
+    if (WRAPPER_OWNED_OPTION_KEYS.has(key)) wrapper[key] = value;
+    else dollar[key] = value;
+  }
+  return { wrapper, dollar };
+};
+
 export const wrapDollarWithGhRetry = (dollar, options = {}) => {
   const baseOptions = { ...options };
   const baseDefaultTimeoutMs = baseOptions.defaultTimeoutMs ?? timeouts.ghApiMs;
@@ -542,8 +558,31 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
   const supportsOptionsForm = baseOptions.supportsOptionsForm === true;
   delete baseOptions.supportsOptionsForm;
 
+  // Invoke the underlying dollar with any `dollar`-owned options
+  // (cwd/env/stdin/signal/...) merged in. When there are no such options we
+  // call dollar as a plain tagged template so we don't disturb implementations
+  // that do not support the options form.
+  const invokeDollar = (dollarOptions, strings, values) => {
+    const hasOptions = dollarOptions && Object.keys(dollarOptions).length > 0;
+    if (!hasOptions) return dollar(strings, ...values);
+    let configured;
+    try {
+      configured = dollar(dollarOptions);
+    } catch {
+      configured = null;
+    }
+    if (typeof configured === 'function') return configured(strings, ...values);
+    // dollar didn't accept the options form. Silence any unhandled rejection
+    // and fall back to the bare tagged-template invocation.
+    if (configured && typeof configured.then === 'function' && typeof configured.catch === 'function') {
+      configured.catch(() => {});
+    }
+    return dollar(strings, ...values);
+  };
+
   const buildCaller = perCallOptions => {
-    const merged = { ...baseOptions, ...perCallOptions };
+    const { wrapper: wrapperOpts, dollar: dollarOpts } = splitWrapperOptions(perCallOptions);
+    const merged = { ...baseOptions, ...wrapperOpts };
     const timeoutMs = merged.timeoutMs ?? baseDefaultTimeoutMs;
     const verboseLog = typeof merged.verboseLog === 'function' ? merged.verboseLog : baseVerboseLog;
     delete merged.verboseLog;
@@ -557,7 +596,7 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
         if (i < values.length) preview += String(values[i] ?? '');
       }
       const isGh = /^\s*gh(?:\s|$)/.test(preview);
-      if (!isGh) return dollar(strings, ...values);
+      if (!isGh) return invokeDollar(dollarOpts, strings, values);
       const trimmedPreview = preview.trim();
       const shortPreview = trimmedPreview.split(/\s+/).slice(0, 3).join(' ');
       if (verboseLog) {
@@ -573,22 +612,9 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
           // implementations (and naive test fakes) so they aren't invoked
           // twice per logical call.
           if (supportsOptionsForm && timeoutMs > 0 && signal && typeof dollar === 'function') {
-            let configured;
-            try {
-              configured = dollar({ signal });
-            } catch {
-              configured = null;
-            }
-            if (typeof configured === 'function') {
-              return configured(strings, ...values);
-            }
-            // Silence any unhandled rejection from a dollar that returned a
-            // promise (i.e. doesn't support options form despite the opt-in).
-            if (configured && typeof configured.then === 'function' && typeof configured.catch === 'function') {
-              configured.catch(() => {});
-            }
+            return invokeDollar({ ...dollarOpts, signal }, strings, values);
           }
-          return dollar(strings, ...values);
+          return invokeDollar(dollarOpts, strings, values);
         },
         {
           label: `$gh (${shortPreview})`,

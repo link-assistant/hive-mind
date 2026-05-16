@@ -826,6 +826,13 @@ try {
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
+  if (sessionId && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart'])) {
+    global.previousSessionId = sessionId;
+    if (argv.verbose) {
+      await log(`Session ID stored for auto-restart resume: ${sessionId}`, { verbose: true });
+    }
+  }
+
   // Capture limit reset time and timezone globally for downstream handlers (auto-continue, cleanup decisions)
   if (toolResult && toolResult.limitResetTime) {
     global.limitResetTime = toolResult.limitResetTime;

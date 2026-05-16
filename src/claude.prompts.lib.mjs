@@ -17,6 +17,11 @@ import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 export const buildUserPrompt = params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines, claudeVersion } = params;
 
+  if (argv?.minimalRestartContext && argv.resume) {
+    const lines = feedbackLines && feedbackLines.length > 0 ? feedbackLines : ['Continue the auto-restart from the previous resumed session.'];
+    return `${lines.join('\n')}\n`;
+  }
+
   const promptLines = [];
 
   // Issue or PR reference
@@ -86,6 +91,10 @@ export const buildUserPrompt = params => {
  */
 export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv, modelSupportsVision, forkedRepo } = params;
+
+  if (argv?.minimalRestartContext && argv.resume) {
+    return '';
+  }
 
   // When in fork mode, screenshots are pushed to the fork, not the original repo
   const screenshotRepoPath = argv?.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;

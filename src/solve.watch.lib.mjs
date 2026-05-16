@@ -290,6 +290,38 @@ export const watchForFeedback = async params => {
         // to comments posted during *this* iteration only, not across the whole watch loop.
         const iterationStartTime = new Date();
 
+        let restartFeedbackLines = feedbackLines;
+        let restartArgv = argv;
+        const shouldUseSessionResume = Boolean(isTemporaryWatch && (firstIterationInTemporaryMode || hasUncommittedInTempMode) && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart']) && (argv.tool === 'claude' || !argv.tool) && global.previousSessionId);
+
+        if (shouldUseSessionResume) {
+          await log(formatAligned('', 'Experimental session resume: using minimal auto-restart prompt', '', 2));
+          await log(formatAligned('', `Resuming session: ${global.previousSessionId}`, '', 2));
+
+          if (argv.verbose) {
+            try {
+              const { calculateSessionTokens } = await import('./claude.lib.mjs');
+              const tokenUsage = await calculateSessionTokens(global.previousSessionId, tempDir);
+              if (tokenUsage?.totalTokens) {
+                await log(formatAligned('', `Previous session tokens: ${tokenUsage.totalTokens.toLocaleString()}`, '', 2));
+              }
+            } catch {
+              await log(formatAligned('', 'Could not read previous session token usage', '', 2));
+            }
+          }
+
+          const { generateMinimalRestartPrompt } = await import('./solve.minimal-restart-prompt.lib.mjs');
+          const minimalPrompt = await generateMinimalRestartPrompt(tempDir, $);
+          restartFeedbackLines = [minimalPrompt];
+          restartArgv = {
+            ...argv,
+            resume: global.previousSessionId,
+            minimalRestartContext: true,
+          };
+
+          await log(formatAligned('', `Minimal restart prompt size: ${minimalPrompt.length} characters`, '', 2));
+        }
+
         // Execute tool using shared utility
         const toolResult = await executeToolIteration({
           issueUrl,
@@ -300,9 +332,13 @@ export const watchForFeedback = async params => {
           branchName: prBranch || branchName,
           tempDir,
           mergeStateStatus,
-          feedbackLines,
-          argv,
+          feedbackLines: restartFeedbackLines,
+          argv: restartArgv,
         });
+
+        if (toolResult.sessionId && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart'])) {
+          global.previousSessionId = toolResult.sessionId;
+        }
 
         if (!toolResult.success) {
           // Check if this is an API error using shared utility

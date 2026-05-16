@@ -187,6 +187,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Maximum number of auto-restart iterations before stopping (default: 5, 0 = unlimited)',
     default: 5,
   },
+  'resume-on-auto-restart': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Resume the previous Claude session on uncommitted-change auto-restart and send only a minimal restart prompt. Disabled by default.',
+    default: false,
+  },
   'auto-resume-max-iterations': {
     type: 'number',
     description: 'Maximum number of automatic resume/restart continuations after usage-limit resets (default: 5, 0 = unlimited)',

@@ -13,7 +13,13 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
-const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { wrapDollarWithGhRetry, GhTimeoutError } = await import('./github-rate-limit.lib.mjs');
+// Issue #1811: wrap `$` with a default per-call timeout sourced from
+// timeouts.ghApiMs (env: HIVE_MIND_GH_API_TIMEOUT_MS, default 15000ms). Each
+// `gh` invocation here — `gh api user`, `gh pr list`, `gh search prs` — runs
+// under that bound so a hung GitHub connection cannot stall the verify phase
+// forever. The wrapper also accepts an options-form override at any call site
+// (e.g. `$({ timeoutMs: 60000 })\`gh ...\``).
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const path = (await use('path')).default;
 
@@ -730,17 +736,45 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     }
   }
 
+  // Issue #1811: per-call timeout for the `gh` shell calls below. Each call
+  // is wrapped in `$({ timeoutMs })\`...\`` so a hung GitHub network read can
+  // never stall verifyResults forever (root cause RC1 / RC2 in the issue-1811
+  // case study). Under --verbose we also print the resolved command preview
+  // so any future stall has a single grep-able marker.
+  const verifyTimeoutMs = 15000;
+  const verifyVerboseTrace = async preview => {
+    if (argv.verbose) {
+      await log(`  [verifyResults] $ ${preview} (timeoutMs=${verifyTimeoutMs})`, { verbose: true });
+    }
+  };
+
+  let currentUser = null;
   try {
     // Get the current user's GitHub username
-    const userResult = await $`gh api user --jq .login`;
-
-    if (userResult.code !== 0) {
-      throw new Error(`Failed to get current user: ${userResult.stderr ? userResult.stderr.toString() : 'Unknown error'}`);
+    await verifyVerboseTrace('gh api user --jq .login');
+    let userResult;
+    try {
+      userResult = await $({ timeoutMs: verifyTimeoutMs })`gh api user --jq .login`;
+    } catch (userErr) {
+      if (userErr instanceof GhTimeoutError) {
+        // Issue #1811: do not let a hung user lookup stall verifyResults.
+        // Fall through to the branch-only PR search below — it does not need
+        // the current login.
+        await log(`  ⚠️  Could not determine GitHub user within ${userErr.timeoutMs}ms; continuing branch-only PR search.`);
+      } else {
+        throw userErr;
+      }
     }
 
-    const currentUser = userResult.stdout.toString().trim();
-    if (!currentUser) {
-      throw new Error('Unable to determine current GitHub user');
+    if (userResult) {
+      if (userResult.code !== 0) {
+        throw new Error(`Failed to get current user: ${userResult.stderr ? userResult.stderr.toString() : 'Unknown error'}`);
+      }
+
+      currentUser = userResult.stdout.toString().trim();
+      if (!currentUser) {
+        throw new Error('Unable to determine current GitHub user');
+      }
     }
 
     // Search for pull requests created from our branch

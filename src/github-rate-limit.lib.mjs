@@ -20,9 +20,25 @@
 import { promisify } from 'node:util';
 import { exec as execCb } from 'node:child_process';
 
-import { limitReset, retryLimits } from './config.lib.mjs';
+import { limitReset, retryLimits, timeouts } from './config.lib.mjs';
 
 const exec = promisify(execCb);
+
+/**
+ * Issue #1811: typed error raised when a `gh` shell call exceeds its
+ * per-call timeoutMs. Carries `timeoutMs` and `command` for diagnostics and
+ * is recognised as transient by `isTransientNetworkError` so callers' retry
+ * budgets apply (unless `retryOnTimeout: false`).
+ */
+export class GhTimeoutError extends Error {
+  constructor(message, { timeoutMs, command } = {}) {
+    super(message);
+    this.name = 'GhTimeoutError';
+    this.code = 'GH_TIMEOUT';
+    this.timeoutMs = timeoutMs;
+    this.command = command;
+  }
+}
 
 const GITHUB_RATE_LIMIT_USAGE_RESOURCES = ['core', 'graphql', 'search'];
 const RATE_LIMIT_PATTERNS = ['api rate limit exceeded', 'rate limit exceeded', 'you have exceeded a secondary rate limit', 'secondary rate limit', 'abuse detection', 'was submitted too quickly'];
@@ -300,9 +316,49 @@ const sleepWithCountdown = async (ms, log) => {
 const TRANSIENT_NETWORK_PATTERNS = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up', 'unexpected eof'];
 
 const isTransientNetworkError = error => {
+  // Issue #1811: GhTimeoutError is transient by construction — let the
+  // caller's retry budget apply unless they opted out with retryOnTimeout.
+  if (error instanceof GhTimeoutError) return true;
   const text = collectErrorText(error).toLowerCase();
   if (!text) return false;
   return TRANSIENT_NETWORK_PATTERNS.some(pattern => text.includes(pattern));
+};
+
+/**
+ * Issue #1811: wrap a Promise-returning `fn` so that if it does not resolve
+ * within `timeoutMs`, the returned promise rejects with a `GhTimeoutError`.
+ * The wrapper also passes an `AbortSignal` to `fn`, allowing callers (e.g. a
+ * `command-stream` `$({ signal })`-wrapped tagged template) to actually kill
+ * the spawned child instead of just abandoning the Promise.
+ *
+ * @template T
+ * @param {(signal: AbortSignal) => Promise<T>} fn
+ * @param {object} [options]
+ * @param {number} [options.timeoutMs] - 0/undefined disables the timeout.
+ * @param {string} [options.commandPreview] - short string for the error message.
+ * @returns {Promise<T>}
+ */
+export const callWithTimeout = (fn, { timeoutMs = 0, commandPreview = '' } = {}) => {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    // Pass a never-aborting signal so `fn` can rely on a stable signature.
+    return Promise.resolve(fn(new AbortController().signal));
+  }
+  const controller = new AbortController();
+  let timer = null;
+  const timeoutPromise = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new GhTimeoutError(`gh call exceeded ${timeoutMs}ms${commandPreview ? `: ${commandPreview}` : ''}`, { timeoutMs, command: commandPreview }));
+    }, timeoutMs);
+    // Don't keep the event loop alive just for this timer.
+    if (typeof timer.unref === 'function') timer.unref();
+  });
+  const fnPromise = Promise.resolve()
+    .then(() => fn(controller.signal))
+    .finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+  return Promise.race([fnPromise, timeoutPromise]);
 };
 
 /**
@@ -323,6 +379,15 @@ const isTransientNetworkError = error => {
  * @param {number} [options.transientBackoff] - backoff multiplier for transient retries (default 2).
  * @param {string} [options.label] - prefix for log messages.
  * @param {(msg: string) => Promise<void>|void} [options.log] - logger. Defaults to console.warn.
+ * @param {number} [options.timeoutMs] - issue #1811: per-call timeout in ms. If
+ *        the wrapped `fn` accepts an `AbortSignal` (as the wrapper produced by
+ *        `wrapDollarWithGhRetry` does), the spawned `gh` child is sent
+ *        SIGTERM via that signal on timeout. 0/undefined disables.
+ * @param {boolean} [options.retryOnTimeout=true] - whether a `GhTimeoutError`
+ *        should be retried (using the transient-error budget) or rethrown
+ *        immediately. Default true to match other transient errors.
+ * @param {string} [options.commandPreview] - short string included in timeout
+ *        errors and verbose logs (e.g. "gh api user").
  * @returns {Promise<T>}
  */
 export const ghWithRateLimitRetry = async (fn, options = {}) => {
@@ -332,6 +397,9 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
   const transientBackoff = options.transientBackoff ?? 2;
   const label = options.label || 'gh';
   const log = options.log || (msg => console.warn(msg));
+  const timeoutMs = options.timeoutMs ?? 0;
+  const retryOnTimeout = options.retryOnTimeout !== false;
+  const commandPreview = options.commandPreview || label;
 
   // Two independent retry budgets — a long string of rate-limit responses
   // shouldn't burn the transient-error retries, and vice versa.
@@ -344,12 +412,32 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
 
   for (let i = 0; i < hardCap; i++) {
     try {
-      const result = await fn();
+      // Issue #1811: route every attempt through callWithTimeout so the
+      // spawned `gh` child is killed (via AbortSignal) when it hangs.
+      const result = await callWithTimeout(signal => fn(signal), { timeoutMs, commandPreview });
       await logGitHubRateLimitUsage({ label });
       return result;
     } catch (error) {
       await logGitHubRateLimitUsage({ label });
       lastError = error;
+
+      // Issue #1811: surface timeouts explicitly and (by default) feed them
+      // back into the transient-error retry bucket.
+      if (error instanceof GhTimeoutError) {
+        if (!retryOnTimeout) {
+          await Promise.resolve(log(`❌ ${label}: timed out after ${error.timeoutMs}ms (retryOnTimeout=false); giving up.`));
+          throw error;
+        }
+        transientAttempts++;
+        if (transientAttempts >= transientMaxAttempts) {
+          await Promise.resolve(log(`❌ ${label}: timed out after ${error.timeoutMs}ms and exhausted ${transientAttempts} retries; giving up.`));
+          throw error;
+        }
+        const waitMs = transientDelay * Math.pow(transientBackoff, transientAttempts - 1);
+        await Promise.resolve(log(`⚠️ ${label}: timed out after ${error.timeoutMs}ms (attempt ${transientAttempts}/${transientMaxAttempts}), retrying in ${Math.round(waitMs / 1000)}s...`));
+        await sleepWithCountdown(waitMs, log);
+        continue;
+      }
 
       if (isRateLimitError(error)) {
         rateLimitAttempts++;
@@ -412,29 +500,100 @@ export const execGhWithRetry = async (command, options = {}) => {
  *   const { $: rawDollar } = await use('command-stream');
  *   const $ = wrapDollarWithGhRetry(rawDollar);
  *
+ * Issue #1811: the returned wrapper is callable in two forms:
+ *   $`gh api user`                      // legacy tagged-template form
+ *   $({ timeoutMs: 15000 })`gh api ...` // options form, sets per-call timeout
+ * Options-form usage returns a tagged-template function that inherits the
+ * wrapper's `defaultTimeoutMs` and merges any caller-provided overrides
+ * (timeoutMs, retryOnTimeout, log, verbose, label). The wrapper also accepts
+ * a top-level `defaultTimeoutMs` (defaults to `timeouts.ghApiMs` from
+ * config.lib.mjs — 15s by default) so every `gh` call gets a bounded wait
+ * without each call site having to pass it.
+ *
  * @template T
  * @param {(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>} dollar
  * @param {object} [options] - forwarded to ghWithRateLimitRetry per call.
- * @returns {(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>}
+ * @param {number} [options.defaultTimeoutMs] - per-call timeout applied to
+ *        every `gh` invocation unless the caller overrides it via the options
+ *        form. Pass 0 to disable. Default: `timeouts.ghApiMs`.
+ * @param {(msg: string) => Promise<void>|void} [options.verboseLog] - if set,
+ *        called once per `gh` call with the resolved preview + timeoutMs.
+ * @returns {((strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>) & {raw: typeof dollar, gh: Function}}
  */
 export const wrapDollarWithGhRetry = (dollar, options = {}) => {
-  const wrapped = (strings, ...values) => {
-    // Reconstruct the literal command for inspection (sufficient — leading
-    // `gh ` is what we care about).
-    let preview = '';
-    for (let i = 0; i < strings.length; i++) {
-      preview += strings[i];
-      if (i < values.length) preview += String(values[i] ?? '');
+  const baseOptions = { ...options };
+  const baseDefaultTimeoutMs = baseOptions.defaultTimeoutMs ?? timeouts.ghApiMs;
+  delete baseOptions.defaultTimeoutMs;
+  const baseVerboseLog = typeof baseOptions.verboseLog === 'function' ? baseOptions.verboseLog : null;
+  delete baseOptions.verboseLog;
+
+  const buildCaller = perCallOptions => {
+    const merged = { ...baseOptions, ...perCallOptions };
+    const timeoutMs = merged.timeoutMs ?? baseDefaultTimeoutMs;
+    const verboseLog = typeof merged.verboseLog === 'function' ? merged.verboseLog : baseVerboseLog;
+    delete merged.verboseLog;
+
+    return (strings, ...values) => {
+      // Reconstruct the literal command for inspection (sufficient — leading
+      // `gh ` is what we care about).
+      let preview = '';
+      for (let i = 0; i < strings.length; i++) {
+        preview += strings[i];
+        if (i < values.length) preview += String(values[i] ?? '');
+      }
+      const isGh = /^\s*gh(?:\s|$)/.test(preview);
+      if (!isGh) return dollar(strings, ...values);
+      const trimmedPreview = preview.trim();
+      const shortPreview = trimmedPreview.split(/\s+/).slice(0, 3).join(' ');
+      if (verboseLog) {
+        const tag = timeoutMs > 0 ? ` (timeoutMs=${timeoutMs})` : '';
+        Promise.resolve(verboseLog(`   $ ${trimmedPreview}${tag}`)).catch(() => {});
+      }
+      return ghWithRateLimitRetry(
+        signal => {
+          // Issue #1811: if command-stream's `$` accepts an options-form
+          // invocation (`$({ signal })`), use it so the spawned `gh` child is
+          // SIGTERMed when the timeout fires. Fall back to plain template-only
+          // invocation if not supported.
+          if (timeoutMs > 0 && signal && typeof dollar === 'function') {
+            try {
+              const configured = dollar({ signal });
+              if (typeof configured === 'function') {
+                return configured(strings, ...values);
+              }
+            } catch {
+              // Older command-stream versions: ignore and fall through.
+            }
+          }
+          return dollar(strings, ...values);
+        },
+        {
+          label: `$gh (${shortPreview})`,
+          commandPreview: trimmedPreview,
+          ...merged,
+          timeoutMs,
+        }
+      );
+    };
+  };
+
+  const tagged = buildCaller({});
+  const wrapped = function (firstArg, ...rest) {
+    // Tagged-template usage: first arg is a TemplateStringsArray.
+    if (firstArg && Array.isArray(firstArg) && Object.prototype.hasOwnProperty.call(firstArg, 'raw')) {
+      return tagged(firstArg, ...rest);
     }
-    const isGh = /^\s*gh(?:\s|$)/.test(preview);
-    if (!isGh) return dollar(strings, ...values);
-    return ghWithRateLimitRetry(() => dollar(strings, ...values), {
-      label: `$gh (${preview.trim().split(/\s+/).slice(0, 3).join(' ')})`,
-      ...options,
-    });
+    // Options-form: $({ timeoutMs }) returns a tagged-template function.
+    if (firstArg && typeof firstArg === 'object' && !Array.isArray(firstArg)) {
+      return buildCaller(firstArg);
+    }
+    // Fallback — let the underlying $ raise its own error.
+    return dollar(firstArg, ...rest);
   };
   // Preserve a reference to the underlying $ for consumers that need it.
   wrapped.raw = dollar;
+  // Convenience: $.gh({ timeoutMs }) is identical to $({ timeoutMs }).
+  wrapped.gh = perCallOptions => buildCaller(perCallOptions || {});
   return wrapped;
 };
 
@@ -453,4 +612,6 @@ export default {
   ghWithRateLimitRetry,
   execGhWithRetry,
   wrapDollarWithGhRetry,
+  GhTimeoutError,
+  callWithTimeout,
 };

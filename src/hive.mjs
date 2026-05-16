@@ -813,11 +813,85 @@ if (isRunningDirectly) {
                 env: process.env,
               });
 
+              // Issue #1811: parent-side inactivity watchdog. The worker child
+              // (solve.mjs) can stall silently — most notoriously inside
+              // verifyResults() when `gh api user` hangs because `gh` has no
+              // default network timeout. Track the last time we saw any data
+              // from the child, log a warning if silence exceeds the configured
+              // window, and optionally SIGTERM after a hard threshold.
+              let lastActivityAt = Date.now();
+              let lastWarnAt = 0;
+              let lastLogLine = '';
+              const warnMs = Number.isFinite(argv.workerInactivityWarnSeconds) && argv.workerInactivityWarnSeconds > 0 ? argv.workerInactivityWarnSeconds * 1000 : 0;
+              const killMs = Number.isFinite(argv.workerInactivityKillSeconds) && argv.workerInactivityKillSeconds > 0 ? argv.workerInactivityKillSeconds * 1000 : 0;
+              const verboseWatchdogMs = argv.verbose && warnMs > 0 ? Math.max(60_000, Math.min(warnMs, 120_000)) : 0;
+              const watchdogTickMs = 1000;
+              const killGraceMs = 10_000;
+              let killTimer = null;
+              let watchdogTimer = null;
+
+              const markActivity = line => {
+                lastActivityAt = Date.now();
+                if (line && line.trim()) lastLogLine = line.trim();
+              };
+
+              const stopWatchdog = () => {
+                if (watchdogTimer) {
+                  clearInterval(watchdogTimer);
+                  watchdogTimer = null;
+                }
+                if (killTimer) {
+                  clearTimeout(killTimer);
+                  killTimer = null;
+                }
+              };
+
+              const checkActivity = () => {
+                const silentMs = Date.now() - lastActivityAt;
+                if (warnMs > 0 && silentMs >= warnMs && Date.now() - lastWarnAt >= warnMs) {
+                  const seconds = Math.round(silentMs / 1000);
+                  const tail = lastLogLine ? ` Last log: "${lastLogLine.slice(0, 200)}"` : '';
+                  log(`   ⚠️  Worker ${workerId} silent for ${seconds}s on ${issueUrl} (warn threshold ${Math.round(warnMs / 1000)}s).${tail}`, { level: 'warn' }).catch(() => {});
+                  lastWarnAt = Date.now();
+                } else if (verboseWatchdogMs > 0 && warnMs > 0 && silentMs >= verboseWatchdogMs && silentMs < warnMs && Date.now() - lastWarnAt >= verboseWatchdogMs) {
+                  // Verbose-mode early heartbeat: surfaces "child is quiet"
+                  // before the warn threshold so operators see something.
+                  const seconds = Math.round(silentMs / 1000);
+                  log(`   👀 Worker ${workerId} silent for ${seconds}s on ${issueUrl} (verbose heartbeat).`, { verbose: true }).catch(() => {});
+                  lastWarnAt = Date.now();
+                }
+                if (killMs > 0 && silentMs >= killMs && !killTimer) {
+                  const seconds = Math.round(silentMs / 1000);
+                  log(`   🛑 Worker ${workerId} silent for ${seconds}s > kill threshold ${Math.round(killMs / 1000)}s on ${issueUrl}; sending SIGTERM.`, { level: 'error' }).catch(() => {});
+                  try {
+                    child.kill('SIGTERM');
+                  } catch {
+                    // Child may already be dead; ignore.
+                  }
+                  // Schedule SIGKILL escalation if SIGTERM doesn't land.
+                  killTimer = setTimeout(() => {
+                    try {
+                      log(`   💀 Worker ${workerId} did not exit after SIGTERM + ${Math.round(killGraceMs / 1000)}s; sending SIGKILL.`, { level: 'error' }).catch(() => {});
+                      child.kill('SIGKILL');
+                    } catch {
+                      // Already dead.
+                    }
+                  }, killGraceMs);
+                  if (typeof killTimer.unref === 'function') killTimer.unref();
+                }
+              };
+
+              if (warnMs > 0 || killMs > 0 || verboseWatchdogMs > 0) {
+                watchdogTimer = setInterval(checkActivity, watchdogTickMs);
+                if (typeof watchdogTimer.unref === 'function') watchdogTimer.unref();
+              }
+
               // Handle stdout data - stream output in real-time
               child.stdout.on('data', data => {
                 const lines = data.toString().split('\n');
                 for (const line of lines) {
                   if (line.trim()) {
+                    markActivity(line);
                     log(`   [${solveCommand} worker-${workerId}] ${line}`).catch(logError => {
                       reportError(logError, {
                         context: 'worker_stdout_log',
@@ -834,6 +908,7 @@ if (isRunningDirectly) {
                 const lines = data.toString().split('\n');
                 for (const line of lines) {
                   if (line.trim()) {
+                    markActivity(line);
                     log(`   [${solveCommand} worker-${workerId} ERROR] ${line}`, { level: 'error' }).catch(logError => {
                       reportError(logError, {
                         context: 'worker_stderr_log',
@@ -847,12 +922,14 @@ if (isRunningDirectly) {
 
               // Handle process completion
               child.on('close', code => {
+                stopWatchdog();
                 exitCode = code || 0;
                 resolve();
               });
 
               // Handle process errors
               child.on('error', error => {
+                stopWatchdog();
                 exitCode = 1;
                 log(`   [${solveCommand} worker-${workerId} ERROR] Process error: ${error.message}`, {
                   level: 'error',

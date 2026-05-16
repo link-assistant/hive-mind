@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.72.0
+
+### Minor Changes
+
+- fffdfbf: Add experimental `--resume-on-auto-restart` support for resuming Claude auto-restart sessions with a minimal uncommitted-change prompt.
+
 ## 1.71.1
 
 ### Patch Changes

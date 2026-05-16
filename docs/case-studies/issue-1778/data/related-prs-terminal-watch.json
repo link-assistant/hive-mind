@@ -1,0 +1,12 @@
+[
+  { "mergedAt": "2026-04-29T11:45:11Z", "number": 1721, "title": "Fix /terminal_watch uploading log file in General topic (#1720)", "url": "https://github.com/link-assistant/hive-mind/pull/1721" },
+  { "mergedAt": "2026-05-04T13:52:59Z", "number": 1751, "title": "Fix /terminal_watch update counter and Telegram edit spam", "url": "https://github.com/link-assistant/hive-mind/pull/1751" },
+  { "mergedAt": "2026-04-27T06:52:37Z", "number": 1701, "title": "Fix /log + /terminal_watch rejecting real $ isolation sessions (#1700)", "url": "https://github.com/link-assistant/hive-mind/pull/1701" },
+  { "mergedAt": "2026-04-26T17:53:54Z", "number": 551, "title": "Add Telegram terminal watch command", "url": "https://github.com/link-assistant/hive-mind/pull/551" },
+  { "mergedAt": "2026-04-26T15:11:42Z", "number": 1687, "title": "/log Telegram command for isolation session logs", "url": "https://github.com/link-assistant/hive-mind/pull/1687" },
+  { "mergedAt": "2026-04-30T08:16:55Z", "number": 1735, "title": "Add Telegram /task issue creation", "url": "https://github.com/link-assistant/hive-mind/pull/1735" },
+  { "mergedAt": "2026-04-25T10:36:58Z", "number": 1681, "title": "Fix Telegram screen session monitoring startup", "url": "https://github.com/link-assistant/hive-mind/pull/1681" },
+  { "mergedAt": "2026-04-23T23:16:02Z", "number": 1659, "title": "fix: support LINO isolation override links", "url": "https://github.com/link-assistant/hive-mind/pull/1659" },
+  { "mergedAt": "2026-04-24T08:48:29Z", "number": 1663, "title": "Support Telegram options before URL", "url": "https://github.com/link-assistant/hive-mind/pull/1663" },
+  { "mergedAt": "2026-04-26T12:59:16Z", "number": 1695, "title": "Default-enable stabilized solve/Telegram options (#1694)", "url": "https://github.com/link-assistant/hive-mind/pull/1695" }
+]

@@ -1,4 +1,4 @@
-# Hive Mind Data Flow Documentation
+# Hive Mind Data Flow Documentation (languages: en • [zh](flow.zh.md) • [hi](flow.hi.md) • [ru](flow.ru.md))
 
 This comprehensive document describes the data flow in Hive Mind, explicitly highlighting all points where human feedback is integrated into the system workflow.
 

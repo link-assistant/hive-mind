@@ -20,6 +20,7 @@
 
 import { parseRepositoryUrl, checkLabelPermissions, ensureReadyLabel } from './github-merge.lib.mjs';
 import { createMergeQueueProcessor, MergeStatus, MERGE_QUEUE_CONFIG } from './telegram-merge-queue.lib.mjs';
+import { executeStartScreen } from './telegram-command-execution.lib.mjs';
 
 /**
  * Active merge operations map (repoKey -> { processor, chatId, messageId })
@@ -91,6 +92,77 @@ function parseCommandArgs(text) {
 }
 
 /**
+ * Issue #1805: Parse boolean flags out of the tokenised `/merge` args.
+ * Supports `--flag`, `--flag=true`, `--flag=false`, `--no-flag` and the
+ * trailing positional repository URL. We keep the original positional order
+ * so callers can still treat `positionals[0]` as the repo URL.
+ *
+ * @param {string[]} args - The output of `parseCommandArgs(text)`.
+ * @returns {{ positionals: string[], flags: Record<string, boolean> }}
+ */
+export function parseMergeArgs(args) {
+  const flags = {};
+  const positionals = [];
+  for (const arg of args) {
+    if (typeof arg !== 'string') continue;
+    if (arg.startsWith('--')) {
+      const body = arg.slice(2);
+      if (!body) continue;
+      // --no-foo => foo=false
+      if (body.startsWith('no-')) {
+        const key = body.slice(3);
+        if (key) flags[key] = false;
+        continue;
+      }
+      const eqIdx = body.indexOf('=');
+      if (eqIdx === -1) {
+        flags[body] = true;
+      } else {
+        const key = body.slice(0, eqIdx);
+        const value = body.slice(eqIdx + 1).toLowerCase();
+        flags[key] = !(value === 'false' || value === '0' || value === 'no' || value === 'off');
+      }
+    } else {
+      positionals.push(arg);
+    }
+  }
+  return { positionals, flags };
+}
+
+/**
+ * Issue #1805: Spawner used by the merge queue's auto-resolve pass. For each
+ * skipped PR we dispatch a `solve <pr-url> --auto-merge` session through
+ * the same `start-screen` runtime the bot uses everywhere else. Keeping this
+ * in one place means the per-PR sessions behave exactly like any other
+ * `/solve` invocation (same logs, same /watch, same isolation backend).
+ *
+ * @param {Object} target - Info for the conflicted PR.
+ * @param {string} target.url - PR HTML URL passed to `solve`.
+ * @param {boolean} verbose - Forwarded to the underlying spawn.
+ * @returns {Promise<{ success: boolean, sessionName: string|null, error: string|null, warning: string|null }>}
+ */
+async function spawnAutoResolveSolve(target, verbose) {
+  if (!target || !target.url) {
+    return { success: false, sessionName: null, error: 'missing PR URL', warning: null };
+  }
+  const args = [target.url, '--auto-merge'];
+  try {
+    const result = await executeStartScreen('solve', args, { verbose });
+    if (result.warning) {
+      return { success: false, sessionName: null, error: null, warning: result.warning };
+    }
+    if (!result.success) {
+      return { success: false, sessionName: null, error: result.error || 'spawn failed', warning: null };
+    }
+    const match = result.output && (result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/));
+    const sessionName = match ? match[1] : null;
+    return { success: true, sessionName, error: null, warning: null };
+  } catch (error) {
+    return { success: false, sessionName: null, error: error.message || String(error), warning: null };
+  }
+}
+
+/**
  * Format user-friendly error message
  * Hides debug info unless verbose mode is enabled
  * @param {Error} error - The error object
@@ -130,10 +202,14 @@ function formatUserError(error, verbose) {
  * @param {Function} options.isForwardedOrReply - Function to check if message is forwarded/reply
  * @param {Function} options.isGroupChat - Function to check if chat is a group
  * @param {Function} options.isChatAuthorized - Function to check if chat is authorized
+ * @param {Function} [options.isTopicAuthorized] - Function to check if topic is authorized (issue #1100)
+ * @param {Function} [options.buildAuthErrorMessage] - Function to build authorization error message
  * @param {Function} options.addBreadcrumb - Function to add breadcrumbs for monitoring
+ * @param {Function} [options.isChatStopped] - Function to check if chat is stopped (issue #1081)
+ * @param {Function} [options.getStoppedChatRejectMessage] - Function to get stopped chat rejection message
  */
 export function registerMergeCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, addBreadcrumb } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage } = options;
 
   bot.command(/^merge$/i, async ctx => {
     VERBOSE && console.log('[VERBOSE] /merge command received');
@@ -154,22 +230,34 @@ export function registerMergeCommand(bot, options) {
       });
     }
 
+    const authorize = isTopicAuthorized || (ctx => isChatAuthorized(ctx.chat.id));
+    if (!authorize(ctx)) {
+      const errMsg = buildAuthErrorMessage ? buildAuthErrorMessage(ctx) : `This chat (ID: ${ctx.chat.id}) is not authorized.`;
+      return await ctx.reply(errMsg, { reply_to_message_id: ctx.message.message_id });
+    }
+
     const chatId = ctx.chat.id;
-    if (!isChatAuthorized(chatId)) {
-      return await ctx.reply(`This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, {
-        reply_to_message_id: ctx.message.message_id,
-      });
+
+    // Check if chat is stopped (issue #1081) - reject with same style as queue rejected mode
+    if (isChatStopped && isChatStopped(chatId)) {
+      VERBOSE && console.log('[VERBOSE] /merge rejected: chat is stopped');
+      const rejectMsg = getStoppedChatRejectMessage ? getStoppedChatRejectMessage(chatId, 'Merge') : '❌ Merge command rejected.';
+      return await ctx.reply(rejectMsg, { reply_to_message_id: ctx.message.message_id });
     }
 
     // Parse arguments
     const args = parseCommandArgs(ctx.message.text);
+    // Issue #1805: split positional args from `--auto-resolve` style flags so
+    // the repository URL parsing still sees only the URL token.
+    const { positionals, flags } = parseMergeArgs(args);
+    const autoResolve = flags['auto-resolve'] === true;
 
-    if (args.length === 0) {
-      return await ctx.reply("Missing repository URL\\.\n\nUsage: `/merge <repository-url>`\n\nExample: `/merge https://github.com/owner/repo`\n\nThis will merge all PRs with the 'ready' label, one by one, waiting for CI/CD between each merge\\.", { parse_mode: 'MarkdownV2', reply_to_message_id: ctx.message.message_id });
+    if (positionals.length === 0) {
+      return await ctx.reply("Missing repository URL\\.\n\nUsage: `/merge <repository-url> [--auto-resolve]`\n\nExample: `/merge https://github.com/owner/repo`\n\nThis will merge all PRs with the 'ready' label, one by one, waiting for CI/CD between each merge\\.\n\nWith `--auto-resolve` the bot also dispatches `/solve <pr> --auto-merge` for every PR that was skipped because of merge conflicts\\.", { parse_mode: 'MarkdownV2', reply_to_message_id: ctx.message.message_id });
     }
 
     // Parse and validate repository URL
-    const repoUrl = args[0];
+    const repoUrl = positionals[0];
     const parsedUrl = parseRepositoryUrl(repoUrl);
 
     if (!parsedUrl.valid) {
@@ -222,15 +310,22 @@ export function registerMergeCommand(bot, options) {
       // Create the merge queue processor
       const processor = await createMergeQueueProcessor(owner, repo, {
         verbose: VERBOSE,
+        // Issue #1805: forward the --auto-resolve flag and inject the spawner.
+        // The processor only sees the callback, so unit tests can stub it
+        // without spawning real screen sessions.
+        autoResolve,
+        spawnSolveSession: autoResolve ? target => spawnAutoResolveSolve(target, VERBOSE) : null,
         onProgress: async () => {
           // Update message with progress and cancel button
           try {
             const message = processor.formatProgressMessage();
+            // Issue #1588: Do not show cancel button once cancellation has been requested.
+            // Without this check, progress updates from CI wait loops would re-add
+            // the cancel button after the cancel handler had already removed it.
+            const replyMarkup = processor.isCancelled ? undefined : { inline_keyboard: [[{ text: '🛑 Cancel', callback_data: `merge_cancel_${repoKey}` }]] };
             await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, message, {
               parse_mode: 'MarkdownV2',
-              reply_markup: {
-                inline_keyboard: [[{ text: '🛑 Cancel', callback_data: `merge_cancel_${repoKey}` }]],
-              },
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
             });
           } catch (err) {
             // Ignore message edit errors (e.g., message not modified)

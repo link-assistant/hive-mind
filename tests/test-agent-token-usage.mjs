@@ -11,50 +11,8 @@
  * - Issue #1250 fix: streaming accumulation handles concatenated JSON
  */
 
-// Copy of parseAgentTokenUsage from src/agent.lib.mjs for testing
-const parseAgentTokenUsage = output => {
-  const usage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalCost: 0,
-    stepCount: 0,
-  };
-
-  const lines = output.split('\n');
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine || !trimmedLine.startsWith('{')) continue;
-
-    try {
-      const parsed = JSON.parse(trimmedLine);
-
-      if (parsed.type === 'step_finish' && parsed.part?.tokens) {
-        const tokens = parsed.part.tokens;
-        usage.stepCount++;
-
-        if (tokens.input) usage.inputTokens += tokens.input;
-        if (tokens.output) usage.outputTokens += tokens.output;
-        if (tokens.reasoning) usage.reasoningTokens += tokens.reasoning;
-
-        if (tokens.cache) {
-          if (tokens.cache.read) usage.cacheReadTokens += tokens.cache.read;
-          if (tokens.cache.write) usage.cacheWriteTokens += tokens.cache.write;
-        }
-
-        if (parsed.part.cost !== undefined) {
-          usage.totalCost += parsed.part.cost;
-        }
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  return usage;
-};
+import { parseAgentTokenUsage, createAgentTokenUsage, accumulateAgentStepFinishUsage } from '../src/agent.lib.mjs';
+import { buildCostInfoString } from '../src/github-cost-info.lib.mjs';
 
 // Test framework
 let testsPassed = 0;
@@ -94,6 +52,27 @@ runTest('parses single step_finish event', () => {
   assertEqual(result.reasoningTokens, 10, 'Should sum reasoning tokens');
   assertEqual(result.cacheReadTokens, 200, 'Should sum cache read tokens');
   assertEqual(result.cacheWriteTokens, 100, 'Should sum cache write tokens');
+  assertEqual(result.contextFillInputTokens, 200, 'Context fill should use input + cache write');
+});
+
+runTest('Issue #1741: context fill excludes cache reads for Agent/OpenCode steps', () => {
+  const usage = createAgentTokenUsage();
+  accumulateAgentStepFinishUsage(usage, {
+    type: 'step_finish',
+    part: {
+      type: 'step-finish',
+      context: { contextLimit: 200_000, outputLimit: 64_000 },
+      tokens: {
+        input: 94,
+        output: 6_600,
+        cache: { read: 1_100_000, write: 61_200 },
+      },
+    },
+  });
+
+  assertEqual(usage.contextFillInputTokens, 61_294, 'Displayed context fill should be input + cache write');
+  assertEqual(usage.peakContextUsage, 1_161_294, 'Restored per-step peak remains available for diagnostics');
+  assertEqual(usage.cacheReadTokens, 1_100_000, 'Total usage should still preserve cache reads');
 });
 
 runTest('sums tokens from multiple step_finish events', () => {
@@ -210,32 +189,8 @@ runTest('Issue #1250: properly newline-delimited JSON parses correctly', () => {
 runTest('Issue #1250: simulates streaming accumulation (the fix)', () => {
   // This simulates the fix: accumulating tokens during streaming
   // instead of re-parsing the full output afterward
-  const streamingTokenUsage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalCost: 0,
-    stepCount: 0,
-  };
-
-  const accumulateTokenUsage = data => {
-    if (data.type === 'step_finish' && data.part?.tokens) {
-      const tokens = data.part.tokens;
-      streamingTokenUsage.stepCount++;
-      if (tokens.input) streamingTokenUsage.inputTokens += tokens.input;
-      if (tokens.output) streamingTokenUsage.outputTokens += tokens.output;
-      if (tokens.reasoning) streamingTokenUsage.reasoningTokens += tokens.reasoning;
-      if (tokens.cache) {
-        if (tokens.cache.read) streamingTokenUsage.cacheReadTokens += tokens.cache.read;
-        if (tokens.cache.write) streamingTokenUsage.cacheWriteTokens += tokens.cache.write;
-      }
-      if (data.part.cost !== undefined) {
-        streamingTokenUsage.totalCost += data.part.cost;
-      }
-    }
-  };
+  const streamingTokenUsage = createAgentTokenUsage();
+  const accumulateTokenUsage = data => accumulateAgentStepFinishUsage(streamingTokenUsage, data);
 
   // Simulate parsing and accumulating during streaming
   const events = [
@@ -265,6 +220,15 @@ runTest('sums cost from multiple steps', () => {
   const result = parseAgentTokenUsage(output);
 
   assertEqual(result.totalCost, 0.003, 'Should sum costs');
+});
+
+runTest('sums decimal costs without binary floating-point drift', () => {
+  const output = `{"type":"step_finish","part":{"type":"step-finish","cost":0.1,"tokens":{"input":100,"output":50}}}
+{"type":"step_finish","part":{"type":"step-finish","cost":0.2,"tokens":{"input":200,"output":100}}}
+`;
+  const result = parseAgentTokenUsage(output);
+
+  assertEqual(result.totalCost, 0.3, 'Should sum 0.1 + 0.2 exactly at display precision');
 });
 
 runTest('handles zero cost (free models)', () => {
@@ -312,32 +276,8 @@ runTest('Issue #1313: parses exact token values from the bug report log', () => 
 
 runTest('Issue #1313: streaming accumulation correctly sums tokens like in the bug report', () => {
   // Simulates the streaming accumulation fix that should prevent Issue #1313 regression
-  const streamingTokenUsage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalCost: 0,
-    stepCount: 0,
-  };
-
-  const accumulateTokenUsage = data => {
-    if (data.type === 'step_finish' && data.part?.tokens) {
-      const tokens = data.part.tokens;
-      streamingTokenUsage.stepCount++;
-      if (tokens.input) streamingTokenUsage.inputTokens += tokens.input;
-      if (tokens.output) streamingTokenUsage.outputTokens += tokens.output;
-      if (tokens.reasoning) streamingTokenUsage.reasoningTokens += tokens.reasoning;
-      if (tokens.cache) {
-        if (tokens.cache.read) streamingTokenUsage.cacheReadTokens += tokens.cache.read;
-        if (tokens.cache.write) streamingTokenUsage.cacheWriteTokens += tokens.cache.write;
-      }
-      if (data.part.cost !== undefined) {
-        streamingTokenUsage.totalCost += data.part.cost;
-      }
-    }
-  };
+  const streamingTokenUsage = createAgentTokenUsage();
+  const accumulateTokenUsage = data => accumulateAgentStepFinishUsage(streamingTokenUsage, data);
 
   // Use the exact token data from Issue #1313 bug report
   const event1313 = {
@@ -370,32 +310,8 @@ console.log('\n📋 Test Group: accumulateTokenUsage - Streaming accumulation fu
 
 // Create a fresh accumulator for these tests
 const createAccumulator = () => {
-  const usage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalCost: 0,
-    stepCount: 0,
-  };
-
-  const accumulate = data => {
-    if (data.type === 'step_finish' && data.part?.tokens) {
-      const tokens = data.part.tokens;
-      usage.stepCount++;
-      if (tokens.input) usage.inputTokens += tokens.input;
-      if (tokens.output) usage.outputTokens += tokens.output;
-      if (tokens.reasoning) usage.reasoningTokens += tokens.reasoning;
-      if (tokens.cache) {
-        if (tokens.cache.read) usage.cacheReadTokens += tokens.cache.read;
-        if (tokens.cache.write) usage.cacheWriteTokens += tokens.cache.write;
-      }
-      if (data.part.cost !== undefined) {
-        usage.totalCost += data.part.cost;
-      }
-    }
-  };
+  const usage = createAgentTokenUsage();
+  const accumulate = data => accumulateAgentStepFinishUsage(usage, data);
 
   return { usage, accumulate };
 };
@@ -618,15 +534,14 @@ runTest('Regression: mixed stdout/stderr streaming accumulation', () => {
 // feed correctly into the display format.
 console.log('\n📋 Test Group: Token display pipeline (end-to-end Issue #1313 scenario)\n');
 
-// Inline copy of the token display formatting logic from src/github.lib.mjs
-// to test the full pipeline from accumulation to display
 const buildTokenUsageDisplay = tokenUsage => {
-  if (!tokenUsage) return 'Token usage: 0 input, 0 output';
-  const u = tokenUsage;
-  let tokenInfo = `Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
-  if (u.reasoningTokens > 0) tokenInfo += `, ${u.reasoningTokens.toLocaleString()} reasoning`;
-  if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0) tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
-  return tokenInfo;
+  const result = buildCostInfoString(null, null, { tokenUsage: tokenUsage || { inputTokens: 0, outputTokens: 0 } });
+  return (
+    result
+      .split('\n')
+      .find(line => line.startsWith('- Token usage:'))
+      ?.replace('- ', '') || 'Token usage: 0 input, 0 output'
+  );
 };
 
 runTest('Issue #1313 pipeline: accumulated tokens display non-zero', () => {

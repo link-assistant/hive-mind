@@ -99,23 +99,43 @@ runTest('error message references issue #967', () => {
   }
 });
 
-// Test 5: Verify helpful fix suggestions are provided
-runTest('fix suggestions provided', () => {
+// Test 5: Verify safe auto-recovery for non-fork repositories (Issue #1518)
+runTest('safe auto-recovery for non-fork/mismatch repos (Issue #1518)', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
-  // Check for Option 1: Delete fork
-  if (!content.includes('Option 1: Delete the problematic fork')) {
-    throw new Error('Missing suggestion to delete fork');
+  // Check for safety check before deletion — compares commits against upstream
+  if (!content.includes('Safety check:')) {
+    throw new Error('Missing safety check before auto-recovery deletion');
   }
 
-  // Check for Option 2: Prefix fork name
-  if (!content.includes('prefix-fork-name-with-owner-name')) {
-    throw new Error('Missing suggestion for --prefix-fork-name-with-owner-name');
+  // Check that commit comparison is performed via GitHub compare API
+  if (!content.includes('compare/')) {
+    throw new Error('Missing commit comparison via GitHub compare API');
   }
 
-  // Check for Option 3: No fork
-  if (!content.includes('Option 3: Work directly on the repository')) {
-    throw new Error('Missing suggestion for --no-fork');
+  // Check that deletion is blocked when extra commits exist
+  if (!content.includes('repository may contain commits that would be lost')) {
+    throw new Error('Missing safety exit when extra commits would be lost');
+  }
+
+  // Check for auto-recovery logic (only when safe)
+  if (!content.includes('Auto-recovery:')) {
+    throw new Error('Missing auto-recovery logic for non-fork repos');
+  }
+
+  // Check for delete operation
+  if (!content.includes('gh repo delete ${existingForkName} --yes')) {
+    throw new Error('Missing repo deletion in auto-recovery');
+  }
+
+  // Check for fallback when delete fails
+  if (!content.includes('Manual fix required')) {
+    throw new Error('Missing manual fix fallback when auto-recovery fails');
+  }
+
+  // Check existingForkName is cleared after deletion to trigger fork creation
+  if (!content.includes('existingForkName = null')) {
+    throw new Error('existingForkName should be cleared after deletion to trigger fresh fork creation');
   }
 });
 
@@ -261,29 +281,159 @@ runTest('isTransientNetworkError helper exists', () => {
   }
 });
 
-// Test 15: Verify existing error messages preserved (Issue #1311 feedback)
-runTest('existing error messages preserved', () => {
+// Test 15: Verify error context preserved in auto-recovery messages (Issue #1518)
+runTest('error context in auto-recovery messages', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
-  // Check that original verbose error messages are preserved
+  // Check that issue references are preserved
+  if (!content.includes('see issue #1518')) {
+    throw new Error('Missing issue #1518 reference for non-fork repos');
+  }
+
+  if (!content.includes('see issue #967')) {
+    throw new Error('Missing issue #967 reference for intermediate forks');
+  }
+
+  // Check that fork relationship details are logged
+  if (!content.includes('Fork parent:')) {
+    throw new Error('Missing fork parent details in log output');
+  }
+
+  // Check for network error handling
   if (!content.includes('🔍 What happened:')) {
-    throw new Error('Missing "What happened" section in error message');
+    throw new Error('Missing "What happened" section in network error message');
+  }
+});
+
+// Test 16: Verify post-creation fork validation (Issue #1518)
+runTest('post-creation fork validation (Issue #1518)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check that validateForkParent is called after fork creation
+  if (!content.includes('fork_creation_validation')) {
+    throw new Error('Missing post-creation fork validation');
   }
 
-  if (!content.includes('📦 Fork relationship:')) {
-    throw new Error('Missing "Fork relationship" section in error message');
+  // Check for Sentry error reporting on post-creation validation failure
+  if (!content.includes("context: 'fork_creation_validation'")) {
+    throw new Error('Missing Sentry error reporting for post-creation validation failure');
   }
 
-  if (!content.includes('⚠️  Why this is a problem:')) {
-    throw new Error('Missing "Why this is a problem" section in error message');
+  // Check for gh CLI bug reference
+  if (!content.includes('gh CLI bug')) {
+    throw new Error('Missing gh CLI bug reference in post-creation warning');
+  }
+});
+
+// Test 17: Verify verbose fork command logging (Issue #1518)
+runTest('verbose fork command logging (Issue #1518)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check for fork command logging
+  if (!content.includes("'Fork command:'")) {
+    throw new Error('Missing fork command verbose logging');
   }
 
-  if (!content.includes('📖 Case study: See issue #967')) {
-    throw new Error('Missing case study reference in error message');
+  // Check it is behind verbose flag
+  if (!content.includes('if (argv.verbose)')) {
+    throw new Error('Fork command logging should be behind verbose flag');
+  }
+});
+
+// Test 18: Verify --allow-force-non-fork-repository-deletion flag support (Issue #1518)
+runTest('--allow-force-non-fork-repository-deletion flag support (Issue #1518)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check that the flag is checked in the auto-recovery path
+  if (!content.includes('argv.allowForceNonForkRepositoryDeletion')) {
+    throw new Error('Missing argv.allowForceNonForkRepositoryDeletion check in auto-recovery');
   }
 
-  if (!content.includes('💡 How to fix:')) {
-    throw new Error('Missing "How to fix" section in error message');
+  // Check that force deletion message is logged when flag is enabled
+  if (!content.includes('Force deletion ENABLED:')) {
+    throw new Error('Missing force deletion enabled message');
+  }
+
+  // Check that the flag is suggested in the error message when not enabled
+  if (!content.includes('--allow-force-non-fork-repository-deletion')) {
+    throw new Error('Missing --allow-force-non-fork-repository-deletion suggestion in error message');
+  }
+});
+
+// Test 19: Verify --allow-force-non-fork-repository-deletion option defined in config
+runTest('--allow-force-non-fork-repository-deletion option in config', () => {
+  const configContent = execSync(`cat ${srcDir}/solve.config.lib.mjs`, { encoding: 'utf8' });
+
+  if (!configContent.includes("'allow-force-non-fork-repository-deletion'")) {
+    throw new Error('Missing allow-force-non-fork-repository-deletion option in solve.config.lib.mjs');
+  }
+
+  // Check it has proper description mentioning data loss
+  if (!configContent.includes('data loss possible')) {
+    throw new Error('Missing data loss warning in option description');
+  }
+});
+
+// Test 20: Verify --allow-force-non-fork-repository-deletion in option suggestions
+runTest('--allow-force-non-fork-repository-deletion in option suggestions', () => {
+  const suggestionsContent = execSync(`cat ${srcDir}/option-suggestions.lib.mjs`, { encoding: 'utf8' });
+
+  if (!suggestionsContent.includes("'allow-force-non-fork-repository-deletion'")) {
+    throw new Error('Missing allow-force-non-fork-repository-deletion in option-suggestions.lib.mjs');
+  }
+});
+
+// Test 21: Verify verbose fork output logging (Issue #1518)
+runTest('verbose fork output logging (Issue #1518)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check for fork output logging
+  if (!content.includes("'Fork output:'")) {
+    throw new Error('Missing fork output verbose logging');
+  }
+});
+
+// Test 22: Verify fork parent validation covers both creation and discovery paths (Issue #1518)
+runTest('fork parent validation in creation/discovery path (Issue #1518)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check that post-creation validation covers concurrent worker scenarios too
+  if (!content.includes('covers concurrent worker scenarios too')) {
+    throw new Error('Post-creation fork validation should cover concurrent worker scenarios');
+  }
+});
+
+// Test 23: Verify missing delete_repo scope remediation (Issue #1651)
+runTest('missing delete_repo scope remediation (Issue #1651)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check that the failure output is inspected for the missing scope
+  if (!content.includes('/delete_repo/i.test(delOut)')) {
+    throw new Error('Missing detection of delete_repo scope in gh repo delete failure output');
+  }
+
+  // Check that the concrete remediation command is printed, not just the one that just failed
+  if (!content.includes('gh auth refresh -h github.com -s delete_repo')) {
+    throw new Error('Missing gh auth refresh remediation for missing delete_repo scope');
+  }
+  if (!content.includes('Hive Mind does not request it by default')) {
+    throw new Error('Missing explanation that delete_repo is not requested by default');
+  }
+  if (!content.includes('ask the fork owner or Hive Mind administrator to delete, rename, or archive')) {
+    throw new Error('Missing user-facing issue-comment remediation for affected fork');
+  }
+
+  // Check that a non-destructive alternative is offered (rename / archive + prefix flag)
+  if (!content.includes('gh repo rename ')) {
+    throw new Error('Missing alternative remediation via gh repo rename');
+  }
+  if (!content.includes('gh repo archive ')) {
+    throw new Error('Missing alternative remediation via gh repo archive');
+  }
+
+  // Check that the full delete output is dumped in verbose mode for next-iteration diagnostics
+  if (!content.includes('Full delete output:')) {
+    throw new Error('Missing verbose full-output dump for failed delete (needed for root cause analysis)');
   }
 });
 

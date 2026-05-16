@@ -18,12 +18,17 @@ if (typeof globalThis.use === 'undefined') {
   }
 }
 
-const getenvModule = await use('getenv');
+// Issue #1710: use-m occasionally hands back a truncated/corrupt global package
+// (npm install -g flake on hosted CI). useWithRetry deletes the broken install
+// dir and re-fetches when the failure is a SyntaxError mid-import.
+const { useWithRetry } = await import('./use-with-retry.lib.mjs');
+const getenvModule = await useWithRetry(globalThis.use, 'getenv');
 // Node 24 CJS/ESM interop may return the whole module object instead of the function directly
 const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
 
 // Use semver package for version comparison (see issue #1146)
 import semver from 'semver';
+import { buildClaudeQuietEnv } from './claude-quiet-config.lib.mjs';
 
 // Import lino for parsing Links Notation format
 const { lino } = await import('./lino.lib.mjs');
@@ -46,7 +51,9 @@ const parseFloatWithDefault = (envVar, defaultValue) => {
 export const timeouts = {
   claudeCli: parseIntWithDefault('HIVE_MIND_CLAUDE_TIMEOUT_SECONDS', 60) * 1000,
   opencodeCli: parseIntWithDefault('HIVE_MIND_OPENCODE_TIMEOUT_SECONDS', 60) * 1000,
+  geminiCli: parseIntWithDefault('HIVE_MIND_GEMINI_TIMEOUT_SECONDS', 60) * 1000,
   codexCli: parseIntWithDefault('HIVE_MIND_CODEX_TIMEOUT_SECONDS', 60) * 1000,
+  qwenCli: parseIntWithDefault('HIVE_MIND_QWEN_TIMEOUT_SECONDS', 60) * 1000,
   githubApiDelay: parseIntWithDefault('HIVE_MIND_GITHUB_API_DELAY_MS', 5000),
   githubRepoDelay: parseIntWithDefault('HIVE_MIND_GITHUB_REPO_DELAY_MS', 2000),
   retryBaseDelay: parseIntWithDefault('HIVE_MIND_RETRY_BASE_DELAY_MS', 5000),
@@ -63,8 +70,11 @@ export const timeouts = {
   // after at least one event was received, the process is considered hung mid-session.
   // This catches the case where Claude CLI starts producing output but then stops (e.g., the
   // original Issue #1472 where CLI was stuck for 4.5h with all output arriving only at CTRL+C).
-  // Default: 300000ms (5 minutes). Set to 0 to disable. Configurable via environment variable.
-  streamActivityMs: parseIntWithDefault('HIVE_MIND_STREAM_ACTIVITY_MS', 300000),
+  // Issue #1510: Increased from 300000ms (5 min) to 3600000ms (1 hour) because Claude Code can
+  // legitimately wait for long-running operations (docker builds, CI polls, large compilations).
+  // The 5-minute timeout was force-killing sessions during `sleep 300 && gh run view ...` commands.
+  // Default: 3600000ms (1 hour). Set to 0 to disable. Configurable via environment variable.
+  streamActivityMs: parseIntWithDefault('HIVE_MIND_STREAM_ACTIVITY_MS', 3600000),
 };
 
 // Auto-continue configurations
@@ -175,10 +185,81 @@ export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
   // Check for explicit opus-4-6 or later versions, or opusplan (Issue #1223)
-  // Note: The 'opus' alias now maps to Opus 4.6 (Issue #1433), so we also check for the alias directly
+  // Note: The 'opus' alias now maps to Opus 4.7 (Issue #1620), so we also check for the alias directly
   // opusplan uses Opus for planning, so it should get Opus-level settings
   return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
 };
+
+const isOpus47 = model => {
+  if (!model) return false;
+  const normalizedModel = model.toLowerCase();
+  // 'opus' alias now maps to Opus 4.7 (Issue #1620)
+  // opusplan uses Opus for planning, so it gets Opus-level settings
+  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-7');
+};
+
+/**
+ * Check if a model is Opus 4.7 or later (Issue #1620)
+ * These models use Opus 4.7+ adaptive thinking behavior.
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model is Opus 4.7 or later
+ */
+export const isOpus47OrLater = model => {
+  if (!model) return false;
+  const normalizedModel = model.toLowerCase();
+  return isOpus47(model) || normalizedModel.includes('opus-5');
+};
+
+const isOpus45 = model => {
+  if (!model) return false;
+  const m = model.toLowerCase();
+  return m === 'opus-4-5' || m.includes('opus-4-5');
+};
+
+const isOpus46 = model => {
+  if (!model) return false;
+  const m = model.toLowerCase();
+  return m === 'opus-4-6' || m.includes('opus-4-6');
+};
+
+const isSonnet46OrLater = model => {
+  if (!model) return false;
+  const m = model.toLowerCase();
+  return m === 'sonnet' || m === 'sonnet-4-6' || m.includes('sonnet-4-6') || m.includes('sonnet-5');
+};
+
+const isMythosPreview = model => {
+  if (!model) return false;
+  return model.toLowerCase().includes('mythos');
+};
+
+/**
+ * Check if a model supports CLAUDE_CODE_EFFORT_LEVEL (Issue #1238, Issue #1620)
+ * Official effort support: Claude Mythos Preview, Opus 4.7, Opus 4.6, Sonnet 4.6, and Opus 4.5.
+ * Haiku 4.5 and older models use MAX_THINKING_TOKENS only.
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model supports effort levels
+ */
+export const supportsEffortLevel = model => {
+  if (!model) return false;
+  return isMythosPreview(model) || isOpus47OrLater(model) || isOpus46(model) || isSonnet46OrLater(model) || isOpus45(model);
+};
+
+/**
+ * Check if a model supports the xhigh effort level.
+ * Official docs list xhigh only for Claude Opus 4.7.
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model supports xhigh effort
+ */
+export const supportsXHighEffortLevel = model => isOpus47(model);
+
+/**
+ * Check if a model supports the max effort level.
+ * Official docs list max for Claude Mythos Preview, Opus 4.7, Opus 4.6, and Sonnet 4.6.
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model supports max effort
+ */
+export const supportsMaxEffortLevel = model => isMythosPreview(model) || isOpus47OrLater(model) || isOpus46(model) || isSonnet46OrLater(model);
 
 /**
  * Get the max output tokens for a specific model (Issue #1221)
@@ -215,6 +296,7 @@ export const getThinkingLevelToTokens = (maxBudget = DEFAULT_MAX_THINKING_BUDGET
   low: Math.floor(maxBudget / 4), // ~8000 for default 31999
   medium: Math.floor(maxBudget / 2), // ~16000 for default 31999
   high: Math.floor((maxBudget * 3) / 4), // ~24000 for default 31999
+  xhigh: maxBudget, // same as max when represented as MAX_THINKING_TOKENS
   max: maxBudget, // 31999 by default
 });
 
@@ -247,56 +329,73 @@ export const getTokensToThinkingLevel = (maxBudget = DEFAULT_MAX_THINKING_BUDGET
 export const tokensToThinkingLevel = getTokensToThinkingLevel(DEFAULT_MAX_THINKING_BUDGET);
 
 /**
- * Valid effort levels for Opus 4.6 (Issue #1238)
- * Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL for thinking depth control
+ * Valid effort levels for Opus 4.6 and Sonnet 4.6 (Issue #1238, Issue #1620)
+ * These models use CLAUDE_CODE_EFFORT_LEVEL for thinking depth control
  * @type {string[]}
  */
-export const OPUS_46_EFFORT_LEVELS = ['low', 'medium', 'high'];
+export const OPUS_46_EFFORT_LEVELS = ['low', 'medium', 'high', 'max'];
 
 /**
- * Convert thinking level to Opus 4.6 effort level (Issue #1238)
- * Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL (low/medium/high) instead of MAX_THINKING_TOKENS
- * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/max)
- * @returns {string|undefined} The effort level (low/medium/high) or undefined if thinking is off
+ * Valid effort levels for Opus 4.7 (Issue #1620)
+ * Opus 4.7 supports the additional 'xhigh' level.
+ * See: https://platform.claude.com/docs/en/build-with-claude/effort
+ * @type {string[]}
  */
-export const thinkLevelToEffortLevel = thinkLevel => {
+export const OPUS_47_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
+
+/**
+ * Convert thinking level to effort level (Issue #1238, Issue #1620)
+ * Models with max support keep max as max. Opus 4.7 keeps xhigh as xhigh.
+ * Models with effort but without max support use high for max/xhigh.
+ * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/xhigh/max)
+ * @param {Object} [options] - Options
+ * @param {boolean} [options.isOpus47] - Backward-compatible shorthand for supportsXHigh
+ * @param {boolean} [options.supportsXHigh] - Whether the model supports xhigh effort
+ * @param {boolean} [options.supportsMax] - Whether the model supports max effort
+ * @returns {string|undefined} The effort level or undefined if thinking is off
+ */
+export const thinkLevelToEffortLevel = (thinkLevel, options = {}) => {
   if (!thinkLevel || thinkLevel === 'off') {
-    // No effort level when thinking is disabled
     return undefined;
   }
 
-  // Map hive-mind thinking levels to Opus 4.6 effort levels
-  // Note: Opus 4.6 only supports low/medium/high, not 'max'
-  // We map 'max' to 'high' as it's the highest available level
+  const supportsXHigh = options.supportsXHigh ?? options.isOpus47 ?? false;
+  const supportsMax = options.supportsMax ?? true;
+
   switch (thinkLevel) {
     case 'low':
       return 'low';
     case 'medium':
       return 'medium';
     case 'high':
-    case 'max':
       return 'high';
+    case 'xhigh':
+      return supportsXHigh ? 'xhigh' : supportsMax ? 'max' : 'high';
+    case 'max':
+      return supportsMax ? 'max' : 'high';
     default:
       return undefined;
   }
 };
 
 /**
- * Convert thinking budget (tokens) to Opus 4.6 effort level (Issue #1238)
+ * Convert thinking budget (tokens) to effort level (Issue #1238, Issue #1620)
  * Uses token thresholds to determine the appropriate effort level
  * @param {number|undefined} thinkingBudget - The thinking budget in tokens
  * @param {number} maxBudget - Maximum thinking budget (default: 31999)
- * @returns {string|undefined} The effort level (low/medium/high) or undefined if thinking is off
+ * @param {Object} [options] - Options
+ * @param {boolean} [options.isOpus47] - Backward-compatible shorthand for supportsXHigh
+ * @param {boolean} [options.supportsXHigh] - Whether the model supports xhigh effort
+ * @param {boolean} [options.supportsMax] - Whether the model supports max effort
+ * @returns {string|undefined} The effort level or undefined if thinking is off
  */
-export const thinkingBudgetToEffortLevel = (thinkingBudget, maxBudget = DEFAULT_MAX_THINKING_BUDGET) => {
+export const thinkingBudgetToEffortLevel = (thinkingBudget, maxBudget = DEFAULT_MAX_THINKING_BUDGET, options = {}) => {
   if (thinkingBudget === undefined || thinkingBudget === 0) {
-    // No effort level when thinking is disabled
     return undefined;
   }
 
-  // Convert tokens to thinking level, then to effort level
   const thinkLevel = getTokensToThinkingLevel(maxBudget)(thinkingBudget);
-  return thinkLevelToEffortLevel(thinkLevel);
+  return thinkLevelToEffortLevel(thinkLevel, options);
 };
 
 // Check if a version supports thinking budget (>= minimum version)
@@ -320,42 +419,66 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 // Supports model-specific max output tokens for Opus 4.6 (Issue #1221)
 // Sets CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 models (Issue #1238)
 // Supports planModel/executionModel for opusplan mode (Issue #1223)
-// See: https://code.claude.com/docs/en/model-config
+// Issue #1706: supports subSessionSize (parsed) + disable1mContext to cap
+// auto-compaction sub-session size and opt out of the 1M extended context.
+// See: https://code.claude.com/docs/en/env-vars and https://code.claude.com/docs/en/model-config
 //   ANTHROPIC_DEFAULT_OPUS_MODEL  → model used in plan mode (and for 'opus' alias)
 //   ANTHROPIC_DEFAULT_SONNET_MODEL → model used in execution mode (and for 'sonnet' alias)
+//   CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
 export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
   const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
 
-  const env = {
+  const env = buildClaudeQuietEnv({
     ...process.env,
     CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(maxOutputTokens),
     // MCP timeout configurations to prevent tool calls from hanging indefinitely
     // See: https://github.com/link-assistant/hive-mind/issues/1066
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
-  };
+  });
 
-  // Set MAX_THINKING_TOKENS to control Claude Code's extended thinking feature (Claude Code >= 2.1.12)
-  // Default is 0 (thinking disabled) per Issue #1238. Set to 0 to disable thinking.
-  // Users can explicitly enable thinking via --think or --thinking-budget options.
-  env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
+  // Opus 4.7+ always uses adaptive thinking — MAX_THINKING_TOKENS has no effect (Issue #1620)
+  // For Opus 4.6 and earlier, MAX_THINKING_TOKENS controls extended thinking (Claude Code >= 2.1.12)
+  // Default is 0 (thinking disabled) per Issue #1238.
+  const opus47 = options.model && isOpus47OrLater(options.model);
+  if (opus47) {
+    // Remove any inherited MAX_THINKING_TOKENS from process.env — Opus 4.7 ignores it
+    delete env.MAX_THINKING_TOKENS;
+  } else {
+    env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
+  }
 
-  // For Opus 4.6+, also set CLAUDE_CODE_EFFORT_LEVEL to control thinking depth (Issue #1238)
-  // Opus 4.6 uses effort level (low/medium/high) instead of MAX_THINKING_TOKENS for thinking depth.
-  // MAX_THINKING_TOKENS is only used to disable thinking (when set to 0).
-  if (options.model && isOpus46OrLater(options.model)) {
-    // Convert thinkLevel or thinkingBudget to effort level
+  // Set CLAUDE_CODE_EFFORT_LEVEL for models that support it (Issue #1238, Issue #1620)
+  if (options.model && supportsEffortLevel(options.model)) {
+    const effortOptions = {
+      supportsXHigh: supportsXHighEffortLevel(options.model),
+      supportsMax: supportsMaxEffortLevel(options.model),
+    };
     let effortLevel;
     if (options.thinkLevel) {
-      effortLevel = thinkLevelToEffortLevel(options.thinkLevel);
+      effortLevel = thinkLevelToEffortLevel(options.thinkLevel, effortOptions);
     } else if (options.thinkingBudget !== undefined && options.thinkingBudget > 0) {
-      effortLevel = thinkingBudgetToEffortLevel(options.thinkingBudget, options.maxBudget);
+      effortLevel = thinkingBudgetToEffortLevel(options.thinkingBudget, options.maxBudget, effortOptions);
     }
 
     if (effortLevel) {
       env.CLAUDE_CODE_EFFORT_LEVEL = effortLevel;
     }
+  }
+
+  // Opus 4.7 omits thinking content by default; opt in with --show-thinking-content (Issue #1620)
+  // Sets CLAUDE_CODE_SHOW_THINKING=1 which Claude Code uses to request display: "summarized"
+  if (options.showThinkingContent) {
+    env.CLAUDE_CODE_SHOW_THINKING = '1';
+  }
+  // Issue #817: When bidirectional streaming input is enabled, keep the headless
+  // Claude process alive between turns so newly arriving PR comments can be
+  // streamed into stdin as additional user messages. Without this env var the
+  // process would exit as soon as the first --input-format stream-json frame
+  // is processed. Default is 1 minute (60000ms), matching the reference gist.
+  if (options.exitAfterStopDelayMs) {
+    env.CLAUDE_CODE_EXIT_AFTER_STOP_DELAY_MS = String(options.exitAfterStopDelayMs);
   }
   // Set ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is specified (Issue #1223)
   // This tells Claude Code which model to use during plan mode in opusplan
@@ -369,18 +492,50 @@ export const getClaudeEnv = (options = {}) => {
     env.ANTHROPIC_DEFAULT_SONNET_MODEL = String(options.executionModel);
   }
 
+  // Issue #1706: --disable-1m-context. Sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1.
+  if (options.disable1mContext) {
+    env.CLAUDE_CODE_DISABLE_1M_CONTEXT = '1';
+  }
+
+  // Issue #1706: --sub-session-size. Caller passes a pre-parsed descriptor and the
+  // model context window so we can convert percentages to absolute tokens.
+  if (options.subSessionSize && options.subSessionSize.kind && options.subSessionSize.kind !== 'default') {
+    const window = Number.isFinite(options.contextWindowTokens) && options.contextWindowTokens > 0 ? options.contextWindowTokens : null;
+    if (options.subSessionSize.kind === 'tokens') {
+      const tokens = options.subSessionSize.tokens;
+      if (Number.isFinite(tokens) && tokens > 0) {
+        env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = String(tokens);
+        // Compute percentage relative to the context window so the override stays
+        // within Claude Code's "lower-only" semantics. Default to 95 when unknown.
+        let pct = 95;
+        if (window) {
+          pct = Math.max(1, Math.min(95, Math.round((tokens / window) * 100)));
+        }
+        env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(pct);
+      }
+    } else if (options.subSessionSize.kind === 'percent') {
+      const pct = Math.max(1, Math.min(95, Math.round(options.subSessionSize.percent)));
+      env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(pct);
+      if (window) {
+        env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = String(window);
+      }
+    }
+  }
+
   return env;
 };
 
 // Cache TTL configurations (in milliseconds)
 // The Usage API (Claude limits) has stricter rate limiting than regular APIs
 // See: https://github.com/link-assistant/hive-mind/issues/1074
+// See: https://github.com/link-assistant/hive-mind/issues/1798
 export const cacheTtl = {
   // General API cache TTL (GitHub API, etc.)
   api: parseIntWithDefault('HIVE_MIND_API_CACHE_TTL_MS', 3 * 60 * 1000), // 3 minutes
-  // Claude Usage API cache TTL - must be at least 20 minutes to avoid rate limiting
-  // The API returns null values when called too frequently
-  usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 10 * 60 * 1000), // 10 minutes
+  // Claude Usage API cache TTL - increased by 3 minutes (from 10 → 13) per issue #1798
+  // because users still hit "Resets in 3m xs" rate-limit responses. The API
+  // returns null values or 429 when called too frequently.
+  usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 13 * 60 * 1000), // 13 minutes
   // System metrics cache TTL (RAM, CPU, disk)
   system: parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 2 * 60 * 1000), // 2 minutes
 };
@@ -507,6 +662,15 @@ export const mergeQueue = {
   // Issue #1341: Polling interval for post-merge CI status (in milliseconds)
   // Default: 30 seconds (30000ms) - balance between responsiveness and API rate limits
   postMergeCIPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_CI_POLL_INTERVAL_MS', 30 * 1000),
+  // Issue #1807: Timeout (ms) the sequential auto-resolve pass will wait for
+  // a single `/solve <pr> --auto-merge` session to land its PR. Conflict-
+  // resolution sessions can be long-running because Claude has to recompute
+  // merges and re-run CI; default is 4 hours.
+  autoResolveWaitTimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_AUTO_RESOLVE_WAIT_TIMEOUT_MS', 4 * 60 * 60 * 1000),
+  // Issue #1807: Polling interval (ms) for `gh pr view` lifecycle checks
+  // during the auto-resolve wait. 60 seconds balances responsiveness with
+  // GitHub API rate limits over the timeout window above.
+  autoResolvePollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_AUTO_RESOLVE_POLL_INTERVAL_MS', 60 * 1000),
 };
 
 // Helper function to validate configuration values

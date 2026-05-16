@@ -1,0 +1,3 @@
+link-assistant/hive-mind:src/solve.auto-pr.lib.mjs: // Push rejected due to conflicts or diverged history
+link-assistant/hive-mind:src/solve.auto-pr.lib.mjs: await log(formatAligned('❌', 'PUSH REJECTED:', 'Branch has diverged from remote'), { level: 'error' });
+link-assistant/agent:docs/case-studies/issue-259/README.md: | 2026-04-13 07:49      | PR #258 merge (53684c8), Rust CI **fails** — git push rejected (non-fast-forward) |

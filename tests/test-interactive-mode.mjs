@@ -82,7 +82,7 @@ await runTest('truncateMiddle with short content', () => {
 await runTest('truncateMiddle with long content', () => {
   const lines = Array(100).fill('Line content').join('\n');
   const result = utils.truncateMiddle(lines, { maxLines: 50, keepStart: 20, keepEnd: 20 });
-  if (!result.includes('[60 lines truncated]')) throw new Error('Expected truncation indicator');
+  if (!result.includes('[21-80 lines are omitted]')) throw new Error('Expected truncation indicator with line range');
   if (result.split('\n').length > 50) throw new Error(`Expected max ~43 lines, got ${result.split('\n').length}`);
 });
 
@@ -206,7 +206,7 @@ await runTest('isInteractiveModeSupported opencode', () => {
 });
 
 await runTest('isInteractiveModeSupported other tools', () => {
-  if (isInteractiveModeSupported('codex')) throw new Error('Expected false for codex');
+  if (!isInteractiveModeSupported('codex')) throw new Error('Expected true for codex');
   if (isInteractiveModeSupported('unknown')) throw new Error('Expected false for unknown');
 });
 
@@ -246,6 +246,19 @@ await runTest('validateInteractiveModeConfig enabled with opencode', async () =>
   const result = await validateInteractiveModeConfig({ interactiveMode: true, tool: 'opencode' }, mockLog);
   if (result) throw new Error('Expected false when interactive mode is enabled with unsupported tool');
   if (!logs.some(l => l.includes('only supported for --tool claude'))) throw new Error('Expected warning log message');
+});
+
+await runTest('validateInteractiveModeConfig enabled with codex', async () => {
+  const logs = [];
+  const mockLog = (msg, opts) => {
+    logs.push({ msg, opts });
+    return Promise.resolve();
+  };
+  const result = await validateInteractiveModeConfig({ interactiveMode: true, tool: 'codex' }, mockLog);
+  if (result !== true) throw new Error('Expected true for codex');
+  if (!logs.some(l => String(l.msg).includes('codex output will be posted'))) {
+    throw new Error('Expected codex interactive mode enable log');
+  }
 });
 
 // ============================================
@@ -317,6 +330,15 @@ await runTest('processEvent handles result', async () => {
     session_id: 'test-session',
   });
   // Just verifies no errors are thrown
+});
+
+await runTest('processEvent handles codex thread.started and agent_message', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({ type: 'thread.started', thread_id: 'thread_codex_123', model: 'gpt-5.4' });
+  await handler.processEvent({ type: 'item.completed', item: { type: 'agent_message', text: 'Codex says hi.' } });
+  if (comments.length < 2) throw new Error(`Expected at least 2 comments, got ${comments.length}`);
+  if (!comments.some(c => c.body.includes('thread_codex_123'))) throw new Error('Expected Codex session comment');
+  if (!comments.some(c => c.body.includes('Codex says hi.'))) throw new Error('Expected Codex agent message comment');
 });
 
 await runTest('processEvent handles unrecognized events', async () => {
@@ -597,7 +619,7 @@ await runTest('truncateMiddle: truncates large output with emoji safely', () => 
   const result = utils.truncateMiddle(lines.join('\n'), { maxLines: 50, keepStart: 20, keepEnd: 20 });
   if (!result.includes('🤖 Output Start')) throw new Error('Start emoji lost');
   if (!result.includes('✅ Output End')) throw new Error('End emoji lost');
-  if (!result.includes('[60 lines truncated]')) throw new Error('Truncation indicator missing');
+  if (!result.includes('[21-80 lines are omitted]')) throw new Error('Truncation indicator missing');
   // Must be safe for JSON
   JSON.parse(JSON.stringify({ content: result }));
 });
@@ -1108,6 +1130,321 @@ await runTest('CONFIG constants are defined', () => {
 await runTest('CONFIG constants have reasonable values', () => {
   if (utils.CONFIG.MIN_COMMENT_INTERVAL < 1000) throw new Error('MIN_COMMENT_INTERVAL should be at least 1000ms');
   if (utils.CONFIG.MAX_LINES_BEFORE_TRUNCATION < 10) throw new Error('MAX_LINES_BEFORE_TRUNCATION should be at least 10');
+});
+
+// ============================================
+// EXECFILEASYNC STDIN PIPING TESTS (Issue #1532)
+// ============================================
+
+console.log('\n=== Testing execFileAsync stdin piping (Issue #1532) ===\n');
+
+await runTest('execFileAsync passes input to child stdin (Issue #1532)', async () => {
+  // This test verifies the root cause fix for issue #1532:
+  // The old promisify(execFile) silently ignored the `input` option,
+  // causing `gh api --input -` to hang forever waiting for stdin.
+  // The new spawn-based execFileAsync must correctly pipe input to stdin.
+  const { stdout } = await utils.execFileAsync('cat', [], { input: 'hello from stdin' });
+  if (stdout !== 'hello from stdin') {
+    throw new Error(`Expected "hello from stdin", got: "${stdout}"`);
+  }
+});
+
+await runTest('execFileAsync works without input option', async () => {
+  const { stdout } = await utils.execFileAsync('echo', ['test output']);
+  if (stdout.trim() !== 'test output') {
+    throw new Error(`Expected "test output", got: "${stdout.trim()}"`);
+  }
+});
+
+await runTest('execFileAsync rejects on non-zero exit code', async () => {
+  try {
+    await utils.execFileAsync('sh', ['-c', 'exit 1']);
+    throw new Error('Expected rejection');
+  } catch (error) {
+    if (error.message === 'Expected rejection') throw error;
+    if (error.code !== 1) throw new Error(`Expected exit code 1, got: ${error.code}`);
+  }
+});
+
+await runTest('execFileAsync handles large stdin input', async () => {
+  const largeInput = 'x'.repeat(100000); // 100KB
+  const { stdout } = await utils.execFileAsync('cat', [], { input: largeInput });
+  if (stdout.length !== largeInput.length) {
+    throw new Error(`Expected ${largeInput.length} chars, got: ${stdout.length}`);
+  }
+});
+
+await runTest('execFileAsync handles JSON payload for gh api simulation (Issue #1532)', async () => {
+  // Simulates the actual use case: passing JSON payload to a command via stdin
+  const jsonPayload = JSON.stringify({ body: '## Interactive session started\n\nSome **markdown** content with `code`' });
+  const { stdout } = await utils.execFileAsync('cat', [], { input: jsonPayload });
+  const parsed = JSON.parse(stdout);
+  if (!parsed.body.includes('Interactive session started')) {
+    throw new Error(`Expected JSON body to contain "Interactive session started", got: ${parsed.body}`);
+  }
+});
+
+// ============================================
+// ISSUE #1576: INTERACTIVE MODE FIXES AND IMPROVEMENTS
+// ============================================
+
+console.log('\n=== Testing Issue #1576 Fixes ===\n');
+
+await runTest('truncateMiddle shows line range instead of count', () => {
+  const lines = Array(60).fill('Line content').join('\n');
+  const result = utils.truncateMiddle(lines, { maxLines: 50, keepStart: 20, keepEnd: 20 });
+  // Should show "... [21-40 lines are omitted] ..." (lines 21 through 40)
+  if (!result.includes('lines are omitted')) throw new Error('Expected "lines are omitted" format');
+  if (result.includes('lines truncated')) throw new Error('Should not use old "lines truncated" format');
+  if (!result.includes('[21-40 lines are omitted]')) throw new Error(`Expected [21-40 lines are omitted], got: ${result.match(/\[.*\]/)?.[0]}`);
+});
+
+await runTest('Session Complete renamed to Interactive session completed', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    duration_ms: 120000,
+    num_turns: 10,
+    total_cost_usd: 0.5,
+    session_id: 'test-session',
+  });
+  const comment = comments[comments.length - 1].body;
+  if (!comment.includes('Interactive session completed')) throw new Error('Expected "Interactive session completed"');
+  if (comment.includes('Session Complete')) throw new Error('Should not use old "Session Complete" text');
+});
+
+await runTest('Session Failed renamed to Interactive session failed', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'result',
+    subtype: 'success',
+    is_error: true,
+    duration_ms: 5000,
+    session_id: 'test-session',
+  });
+  const comment = comments[comments.length - 1].body;
+  if (!comment.includes('Interactive session failed')) throw new Error('Expected "Interactive session failed"');
+});
+
+await runTest('TodoWrite shows checked/total count', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'assistant',
+    message: {
+      model: 'claude-sonnet-4-6',
+      content: [
+        {
+          type: 'tool_use',
+          id: 'todo-test-1',
+          name: 'TodoWrite',
+          input: {
+            todos: [
+              { content: 'Task 1', status: 'completed' },
+              { content: 'Task 2', status: 'completed' },
+              { content: 'Task 3', status: 'in_progress' },
+              { content: 'Task 4', status: 'pending' },
+            ],
+          },
+        },
+      ],
+    },
+  });
+  const comment = comments[comments.length - 1].body;
+  if (!comment.includes('Todos (2/4 items)')) throw new Error(`Expected "Todos (2/4 items)", got: ${comment.match(/Todos \([^)]+\)/)?.[0]}`);
+});
+
+await runTest('Write tool displays as Change (expanded by default)', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'assistant',
+    message: {
+      model: 'claude-sonnet-4-6',
+      content: [
+        {
+          type: 'tool_use',
+          id: 'write-test-1',
+          name: 'Write',
+          input: {
+            file_path: '/tmp/test.txt',
+            content: 'line 1\nline 2\nline 3',
+          },
+        },
+      ],
+    },
+  });
+  const comment = comments[comments.length - 1].body;
+  if (!comment.includes('📄 Change')) throw new Error('Expected "📄 Change" label');
+  if (comment.includes('📄 Content')) throw new Error('Should not use old "📄 Content" label');
+  // Should be expanded (open attribute)
+  if (!comment.includes('<details open>')) throw new Error('Expected Change section to be expanded by default');
+});
+
+await runTest('Write tool diff contains line numbers', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'assistant',
+    message: {
+      model: 'claude-sonnet-4-6',
+      content: [
+        {
+          type: 'tool_use',
+          id: 'write-ln-1',
+          name: 'Write',
+          input: {
+            file_path: '/tmp/test.txt',
+            content: 'first\nsecond\nthird',
+          },
+        },
+      ],
+    },
+  });
+  const comment = comments[comments.length - 1].body;
+  // Should contain line numbers like "+   1 | first"
+  if (!comment.includes('+   1 |')) throw new Error('Expected line numbers in diff');
+  if (!comment.includes('+   2 |')) throw new Error('Expected line number 2 in diff');
+});
+
+await runTest('Task prompt is expanded by default', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_started',
+    task_id: 'prompt-test-1',
+    tool_use_id: 'toolu_prompt',
+    description: 'Test task',
+    task_type: 'local_agent',
+    prompt: 'This is the task prompt',
+    session_id: 'test-session',
+  });
+  const comment = comments[comments.length - 1].body;
+  // Task prompt should be expanded (open attribute present in details tag)
+  if (!comment.includes('📝 Task prompt')) throw new Error('Expected Task prompt section');
+  // Check the details tag containing Task prompt has open attribute
+  const taskPromptMatch = comment.match(/<details([^>]*)>\s*<summary>📝 Task prompt<\/summary>/);
+  if (!taskPromptMatch) throw new Error('Expected Task prompt in details tag');
+  if (!taskPromptMatch[1].includes('open')) throw new Error('Expected Task prompt to be expanded by default');
+});
+
+await runTest('Agent task comments show agent ID and sub-agent emoji', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_started',
+    task_id: 'agent-id-test-1',
+    tool_use_id: 'toolu_agent',
+    description: 'Agent task with ID',
+    task_type: 'local_agent',
+    agent_id: 'agent-xyz-123',
+    session_id: 'test-session',
+  });
+  const comment = comments[comments.length - 1].body;
+  if (!comment.includes('🤖🔀')) throw new Error('Expected sub-agent emoji 🤖🔀');
+  if (!comment.includes('Agent ID')) throw new Error('Expected Agent ID field');
+  if (!comment.includes('agent-xyz-123')) throw new Error('Expected agent ID value');
+});
+
+await runTest('ToolSearch has specific icon and formatting', () => {
+  if (utils.getToolIcon('ToolSearch') !== '🔍') throw new Error('Expected 🔍 for ToolSearch');
+});
+
+await runTest('ToolSearch tool gets specific display (not generic JSON)', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'assistant',
+    message: {
+      model: 'claude-sonnet-4-6',
+      content: [
+        {
+          type: 'tool_use',
+          id: 'ts-test-1',
+          name: 'ToolSearch',
+          input: { query: 'select:TodoWrite', max_results: 1 },
+        },
+      ],
+    },
+  });
+  const comment = comments[comments.length - 1].body;
+  if (!comment.includes('**Query:** `select:TodoWrite`')) throw new Error('Expected ToolSearch query display');
+  if (comment.includes('📥 Input')) throw new Error('Should not fall through to generic input display');
+});
+
+await runTest('Result event prefers modelUsage for token display', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'result',
+    is_error: false,
+    duration_ms: 100000,
+    num_turns: 10,
+    total_cost_usd: 1.5,
+    session_id: 'test-model-usage',
+    usage: { input_tokens: 47, output_tokens: 100 },
+    modelUsage: {
+      'claude-sonnet-4-6': {
+        inputTokens: 5000,
+        outputTokens: 15000,
+        cacheReadInputTokens: 2000000,
+        cacheCreationInputTokens: 50000,
+        costUSD: 1.2,
+      },
+      'claude-haiku-4-5': {
+        inputTokens: 1000,
+        outputTokens: 3000,
+        costUSD: 0.3,
+      },
+    },
+  });
+  const comment = comments[comments.length - 1].body;
+  // Should show per-model breakdown, not the misleading usage.input_tokens=47
+  if (!comment.includes('claude-sonnet-4-6')) throw new Error('Expected model name in token display');
+  if (!comment.includes('5,000')) throw new Error('Expected cumulative input tokens (5,000) not last-iteration (47)');
+  if (!comment.includes('by model')) throw new Error('Expected "by model" in section header');
+});
+
+await runTest('Result event falls back to usage when modelUsage is absent', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'result',
+    is_error: false,
+    duration_ms: 5000,
+    session_id: 'test-fallback-usage',
+    usage: { input_tokens: 500, output_tokens: 200 },
+  });
+  const comment = comments[comments.length - 1].body;
+  if (!comment.includes('500')) throw new Error('Expected usage fallback with input_tokens');
+});
+
+await runTest('Task comment queue tracking: taskId propagated through queue', async () => {
+  // This tests the root cause fix for tasks stuck at "⏳ Running..."
+  // When task_started comments are queued (rate-limited), the taskId must
+  // be tracked so processQueue can update pendingTasks.commentId
+  const { handler } = makeHandler({ verbose: true });
+  // Post a comment to set lastCommentTime (so next comment gets queued)
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'init',
+    session_id: 'queue-test',
+    cwd: '/tmp',
+    tools: [],
+  });
+  // Immediately send task_started (will be queued due to rate limiting)
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_started',
+    task_id: 'queued-task-1',
+    tool_use_id: 'toolu_queued',
+    description: 'Queued task test',
+    task_type: 'local_agent',
+    session_id: 'queue-test',
+  });
+  // Flush the queue
+  await handler.flush();
+  // The pending task should now have a commentId
+  const state = handler.getState();
+  const pendingTask = state.pendingTasks.get('queued-task-1');
+  if (!pendingTask) throw new Error('Expected pending task to exist');
+  if (!pendingTask.commentId) throw new Error('Expected pending task to have commentId after queue flush');
 });
 
 // Summary

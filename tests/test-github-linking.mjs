@@ -67,6 +67,7 @@ const validFormats = [
   { prBody: 'This PR FIXES #515', issueNumber: '515', desc: 'All caps FIXES #N' },
   { prBody: 'Closes #42', issueNumber: '42', desc: 'closes #N' },
   { prBody: 'Resolves #123', issueNumber: '123', desc: 'Resolves #N' },
+  { prBody: 'fixes: #515', issueNumber: '515', desc: 'Commit-style fixes: #N' },
   { prBody: 'Fix #99', issueNumber: '99', desc: 'Fix #N' },
   { prBody: 'Close #88', issueNumber: '88', desc: 'Close #N' },
   { prBody: 'Resolve #77', issueNumber: '77', desc: 'Resolve #N' },
@@ -80,6 +81,11 @@ const validFormats = [
     owner: 'link-assistant',
     repo: 'hive-mind',
     desc: 'Fixes owner/repo#N',
+  },
+  {
+    prBody: 'Fixes labtgbot/marketcap#110',
+    issueNumber: '110',
+    desc: 'Fixes generic owner/repo#N',
   },
   {
     prBody: 'Resolves https://github.com/link-assistant/hive-mind/issues/515',

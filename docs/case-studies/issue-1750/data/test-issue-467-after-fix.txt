@@ -1,0 +1,41 @@
+================================================================================
+Unit Tests: Telegram terminal watch (Issue #467)
+================================================================================
+
+--- parseTerminalWatchArgs() ---
+  ✅ extracts session id from direct command
+  ✅ parses --size width
+  ✅ parses --size height
+  ✅ parses --interval-ms
+  ✅ parses --max-chars inline form
+  ✅ accepts valid options without errors
+  ✅ reports invalid size, height, and unknown option
+
+--- tailTextForTerminal() ---
+  ✅ keeps last height lines and trims long lines from the left
+  ✅ renders empty logs explicitly
+
+--- formatTerminalWatchMessage() ---
+  ✅ formats live watch title
+  ✅ includes session id
+  ✅ sanitizes nested code fences in logs
+  ✅ includes repository description
+
+--- resolveTerminalWatchRepository() ---
+  ✅ derives repo from $ --status command when in-memory tracking is missing
+  ✅ returns detected visibility
+
+--- watchTerminalLogSession() ---
+  ✅ edits the watch message while running and at completion
+  ✅ does not attach the full log when the session reaches terminal status (issue #1720)
+  ✅ freezes final message as complete
+
+--- watchTerminalLogSession() change detection (Issue #1750) ---
+  ✅ polls the session more than once while the watch is active
+  ✅ does not edit Telegram message when terminal snapshot is unchanged
+  ✅ edits Telegram exactly once for one changed terminal snapshot
+  ✅ counts only changed terminal snapshots as updates
+
+================================================================================
+Result: 22 passed, 0 failed
+================================================================================

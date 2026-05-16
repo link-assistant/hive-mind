@@ -16,6 +16,7 @@
  */
 
 import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildClaudeInitialCommand } from '../src/claude.command-builder.lib.mjs';
+import { buildSolveResumeCommand } from '../src/solve.results.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -324,6 +325,125 @@ runTest('buildClaudeInitialCommand: uses custom claude path', () => {
   });
 
   assertContains(cmd, '/usr/local/bin/claude', 'Should use custom claude path');
+});
+
+// === buildSolveResumeCommand tests (Issue #942 - 3rd resume option) ===
+
+runTest('buildSolveResumeCommand: includes node, script, and issue URL', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://github.com/owner/repo/issues/1',
+    sessionId: 'abc123',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/path/to/solve.mjs',
+  });
+
+  assertContains(cmd, '"/usr/bin/node"', 'Should quote nodePath');
+  assertContains(cmd, '"/path/to/solve.mjs"', 'Should quote scriptPath');
+  assertContains(cmd, '"https://github.com/owner/repo/issues/1"', 'Should quote issueUrl');
+  assertContains(cmd, '--resume "abc123"', 'Should include --resume with sessionId');
+});
+
+runTest('buildSolveResumeCommand: omits --tool for claude (default)', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tool: 'claude',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertNotContains(cmd, '--tool', 'Should NOT include --tool for claude');
+});
+
+runTest('buildSolveResumeCommand: includes --tool for codex', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tool: 'codex',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--tool "codex"', 'Should include --tool "codex"');
+});
+
+runTest('buildSolveResumeCommand: includes --tool for gemini', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tool: 'gemini',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--tool "gemini"', 'Should include --tool "gemini"');
+});
+
+runTest('buildSolveResumeCommand: includes model when specified', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    model: 'sonnet',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--model "sonnet"', 'Should include --model with value');
+});
+
+runTest('buildSolveResumeCommand: includes fallback-model when specified', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    fallbackModel: 'opus',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--fallback-model "opus"', 'Should include --fallback-model');
+});
+
+runTest('buildSolveResumeCommand: includes working-directory when tempDir provided', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--working-directory "/tmp/gh-issue-solver-1234567890"', 'Should preserve working directory');
+});
+
+runTest('buildSolveResumeCommand: handles paths with spaces via quoting', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tempDir: '/tmp/dir with spaces',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/path with spaces/solve.mjs',
+  });
+
+  assertContains(cmd, '"/path with spaces/solve.mjs"', 'Should quote script path with spaces');
+  assertContains(cmd, '"/tmp/dir with spaces"', 'Should quote tempDir with spaces');
+});
+
+runTest('buildSolveResumeCommand: combines tool, model, fallback-model, and working-directory', () => {
+  const cmd = buildSolveResumeCommand({
+    issueUrl: 'https://example.com/issue/1',
+    sessionId: 'abc',
+    tool: 'codex',
+    model: 'gpt-5',
+    fallbackModel: 'gpt-4',
+    tempDir: '/tmp/work',
+    nodePath: '/usr/bin/node',
+    scriptPath: '/solve.mjs',
+  });
+
+  assertContains(cmd, '--tool "codex"', 'Should preserve tool');
+  assertContains(cmd, '--model "gpt-5"', 'Should preserve model');
+  assertContains(cmd, '--fallback-model "gpt-4"', 'Should preserve fallback-model');
+  assertContains(cmd, '--working-directory "/tmp/work"', 'Should preserve working directory');
 });
 
 // === Summary ===

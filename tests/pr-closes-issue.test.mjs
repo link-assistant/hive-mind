@@ -11,7 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { prClosesIssue } from '../src/github.batch.lib.mjs';
+import { prClosesIssue } from '../src/github-linking.lib.mjs';
 
 // Test utilities
 let testsPassed = 0;

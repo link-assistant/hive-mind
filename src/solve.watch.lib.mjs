@@ -15,8 +15,9 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
@@ -37,6 +38,21 @@ const { detectAndCountFeedback } = feedbackLib;
 const restartShared = await import('./solve.restart-shared.lib.mjs');
 const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildUncommittedChangesFeedback, isApiError } = restartShared;
 
+// Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
+const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit } = await import('./auto-iteration-limits.lib.mjs');
+
+// Issue #1625: Central marker constants + tracked comment posting
+const toolComments = await import('./tool-comments.lib.mjs');
+const { AUTO_RESTART_MARKER, postTrackedComment } = toolComments;
+
+// Issue #1728: Per-iteration working session summary attachment helper
+// Issue #1763: Per-iteration PR ↔ issue link verification (in case the AI
+// agent overwrites the PR body without a closing keyword and the iteration
+// ends up being the last one).
+const resultsLib = await import('./solve.results.lib.mjs');
+const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = resultsLib;
+
 /**
  * Monitor for feedback in a loop and trigger restart when detected
  */
@@ -45,7 +61,7 @@ export const watchForFeedback = async params => {
 
   const watchInterval = argv.watchInterval || 60; // seconds
   const isTemporaryWatch = argv.temporaryWatch || false;
-  const maxAutoRestartIterations = argv.autoRestartMaxIterations || 3;
+  const maxAutoRestartIterations = normalizeAutoIterationLimit(argv.autoRestartMaxIterations);
 
   // Track latest session data across all iterations for accurate pricing
   let latestSessionId = null;
@@ -68,7 +84,7 @@ export const watchForFeedback = async params => {
     await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
     await log(formatAligned('', 'Mode:', 'Auto-restart (NOT --watch mode)', 2));
     await log(formatAligned('', 'Stop conditions:', 'All changes committed OR PR merged OR max iterations reached', 2));
-    await log(formatAligned('', 'Max iterations:', `${maxAutoRestartIterations}`, 2));
+    await log(formatAligned('', 'Max iterations:', formatAutoIterationLimit(maxAutoRestartIterations), 2));
     await log(formatAligned('', 'Note:', 'No wait time between iterations in auto-restart mode', 2));
   } else {
     await log(formatAligned('👁️', 'WATCH MODE ACTIVATED', ''));
@@ -94,6 +110,52 @@ export const watchForFeedback = async params => {
       await log('');
       await log(formatAligned('🎉', 'PR MERGED!', 'Stopping watch mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been merged`, 2));
+
+      // Issue #401: If --auto-delete-branch-on-merge is enabled in --watch mode,
+      // delete the branch from the remote after the PR is merged. This enables
+      // full GitHub Flow automation. Only applies in --watch mode (not auto-restart),
+      // because auto-restart is for completing local work, not finalizing GitHub Flow.
+      const shouldAutoDeleteBranch = !isTemporaryWatch && argv.autoDeleteBranchOnMerge && branchName;
+      if (shouldAutoDeleteBranch) {
+        await log('');
+        await log(formatAligned('🗑️', 'AUTO-DELETE:', `Deleting branch ${branchName} after merge`));
+        try {
+          // Delete the branch from the remote via GitHub REST API.
+          // We use `gh api ... -X DELETE` rather than `git push --delete` so we don't
+          // require a configured local remote in tempDir at this point in the run.
+          const deleteBranchResult = await $`gh api repos/${owner}/${repo}/git/refs/heads/${branchName} -X DELETE`;
+          if (deleteBranchResult.code === 0) {
+            await log(formatAligned('✅', 'Branch deleted:', `${branchName}`, 2));
+          } else {
+            const stderrText = deleteBranchResult.stderr?.toString().trim() || 'Unknown error';
+            // 422 Reference does not exist -> branch was already deleted (e.g. GitHub's "Automatically delete head branches"
+            // setting raced ahead of us). Treat as success rather than warning.
+            if (/Reference does not exist|Not Found|422|404/i.test(stderrText)) {
+              await log(formatAligned('✅', 'Branch already removed:', `${branchName} (no action needed)`, 2));
+            } else {
+              await log(formatAligned('⚠️', 'Branch deletion failed:', stderrText, 2));
+              reportError(new Error(`Branch deletion returned non-zero exit code: ${stderrText}`), {
+                context: 'delete_branch_on_merge_non_zero',
+                owner,
+                repo,
+                branchName,
+                exitCode: deleteBranchResult.code,
+                operation: 'delete_remote_branch',
+              });
+            }
+          }
+        } catch (deleteError) {
+          reportError(deleteError, {
+            context: 'delete_branch_on_merge',
+            owner,
+            repo,
+            branchName,
+            operation: 'delete_remote_branch',
+          });
+          await log(formatAligned('⚠️', 'Branch deletion error:', cleanErrorMessage(deleteError), 2));
+        }
+      }
+
       await log('');
       break;
     }
@@ -110,7 +172,7 @@ export const watchForFeedback = async params => {
       }
 
       // Check if we've reached max iterations
-      if (autoRestartCount >= maxAutoRestartIterations) {
+      if (hasReachedAutoIterationLimit(autoRestartCount, maxAutoRestartIterations)) {
         await log('');
         await log(formatAligned('⚠️', 'MAX ITERATIONS REACHED', `Exiting auto-restart mode after ${autoRestartCount} iterations`));
         await log(formatAligned('', 'Some uncommitted changes may remain', '', 2));
@@ -147,6 +209,7 @@ export const watchForFeedback = async params => {
         formatAligned,
         cleanErrorMessage,
         $,
+        repositoryPath: tempDir,
       });
 
       // Check if there's any feedback or if it's the first iteration in temporary mode
@@ -181,7 +244,7 @@ export const watchForFeedback = async params => {
           // Post a comment to PR about auto-restart
           if (prNumber) {
             try {
-              const remainingIterations = maxAutoRestartIterations - autoRestartCount;
+              const remainingIterations = maxAutoRestartIterations === 0 ? null : maxAutoRestartIterations - autoRestartCount;
 
               // Get uncommitted files list for the comment
               let uncommittedFilesList = '';
@@ -189,8 +252,11 @@ export const watchForFeedback = async params => {
                 uncommittedFilesList = '\n\n**Uncommitted files:**\n```\n' + changes.join('\n') + '\n```';
               }
 
-              const commentBody = `## 🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*Auto-restart will stop after changes are committed or discarded, or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}. Please wait until working session will end and give your feedback.*`;
-              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+              const iterationLabel = maxAutoRestartIterations === 0 ? `${autoRestartCount}` : `${autoRestartCount}/${maxAutoRestartIterations}`;
+              const stopText = remainingIterations === null ? 'Auto-restart is configured with no iteration limit.' : `Auto-restart will stop after changes are committed or discarded, or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}.`;
+              const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${iterationLabel}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*${stopText} Please wait until working session will end and give your feedback.*`;
+              // Issue #1625: Track so this doesn't falsely count as AI-authored.
+              await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
               await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
             } catch (commentError) {
               reportError(commentError, {
@@ -220,6 +286,42 @@ export const watchForFeedback = async params => {
           await log(formatAligned('🔄', 'Restarting:', `Re-running ${argv.tool.toUpperCase()} to handle feedback...`));
         }
 
+        // Issue #1728: Scope the AI-comment check that gates --auto-attach-solution-summary
+        // to comments posted during *this* iteration only, not across the whole watch loop.
+        const iterationStartTime = new Date();
+
+        let restartFeedbackLines = feedbackLines;
+        let restartArgv = argv;
+        const shouldUseSessionResume = Boolean(isTemporaryWatch && (firstIterationInTemporaryMode || hasUncommittedInTempMode) && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart']) && (argv.tool === 'claude' || !argv.tool) && global.previousSessionId);
+
+        if (shouldUseSessionResume) {
+          await log(formatAligned('', 'Experimental session resume: using minimal auto-restart prompt', '', 2));
+          await log(formatAligned('', `Resuming session: ${global.previousSessionId}`, '', 2));
+
+          if (argv.verbose) {
+            try {
+              const { calculateSessionTokens } = await import('./claude.lib.mjs');
+              const tokenUsage = await calculateSessionTokens(global.previousSessionId, tempDir);
+              if (tokenUsage?.totalTokens) {
+                await log(formatAligned('', `Previous session tokens: ${tokenUsage.totalTokens.toLocaleString()}`, '', 2));
+              }
+            } catch {
+              await log(formatAligned('', 'Could not read previous session token usage', '', 2));
+            }
+          }
+
+          const { generateMinimalRestartPrompt } = await import('./solve.minimal-restart-prompt.lib.mjs');
+          const minimalPrompt = await generateMinimalRestartPrompt(tempDir, $);
+          restartFeedbackLines = [minimalPrompt];
+          restartArgv = {
+            ...argv,
+            resume: global.previousSessionId,
+            minimalRestartContext: true,
+          };
+
+          await log(formatAligned('', `Minimal restart prompt size: ${minimalPrompt.length} characters`, '', 2));
+        }
+
         // Execute tool using shared utility
         const toolResult = await executeToolIteration({
           issueUrl,
@@ -230,9 +332,13 @@ export const watchForFeedback = async params => {
           branchName: prBranch || branchName,
           tempDir,
           mergeStateStatus,
-          feedbackLines,
-          argv,
+          feedbackLines: restartFeedbackLines,
+          argv: restartArgv,
         });
+
+        if (toolResult.sessionId && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart'])) {
+          global.previousSessionId = toolResult.sessionId;
+        }
 
         if (!toolResult.success) {
           // Check if this is an API error using shared utility
@@ -275,7 +381,8 @@ export const watchForFeedback = async params => {
               const logFile = getLogFile();
               if (logFile) {
                 // Use "Auto-restart X/Y Failure Log" format to distinguish from success logs
-                const customTitle = `⚠️ Auto-restart ${autoRestartCount}/${maxAutoRestartIterations} Failure Log`;
+                const iterationLabel = maxAutoRestartIterations === 0 ? `${autoRestartCount}` : `${autoRestartCount}/${maxAutoRestartIterations}`;
+                const customTitle = `⚠️ Auto-restart ${iterationLabel} Failure Log`;
                 const logUploadSuccess = await attachLogToGitHub({
                   logFile,
                   targetType: 'pr',
@@ -298,8 +405,10 @@ export const watchForFeedback = async params => {
                   isUsageLimit: toolResult.limitReached,
                   limitResetTime: toolResult.limitResetTime,
                   // Issue #1225: Pass model and tool info for PR comments
-                  requestedModel: argv.model,
+                  requestedModel: argv.originalModel || argv.model,
                   tool: argv.tool || 'claude',
+                  // Issue #1508: Pass model usage for failure log (cost info per model)
+                  resultModelUsage: toolResult.resultModelUsage || null,
                 });
 
                 if (logUploadSuccess) {
@@ -338,6 +447,56 @@ export const watchForFeedback = async params => {
             }
           }
 
+          // Issue #1508: Compute budget stats for auto-restart log comment
+          let autoRestartBudgetStatsData = null;
+          if (argv.tokensBudgetStats && latestSessionId && tempDir) {
+            try {
+              const { calculateSessionTokens } = await import('./claude.lib.mjs');
+              const tokenUsage = await calculateSessionTokens(latestSessionId, tempDir, toolResult.resultModelUsage);
+              if (tokenUsage) {
+                autoRestartBudgetStatsData = { tokenUsage, streamTokenUsage: toolResult.streamTokenUsage || null, subAgentCalls: toolResult.subAgentCalls || null };
+              }
+            } catch (budgetError) {
+              if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });
+            }
+          }
+
+          // Issue #1761: Post the working session **summary** BEFORE uploading
+          // the working session **log** so the summary always appears above
+          // the log in PR comment chronological order. The summary acts as a
+          // human-readable header for the (potentially very long) log that
+          // follows, and reordering matches the top-level flow in
+          // src/solve.mjs (which calls maybeAttachWorkingSessionSummary
+          // before verifyResults / attachLogToGitHub).
+          //
+          // Issue #1728: Attach a "Working session summary" comment for this
+          // iteration if the AI didn't post any comments of its own (and
+          // --auto-attach-solution-summary is enabled, which it is by default).
+          // Same fix as in solve.auto-merge.lib.mjs — every working session,
+          // not just the top-level run, should honour the auto-attach flag.
+          try {
+            await maybeAttachWorkingSessionSummary({
+              argv,
+              resultSummary: toolResult.resultSummary,
+              workStartTime: iterationStartTime,
+              owner,
+              repo,
+              prNumber,
+              issueNumber,
+              success: true,
+            });
+          } catch (summaryError) {
+            reportError(summaryError, {
+              context: 'attach_watch_working_session_summary',
+              prNumber,
+              owner,
+              repo,
+              autoRestartCount,
+              operation: 'attach_working_session_summary',
+            });
+            await log(formatAligned('', `⚠️  Working session summary error: ${cleanErrorMessage(summaryError)}`, '', 2));
+          }
+
           // Issue #1107: Attach log after each auto-restart session with its own cost estimation
           // This ensures each restart has its own log comment instead of one combined log at the end
           const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
@@ -348,7 +507,8 @@ export const watchForFeedback = async params => {
               const logFile = getLogFile();
               if (logFile) {
                 // Use "Auto-restart X/Y Log" format as requested in issue #1107
-                const customTitle = `🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations} Log`;
+                const iterationLabel = maxAutoRestartIterations === 0 ? `${autoRestartCount}` : `${autoRestartCount}/${maxAutoRestartIterations}`;
+                const customTitle = `🔄 Auto-restart ${iterationLabel} Log`;
                 const logUploadSuccess = await attachLogToGitHub({
                   logFile,
                   targetType: 'pr',
@@ -367,8 +527,11 @@ export const watchForFeedback = async params => {
                   publicPricingEstimate: toolResult.publicPricingEstimate,
                   pricingInfo: toolResult.pricingInfo,
                   // Issue #1225: Pass model and tool info for PR comments
-                  requestedModel: argv.model,
+                  requestedModel: argv.originalModel || argv.model,
                   tool: argv.tool || 'claude',
+                  // Issue #1508: Include budget stats (context/token/cost) for auto-restart log
+                  resultModelUsage: toolResult.resultModelUsage || null,
+                  budgetStatsData: autoRestartBudgetStatsData,
                 });
 
                 if (logUploadSuccess) {
@@ -388,6 +551,34 @@ export const watchForFeedback = async params => {
                 operation: 'upload_session_log',
               });
               await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
+            }
+          }
+
+          // Issue #1763: Re-verify the PR body contains a closing keyword for
+          // the issue after every iteration. The AI agent can rewrite the PR
+          // description mid-session and any iteration may turn out to be the
+          // last one (interrupt, hit iteration cap, billing limit, etc.), so
+          // we cannot rely on a single end-of-run check.
+          if (prNumber && issueNumber && owner && repo) {
+            try {
+              await log(formatAligned('🔗', 'Verifying PR issue link after iteration...', '', 2));
+              await ensurePullRequestIssueLink({
+                prNumber,
+                issueNumber,
+                owner,
+                repo,
+                argv,
+              });
+            } catch (issueLinkError) {
+              reportError(issueLinkError, {
+                context: 'ensure_pr_issue_link_watch_iteration',
+                prNumber,
+                owner,
+                repo,
+                autoRestartCount,
+                operation: 'ensure_pr_issue_link',
+              });
+              await log(formatAligned('', `⚠️  PR issue link check error: ${cleanErrorMessage(issueLinkError)}`, '', 2));
             }
           }
 
@@ -427,7 +618,7 @@ export const watchForFeedback = async params => {
       const actualWaitMs = actualWaitSeconds * 1000;
       await log(formatAligned('⏱️', 'Next check in:', `${actualWaitSeconds} seconds...`, 2));
       await log(''); // Blank line for readability
-      await new Promise(resolve => setTimeout(resolve, actualWaitMs));
+      await interruptibleSleep(actualWaitMs);
     } else if (isTemporaryWatch && !firstIterationInTemporaryMode) {
       // In auto-restart mode, check immediately without waiting
       await log(formatAligned('', 'Checking immediately for uncommitted changes...', '', 2));

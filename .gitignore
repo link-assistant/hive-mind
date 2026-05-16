@@ -161,3 +161,4 @@ tests/.test-*
 *.ipr
 .nb-gradle/
 .gradle/
+.playwright-mcp/

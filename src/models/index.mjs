@@ -12,6 +12,9 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1473
  */
 
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
 // Check if use is already defined (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
@@ -20,26 +23,30 @@ if (typeof globalThis.use === 'undefined') {
 
 import { log } from '../lib.mjs';
 
+const execFileAsync = promisify(execFile);
+
 // ─── MODEL DATA ──────────────────────────────────────────────────────────────
 
 // Claude models (Anthropic API)
-// Updated for Opus 4.5/4.6 and Sonnet 4.6 support (Issue #1221, Issue #1238, Issue #1329, Issue #1433)
+// Updated for Opus 4.5/4.6/4.7 and Sonnet 4.6 support (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620)
 export const claudeModels = {
   sonnet: 'claude-sonnet-4-6', // Sonnet 4.6 (default, Issue #1329)
-  opus: 'claude-opus-4-6', // Opus 4.6 (Issue #1433)
+  opus: 'claude-opus-4-7', // Opus 4.7 (Issue #1620)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
   opusplan: 'opusplan', // Special mode: Opus for planning, Sonnet for execution (Issue #1223)
   // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
   'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
-  'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias
+  'opus-4-7': 'claude-opus-4-7', // Opus 4.7 short alias (Issue #1620)
+  'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias (backward compatibility)
   'opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5 short alias
   'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias (backward compatibility)
   'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
-  // Version aliases for backward compatibility (Issue #1221, Issue #1329)
+  // Version aliases for backward compatibility (Issue #1221, Issue #1329, Issue #1620)
+  'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 (Issue #1620)
   'claude-sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
-  'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6
+  'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6 (backward compatibility)
   'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
   'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 (backward compatibility)
   'claude-haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5
@@ -47,6 +54,8 @@ export const claudeModels = {
 
 // Agent models (OpenCode API and Kilo Gateway via agent CLI)
 // Issue #1300: Updated free models to match agent PR #191
+// Issue #1543: Added qwen3.6-plus-free (former default) and nemotron-3-super-free per agent PR #234
+// Issue #1563: qwen3.6-plus-free free promotion ended (April 2026), nemotron-3-super-free is now default per agent PR #243
 export const agentModels = {
   // OpenCode Zen free models (current)
   grok: 'opencode/grok-code',
@@ -54,7 +63,8 @@ export const agentModels = {
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
-  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // New: upgraded from M2.1 (Issue #1391: now default)
+  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // Upgraded from M2.1 (Issue #1391)
+  'nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Default: NVIDIA hybrid Mamba-Transformer (Issue #1563)
   // Kilo Gateway free models (Issue #1282, updated in #1300)
   // Short names for Kilo-exclusive models (Issue #1300)
   'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive
@@ -70,6 +80,7 @@ export const agentModels = {
   'kilo/giga-potato-free': 'kilo/giga-potato-free',
   'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
   // Deprecated free models (kept for backward compatibility)
+  'qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended April 2026 (Issue #1563)
   'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported (Issue #1391)
   'glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated: no longer free
   'minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated: replaced by m2.5
@@ -99,27 +110,75 @@ export const opencodeModels = {
 // Codex models (OpenAI API)
 export const codexModels = {
   gpt5: 'gpt-5',
-  'gpt5-codex': 'gpt-5-codex',
-  o3: 'o3',
+  'gpt-5': 'gpt-5',
+  'gpt-5.5': 'gpt-5.5',
+  'gpt-5.5-mini': 'gpt-5.5-mini',
+  'gpt-5.5-nano': 'gpt-5.5-nano',
+  'gpt-5.4': 'gpt-5.4',
+  'gpt-5.4-mini': 'gpt-5.4-mini',
+  'gpt-5.4-nano': 'gpt-5.4-nano',
+  'gpt-5.2': 'gpt-5.2',
+  'gpt-5.2-codex': 'gpt-5.2-codex',
+  'gpt-5.3-codex': 'gpt-5.3-codex',
+  'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
+  'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
   'o3-mini': 'o3-mini',
   gpt4: 'gpt-4',
+  'gpt-4': 'gpt-4',
   gpt4o: 'gpt-4o',
-  claude: 'claude-3-5-sonnet',
-  sonnet: 'claude-3-5-sonnet',
-  opus: 'claude-3-opus',
+  'gpt-4o': 'gpt-4o',
+};
+
+// Qwen Code models
+export const qwenModels = {
+  qwen: 'qwen3-coder-plus',
+  'qwen-coder': 'qwen3-coder-plus',
+  qwen3: 'qwen3-coder-plus',
+  'qwen3-coder': 'qwen3-coder',
+  'qwen3-coder-plus': 'qwen3-coder-plus',
+  'qwen3-coder-flash': 'qwen3-coder-flash',
+  'qwen3.6-plus': 'qwen3.6-plus',
+  'qwen3.6-coder-plus': 'qwen3.6-coder-plus',
+};
+
+// Gemini models (Google Gemini CLI)
+// Keep aliases aligned with the Gemini CLI model aliases documented in
+// docs/cli/cli-reference.md: auto, pro, flash, and flash-lite.
+export const geminiModels = {
+  auto: 'auto',
+  gemini: 'gemini-2.5-flash',
+  flash: 'gemini-2.5-flash',
+  '2.5-flash': 'gemini-2.5-flash',
+  pro: 'gemini-2.5-pro',
+  '2.5-pro': 'gemini-2.5-pro',
+  lite: 'gemini-2.5-flash-lite',
+  '2.5-lite': 'gemini-2.5-flash-lite',
+  'flash-lite': 'gemini-2.5-flash-lite',
+  '3-flash': 'gemini-3-flash-preview',
+  '3-pro': 'gemini-3-pro-preview',
+  'gemini-flash': 'gemini-2.5-flash',
+  'gemini-pro': 'gemini-2.5-pro',
+  'gemini-2.5-flash': 'gemini-2.5-flash',
+  'gemini-2.5-pro': 'gemini-2.5-pro',
+  'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
+  'gemini-3-flash-preview': 'gemini-3-flash-preview',
+  'gemini-3-pro-preview': 'gemini-3-pro-preview',
 };
 
 // Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
 export const defaultModels = {
   claude: 'sonnet',
-  agent: 'minimax-m2.5-free',
+  agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'grok-code-fast-1',
-  codex: 'gpt-5',
+  codex: 'gpt-5.5',
+  qwen: 'qwen3-coder-plus',
+  gemini: 'flash',
 };
 
 // Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329)
 // See: https://code.claude.com/docs/en/model-config
 export const MODELS_SUPPORTING_1M_CONTEXT = [
+  'claude-opus-4-7', // Opus 4.7 (Issue #1620)
   'claude-opus-4-6',
   'claude-opus-4-5-20251101',
   'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
@@ -127,7 +186,8 @@ export const MODELS_SUPPORTING_1M_CONTEXT = [
   'claude-sonnet-4-5',
   'sonnet', // Now maps to Sonnet 4.6 (Issue #1329)
   'sonnet-4-6', // Short alias (Issue #1329)
-  'opus',
+  'opus', // Now maps to Opus 4.7 (Issue #1620)
+  'opus-4-7', // Short alias (Issue #1620)
   'opus-4-6', // Short alias (Issue #1221 - PR comment feedback)
   'opus-4-5', // Short alias (Issue #1238)
   'sonnet-4-5', // Short alias (Issue #1221 - PR comment feedback)
@@ -140,6 +200,8 @@ export const freeToBaseModelMap = {
   'glm-4.7-free': 'glm-4.7',
   'minimax-m2.1-free': 'minimax-m2.1',
   'minimax-m2.5-free': 'minimax-m2.5',
+  'qwen3.6-plus-free': 'qwen3.6-plus', // Issue #1543
+  'nemotron-3-super-free': 'nemotron-3-super', // Issue #1543
   'glm-5-free': 'glm-5',
   'glm-4.5-air-free': 'glm-4.5-air',
   'deepseek-r1-free': 'deepseek-r1',
@@ -154,6 +216,7 @@ export const freeToBaseModelMap = {
 
 export const CLAUDE_MODELS = {
   ...claudeModels,
+  'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 full ID (Issue #1620)
   'claude-sonnet-4-5-20250929': 'claude-sonnet-4-5-20250929',
   'claude-opus-4-5-20251101': 'claude-opus-4-5-20251101',
   'claude-haiku-4-5-20251001': 'claude-haiku-4-5-20251001',
@@ -174,11 +237,37 @@ export const OPENCODE_MODELS = {
 export const CODEX_MODELS = {
   ...codexModels,
   'gpt-5': 'gpt-5',
-  'gpt-5-codex': 'gpt-5-codex',
+  'gpt-5.5': 'gpt-5.5',
+  'gpt-5.5-mini': 'gpt-5.5-mini',
+  'gpt-5.5-nano': 'gpt-5.5-nano',
+  'gpt-5.4': 'gpt-5.4',
+  'gpt-5.4-mini': 'gpt-5.4-mini',
+  'gpt-5.4-nano': 'gpt-5.4-nano',
+  'gpt-5.2': 'gpt-5.2',
+  'gpt-5.2-codex': 'gpt-5.2-codex',
+  'gpt-5.3-codex': 'gpt-5.3-codex',
+  'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
+  'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
   'gpt-4': 'gpt-4',
   'gpt-4o': 'gpt-4o',
-  'claude-3-5-sonnet': 'claude-3-5-sonnet',
-  'claude-3-opus': 'claude-3-opus',
+};
+
+export const QWEN_MODELS = {
+  ...qwenModels,
+  'qwen3-coder': 'qwen3-coder',
+  'qwen3-coder-plus': 'qwen3-coder-plus',
+  'qwen3-coder-flash': 'qwen3-coder-flash',
+  'qwen3.6-plus': 'qwen3.6-plus',
+  'qwen3.6-coder-plus': 'qwen3.6-coder-plus',
+};
+
+export const GEMINI_MODELS = {
+  ...geminiModels,
+  'gemini-2.5-flash': 'gemini-2.5-flash',
+  'gemini-2.5-pro': 'gemini-2.5-pro',
+  'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
+  'gemini-3-flash-preview': 'gemini-3-flash-preview',
+  'gemini-3-pro-preview': 'gemini-3-pro-preview',
 };
 
 export const AGENT_MODELS = {
@@ -187,6 +276,8 @@ export const AGENT_MODELS = {
   'opencode/big-pickle': 'opencode/big-pickle',
   'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
   'opencode/minimax-m2.5-free': 'opencode/minimax-m2.5-free',
+  'opencode/nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Issue #1563: now default
+  'opencode/qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended (Issue #1563)
   'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated
   'opencode/glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated
   'opencode/minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated
@@ -200,7 +291,7 @@ export const AGENT_MODELS = {
 
 /**
  * Get the model map object for a given tool
- * @param {string} tool - The tool name (claude, agent, opencode, codex)
+ * @param {string} tool - The tool name (claude, agent, opencode, codex, qwen, gemini)
  * @returns {Object} The model mapping for the tool
  */
 export const getModelMapForTool = tool => {
@@ -213,6 +304,10 @@ export const getModelMapForTool = tool => {
       return opencodeModels;
     case 'codex':
       return codexModels;
+    case 'gemini':
+      return geminiModels;
+    case 'qwen':
+      return qwenModels;
     default:
       return claudeModels;
   }
@@ -220,16 +315,60 @@ export const getModelMapForTool = tool => {
 
 /**
  * Get the default model for a given tool
- * @param {string} tool - The tool name (claude, agent, opencode, codex)
+ * @param {string} tool - The tool name (claude, agent, opencode, codex, qwen, gemini)
  * @returns {string} The default model alias for the tool
  */
 export const getDefaultModelForTool = tool => {
   return defaultModels[tool] || defaultModels.claude;
 };
 
+let cachedInstalledCodexModelsPromise = null;
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+
+export const getInstalledCodexModels = async () => {
+  if (!cachedInstalledCodexModelsPromise) {
+    cachedInstalledCodexModelsPromise = (async () => {
+      try {
+        const { stdout } = await execFileAsync('codex', ['debug', 'models'], {
+          encoding: 'utf8',
+          maxBuffer: 10 * 1024 * 1024,
+        });
+        const parsed = JSON.parse(stdout);
+        const modelSlugs = parsed?.models?.map(model => model?.slug).filter(Boolean);
+        return Array.isArray(modelSlugs) ? [...new Set(modelSlugs)] : null;
+      } catch {
+        return null;
+      }
+    })();
+  }
+
+  return cachedInstalledCodexModelsPromise;
+};
+
+export const resolveRuntimeDefaultModel = async (tool, options = {}) => {
+  const toolName = (tool || 'claude').toString().toLowerCase();
+  const preferredDefault = defaultModels[toolName] || defaultModels.claude;
+
+  if (toolName !== 'codex') {
+    return preferredDefault;
+  }
+
+  const availableCodexModels = options.availableCodexModels === undefined ? await getInstalledCodexModels() : options.availableCodexModels;
+
+  if (!Array.isArray(availableCodexModels) || availableCodexModels.length === 0) {
+    return preferredDefault;
+  }
+
+  if (availableCodexModels.includes(preferredDefault)) {
+    return preferredDefault;
+  }
+
+  return CODEX_DEFAULT_FALLBACK_CHAIN.find(model => availableCodexModels.includes(model)) || preferredDefault;
+};
+
 /**
  * Map model name to full model ID for a specific tool
- * @param {string} tool - The tool name (claude, agent, opencode, codex)
+ * @param {string} tool - The tool name (claude, agent, opencode, codex, qwen, gemini)
  * @param {string} model - The model name or alias
  * @returns {string} The full model ID
  */
@@ -243,6 +382,10 @@ export const mapModelForTool = (tool, model) => {
       return opencodeModels[model] || model;
     case 'codex':
       return codexModels[model] || model;
+    case 'gemini':
+      return geminiModels[model] || model;
+    case 'qwen':
+      return qwenModels[model] || model;
     default:
       return model;
   }
@@ -250,7 +393,7 @@ export const mapModelForTool = (tool, model) => {
 
 /**
  * Validate if a model is compatible with a tool
- * @param {string} tool - The tool name (claude, agent, opencode, codex)
+ * @param {string} tool - The tool name (claude, agent, opencode, codex, qwen, gemini)
  * @param {string} model - The model name or alias
  * @returns {boolean} True if the model is compatible with the tool
  */
@@ -265,7 +408,11 @@ export const isModelCompatibleWithTool = (tool, model) => {
     case 'opencode':
       return mappedModel.includes('/') || Object.keys(opencodeModels).includes(model);
     case 'codex':
-      return Object.keys(codexModels).includes(model) || mappedModel.startsWith('gpt-') || mappedModel.startsWith('o3') || mappedModel.startsWith('claude-');
+      return Object.keys(codexModels).includes(model) || mappedModel.startsWith('gpt-');
+    case 'gemini':
+      return Object.keys(geminiModels).includes(model) || mappedModel.startsWith('gemini-');
+    case 'qwen':
+      return Object.keys(qwenModels).includes(model) || mappedModel.startsWith('qwen');
     default:
       return true;
   }
@@ -286,6 +433,10 @@ export const getValidModelsForTool = tool => {
       return Object.keys(opencodeModels);
     case 'codex':
       return Object.keys(codexModels);
+    case 'gemini':
+      return Object.keys(geminiModels);
+    case 'qwen':
+      return Object.keys(qwenModels);
     default:
       return [];
   }
@@ -296,8 +447,10 @@ export const getValidModelsForTool = tool => {
 export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan'],
   opencode: ['grok', 'gpt4o'],
-  codex: ['gpt5', 'gpt5-codex', 'o3'],
-  agent: ['minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
+  codex: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark'],
+  agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
+  qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash'],
+  gemini: ['flash', 'pro', 'flash-lite', 'auto'],
 };
 
 /**
@@ -337,7 +490,7 @@ export const validateToolModelCompatibility = (tool, model) => {
 
 /**
  * Get the model map for a given tool (validation-extended version with full ID entries)
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent')
+ * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini')
  * @returns {Object} The model mapping for the tool
  */
 const getValidationModelMapForTool = tool => {
@@ -346,8 +499,12 @@ const getValidationModelMapForTool = tool => {
       return OPENCODE_MODELS;
     case 'codex':
       return CODEX_MODELS;
+    case 'gemini':
+      return GEMINI_MODELS;
     case 'agent':
       return AGENT_MODELS;
+    case 'qwen':
+      return QWEN_MODELS;
     case 'claude':
     default:
       return CLAUDE_MODELS;
@@ -356,7 +513,7 @@ const getValidationModelMapForTool = tool => {
 
 /**
  * Get the list of available model names for a tool (for display in help/error messages)
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent')
+ * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini')
  * @returns {string[]} Array of available model short names
  */
 export const getAvailableModelNames = tool => {
@@ -367,7 +524,7 @@ export const getAvailableModelNames = tool => {
     // - Full model IDs with slashes (e.g., 'openai/gpt-4')
     // - Long claude-prefixed model IDs (e.g., 'claude-sonnet-4-5-20250929')
     // - Full gpt- prefixed IDs that are ONLY version numbers (e.g., 'gpt-4', 'gpt-4o', 'gpt-5')
-    // But keep descriptive aliases like 'gpt-5-nano', 'gpt-5-codex', 'o3', 'o3-mini', 'gpt5', etc.
+    // But keep descriptive aliases like 'gpt-5-nano', 'gpt-5.3-codex', 'o3-mini', 'gpt5', etc.
     // Issue #1185: Updated regex to not filter out gpt-5-nano (a valid short alias)
     if (key.includes('/')) return false;
     if (key.match(/^claude-.*-\d{8}$/)) return false; // Full claude model IDs with date
@@ -495,7 +652,7 @@ export const supports1mContext = (model, tool = 'claude') => {
  * Validate a model name against the available models for a tool
  * Supports [1m] suffix for 1 million token context (Issue #1221)
  * @param {string} model - The model name to validate (e.g., "opus", "opus[1m]", "claude-opus-4-6[1m]")
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex')
+ * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini')
  * @returns {{ valid: boolean, message?: string, suggestions?: string[], mappedModel?: string, has1mSuffix?: boolean }}
  */
 export const validateModelName = (model, tool = 'claude') => {
@@ -568,7 +725,7 @@ export const validateModelName = (model, tool = 'claude') => {
  * Validate model name and exit with error if invalid
  * This is the main entry point for model validation in solve.mjs, hive.mjs, etc.
  * @param {string} model - The model name to validate
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex')
+ * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini')
  * @param {Function} exitFn - Function to call for exiting (default: process.exit)
  * @returns {Promise<boolean>} True if valid, exits process if invalid
  */
@@ -603,7 +760,7 @@ export const formatAvailableModelsForHelp = (tool = 'claude') => {
 
 /**
  * Map tool identifier to user-friendly display name.
- * @param {string|null} tool - The tool identifier (claude, codex, opencode, agent)
+ * @param {string|null} tool - The tool identifier (claude, codex, opencode, agent, qwen, gemini)
  * @returns {string} User-friendly display name
  */
 export const getToolDisplayName = tool => {
@@ -617,6 +774,10 @@ export const getToolDisplayName = tool => {
       return 'OpenCode';
     case 'agent':
       return 'Agent CLI';
+    case 'gemini':
+      return 'Google Gemini CLI';
+    case 'qwen':
+      return 'Qwen Code';
     default:
       return 'AI tool';
   }
@@ -738,7 +899,7 @@ const doesRequestedMatchActual = (requestedModel, actualModelId, tool) => {
  *
  * @param {Object} options - Model info options
  * @param {string|null} options.requestedModel - The model requested via --model flag
- * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex)
+ * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex, qwen, gemini)
  * @param {Object|null} options.pricingInfo - Pricing info from tool result
  * @param {Object|null} options.modelInfo - Pre-fetched model metadata from models.dev
  * @param {Array<{modelId: string, modelInfo: Object|null}>|null} options.modelsUsed - Actual models used from CLI JSON output
@@ -826,13 +987,30 @@ export const resolveModelId = (requestedModel, tool) => {
   }
 };
 
+export const defaultFallbackModels = {
+  claude: {
+    'claude-opus-4-7': 'opus-4-6',
+  },
+  codex: {
+    'gpt-5.5': 'gpt-5.4',
+  },
+};
+
+export const resolveDefaultFallbackModel = (tool, model) => {
+  if (!model) return null;
+
+  const toolName = (tool || 'claude').toString().toLowerCase();
+  const resolvedModel = resolveModelId(model, toolName);
+  return defaultFallbackModels[toolName]?.[resolvedModel] || null;
+};
+
 /**
  * Fetch model info and build the complete model information string for PR comments.
  * Uses actual models from CLI JSON output when available.
  *
  * @param {Object} options
  * @param {string|null} options.requestedModel - The --model flag value
- * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex)
+ * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex, qwen, gemini)
  * @param {Object|null} options.pricingInfo - Pricing info from tool result
  * @param {Array<string>|null} options.actualModelIds - Actual model IDs from CLI JSON output
  * @returns {Promise<string>} Formatted markdown model info section

@@ -5,6 +5,8 @@ import requireGhPaginate from './eslint-rules/require-gh-paginate.mjs';
 import noUnderscorePassthroughWrapper from './eslint-rules/no-underscore-passthrough-wrapper.mjs';
 import noLeakedTimers from './eslint-rules/no-leaked-timers.mjs';
 import noLeakedStreams from './eslint-rules/no-leaked-streams.mjs';
+import noDirectGhExec from './eslint-rules/no-direct-gh-exec.mjs';
+import requireSanitizedOutput from './eslint-rules/require-sanitized-output.mjs';
 
 // Create custom plugin for gh paginate rule
 const ghPaginatePlugin = {
@@ -34,6 +36,19 @@ const streamsPlugin = {
   },
 };
 
+// Create custom plugin to prevent rate-limit-unsafe gh exec calls (issue #1726)
+const ghRateLimitPlugin = {
+  rules: {
+    'no-direct-gh-exec': noDirectGhExec,
+  },
+};
+
+const outputSanitizationPlugin = {
+  rules: {
+    'require-sanitized-output': requireSanitizedOutput,
+  },
+};
+
 export default [
   js.configs.recommended,
   prettierConfig,
@@ -44,6 +59,8 @@ export default [
       'no-underscore-wrapper': noUnderscoreWrapperPlugin,
       timers: timerPlugin,
       streams: streamsPlugin,
+      'gh-rate-limit': ghRateLimitPlugin,
+      'output-sanitization': outputSanitizationPlugin,
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -79,10 +96,18 @@ export default [
         URL: 'readonly',
       },
     },
-    files: ['src/**/*.{js,mjs,cjs}'],
+    files: ['src/**/*.{js,mjs,cjs}', 'scripts/**/*.{js,mjs,cjs}', 'eslint-rules/**/*.{js,mjs,cjs}'],
     rules: {
       'no-undef': 'error',
-      'no-unused-vars': ['error'],
+      'no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrors: 'all',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
       'no-console': 'off',
       'no-useless-escape': 'warn',
       'no-case-declarations': 'warn',
@@ -100,7 +125,7 @@ export default [
       'prettier/prettier': 'warn',
       // Require --paginate on gh api calls that return lists
       // This prevents missing data when GitHub API returns more than 30 results
-      'gh-paginate/require-gh-paginate': 'warn',
+      'gh-paginate/require-gh-paginate': 'error',
       // Disallow thin wrapper functions that only pass arguments through to an underscore-prefixed import
       // These wrappers add no value — call the underscore function directly at the call site
       'no-underscore-wrapper/no-underscore-passthrough-wrapper': 'error',
@@ -110,15 +135,22 @@ export default [
       // Require capturing createReadStream/createWriteStream return values so streams can be closed.
       // Unclosed streams keep the Node.js event loop alive and cause hangs (issue #1431).
       'streams/no-leaked-streams': 'error',
-      // Enforce max 1500 lines per file to match CI workflow check
-      // This ensures ESLint and check-file-line-limits job are synchronized
-      // See: docs/case-studies/issue-1141 for context
+      // Disallow raw exec/execAsync/$ calls to `gh` without a rate-limit-safe wrapper.
+      // Files that import ghWithRateLimitRetry / execGhWithRetry / ghRetry / ghCmdRetry are exempt.
+      // See: https://github.com/link-assistant/hive-mind/issues/1726
+      'gh-rate-limit/no-direct-gh-exec': 'error',
+      'output-sanitization/require-sanitized-output': 'error',
+      // Enforce max 1500 lines per file to match CI workflow check.
+      // Counts blank lines and comments (skipBlankLines/skipComments=false) so
+      // this rule and scripts/check-file-line-limits.sh (raw `wc -l`) agree —
+      // otherwise ESLint passes locally while CI fails (issue #1730).
+      // See: docs/case-studies/issue-1141, docs/case-studies/issue-1730.
       'max-lines': [
         'error',
         {
           max: 1500,
-          skipBlankLines: true,
-          skipComments: true,
+          skipBlankLines: false,
+          skipComments: false,
         },
       ],
     },

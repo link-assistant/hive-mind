@@ -1,0 +1,58 @@
+* 36437c9b (HEAD -> issue-1752-824b615d875a, origin/issue-1752-824b615d875a) Initial commit with task details
+* 601e7816 (tag: v1.65.0, origin/main, origin/HEAD, main) 1.65.0
+*   77020cc1 Merge pull request #1751 from link-assistant/issue-1750-d68ff2d9c70a
+|\  
+| * f9bf3833 (origin/issue-1750-d68ff2d9c70a) Revert: Remove .gitkeep changes from initial commit
+| * dffcdcf6 chore: remove issue branch placeholder
+| * 74ce579a fix: reduce terminal watch telegram edits
+| * 87edf91e Initial commit with task details
+|/  
+*   72f5269c Merge pull request #547 from link-assistant/issue-401-ab8a9e20
+|\  
+| * 3545cc6e (origin/issue-401-ab8a9e20) Support branch cleanup in auto-merge mode
+| * 78ab6e2d Add changeset for --auto-delete-branch-on-merge (issue #401)
+| *   0af98ba2 Merge main into issue-401-ab8a9e20 (--auto-delete-branch-on-merge)
+| |\  
+| * | f83ce60a Revert "Initial commit with task details for issue #401"
+| * | c3f30ffa Bump version to 0.25.0 for new feature
+| * | de1f0b97 Add --auto-delete-branch-on-merge option for watch mode
+| * | 77364ede Initial commit with task details for issue #401
+* | |   4a7b3776 Merge pull request #1749 from link-assistant/issue-1748-dfce9a7e3226
+|\ \ \  
+| |_|/  
+|/| |   
+| * | b0874088 (origin/issue-1748-dfce9a7e3226) chore: remove PR scaffold marker
+| * | 14fe57e9 fix(ci): isolate Docker digest artifacts
+| * | 4681a8e4 Initial commit with task details
+|/ /  
+* |   3ae64c70 Merge pull request #815 from link-assistant/issue-814-dceead53c719
+|\ \  
+| * | 152de950 (origin/issue-814-dceead53c719) chore: add issue 814 changeset
+| * | d32e0228 style: format issue 814 case study files
+| * |   45997ba0 Merge remote-tracking branch 'origin/main' into issue-814-dceead53c719
+| |\ \  
+| |/ /  
+|/| |   
+* | | 4bfe8de9 (tag: v1.64.4) 1.64.4
+* | |   3fdb15dd Merge pull request #563 from link-assistant/issue-524-6aa38eea
+|\ \ \  
+| * | | 20f58989 (origin/issue-524-6aa38eea) feat(telegram): add /stop <UUID> mode to cancel isolated sessions (#524)
+| * | |   5e4a9dae Merge main into issue-524-6aa38eea, take main's version
+| |\ \ \  
+| |/ / /  
+|/| | |   
+* | | | a648a52b (tag: v1.64.3) 1.64.3
+* | | |   8b687b48 Merge pull request #1746 from link-assistant/issue-1745-1bc6e8f2cd9c
+|\ \ \ \  
+| * | | | 60b0fa9b (origin/issue-1745-1bc6e8f2cd9c) feat(security): wire sanitization stats, user-content carve-out, post-finish sweep (#1745)
+| * | | | ec2ae3d8 docs: sync localized configuration options
+| * | | | ce595277 docs: document output sanitization options
+| * | | | ac85fab3 fix(security): make output sanitization explicit
+| * | | | 6089265c Revert "Initial commit with task details"
+| * | | | dd526822 chore(changeset): add changeset for #1745 token leak sanitization
+| * | | | 7b1929fc test(token-leak): add issue #1745 regression test and update mask-prefix expectations
+| * | | | 46a62a7a fix(security): sanitize interactive-mode comments to plug token leak (#1745)
+| * | | | 6085f23f docs(case-study): add issue-1745 telegram bot token leak analysis
+| * | | | c7d9f667 Initial commit with task details
+|/ / / /  
+* | | | 4f51e16b (tag: v1.64.2) 1.64.2

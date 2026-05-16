@@ -74,12 +74,14 @@ async function runTests() {
     assert.ok(solveContent.includes('playwrightMcpAutoCleanup'), 'solve.mjs should check playwrightMcpAutoCleanup option');
   });
 
-  await asyncTest('cleanup logic exists in solve.watch.lib.mjs', async () => {
-    // Read the watch lib file and verify the cleanup code exists
+  await asyncTest('cleanup logic exists in shared restart module used by watch mode', async () => {
+    // Read the shared restart module and verify the cleanup code exists
+    const restartSharedContent = await fs.readFile(path.join(process.cwd(), 'src/solve.restart-shared.lib.mjs'), 'utf-8');
     const watchContent = await fs.readFile(path.join(process.cwd(), 'src/solve.watch.lib.mjs'), 'utf-8');
 
-    assert.ok(watchContent.includes('.playwright-mcp'), 'solve.watch.lib.mjs should contain .playwright-mcp cleanup logic');
-    assert.ok(watchContent.includes('cleanupPlaywrightMcpFolder'), 'solve.watch.lib.mjs should have cleanupPlaywrightMcpFolder function');
+    assert.ok(restartSharedContent.includes('.playwright-mcp'), 'solve.restart-shared.lib.mjs should contain .playwright-mcp cleanup logic');
+    assert.ok(restartSharedContent.includes('cleanupPlaywrightMcpFolder'), 'solve.restart-shared.lib.mjs should have cleanupPlaywrightMcpFolder function');
+    assert.ok(watchContent.includes('checkForUncommittedChanges'), 'solve.watch.lib.mjs should use shared uncommitted-change checks');
   });
 
   await asyncTest('CLI option for playwright-mcp-auto-cleanup exists', async () => {

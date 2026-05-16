@@ -14,6 +14,7 @@
 
 import { readFileSync } from 'fs';
 
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 // Load use-m dynamically
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 

@@ -67,7 +67,8 @@ test('QUEUE_CONFIG has expected default values', () => {
   assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.9, 'DISK_THRESHOLD should be 0.9');
   assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.65, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 0.65');
   assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, 0.97, 'CLAUDE_WEEKLY_THRESHOLD should be 0.97');
-  assert.equal(QUEUE_CONFIG.GITHUB_API_THRESHOLD, 0.75, 'GITHUB_API_THRESHOLD should be 0.75');
+  // Issue #1726: lowered default from 0.75 to 0.50 for safer headroom.
+  assert.equal(QUEUE_CONFIG.GITHUB_API_THRESHOLD, 0.5, 'GITHUB_API_THRESHOLD should be 0.5');
 });
 
 // ============================================================================
@@ -82,6 +83,8 @@ test('DISPLAY_THRESHOLDS has all required fields', () => {
   assert.ok(DISPLAY_THRESHOLDS.DISK !== undefined, 'DISK should be defined');
   assert.ok(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION !== undefined, 'CLAUDE_5_HOUR_SESSION should be defined');
   assert.ok(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY !== undefined, 'CLAUDE_WEEKLY should be defined');
+  assert.ok(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION !== undefined, 'CODEX_5_HOUR_SESSION should be defined');
+  assert.ok(DISPLAY_THRESHOLDS.CODEX_WEEKLY !== undefined, 'CODEX_WEEKLY should be defined');
   assert.ok(DISPLAY_THRESHOLDS.GITHUB_API !== undefined, 'GITHUB_API should be defined');
 });
 
@@ -91,6 +94,8 @@ test('DISPLAY_THRESHOLDS values are percentages (0 - 100)', () => {
   assert.ok(DISPLAY_THRESHOLDS.DISK >= 0 && DISPLAY_THRESHOLDS.DISK <= 100, 'DISK should be between 0 and 100');
   assert.ok(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION >= 0 && DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION <= 100, 'CLAUDE_5_HOUR_SESSION should be between 0 and 100');
   assert.ok(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY >= 0 && DISPLAY_THRESHOLDS.CLAUDE_WEEKLY <= 100, 'CLAUDE_WEEKLY should be between 0 and 100');
+  assert.ok(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION >= 0 && DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION <= 100, 'CODEX_5_HOUR_SESSION should be between 0 and 100');
+  assert.ok(DISPLAY_THRESHOLDS.CODEX_WEEKLY >= 0 && DISPLAY_THRESHOLDS.CODEX_WEEKLY <= 100, 'CODEX_WEEKLY should be between 0 and 100');
   assert.ok(DISPLAY_THRESHOLDS.GITHUB_API >= 0 && DISPLAY_THRESHOLDS.GITHUB_API <= 100, 'GITHUB_API should be between 0 and 100');
 });
 
@@ -100,7 +105,10 @@ test('DISPLAY_THRESHOLDS has expected default values', () => {
   assert.equal(DISPLAY_THRESHOLDS.DISK, 90, 'DISK should be 90');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, 65, 'CLAUDE_5_HOUR_SESSION should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY should be 97');
-  assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 75, 'GITHUB_API should be 75');
+  assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, 65, 'CODEX_5_HOUR_SESSION should be 65');
+  assert.equal(DISPLAY_THRESHOLDS.CODEX_WEEKLY, 97, 'CODEX_WEEKLY should be 97');
+  // Issue #1726: lowered default from 75 to 50.
+  assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 50, 'GITHUB_API should be 50');
 });
 
 // ============================================================================
@@ -116,6 +124,8 @@ test('DISPLAY_THRESHOLDS are derived from QUEUE_CONFIG', () => {
   assert.equal(DISPLAY_THRESHOLDS.DISK, thresholdToPercent(QUEUE_CONFIG.DISK_THRESHOLD), 'DISK should match QUEUE_CONFIG');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, thresholdToPercent(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD), 'CLAUDE_5_HOUR_SESSION should match QUEUE_CONFIG');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, thresholdToPercent(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD), 'CLAUDE_WEEKLY should match QUEUE_CONFIG');
+  assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, thresholdToPercent(QUEUE_CONFIG.CODEX_5_HOUR_SESSION_THRESHOLD), 'CODEX_5_HOUR_SESSION should match QUEUE_CONFIG');
+  assert.equal(DISPLAY_THRESHOLDS.CODEX_WEEKLY, thresholdToPercent(QUEUE_CONFIG.CODEX_WEEKLY_THRESHOLD), 'CODEX_WEEKLY should match QUEUE_CONFIG');
   assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, thresholdToPercent(QUEUE_CONFIG.GITHUB_API_THRESHOLD), 'GITHUB_API should match QUEUE_CONFIG');
 });
 
@@ -160,6 +170,8 @@ test('QUEUE_CONFIG.thresholds has all required metrics', () => {
   assert.ok(QUEUE_CONFIG.thresholds.disk, 'DISK threshold should be defined');
   assert.ok(QUEUE_CONFIG.thresholds.claude5Hour, 'Claude 5 hour threshold should be defined');
   assert.ok(QUEUE_CONFIG.thresholds.claudeWeekly, 'Claude weekly threshold should be defined');
+  assert.ok(QUEUE_CONFIG.thresholds.codex5Hour, 'Codex 5 hour threshold should be defined');
+  assert.ok(QUEUE_CONFIG.thresholds.codexWeekly, 'Codex weekly threshold should be defined');
   assert.ok(QUEUE_CONFIG.thresholds.githubApi, 'GitHub API threshold should be defined');
 });
 
@@ -177,6 +189,8 @@ test('Default strategies are correct', () => {
   assert.equal(QUEUE_CONFIG.thresholds.disk.strategy, 'reject', 'DISK default should be reject (issue #1253)');
   assert.equal(QUEUE_CONFIG.thresholds.claude5Hour.strategy, 'dequeue-one-at-a-time', 'Claude 5h default should be dequeue-one-at-a-time');
   assert.equal(QUEUE_CONFIG.thresholds.claudeWeekly.strategy, 'dequeue-one-at-a-time', 'Claude weekly default should be dequeue-one-at-a-time');
+  assert.equal(QUEUE_CONFIG.thresholds.codex5Hour.strategy, 'dequeue-one-at-a-time', 'Codex 5h default should be dequeue-one-at-a-time');
+  assert.equal(QUEUE_CONFIG.thresholds.codexWeekly.strategy, 'dequeue-one-at-a-time', 'Codex weekly default should be dequeue-one-at-a-time');
   assert.equal(QUEUE_CONFIG.thresholds.githubApi.strategy, 'enqueue', 'GitHub API default should be enqueue');
 });
 
@@ -186,6 +200,8 @@ test('Legacy flat threshold values match thresholds.*.value', () => {
   assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, QUEUE_CONFIG.thresholds.disk.value, 'DISK_THRESHOLD should match thresholds.disk.value');
   assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, QUEUE_CONFIG.thresholds.claude5Hour.value, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should match thresholds.claude5Hour.value');
   assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, QUEUE_CONFIG.thresholds.claudeWeekly.value, 'CLAUDE_WEEKLY_THRESHOLD should match thresholds.claudeWeekly.value');
+  assert.equal(QUEUE_CONFIG.CODEX_5_HOUR_SESSION_THRESHOLD, QUEUE_CONFIG.thresholds.codex5Hour.value, 'CODEX_5_HOUR_SESSION_THRESHOLD should match thresholds.codex5Hour.value');
+  assert.equal(QUEUE_CONFIG.CODEX_WEEKLY_THRESHOLD, QUEUE_CONFIG.thresholds.codexWeekly.value, 'CODEX_WEEKLY_THRESHOLD should match thresholds.codexWeekly.value');
   assert.equal(QUEUE_CONFIG.GITHUB_API_THRESHOLD, QUEUE_CONFIG.thresholds.githubApi.value, 'GITHUB_API_THRESHOLD should match thresholds.githubApi.value');
 });
 
@@ -241,6 +257,8 @@ test('getStrategy returns correct strategy for each metric', () => {
   assert.equal(getStrategy('disk'), 'reject', 'DISK strategy should be reject');
   assert.equal(getStrategy('claude5Hour'), 'dequeue-one-at-a-time', 'Claude 5h strategy should be dequeue-one-at-a-time');
   assert.equal(getStrategy('claudeWeekly'), 'dequeue-one-at-a-time', 'Claude weekly strategy should be dequeue-one-at-a-time');
+  assert.equal(getStrategy('codex5Hour'), 'dequeue-one-at-a-time', 'Codex 5h strategy should be dequeue-one-at-a-time');
+  assert.equal(getStrategy('codexWeekly'), 'dequeue-one-at-a-time', 'Codex weekly strategy should be dequeue-one-at-a-time');
   assert.equal(getStrategy('githubApi'), 'enqueue', 'GitHub API strategy should be enqueue');
 });
 
@@ -260,6 +278,7 @@ test('isEnqueueStrategy works correctly', () => {
 
 test('isOneAtATimeStrategy works correctly', () => {
   assert.equal(isOneAtATimeStrategy('claude5Hour'), true, 'Claude 5h should be one-at-a-time strategy');
+  assert.equal(isOneAtATimeStrategy('codex5Hour'), true, 'Codex 5h should be one-at-a-time strategy');
   assert.equal(isOneAtATimeStrategy('ram'), false, 'RAM should not be one-at-a-time strategy');
 });
 

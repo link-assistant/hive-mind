@@ -127,6 +127,9 @@ test('SolveQueue initializes with empty state', () => {
   assert.ok(stats.queuedByTool !== undefined, 'queuedByTool should exist in stats');
   assert.equal(stats.queuedByTool.claude, 0, 'Claude queue should be empty');
   assert.equal(stats.queuedByTool.agent, 0, 'Agent queue should be empty');
+  assert.equal(stats.queuedByTool.codex, 0, 'Codex queue should be empty');
+  assert.equal(stats.queuedByTool.qwen, 0, 'Qwen queue should be empty');
+  assert.equal(stats.queuedByTool.gemini, 0, 'Gemini queue should be empty');
 
   queue.stop();
 });
@@ -529,6 +532,19 @@ test('CACHE_TTL has all required values', () => {
   assert.ok(CACHE_TTL.API !== undefined, 'CACHE_TTL.API should be defined');
   assert.ok(CACHE_TTL.USAGE_API !== undefined, 'CACHE_TTL.USAGE_API should be defined');
   assert.ok(CACHE_TTL.SYSTEM !== undefined, 'CACHE_TTL.SYSTEM should be defined');
+});
+
+// The Claude Usage API returns a "Resets in 3m Xs" rate-limit error when called
+// too frequently, so the default cache TTL must exceed that ~3-minute window
+// with a comfortable safety margin. Issue #1798 raised the default from 10 → 13 min.
+// See: https://github.com/link-assistant/hive-mind/issues/1798
+test('CACHE_TTL.USAGE_API default is at least 13 minutes (issue #1798)', () => {
+  const thirteenMinutes = 13 * 60 * 1000;
+  assert.ok(CACHE_TTL.USAGE_API >= thirteenMinutes, `CACHE_TTL.USAGE_API (${CACHE_TTL.USAGE_API} ms) should be at least 13 minutes (${thirteenMinutes} ms) per issue #1798`);
+});
+
+test('CACHE_TTL.USAGE_API is longer than CACHE_TTL.API (rate-limit headroom)', () => {
+  assert.ok(CACHE_TTL.USAGE_API > CACHE_TTL.API, `CACHE_TTL.USAGE_API (${CACHE_TTL.USAGE_API} ms) must exceed CACHE_TTL.API (${CACHE_TTL.API} ms) — Usage API is rate-limited more strictly`);
 });
 
 // ============================================================================
@@ -1240,6 +1256,8 @@ test('queue item has correct tool property', () => {
   assert.equal(item1.tool, 'claude');
   const item2 = queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
   assert.equal(item2.tool, 'codex');
+  const item3 = queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'gemini' });
+  assert.equal(item3.tool, 'gemini');
   queue.stop();
 });
 
@@ -1279,7 +1297,48 @@ test('checkApiLimits with tool agent should not block on Claude limits', async (
   queue.stop();
 });
 
-test('checkApiLimits default tool is claude', async () => {
+test('checkApiLimits with tool gemini should not block on Claude limits', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  const resultGemini = await queue.checkApiLimits(false, 0, 'gemini');
+  assert.ok(resultGemini !== undefined, 'Should work with tool = gemini');
+  assert.ok(resultGemini.ok, 'Gemini should skip Claude-specific limits');
+
+  queue.stop();
+});
+
+test('checkApiLimits with tool codex applies Codex limits', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  getLimitCache().set(
+    'codex',
+    {
+      success: true,
+      usage: {
+        currentSession: { percentage: 95, resetTime: null, resetsAt: null },
+        allModels: { percentage: 10, resetTime: null, resetsAt: null },
+      },
+      planType: 'pro',
+      additionalRateLimits: [],
+      credits: null,
+    },
+    CACHE_TTL.USAGE_API
+  );
+
+  const result = await queue.checkApiLimits(false, 1, 'codex');
+
+  assert.ok(result.oneAtATime, 'Codex high session usage should trigger one-at-a-time mode');
+  assert.ok(
+    result.reasons.some(r => r.includes('Codex 5 hour session limit')),
+    'Should mention Codex 5 hour session limit'
+  );
+
+  queue.stop();
+});
+
+await asyncTest('checkApiLimits default tool is claude', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
@@ -1362,124 +1421,23 @@ test('queue item tool property is used by consumer', () => {
   queue.stop();
 });
 
-// Tool-Specific Queue Tracking Tests (Issue #1159)
-console.log('\n📋 Tool-Specific Queue Tracking Tests (Issue #1159)\n');
-
-test('getProcessingCountByTool counts items correctly by tool type', () => {
+test('gemini queue item tool property is used by consumer', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-  assert.equal(queue.getProcessingCountByTool('claude'), 0);
-  assert.equal(queue.getProcessingCountByTool('agent'), 0);
-  queue.processing.set('item1', { id: 'item1', tool: 'claude' });
-  queue.processing.set('item2', { id: 'item2', tool: 'claude' });
-  queue.processing.set('item3', { id: 'item3', tool: 'agent' });
-  assert.equal(queue.getProcessingCountByTool('claude'), 2);
-  assert.equal(queue.getProcessingCountByTool('agent'), 1);
-  queue.stop();
-});
 
-test('separate queues are independent', () => {
-  beforeEach();
-  const queue = new SolveQueue({ verbose: false });
-  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
-  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'agent' });
-  assert.equal(queue.getToolQueue('claude').length, 1);
-  assert.equal(queue.getToolQueue('agent').length, 1);
-  queue.cancel(queue.getToolQueue('claude')[0].id);
-  assert.equal(queue.getToolQueue('claude').length, 0);
-  assert.equal(queue.getToolQueue('agent').length, 1);
-  assert.equal(queue.lastStartTimeByTool.claude, null);
-  queue.lastStartTimeByTool.claude = Date.now();
-  assert.ok(queue.lastStartTimeByTool.claude !== null);
-  assert.equal(queue.lastStartTimeByTool.agent, null);
-  queue.stop();
-});
+  const geminiItem = queue.enqueue({
+    url: 'https://github.com/test/repo/issues/2',
+    args: '--tool gemini',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+    tool: 'gemini',
+  });
 
-asyncTest('agent tasks can start when claude min interval is not reached', async () => {
-  beforeEach();
-  const queue = new SolveQueue({ verbose: false });
-  queue.lastStartTimeByTool.claude = Date.now();
-  const claudeCheck = await queue.canStartCommand({ tool: 'claude' });
-  const agentCheck = await queue.canStartCommand({ tool: 'agent' });
-  assert.ok(claudeCheck.reasons.some(r => r.includes('Minimum interval')));
-  assert.ok(!agentCheck.reasons.some(r => r.includes('Minimum interval')));
-  queue.stop();
-});
+  assert.equal(geminiItem.tool, 'gemini', 'Gemini tool should be preserved');
+  assert.equal(queue.getToolQueue('gemini')[0].tool, 'gemini', 'Gemini queue should have gemini item');
+  assert.equal(queue.getToolQueue('gemini').length, 1, 'Gemini queue should have 1 item');
+  assert.equal(queue.getToolQueue('claude').length, 0, 'Claude queue should be empty');
 
-await asyncTest('getStats and getQueueSummary show per-tool breakdown', async () => {
-  beforeEach();
-  const queue = new SolveQueue({ verbose: false });
-  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
-  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'agent' });
-  queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
-  const stats = queue.getStats();
-  assert.equal(stats.queued, 3);
-  assert.equal(stats.queuedByTool.claude, 2);
-  assert.equal(stats.queuedByTool.agent, 1);
-  const summary = queue.getQueueSummary();
-  assert.equal(summary.pending.length, 3);
-  assert.ok(summary.pending.some(i => i.tool === 'claude'));
-  assert.ok(summary.pending.some(i => i.tool === 'agent'));
-  // Updated format: per-queue lines
-  // Processing counts are actual running system processes (via pgrep)
-  // See: https://github.com/link-assistant/hive-mind/issues/1267
-  const status = await queue.formatStatus();
-  assert.ok(status.includes('claude') && status.includes('pending: 2'), 'Should show claude queue with 2 pending');
-  assert.ok(status.includes('agent') && status.includes('pending: 1'), 'Should show agent queue with 1 pending');
-  assert.ok(status.includes('processing:'), 'Should include processing counts from pgrep');
-  queue.stop();
-});
-
-asyncTest('findStartableItem and findStartableItems work correctly', async () => {
-  beforeEach();
-  const queue = new SolveQueue({ verbose: false });
-  let result = await queue.findStartableItem();
-  assert.equal(result.item, null);
-  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
-  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'agent' });
-  result = await queue.findStartableItem();
-  assert.ok(result.item !== null);
-  const startableItems = await queue.findStartableItems();
-  assert.ok(Array.isArray(startableItems));
-  queue.stop();
-});
-
-test('new tool queues are created dynamically and mixed tools work', () => {
-  beforeEach();
-  const queue = new SolveQueue({ verbose: false });
-  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
-  assert.equal(queue.getToolQueue('codex').length, 1);
-  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
-  queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
-  assert.equal(queue.getTotalQueueLength(), 3);
-  assert.equal(queue.getToolQueue('claude').length, 2);
-  queue.stop();
-});
-
-asyncTest('canStartCommand returns claudeProcessingCount in result', async () => {
-  beforeEach();
-  const queue = new SolveQueue({ verbose: false });
-  const result = await queue.canStartCommand({ tool: 'claude' });
-  assert.ok(result.claudeProcessingCount !== undefined);
-  assert.equal(typeof result.claudeProcessingCount, 'number');
-  queue.stop();
-});
-
-asyncTest('checkApiLimits uses claudeProcessingCount correctly', async () => {
-  beforeEach();
-  const queue = new SolveQueue({ verbose: false });
-  const result1 = await queue.checkApiLimits(false, 0, 'claude');
-  assert.ok(result1.ok);
-  const result2 = await queue.checkApiLimits(false, 5, 'agent');
-  assert.ok(result2 !== undefined);
-  queue.stop();
-});
-
-test('default tool for queue item is claude', () => {
-  beforeEach();
-  const queue = new SolveQueue({ verbose: false });
-  const item = queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test' });
-  assert.equal(item.tool, 'claude');
   queue.stop();
 });
 

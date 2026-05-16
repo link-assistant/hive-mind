@@ -1,4 +1,4 @@
-# CI/CD Best Practices for AI-Driven Development
+# CI/CD Best Practices for AI-Driven Development (languages: en • [zh](CI-CD-BEST-PRACTICES.zh.md) • [hi](CI-CD-BEST-PRACTICES.hi.md) • [ru](CI-CD-BEST-PRACTICES.ru.md))
 
 This document describes CI/CD best practices that significantly improve the quality and reliability of AI-driven development workflows. When properly configured, Hive Mind AI solvers are forced to iterate with CI/CD checks until all tests pass, ensuring code quality meets the highest standards.
 

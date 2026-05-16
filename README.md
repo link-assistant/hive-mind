@@ -5,7 +5,7 @@
 [![Open in Gitpod](https://img.shields.io/badge/Gitpod-ready--to--code-f29718?logo=gitpod)](https://gitpod.io/#https://github.com/link-assistant/hive-mind)
 [![Open in GitHub Codespaces](https://img.shields.io/badge/GitHub%20Codespaces-Open-181717?logo=github)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=link-assistant/hive-mind)
 
-# Hive Mind 🧠
+# Hive Mind 🧠 (languages: en • [zh](README.zh.md) • [hi](README.hi.md) • [ru](README.ru.md))
 
 **The master mind AI that controls hive of AI.** The orchestrator AI that controls AIs. The HIVE MIND. The SWARM MIND.
 
@@ -174,6 +174,10 @@ claude
 # Optionally test Claude connection
 claude -p hi --model haiku
 
+# Verify Playwright MCP is registered for both CLIs in this container image
+claude mcp list | grep playwright
+codex mcp list | grep playwright
+
 # You might need to update hive-mind and agent to latest versions:
 bun install -g @link-assistant/hive-mind
 bun install -g @link-assistant/agent
@@ -195,25 +199,28 @@ docker attach hive-mind
 
 # --- Persisting auth data across restarts ---
 
-# Extract auth data from a running (or stopped) container to the host:
-mkdir -p ~/.hive-mind
-docker cp hive-mind:/home/hive/.claude ~/.hive-mind/claude
-docker cp hive-mind:/home/hive/.claude.json ~/.hive-mind/claude.json
-docker cp hive-mind:/home/hive/.config/gh ~/.hive-mind/gh
+# On the host, create the directories used by the current Docker workflow:
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+touch -a /root/.hive-mind/claude.json
 
-# Fix ownership to match the hive user inside the container:
-HIVE_UID=$(docker exec hive-mind id -u hive)
-chown -R $HIVE_UID:$HIVE_UID ~/.hive-mind/claude ~/.hive-mind/gh
-chown $HIVE_UID:$HIVE_UID ~/.hive-mind/claude.json
+# In our Docker images HOME=/home/box, so Codex stores its data in /home/box/.codex.
+# Mount the full Codex directory so auth.json, config.toml, and sessions survive restarts.
+docker run -dit --user box --name hive-mind --restart unless-stopped \
+  -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/claude.json:/home/box/.claude.json \
+  -v /root/.hive-mind/gh:/home/box/.config/gh \
+  konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
 
-# On subsequent runs, mount the auth data to keep it between restarts:
-docker run -dit \
-  --name hive-mind \
-  --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/hive/.claude \
-  -v /root/.hive-mind/claude.json:/home/hive/.claude.json \
-  -v /root/.hive-mind/gh:/home/hive/.config/gh \
-  konard/hive-mind:latest
+# After the first start, fix ownership to match the box user inside the container:
+BOX_UID=$(docker exec hive-mind id -u box)
+chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+chown $BOX_UID:$BOX_UID /root/.hive-mind/claude.json
+
+# Important: mounted ~/.codex data overrides the image-baked Codex config.
+# If the host directory was created before Playwright MCP was added to the image,
+# re-register it once inside the running container:
+docker exec -it hive-mind bash -lc 'codex mcp list && codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080'
 ```
 
 **Benefits of Docker:**
@@ -223,6 +230,8 @@ docker run -dit \
 - ✅ Isolated from your host system
 - ✅ Easy to run multiple instances with different GitHub accounts
 - ✅ Consistent environment across different machines
+
+The Docker image itself now registers Playwright MCP for both Claude and Codex during build, and CI verifies those registrations in the built container. If `codex mcp list` is still empty in a running container, the usual cause is not the published image itself but a mounted `/home/box/.codex` directory from the host that replaces the image's default Codex configuration.
 
 See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
 
@@ -341,13 +350,13 @@ solve <issue-url> [options]
 
 **Other useful options:**
 
-| Option                   | Alias | Description                                      | Default |
-| ------------------------ | ----- | ------------------------------------------------ | ------- |
-| `--tool`                 |       | AI tool (claude, opencode, codex, agent)         | claude  |
-| `--verbose`              | `-v`  | Enable verbose logging                           | false   |
-| `--attach-logs`          |       | Attach logs to PR (⚠️ may expose sensitive data) | false   |
-| `--auto-init-repository` |       | Auto-initialize empty repos (creates README.md)  | false   |
-| `--help`                 | `-h`  | Show all available options                       | -       |
+| Option                   | Alias | Description                                            | Default |
+| ------------------------ | ----- | ------------------------------------------------------ | ------- |
+| `--tool`                 |       | AI tool (claude, opencode, codex, agent, qwen, gemini) | claude  |
+| `--verbose`              | `-v`  | Enable verbose logging                                 | false   |
+| `--attach-logs`          |       | Attach logs to PR (⚠️ may expose sensitive data)       | false   |
+| `--auto-init-repository` |       | Auto-initialize empty repos (creates README.md)        | false   |
+| `--help`                 | `-h`  | Show all available options                             | -       |
 
 > **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options) for all available options including forking, auto-continue, watch mode, and experimental features.
 
@@ -368,14 +377,14 @@ hive <github-url> [options]
 
 **Other useful options:**
 
-| Option                   | Alias | Description                                       | Default |
-| ------------------------ | ----- | ------------------------------------------------- | ------- |
-| `--tool`                 |       | AI tool (claude, opencode, agent)                 | claude  |
-| `--concurrency`          | `-c`  | Number of parallel workers                        | 2       |
-| `--skip-issues-with-prs` | `-s`  | Skip issues with existing PRs                     | false   |
-| `--verbose`              | `-v`  | Enable verbose logging                            | false   |
-| `--attach-logs`          |       | Attach logs to PRs (⚠️ may expose sensitive data) | false   |
-| `--help`                 | `-h`  | Show all available options                        | -       |
+| Option                   | Alias | Description                                            | Default |
+| ------------------------ | ----- | ------------------------------------------------------ | ------- |
+| `--tool`                 |       | AI tool (claude, opencode, codex, agent, qwen, gemini) | claude  |
+| `--concurrency`          | `-c`  | Number of parallel workers                             | 2       |
+| `--skip-issues-with-prs` | `-s`  | Skip issues with existing PRs                          | false   |
+| `--verbose`              | `-v`  | Enable verbose logging                                 | false   |
+| `--attach-logs`          |       | Attach logs to PRs (⚠️ may expose sensitive data)      | false   |
+| `--help`                 | `-h`  | Show all available options                             | -       |
 
 > **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#hive-options) for all available options including project monitoring, YouTrack integration, and experimental features.
 
@@ -431,9 +440,19 @@ Want to see the Hive Mind in action? Request a free demo or get faster support b
    hive-telegram-bot 2>&1 | tee -a "logs/bot-$(date +%Y%m%d-%H%M%S).log"
    ```
 
+   **Experimental: live terminal watch**
+
+   ```bash
+   hive-telegram-bot --auto-start-screen-watch-message
+   ```
+
+   This opt-in flag starts a separate live terminal message for public `/solve`
+   sessions. Private or unknown-visibility repositories never auto-start a
+   watch message.
+
 ### Bot Commands
 
-All commands work in **group chats only** (not in private messages with the bot):
+Most operational commands work in **group chats only** (not in private messages with the bot). Commands that intentionally deliver private updates, such as `/terminal_watch`, may also be used in direct messages:
 
 #### `/solve` - Solve GitHub Issues
 
@@ -444,17 +463,48 @@ Examples:
 /solve https://github.com/owner/repo/issues/123 --model sonnet
 /solve https://github.com/owner/repo/issues/123 --model opus --think max
 
+Aliases:
+/do and /continue are equivalent to /solve
+/claude is equivalent to /solve --tool claude
+/codex is equivalent to /solve --tool codex
+/opencode is equivalent to /solve --tool opencode
+/agent is equivalent to /solve --tool agent
+/qwen is equivalent to /solve --tool qwen
+/gemini is equivalent to /solve --tool gemini
+
+Tool alias examples:
+/codex https://github.com/owner/repo/issues/123 --model gpt-5.5
+/opencode https://github.com/owner/repo/issues/123 --model grok-code-fast-1
+/agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
+/gemini https://github.com/owner/repo/issues/123 --model flash
+/qwen https://github.com/owner/repo/issues/123 --model qwen3-coder-plus
+/gemini https://github.com/owner/repo/issues/123 --model gemini-2.5-flash
+
 Free Models (with --tool agent):
+/solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/minimax-m2.5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
-/solve https://github.com/owner/repo/issues/123 --tool agent --model big-pickle
 
 Free Models via Kilo Gateway (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-4.5-air-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/deepseek-r1-free
 ```
+
+Current tool defaults in Hive Mind:
+
+| Tool       | Default model                                               | Default reasoning behavior                                                               |
+| ---------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `claude`   | `sonnet`                                                    | No extra thinking is requested unless you pass `--think` or `--thinking-budget`          |
+| `codex`    | `gpt-5.5` preferred, with runtime fallback to local catalog | Codex runs with `reasoning_effort=none` unless you pass `--think` or `--thinking-budget` |
+| `opencode` | `grok-code-fast-1`                                          | No extra thinking prompt is added for the default model                                  |
+| `agent`    | `nemotron-3-super-free`                                     | No extra thinking prompt is added for the default model                                  |
+| `gemini`   | `flash`                                                     | No extra thinking prompt is added for the default model                                  |
+| `qwen`     | `qwen3-coder-plus`                                          | No extra thinking prompt is added for the default model                                  |
+| `gemini`   | `gemini-2.5-flash`                                          | No extra thinking prompt is added for the default model                                  |
+
+See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 
 > **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models including OpenCode Zen and Kilo Gateway providers.
 
@@ -482,6 +532,22 @@ Shows:
 - Claude usage limits (session and weekly)
 ```
 
+#### `/terminal_watch` - Live Session Log
+
+```
+/terminal_watch <uuid> [--size 120x25]
+
+Examples:
+/terminal_watch 4d934f71-4cdb-4b8c-b474-582116d12c12
+/terminal_watch 4d934f71-4cdb-4b8c-b474-582116d12c12 --width 100 --height 20
+```
+
+You can also reply to a bot session message with `/terminal_watch`. The command
+updates a separate Telegram message with the latest lines from the session log
+reported by `$ --status <uuid>` and attaches the full log file when the session
+finishes. Public repository logs can be watched in the chat; private or
+unknown-visibility repository logs are delivered by direct message only.
+
 #### `/help` - Get Help and Diagnostic Info
 
 ```
@@ -496,11 +562,23 @@ Shows:
 
 ### Features
 
-- ✅ **Group Chat Only**: Commands work only in group chats (not private messages)
+- ✅ **Group Chat Execution**: `/solve` and `/hive` workflows run from authorized group chats
 - ✅ **Full Options Support**: All command-line options work in Telegram
 - ✅ **Screen Sessions**: Commands run in detached screen sessions
+- ✅ **Live Terminal Watch**: `/terminal_watch` and opt-in auto-start show live session logs
 - ✅ **Chat Restrictions**: Optional whitelist of allowed chat IDs
 - ✅ **Diagnostic Tools**: Get chat ID and configuration info
+
+#### Live Terminal Watch
+
+When enabled with `--auto-start-screen-watch-message`, the bot automatically starts a separate live terminal watch message for public `/solve` sessions:
+
+- **Manual Watch**: `/terminal_watch <uuid>` or reply with `/terminal_watch`
+- **Real-time Updates**: See live session log output as commands execute
+- **Auto-freeze**: Message freezes when command completes
+- **Log Attachment**: Full logs attached automatically when session ends
+- **Security**: Auto-start is disabled for private or unknown-visibility repositories
+- **Smart Updates**: Only updates when actual changes detected (rate-limited to avoid API limits)
 
 ### Security Notes
 
@@ -795,6 +873,41 @@ s=$(screen -ls | awk '/Detached/ {print $1; exit}'); echo "Entering $s"; screen 
 s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
 ```
 
+### Script for managing screens
+
+The legacy `hive-screens.sh` script has been promoted to a first-class command:
+`hive-screens`. It ships with `@link-assistant/hive-mind`, so once the package is
+installed (globally, through `npx`, or in a project) it is available on `PATH`.
+
+It scans detached GNU screen sessions, looks for solve runs that are done and
+mergeable (scrollback contains both `process completed` and `PR is mergeable!`
+or `PR merged!`), and then either lists, enters, or closes them. `--list`,
+`--enter`, and `--close` share the **same matching predicate**, so anything
+you see under `--list` is guaranteed to be the same set `--close` will act on
+— use `--list` first to debug, then rerun with `--close`.
+
+```bash
+# Safe preview — show every finished, mergeable solve session.
+hive-screens --list
+
+# Close the oldest finished session (same as the legacy script's default).
+hive-screens --close
+
+# Attach to the newest finished session.
+hive-screens --enter --newest
+
+# Close every finished session.
+hive-screens --close --all
+
+# Print diagnostic output while scanning (useful when matching fails).
+hive-screens --list --verbose
+```
+
+`--list` defaults to `--all` so a bare `hive-screens --list` shows every match.
+`--enter` and `--close` default to `--oldest` because they are destructive.
+Supply `--oldest`, `--newest`, or `--all` to override. Run
+`hive-screens --help` for the full option list.
+
 ### Reboot server.
 
 ```bash
@@ -851,6 +964,12 @@ or
 
 ```bash
 ps axjf
+```
+
+### Kill process and its children
+
+```bash
+pkill -P 476729
 ```
 
 ### Kill all commands spawned by specific task

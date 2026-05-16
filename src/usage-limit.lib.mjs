@@ -391,15 +391,17 @@ export function formatResetTimeWithRelative(resetTime, timezone = null) {
  * Format usage limit error message for console output
  *
  * @param {Object} options - Formatting options
- * @param {string} options.tool - Tool name (claude, codex, opencode)
+ * @param {string} options.tool - Tool name (claude, codex, opencode, agent, gemini)
  * @param {string|null} options.resetTime - Time when limit resets
  * @param {string|null} options.sessionId - Session ID for resuming
  * @param {string|null} options.resumeCommand - Interactive resume command (legacy, for backward compatibility)
- * @param {string|null} options.interactiveResumeCommand - Command to resume in interactive mode
- * @param {string|null} options.autonomousResumeCommand - Command to resume in autonomous mode
+ * @param {string|null} options.interactiveResumeCommand - Command to resume in interactive mode (claude)
+ * @param {string|null} options.autonomousResumeCommand - Command to resume in autonomous mode (claude)
+ * @param {string|null} options.solveResumeCommand - Command to resume the full solve.mjs flow
+ *   (works for every supported tool, including codex/gemini/etc.)
  * @returns {string[]} - Array of formatted message lines
  */
-export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeCommand, interactiveResumeCommand, autonomousResumeCommand }) {
+export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeCommand, interactiveResumeCommand, autonomousResumeCommand, solveResumeCommand }) {
   const lines = ['', '⏳ Usage Limit Reached!', '', `Your ${tool || 'AI tool'} usage limit has been reached.`];
 
   if (resetTime) {
@@ -411,7 +413,7 @@ export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeComm
   // Support both new (dual command) and legacy (single command) formats
   const interactiveCmd = interactiveResumeCommand || resumeCommand;
 
-  if (sessionId && (interactiveCmd || autonomousResumeCommand)) {
+  if (sessionId && (interactiveCmd || autonomousResumeCommand || solveResumeCommand)) {
     lines.push('');
     lines.push(`📌 Session ID: ${sessionId}`);
     lines.push('');
@@ -425,6 +427,11 @@ export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeComm
       lines.push('');
       lines.push('   Autonomous mode (continues work without user interaction):');
       lines.push(`   ${autonomousResumeCommand}`);
+    }
+    if (solveResumeCommand) {
+      lines.push('');
+      lines.push('   Solve resume mode (re-enters the full solve flow, preserves tool/model/dir):');
+      lines.push(`   ${solveResumeCommand}`);
     }
   }
 

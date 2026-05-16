@@ -260,10 +260,10 @@ test('validateModelName handles Sonnet-4-6 (mixed case)', () => {
 // ============================================================
 console.log('\n=== 9. Regression Tests for Other Models ===');
 
-test('opus alias still works (regression test)', () => {
+test('opus alias still works (regression test, now maps to Opus 4.7 per Issue #1620)', () => {
   const result = validateModelName('opus', 'claude');
   assert(result.valid, `opus should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-6', 'opus should map to claude-opus-4-6');
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-7', 'opus should map to claude-opus-4-7');
 });
 
 test('haiku alias still works (regression test)', () => {

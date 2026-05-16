@@ -5,15 +5,29 @@
  * this module only accepts the invitation for the specific repository or organization
  * that is being solved. This is safer and more targeted.
  *
+ * Issue #1536: Added retry with exponential backoff for transient network errors
+ * (TLS handshake timeout, unexpected EOF, connection reset, etc.)
+ *
  * @see https://docs.github.com/en/rest/collaborators/invitations
  * @see https://docs.github.com/en/rest/orgs/members
  * @see https://github.com/link-assistant/hive-mind/issues/1373
+ * @see https://github.com/link-assistant/hive-mind/issues/1536
  */
 
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
+import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 
-const exec = promisify(execCallback);
+const execRaw = promisify(execCallback);
+// Issue #1726: rate-limit safe gh wrapper.
+const exec = (cmd, opts) =>
+  ghWithRateLimitRetry(() => execRaw(cmd, opts), {
+    label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+  });
+
+// Import retry utility (issue #1536)
+const lib = await import('./lib.mjs');
+const { ghRetry } = lib;
 
 /**
  * Accepts pending GitHub repository or organization invitation for a specific target.
@@ -35,7 +49,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
 
   // Check for pending repository invitation
   try {
-    const { stdout: repoInvJson } = await exec('gh api /user/repository_invitations 2>/dev/null || echo "[]"');
+    const { stdout: repoInvJson } = await ghRetry(() => exec('gh api /user/repository_invitations --paginate 2>/dev/null || echo "[]"'), { label: 'fetch repo invitations' });
     const repoInvitations = JSON.parse(repoInvJson.trim() || '[]');
     verbose && (await log(`   Found ${repoInvitations.length} total pending repo invitation(s)`, { verbose: true }));
 
@@ -43,7 +57,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
 
     if (matchingInv) {
       try {
-        await exec(`gh api -X PATCH /user/repository_invitations/${matchingInv.id}`);
+        await ghRetry(() => exec(`gh api -X PATCH /user/repository_invitations/${matchingInv.id}`), { label: `accept repo invitation for ${fullName}` });
         await log(`✅ --auto-accept-invite: Accepted repository invitation for ${fullName}`);
         result.acceptedRepo = true;
       } catch (e) {
@@ -58,7 +72,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
 
   // Check for pending organization membership
   try {
-    const { stdout: orgMemJson } = await exec('gh api /user/memberships/orgs 2>/dev/null || echo "[]"');
+    const { stdout: orgMemJson } = await ghRetry(() => exec('gh api /user/memberships/orgs --paginate 2>/dev/null || echo "[]"'), { label: 'fetch org memberships' });
     const orgMemberships = JSON.parse(orgMemJson.trim() || '[]');
     const pendingOrgs = orgMemberships.filter(m => m.state === 'pending');
     verbose && (await log(`   Found ${pendingOrgs.length} total pending org invitation(s)`, { verbose: true }));
@@ -68,7 +82,7 @@ export async function autoAcceptInviteForRepo(owner, repo, log, verbose) {
     if (matchingOrg) {
       const orgName = matchingOrg.organization.login;
       try {
-        await exec(`gh api -X PATCH /user/memberships/orgs/${orgName} -f state=active`);
+        await ghRetry(() => exec(`gh api -X PATCH /user/memberships/orgs/${orgName} -f state=active`), { label: `accept org invitation for ${orgName}` });
         await log(`✅ --auto-accept-invite: Accepted organization invitation for ${orgName}`);
         result.acceptedOrg = true;
       } catch (e) {

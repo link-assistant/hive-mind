@@ -38,6 +38,7 @@ const solveOnlyExceptions = new Set([
   'working-directory', // session-specific, hive manages its own directories
   'only-prepare-command', // debug option, solve-specific
   'session-type', // internal hidden option for session tracking
+  'auto-resume-iteration', // internal hidden option for limit-reset continuation tracking
 ]);
 
 // Test 1: All solve options (except exceptions) should be passthrough

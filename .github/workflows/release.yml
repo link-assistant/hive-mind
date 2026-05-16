@@ -6,6 +6,9 @@ on:
       - main
   pull_request:
     types: [opened, synchronize, reopened]
+    # Do not use workflow-level path filters here. The detect-changes job must
+    # run for every PR update so non-code-only changes still produce completed
+    # checks while expensive jobs are skipped by job-level conditions.
   # Manual release support - consolidated here to work with npm trusted publishing
   # npm only allows ONE workflow file as trusted publisher, so all publishing
   # must go through this workflow (release.yml)
@@ -62,14 +65,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Detect changes
         id: changes
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_ACTION: ${{ github.event.action }}
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_AFTER_SHA: ${{ github.event.after }}
         run: node scripts/detect-code-changes.mjs
 
   # === VERSION CHANGE CHECK ===
@@ -265,134 +271,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run test suite for solve.mjs
-        run: |
-          echo "Running test suite for solve.mjs..."
-          node tests/test-solve.mjs
+      - name: Pre-install use-m packages (issue #1724)
+        run: node scripts/preinstall-use-m-packages.mjs
 
-      - name: Run test suite for hive.mjs
-        run: |
-          echo "Running test suite for hive.mjs..."
-          node tests/test-hive.mjs
+      - name: Run default test suite
+        run: npm test
 
-      - name: Run test suite for memory-check.mjs
-        run: |
-          echo "Running test suite for memory-check.mjs..."
-          node tests/test-memory-check.mjs
-
-      - name: Run branch name validation test (Issue #647)
-        run: |
-          echo "Running test suite for branch name validation..."
-          node tests/test-branch-name-validation.mjs
-
-      - name: Run feedback lines regression test (Issue #168)
-        run: |
-          echo "Running feedback lines regression test..."
-          node tests/test-feedback-lines-simple.mjs
-
-      - name: Run feedback lines integration test (Issue #168)
+      - name: Run GitHub integration test suite
         env:
           GITHUB_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN || secrets.GITHUB_TOKEN }}
           TEST_GITHUB_USERNAME: ${{ secrets.TEST_GITHUB_USERNAME }}
           TEST_GITHUB_USER_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN }}
-        run: |
-          echo "Running feedback lines integration test with real repository..."
-          node tests/test-feedback-lines-integration.mjs
-
-      - name: Run Sentry integration test
-        run: |
-          echo "Running test suite for Sentry integration..."
-          node tests/test-sentry.mjs
-
-      - name: Run telegram-bot dry-run test (Issue #487)
-        run: |
-          echo "Running test suite for telegram-bot --dry-run mode..."
-          node tests/test-telegram-bot-dry-run.mjs
-
-      - name: Run telegram-bot hero Links Notation test (Issue #623)
-        run: |
-          echo "Running test suite for telegram-bot hero example with Links Notation..."
-          node tests/test-telegram-bot-hero-links-notation.mjs
-
-      - name: Run hive command silent failure test (Issue #504)
-        run: |
-          echo "Running test suite for hive command silent failures..."
-          node tests/test-hive-no-silent-failure.mjs
-
-      - name: Run GitHub linking keyword detection test (Issue #568)
-        run: |
-          echo "Running test suite for GitHub linking keyword detection..."
-          node tests/test-github-linking.mjs
-
-      - name: Run Telegram Markdown escaping test (Issue #580)
-        run: |
-          echo "Running test suite for Telegram Markdown escaping..."
-          node tests/test-telegram-markdown-escaping.mjs
-
-      - name: Run lenv-reader test (Issue #604)
-        run: |
-          echo "Running test suite for lenv-reader.lib.mjs..."
-          node tests/test-lenv-reader.mjs
-
-      - name: Run lino test (Issue #1086)
-        run: |
-          echo "Running test suite for lino.lib.mjs..."
-          node tests/test-lino.mjs
-
-      - name: Run Telegram URL extraction test (Issue #603)
-        run: |
-          echo "Running test suite for Telegram URL extraction..."
-          node tests/test-telegram-url-extraction.mjs
-
-      - name: Run Telegram URL validation test (Issue #630)
-        run: |
-          echo "Running test suite for Telegram URL validation..."
-          node tests/test-telegram-validate-url.mjs
-
-      - name: Run Unicode sanitization test (Issue #1324)
-        run: |
-          echo "Running test suite for Unicode sanitization..."
-          node tests/test-unicode-sanitization.mjs
-
-      - name: Run interactive mode test (Issue #800)
-        run: |
-          echo "Running test suite for interactive mode..."
-          node tests/test-interactive-mode.mjs
-
-      - name: Run start-screen test (Issue #539)
-        run: |
-          echo "Running test suite for start-screen.mjs..."
-          node tests/test-start-screen.mjs
-
-      - name: Run buildCostInfoString test (Issue #1015)
-        run: |
-          echo "Running test suite for buildCostInfoString..."
-          node tests/test-build-cost-info-string.mjs
-
-      - name: Run token sanitization test (Issue #1037)
-        run: |
-          echo "Running test suite for token sanitization..."
-          node tests/test-token-sanitization.mjs
-
-      - name: Run agent token usage test (Issues #1250, #1313)
-        run: |
-          echo "Running test suite for agent token accumulation logic..."
-          node tests/test-agent-token-usage.mjs
-
-      - name: Run Telegram special character handling test (Issue #1070)
-        run: |
-          echo "Running test suite for Telegram special character handling..."
-          node tests/test-telegram-special-char-handling.mjs
-
-      - name: Run usage limit test (Issues #942, #1122)
-        run: |
-          echo "Running test suite for usage limit detection and parsing..."
-          node tests/test-usage-limit.mjs
-
-      - name: Run stderr warning detection test (Issue #1337)
-        run: |
-          echo "Running test suite for stderr warning detection (isStderrError)..."
-          node tests/test-issue-1337-stderr-warning-detection.mjs
+        run: node scripts/run-tests.mjs --suite github-integration
 
   # === EXECUTION TESTS ===
   test-execution:
@@ -418,6 +308,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Pre-install use-m packages (issue #1724)
+        run: node scripts/preinstall-use-m-packages.mjs
 
       - name: Test solve.mjs execution
         run: |
@@ -501,6 +394,9 @@ jobs:
         with:
           node-version: 24.x
 
+      - name: Install dependencies
+        run: npm install
+
       - name: System info
         run: |
           echo "=== System Information ==="
@@ -561,6 +457,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Use Node.js 20.x
         uses: actions/setup-node@v5
@@ -568,10 +466,14 @@ jobs:
           node-version: 24.x
 
       - name: Validate documentation files
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_AFTER_SHA: ${{ github.event.after }}
         run: |
-          echo "Running documentation validation tests..."
-          chmod +x tests/docs-validation.mjs
           node tests/docs-validation.mjs
+          node tests/test-docs-language-sync.mjs
 
   # === DOCKER PR CHECK ===
   docker-pr-check:
@@ -592,74 +494,103 @@ jobs:
     env:
       REGISTRY: docker.io
       IMAGE_NAME: konard/hive-mind
+      DIND_IMAGE_NAME: konard/hive-mind-dind
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+
+      - name: Verify Docker release-order contract
+        run: |
+          echo "Statically verifying: release Docker publish waits for npm availability"
+          echo "and passes the exact published version into Docker builds."
+          node tests/test-docker-release-order.mjs
+
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
 
-      - name: Show sandbox base image version
+      - name: Show Box base image versions
         run: |
-          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
-          echo "Sandbox base image version: konard/sandbox:${SANDBOX_VERSION}"
+          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
+          BOX_DIND_VERSION=$(grep '^FROM konard/box-dind:' Dockerfile.dind | sed 's/FROM konard\/box-dind://')
+          echo "Box base image version: konard/box:${BOX_VERSION}"
+          echo "Box DinD base image version: konard/box-dind:${BOX_DIND_VERSION}"
           echo "This pinned version ensures stable, reproducible builds."
 
-      - name: Build Docker image
+      - name: Build Docker images
+        # PR builds install @link-assistant/hive-mind@latest (the currently
+        # published version on npm, which may pre-date this PR). The Dockerfile
+        # tolerates a missing configure-claude bin in that case. Release builds
+        # install the exact version just published and enforce the bin strictly.
         run: |
-          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
-          echo "Building Docker image from konard/sandbox:${SANDBOX_VERSION} base..."
-          echo "Note: General-purpose tools are inherited from pinned konard/sandbox:${SANDBOX_VERSION}"
-          echo "This image adds AI-specific tools on top of the sandbox base."
+          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
+          BOX_DIND_VERSION=$(grep '^FROM konard/box-dind:' Dockerfile.dind | sed 's/FROM konard\/box-dind://')
+          echo "Building Docker image from konard/box:${BOX_VERSION} base..."
+          echo "Note: General-purpose tools are inherited from pinned konard/box:${BOX_VERSION}"
+          echo "This image adds AI-specific tools on top of the Box base."
+          echo "Installing @link-assistant/hive-mind@latest; configure-claude may not yet be present in the published package."
           echo ""
 
-          # Note: Multi-platform builds (amd64+arm64) are tested in docker-publish job during release
-          # PR checks only validate amd64 using standard docker build (not buildx) to ensure
-          # the image is properly loaded into Docker daemon for container verification
+          # Multi-platform builds (amd64+arm64) are tested in docker-publish during release.
+          # PR checks only validate amd64 using standard docker build (not buildx) so the
+          # image is loaded into the Docker daemon for container verification.
           docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
 
           echo ""
-          echo "Docker image built successfully"
-          docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
+          echo "Building Docker-in-Docker image from konard/box-dind:${BOX_DIND_VERSION} base..."
+          docker build --progress=plain -f Dockerfile.dind -t ${{ env.DIND_IMAGE_NAME }}:test . 2>&1 | tee build-dind-output.log
+
+          echo ""
+          echo "Docker images built successfully"
+          docker images | grep -E "${{ env.IMAGE_NAME }}|${{ env.DIND_IMAGE_NAME }}|REPOSITORY"
 
       - name: Verify build completed without errors
         run: |
           echo "Checking build logs for critical errors..."
 
-          # Check specifically for usermod failure (sandbox -> hive rename)
-          if grep -E 'usermod: command not found|usermod: user.*not found' build-output.log; then
-            echo "ERROR: User rename from sandbox to hive failed"
-            exit 1
-          fi
-
-          # Check for unbound variable errors (indicates shell script issues with set -u compatibility)
-          if grep -E 'unbound variable' build-output.log; then
+          if grep -E 'unbound variable' build-output.log build-dind-output.log; then
             echo "ERROR: Unbound variable error detected in Docker build"
-            echo "This typically indicates a shell script issue with set -u compatibility"
-            grep -E 'unbound variable' build-output.log || true
+            grep -E 'unbound variable' build-output.log build-dind-output.log || true
             exit 1
           fi
 
           echo "Build log check completed"
 
-      - name: Verify system & development tools in running container
+      - name: Verify system & development tools in running containers
         run: |
-          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
+          BOX_DIND_VERSION=$(grep '^FROM konard/box-dind:' Dockerfile.dind | sed 's/FROM konard\/box-dind://')
           echo "=== Verifying hive-mind Docker image ==="
-          echo "Base: konard/sandbox:${SANDBOX_VERSION} (pinned) + AI-specific tools"
+          echo "Base: konard/box:${BOX_VERSION} (pinned) + AI-specific tools"
           echo ""
 
           # Run verification script inside container (mounts script as read-only volume)
-          # Verifies: user rename (sandbox->hive), all dev tools, AI-specific tools
-          # See scripts/verify-docker-image.sh for the full list of checks
+          # Verifies box user setup (/home/box access), dev tools, AI tools,
+          # and configure-claude (tolerantly for PR builds).
           docker run --rm \
             -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \
             ${{ env.IMAGE_NAME }}:test \
             bash /verify-docker-image.sh
 
           echo ""
-          echo "All system & development tools verification checks passed!"
+          echo "=== Verifying hive-mind Docker-in-Docker image ==="
+          echo "Base: konard/box-dind:${BOX_DIND_VERSION} (pinned) + AI-specific tools"
+          docker run --rm --privileged \
+            -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \
+            ${{ env.DIND_IMAGE_NAME }}:test \
+            bash /verify-docker-image.sh
+
+          docker run --rm --privileged \
+            ${{ env.DIND_IMAGE_NAME }}:test \
+            bash -lc 'docker info && docker run hello-world'
+
+          echo ""
+          echo "All system, development, and nested Docker verification checks passed!"
 
   # === HELM PR CHECK (FAST) ===
   helm-pr-check:
@@ -825,8 +756,6 @@ jobs:
         run: node scripts/free-disk-space.mjs
 
       - name: Wait for NPM package availability
-        # Only run on first matrix job to avoid duplicate waits
-        if: matrix.platform == 'linux/amd64'
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
 
       - name: Set up Docker Buildx
@@ -855,6 +784,8 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            HIVE_MIND_VERSION=${{ needs.release.outputs.published_version }}
           # Registry cache for faster parallel export. See: docs/case-studies/issue-1415/README.md
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }}
           cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
@@ -870,7 +801,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: hive-mind-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -895,7 +826,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digests-*
+          pattern: hive-mind-digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -940,13 +871,152 @@ jobs:
           echo "Image: ${{ env.IMAGE_NAME }}"
           echo "Tags: ${{ steps.meta.outputs.tags }}"
 
+  docker-publish-dind:
+    name: Docker Publish DinD (${{ matrix.platform }})
+    needs: [release]
+    if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            cache_suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            cache_suffix: arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind-dind
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Wait for NPM package availability
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile.dind
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            HIVE_MIND_VERSION=${{ needs.release.outputs.published_version }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }}
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: hive-mind-dind-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-publish-dind-merge:
+    name: Docker Publish DinD (Merge)
+    needs: [release, docker-publish-dind]
+    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-dind.result == 'success' && needs.release.outputs.published == 'true'"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind-dind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: hive-mind-dind-digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.release.outputs.published_version }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
+
+      - name: Verify published image
+        run: |
+          echo "Docker DinD image published successfully"
+          echo "Image: ${{ env.IMAGE_NAME }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+
   # === HELM CHART RELEASE ===
   helm-release:
     name: Helm Release
-    needs: [release, docker-publish-merge]
+    needs: [release, docker-publish-merge, docker-publish-dind-merge]
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
-    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.release.outputs.published == 'true'"
+    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.docker-publish-dind-merge.result == 'success' && needs.release.outputs.published == 'true'"
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -1071,8 +1141,6 @@ jobs:
         run: node scripts/free-disk-space.mjs
 
       - name: Wait for NPM package availability
-        # Only run on first matrix job to avoid duplicate waits
-        if: matrix.platform == 'linux/amd64'
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
 
       - name: Set up Docker Buildx
@@ -1101,6 +1169,8 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            HIVE_MIND_VERSION=${{ needs.instant-release.outputs.published_version }}
           # Registry cache for faster parallel export. See: docs/case-studies/issue-1415/README.md
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }}
           cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
@@ -1116,7 +1186,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: hive-mind-instant-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -1141,7 +1211,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digests-instant-*
+          pattern: hive-mind-instant-digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -1186,13 +1256,152 @@ jobs:
           echo "Image: ${{ env.IMAGE_NAME }}"
           echo "Tags: ${{ steps.meta.outputs.tags }}"
 
+  docker-publish-dind-instant:
+    name: Docker Publish DinD Instant (${{ matrix.platform }})
+    needs: [instant-release]
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            cache_suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            cache_suffix: arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind-dind
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Wait for NPM package availability
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile.dind
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            HIVE_MIND_VERSION=${{ needs.instant-release.outputs.published_version }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }}
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: hive-mind-dind-instant-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-publish-dind-instant-merge:
+    name: Docker Publish DinD Instant (Merge)
+    needs: [instant-release, docker-publish-dind-instant]
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-dind-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind-dind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: hive-mind-dind-instant-digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.instant-release.outputs.published_version }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
+
+      - name: Verify published image
+        run: |
+          echo "Docker DinD image published successfully"
+          echo "Image: ${{ env.IMAGE_NAME }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+
   # === HELM CHART RELEASE FOR INSTANT RELEASE ===
   helm-release-instant:
     name: Helm Release (Instant)
-    needs: [instant-release, docker-publish-instant-merge]
+    needs: [instant-release, docker-publish-instant-merge, docker-publish-dind-instant-merge]
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
-    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.docker-publish-dind-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
     runs-on: ubuntu-latest
     permissions:
       contents: write

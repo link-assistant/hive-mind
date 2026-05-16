@@ -20,8 +20,9 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import path and fs for cleanup operations
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -166,24 +167,66 @@ export const getUncommittedChangesDetails = async tempDir => {
 };
 
 /**
- * Execute the AI tool (Claude, OpenCode, Codex, Agent) for a restart iteration
+ * Execute the AI tool (Claude, OpenCode, Codex, Agent, Gemini, Qwen) for a restart iteration
  * This is the shared tool execution logic used by both watch mode and auto-restart-until-mergeable mode
  * @param {Object} params - Execution parameters
  * @returns {Promise<Object>} - Tool execution result
  */
 export const executeToolIteration = async params => {
-  const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, mergeStateStatus, feedbackLines, argv } = params;
+  const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, mergeStateStatus, feedbackLines, argv } = params;
 
   // Import necessary modules for tool execution
   const memoryCheck = await import('./memory-check.mjs');
   const { getResourceSnapshot } = memoryCheck;
 
+  const { cascadePlaywrightMcpDisable } = await import('./playwright-mcp.lib.mjs');
+  await cascadePlaywrightMcpDisable(argv, log);
+
   let toolResult;
-  if (argv.tool === 'opencode') {
+  if (argv.useAgentCommander) {
+    const agentCommanderLib = await import('./agent-commander.lib.mjs');
+    await agentCommanderLib.resolvePlaywrightMcpForAgentCommander({ argv, log, tool: argv.tool || 'claude' });
+
+    toolResult = await agentCommanderLib.executeWithAgentCommander({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+      branchName,
+      tempDir,
+      workspaceTmpDir: params.workspaceTmpDir,
+      isContinueMode: true,
+      mergeStateStatus,
+      forkedRepo: argv.fork,
+      feedbackLines,
+      forkActionsUrl: null,
+      owner,
+      repo,
+      argv,
+      log,
+      formatAligned,
+      getResourceSnapshot,
+      setLogFile: () => {},
+      getLogFile: () => '',
+      $,
+    });
+  } else if (argv.tool === 'opencode') {
     // Use OpenCode
     const opencodeExecLib = await import('./opencode.lib.mjs');
-    const { executeOpenCode } = opencodeExecLib;
+    const { executeOpenCode, checkPlaywrightMcpAvailability } = opencodeExecLib;
     const opencodePath = argv.opencodePath || 'opencode';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
 
     toolResult = await executeOpenCode({
       issueUrl,
@@ -192,6 +235,7 @@ export const executeToolIteration = async params => {
       prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
       branchName,
       tempDir,
+      workspaceTmpDir,
       isContinueMode: true,
       mergeStateStatus,
       forkedRepo: argv.fork,
@@ -208,8 +252,20 @@ export const executeToolIteration = async params => {
   } else if (argv.tool === 'codex') {
     // Use Codex
     const codexExecLib = await import('./codex.lib.mjs');
-    const { executeCodex } = codexExecLib;
+    const { executeCodex, checkPlaywrightMcpAvailability } = codexExecLib;
     const codexPath = argv.codexPath || 'codex';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
 
     toolResult = await executeCodex({
       issueUrl,
@@ -218,6 +274,7 @@ export const executeToolIteration = async params => {
       prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
       branchName,
       tempDir,
+      workspaceTmpDir,
       isContinueMode: true,
       mergeStateStatus,
       forkedRepo: argv.fork,
@@ -237,8 +294,20 @@ export const executeToolIteration = async params => {
   } else if (argv.tool === 'agent') {
     // Use Agent
     const agentExecLib = await import('./agent.lib.mjs');
-    const { executeAgent } = agentExecLib;
+    const { executeAgent, checkPlaywrightMcpAvailability } = agentExecLib;
     const agentPath = argv.agentPath || 'agent';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
 
     toolResult = await executeAgent({
       issueUrl,
@@ -247,6 +316,7 @@ export const executeToolIteration = async params => {
       prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
       branchName,
       tempDir,
+      workspaceTmpDir,
       isContinueMode: true,
       mergeStateStatus,
       forkedRepo: argv.fork,
@@ -259,6 +329,90 @@ export const executeToolIteration = async params => {
       formatAligned,
       getResourceSnapshot,
       agentPath,
+      $,
+    });
+  } else if (argv.tool === 'gemini') {
+    // Use Gemini
+    const geminiExecLib = await import('./gemini.lib.mjs');
+    const { executeGemini, checkPlaywrightMcpAvailability } = geminiExecLib;
+    const geminiPath = argv.geminiPath || 'gemini';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
+
+    toolResult = await executeGemini({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+      branchName,
+      tempDir,
+      workspaceTmpDir,
+      isContinueMode: true,
+      mergeStateStatus,
+      forkedRepo: argv.fork,
+      feedbackLines,
+      forkActionsUrl: null,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile: () => {},
+      getLogFile: () => '',
+      formatAligned,
+      getResourceSnapshot,
+      geminiPath,
+      $,
+    });
+  } else if (argv.tool === 'qwen') {
+    // Use Qwen Code
+    const qwenExecLib = await import('./qwen.lib.mjs');
+    const { executeQwen, checkPlaywrightMcpAvailability } = qwenExecLib;
+    const qwenPath = argv.qwenPath || 'qwen';
+
+    if (argv.promptPlaywrightMcp) {
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    } else {
+      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
+    }
+
+    toolResult = await executeQwen({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+      branchName,
+      tempDir,
+      workspaceTmpDir,
+      isContinueMode: true,
+      mergeStateStatus,
+      forkedRepo: argv.fork,
+      feedbackLines,
+      forkActionsUrl: null,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile: () => {},
+      getLogFile: () => '',
+      formatAligned,
+      getResourceSnapshot,
+      qwenPath,
       $,
     });
   } else {
@@ -289,6 +443,7 @@ export const executeToolIteration = async params => {
       prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
       branchName,
       tempDir,
+      workspaceTmpDir,
       isContinueMode: true,
       mergeStateStatus,
       forkedRepo: argv.fork,

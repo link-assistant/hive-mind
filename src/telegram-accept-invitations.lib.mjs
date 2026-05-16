@@ -18,8 +18,14 @@
 
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
+import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 
-const exec = promisify(execCallback);
+const execRaw = promisify(execCallback);
+// Issue #1726: rate-limit safe gh wrapper.
+const exec = (cmd, opts) =>
+  ghWithRateLimitRetry(() => execRaw(cmd, opts), {
+    label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+  });
 
 /**
  * Escapes special characters in text for Telegram Markdown formatting
@@ -116,10 +122,12 @@ function buildProgressMessage(state) {
  * @param {Function} options.isForwardedOrReply - Function to check if message is forwarded/reply
  * @param {Function} options.isGroupChat - Function to check if chat is a group
  * @param {Function} options.isChatAuthorized - Function to check if chat is authorized
+ * @param {Function} [options.isTopicAuthorized] - Function to check if topic is authorized (issue #1100)
+ * @param {Function} [options.buildAuthErrorMessage] - Function to build authorization error message
  * @param {Function} options.addBreadcrumb - Function to add breadcrumbs for monitoring
  */
 export function registerAcceptInvitesCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, addBreadcrumb } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb } = options;
 
   bot.command(/^accept[_-]?invites$/i, async ctx => {
     VERBOSE && console.log('[VERBOSE] /accept_invites command received');
@@ -134,11 +142,11 @@ export function registerAcceptInvitesCommand(bot, options) {
       return await ctx.reply('❌ The /accept_invites command only works in group chats. Please add this bot to a group and make it an admin.', {
         reply_to_message_id: ctx.message.message_id,
       });
-    const chatId = ctx.chat.id;
-    if (!isChatAuthorized(chatId))
-      return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, {
-        reply_to_message_id: ctx.message.message_id,
-      });
+    const authorize = isTopicAuthorized || (ctx => isChatAuthorized(ctx.chat.id));
+    if (!authorize(ctx)) {
+      const errMsg = buildAuthErrorMessage ? buildAuthErrorMessage(ctx) : `❌ This chat (ID: ${ctx.chat.id}) is not authorized.`;
+      return await ctx.reply(errMsg, { reply_to_message_id: ctx.message.message_id });
+    }
 
     const fetchingMessage = await ctx.reply('🔄 Fetching pending GitHub invitations\\.\\.\\.', {
       reply_to_message_id: ctx.message.message_id,
@@ -172,13 +180,13 @@ export function registerAcceptInvitesCommand(bot, options) {
 
     try {
       // Fetch repository invitations
-      const { stdout: repoInvJson } = await exec('gh api /user/repository_invitations 2>/dev/null || echo "[]"');
+      const { stdout: repoInvJson } = await exec('gh api /user/repository_invitations --paginate 2>/dev/null || echo "[]"');
       const repoInvitations = JSON.parse(repoInvJson.trim() || '[]');
       state.totalRepos = repoInvitations.length;
       VERBOSE && console.log(`[VERBOSE] Found ${repoInvitations.length} pending repo invitations`);
 
       // Fetch organization invitations
-      const { stdout: orgMemJson } = await exec('gh api /user/memberships/orgs 2>/dev/null || echo "[]"');
+      const { stdout: orgMemJson } = await exec('gh api /user/memberships/orgs --paginate 2>/dev/null || echo "[]"');
       const orgMemberships = JSON.parse(orgMemJson.trim() || '[]');
       const pendingOrgs = orgMemberships.filter(m => m.state === 'pending');
       state.totalOrgs = pendingOrgs.length;

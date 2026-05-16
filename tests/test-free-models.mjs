@@ -2,17 +2,19 @@
 
 /**
  * Comprehensive tests for all free models
- * Tests all 10 free models (4 OpenCode Zen + 6 Kilo Gateway) to ensure they work in hive-mind
+ * Tests all 12 free models (6 OpenCode Zen + 6 Kilo Gateway) to ensure they work in hive-mind
  * Issue #1300: Updated free models - minimax-m2.5-free replaces m2.1, glm-4.7-free removed from OpenCode
+ * Issue #1543: Added qwen3.6-plus-free (former default) and nemotron-3-super-free
+ * Issue #1563: qwen3.6-plus-free deprecated (free promotion ended), nemotron-3-super-free is now default
  */
 
 import { strict as assert } from 'assert';
 import { validateModelName, AGENT_MODELS, mapModelForTool, isModelCompatibleWithTool, getValidModelsForTool, agentModels } from '../src/models/index.mjs';
 
-// OpenCode Zen free models (current - Issue #1300)
-const OPENCODE_FREE_MODELS = ['opencode/big-pickle', 'opencode/gpt-5-nano', 'opencode/kimi-k2.5-free', 'opencode/minimax-m2.5-free'];
+// OpenCode Zen free models (current - Issue #1300, Issue #1543)
+const OPENCODE_FREE_MODELS = ['opencode/big-pickle', 'opencode/gpt-5-nano', 'opencode/kimi-k2.5-free', 'opencode/minimax-m2.5-free', 'opencode/nemotron-3-super-free'];
 
-const OPENCODE_SHORT_ALIASES = ['big-pickle', 'gpt-5-nano', 'kimi-k2.5-free', 'minimax-m2.5-free'];
+const OPENCODE_SHORT_ALIASES = ['big-pickle', 'gpt-5-nano', 'kimi-k2.5-free', 'minimax-m2.5-free', 'nemotron-3-super-free'];
 
 // Kilo Gateway free models (Issue #1282, updated in #1300)
 const KILO_FREE_MODELS = ['kilo/glm-5-free', 'kilo/glm-4.5-air-free', 'kilo/minimax-m2.5-free', 'kilo/deepseek-r1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
@@ -23,14 +25,14 @@ const KILO_SHORT_ALIASES = ['kilo/glm-5-free', 'kilo/glm-4.5-air-free', 'kilo/mi
 const KILO_EXCLUSIVE_SHORT_ALIASES = ['glm-5-free', 'glm-4.5-air-free', 'deepseek-r1-free', 'giga-potato-free', 'trinity-large-preview'];
 
 // Deprecated models (still work for backward compatibility but not recommended)
-const DEPRECATED_OPENCODE_MODELS = ['opencode/glm-4.7-free', 'opencode/minimax-m2.1-free'];
+const DEPRECATED_OPENCODE_MODELS = ['opencode/glm-4.7-free', 'opencode/minimax-m2.1-free', 'opencode/qwen3.6-plus-free'];
 const DEPRECATED_KILO_MODELS = ['kilo/glm-4.7-free', 'kilo/kimi-k2.5-free', 'kilo/minimax-m2.1-free'];
 
 // Combined lists
 const ALL_FREE_MODELS = [...OPENCODE_FREE_MODELS, ...KILO_FREE_MODELS];
 
 console.log('🧪 Running comprehensive free model tests...\n');
-console.log(`📊 Testing ${OPENCODE_FREE_MODELS.length} OpenCode Zen models and ${KILO_FREE_MODELS.length} Kilo Gateway models\n`);
+console.log(`📊 Testing ${OPENCODE_FREE_MODELS.length} OpenCode Zen models (nemotron-3-super-free is default) and ${KILO_FREE_MODELS.length} Kilo Gateway models\n`);
 
 // Test 1: OpenCode Zen model validation for full model IDs
 console.log('1️⃣ Testing OpenCode Zen full model ID validation...');
@@ -170,7 +172,7 @@ for (const invalidModel of invalidModels) {
 
 // Test 11: Case insensitive validation for OpenCode Zen
 console.log('\n1️⃣1️⃣ Testing OpenCode Zen case insensitive validation...');
-const opencodeVariants = ['OPENCODE/BIG-PICKLE', 'Opencode/Gpt-5-Nano', 'oPeNcOdE/kImI-k2.5-fReE', 'OPENCODE/minimax-m2.5-free'];
+const opencodeVariants = ['OPENCODE/BIG-PICKLE', 'Opencode/Gpt-5-Nano', 'oPeNcOdE/kImI-k2.5-fReE', 'OPENCODE/minimax-m2.5-free', 'Opencode/Nemotron-3-Super-Free'];
 
 for (const caseVariant of opencodeVariants) {
   const result = validateModelName(caseVariant, 'agent');
@@ -249,11 +251,11 @@ for (const shortName of freeShortNames) {
   console.log(`✅ ${shortName} -> ${mappedByAgentLib}: Consistent (no moonshot/ prefix)`);
 }
 
-// Test 16: Default model kimi-k2.5-free maps correctly through agent.lib.mjs
-console.log('\n1️⃣6️⃣ Testing default model (kimi-k2.5-free) through agent.lib.mjs...');
-const defaultModel = 'kimi-k2.5-free';
+// Test 16: Default model nemotron-3-super-free maps correctly through agent.lib.mjs (Issue #1563)
+console.log('\n1️⃣6️⃣ Testing default model (nemotron-3-super-free) through agent.lib.mjs...');
+const defaultModel = 'nemotron-3-super-free';
 const defaultMapped = mapModelToId(defaultModel);
-assert.strictEqual(defaultMapped, 'opencode/kimi-k2.5-free', `Default model ${defaultModel} should map to opencode/kimi-k2.5-free, got ${defaultMapped}`);
+assert.strictEqual(defaultMapped, 'opencode/nemotron-3-super-free', `Default model ${defaultModel} should map to opencode/nemotron-3-super-free, got ${defaultMapped}`);
 assert.ok(!defaultMapped.startsWith('moonshot/'), `Default model should NOT use moonshot/ prefix`);
 console.log(`✅ ${defaultModel} -> ${defaultMapped}: Default model maps correctly`);
 

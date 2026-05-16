@@ -15,71 +15,21 @@ const os = (await use('os')).default;
 // Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts } from './config.lib.mjs';
+import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import Decimal from 'decimal.js-light';
 import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
+import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
+import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
+import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+
+export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
 
 // Import pricing functions from claude.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
 const claudeLib = await import('./claude.lib.mjs');
 const { fetchModelInfo, checkModelVisionCapability } = claudeLib;
-
-/**
- * Parse agent JSON output to extract token usage from step_finish events
- * Agent outputs NDJSON (newline-delimited JSON) with step_finish events containing token data
- * @param {string} output - Raw stdout output from agent command
- * @returns {Object} Aggregated token usage and cost data
- */
-export const parseAgentTokenUsage = output => {
-  const usage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    reasoningTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    totalCost: 0,
-    stepCount: 0,
-  };
-
-  // Try to parse each line as JSON (agent outputs NDJSON format)
-  const lines = output.split('\n');
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine || !trimmedLine.startsWith('{')) continue;
-
-    try {
-      const parsed = sanitizeObjectStrings(JSON.parse(trimmedLine));
-
-      // Look for step_finish events which contain token usage
-      if (parsed.type === 'step_finish' && parsed.part?.tokens) {
-        const tokens = parsed.part.tokens;
-        usage.stepCount++;
-
-        // Add token counts
-        if (tokens.input) usage.inputTokens += tokens.input;
-        if (tokens.output) usage.outputTokens += tokens.output;
-        if (tokens.reasoning) usage.reasoningTokens += tokens.reasoning;
-
-        // Handle cache tokens (can be in different formats)
-        if (tokens.cache) {
-          if (tokens.cache.read) usage.cacheReadTokens += tokens.cache.read;
-          if (tokens.cache.write) usage.cacheWriteTokens += tokens.cache.write;
-        }
-
-        // Add cost from step_finish (usually 0 for free models like grok-code)
-        if (parsed.part.cost !== undefined) {
-          usage.totalCost += parsed.part.cost;
-        }
-      }
-    } catch {
-      // Skip lines that aren't valid JSON
-      continue;
-    }
-  }
-
-  return usage;
-};
 
 /**
  * Helper function to get original provider name from provider identifier
@@ -197,13 +147,29 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
       // Calculate public pricing estimate based on original provider prices
       // Prices are per 1M tokens, so divide by 1,000,000
       // All priced components from models.dev: input, output, cache_read, cache_write, reasoning
-      const inputCost = (tokenUsage.inputTokens * (cost.input || 0)) / 1_000_000;
-      const outputCost = (tokenUsage.outputTokens * (cost.output || 0)) / 1_000_000;
-      const cacheReadCost = (tokenUsage.cacheReadTokens * (cost.cache_read || 0)) / 1_000_000;
-      const cacheWriteCost = (tokenUsage.cacheWriteTokens * (cost.cache_write || 0)) / 1_000_000;
-      const reasoningCost = (tokenUsage.reasoningTokens * (cost.reasoning || 0)) / 1_000_000;
+      const million = new Decimal(1_000_000);
+      const inputCost = new Decimal(tokenUsage.inputTokens)
+        .mul(cost.input || 0)
+        .div(million)
+        .toNumber();
+      const outputCost = new Decimal(tokenUsage.outputTokens)
+        .mul(cost.output || 0)
+        .div(million)
+        .toNumber();
+      const cacheReadCost = new Decimal(tokenUsage.cacheReadTokens)
+        .mul(cost.cache_read || 0)
+        .div(million)
+        .toNumber();
+      const cacheWriteCost = new Decimal(tokenUsage.cacheWriteTokens)
+        .mul(cost.cache_write || 0)
+        .div(million)
+        .toNumber();
+      const reasoningCost = new Decimal(tokenUsage.reasoningTokens)
+        .mul(cost.reasoning || 0)
+        .div(million)
+        .toNumber();
 
-      const totalCost = inputCost + outputCost + cacheReadCost + cacheWriteCost + reasoningCost;
+      const totalCost = new Decimal(inputCost).plus(outputCost).plus(cacheReadCost).plus(cacheWriteCost).plus(reasoningCost).toNumber();
 
       // Determine if this is a free model from OpenCode Zen or Kilo Gateway
       // Models accessed via OpenCode Zen or Kilo Gateway are free, regardless of original provider pricing
@@ -356,6 +322,9 @@ export const handleAgentRuntimeSwitch = async () => {
   await log('ℹ️  Agent runtime handling not required for this operation');
 };
 
+/** Check if Playwright MCP is available for Agent @returns {Promise<boolean>} */
+export const checkPlaywrightMcpAvailability = checkPlaywrightMcpPackageAvailability;
+
 // Main function to execute Agent with prompts and settings
 export const executeAgent = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, agentPath = 'agent', $ } = params;
@@ -442,10 +411,9 @@ export const executeAgent = async params => {
 };
 
 export const executeAgentCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, agentPath, $ } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, agentPath, $, waitForRetryDelay = waitWithCountdown } = params;
 
   // Retry configuration
-  const maxRetries = 3;
   let retryCount = 0;
 
   const executeWithRetry = async () => {
@@ -453,7 +421,7 @@ export const executeAgentCommand = async params => {
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Agent:', argv.model.toUpperCase())}`);
     } else {
-      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${maxRetries}`)}`);
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
     }
 
     if (argv.verbose) {
@@ -475,6 +443,19 @@ export const executeAgentCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
+    // Issue #1521: Build environment for agent process.
+    // Pass LINK_ASSISTANT_AGENT_VERBOSE env var when --verbose is enabled so verbose logging is initialized at module load time.
+    const agentEnv = { ...process.env };
+    if (argv.verbose) {
+      agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
+    }
+
+    // Apply Playwright MCP session state before launching Agent.
+    if (argv.playwrightMcp === false) {
+      Object.assign(agentEnv, await getAgentPlaywrightMcpDisableEnv({ env: agentEnv, cwd: tempDir, log }));
+      await log('🎭 Playwright MCP physically disabled for this Agent session via --no-playwright-mcp', { verbose: true });
+    }
+
     // Build Agent command
     let execCommand;
 
@@ -487,6 +468,11 @@ export const executeAgentCommand = async params => {
     // Propagate verbose flag to agent for detailed debugging output
     if (argv.verbose) {
       agentArgs += ' --verbose';
+    }
+
+    if (argv.resume) {
+      await log(`🔄 Resuming from session: ${argv.resume}`);
+      agentArgs += ` --resume ${argv.resume} --no-fork`;
     }
 
     // Agent supports stdin in both plain text and JSON format
@@ -508,9 +494,11 @@ export const executeAgentCommand = async params => {
     try {
       // Pipe the prompt file to agent via stdin
       // Use agentArgs which includes --model and optionally --verbose
+
       execCommand = $({
         cwd: tempDir,
         mirror: false,
+        env: agentEnv,
       })`cat ${promptFile} | ${agentPath} ${agentArgs}`;
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
@@ -539,32 +527,8 @@ export const executeAgentCommand = async params => {
       let agentCompletedSuccessfully = false;
       // Issue #1250: Accumulate token usage during streaming instead of parsing fullOutput later
       // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
-      const streamingTokenUsage = {
-        inputTokens: 0,
-        outputTokens: 0,
-        reasoningTokens: 0,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-        totalCost: 0,
-        stepCount: 0,
-      };
-      // Helper to accumulate tokens from step_finish events during streaming
-      const accumulateTokenUsage = data => {
-        if (data.type === 'step_finish' && data.part?.tokens) {
-          const tokens = data.part.tokens;
-          streamingTokenUsage.stepCount++;
-          if (tokens.input) streamingTokenUsage.inputTokens += tokens.input;
-          if (tokens.output) streamingTokenUsage.outputTokens += tokens.output;
-          if (tokens.reasoning) streamingTokenUsage.reasoningTokens += tokens.reasoning;
-          if (tokens.cache) {
-            if (tokens.cache.read) streamingTokenUsage.cacheReadTokens += tokens.cache.read;
-            if (tokens.cache.write) streamingTokenUsage.cacheWriteTokens += tokens.cache.write;
-          }
-          if (data.part.cost !== undefined) {
-            streamingTokenUsage.totalCost += data.part.cost;
-          }
-        }
-      };
+      const streamingTokenUsage = createAgentTokenUsage();
+      const accumulateTokenUsage = data => accumulateAgentStepFinishUsage(streamingTokenUsage, data);
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
@@ -824,6 +788,28 @@ export const executeAgentCommand = async params => {
       }
 
       if (exitCode !== 0 || outputError.detected) {
+        const retryableError = classifyRetryableError(outputError.match || streamingErrorMessage || lastMessage || fullOutput);
+        if (retryableError.isRetryable) {
+          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
+          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+          if (retryCount < maxRetries) {
+            const delay = getRetryDelayMs({
+              retryCount,
+              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+            });
+            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            await maybeSwitchToFallbackModel({ tool: 'agent', argv, log, errorMessage: retryableError.message });
+            await waitForRetryDelay(delay, log);
+            await log('\n🔄 Retrying now...');
+            retryCount++;
+            return await executeWithRetry();
+          }
+          await log(`\n\n❌ ${retryableError.label} persisted after ${maxRetries} retries`, { level: 'error' });
+        }
+
         // Build JSON error structure for consistent error reporting
         const errorInfo = {
           type: 'error',
@@ -923,8 +909,10 @@ export const executeAgentCommand = async params => {
         if (tokenUsage.reasoningTokens > 0) {
           await log(`      Reasoning tokens: ${tokenUsage.reasoningTokens.toLocaleString()}`);
         }
-        if (tokenUsage.cacheReadTokens > 0 || tokenUsage.cacheWriteTokens > 0) {
+        if (tokenUsage.cacheReadTokens > 0 || tokenUsage.tokenFieldAvailability?.cacheReadTokens) {
           await log(`      Cache read:       ${tokenUsage.cacheReadTokens.toLocaleString()}`);
+        }
+        if (tokenUsage.cacheWriteTokens > 0 || tokenUsage.tokenFieldAvailability?.cacheWriteTokens) {
           await log(`      Cache write:      ${tokenUsage.cacheWriteTokens.toLocaleString()}`);
         }
 
@@ -1025,12 +1013,12 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
             if (commitResult.code === 0) {
               await log('✅ Changes committed successfully');
 
-              const pushResult = await $({ cwd: tempDir })`git push origin ${branchName}`;
+              const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
 
               if (pushResult.code === 0) {
                 await log('✅ Changes pushed successfully');
               } else {
-                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, {
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim() || pushResult.stdout?.toString().trim()}`, {
                   level: 'warning',
                 });
               }
@@ -1086,6 +1074,7 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 export default {
   validateAgentConnection,
   handleAgentRuntimeSwitch,
+  checkPlaywrightMcpAvailability,
   executeAgent,
   executeAgentCommand,
   checkForUncommittedChanges,

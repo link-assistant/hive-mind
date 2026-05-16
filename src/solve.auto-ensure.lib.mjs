@@ -18,15 +18,25 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log } = lib;
+const { log, cleanErrorMessage } = lib;
 
 // Import shared restart utilities
 const restartShared = await import('./solve.restart-shared.lib.mjs');
 const { executeToolIteration } = restartShared;
+
+// Issue #1763: Re-verify PR ↔ issue link after every finalize iteration so a
+// PR body that the AI rewrote without a closing keyword does not survive past
+// the last requirements-check.
+const resultsLib = await import('./solve.results.lib.mjs');
+const { ensurePullRequestIssueLink } = resultsLib;
+
+const sentryLib = await import('./sentry.lib.mjs');
+const { reportError } = sentryLib;
 
 /**
  * Runs finalize requirements-check iterations after the main solve.
@@ -76,6 +86,14 @@ export const runAutoEnsureRequirements = async ({ issueUrl, owner, repo, issueNu
   for (let ensureIteration = 1; ensureIteration <= finalizeCount; ensureIteration++) {
     await log(`🔄 FINALIZE iteration ${ensureIteration}/${finalizeCount}: Restarting to verify requirements...`);
 
+    // Issue #1572: Sync local branch with remote before each finalize iteration
+    const pullResult = await $({ cwd: tempDir })`git pull origin ${branchName} 2>&1`;
+    if (pullResult.code === 0) {
+      await log(`   Synced local branch ${branchName} from remote`, { verbose: true });
+    } else {
+      throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout || pullResult.stderr || 'no output'}`);
+    }
+
     const ensureFeedbackLines = ['', '='.repeat(60), '🔍 FINALIZE REQUIREMENTS CHECK:', '='.repeat(60), '', 'We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.', ''];
 
     const ensureResult = await executeToolIteration({
@@ -105,6 +123,34 @@ export const runAutoEnsureRequirements = async ({ issueUrl, owner, repo, issueNu
       if (ensureResult.anthropicTotalCostUSD) anthropicTotalCostUSD = ensureResult.anthropicTotalCostUSD;
       if (ensureResult.publicPricingEstimate) publicPricingEstimate = ensureResult.publicPricingEstimate;
       if (ensureResult.pricingInfo) pricingInfo = ensureResult.pricingInfo;
+    }
+
+    // Issue #1763: Re-verify the PR body contains a closing keyword for the
+    // issue after every finalize iteration. The AI agent can rewrite the PR
+    // description mid-session and any iteration may end up being the last
+    // one, so this check cannot be deferred to the top-level verifyResults
+    // path.
+    if (prNumber && issueNumber && owner && repo) {
+      try {
+        await log('🔗 Verifying PR issue link after finalize iteration...');
+        await ensurePullRequestIssueLink({
+          prNumber,
+          issueNumber,
+          owner,
+          repo,
+          argv,
+        });
+      } catch (issueLinkError) {
+        reportError(issueLinkError, {
+          context: 'ensure_pr_issue_link_finalize_iteration',
+          prNumber,
+          owner,
+          repo,
+          ensureIteration,
+          operation: 'ensure_pr_issue_link',
+        });
+        await log(`⚠️  PR issue link check error: ${cleanErrorMessage(issueLinkError)}`, { level: 'warning' });
+      }
     }
 
     await log(`✅ FINALIZE iteration ${ensureIteration}/${finalizeCount} complete`);

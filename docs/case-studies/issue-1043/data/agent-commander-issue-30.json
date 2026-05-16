@@ -1,0 +1,25 @@
+{
+  "body": "During hive-mind PR https://github.com/link-assistant/hive-mind/pull/1044 for issue https://github.com/link-assistant/hive-mind/issues/1043, the experimental `--use-agent-commander` adapter had to best-effort parse raw/plain output from `agent-commander@0.4.3` to populate hive-mind's solve result fields.\n\nHive-mind currently consumes normalized metadata from its embedded adapters, including:\n\n- success / non-zero exit classification\n- session id\n- usage-limit detection and reset time/timezone\n- human-readable result summary\n- Anthropic total cost where available\n- public pricing estimate where available\n- detailed model usage\n- stream token usage\n- sub-agent call summaries\n- execution error classification\n\nThe current agent-commander result object has useful `exitCode`, `output.plain`, `output.parsed`, `sessionId`, and `usage` fields, but hive-mind still needs adapter-specific parsing to derive the complete normalized result shape.\n\nRequest:\n\nExpose a stable normalized result metadata object from agent-commander for each supported tool (`claude`, `codex`, `opencode`, `agent`) so callers like hive-mind can avoid parsing tool-specific output while still reporting costs, usage limits, summaries, and failures consistently.",
+  "closed": true,
+  "comments": [
+    {
+      "id": "IC_kwDOQTX-kM8AAAABA8WCFQ",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "We need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.\n\nPlease plan and execute everything in a single pull request, you have unlimited time and context, as context autocompacts and you can continue indefinetely, do as much as possible in one go, until it is each and every requirement fully addressed, and everything is totally done.",
+      "createdAt": "2026-05-01T06:59:16Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-assistant/agent-commander/issues/30#issuecomment-4358242837",
+      "viewerDidAuthor": true
+    }
+  ],
+  "createdAt": "2026-05-01T05:12:38Z",
+  "number": 30,
+  "state": "CLOSED",
+  "title": "Expose normalized result metadata for hive-mind solve sessions",
+  "updatedAt": "2026-05-01T09:06:54Z",
+  "url": "https://github.com/link-assistant/agent-commander/issues/30"
+}

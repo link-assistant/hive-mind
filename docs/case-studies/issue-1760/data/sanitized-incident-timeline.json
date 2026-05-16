@@ -1,0 +1,57 @@
+[
+  {
+    "time": "2026-05-06T07:36:46Z",
+    "event": "issue_created",
+    "details": "Private issue #110 was created."
+  },
+  {
+    "time": "2026-05-06T07:37:44Z",
+    "event": "original_pr_created",
+    "details": "PR #111 was created for private issue #110 with a closing keyword."
+  },
+  {
+    "time": "2026-05-06T07:37:45Z",
+    "event": "original_pr_cross_reference",
+    "details": "GitHub recorded a cross-reference from PR #111 to issue #110."
+  },
+  {
+    "time": "2026-05-06T11:15:55Z",
+    "event": "original_pr_converted_to_draft",
+    "details": "Automated work session converted PR #111 to draft while rechecking CI."
+  },
+  {
+    "time": "2026-05-06T11:16:15Z",
+    "event": "hive_run_started",
+    "details": "/hive started with --all-issues --once --skip-issues-with-prs."
+  },
+  {
+    "time": "2026-05-06T11:16:25Z",
+    "event": "batch_check_false_negative",
+    "details": "Batch PR check reported 0/5 issues had open PRs."
+  },
+  {
+    "time": "2026-05-06T11:16:51Z",
+    "event": "worker_recheck_false_negative",
+    "details": "Worker recheck for issue #110 reported 0/1 issues had open PRs."
+  },
+  {
+    "time": "2026-05-06T11:17:19Z",
+    "event": "duplicate_pr_created",
+    "details": "Duplicate PR #116 was created for issue #110."
+  },
+  {
+    "time": "2026-05-06T11:18:55Z",
+    "event": "original_pr_ready_again",
+    "details": "PR #111 was marked ready for review again."
+  },
+  {
+    "time": "2026-05-06T14:27:07Z",
+    "event": "original_pr_merged",
+    "details": "PR #111 was merged."
+  },
+  {
+    "time": "2026-05-06T18:57:29Z",
+    "event": "duplicate_pr_closed",
+    "details": "Duplicate PR #116 was closed unmerged."
+  }
+]

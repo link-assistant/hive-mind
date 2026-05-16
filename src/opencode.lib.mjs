@@ -15,10 +15,16 @@ const os = (await use('os')).default;
 // Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts } from './config.lib.mjs';
+import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { opencodeModels, defaultModels } from './models/index.mjs';
+import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
+import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
+import { calculateAgentPricing } from './agent.lib.mjs';
+import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+
+export { parseOpenCodeTokenUsage };
 
 // Model mapping to translate aliases to full model IDs for OpenCode
 // Issue #1473: Uses centralized opencodeModels from models/index.mjs (single source of truth)
@@ -96,6 +102,9 @@ export const handleOpenCodeRuntimeSwitch = async () => {
   // This function can be used for any runtime-specific configurations if needed
   await log('ℹ️  OpenCode runtime handling not required for this operation');
 };
+
+/** Check if Playwright MCP is available for OpenCode @returns {Promise<boolean>} */
+export const checkPlaywrightMcpAvailability = checkPlaywrightMcpPackageAvailability;
 
 // Main function to execute OpenCode with prompts and settings
 export const executeOpenCode = async params => {
@@ -176,10 +185,9 @@ export const executeOpenCode = async params => {
 };
 
 export const executeOpenCodeCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, opencodePath, $ } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, opencodePath, $, waitForRetryDelay = waitWithCountdown } = params;
 
   // Retry configuration
-  const maxRetries = 3;
   let retryCount = 0;
 
   const executeWithRetry = async () => {
@@ -187,7 +195,7 @@ export const executeOpenCodeCommand = async params => {
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing OpenCode:', argv.model.toUpperCase())}`);
     } else {
-      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${maxRetries}`)}`);
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
     }
 
     if (argv.verbose) {
@@ -237,18 +245,27 @@ export const executeOpenCodeCommand = async params => {
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
+    const opencodeEnv = { ...process.env };
+
+    // Apply Playwright MCP session state before launching OpenCode.
+    if (argv.playwrightMcp === false) {
+      Object.assign(opencodeEnv, await getOpenCodePlaywrightMcpDisableEnv({ env: opencodeEnv, cwd: tempDir, log }));
+      await log('🎭 Playwright MCP physically disabled for this OpenCode session via --no-playwright-mcp', { verbose: true });
+    }
+
     // Build OpenCode command
     let execCommand;
 
     // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
+    const streamingTokenUsage = createAgentTokenUsage();
 
     // Build opencode command arguments
     let opencodeArgs = `run --format json --model ${mappedModel}`;
 
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
-      opencodeArgs = `run --format json --resume ${argv.resume} --model ${mappedModel}`;
+      opencodeArgs = `run --format json --session ${argv.resume} --model ${mappedModel}`;
     }
 
     // For OpenCode, we pass the prompt via stdin
@@ -268,17 +285,28 @@ export const executeOpenCodeCommand = async params => {
     await log(`${fullCommand}`);
     await log('');
 
+    const buildPricingInfo = async () => {
+      const tokenUsage = streamingTokenUsage;
+      if (tokenUsage.stepCount === 0) {
+        return { tokenUsage, pricingInfo: null, publicPricingEstimate: null };
+      }
+      const pricingInfo = await calculateAgentPricing(mappedModel, tokenUsage);
+      return { tokenUsage, pricingInfo, publicPricingEstimate: pricingInfo?.totalCostUSD ?? null };
+    };
+
     try {
       // Pipe the prompt file to opencode via stdin
       if (argv.resume) {
         execCommand = $({
           cwd: tempDir,
           mirror: false,
-        })`cat ${promptFile} | ${opencodePath} run --format json --resume ${argv.resume} --model ${mappedModel}`;
+          env: opencodeEnv,
+        })`cat ${promptFile} | ${opencodePath} run --format json --session ${argv.resume} --model ${mappedModel}`;
       } else {
         execCommand = $({
           cwd: tempDir,
           mirror: false,
+          env: opencodeEnv,
         })`cat ${promptFile} | ${opencodePath} run --format json --model ${mappedModel}`;
       }
 
@@ -313,6 +341,7 @@ export const executeOpenCodeCommand = async params => {
             for (const line of lines) {
               if (!line.trim()) continue;
               const data = sanitizeObjectStrings(JSON.parse(line));
+              accumulateAgentStepFinishUsage(streamingTokenUsage, data);
               // Track text content for result summary
               // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
               if (data.type === 'text' && data.text) {
@@ -355,6 +384,7 @@ export const executeOpenCodeCommand = async params => {
               for (const line of lines) {
                 if (!line.trim()) continue;
                 const data = sanitizeObjectStrings(JSON.parse(line));
+                accumulateAgentStepFinishUsage(streamingTokenUsage, data);
                 if (data.type === 'text' && data.text) {
                   lastTextContent = data.text;
                 } else if (data.type === 'assistant' && data.message?.content) {
@@ -427,17 +457,41 @@ export const executeOpenCodeCommand = async params => {
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 
+        const pricingResult = await buildPricingInfo();
         return {
           success: false,
           sessionId,
           limitReached: false,
           limitResetTime: null,
           permissionPromptDetected: true,
+          ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
         };
       }
 
       if (exitCode !== 0) {
+        const retryableError = classifyRetryableError(allOutput || lastMessage);
+        if (retryableError.isRetryable) {
+          const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
+          const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+          if (retryCount < maxRetries) {
+            const delay = getRetryDelayMs({
+              retryCount,
+              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+            });
+            const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+            await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            await maybeSwitchToFallbackModel({ tool: 'opencode', argv, log, errorMessage: retryableError.message });
+            await waitForRetryDelay(delay, log);
+            await log('\n🔄 Retrying now...');
+            retryCount++;
+            return await executeWithRetry();
+          }
+          await log(`\n\n❌ ${retryableError.label} persisted after ${maxRetries} retries`, { level: 'error' });
+        }
+
         // Check for usage limit errors first (more specific)
         const limitInfo = detectUsageLimit(lastMessage);
         if (limitInfo.isUsageLimit) {
@@ -466,16 +520,40 @@ export const executeOpenCodeCommand = async params => {
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 
+        const pricingResult = await buildPricingInfo();
         return {
           success: false,
           sessionId,
           limitReached,
           limitResetTime,
+          ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
         };
       }
 
       await log('\n\n✅ OpenCode command completed');
+
+      const pricingResult = await buildPricingInfo();
+      if (pricingResult.tokenUsage.stepCount > 0) {
+        await log('\n💰 Token Usage Summary:');
+        await log(`   📊 ${pricingResult.pricingInfo?.modelName || mappedModel} (${pricingResult.tokenUsage.stepCount} steps):`);
+        await log(`      Input tokens:     ${pricingResult.tokenUsage.inputTokens.toLocaleString()}`);
+        await log(`      Output tokens:    ${pricingResult.tokenUsage.outputTokens.toLocaleString()}`);
+        if (pricingResult.tokenUsage.reasoningTokens > 0 || pricingResult.tokenUsage.tokenFieldAvailability?.reasoningTokens) {
+          await log(`      Reasoning tokens: ${pricingResult.tokenUsage.reasoningTokens.toLocaleString()}`);
+        }
+        if (pricingResult.tokenUsage.cacheReadTokens > 0 || pricingResult.tokenUsage.tokenFieldAvailability?.cacheReadTokens) {
+          await log(`      Cache read:       ${pricingResult.tokenUsage.cacheReadTokens.toLocaleString()}`);
+        }
+        if (pricingResult.tokenUsage.cacheWriteTokens > 0 || pricingResult.tokenUsage.tokenFieldAvailability?.cacheWriteTokens) {
+          await log(`      Cache write:      ${pricingResult.tokenUsage.cacheWriteTokens.toLocaleString()}`);
+        }
+        if (pricingResult.pricingInfo?.totalCostUSD !== null && pricingResult.pricingInfo?.totalCostUSD !== undefined) {
+          await log(`      Public pricing estimate: $${pricingResult.pricingInfo.totalCostUSD.toFixed(6)}`);
+        } else {
+          await log('      Cost: Not available (could not fetch pricing)');
+        }
+      }
 
       // Issue #1263: Log if result summary was captured
       if (lastTextContent) {
@@ -487,6 +565,7 @@ export const executeOpenCodeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime,
+        ...pricingResult,
         resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
@@ -510,6 +589,9 @@ export const executeOpenCodeCommand = async params => {
         sessionId: null,
         limitReached: false,
         limitResetTime: null,
+        tokenUsage: streamingTokenUsage.stepCount > 0 ? streamingTokenUsage : null,
+        pricingInfo: null,
+        publicPricingEstimate: null,
         resultSummary: null, // Issue #1263: No result summary available on error
       };
     }
@@ -546,12 +628,12 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
             if (commitResult.code === 0) {
               await log('✅ Changes committed successfully');
 
-              const pushResult = await $({ cwd: tempDir })`git push origin ${branchName}`;
+              const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
 
               if (pushResult.code === 0) {
                 await log('✅ Changes pushed successfully');
               } else {
-                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, {
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim() || pushResult.stdout?.toString().trim()}`, {
                   level: 'warning',
                 });
               }
@@ -607,7 +689,9 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
 export default {
   validateOpenCodeConnection,
   handleOpenCodeRuntimeSwitch,
+  checkPlaywrightMcpAvailability,
   executeOpenCode,
   executeOpenCodeCommand,
   checkForUncommittedChanges,
+  parseOpenCodeTokenUsage,
 };

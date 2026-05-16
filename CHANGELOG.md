@@ -1,5 +1,1761 @@
 # @link-assistant/hive-mind
 
+## 1.72.0
+
+### Minor Changes
+
+- fffdfbf: Add experimental `--resume-on-auto-restart` support for resuming Claude auto-restart sessions with a minimal uncommitted-change prompt.
+
+## 1.71.1
+
+### Patch Changes
+
+- aae5a08: Serialize merge queue auto-resolve sessions so conflicting pull requests resolve and drain CI one at a time.
+
+## 1.71.0
+
+### Minor Changes
+
+- aacdb06: Make the `--tool gemini` integration produce meaningful JSON output and reach
+  feature parity with `--tool claude` / `--tool codex`. Resolves #1809.
+  - The wrapper now feeds the prompt to gemini-cli through `command-stream`'s
+    `stdin` option instead of `cat <prompt-file> | gemini`, so the upstream
+    non-zero exit code is no longer swallowed by the pipeline.
+  - A new `detectGeminiPlainTextError` helper surfaces gemini-cli's plain-text
+    failures (auth required, quota exceeded, invalid model, unknown argument,
+    fatal error) as structured wrapper errors so headless callers stop seeing
+    silent `success: true` runs when authentication is missing. Tracked upstream
+    in [`google-gemini/gemini-cli`'s `validateNonInteractiveAuth`](https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/validateNonInterActiveAuth.ts);
+    see `docs/case-studies/issue-1809/upstream-issue-draft.md` for the proposed
+    upstream fix.
+  - A run that emits zero `init`/`message`/`tool_use`/`result` JSONL events is
+    now classified as a failure regardless of exit code, so empty runs cannot be
+    reported as success anymore.
+  - New optional flags wired through to gemini-cli: `--gemini-sandbox`
+    (`--sandbox`), `--gemini-extensions` (`--extensions`),
+    `--gemini-include-directories` (`--include-directories`, in addition to
+    `tempDir`/`workspaceTmpDir` which are always included), and
+    `--gemini-allowed-mcp-servers` (`--allowed-mcp-server-names`). `--verbose`
+    now also toggles gemini-cli's own `--debug` flag.
+  - New tests in `tests/test-gemini-support.mjs` lock in plain-text auth-error
+    surfacing, zero-event failure detection, and the verbose/include-directories
+    argv plumbing.
+  - Case study published in `docs/case-studies/issue-1809/`.
+
+## 1.70.0
+
+### Minor Changes
+
+- 35dc089: Add `--auto-resolve` to the `/merge` Telegram command. After the normal queue finishes, the bot now iterates every PR that was skipped because of merge conflicts and dispatches a `solve <pr-url> --auto-merge` session through `start-screen` — the same path other commands use — so conflict resolution runs with the default `sonnet` model and the PR is merged once the session finishes. Each PR/issue reference in the `/merge` progress and final messages is now rendered as a clickable MarkdownV2 link to the actual pull request or issue. Resolves #1805.
+
+## 1.69.18
+
+### Patch Changes
+
+- 9aa5659: Fix `--auto-fork` mode failing when continuing an existing fork PR whose
+  fork name already contained the upstream-owner prefix. `setupRepository`
+  in `solve.repository.lib.mjs` was applying the
+  `--prefix-fork-name-with-owner-name` option to `forkRepoName` (which is
+  the authoritative head repo name from the PR's `headRepository.name`),
+  producing a doubled prefix like
+  `konard/labtgbot-labtgbot-telegram-claude-agent` and a 404 lookup. The
+  prefix option now only controls fork _creation_, not fork _lookup_:
+  when `forkRepoName` is present, the expected fork is
+  `${forkOwner}/${forkRepoName}` and no alternate-name fallback is
+  attempted. Resolves #1803.
+
+## 1.69.17
+
+### Patch Changes
+
+- 46422f1: Increase the default `HIVE_MIND_USAGE_API_CACHE_TTL_MS` from 10 → 13 minutes so the Claude Usage API (`/api/oauth/usage`) is queried less frequently and we stop tripping the upstream "Resets in 3m Xs" rate-limit message. Operators can still override the value via the environment variable. Resolves #1798.
+
+## 1.69.16
+
+### Patch Changes
+
+- ca0d938: Fix Telegram work-session completion failing with "Bad Request: can't parse entities" when the discovered Pull request URL contained Markdown-significant characters (`_`, `*`, `` ` ``, `[`). `appendPullRequestLine` (issue #1688) inserted the raw URL into a Markdown message even though the surrounding `Issue:` line was already escaped by `buildTelegramInfoBlock`, so a repo slug like `save_visiogetbb/pull/8` opened an italic entity at byte offset 318 that never closed. The appended `Pull request:` line is now passed through `escapeMarkdown`, and `safeReply`/`safeEditMessageText`/`installTelegramFormattingFallback` now log the offending byte-offset window and the plain-text fallback under `--verbose` so future parse errors point straight to the unescaped character. Resolves #1801.
+
+## 1.69.15
+
+### Patch Changes
+
+- fbda6de: Fix `--auto-fork` failing on private repositories with read-only access when forking is allowed. `handleAutoForkOption` now probes the `allow_forking` repository attribute before bailing out: when it is `true`, fork mode is enabled (the same behaviour already used for public repos without write access); when it is explicitly `false`, the fatal exit explains that direct branch mode needs push/write access, fork mode is disabled, and the maintainer must either grant Write access or enable private forking; when it cannot be determined, we fall through with a verbose warning so `gh repo fork` can produce a precise downstream error. Resolves #1795.
+
+## 1.69.14
+
+### Patch Changes
+
+- 32af9e1: Show subscription end date in `/limits` for Claude and Codex when the underlying providers expose it. Claude trials display the trial end date from the OAuth profile; Codex displays the renewal date decoded from the ChatGPT JWT (`chatgpt_subscription_active_until`). Lines are only rendered when real data is available.
+
+## 1.69.13
+
+### Patch Changes
+
+- 52dfa8e: Preserve pull request `.gitkeep` edits during final cleanup so intentional `.gitkeep` deletions are not re-added.
+
+## 1.69.12
+
+### Patch Changes
+
+- 8ca35d6: Fix Telegram bot localization fallbacks for supported languages.
+
+## 1.69.11
+
+### Patch Changes
+
+- bdca974: Notify existing pull requests when solver pre-exit failures happen before a working session can post its own failure comment.
+
+## 1.69.10
+
+### Patch Changes
+
+- 7d58938: feat: add opt-in GitHub API rate-limit usage logging
+
+  Adds optional logging of current GitHub API rate-limit usage through the centralized `gh` retry wrapper so every wrapped GitHub CLI call can report quota usage while debugging.
+
+  Features:
+  - Disabled by default for backward compatibility
+  - Enable with `--github-rate-limits-logging` when debugging API usage
+  - Logs current `core`, `graphql`, and `search` rate-limit buckets after each centralized wrapped `gh` attempt
+  - Keeps the logging probe non-fatal so quota logging cannot break solve workflows
+
+  Example output:
+
+  ```
+  📊 GitHub rate limits after $gh (gh api repos): core: 780/5000 used (+29 since last check), 4220 remaining, resets 2026-05-12T10:30:00.000Z; graphql: 10/5000 used (no change), 4990 remaining, resets 2026-05-12T10:30:00.000Z
+  ```
+
+## 1.69.9
+
+### Patch Changes
+
+- 9d04a2f: Detect empty repositories before branch creation when Git reports an unborn branch name.
+
+## 1.69.8
+
+### Patch Changes
+
+- 175eaee: Fix two defects in the Telegram `/stop` command. (1) When `/stop` cancels a queued task by URL or reply, the original "⏳ Waiting (… queue #N)" card is now edited in place to show the task was cancelled (instead of leaving it stale). (2) Allow the user who originally ran `/solve` or `/hive` to `/stop` their own task by UUID or URL in a group chat, mirroring the requester authorization already used by `/terminal_watch` and `/watch` (PR #1779). The chat-creator fallback is preserved, so chat owners can still stop any task.
+
+## 1.69.7
+
+### Patch Changes
+
+- 2ea2bb7: Extend Telegram `/stop` to accept a GitHub issue or pull-request URL (passed as the argument or contained in the replied-to message). The bot looks the URL up in the in-memory solve queue and either cancels the queued item or forwards CTRL+C via `$ --stop <UUID>` to the running isolated session. The UUID flow from #524 and the chat-level pause flow from #1081 are preserved.
+
+## 1.69.6
+
+### Patch Changes
+
+- c2c51fa: Allow Telegram `/terminal_watch` and `/watch` to be used by the user who started a tracked session while preserving chat-owner access and private-repository DM routing.
+
+## 1.69.5
+
+### Patch Changes
+
+- 31b0f7e: Add issue language auto-detection for solve work prompts and localize limits output.
+
+## 1.69.4
+
+### Patch Changes
+
+- 105172b: Fix auto-PR creation failure on fork-of-fork repositories. When `solve` runs against an issue in a repository that is itself a GitHub fork and the user has direct write access, `gh pr create` previously resolved the base repository to the upstream parent (because `gh repo clone` auto-adds an `upstream` remote for forks), producing a misleading "No commits between" error. The auto-PR command builder now always passes `--repo ${owner}/${repo}` so the PR is created against the explicit target. The fatal error block also detects the failure mode and prints a fork-aware diagnostic with the resolved remotes and a manual recovery command.
+- d89243f: Stabilize the version-info timing test that broke CI/CD by using the same 30 second reasonable bound as the broader version-info structure test. The version collector still runs commands in parallel, but individual commands can legally spend 5 seconds on a timeout and then another 5 seconds on a fallback, so the previous 10 second wall-clock assertion was too tight for GitHub-hosted runners.
+- db56b5a: Sync custom fork base branches proactively. When a user passes `--base-branch` in fork mode, the solver now copies the requested branch from `upstream` to the user's fork before creating the issue branch, and falls back to the same recovery if branch creation still trips on a missing `origin/<baseBranch>`. This prevents the `fatal: 'origin/<baseBranch>' is not a commit` failure that surfaced for issue #1772 when an existing fork pre-dated upstream's custom branch.
+
+## 1.69.3
+
+### Patch Changes
+
+- d7f95e8: Add experimental `--auto-support-agents-md-as-claude-md` support for temporarily exposing AGENTS.md as CLAUDE.md during Claude runs.
+- 890e81f: Stop auto-merge from waiting forever when cancelled CI cannot be re-run automatically.
+
+## 1.69.2
+
+### Patch Changes
+
+- 0ff36b4: Count open draft pull requests when `/hive --skip-issues-with-prs` checks linked solution drafts, preventing duplicate work while an existing PR is still in progress.
+
+## 1.69.1
+
+### Patch Changes
+
+- 2911597: Fix feedback comment counting to run local git timestamp checks in the prepared repository directory, avoiding misleading `not a git repository` diagnostics in detached solve sessions.
+
+## 1.69.0
+
+### Minor Changes
+
+- 8939a2a: Add experimental `--show-limits` virtual option to hive-telegram-bot's `/solve` and `/hive` commands. When set, the bot embeds a Claude (or Codex) usage snapshot in the executing message and a delta block (start → end, with a parallel-sessions disclaimer) in the completion message. Limits are fetched via the existing 20-minute cached helpers so the upstream usage API isn't rate-limited. The flag is stripped before the args reach `/solve` or `/hive`, and bot administrators can disable it with `TELEGRAM_SHOW_LIMITS=false`. Refs: #594.
+
+## 1.68.0
+
+### Minor Changes
+
+- cbc7033: Switch the test runner to folder-based discovery and deprecate `start-screen` in favour of `--isolated screen` (issue #1758).
+  - `scripts/run-tests.mjs` now discovers every `*.mjs` / `*.test.mjs` / `*.test.js` file under `tests/` automatically. The hard-coded `LEGACY_DEFAULT_TESTS` allow-list is gone, so new test files no longer need a runner update to be picked up.
+  - New markers complement the existing `@hive-mind-test-suite <name>` marker:
+    - `@hive-mind-integration` — skip the file in the default suite; opt in via `--suite integration` or `HIVE_MIND_RUN_INTEGRATION=1`.
+    - `@hive-mind-test-skip` — exclude helper / fixture modules from every suite.
+  - `tests/integration-guard.mjs` exposes `skipUnlessIntegration(import.meta.url)` for token- or network-heavy tests.
+  - `src/start-screen.mjs` and `src/telegram-command-execution.lib.mjs::executeStartScreen` print a one-shot deprecation banner to stderr (suppressible with `HIVE_MIND_SUPPRESS_DEPRECATIONS=1`) recommending `--isolated screen`, which is already the default for `hive`/`solve` invocations through the Telegram bot.
+  - Adds regression tests `tests/test-issue-1758-runner-discovery.mjs`, `tests/test-issue-1758-start-screen-deprecation.mjs`, and `tests/test-issue-1758-integration-guard.mjs`.
+  - Documents the analysis under `docs/case-studies/issue-1758/`.
+
+## 1.67.2
+
+### Patch Changes
+
+- 240231e: Verify the pull request still links to the issue after every work session inside `--watch`, `--auto-restart-until-mergeable`, and `--finalize`, so that an iteration that turns out to be the last one cannot leave the PR un-linked when the AI rewrote the description without a closing keyword.
+
+## 1.67.1
+
+### Patch Changes
+
+- d37f752: Working session summary now always appears before the working session log on every PR comment thread. The per-iteration code in auto-restart-until-mergeable mode and watch / temporary auto-restart mode now posts the summary comment before uploading the log, matching the existing top-level flow.
+
+## 1.67.0
+
+### Minor Changes
+
+- d88aa94: Add `--ui-language` and `--work-language` flags for two-track i18n (issue #378). The existing `--language LOCALE` continues to set both tracks at once; `--ui-language LOCALE` overrides only UI/log strings, and `--work-language LOCALE` overrides only the language the AI uses for free-form output (PR/issue comments, commit messages, chat replies). Code, identifiers, and CLI strings stay in their original form. Supported locales: `en` (default), `ru`, `zh`, `hi`. The Telegram bot now resolves the user's effective locale and propagates it as `--language` to spawned solve/hive/task processes when no language flag is already present.
+
+## 1.66.0
+
+### Minor Changes
+
+- f744d5a: Add internationalisation (i18n) for user-facing terminal output and the Telegram bot. Translations are stored in `links-notation` files under `src/locales/` (`en`, `ru`, `zh`, `hi`) and loaded via `lino-objects-codec`. Adds a `--language <en|ru|zh|hi>` option to `solve`, `hive`, `task`, and `review` (defaults to detected system locale). The Telegram bot picks each user's language from `ctx.from.language_code` with a per-user override settable through a new `/language <code|default>` command (in-memory, resets on bot restart). Built-in commands `/limits`, `/version`, `/solve`, `/hive`, and `/language` now reply in the user's selected language. AI prompts are intentionally untouched - only human-facing strings are translated.
+
+## 1.65.2
+
+### Patch Changes
+
+- 0214c9e: Retry transient 5xx/network errors across all `gh` exec sites. Previously a single 504 from the GitHub GraphQL endpoint could abort `solve` during `gh pr create`. The retry helper now handles HTTP 502/503/504, socket hang up, ECONNRESET, ETIMEDOUT, and TLS handshake timeouts in addition to rate-limit errors, with a separate retry budget and exponential backoff. All direct `execAsync('gh ...')` sites are routed through `execGhWithRetry`.
+
+## 1.65.1
+
+### Patch Changes
+
+- d5cd096: Add a solve flag to disable separate error-report issue creation while preserving original issue failure comments, and improve pre-PR branch divergence diagnostics.
+
+## 1.65.0
+
+### Minor Changes
+
+- 14fe57e: Prevent normal Docker release manifest jobs from downloading DinD digest artifacts.
+- 74ce579: Reduce `/terminal_watch` Telegram edits by updating only when the displayed terminal snapshot changes and count only real terminal snapshot updates.
+- 78ab6e2: Add `--auto-delete-branch-on-merge` option for the `solve` command. When set together with `--watch`, the branch is deleted from the remote after the pull request is merged; when set together with `--auto-merge`, the auto-merge call requests branch deletion as part of the merge. The option is opt-in (default `false`), enables full GitHub Flow automation, avoids temporary auto-restart cleanup, uses the GitHub REST API for watch-mode deletion, and treats "branch already gone" responses as success so it does not warn when GitHub's "Automatically delete head branches" repo setting beats us to it.
+- 152de95: Add a Claude CLI streaming input case study with reproducible experiment scripts.
+
+## 1.64.4
+
+### Patch Changes
+
+- 20f5898: Add `/stop <UUID>` and reply-to-message-with-UUID modes to the Telegram bot (#524). Sending `/stop <uuid>` (or replying with `/stop` to a message containing a UUID) forwards CTRL+C to the matching isolated `/solve` or `/hive` session via `$ --stop <uuid>` from link-foundation/start (link-foundation/start#112), so individual screen/tmux/docker sessions can be cancelled from Telegram. Mirrors the existing `/log` and `/terminal_watch` UUID-resolution pattern. Bare `/stop` retains its existing chat-pause behaviour (#1081).
+
+## 1.64.3
+
+### Patch Changes
+
+- dd52682: Sanitize all user-facing output to prevent token leaks (#1745).
+  - All comment-posting paths (`postComment`, `editComment`, `postTrackedComment`) run bodies through `sanitizeOutput` (canonical name) / `sanitizeCommentBody` (active-token wrapper). `sanitizeLogContent` is preserved as a backward-compatible alias.
+  - `KNOWN_LOCAL_TOKEN_ENV_VARS` registry masks tokens by exact env value (Telegram, GitHub, Anthropic/Claude, OpenAI/Codex, Gemini/Google, Qwen/Dashscope, OpenCode, AgentCLI, HuggingFace).
+  - Three independent CLI flags: `--dangerously-skip-output-sanitization`, `--dangerously-skip-code-output-sanitization`, `--dangerously-skip-active-tokens-output-sanitization` — all default false; active-tokens skip stays separate so the broad skip flag still keeps active-token masking on.
+  - Process-wide sanitization counters (`getSanitizationStats`, `formatSanitizationSummary`) print a one-line summary at the end of each run with a hint to use `--dangerously-skip-output-sanitization` when masking blocks the user's workflow.
+  - `extractTokensFromUserContent` carve-out helper: tokens already present in user-provided content (issue body, non-bot comments, pre-existing code) are passed as `excludeTokens` so the sanitizer leaves them untouched while still masking active local tokens.
+  - Post-finish sweep (`runPostFinishSweep`) re-reads bot-authored PR comments and the PR description after the AI session completes and edits in place if a leak slipped past the live sanitizer.
+  - ESLint guardrail (`gh-rate-limit/require-sanitized-output`) flags raw `gh pr comment`, `gh issue comment`, `gh pr edit`, and `gh api .../comments` calls that bypass the sanitizer.
+  - Out-of-band Telegram leak DM with masked summaries when a known-local token is detected in an outbound comment.
+  - Hidden owner-only `/tokens` Telegram command lists configured tokens (always masked, private chat only).
+  - `maskToken` defaults to 3+3 characters per issue requirements.
+  - secretlint preset (best-of-breed) runs alongside our custom patterns; mismatch warnings surface gaps.
+
+## 1.64.2
+
+### Patch Changes
+
+- 320ca42: Fix budget stats sub-agent context-fill calculation so cumulative-only rows (e.g. Claude Haiku 4.5 sub-agent calls that never appear in the parent JSONL) use `input + cache_creation` instead of `input + cache_creation + cache_read`. The previous formula double-counted the cached prefix replayed across calls and produced impossible percentages such as `1.2M / 200K (583%)`.
+
+## 1.64.1
+
+### Patch Changes
+
+- 51a8721: Add a separate `konard/hive-mind-dind` Docker image for nested Docker testing.
+
+## 1.64.0
+
+### Minor Changes
+
+- 2ffb808: Add experimental `--use-agent-commander` option to delegate supported tool execution to the agent-commander library, including Claude, Codex, OpenCode, Agent, Qwen, and Gemini.
+
+## 1.63.0
+
+### Minor Changes
+
+- b7b0721: Add direct Google Gemini CLI support for solve, hive, queueing, model validation, structured stream JSON parsing, and Telegram `/gemini` aliases.
+
+## 1.62.1
+
+### Patch Changes
+
+- a683edf: Fix budget stats restored-context input accounting so sub-session lines include cache reads, use `sub-sessions` wording, and no longer render the obsolete `peak request:` label.
+
+## 1.62.0
+
+### Minor Changes
+
+- Add direct Qwen Code CLI support for solve and hive workflows.
+
+## 1.61.0
+
+### Minor Changes
+
+- 728b0ed: Add Telegram `/task` issue creation from repository links and issue text while preserving `/split` behavior.
+
+## 1.60.0
+
+### Minor Changes
+
+- Add issue-based task splitting with `/task` and `/split` Telegram commands.
+
+## 1.59.7
+
+### Patch Changes
+
+- 4f03aea: fix(solve): post a Working session summary at the end of every working session — issue #1728.
+
+  `--auto-attach-solution-summary` previously only ran in `solve.mjs`'s top-level flow.
+  Iterations inside `--auto-restart-until-mergeable` (`src/solve.auto-merge.lib.mjs`) and
+  `--watch` / temporary auto-restart (`src/solve.watch.lib.mjs`) called
+  `executeToolIteration()`, uploaded a log comment, and discarded the AI's
+  `toolResult.resultSummary` — so when the AI finished an iteration without posting
+  a comment, the user saw only the start (`Auto-restart triggered`) and end
+  (`Auto-restart-until-mergeable Log`) brackets with no AI conclusions in between.
+  Reproduced live on link-foundation/box PR #83 between comment ids
+  [`4345164478`](https://github.com/link-foundation/box/pull/83#issuecomment-4345164478)
+  and [`4345439482`](https://github.com/link-foundation/box/pull/83#issuecomment-4345439482).
+
+  Fix: extracted the attach-decision into a single helper
+  `maybeAttachWorkingSessionSummary` in `src/solve.results.lib.mjs` that all three
+  working-session call sites (`solve.mjs`, `solve.auto-merge.lib.mjs`,
+  `solve.watch.lib.mjs`) invoke with their own `iterationStartTime`. Each successful
+  iteration now ends with either an AI-authored comment OR an automated
+  "Working session summary" comment.
+
+  Also renamed the comment header from "Solution summary" to "Working session
+  summary" because not every working session is a solution draft — many are
+  continuation/restart iterations. CLI flag names (`--attach-solution-summary`,
+  `--auto-attach-solution-summary`, `--no-auto-attach-solution-summary`) and
+  function names are preserved for backwards compatibility. The new header is
+  registered in `TOOL_GENERATED_COMMENT_MARKERS` so a previous iteration's summary
+  is excluded from the next iteration's "did the AI post anything?" check.
+
+  Tests: extended `tests/test-solution-summary.mjs` to cover the new helper, the
+  header rename, the marker registration, and the per-iteration wiring in
+  `solve.auto-merge.lib.mjs` / `solve.watch.lib.mjs`.
+
+  Case study: `docs/case-studies/issue-1728/`.
+
+## 1.59.6
+
+### Patch Changes
+
+- d6d05a0: Fully safeguard from GitHub API rate-limit errors — issue #1726.
+
+  `/merge` merged a draft PR even though every `gh api` call had been failing
+  with `HTTP 403: API rate limit exceeded`. The merge subsystem caught those
+  errors silently in `getActiveRepoWorkflows()` and reported _"no CI checks
+  and repo has no active workflows — no CI/CD configured"_, which `/merge`
+  interpreted as _"all clear"_. Verbose log
+  ([`docs/case-studies/issue-1726/data/a4dccea2-a941-4a0c-a50e-60b1ed454e1e.log`](./docs/case-studies/issue-1726/data/a4dccea2-a941-4a0c-a50e-60b1ed454e1e.log),
+  lines 40251–40269):
+
+  ```
+  [VERBOSE] /merge: Error fetching workflows for link-foundation/relative-meta-logic:
+    Command failed: gh api "repos/link-foundation/relative-meta-logic/actions/workflows" --paginate --slurp
+  gh: API rate limit exceeded for user ID 1431904 ... (HTTP 403)
+
+  [VERBOSE] /merge: PR #100 has no CI checks and repo has no active workflows - no CI/CD configured
+  ```
+
+  Two combining root causes:
+  1. **`getActiveRepoWorkflows()` swallowed exceptions** in
+     [`src/github-merge.lib.mjs`](./src/github-merge.lib.mjs) and returned
+     `[]`. Rate-limit responses became "this repo has no workflows", which the
+     merge gate treated as "no CI configured, safe to merge".
+  2. **No gh API call site had rate-limit retry**. The existing
+     `ghCmdRetry`/`ghRetry` helpers only recognised transient TCP/TLS faults,
+     so a 403 fell straight through. ~135 raw `$gh ...` and
+     ``exec(`gh ...`)`` call sites scattered across `src/solve.*`,
+     `src/github-merge.*`, scripts, and reviewers.
+
+  Fix:
+  - **New rate-limit module**
+    [`src/github-rate-limit.lib.mjs`](./src/github-rate-limit.lib.mjs) with
+    `isRateLimitError`, `parseRateLimitReset`, `fetchNextRateLimitReset`,
+    `computeRateLimitWait`, `ghWithRateLimitRetry`, `execGhWithRetry`,
+    `wrapDollarWithGhRetry`. Applies the issue's policy:
+    `wait = (resetTime − now) + bufferMs (10 min) + random(0..jitterMs) (0..5 min)`,
+    reusing `limitReset.bufferMs` / `limitReset.jitterMs` from
+    [`src/config.lib.mjs`](./src/config.lib.mjs) (introduced in #1236).
+  - **Propagate errors instead of swallowing**. `getActiveRepoWorkflows()`
+    no longer wraps the gh call in try/catch that returns `[]`. Errors bubble
+    up; the merge gate sees the failure and stops.
+  - **Layered retry in legacy helpers**. `ghRetry` and `ghCmdRetry` in
+    [`src/lib.mjs`](./src/lib.mjs) check `isRateLimitError` first and delegate
+    to `ghWithRateLimitRetry` before applying transient-network retry.
+  - **Local `exec` shim** in 7 merge files rebound through
+    `ghWithRateLimitRetry` — converts every existing ``exec(`gh ...`)`` site
+    without per-call edits.
+  - **Wrapped `$` at every entry point** (15 files). `wrapDollarWithGhRetry`
+    routes every `$gh ...` through the retry helper while passing non-gh
+    commands unchanged.
+  - **Marker imports** in 17 callee files that receive `$` as a parameter,
+    declaring rate-limit awareness for the ESLint rule.
+  - **Queue threshold lowered** from 75% to 50% in
+    [`src/queue-config.lib.mjs`](./src/queue-config.lib.mjs).
+  - **Custom ESLint rule**
+    [`eslint-rules/no-direct-gh-exec.mjs`](./eslint-rules/no-direct-gh-exec.mjs)
+    flags any unsafe `gh` exec call site; files that import a known-safe
+    wrapper are exempted at file scope.
+
+  Tests:
+  - [`tests/github-rate-limit.test.mjs`](./tests/github-rate-limit.test.mjs)
+    — 22 unit tests covering `isRateLimitError` (primary, secondary,
+    abuse-detection, stderr, cause-chain), `parseRateLimitReset` (header
+    variants), `computeRateLimitWait` (future / null / past reset, jitter
+    bounds), `ghWithRateLimitRetry` (success, propagation, retry-then-succeed,
+    exhausted retries), `wrapDollarWithGhRetry` (passthrough, retry,
+    propagation).
+  - [`tests/test-no-direct-gh-exec-rule.mjs`](./tests/test-no-direct-gh-exec-rule.mjs)
+    — RuleTester valid/invalid cases.
+  - Updated `tests/queue-config.test.mjs` and `tests/limits-display.test.mjs`
+    for the 50% threshold.
+
+  Documentation:
+  [`docs/case-studies/issue-1726/`](./docs/case-studies/issue-1726/README.md)
+  contains the failing run logs, root-cause analysis, fix breakdown, and
+  verification commands.
+
+- bb0af8c: Fix `check-file-line-limits` CI failure on `main` after issue #1726 merge.
+
+  After PR #1726 (rate-limit safeguards) merged into `main`, the
+  `check-file-line-limits` job failed because three `.mjs` files crossed the
+  1500-line hard limit:
+  - `src/hive.mjs` — 1500 → 1504 lines
+  - `src/limits.lib.mjs` — 1497 → 1501 lines
+  - `src/solve.repository.lib.mjs` — 1500 → 1501 lines
+
+  Two root causes combined: (1) the per-file marker block PR #1726 added was 4
+  lines (2 comment lines + import + `void`), with no headroom check; (2) ESLint's
+  `max-lines` rule was configured with `skipBlankLines: true, skipComments: true`
+  while the CI script counts raw `wc -l`, so `npm run lint` passed locally even
+  though the CI script would fail. Local lint and CI line-limit had silently
+  drifted apart. See
+  [`docs/case-studies/issue-1730`](./docs/case-studies/issue-1730/README.md)
+  for the timeline, log excerpts, and template comparison.
+
+  Fix:
+  - **Synchronize ESLint `max-lines` with the CI script** in
+    [`eslint.config.mjs`](./eslint.config.mjs) by setting `skipBlankLines: false,
+skipComments: false`. Now `npm run lint` catches the failure locally before
+    push, restoring the invariant the rule's comment claimed.
+  - **Compact the rate-limit marker** introduced by #1726 from 4 lines to 1 line
+    in all 17 files. ESLint's existing `varsIgnorePattern: '^_'` means the
+    `void _wrapDollarWithGhRetry;` line was redundant; the trailing-comment form
+    preserves rate-limit awareness for `no-direct-gh-exec` while saving 3 lines
+    per file. Files: `src/hive.mjs`, `src/limits.lib.mjs`,
+    `src/{solve.session,solve.preparation,solve.progress-monitoring,solve.error-handlers,solve.feedback,solve.auto-pr,solve.branch-errors,hive.recheck,github.batch,bidirectional-interactive,token-sanitization}.lib.mjs`,
+    `src/youtrack/youtrack-sync.mjs`,
+    `scripts/{create-github-release,format-github-release,format-release-notes}.mjs`.
+  - **Compact `solve.repository.lib.mjs`** wrap pattern from 4 lines to 3 while
+    keeping the destructure form so `eslint-rules/no-direct-gh-exec.mjs` still
+    recognizes `wrapDollarWithGhRetry` in scope.
+
+  After the fix, all three previously-failing files are at or below 1500 raw
+  lines (1500 / 1498 / 1500) and `npm run lint` would now reject any
+  re-introduction of the regression.
+
+## 1.59.5
+
+### Patch Changes
+
+- bb24175: Fix `/merge` to correctly detect active CI runs on the default branch — issue
+  #1722.
+
+  The `/merge` command merged PR #1719 even though a CI/CD workflow run was
+  still in progress on `main`. The merge triggered a new run, which cancelled
+  the previous one. Verbose log:
+
+  ```
+  [VERBOSE] /merge: Checking for active CI runs on link-assistant/hive-mind branch main...
+  [VERBOSE] /merge: Error checking active runs on main: stdout maxBuffer length exceeded
+  [VERBOSE] /merge: No active CI runs on main branch. Ready to proceed.
+  ```
+
+  Two compounding root causes in
+  [`src/github-merge.lib.mjs`](./src/github-merge.lib.mjs)
+  `getActiveBranchRuns()` (and the parallel
+  [`src/github-merge-repo-actions.lib.mjs`](./src/github-merge-repo-actions.lib.mjs)
+  `getAllActiveRepoRuns()` introduced by issue #1503):
+  1. **No `maxBuffer` override on `gh api --paginate --slurp`.** Node's default
+     `child_process.exec` buffer is 1 MB; the unfiltered `actions/runs` response
+     on this repo's `main` was 12.7 MB, so `exec` rejected with
+     `stdout maxBuffer length exceeded`.
+  2. **Fetch errors became "no active runs".** The `catch` block returned
+     `hasActiveRuns: false`, which the caller (`waitForBranchCI`) interpreted as
+     "branch CI is idle, ready to merge". A transient fetch/buffer/parse error
+     was indistinguishable from genuine idleness.
+
+  Fix:
+  - **Server-side `?status=` filter**, looped over the active set
+    (`in_progress`, `queued`, `waiting`, `requested`, `pending`) with run-id
+    dedup. Response size scales with active-run count, not with historical-run
+    count — typically a few KB instead of 12+ MB.
+  - **Raise `exec` `maxBuffer` to `githubLimits.bufferMaxSize`** (10 MB, env
+    `HIVE_MIND_GITHUB_BUFFER_MAX_SIZE`) for all `gh` calls in
+    `github-merge.lib.mjs` and `github-merge-repo-actions.lib.mjs`. The existing
+    `githubLimits` infrastructure was already used in `github.batch.lib.mjs`;
+    this just wires it into the `/merge` paths.
+  - **Stop swallowing fetch errors as "idle".** Errors now propagate. The
+    surrounding `waitForBranchCI` / `waitForAllRepoActions` poll loops already
+    retry on the next tick; the timeout-final check has its own try/catch that
+    returns an explicit failure (instead of a false-positive "ready to merge").
+
+  Tests:
+  [`tests/test-active-branch-runs-buffer-1722.mjs`](./tests/test-active-branch-runs-buffer-1722.mjs)
+  shadows `gh` on `PATH` with a Node script that scripts active-run responses,
+  and asserts: (a) every call uses `?status=`, (b) duplicate runs across
+  statuses are deduplicated, (c) >1 MB responses are handled cleanly, (d)
+  `gh` failures throw rather than report idle, (e) `waitForBranchCI` keeps
+  polling on errors, (f) idle branches still resolve as ready,
+  (g) `getAllActiveRepoRuns` parity.
+
+  Documentation:
+  [`docs/case-studies/issue-1722/`](./docs/case-studies/issue-1722/README.md)
+  contains the timeline (with downloaded bot log, cancelled-run logs, run
+  metadata), facts, per-symptom root-cause analysis, and solution plan.
+  [`experiments/issue-1722-buffer-overflow.mjs`](./experiments/issue-1722-buffer-overflow.mjs)
+  is a minimal reproduction. No upstream report required — the fix lives
+  entirely in this repo.
+
+- 1a92ca1: Fix flaky CI `test-suites` job caused by `use-m`'s no-retry global npm install
+  — issue #1724.
+
+  CI run [25109962685](https://github.com/link-assistant/hive-mind/actions/runs/25109962685/job/73581228475)
+  on `main` failed in the `test-suites` job at the third test file
+  (`tests/test-active-branch-runs-buffer-1722.mjs`) with:
+
+  ```
+  Error: Failed to install command-stream@latest globally.
+    [cause]: Error: Command failed: npm install -g command-stream-v-latest@npm:command-stream@latest
+    npm error code ENOTEMPTY
+    npm error path /opt/hostedtoolcache/node/24.14.1/x64/lib/node_modules/command-stream-v-latest/js/src/commands
+  ```
+
+  Root cause: `src/github.lib.mjs` and `src/playwright-mcp.lib.mjs` call
+  `await use('command-stream')` at module top level (via `use-m`). Every test
+  file that transitively imports either module re-runs
+  `npm install -g command-stream-v-latest@npm:command-stream@latest`. `use-m`'s
+  `ensurePackageInstalled` issues a single `npm install -g` with no retry, and
+  npm intermittently fails with `ENOTEMPTY: directory not empty, rmdir` on
+  GitHub-hosted Ubuntu runners (a long-standing npm rmdir race against itself
+  when the previous global install left files behind).
+
+  Fix:
+  - New
+    [`scripts/preinstall-use-m-packages.mjs`](./scripts/preinstall-use-m-packages.mjs)
+    pre-installs every package the codebase loads through `use-m @latest`
+    (`command-stream`, `getenv`, `links-notation`, `@dotenvx/dotenvx`,
+    `telegraf`, `zx`, `yargs`) using the same alias scheme `use-m` does
+    (`<pkg-without-@-or-/>-v-latest`), with exponential-backoff retry on the
+    flake symptoms (`ENOTEMPTY` / `EBUSY` / `EPERM` / `ECONNRESET` / `ETIMEDOUT`
+    / `EAI_AGAIN` / `429` / `503`). After this step, `use-m`'s
+    `installedVersion === latestVersion` early-return path skips the install at
+    test time, so test imports never touch `npm install -g` again.
+  - The script also satisfies the case-study "verbose mode for next iteration"
+    requirement via `PREINSTALL_USE_M_VERBOSE=1` (or `RUNNER_DEBUG=1`), which
+    logs each attempt's command, stdout, stderr, and backoff delay, and
+    recognizes "package present on disk after a flake" as recovered success.
+  - Wires `node scripts/preinstall-use-m-packages.mjs` into the `test-suites`
+    and `test-execution` jobs in
+    [`.github/workflows/release.yml`](./.github/workflows/release.yml) right
+    after `npm install`, before any step that runs test files or `solve.mjs`.
+
+  Tests:
+  [`tests/test-preinstall-use-m-packages-1724.mjs`](./tests/test-preinstall-use-m-packages-1724.mjs)
+  covers the alias scheme, retryable-error matcher, exponential backoff, and
+  the four `installWithRetry` paths (first-success, retry-then-succeed,
+  non-retryable-abort, recovered-from-disk) deterministically (no real npm
+  calls). Marked `@hive-mind-test-suite default` so it runs in the same job
+  that previously flaked.
+
+  Documentation:
+  [`docs/case-studies/issue-1724/`](./docs/case-studies/issue-1724/README.md)
+  contains the timeline, verbatim error, downloaded failed-run logs, the
+  no-retry snippet from the live `use-m` source
+  (`logs/use-m-source.js`), the comparison with both pipeline templates
+  (JS/Rust — neither template uses `use-m @latest` at module load yet, so the
+  flake is hive-mind-specific until they do), and the implementation plan.
+
+## 1.59.4
+
+### Patch Changes
+
+- b2e0d12: Fix `/terminal_watch` uploading the full session log file when the watch
+  completes — addresses issue
+  [#1720](https://github.com/link-assistant/hive-mind/issues/1720).
+
+  Before this fix, `/terminal_watch` finished by calling
+  `bot.telegram.sendDocument(chatId, ...)` to attach the `<uuid>.log` file. That
+  had two unwanted effects:
+  - It duplicated work that the dedicated `/log` command already does.
+  - The bare `bot.telegram.sendDocument(chatId, ...)` call did not carry
+    `message_thread_id`, so in forum-enabled supergroups the document landed in
+    the **General** topic instead of the topic where `/terminal_watch` was
+    invoked, and it was not threaded as a reply.
+
+  `/terminal_watch` now only updates the live "✅ Terminal watch complete"
+  message at the end of the session. To download the log, use
+  `/log <uuid>` — it correctly replies in the originating topic via
+  `ctx.replyWithDocument`, which Telegraf annotates with `message_thread_id`
+  automatically.
+
+  A new regression test (`tests/test-issue-1720-terminal-watch-no-log.mjs`)
+  guards both behaviours, and `tests/test-issue-467-terminal-watch.mjs` was
+  updated to assert that no document is uploaded by the watcher.
+
+- 5c87a38: Fix `hive` to (a) stop forwarding `false` for solve options whose `type` is
+  `'string'` but whose `default` is `false`, and (b) exit non-zero when any
+  worker fails — issue #1718.
+
+  Previously, when a user ran `/hive` against several issues, every spawned
+  `solve` worker crashed with:
+
+  ```
+  Invalid --working-session-live-progress value: "false". Expected "comment" or "pr".
+  ```
+
+  …and `hive` itself still exited with code `0`, so the Telegram bot rendered a
+  green "Work session finished successfully" envelope even though zero PRs had
+  been created.
+
+  Two independent root causes:
+  1. **Auto-forwarder leaked `false` as a string.** In
+     [`src/hive.mjs`](./src/hive.mjs), the auto-forward block read:
+
+     ```js
+     } else if ((def.type === 'string' || def.type === 'number') && value !== undefined) {
+       args.push(`--${optionName}`, String(value));
+     }
+     ```
+
+     For `working-session-live-progress`, `solve.config.lib.mjs` declares
+     `type: 'string', default: false`. yargs preserves the boolean `false`
+     verbatim, so hive forwarded `--working-session-live-progress false`,
+     which `solve` rejects. The fix adds `&& value !== false` to the
+     predicate. Other `type:'string'` options whose `default` is `false`
+     are now also protected by a single defense-in-depth check.
+
+  2. **No non-zero exit on worker failures.** After `monitorWithSentry()`
+     resolved, hive returned without consulting `issueQueue.getStats()`. The
+     fix queries `finalStats = issueQueue.getStats()` and calls
+     `safeExit(1, …)` when `finalStats.failed > 0`, mirroring the exit
+     semantics solve already uses. Wrappers like `start-command`, the Telegram
+     bot, and CI now correctly observe the failure.
+
+  `--isolation screen` (R3 of the issue) was already wired through correctly;
+  no change required there. The verbose forwarder dump
+  (`📋 Command: ${solveCommand} ${args.join(' ')}`) — which is what allowed us
+  to diagnose this run in the first place — is preserved.
+
+  Tests: [`tests/test-issue-1718-hive-passthrough-false.mjs`](./tests/test-issue-1718-hive-passthrough-false.mjs)
+  locks the option shape, asserts both fixes are present in `src/hive.mjs`,
+  replays the forwarder logic on synthetic argv, and adds a defense-in-depth
+  sweep that no `type:'string'` / `default:false` option ever produces
+  `--<flag> false`.
+
+  Documentation: [`docs/case-studies/issue-1718/`](./docs/case-studies/issue-1718/README.md)
+  contains the timeline reconstructed from the user's `screen` log, the
+  distilled facts, the per-symptom root-cause analysis, the solution plan, and
+  notes confirming no upstream report (yargs / start-command) is required.
+
+## 1.59.3
+
+### Patch Changes
+
+- b0bffdc: Fix `solve` to skip fork mode when the upstream repository is private and the
+  user has direct write access — even when the existing PR was created from a
+  fork (issue #1716).
+
+  Previously, when a PR was originally created from a fork (e.g. the upstream
+  repo was public and the user without write access used `--auto-fork`), but
+  the upstream is now private and the user has direct write access, `solve`
+  still tried to clone the fork. If the fork had been renamed, deleted, or was
+  otherwise inaccessible (which is common after a public→private flip), repo
+  setup failed with `Fork not accessible`.
+
+  The auto-fork path already handled this correctly (logging
+  _"Auto-fork: Write access detected to private repository, working directly on
+  repository"_ and leaving `forkOwner = null`). The bug was that **continue
+  mode** — both the auto-continue path and the direct PR-URL path — re-set
+  `forkOwner` from the existing PR's head repository unconditionally,
+  overriding the auto-fork bypass.
+
+  Fix: in [`src/solve.mjs`](./src/solve.mjs):
+  - Hoist `detectRepositoryVisibility(owner, repo)` out of the
+    `if (argv.autoCleanup === undefined)` block so `isRepoPublic` is
+    unconditionally available.
+  - Compute one bypass flag,
+    `skipForkForPrivateUpstream = !isRepoPublic && !argv.fork && hasWriteAccess`.
+  - Gate both fork-from-PR-data branches behind it. When set, log
+    _"Issue #1716: Working directly on the private upstream repository"_ and
+    leave `forkOwner = null` so the regular non-fork code path runs.
+  - Gate the maintainer-modify auto-toggle on `forkOwner` being non-null so it
+    doesn't fire when the bypass triggered.
+
+  Explicit `--fork` still wins (the bypass requires `!argv.fork`), and users
+  with no write access on a private repo still hit the existing auto-fork
+  private-repo guard (the bypass requires `hasWriteAccess`).
+
+  Tests: [`tests/test-issue-1716-private-repo-skip-fork.mjs`](./tests/test-issue-1716-private-repo-skip-fork.mjs)
+  locks the flag declaration, the exact condition formula, both
+  fork-detection paths, and four scenario simulations
+  (private+writeAccess → bypass; public → no bypass; explicit `--fork` → no
+  bypass; no writeAccess → no bypass).
+
+  Documentation: [`docs/case-studies/issue-1716/`](./docs/case-studies/issue-1716/README.md)
+  contains the timeline reconstructed from the user's failure log, the
+  distilled facts, the per-symptom root-cause analysis, and the implementation
+  plan.
+
+## 1.59.2
+
+### Patch Changes
+
+- 9e96635: Fix Telegram `/solve` repo-not-accessible message still suggesting `--auto-accept-invite` even when that flag is already active (issue #1714). After issue #1694 flipped `--auto-accept-invite` to default-on, `src/telegram-bot.mjs` was passing `autoAcceptInvite: args.some(a => a === '--auto-accept-invite')` to `validateGitHubEntityExistence()` — but the literal flag is no longer present in the typical default-on invocation, so the suppression added by issue #1692 silently regressed. The call now reads `parsedSolveArgs?.autoAcceptInvite` (matching the auto-accept pre-check two lines above), so the hint is suppressed when the flag is active and only shown when the user explicitly opts out with `--no-auto-accept-invite`. Adds `tests/test-issue-1714-auto-accept-invite-hint.mjs` covering the parsed-argv contract and a source-level guard against the `args.some(...)` form returning, plus a case study under `docs/case-studies/issue-1714/`.
+
+## 1.59.1
+
+### Patch Changes
+
+- 65d7b99: Fix misleading `/merge` verbose logs that read as "no CI configured" when CI was actually
+  running — addresses issue [#1712](https://github.com/link-assistant/hive-mind/issues/1712)
+  where a user mistakenly Ctrl+C'd the auto-restart-until-mergeable watcher after seeing:
+
+  ```
+  [VERBOSE] /merge: PR #83 has no CI checks yet - treating as no_checks
+  [VERBOSE] /merge: PR #83 has no CI check-runs yet, but 1 workflow run(s) were triggered ...
+    ⏳ Waiting for CI:         Build and Release Docker Image
+  ```
+
+  The classification logic was correct — `/merge` was waiting on the legitimate 30-120s gap
+  between GitHub registering a `workflow_run` and publishing the corresponding `check_runs`.
+  The wording was the bug: "no CI checks yet" is parseable as "this repo has no CI", and the
+  listing showed run IDs without URLs, so the user couldn't quickly verify what `/merge` was
+  watching.
+
+  Changes:
+  - **`src/github-merge.lib.mjs`** — `getDetailedCIStatus` and `checkPRCIStatus` reword the
+    `no_checks` verbose lines to "has no check-runs or commit statuses registered yet",
+    including the short SHA. `getWorkflowRunsForSha` now appends `run.html_url` to every
+    entry. Normalized check-run / commit-status entries carry an `html_url` field
+    (falling back to `details_url` / `target_url`).
+  - **`src/solve.auto-merge-helpers.lib.mjs::getMergeBlockers`** — the `no_checks`,
+    `pending`, and `cancelled` branches now produce blocker `details` strings of the form
+    `"<name> [<status>] — <html_url>"`. The user-facing `⏳ Waiting for CI: …` line in
+    `solve.auto-merge.lib.mjs` (which joins `details` with commas) automatically picks up
+    the URLs, so the user can click through to the run.
+  - **`tests/test-misleading-merge-logs-1712.mjs`** — 13 unit tests covering the wording
+    guard, blocker enrichment for the no_checks / pending / cancelled paths, regression
+    guard for #1466, and the joined user-facing line format.
+  - **`docs/case-studies/issue-1712/README.md`** — full case study with raw logs, timeline,
+    root cause, fix description, and verification on the original PR
+    [link-foundation/box#83](https://github.com/link-foundation/box/pull/83) (which CI
+    passed for, after the user killed the watcher prematurely).
+
+  Also extends the `useWithRetry` helper (originally added in #1710 to recover from corrupt
+  hosted-CI npm-install state) with a third failure mode: `ERR_INVALID_PACKAGE_CONFIG` —
+  seen in this branch's own CI run when Node refused to parse a truncated
+  `getenv-v-latest/package.json`. `src/queue-config.lib.mjs` now loads `getenv` and
+  `links-notation` through the retry wrapper, matching `config.lib.mjs` and `lino.lib.mjs`.
+  Three new unit tests in `tests/test-use-with-retry.mjs` cover the new mode.
+
+  No upstream issue is needed — the bug was entirely in `link-assistant/hive-mind`. The
+  external workflow finished successfully (`check-runs-dfc4c14.json` shows `total_count: 22`).
+
+  **Follow-up round** (after review feedback in
+  [PR #1713 comment](https://github.com/link-assistant/hive-mind/pull/1713#issuecomment-4342387674)):
+  - **List active runs across ALL PR commits, not just HEAD.** New
+    `getActivePRWorkflowRuns()` in `src/github-merge-repo-actions.lib.mjs` walks every
+    commit on the PR (`/repos/.../pulls/N/commits`), dedupes by `run.id`, returns groups
+    marked `head` / `older`. The verbose log now lists active runs on older commits under
+    per-commit URL headers, so the GitHub Actions tab (which shows yellow dots for older
+    commits) reconciles with the log.
+  - **Eliminate duplicate logging.** `getWorkflowRunsForSha(verbose=true)` already prints
+    every run; the no_checks branch no longer re-iterates `workflowRuns`, just emits a
+    single explanatory summary line.
+  - **Commit URLs instead of short SHAs.** Verbose lines that referenced
+    `${sha.substring(0, 7)}` now use `https://github.com/${owner}/${repo}/commit/${sha}`
+    (or `/pull/N/commits/${sha}` where the PR context matters).
+  - **Inline plain-English explanations.** New `STATUS_HINTS` / `CONCLUSION_HINTS`
+    dictionaries plus `explainStatus()` helper — verbose lines read
+    `[in_progress] (currently executing)` instead of bare `in_progress`.
+  - **Multi-line user-facing waiting message.** The `⏳ Waiting for CI:` line is now
+    rendered by `renderBlocker()` — single-line for the common case (one run), but each
+    detail on its own indented line when there are multiple.
+  - 8 new tests added to `tests/test-misleading-merge-logs-1712.mjs` (Groups 5–8); 21
+    total. #1480 (31/31) and #1466 (14/14) regression suites still pass.
+
+## 1.59.0
+
+### Minor Changes
+
+- 903b10e: Add `--auto-input-until-mergeable` (issue #1708): a new experimental
+  mode that extends a single Claude session for as long as possible by
+  streaming PR/issue comments, CI/CD failures, uncommitted-changes
+  status, and PR/issue title/body updates as NDJSON `user` frames into
+  the live `claude --input-format stream-json` process — instead of
+  killing the process and restarting with the feedback prepended to a
+  fresh prompt.
+
+  What it ships:
+  - Three new flags in `src/solve.config.lib.mjs`, all defaulting to
+    `false` and marked `[EXPERIMENTAL]`:
+    - `--auto-input-until-mergeable` — top-level opt-in for the new
+      behavior. Implies `--accept-incomming-comments-as-input` and
+      defaults to `--queue-comments-to-input` so the AI can finish its
+      current step before being interrupted.
+    - `--stream-comments-to-input` — forward each comment immediately
+      as it arrives. Default for `--accept-incomming-comments-as-input`
+      on its own (preserves the existing #817 behavior).
+    - `--queue-comments-to-input` — buffer comments while the AI is
+      busy and flush them only on `result` events. Default delivery
+      mode for `--auto-input-until-mergeable`. Mutually exclusive with
+      `--stream-comments-to-input`; queue mode wins if both are set.
+  - Queue-vs-stream delivery wired into
+    `src/bidirectional-interactive.lib.mjs#createBidirectionalHandler`:
+    - New `deliveryMode` option (`'stream'` / `'queue'`) plus
+      `markAiBusy()` / `markAiIdle()` lifecycle methods exposed on the
+      handler.
+    - In queue mode, comment frames and status frames are buffered in
+      `pendingFrames` while busy and FIFO-flushed to stdin on the next
+      `result` event. In stream mode, frames go to stdin immediately as
+      today.
+  - Status streaming (only when `--auto-input-until-mergeable` is on)
+    in `src/bidirectional-interactive.lib.mjs#checkForStatusChanges`:
+    - New parallel poller emits one-shot NDJSON frames for: PR
+      title/body changes, issue title/body changes (Issue #1708 G1),
+      uncommitted local changes (`git status --porcelain`), and CI
+      blockers (via `getMergeBlockers`).
+    - Each change is keyed by a stable signature so the same failing
+      check doesn't re-emit on every poll; failures in any sub-check
+      are swallowed and logged so the poller never breaks the live
+      Claude session.
+  - Stream parser in `src/claude.lib.mjs#executeClaudeCommand` now
+    signals `markAiBusy()` on `assistant` / `tool_use` / `tool_result`
+    events and `markAiIdle()` on `result` events, so queue-mode
+    buffering tracks the actual AI lifecycle.
+  - `src/solve.auto-merge.lib.mjs#watchUntilMergeable` logs a
+    "streaming-first" banner when `--auto-input-until-mergeable` was
+    active, so it is clear the auto-restart loop is the fallback rather
+    than the primary handler.
+  - For non-Claude tools, the validator continues to warn and disable
+    all four flags — the existing #817 fallback path. The default
+    behavior of every existing flag
+    (`--auto-restart-until-mergeable`, `--auto-merge`, etc.) is
+    preserved (R4: "must not break any existing features").
+  - Tests:
+    `tests/test-auto-input-until-mergeable-1708.mjs` (59 assertions)
+    and 11 new assertions in
+    `tests/test-bidirectional-interactive.mjs` cover flag composition,
+    queue-vs-stream routing, FIFO flushing on idle, busy-flag
+    preservation across stream-mode writes, default-deliveryMode is
+    stream, status-frame stamping with the right header per kind
+    (`comment` / `ci` / `uncommitted` / `metadata`), and metadata
+    diff/snapshot helpers.
+
+  The case study at `docs/case-studies/issue-1708/` is updated to
+  reflect that R1, R2 (Claude path), R3 (PR/issue title+body, CI,
+  uncommitted, comments), R4, R5, R6, plus G1, G5, G7 are addressed
+  here. Codex/Agent/OpenCode still degrade gracefully (no mid-session
+  NDJSON channel upstream) and use the existing `watchUntilMergeable`
+  loop as documented in G4.
+
+- 6efcab4: Fix cost / token calculation correctness, unify Total / sub-session format,
+  add verbose budget trace, and case study for issue #1710
+
+  Resolves the four "strange things" the issue reported by changing both the
+  public-pricing math and the rendered output:
+  - **R1 — `$0.040000` residual eliminated.** `calculateModelCost`
+    ([`src/claude.lib.mjs`](./src/claude.lib.mjs)) now bills Anthropic
+    server-side tools. `web_search` is charged at the documented
+    $10 / 1 000 requests rate (= $0.01 / req) via the new constants module
+    [`src/anthropic-server-tool-pricing.lib.mjs`](./src/anthropic-server-tool-pricing.lib.mjs).
+    For the issue's PR #1707 run that comes out to exactly the previously-shown
+    $0.040000 / +0.16% delta, so the public-pricing total now reconciles with
+    Anthropic's reported `total_cost_usd`. `accumulateModelUsage`
+    ([`src/claude.budget-stats.lib.mjs`](./src/claude.budget-stats.lib.mjs))
+    also picks up `usage.server_tool_use.web_search_requests` from JSONL.
+  - **R2 — Haiku sub-session line includes input information.** Sub-agent
+    models never appear as the responding model in the parent JSONL, so
+    `peakContextUsage` stays at `0`. The fallback in `buildBudgetStatsString`
+    now emits the cumulative `(X new + Y cache writes [+ Z cache reads])`
+    phrase instead of dropping the input information entirely.
+  - **R3/R5 — Sub-session and Total reconcile.** The bullet line is now
+    labelled `peak request: …` so it cannot be confused with the cumulative
+    Total line. `requestContext` (the source of `peakContextByModel`) excludes
+    cache reads, so the bullet figure is `input + cache_creation` and is
+    reconcilable with the cumulative non-cached total. Cache reads remain
+    visible — and visible separately — on the Total line.
+  - **R4 — Total always splits cache reads / cache writes when present.**
+    The conditional that previously keyed on `cacheReadTokens` only is replaced
+    with a `buildCumulativeInputPhrase` helper that emits
+    `(X new + W cache writes + Y cache reads) input tokens` when both kinds of
+    cache activity exist, `(X new + W cache writes)` when only writes exist
+    (the Haiku case that triggered the issue), and the back-compat
+    `(X + Y cached)` form when only reads exist (so common Opus-only output
+    is unchanged). Cache writes are billed at 1.25× / 2× of input — fusing
+    them silently into the input figure was a real semantic bug, not a
+    cosmetic one.
+
+  Both `displayBudgetStats` (solver-log renderer) and `buildBudgetStatsString`
+  (PR-comment renderer) share the helper, so the two paths render identically.
+
+  Also adds **`dumpBudgetTrace`**
+  ([`src/claude.budget-stats.lib.mjs`](./src/claude.budget-stats.lib.mjs)),
+  a verbose-only structured per-model trace (peak request, cumulative
+  input/cache_write 5m+1h split/cache_read/output, server-tool counts with
+  implied dollar cost, public and Anthropic-reported costs, and the data
+  source) that fires from `displayBudgetStats` only when `{verbose: true}` is
+  set, so the default solver output is unchanged. The trace captures all the
+  inputs that drive the renderer in one place, so the next "calculation
+  correctness" report can be triaged from a saved log alone.
+
+  Tests:
+  - `tests/test-issue-1710-budget-trace.mjs` — 10 cases for the verbose trace.
+  - `tests/test-issue-1710-format-fixes.mjs` — 8 cases locking each requirement
+    to numbers from `docs/case-studies/issue-1710/facts.md` (the actual
+    PR #1707 result event the issue quotes).
+
+  Documentation: `docs/case-studies/issue-1710/` contains the root-cause
+  analysis (per symptom, with file:line citations), the captured facts, and
+  the (now-implemented) solution plans.
+
+  Also fixes the hosted-CI flake that surfaced while validating this PR:
+  `use-m` occasionally hands back a truncated/corrupt global package after
+  `npm install -g`, surfacing as either
+  `Failed to import module from '...': SyntaxError: Unexpected end of input`
+  or `Failed to resolve the path to '<pkg>'` when use-m loads `getenv` /
+  `links-notation` from `src/config.lib.mjs` and `src/lino.lib.mjs`. Adds
+  `src/use-with-retry.lib.mjs`, a small wrapper around `use(...)` that
+  recognises both flake modes, removes the broken alias directory, and
+  re-fetches once. Covered by `tests/test-use-with-retry.mjs` (13 cases).
+
+## 1.58.0
+
+### Minor Changes
+
+- 3616130: Add `--sub-session-size` and `--disable-1m-context` options for Claude and Codex (issue #1706)
+
+  `--sub-session-size` (default: `150k`) caps the size of each sub-session
+  between auto-compaction events. It accepts a token count (`150k`, `1m`,
+  `200000`), a percentage of the model context window (`50%`), or `default`
+  to keep the tool's built-in threshold.
+
+  `--disable-1m-context` (default: `true`) opts out of the 1M extended
+  context window so models stay on their standard 200K-400K window. This
+  preserves reasoning quality and avoids the long-context price tier.
+  Use `--no-disable-1m-context` to allow 1M.
+
+  Both options work for `--tool claude` and `--tool codex`. For Claude Code
+  the wrapper sets `CLAUDE_CODE_DISABLE_1M_CONTEXT`,
+  `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`
+  env vars (clamped per upstream's "lower-only" semantics). For Codex the
+  wrapper appends `-c model_context_window=200000` and
+  `-c model_auto_compact_token_limit=<tokens>` overrides.
+
+  Verbose mode logs the applied env vars and `-c` overrides so operators
+  can confirm they reached the spawned tool process.
+
+- b341775: Hide the cost-estimation breakdown when the public and Anthropic numbers agree to within display precision (issue #1703)
+
+  Both the live `displayCostComparison` console output and the
+  `buildCostInfoString` markdown rendered into PR/issue comments previously
+  collapsed to the short `💰 Cost: $X.XXXXXX` form only when the two values
+  matched **exactly** at six decimal places. Real-world calls regularly produce
+  underlying values that differ by ~`1e-7` and round to **adjacent** displays
+  (e.g. `$11.219694` vs `$11.219693`); the rendered difference (`$-0.000000
+(-0.00%)`) was therefore noise yet still printed three full lines. The guard
+  now triggers whenever `|public − anthropic|.toFixed(6) === '0.000000'`, which
+  preserves the existing behaviour at every meaningful (≥ `$0.000001`) delta and
+  adds short-form output for the boundary case from issue #1703. Regression
+  tests live in `tests/test-build-cost-info-string.mjs` and
+  `tests/test-display-cost-comparison.mjs`.
+
+## 1.57.3
+
+### Patch Changes
+
+- 5c65c29: Fix /log and /terminal_watch falsely rejecting real `$` isolation sessions (issue #1700)
+
+  `parseSessionStatusOutput` looked for the isolation backend at `data.isolation`
+  or `data.options.isolation`, but the published `link-foundation/start` 0.25.x
+  CLI reports it at `options.isolated` in both JSON and the default
+  `links-notation` output. As a result, replying `/log` (or `/terminal_watch`) to
+  a `Work session finished` message rejected every screen / tmux / docker session
+  with `❌ This command currently supports only sessions launched with $
+isolation`. The parser now reads `options.isolated` first and keeps the legacy
+  field names as fallbacks. The rejection site additionally emits a `[VERBOSE]`
+  diagnostic line so future contract drifts can be triaged from a single bot log
+  entry. Regression test in `tests/test-issue-1700-isolation-parsing.mjs`.
+
+## 1.57.2
+
+### Patch Changes
+
+- aff6d1d: Add a stable test runner and suite markers to avoid package.json test-script conflicts.
+
+## 1.57.1
+
+### Patch Changes
+
+- e4ece4d: Treat Codex app-server stream-lag item errors as non-fatal warnings when the turn otherwise completes successfully, preventing successful Codex runs from being reported as failed solution drafts.
+
+## 1.57.0
+
+### Minor Changes
+
+- 272a2d4: Add live terminal watch support for hive-telegram-bot
+
+  This feature adds `/terminal_watch` plus the experimental `--auto-start-screen-watch-message` option. The command watches the log reported by `$ --status <uuid>` and updates a separate Telegram message with a terminal-sized text snapshot.
+
+  Key features:
+  - Manual `/terminal_watch <uuid>` command, including reply-based usage
+  - Configurable terminal snapshot size with `--size`, `--width`, and `--height`
+  - Auto-freezes the watch message and attaches the full log when the session ends
+  - Public repository logs can update in chat; private/unknown visibility uses DM for manual watches
+  - Auto-start remains off by default and never starts for private or unknown-visibility repositories
+
+  Based on the proof-of-concept from konard/telegram-terminal-bot.
+
+## 1.56.19
+
+### Patch Changes
+
+- 0da8eba: Add a `/log` Telegram command that lets a chat owner pull the on-disk log of a `$` isolation session (`screen`, `tmux`, `docker`). The command accepts `/log <UUID>` directly or `/log` as a reply to any session message that contains a session UUID, validates the id with `$ --status`, derives the log path from start-command's `logPath` field, and uploads the file as a reply to the user. Logs from public GitHub repositories are uploaded to the same chat; logs from private (or unknown-visibility) repositories are sent via direct message after forwarding the originating session message into the DM, so private logs never leak into public chats. Access is restricted to the chat owner (Telegram `creator` status), matching the existing `/start`, `/stop`, and `/top` policy.
+
+## 1.56.18
+
+### Patch Changes
+
+- 47810ae: Telegram bot: add experimental `/subscribe` + `/unsubscribe` commands so users can opt in to receive a private DM forward of the `/solve` work-session completion message (commands work in both private and group chats; subscriptions are kept in memory and reset on bot restart). The completion message now includes both an `Issue:` line (the original URL passed to `/solve`) and, when the agent created a pull request for that issue, a follow-up `Pull request:` line so reviewers see both links without leaving the chat. (#1688)
+
+## 1.56.17
+
+### Patch Changes
+
+- b693172: Improve the repository-not-accessible error message in `/solve` (issue #1692). The headline drops the redundant "not found or" wording and the technical "(GitHub returns 404 for private repos without permissions)" parenthetical, leads with the most-actionable hypothesis ("Repository may be private — ensure the bot has been granted access"), and only suggests `--auto-accept-invite` when that flag is _not_ already active. The Telegram bot surface picks up the same suppression so users do not see the hint echoed back when they already passed the flag.
+
+## 1.56.16
+
+### Patch Changes
+
+- 2e2d9e6: Fix `/merge` and `--auto-restart-until-mergeable` getting stuck forever waiting for check-runs that never arrive when a target repo's GitHub Actions workflow file is invalid (e.g. YAML syntax error or `Unrecognized named-value` expression error). GitHub creates a `status=completed, conclusion=failure` workflow run with zero jobs and zero check-runs in this case; the new `getWorkflowRunJobsCount` helper detects the zero-jobs signal and surfaces the broken workflow as a `ci_failure` blocker so the auto-restart loop fires and the AI solver receives the actionable error (workflow file path + run URL) instead of looping silently. See `docs/case-studies/issue-1690/`.
+- a0a25de: Make four stabilized options enabled by default (issue #1694): `--auto-accept-invite`, `--tokens-budget-stats`, and `--auto-attach-solution-summary` now default to `true` for `solve` and `hive` (use `--no-…` to disable), and the `hive-telegram-bot`'s `--isolation` defaults to `screen` (set `TELEGRAM_ISOLATION=` or pass `--isolation ''` to disable). The Telegram `/solve` auto-accept-invite pre-check now reads the parsed `argv` so the new default fires without an explicit `--auto-accept-invite` and `--no-auto-accept-invite` works as a real opt-out.
+
+## 1.56.15
+
+### Patch Changes
+
+- cdd8010: Refine the Telegram bot work-session messages: introduce `🔄 Starting...` and `⏳ Executing...` to distinguish launch from execution, change the completion headline to `✅ Work session finished successfully` / `❌ Work session failed (exit code: N)`, show duration before session, and preserve the audit infoBlock (`Requested by`, `URL`, `🛠 Options`, `🔒 Locked options`) on every state — including completion and failure paths — so admins keep a record even when users delete their original `/solve` message.
+
+## 1.56.14
+
+### Patch Changes
+
+- 77d6be2: Prevent failure-log uploads from posting broken `null` links and replace green-check failure-log terminal status with neutral attachment wording.
+
+## 1.56.13
+
+### Patch Changes
+
+- ca1ac93: Start Telegram work-session monitoring before Telegraf long polling can block startup code, and keep completed screen-isolated sessions in memory until their completion message is updated.
+
+## 1.56.12
+
+### Patch Changes
+
+- 71e1ef5: Prevent `--attach-logs` from posting truncated fallback comments when full `gh-upload-log` uploads fail, and parse newer `gh-upload-log` repository output including shared-repository paths.
+
+## 1.56.11
+
+### Patch Changes
+
+- 0c00b7b: Retry Codex stream disconnects by resuming the preserved exec session.
+
+## 1.56.10
+
+### Patch Changes
+
+- e2f9a37: Fix duplicated yargs choice values in Telegram validation errors.
+
+## 1.56.9
+
+### Patch Changes
+
+- 94448c3: Fix screen-isolated work-session Telegram updates so executing messages stay compact and completion messages use `$ --status` start/end timestamps and exit codes.
+
+## 1.56.8
+
+### Patch Changes
+
+- 05a3e42: Fix CI/CD change detection for pull request synchronize events so metadata-only updates skip expensive test jobs while still reporting completed checks.
+- c12f99d: Fix screen-isolated solve monitoring so completed `$ --status` sessions no longer block duplicate commands, queued status displays executing isolation sessions, and Telegram start messages stay in an executing state until completion.
+
+## 1.56.7
+
+### Patch Changes
+
+- 37c895c: Retry capacity-related tool failures with exponential backoff and support fallback models for Codex, Claude, OpenCode, and Agent resumes.
+- 16f341d: Limit automatic restart/resume loops to five iterations by default and avoid pre-restart branch sync when local merge state must be resolved by the AI session.
+
+## 1.56.6
+
+### Patch Changes
+
+- e4037e1: Support Telegram solve and hive commands when options are placed before the GitHub URL.
+
+## 1.56.5
+
+### Patch Changes
+
+- 0447110: Treat structured Codex error events as failed tool executions even when the Codex process exits with code 0.
+
+## 1.56.4
+
+### Patch Changes
+
+- 2d6d405: Fix Telegram bot LINO configuration parsing for parenthesized option/value links such as `(--isolation screen)`.
+
+## 1.56.3
+
+### Patch Changes
+
+- 86da037: Support `gpt-5.5` for the Codex tool, prefer it as the default model, accept forward-compatible `gpt-5.5-mini` and `gpt-5.5-nano` aliases, and document per-tool model and reasoning defaults.
+
+## 1.56.2
+
+### Patch Changes
+
+- d39f08f: fix(hive-screens): make `--list` default to `--all`, print log/issue after `--enter` exits, and actually close sessions on `--close`
+
+  Addresses issue #1654:
+  - `hive-screens --list` now defaults to `--all` so a bare `--list` lists every
+    match, matching user expectations. `--enter` and `--close` keep `--oldest` as
+    their default because they are destructive.
+  - `hive-screens --enter` now prints `Log:` and `Issue:` lines **after** the
+    user detaches from the screen session, so the information is not wiped by
+    `screen -r` swapping to the alternate buffer.
+  - `hive-screens --close` now spawns `screen -X stuff exit\n` directly (with
+    the newline as a literal argv element) instead of shelling out with bash
+    ANSI-C quoting (`$'exit\n'`). The legacy form relied on `/bin/sh` being
+    bash, but on Debian/Ubuntu it is `dash`, which does not understand
+    `$'...'` — so the previous command sent the literal string `$exit\n` into
+    each session and never actually closed it.
+  - Adds a `--verbose` / `-v` flag that prints scanning diagnostics to stderr.
+
+## 1.56.1
+
+### Patch Changes
+
+- 32035a2: Issue #1651: When fork-parent auto-recovery tries to delete the mismatched
+  fork and the GitHub CLI token is missing the `delete_repo` scope, `solve`
+  now prints the real remediation (`gh auth refresh -h github.com -s delete_repo`)
+  plus a non-destructive alternative (rename/archive + `--prefix-fork-name-with-owner-name`)
+  instead of re-recommending the same `gh repo delete` command that just failed.
+  In `--verbose` mode the full `gh` output is also printed so future root-cause
+  analyses have the diagnostic lines GitHub already provides.
+
+  Pre-PR failures that are posted back to GitHub issues now use user-facing
+  guidance: they ask the issue reporter to fix repository/account state when
+  possible or ask a Hive Mind administrator to handle the affected repository,
+  while keeping administrator CLI details in the terminal log instead of the
+  public issue comment.
+
+## 1.56.0
+
+### Minor Changes
+
+- 391dbde: Add `hive-screens` bin command. Converts the `hive-screens.sh` script that was
+  embedded in README.md into a real JavaScript command shipped with the package.
+  Supports `--list` (safe preview), `--enter` (attach), and `--close` (terminate)
+  across detached GNU screen sessions that completed a mergeable solve run.
+  `--list`, `--enter`, and `--close` share the same matching predicate, so any
+  session visible under `--list` is guaranteed to be actionable by the other
+  flags. Selection flags `--oldest` (default), `--newest`, and `--all` are
+  preserved from the legacy script. Closes #1649.
+
+## 1.55.0
+
+### Minor Changes
+
+- d696423: Add experimental bidirectional interactive mode (issue #817). Introduces three composable opt-in flags for `solve` (auto-forwarded to `hive`): `--accept-incomming-comments-as-input` (feed new PR/issue comments into Claude as stream-json input, excluding solve's own system comments), `--exclude-all-own-incomming-comments-from-input` (also skip comments authored by the same GitHub user that solve runs as), and `--bidirectional-interactive-mode` (composite convenience flag that enables `--interactive-mode` plus the two flags above). All flags default off and only take effect with `--tool claude`.
+
+## 1.54.8
+
+### Patch Changes
+
+- 12f5761: Fix `--auto-restart-until-mergeable` readiness comment deduplication for pull requests with more than one page of comments, and enforce pagination on list-returning `gh api` calls.
+
+## 1.54.7
+
+### Patch Changes
+
+- 06b1a41: Fix `--auto-attach-solution-summary` so the AI-comment scan starts at the current work session instead of the older feedback reference time.
+
+## 1.54.6
+
+### Patch Changes
+
+- 2c15727: Migrate Docker images and deployment paths from `konard/sandbox` to the current
+  full `konard/box` base image with the `box` user and `/home/box` home directory.
+
+## 1.54.5
+
+### Patch Changes
+
+- ea79845: Disable noisy Claude Code features for solve runs via merged user settings, subprocess environment variables, and Docker image defaults. Expands the quiet config to also disable fast mode, feedback surveys, mouse tracking, away summaries, Claude attribution (commit/pr), co-authored-by trailer, thinking summaries, and UI animations, sets viewMode to verbose, and caps tool-use concurrency at 4 for deterministic autonomous runs. Keeps Claude's built-in git/PR instructions on (`includeGitInstructions: true`), enables task tracking (`CLAUDE_CODE_ENABLE_TASKS=1`) and turn resume (`CLAUDE_CODE_RESUME_INTERRUPTED_TURN=1`), and makes the bypass-permissions mode audible via `permissions.defaultMode: "bypassPermissions"` + `skipDangerousModePermissionPrompt: true` (complementing the existing `--dangerously-skip-permissions` CLI flag). Adds a reusable `configure-claude` bin with an apply default and a `--verify` check-only mode so users and system administrators can reset or audit Claude Code configuration manually after installing `@link-assistant/hive-mind`. Docker release builds now wait for the npm package version to become available, pass that exact version into Docker as `HIVE_MIND_VERSION`, install `@link-assistant/hive-mind@${HIVE_MIND_VERSION}`, and invoke the published `configure-claude` bin directly instead of copying repo source files into the Docker build.
+
+## 1.54.4
+
+### Patch Changes
+
+- 2ac0a14: Notify the source issue when solve exits with a known issue but no pull request, including failure logs when `--attach-logs` is enabled.
+
+## 1.54.3
+
+### Patch Changes
+
+- 5030b04: Fix Codex pricing display by calculating OpenAI public estimates from models.dev token rates, passing Codex totals into shared budget stats, and avoiding duplicate raw token usage lines when a Total line is already shown.
+
+## 1.54.2
+
+### Patch Changes
+
+- 9d4e473: Cap `/limits` CPU cores display at available CPU count when load average demand exceeds capacity.
+- ea0b9f5: Use Anthropic's native Claude Code installer in Docker images so the CLI binary is installed even when Bun blocks dependency postinstall scripts.
+
+## 1.54.1
+
+### Patch Changes
+
+- 5f70953: fix(solve): post tool-generated PR comments again after v1.53.1 regression
+
+  `postTrackedComment()` in `src/tool-comments.lib.mjs` (added in #1626) was
+  passing the comment body to `gh api --input -` via `$({ input: payload })`,
+  but command-stream's option is `stdin`, not `input`. The misnamed key was
+  silently ignored, so `gh` read from the parent's stdin, sent an empty POST
+  body, and GitHub's edge returned `HTTP 400 "Whoa there!"`. Every tool-posted
+  comment — `AI Work Session Started`, log-upload link, `Ready to merge`,
+  `Auto-merged`, billing-limit notice, usage-limit notice — failed from this
+  one call path starting with v1.53.1.
+
+  Fix: use the documented `stdin` option so the JSON payload actually reaches
+  the child's stdin. The regression test pins the option name so a future
+  rename can't silently recur.
+
+  Fixes #1631.
+
+## 1.54.0
+
+### Minor Changes
+
+- ee156ba: Disable Claude Code built-in tools and MCP servers that have no value in autonomous headless runs. A new `--useless-tools-disabled` flag (default: `true`, use `--no-useless-tools-disabled` to opt out) adds `AskUserQuestion`, `CronCreate/Delete/List`, `EnterPlanMode/ExitPlanMode`, `EnterWorktree/ExitWorktree`, `Monitor`, `NotebookEdit`, `PushNotification`, `RemoteTrigger`, `ScheduleWakeup` and the three `claude.ai` OAuth MCP connectors (Gmail, Google Drive, Google Calendar) to `--disallowedTools` / `--strict-mcp-config` on each `solve` run. The Docker images (`Dockerfile`, `coolify/Dockerfile`) also bake the same `disallowedTools` list into the baseline `~/.claude/settings.json` so interactive `claude` sessions inside the image don't surface them either (issue #1627).
+
+## 1.53.1
+
+### Patch Changes
+
+- c0e8c6d: Fix `--auto-attach-solution-summary` falsely detecting solve.mjs's own session bookkeeping comments ("AI Work Session Started", "Solution Draft Log", "Auto-restart", "Ready to merge", etc.) as AI-authored comments, which caused the solution summary to always be suppressed even when the AI session produced no comments of its own.
+
+  The fix introduces a new `src/tool-comments.lib.mjs` module as the single source of truth for every marker string embedded in tool-posted comments, along with in-memory tracking of the GitHub comment IDs that solve.mjs itself creates during a session. `checkForAiCreatedComments` now uses the tracked ID set as the primary filter — any comment the tool posted in this session is excluded regardless of body text — and falls back to marker-based substring matching only when an ID was not captured.
+
+  Every tool-posting site (`solve.session.lib.mjs`, `solve.auto-merge.lib.mjs`, `solve.watch.lib.mjs`, `github.lib.mjs`'s `attachLogToGitHub`/`attachTruncatedLog`/`attachRegularComment`, `claude.lib.mjs`'s force-kill notice, `interactive-mode.lib.mjs`, `solve.progress-monitoring.lib.mjs`, `solve.repo-setup.lib.mjs`, `solve.repository.lib.mjs`, and `solve.mjs`'s usage-limit notifications) now routes through `postTrackedComment` / `postTrackedCommentFromFile`, so every solve-posted comment is registered and filtered correctly across all supported AI tools (claude, codex, agent, opencode). See issue #1625.
+
+## 1.53.0
+
+### Minor Changes
+
+- 906f61e: Add Playwright MCP browser automation fallback hints to all tools (opencode, agent), WebSearch fallback guidance to all tools (claude, codex, opencode, agent), and --no-playwright-mcp flag to physically disable Playwright MCP server connection per session without affecting global registration.
+
+## 1.52.1
+
+### Patch Changes
+
+- d5d3762: Fix calculation bugs and format unification for budget stats using decimal.js-light for precision.
+
+## 1.52.0
+
+### Minor Changes
+
+- 5b24866: Add Claude Opus 4.7 model support with adaptive thinking, model-correct xhigh/max effort mapping, Opus 4.5/Mythos effort detection, and the --show-thinking-content option.
+
+## 1.51.0
+
+### Minor Changes
+
+- fd3c76c: Add per-tool Telegram solve aliases: /claude, /codex, /opencode, and /agent.
+
+## 1.50.15
+
+### Patch Changes
+
+- 7cecf09: Fix auto-resume reset time parsing when usage-limit output includes a month/day prefix such as `Apr 17, 4:00 AM`.
+
+## 1.50.14
+
+### Patch Changes
+
+- f013f53: Fix PR mergeability consensus to ignore unrelated repo actions by default
+
+## 1.50.13
+
+### Patch Changes
+
+- 3eb1428: Preserve GitHub issue-closing links after temporary auto-restart sessions edit pull request descriptions.
+
+## 1.50.12
+
+### Patch Changes
+
+- 065deae: ## Summary
+
+  Fix Playwright MCP setup guidance and verification for Codex environments.
+
+## 1.50.11
+
+### Patch Changes
+
+- bf9cf54: Fix prompt template builders crashing when literal `.png` appears in screenshot guidance.
+
+## 1.50.10
+
+### Patch Changes
+
+- 0dc1613: Fix log upload raw URL resolution so gist metadata lookups do not mirror full gist contents to stdout, and harden stdio handling when the terminal pipe is already broken.
+
+## 1.50.9
+
+### Patch Changes
+
+- cfe4e36: Improve Codex support across solve, limits, queue, version reporting, and Playwright MCP integration.
+
+## 1.50.8
+
+### Patch Changes
+
+- 5760755: fix: default to PR-branch-only CI check, add pagination and typo fix (#1573)
+  - Fix typo: `--wait-for-all-actions-in-repository-before-mergable` → `--wait-for-all-actions-in-repository-before-mergeable` (deprecated alias kept for backward compatibility)
+  - When repo-wide flag is enabled, block on ALL active runs regardless of branch (no branch filtering) to ensure safety when CI/CD pipelines interact
+  - Add `--paginate` to `getPRCommitShas()` to load all PR commits (not just first page)
+  - Add all-commits CI check: verify CI completes for every commit on the PR branch, not just HEAD
+  - Add `getPRCommitShas()` and `checkAllPRCommitsCI()` for per-commit CI verification
+
+## 1.50.7
+
+### Patch Changes
+
+- 84b9853: fix: make all long sleeps interruptible so CTRL+C responds immediately (#1574)
+  - Replace raw `setTimeout` sleeps with an interruptible sleep utility that listens for SIGINT
+  - Ensure CTRL+C during CI polling, auto-merge waits, and auto-continue delays terminates the process immediately
+  - Add `interruptible-sleep.lib.mjs` with full test coverage
+
+## 1.50.6
+
+### Patch Changes
+
+- 854a74b: feat: track sub-agent calls and show per-call stats in budget display (#1590)
+  - Split budget usage statistics per sub-agent call when working sessions contain multiple sub-agent invocations
+  - Extract and display individual sub-agent call metrics from Claude API session data
+  - Add budget stats library for parsing and formatting per-call usage information
+
+## 1.50.5
+
+### Patch Changes
+
+- 61b2a32: fix: prevent solution draft log and ready to merge comments from appearing between limit reached and auto resume (#1571)
+  - `autoContinueWhenLimitResets()` now awaits child process exit instead of returning immediately after spawn
+  - Added defense-in-depth guard in solve.mjs to skip post-processing when limit was reached with auto-continue enabled
+  - This ensures the correct comment ordering: Limit Reached → Auto Resume → Solution Draft Log → Ready to merge
+
+## 1.50.4
+
+### Patch Changes
+
+- 15f25db: Make merge queue cancel immediate during CI waits so users don't have to wait for CI to finish before cancellation takes effect
+
+## 1.50.3
+
+### Patch Changes
+
+- dce8218: fix: extract helper functions from solve.auto-merge.lib.mjs to fix 1500-line limit violation (#1593)
+  - Extract `checkForExistingComment`, `checkForNonBotComments`, and `getMergeBlockers` into new `solve.auto-merge-helpers.lib.mjs`
+  - Add warning threshold (1350 lines) to `check-file-line-limits.sh` to flag files approaching the 1500-line limit
+  - Add case study documenting the concurrent PR merge race condition root cause
+
+- 89ad776: fix: add timeout-based expiry for non-isolation active sessions to prevent false positives (#1586)
+  - Non-isolation (plain `start-screen`) sessions are now tracked with a 10-minute timeout
+  - Within the timeout window, duplicate `/solve` commands for the same URL are blocked (prevents accidental re-runs)
+  - After 10 minutes, non-isolation sessions auto-expire, preventing permanent false positives
+  - Isolation-backed sessions (`--isolation screen|tmux|docker`) have no timeout — their completion is reliably detected
+  - This prevents the bot from indefinitely blocking `/solve` commands with "A working session is already running for this URL"
+
+- 3bf9501: fix: narrow "Ready to merge" duplicate check to current session scope (#1584)
+  - Fix `checkForExistingComment` to only search for duplicate "Ready to merge" comments AFTER the last "Solution Draft Log" comment, not in the entire PR history
+  - Previously, a "Ready to merge" from a previous working session would suppress the notification for a new session after user feedback
+  - The fix scopes deduplication to the current working session while maintaining cross-process duplicate detection
+
+## 1.50.2
+
+### Patch Changes
+
+- f09dead: fix: always post GitHub comment when usage limit is reached in auto-restart mode (#1570)
+  - Fix silent waiting behavior in watchUntilMergeable() when usage limit is reached
+  - Previously the system would silently wait 40+ minutes without any user notification
+  - Now posts a GitHub comment to the PR using attachLogToGitHub() with usage limit details
+  - Comment includes reset time, session ID, and indicates auto-restart will resume automatically
+  - Log output now also shows the calculated resume time in UTC
+
+## 1.50.1
+
+### Patch Changes
+
+- 494989e: Add paths filter to CI/CD workflow trigger to skip unnecessary runs for non-code file changes (#1582)
+- c4fadea: fix: prevent push failures in auto-restart and cleanup by syncing with remote (#1572)
+  - Add `git pull` before restart sessions and cleanup push to prevent stale local state
+  - Add `2>&1` to all `git push` commands so stderr is captured for proper error handling
+  - Fix multi-line log message formatting to include timestamps on each line
+
+## 1.50.0
+
+### Minor Changes
+
+- 4aed1c1: fix: interactive mode GitHub comments display improvements (#1576)
+  - Fix agent task comments stuck at "⏳ Running..." by propagating taskId through comment queue
+  - Fix misleading token counts by preferring modelUsage (cumulative per-model) over usage (last-iteration)
+  - Change truncation format from "[N lines truncated]" to "[X-Y lines are omitted]" showing actual line range
+  - Rename "Session Complete" to "Interactive session completed"
+  - Rename Write tool "Content" to "Change", expand by default, add line numbers to diffs
+  - Show checked/total count in TodoWrite: "Todos (2/9 items)" instead of "Todos (9 items)"
+  - Make Task prompt and Edit Change sections expanded by default
+  - Add ToolSearch-specific display with Query/Max Results fields
+  - Mark sub-agent tasks with 🤖🔀 emoji and Agent ID field
+  - Add queue flushing before waiting for comment IDs in task progress/notification handlers
+
+## 1.49.3
+
+### Patch Changes
+
+- b15a494: fix: make usage limit footer message consistent with auto-resume mode (#1569)
+  - Fix footer message in "Usage Limit Reached" GitHub comments to reflect auto-resume/auto-restart mode
+  - Previously the footer always showed "You can resume once the limit resets." even when auto-resume was enabled
+  - Now shows mode-specific messages: "The session will automatically resume when the limit resets." or "The session will automatically restart when the limit resets."
+
+## 1.49.2
+
+### Patch Changes
+
+- 026c95c: fix: non-consistent auto-restart logic on comments (#1567)
+  - Reduce CI check interval from 5 minutes to 2 minutes for faster response times
+  - Prevent concurrent sessions on the same PR/issue via active session URL checking
+  - Add cross-process deduplication for "Ready to merge" comments
+  - Add initial 2-minute cooldown before first mergeable check to ensure proper ordering
+
+## 1.49.1
+
+### Patch Changes
+
+- 00512d6: Fix broken screenshot URL in fork mode: use forked repo path instead of original repo path in screenshot URL template when operating in fork mode (#1561).
+
+## 1.49.0
+
+### Minor Changes
+
+- 9a904ae: feat: replace deprecated qwen3.6-plus-free default with nemotron-3-super-free for --tool agent (#1563)
+  - Change default agent model from `qwen3.6-plus-free` to `nemotron-3-super-free` (~262K context, NVIDIA hybrid Mamba-Transformer)
+  - Move `qwen3.6-plus-free` to deprecated (free promotion ended April 2026, now requires OpenCode Go subscription)
+  - Update documentation, tests, and model priority lists
+  - Syncs with upstream agent PR #243
+
+## 1.48.3
+
+### Patch Changes
+
+- 2ac7f3c: Fix CI/CD lint failure caused by code duplication exceeding jscpd threshold (11.03% > 11%). Refactored test files to use shared `test-helpers.mjs` instead of duplicating assert/summary boilerplate, reducing duplication to 10.93%.
+- 0b06bda: Fix `--isolation screen` session monitoring bug where sessions were prematurely detected as completed (Issue #1545). Add `screen -ls` fallback for screen-backend sessions to work around start-command UUID mismatch issues (link-foundation/start#101).
+- 94eeaac: Immediately reject queued tasks when disk space (or any reject-strategy threshold) is exceeded, instead of leaving them in a waiting state indefinitely
+- f955f0b: Add GitHub entity existence validation to /solve command to fail immediately on non-existent issues, PRs, repos, or users
+
+## 1.48.2
+
+### Patch Changes
+
+- 7c3a8c1: Fix agent queue not isolated from claude queue in bot entry point. The start decision and position display now use tool-specific queue counts instead of the total across all tools, so items in one tool's queue don't block or mislead the other.
+
+## 1.48.1
+
+### Patch Changes
+
+- 6d385ab: Simplified cost display when public and Anthropic costs match, removed USD suffix from Anthropic cost line
+- Validate GitHub entity existence (user/org, repository, issue/PR) before executing /solve command. The telegram bot and solve CLI now fail immediately with helpful error messages when targeting non-existent entities, preventing wasted resources and providing faster feedback.
+
+## 1.48.0
+
+### Minor Changes
+
+- 28f7ace: Add /do and /continue as alias commands for /solve in telegram bot
+
+## 1.47.2
+
+### Patch Changes
+
+- 7afe67b: Fix ghPrView false positive on "Could not resolve" in PR body causing "Failed to get PR details" error on fork PRs, and add stdio log interceptor for terminal/log output parity
+
+## 1.47.1
+
+### Patch Changes
+
+- 3bbd66e: Improve Context and tokens usage output format: move percentage before unit label, parenthesize cached tokens in Total line, use consistent X / Y (Z%) format for output tokens when limit is known, and show sub-sessions under model heading instead of globally
+
+## 1.47.0
+
+### Minor Changes
+
+- 7997308: feat: update free models for --tool agent, set qwen3.6-plus-free as default (#1543)
+  - Change default agent model from `minimax-m2.5-free` to `qwen3.6-plus-free` (~1M context window)
+  - Add `qwen3.6-plus-free` (Alibaba Qwen, ~1M context) to free models
+  - Add `nemotron-3-super-free` (NVIDIA hybrid Mamba-Transformer, ~262K context) to free models
+  - Update documentation, tests, and provider priority lists
+  - Syncs with upstream agent PR #234
+
+## 1.46.9
+
+### Patch Changes
+
+- 8104fad: Fix wrong context window calculation showing impossible percentages like 250% (Issue #1539). When peakContextUsage is unknown (e.g. sub-agent models from result JSON only), skip the context window input tokens display entirely instead of falling back to cumulative totals across all requests, which are not valid per-request context window metrics.
+
+## 1.46.8
+
+### Patch Changes
+
+- Fix wrong context window calculation showing impossible percentages like 250% (Issue #1539). When peakContextUsage is unknown (e.g. sub-agent models from result JSON only), skip the context window input tokens display entirely instead of falling back to cumulative totals across all requests, which are not valid per-request context window metrics.
+- bcf2b9b: Retry on network issues and minimize terminal/log output differences (#1536): add ghRetry/ghCmdRetry utilities with exponential backoff for transient network errors (TCP reset, TLS timeout, connection refused, unexpected EOF). Apply retry to critical gh CLI calls: accept-invite, repository setup, auto-fork permission check, visibility detection, write permission check. Log stderr to log file on command failure for terminal/log parity. Add 'unexpected eof' to transient error detection patterns.
+
+## 1.46.7
+
+### Patch Changes
+
+- 249cf93: Fix --isolation option not working in /solve and /hive Telegram commands (#1534): extract --isolation from user args before validation, so it's used for execution isolation (via $ CLI from start-command) instead of being forwarded to solve/hive as an unknown argument. Per-command --isolation takes precedence over bot-level ISOLATION_BACKEND setting.
+
+## 1.46.6
+
+### Patch Changes
+
+- 6ab718a: Fix --interactive-mode completely broken (#1532): replace promisify(execFile) with spawn-based execFileAsync that correctly pipes stdin to child processes. The Node.js promisify(execFile) silently ignores the `input` option, causing `gh api --input -` to hang forever waiting for stdin data that never arrives, which blocks the entire stream processing loop.
+
+## 1.46.5
+
+### Patch Changes
+
+- c900fb8: Usage stats improvements for Agent CLI and Claude Code CLI (Issue #1526)
+  - Fix context window 288% bug by skipping display when peakContextUsage is 0
+  - Add Agent CLI "Context and tokens usage" section with model/context parsing
+  - Shorter output format combining context window and output tokens on single line
+  - Consolidated Total line with cost information
+  - Sub-sessions use numbered Context window lines directly
+
+## 1.46.4
+
+### Patch Changes
+
+- a3bdea6: Fix CI/CD false positive for .gitkeep files using positive matching (Issue #1528).
+
+  Use consistent positive matching in detect-code-changes.mjs: "Files considered as code changes" now only shows files matching codePattern, so unknown file types like .gitkeep are naturally excluded without explicit exclusion rules. Add 40 unit tests covering the full detection pipeline.
+
+## 1.46.3
+
+### Patch Changes
+
+- c425744: Standardize /version output — strip OS/arch, normalize dates, enhance platform detection (Issue #1524)
+  - Strip OS/architecture info (e.g. x86_64-unknown-linux-gnu, linux/amd64) from version strings for cleaner output
+  - Normalize date formats to ISO (YYYY-MM-DD) across all version components
+  - Enhance platform detection for consistent environment reporting
+
+## 1.46.2
+
+### Patch Changes
+
+- 37daeb7: Auto-recover from non-fork repositories during fork validation (Issue #1518)
+  - When a repository exists but is NOT a proper GitHub fork (or has wrong parent), safely auto-recover by comparing commits against upstream first — only delete and re-fork if no additional commits would be lost
+  - Add verbose logging of fork commands for debugging non-fork creation scenarios
+  - Add post-creation fork validation to detect non-fork repos immediately after `gh repo fork`
+  - Report non-fork creation to Sentry for monitoring
+  - Add `--allow-force-non-fork-repository-deletion` flag to force deletion even when additional commits would be lost
+  - Add case study documenting the root cause analysis of konard/MixaByk1996-elements-app
+  - Document all previously undocumented solve options in CONFIGURATION.md (12 options including --allow-force-non-fork-repository-deletion)
+  - Add CI/CD test to verify documentation stays in sync with code options (prevents drift)
+
+## 1.46.1
+
+### Patch Changes
+
+- 84aacf7: fix: pass LINK_ASSISTANT_AGENT_VERBOSE env var to agent process for HTTP logging (#1521)
+
+## 1.46.0
+
+### Minor Changes
+
+- d9721c0: Add work session completion notifications and isolation mode to Telegram bot
+
+  Session notifications:
+  - Tracks sessions started by `/solve` and `/hive` commands
+  - Monitors sessions every 30 seconds and sends completion notifications
+  - Sends notification with session name, duration, URL, and exit status
+  - Persistent session tracking via ExecutionStore from start-command
+
+  Isolation mode (`--isolation` option, experimental):
+  - New `--isolation` flag for Telegram bot: `screen`, `tmux`, or `docker`
+  - Uses `$` CLI from link-foundation/start with GUID-based session tracking
+  - Tracks session completion via `$ --status <uuid>` for reliable detection
+  - Solve queue supports isolation-aware execution and process counting
+  - Each isolated session gets a unique UUID for unambiguous tracking
+  - Without `--isolation`, uses existing `start-screen` command (unchanged)
+
+## 1.45.1
+
+### Patch Changes
+
+- 003c5ca: Fix premature finish signaling and leaked child processes (Issue #1516)
+  - Kill entire process group on stream timeout using negative PID, preventing leaked /bin/sh child processes from continuing to make commits after completion
+  - Move .gitkeep cleanup to after all completion signals (log upload, "Ready to merge" comment) so no new commits appear after the system reports "session ended"
+  - drainHandles now reports surviving child processes as errors instead of silently killing them, so root causes are investigated rather than hidden
+
+## 1.45.0
+
+### Minor Changes
+
+- c308660: Add experimental live progress monitoring for work sessions
+  - Implement `--working-session-live-progress [comment|pr]` CLI flag for both solve and hive commands
+    - `comment` mode (default): Creates a per-session PR comment with updatable progress section
+    - `pr` mode: Updates PR description with live progress section
+    - Plain `--working-session-live-progress` defaults to `comment` mode
+  - Create progress monitoring module (`solve.progress-monitoring.lib.mjs`) with:
+    - Live TODO list tracking from TodoWrite tool calls
+    - Progress bar visualization (percentage complete)
+    - Comment mode: creates/edits a dedicated PR comment per work session
+    - PR mode: updates PR description with progress section
+    - Task list is always shown expanded (never collapsible)
+    - Rate limiting to avoid GitHub API throttling
+  - Integrate progress monitoring into claude.lib.mjs event stream processing
+    - Detects TodoWrite tool_use events (assistant) and tool_use_result events (user)
+    - Updates progress when TodoWrite tool is invoked
+    - Displays task completion stats and progress bar
+    - Supports work session identification
+  - Works with or without `--interactive-mode` (independent feature)
+  - Auto-registered in hive via SOLVE_OPTION_DEFINITIONS (no manual forwarding needed)
+  - Add comprehensive test suite (89 tests) covering:
+    - Progress calculation and formatting
+    - Display mode normalization
+    - CLI configuration in solve and hive
+    - Auto-registration and forwarding via getSolvePassthroughOptionNames
+    - Claude integration for TodoWrite detection
+    - Comment and PR display modes
+  - Feature is experimental, opt-in via `--working-session-live-progress`
+  - Implements issue #936
+
+## 1.44.0
+
+### Minor Changes
+
+- e7ce2dd: Add TELEGRAM_ALLOWED_TOPICS for forum topic filtering (issue #1100)
+
+## 1.43.0
+
+### Minor Changes
+
+- 91479e3: Better /version command output with uniform formatting and bug fixes: add regex version parsers for all 40+ tools, fix LLD/Xvfb/Playwright MCP detection, add Playwright browser cache fallback, fail Docker build on MCP registration failure
+
+## 1.42.0
+
+### Minor Changes
+
+- 5aa82f5: Add /stop and /start commands for telegram bot to control task acceptance per chat (Issue #1081)
+
+## 1.41.0
+
+### Minor Changes
+
+- 2c9396d: feat: simplify Dockerfile — bump sandbox 1.5.0→1.6.0, remove Playwright setup, eliminate USER root, remove silent fallbacks (#1505)
+
+## 1.40.2
+
+### Patch Changes
+
+- 3dbbe9c: fix: improve context, token and cost estimation accuracy for multi-model sessions (#1508)
+  - Merge resultModelUsage from Claude Code result JSON into JSONL-based calculations to include sub-agent model tokens (e.g., Haiku) that are missing from JSONL
+  - Split token and context usage per model in budget stats PR comments
+  - Show per-model cost breakdown in budget stats
+  - Fix sub-sessions being duplicated under each model heading in multi-model mode
+  - Add verbose diagnostics indicating when token data is sourced from result JSON vs JSONL
+
+## 1.40.1
+
+### Patch Changes
+
+- 9df62ed: fix: increase activity timeout to 1hr, fix idle tracking, improve graceful kill (#1510)
+
+## 1.40.0
+
+### Minor Changes
+
+- 6b8465a: feat: add browsers, browser tools, and missing software to /version command
+
+## 1.39.0
+
+### Minor Changes
+
+- b162658: Migrate to sandbox 1.5.0 with /workspace shared directory, replacing user rename approach with group-based access (issue #1499)
+
+## 1.38.3
+
+### Patch Changes
+
+- deb31bf: fix: add multi-mechanism CI consensus, repo-wide action monitoring, and 5-min minimum CI check interval to prevent false positive "Ready to merge"
+
+## 1.38.2
+
+### Patch Changes
+
+- 290139f: fix: correct cost and token/context budget calculations (#1501)
+  - Deduplicate JSONL session entries by message ID to fix inflated token counts caused by upstream anthropics/claude-code#6805
+  - Show peak context window usage (max single-request fill) instead of cumulative sum which produced nonsensical percentages like 7516%
+  - Add "Total tokens processed" as a separate cumulative metric for session throughput visibility
+  - Add verbose logging for JSONL deduplication stats and peak context values
+
+## 1.38.1
+
+### Patch Changes
+
+- 1525ecb: fix: prevent 'Failed to send formatted message' Telegram error by adding safeReply helper and escaping unescaped Markdown in bot messages
+
+## 1.38.0
+
+### Minor Changes
+
+- ee331ef: Enhance --tokens-budget-stats with sub-session tracking, stream comparison, and GitHub comment display
+
 ## 1.37.4
 
 ### Patch Changes

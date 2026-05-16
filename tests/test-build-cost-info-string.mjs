@@ -14,67 +14,7 @@
  * - Handles free model special case
  */
 
-// Copy of the buildCostInfoString function from src/github.lib.mjs for testing
-// This allows us to test the function in isolation without requiring the full module dependencies
-// Issue #1250: Enhanced to support OpenCode Zen cost, original provider reference, and base model pricing
-const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
-  // Issue #1015: Don't show cost section when all values are unknown (clutters output)
-  const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
-  const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
-  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
-  // Issue #1250: Check for OpenCode Zen actual cost
-  const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
-  if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
-  let costInfo = '\n\n### 💰 **Cost estimation:**';
-  if (pricingInfo?.modelName) {
-    costInfo += `\n- Model: ${pricingInfo.modelName}`;
-    if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
-  }
-  // Issue #1250: Show public pricing estimate based on original provider prices
-  if (hasPublic) {
-    // Issue #1250: For free models accessed via OpenCode Zen, show pricing based on base model
-    // Only show as completely free if the base model also has no pricing
-    if (pricingInfo?.isFreeModel && totalCostUSD === 0 && !pricingInfo?.baseModelName) {
-      costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
-    } else {
-      // Show actual public pricing estimate with original provider reference
-      // Issue #1250: Include base model reference when pricing comes from base model
-      let pricingRef = '';
-      if (pricingInfo?.baseModelName && pricingInfo?.originalProvider) {
-        pricingRef = ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)`;
-      } else if (pricingInfo?.originalProvider) {
-        pricingRef = ` (based on ${pricingInfo.originalProvider} prices)`;
-      }
-      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${pricingRef}`;
-    }
-  } else if (hasPricing) {
-    costInfo += '\n- Public pricing estimate: unknown';
-  }
-  // Issue #1250: Show actual cost from OpenCode Zen for agent tool
-  if (hasOpencodeCost) {
-    if (pricingInfo.isOpencodeFreeModel) {
-      costInfo += '\n- Calculated by OpenCode Zen: $0.00 (Free model)';
-    } else {
-      costInfo += `\n- Calculated by OpenCode Zen: $${pricingInfo.opencodeCost.toFixed(6)}`;
-    }
-  }
-  if (pricingInfo?.tokenUsage) {
-    const u = pricingInfo.tokenUsage;
-    let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
-    if (u.reasoningTokens > 0) tokenInfo += `, ${u.reasoningTokens.toLocaleString()} reasoning`;
-    if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0) tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
-    costInfo += tokenInfo;
-  }
-  if (hasAnthropic) {
-    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
-    if (hasPublic) {
-      const diff = anthropicTotalCostUSD - totalCostUSD;
-      const pct = totalCostUSD > 0 ? (diff / totalCostUSD) * 100 : 0;
-      costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct > 0 ? '+' : ''}${pct.toFixed(2)}%)`;
-    }
-  }
-  return costInfo;
-};
+import { buildCostInfoString } from '../src/github-cost-info.lib.mjs';
 
 // Test framework
 let testsPassed = 0;
@@ -160,7 +100,8 @@ console.log('\n📋 Test Group: Anthropic calculated cost\n');
 
 runTest('shows Anthropic calculated cost when available', () => {
   const result = buildCostInfoString(null, 2.5, null);
-  assertContains(result, 'Calculated by Anthropic: $2.500000 USD', 'Should show Anthropic cost');
+  assertContains(result, 'Calculated by Anthropic: $2.500000', 'Should show Anthropic cost');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix (Issue #1557)');
 });
 
 runTest('shows difference when both costs available (Anthropic higher)', () => {
@@ -173,14 +114,17 @@ runTest('shows difference when both costs available (Anthropic lower)', () => {
   assertContains(result, 'Difference: $-0.500000 (-25.00%)', 'Should show negative difference');
 });
 
-runTest('shows zero difference when costs are equal', () => {
+runTest('shows simplified format when costs are equal (Issue #1557)', () => {
   const result = buildCostInfoString(1.0, 1.0, null);
-  assertContains(result, 'Difference: $0.000000 (0.00%)', 'Should show zero difference');
+  assertEqual(result, '\n\n### 💰 Cost: **$1.000000**', 'Should show simplified cost header');
+  assertNotContains(result, 'Difference', 'Should not show difference when costs match');
+  assertNotContains(result, 'Public pricing estimate', 'Should not show breakdown when costs match');
 });
 
 runTest('handles zero public cost in percentage calculation', () => {
   const result = buildCostInfoString(0, 1.0, null);
   assertContains(result, 'Difference: $1.000000 (0.00%)', 'Should handle division by zero');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix (Issue #1557)');
 });
 
 // ==== Pricing info tests ====
@@ -296,6 +240,39 @@ runTest('does not show cache tokens when both are zero', () => {
   assertNotContains(result, 'cache', 'Should not show zero cache tokens');
 });
 
+runTest('shows only cache read when cache write value is unavailable', () => {
+  const result = buildCostInfoString(null, null, {
+    modelName: 'gpt-5.4',
+    provider: 'OpenAI',
+    tokenUsage: {
+      inputTokens: 44823,
+      outputTokens: 3031,
+      cacheReadTokens: 388480,
+      cacheWriteTokens: 0,
+    },
+  });
+  assertContains(result, '388,480 cache read', 'Should show observed cached input tokens');
+  assertNotContains(result, '0 cache write', 'Should not invent unavailable cache write data');
+});
+
+runTest('shows observed zero cache write when field availability says it exists', () => {
+  const result = buildCostInfoString(null, null, {
+    modelName: 'agent-model',
+    provider: 'OpenCode Zen',
+    tokenUsage: {
+      inputTokens: 1000,
+      outputTokens: 500,
+      cacheReadTokens: 300,
+      cacheWriteTokens: 0,
+      tokenFieldAvailability: {
+        cacheReadTokens: true,
+        cacheWriteTokens: true,
+      },
+    },
+  });
+  assertContains(result, '300 cache read, 0 cache write', 'Should show zero cache write when upstream emitted it');
+});
+
 // ==== Comprehensive format tests ====
 console.log('\n📋 Test Group: Comprehensive format\n');
 
@@ -322,7 +299,8 @@ runTest('shows all information when everything is available', () => {
   assertContains(result, '1,000 reasoning', 'Should show reasoning tokens');
   assertContains(result, 'cache read', 'Should show cache read');
   assertContains(result, 'cache write', 'Should show cache write');
-  assertContains(result, 'Calculated by Anthropic: $1.200000 USD', 'Should have Anthropic cost');
+  assertContains(result, 'Calculated by Anthropic: $1.200000', 'Should have Anthropic cost');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix (Issue #1557)');
   assertContains(result, 'Difference:', 'Should have difference');
 });
 
@@ -345,7 +323,8 @@ runTest('real-world example with actual work', () => {
   });
 
   assertContains(result, '$8.089715', 'Should show public cost');
-  assertContains(result, '$5.636999 USD', 'Should show Anthropic cost');
+  assertContains(result, 'Calculated by Anthropic: $5.636999', 'Should show Anthropic cost');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix (Issue #1557)');
   assertContains(result, 'Difference: $-2.452716 (-30.32%)', 'Should show negative difference');
 });
 
@@ -366,7 +345,8 @@ runTest('handles large token counts', () => {
 runTest('handles very small costs', () => {
   const result = buildCostInfoString(0.000001, 0.000002, null);
   assertContains(result, '$0.000001', 'Should show small public cost');
-  assertContains(result, '$0.000002 USD', 'Should show small Anthropic cost');
+  assertContains(result, 'Calculated by Anthropic: $0.000002', 'Should show small Anthropic cost');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix (Issue #1557)');
 });
 
 runTest('returns proper string format starting with newlines', () => {
@@ -383,6 +363,25 @@ runTest('handles tokenUsage being the only truthy pricingInfo field', () => {
   });
   assertContains(result, 'Token usage: 100 input, 50 output', 'Should show token usage');
   assertContains(result, 'Public pricing estimate: unknown', 'Should show unknown cost');
+});
+
+runTest('can omit raw token usage when budget stats already render totals', () => {
+  const result = buildCostInfoString(
+    0.399959,
+    null,
+    {
+      modelName: 'GPT-5.4',
+      provider: 'OpenAI',
+      tokenUsage: {
+        inputTokens: 42742,
+        outputTokens: 4784,
+        cacheReadTokens: 885376,
+      },
+    },
+    { includeTokenUsage: false }
+  );
+  assertContains(result, 'Public pricing estimate: $0.399959', 'Should still show public cost');
+  assertNotContains(result, 'Token usage:', 'Budget stats Total line should be the only token summary');
 });
 
 runTest('handles isFreeModel being the only truthy pricingInfo field', () => {
@@ -459,6 +458,29 @@ runTest('shows output with only OpenCode Zen cost present', () => {
   assertContains(result, 'Provider: OpenCode Zen', 'Should show provider');
   assertContains(result, 'Public pricing estimate: unknown', 'Should show unknown public estimate');
   assertContains(result, 'Calculated by OpenCode Zen: $0.00 (Free model)', 'Should show free cost');
+});
+
+runTest('Codex comments with unknown public pricing omit unavailable cache write tokens', () => {
+  const result = buildCostInfoString(null, null, {
+    modelName: 'gpt-5.4',
+    provider: 'OpenAI',
+    tokenUsage: {
+      inputTokens: 44823,
+      outputTokens: 3031,
+      reasoningTokens: 0,
+      cacheReadTokens: 388480,
+      cacheWriteTokens: 0,
+      tokenFieldAvailability: {
+        inputTokens: true,
+        outputTokens: true,
+        cacheReadTokens: true,
+        cacheWriteTokens: false,
+      },
+    },
+  });
+  assertContains(result, 'Public pricing estimate: unknown', 'Should preserve unknown public pricing for Codex');
+  assertContains(result, 'Token usage: 44,823 input, 3,031 output, 388,480 cache read', 'Should show known Codex usage fields');
+  assertNotContains(result, 'cache write', 'Should not show Codex cache write when the field was never observed');
 });
 
 runTest('isOpencodeFreeModel triggers hasPricing check', () => {
@@ -560,9 +582,80 @@ runTest('does not show base model reference when no baseModelName', () => {
   assertNotContains(result, 'gpt-4o-mini prices', 'Should not reference model name in pricing');
 });
 
+// ==== Issue #1557: Simplified cost display ====
+console.log('\n📋 Test Group: Issue #1557 - Simplified cost display when costs match\n');
+
+runTest('shows simplified format when public and Anthropic costs match exactly', () => {
+  const result = buildCostInfoString(5.207635, 5.207635, null);
+  assertEqual(result, '\n\n### 💰 Cost: **$5.207635**', 'Should show simplified cost header with bold amount');
+});
+
+runTest('shows simplified format with real-world matching costs', () => {
+  const result = buildCostInfoString(0.123456, 0.123456, {
+    modelName: 'claude-3-opus',
+    provider: 'Anthropic',
+    tokenUsage: { inputTokens: 1000, outputTokens: 500 },
+  });
+  // Even with pricing info, simplified format is used when costs match
+  assertEqual(result, '\n\n### 💰 Cost: **$0.123456**', 'Should show simplified format ignoring model/token info');
+});
+
+runTest('shows full format when costs differ slightly', () => {
+  const result = buildCostInfoString(5.207635, 5.207636, null);
+  assertContains(result, '### 💰 **Cost estimation:**', 'Should show full header when costs differ');
+  assertContains(result, 'Public pricing estimate: $5.207635', 'Should show public estimate');
+  assertContains(result, 'Calculated by Anthropic: $5.207636', 'Should show Anthropic cost');
+  assertContains(result, 'Difference:', 'Should show difference');
+  assertNotContains(result, 'USD', 'Should not contain USD suffix');
+});
+
+runTest('does not show simplified format when only public cost available', () => {
+  const result = buildCostInfoString(5.0, null, null);
+  assertContains(result, '### 💰 **Cost estimation:**', 'Should show full header');
+  assertContains(result, 'Public pricing estimate: $5.000000', 'Should show public estimate');
+});
+
+runTest('does not show simplified format when only Anthropic cost available', () => {
+  const result = buildCostInfoString(null, 5.0, null);
+  assertContains(result, '### 💰 **Cost estimation:**', 'Should show full header');
+  assertContains(result, 'Calculated by Anthropic: $5.000000', 'Should show Anthropic cost');
+});
+
+runTest('no USD suffix in Anthropic cost line (Issue #1557)', () => {
+  const result = buildCostInfoString(1.0, 2.0, null);
+  assertContains(result, 'Calculated by Anthropic: $2.000000', 'Should show Anthropic cost');
+  assertNotContains(result, 'USD', 'Should not contain USD anywhere');
+});
+
+// ==== Issue #1703: Collapse to short form when difference rounds to zero ====
+console.log('\n📋 Test Group: Issue #1703 - Collapse cost section when difference is below display precision\n');
+
+runTest('shows simplified format when difference rounds to zero at six decimals (Issue #1703)', () => {
+  // Real-world case from Issue #1703: underlying values rounded differently at toFixed(6)
+  // (11.219694 vs 11.219693), but their actual difference (~1e-7) rounds to $-0.000000.
+  const result = buildCostInfoString(11.21969355, 11.21969345, null);
+  assertEqual(result, '\n\n### 💰 Cost: **$11.219693**', 'Should collapse to simplified format');
+  assertNotContains(result, 'Difference', 'Should not show meaningless $-0.000000 difference');
+  assertNotContains(result, 'Public pricing estimate', 'Should not show breakdown for negligible difference');
+});
+
+runTest('shows simplified format when costs differ by sub-microcent rounding (Issue #1703)', () => {
+  // Difference of 4e-7 still rounds to $0.000000 at toFixed(6); should collapse.
+  const result = buildCostInfoString(2.5000004, 2.5, null);
+  assertEqual(result, '\n\n### 💰 Cost: **$2.500000**', 'Should collapse for sub-precision differences');
+});
+
+runTest('still shows full format when difference is exactly $0.000001 (Issue #1703 boundary)', () => {
+  // A real one-millionth difference is the smallest value buildCostInfoString actually displays,
+  // so it must still trigger the full breakdown.
+  const result = buildCostInfoString(5.207635, 5.207636, null);
+  assertContains(result, '### 💰 **Cost estimation:**', 'Should show full header at 1e-6 difference');
+  assertContains(result, 'Difference: $0.000001', 'Should show the actual one-millionth difference');
+});
+
 // Summary
 console.log('\n' + '='.repeat(80));
-console.log(`Test Results for buildCostInfoString (Issues #1015 & #1250):`);
+console.log(`Test Results for buildCostInfoString (Issues #1015, #1250 & #1557):`);
 console.log(`  ✅ Passed: ${testsPassed}`);
 console.log(`  ❌ Failed: ${testsFailed}`);
 console.log('='.repeat(80));

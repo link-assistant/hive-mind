@@ -213,9 +213,10 @@ console.log('\n📋 Test Group 5: maskToken function\n');
 runTest('maskToken masks long token correctly', () => {
   const token = 'ghp_1234567890abcdef1234567890abcdef12345678';
   const masked = maskToken(token);
-  assertContains(masked, 'ghp_1', 'Should preserve prefix');
+  // Per issue #1745: default keeps only first 3 + last 3 chars
+  assertContains(masked, 'ghp', 'Should preserve 3-char prefix');
   assertContains(masked, '*', 'Should contain asterisks');
-  assertContains(masked, '5678', 'Should preserve suffix');
+  assertContains(masked, '678', 'Should preserve 3-char suffix');
 });
 
 runTest('maskToken returns short tokens unchanged', () => {
@@ -290,7 +291,7 @@ await runAsyncTest('GitHub PAT (ghp_) IS masked', async () => {
   const content = `Token: ${token}`;
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask GitHub PAT');
-  assertContains(sanitized, 'ghp_1', 'Should preserve prefix in mask');
+  assertContains(sanitized, 'ghp', 'Should preserve 3-char prefix in mask');
   assertContains(sanitized, '*', 'Should contain asterisks');
 });
 
@@ -299,7 +300,7 @@ await runAsyncTest('OAuth token (gho_) IS masked', async () => {
   const content = `oauth_token: ${token}`;
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask OAuth token');
-  assertContains(sanitized, 'gho_a', 'Should preserve prefix in mask');
+  assertContains(sanitized, 'gho', 'Should preserve 3-char prefix in mask');
 });
 
 await runAsyncTest('User token (ghu_) IS masked', async () => {
@@ -307,7 +308,7 @@ await runAsyncTest('User token (ghu_) IS masked', async () => {
   const content = `User token: ${token}`;
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask user token');
-  assertContains(sanitized, 'ghu_9', 'Should preserve prefix in mask');
+  assertContains(sanitized, 'ghu', 'Should preserve 3-char prefix in mask');
 });
 
 await runAsyncTest('Fine-grained PAT (github_pat_) IS masked', async () => {
@@ -356,7 +357,7 @@ Real GitHub token that should be masked: ghp_realtoken12345678901234567890123456
 
   // True positives SHOULD be masked
   assertNotContains(sanitized, 'ghp_realtoken12345678901234567890123456789012', 'Should mask GitHub token');
-  assertContains(sanitized, 'ghp_r*', 'Should show masked prefix');
+  assertContains(sanitized, 'ghp*', 'Should show 3-char masked prefix');
 });
 
 await runAsyncTest('Git operations with commit hashes', async () => {
@@ -448,7 +449,7 @@ await runAsyncTest('OpenAI project API key (sk-proj-) IS masked', async () => {
   const content = `OPENAI_API_KEY=${token}`;
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask OpenAI project API key');
-  assertContains(sanitized, 'sk-pr', 'Should preserve prefix in mask');
+  assertContains(sanitized, 'sk-', 'Should preserve 3-char prefix in mask');
   assertContains(sanitized, '*', 'Should contain asterisks');
 });
 
@@ -480,7 +481,7 @@ await runAsyncTest('Anthropic API key (sk-ant-api03-) IS masked', async () => {
   const content = `ANTHROPIC_API_KEY=${token}`;
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask Anthropic API key');
-  assertContains(sanitized, 'sk-an', 'Should preserve prefix in mask');
+  assertContains(sanitized, 'sk-', 'Should preserve 3-char prefix in mask');
   assertContains(sanitized, '*', 'Should contain asterisks');
 });
 
@@ -505,7 +506,7 @@ await runAsyncTest('Google API / Gemini key (AIza*) IS masked', async () => {
   const content = `GOOGLE_API_KEY="${token}"`;
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask Google API key');
-  assertContains(sanitized, 'AIzaS', 'Should preserve prefix in mask');
+  assertContains(sanitized, 'AIz', 'Should preserve 3-char prefix in mask');
   assertContains(sanitized, '*', 'Should contain asterisks');
 });
 
@@ -524,7 +525,7 @@ await runAsyncTest('HuggingFace API token (hf_*) IS masked', async () => {
   const content = `HUGGINGFACE_TOKEN=${token}`;
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask HuggingFace token');
-  assertContains(sanitized, 'hf_ab', 'Should preserve prefix in mask');
+  assertContains(sanitized, 'hf_', 'Should preserve 3-char prefix in mask');
   assertContains(sanitized, '*', 'Should contain asterisks');
 });
 
@@ -542,7 +543,7 @@ await runAsyncTest('AWS Access Key ID (AKIA*) IS masked', async () => {
   const content = `aws_access_key_id = ${token}`;
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask AWS Access Key ID');
-  assertContains(sanitized, 'AKIAI', 'Should preserve prefix in mask');
+  assertContains(sanitized, 'AKI', 'Should preserve 3-char prefix in mask');
 });
 
 await runAsyncTest('AWS Session Token (ASIA*) IS masked', async () => {

@@ -6,12 +6,21 @@
  *
  * Features:
  * - Shows pending, processing, completed, and failed queue items
- * - Per-tool queue breakdown (claude, opencode, etc.)
+ * - Per-tool queue breakdown (claude, opencode, codex, agent, gemini, etc.)
  * - Lists currently processing and waiting items
  * - Running Claude process count
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1232
  */
+
+import { t } from './i18n.lib.mjs';
+
+const GROUP_ONLY_MESSAGE = '❌ The /solve_queue command only works in group chats. Please add this bot to a group and make it an admin.';
+
+function commandText(key, params = {}, locale = null, fallback = key) {
+  const translated = t(key, params, locale ? { locale } : {});
+  return translated === key ? fallback : translated;
+}
 
 /**
  * Registers the /solve_queue command handler with the bot
@@ -22,12 +31,14 @@
  * @param {Function} options.isForwardedOrReply - Function to check if message is forwarded/reply
  * @param {Function} options.isGroupChat - Function to check if chat is a group
  * @param {Function} options.isChatAuthorized - Function to check if chat is authorized
+ * @param {Function} [options.isTopicAuthorized] - Function to check if topic is authorized (issue #1100)
+ * @param {Function} [options.buildAuthErrorMessage] - Function to build authorization error message
  * @param {Function} options.addBreadcrumb - Function to add breadcrumbs for monitoring
  * @param {Function} options.getSolveQueue - Function to get the solve queue instance
  * @returns {{ handleSolveQueueCommand: Function }} The command handler for use in text fallback
  */
 export function registerSolveQueueCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, addBreadcrumb, getSolveQueue } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, getSolveQueue, safeReply, resolveLocale } = options;
 
   async function handleSolveQueueCommand(ctx) {
     VERBOSE && console.log('[VERBOSE] /solve_queue command received');
@@ -38,6 +49,8 @@ export function registerSolveQueueCommand(bot, options) {
       level: 'info',
       data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
     });
+    const locale = resolveLocale ? resolveLocale(ctx) : null;
+    const replyWithFallback = (text, replyOptions = {}) => (safeReply ? safeReply(ctx, text, replyOptions) : ctx.reply(text, { parse_mode: 'Markdown', ...replyOptions }));
 
     // Ignore messages sent before bot started
     if (isOldMessage(ctx)) {
@@ -53,18 +66,18 @@ export function registerSolveQueueCommand(bot, options) {
 
     if (!isGroupChat(ctx)) {
       VERBOSE && console.log('[VERBOSE] /solve_queue ignored: not a group chat');
-      await ctx.reply('❌ The /solve_queue command only works in group chats. Please add this bot to a group and make it an admin.', {
+      await replyWithFallback(commandText('telegram.solve_queue_only_in_groups', {}, locale, GROUP_ONLY_MESSAGE), {
         reply_to_message_id: ctx.message.message_id,
+        fallbackLocale: locale,
       });
       return;
     }
 
-    const chatId = ctx.chat.id;
-    if (!isChatAuthorized(chatId)) {
-      VERBOSE && console.log('[VERBOSE] /solve_queue ignored: chat not authorized');
-      await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, {
-        reply_to_message_id: ctx.message.message_id,
-      });
+    const authorize = isTopicAuthorized || (ctx => isChatAuthorized(ctx.chat.id));
+    if (!authorize(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /solve_queue ignored: not authorized');
+      const errMsg = buildAuthErrorMessage ? buildAuthErrorMessage(ctx) : `❌ This chat (ID: ${ctx.chat.id}) is not authorized.`;
+      await replyWithFallback(errMsg, { reply_to_message_id: ctx.message.message_id, fallbackLocale: locale });
       return;
     }
 
@@ -76,11 +89,11 @@ export function registerSolveQueueCommand(bot, options) {
     // Shows per-queue breakdown with first 5 items per queue and human-readable times
     // Processing counts are actual running system processes (via pgrep)
     // See: https://github.com/link-assistant/hive-mind/issues/1267
-    const message = await solveQueue.formatDetailedStatus();
+    const message = await solveQueue.formatDetailedStatus({ locale });
 
-    await ctx.reply(message, {
-      parse_mode: 'Markdown',
+    await replyWithFallback(message, {
       reply_to_message_id: ctx.message.message_id,
+      fallbackLocale: locale,
     });
   }
 

@@ -295,7 +295,18 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
   // Skip tool connection validation if in dry-run mode or explicitly requested
   if (!skipToolConnection) {
     let isToolConnected = false;
-    if (argv.tool === 'opencode') {
+    if (argv.useAgentCommander) {
+      const agentCommanderLib = await import('./agent-commander.lib.mjs');
+      isToolConnected = await agentCommanderLib.validateAgentCommanderConnection({
+        tool: argv.tool || 'claude',
+        model,
+        log,
+      });
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without agent-commander tool connection', { level: 'error' });
+        return false;
+      }
+    } else if (argv.tool === 'opencode') {
       // Validate OpenCode connection
       const opencodeLib = await import('./opencode.lib.mjs');
       isToolConnected = await opencodeLib.validateOpenCodeConnection(model);
@@ -303,10 +314,18 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
         await log('❌ Cannot proceed without OpenCode connection', { level: 'error' });
         return false;
       }
+    } else if (argv.tool === 'gemini') {
+      // Validate Gemini connection
+      const geminiLib = await import('./gemini.lib.mjs');
+      isToolConnected = await geminiLib.validateGeminiConnection(model);
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without Gemini CLI connection', { level: 'error' });
+        return false;
+      }
     } else if (argv.tool === 'codex') {
       // Validate Codex connection
       const codexLib = await import('./codex.lib.mjs');
-      isToolConnected = await codexLib.validateCodexConnection(model);
+      isToolConnected = await codexLib.validateCodexConnection(model, argv.verbose);
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Codex connection', { level: 'error' });
         return false;
@@ -317,6 +336,14 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
       isToolConnected = await agentLib.validateAgentConnection(model);
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Agent connection', { level: 'error' });
+        return false;
+      }
+    } else if (argv.tool === 'qwen') {
+      // Validate Qwen Code connection
+      const qwenLib = await import('./qwen.lib.mjs');
+      isToolConnected = await qwenLib.validateQwenConnection(model);
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without Qwen Code connection', { level: 'error' });
         return false;
       }
     } else {
@@ -371,10 +398,12 @@ export const parseUrlComponents = issueUrl => {
 export const parseResetTime = timeStr => {
   // Normalize and parse time formats like:
   // "5:30am", "11:45pm", "12:16 PM", "07:05 Am", "5am", "5 AM"
+  // Also accepts date+time forms like "Apr 17, 4:00 AM" and ignores the date portion.
   const normalized = (timeStr || '').toString().trim();
+  const timePortion = normalized.replace(/^(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2},\s+/i, '');
 
   // Accept both HH:MM am/pm and HH am/pm
-  let match = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
+  let match = timePortion.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
   if (!match) {
     throw new Error(`Invalid time format: ${timeStr}`);
   }

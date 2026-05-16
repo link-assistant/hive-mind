@@ -1,0 +1,80 @@
+# Raw Logs from Issue #1545
+# Source: https://github.com/link-assistant/hive-mind/issues/1545
+# Date: 2026-04-08
+
+## Telegram Bot Logs
+
+[VERBOSE] /solve command received
+[VERBOSE] /solve passed all checks, executing...
+YError: Not enough arguments provided. Expected 1 but received 0.
+    at h (/workspace/.nvm/versions/node/v20.20.2/lib/node_modules/yargs-v-17.7.2/build/index.cjs:1:1667)
+    at te.default (/workspace/.nvm/versions/node/v20.20.2/lib/node_modules/yargs-v-17.7.2/build/index.cjs:1:33556)
+    at handleSolveCommand (file:///workspace/.bun/install/global/node_modules/@link-assistant/hive-mind/src/telegram-bot.mjs:975:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[VERBOSE] /solve_queue found 4 running claude processes
+[VERBOSE] /solve_queue processes: [{"pid":"3345412","name":"claude"},{"pid":"3363438","name":"claude"},{"pid":"3377748","name":"claude"},{"pid":"3380929","name":"claude"}]
+[VERBOSE] /limits memory: 2877MB used of 11961MB total (24% used)
+[VERBOSE] /limits CPU load: 0.15 (1m), 0.30 (5m), 0.20 (15m), 6 CPUs, 5% used
+[VERBOSE] /solve_queue: CPU 5m load avg: 0.30, cpus: 6, usage: 5%
+[VERBOSE] /limits disk space: 48160MB free of 98122MB total (49% free)
+[VERBOSE] /limits-cache: Using cached Claude limits (TTL: 10 minutes)
+[VERBOSE] /limits-cache: Using cached GitHub limits
+[VERBOSE] Dynamically imported isolation-runner for per-command isolation
+[VERBOSE] Using isolation (screen), session: 54fc440a-0f4b-44f6-8191-ea630b8f73d0
+/workspace/.bun/bin/$
+[VERBOSE] isolation-runner: Using $ binary at: /workspace/.bun/bin/$
+[VERBOSE] isolation-runner: Backend: screen, Session ID: 54fc440a-0f4b-44f6-8191-ea630b8f73d0
+[VERBOSE] isolation-runner: $ --isolated screen --detached --session 54fc440a-0f4b-44f6-8191-ea630b8f73d0 -- solve https://github.com/link-assistant/hive-mind/pull/564 --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats
+[VERBOSE] isolation-runner: Output: | session   6a176d96-59ee-4101-9212-f45147c0bc93
+| start     2026-04-08 07:28:04.135
+|
+| isolation screen
+| mode      detached
+| screen    54fc440a-0f4b-44f6-8191-ea630b8f73d0
+|
+$ solve https://github.com/link-assistant/hive-mind/pull/564 --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats
+
+
+✓
+| finish    2026-04-08 07:28:04.201
+| duration  0.078s
+| exit      0
+|
+| isolation screen
+| mode      detached
+| screen    54fc440a-0f4b-44f6-8191-ea630b8f73d0
+|
+| log
+[VERBOSE] Session 54fc440a-0f4b-44f6-8191-ea630b8f73d0 tracked in memory (mode: isolation:screen)
+
+## Status Check Attempts
+
+sandbox@5112d5f5aa82:~$ $ --status 54fc440a-0f4b-44f6-8191-ea630b8f73d0
+Error: No execution found with UUID: 54fc440a-0f4b-44f6-8191-ea630b8f73d0
+
+sandbox@5112d5f5aa82:~$ $ --status 6a176d96-59ee-4101-9212-f45147c0bc93
+6a176d96-59ee-4101-9212-f45147c0bc93
+  uuid 6a176d96-59ee-4101-9212-f45147c0bc93
+  status executed
+  exitCode 0
+  command "solve https://github.com/link-assistant/hive-mind/pull/564 --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats"
+  logPath /tmp/start-command-screen-1775633284135-r2ukw0.log
+  startTime "2026-04-08T07:28:04.143Z"
+  endTime "2026-04-08T07:28:04.202Z"
+  workingDirectory /workspace
+  shell /bin/sh
+  platform linux
+  options
+    isolated screen
+    isolationMode detached
+    sessionName 54fc440a-0f4b-44f6-8191-ea630b8f73d0
+    user false
+    keepAlive false
+    useCommandStream false
+
+## Screen Session Verification
+
+sandbox@5112d5f5aa82:~$ screen -r 6a176d96-59ee-4101-9212-f45147c0bc93
+There is no screen to be resumed matching 6a176d96-59ee-4101-9212-f45147c0bc93.
+
+# Note: screen -r 54fc440a-0f4b-44f6-8191-ea630b8f73d0 works - session is still running

@@ -54,6 +54,18 @@ test('getToolDisplayName returns "Agent CLI" for agent', () => {
   assert.equal(getToolDisplayName('agent'), 'Agent CLI');
 });
 
+test('getToolDisplayName returns "Google Gemini CLI" for gemini', () => {
+  assert.equal(getToolDisplayName('gemini'), 'Google Gemini CLI');
+});
+
+test('getToolDisplayName returns "Qwen Code" for qwen', () => {
+  assert.equal(getToolDisplayName('qwen'), 'Qwen Code');
+});
+
+test('getToolDisplayName returns "Google Gemini CLI" for gemini (alt invocation)', () => {
+  assert.equal(getToolDisplayName('gemini'), 'Google Gemini CLI');
+});
+
 test('getToolDisplayName returns "AI tool" for unknown', () => {
   assert.equal(getToolDisplayName('unknown'), 'AI tool');
 });
@@ -104,6 +116,14 @@ test('resolveModelId resolves "sonnet" for agent tool', () => {
 
 test('resolveModelId resolves "gpt5" for codex tool', () => {
   assert.equal(resolveModelId('gpt5', 'codex'), 'gpt-5');
+});
+
+test('resolveModelId resolves "gpt-5.5" for codex tool', () => {
+  assert.equal(resolveModelId('gpt-5.5', 'codex'), 'gpt-5.5');
+});
+
+test('resolveModelId resolves "flash" for gemini tool', () => {
+  assert.equal(resolveModelId('flash', 'gemini'), 'gemini-2.5-flash');
 });
 
 test('resolveModelId strips [1m] suffix', () => {
@@ -168,12 +188,12 @@ test('buildModelInfoString shows model in bold when matches requested (single mo
     tool: 'claude',
     modelsUsed: [
       {
-        modelId: 'claude-opus-4-6',
-        modelInfo: { name: 'Claude Opus 4.6', provider: 'Anthropic', knowledge: '2025-05' },
+        modelId: 'claude-opus-4-7',
+        modelInfo: { name: 'Claude Opus 4.7', provider: 'Anthropic', knowledge: '2025-05' },
       },
     ],
   });
-  assert.ok(result.includes('**Model: Claude Opus 4.6**'), `Expected bold model but got: ${result}`);
+  assert.ok(result.includes('**Model: Claude Opus 4.7**'), `Expected bold model but got: ${result}`);
   assert.ok(!result.includes('⚠️'), `Should not have warning when model matches but got: ${result}`);
 });
 
@@ -273,9 +293,9 @@ test('resolveModelId resolves "grok" for opencode tool', () => {
   assert.equal(result, 'opencode/grok-code');
 });
 
-test('resolveModelId resolves "o3" for codex tool', () => {
-  const result = resolveModelId('o3', 'codex');
-  assert.equal(result, 'o3');
+test('resolveModelId resolves "gpt-5.3-codex" for codex tool', () => {
+  const result = resolveModelId('gpt-5.3-codex', 'codex');
+  assert.equal(result, 'gpt-5.3-codex');
 });
 
 test('resolveModelId resolves "gpt4o" for codex tool', () => {
@@ -301,6 +321,14 @@ test('resolveModelId resolves "haiku" for agent tool', () => {
 test('resolveModelId returns model as-is when not in map for agent tool', () => {
   const result = resolveModelId('custom-model-123', 'agent');
   assert.equal(result, 'custom-model-123');
+});
+
+test('resolveModelId resolves "qwen" for qwen tool', () => {
+  assert.equal(resolveModelId('qwen', 'qwen'), 'qwen3-coder-plus');
+});
+
+test('resolveModelId resolves "gemini" for gemini tool', () => {
+  assert.equal(resolveModelId('gemini', 'gemini'), 'gemini-2.5-flash');
 });
 
 // ============================================================================
@@ -337,6 +365,36 @@ test('buildModelInfoString shows "Agent" tool name for agent', () => {
     modelsUsed: [{ modelId: 'opencode/grok-code', modelInfo: { name: 'Grok Code', provider: 'OpenCode Zen' } }],
   });
   assert.ok(result.includes('Tool: Agent CLI'), `Expected "Tool: Agent CLI" but got: ${result}`);
+});
+
+test('buildModelInfoString shows "Gemini" tool name for gemini', () => {
+  const result = buildModelInfoString({
+    tool: 'gemini',
+    requestedModel: 'flash',
+    modelsUsed: [{ modelId: 'gemini-2.5-flash', modelInfo: { name: 'Gemini 2.5 Flash', provider: 'Google' } }],
+  });
+  assert.ok(result.includes('Tool: Google Gemini CLI'), `Expected "Tool: Google Gemini CLI" but got: ${result}`);
+  assert.ok(result.includes('Gemini 2.5 Flash'), `Expected Gemini model name but got: ${result}`);
+});
+
+test('buildModelInfoString shows "Qwen Code" tool name for qwen', () => {
+  const result = buildModelInfoString({
+    tool: 'qwen',
+    requestedModel: 'qwen3-coder-plus',
+    modelsUsed: [{ modelId: 'qwen3-coder-plus', modelInfo: { name: 'Qwen3 Coder Plus', provider: 'Alibaba Cloud' } }],
+  });
+  assert.ok(result.includes('Tool: Qwen Code'), `Expected "Tool: Qwen Code" but got: ${result}`);
+  assert.ok(result.includes('Qwen3 Coder Plus'), `Expected Qwen model name but got: ${result}`);
+});
+
+test('buildModelInfoString shows "Google Gemini CLI" tool name for gemini (alt invocation)', () => {
+  const result = buildModelInfoString({
+    tool: 'gemini',
+    requestedModel: 'gemini',
+    modelsUsed: [{ modelId: 'gemini-2.5-flash', modelInfo: { name: 'Gemini 2.5 Flash', provider: 'Google' } }],
+  });
+  assert.ok(result.includes('Tool: Google Gemini CLI'), `Expected "Tool: Google Gemini CLI" but got: ${result}`);
+  assert.ok(result.includes('Gemini 2.5 Flash'), `Expected Gemini model name but got: ${result}`);
 });
 
 test('buildModelInfoString shows warning for codex when actual model does not match requested', () => {
@@ -394,19 +452,20 @@ console.log('\n📋 Issue #1454: Multi-model display Tests\n');
 test('buildModelInfoString shows "Main model" + "Additional models" for opus+haiku (Issue #1454)', () => {
   // This is the exact scenario from Issue #1454: Claude Code used both opus and haiku,
   // but only opus was displayed because session JSONL didn't contain haiku entries
+  // Updated for Issue #1620: opus now maps to claude-opus-4-7
   const result = buildModelInfoString({
     requestedModel: 'opus',
     tool: 'claude',
     modelsUsed: [
-      { modelId: 'claude-opus-4-6', modelInfo: { name: 'Claude Opus 4.6', provider: 'Anthropic' } },
+      { modelId: 'claude-opus-4-7', modelInfo: { name: 'Claude Opus 4.7', provider: 'Anthropic' } },
       { modelId: 'claude-haiku-4-5-20251001', modelInfo: { name: 'Claude Haiku 4.5', provider: 'Anthropic' } },
     ],
   });
   assert.ok(result.includes('### 🤖 **Models used:**'), `Expected header but got: ${result}`);
   assert.ok(result.includes('Tool: Anthropic Claude Code'), `Expected tool name but got: ${result}`);
   assert.ok(result.includes('Requested: `opus`'), `Expected requested model but got: ${result}`);
-  assert.ok(result.includes('**Main model: Claude Opus 4.6**'), `Expected "Main model" label but got: ${result}`);
-  assert.ok(result.includes('(`claude-opus-4-6`)'), `Expected opus ID but got: ${result}`);
+  assert.ok(result.includes('**Main model: Claude Opus 4.7**'), `Expected "Main model" label but got: ${result}`);
+  assert.ok(result.includes('(`claude-opus-4-7`)'), `Expected opus ID but got: ${result}`);
   assert.ok(result.includes('**Additional models:**'), `Expected "Additional models:" but got: ${result}`);
   assert.ok(result.includes('**Claude Haiku 4.5**'), `Expected haiku in additional models but got: ${result}`);
   assert.ok(result.includes('(`claude-haiku-4-5-20251001`)'), `Expected haiku ID but got: ${result}`);
@@ -414,12 +473,13 @@ test('buildModelInfoString shows "Main model" + "Additional models" for opus+hai
 
 test('buildModelInfoString shows "Model" (not "Main model") for single model (Issue #1454)', () => {
   // When only one model is used, the label should be "Model" not "Main model"
+  // Updated for Issue #1620: opus now maps to claude-opus-4-7
   const result = buildModelInfoString({
     requestedModel: 'opus',
     tool: 'claude',
-    modelsUsed: [{ modelId: 'claude-opus-4-6', modelInfo: { name: 'Claude Opus 4.6', provider: 'Anthropic' } }],
+    modelsUsed: [{ modelId: 'claude-opus-4-7', modelInfo: { name: 'Claude Opus 4.7', provider: 'Anthropic' } }],
   });
-  assert.ok(result.includes('**Model: Claude Opus 4.6**'), `Expected "Model" label but got: ${result}`);
+  assert.ok(result.includes('**Model: Claude Opus 4.7**'), `Expected "Model" label but got: ${result}`);
   assert.ok(!result.includes('Main model'), `Should NOT have "Main model" for single model but got: ${result}`);
   assert.ok(!result.includes('Additional models'), `Should NOT have "Additional models" for single model but got: ${result}`);
 });
@@ -429,12 +489,12 @@ test('buildModelInfoString handles three models correctly (Issue #1454)', () => 
     requestedModel: 'opus',
     tool: 'claude',
     modelsUsed: [
-      { modelId: 'claude-opus-4-6', modelInfo: { name: 'Claude Opus 4.6', provider: 'Anthropic' } },
+      { modelId: 'claude-opus-4-7', modelInfo: { name: 'Claude Opus 4.7', provider: 'Anthropic' } },
       { modelId: 'claude-haiku-4-5-20251001', modelInfo: { name: 'Claude Haiku 4.5', provider: 'Anthropic' } },
       { modelId: 'claude-sonnet-4-6', modelInfo: { name: 'Claude Sonnet 4.6', provider: 'Anthropic' } },
     ],
   });
-  assert.ok(result.includes('**Main model: Claude Opus 4.6**'), `Expected main model but got: ${result}`);
+  assert.ok(result.includes('**Main model: Claude Opus 4.7**'), `Expected main model but got: ${result}`);
   assert.ok(result.includes('**Additional models:**'), `Expected additional models section but got: ${result}`);
   assert.ok(result.includes('**Claude Haiku 4.5**'), `Expected haiku but got: ${result}`);
   assert.ok(result.includes('**Claude Sonnet 4.6**'), `Expected sonnet but got: ${result}`);
@@ -501,6 +561,26 @@ await asyncTest('getModelInfoForComment with opencode tool and actual model IDs'
   });
   assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
   assert.ok(result.includes('OpenCode') || result.includes('grok'), `Expected opencode/grok in output but got: ${result}`);
+});
+
+await asyncTest('getModelInfoForComment with qwen tool and actual model IDs', async () => {
+  const result = await getModelInfoForComment({
+    requestedModel: 'qwen3-coder-plus',
+    tool: 'qwen',
+    actualModelIds: ['qwen3-coder-plus'],
+  });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  assert.ok(result.includes('Qwen Code') || result.includes('qwen3-coder-plus'), `Expected qwen model in output but got: ${result}`);
+});
+
+await asyncTest('getModelInfoForComment with gemini tool and actual model IDs', async () => {
+  const result = await getModelInfoForComment({
+    requestedModel: 'gemini',
+    tool: 'gemini',
+    actualModelIds: ['gemini-2.5-flash'],
+  });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  assert.ok(result.includes('Gemini CLI') || result.includes('gemini-2.5-flash'), `Expected gemini model in output but got: ${result}`);
 });
 
 await asyncTest('getModelInfoForComment with multiple actual models (main + supporting)', async () => {

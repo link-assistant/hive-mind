@@ -3,6 +3,12 @@
  * Handles automatic creation of draft pull requests with initial commits
  */
 
+import { closingIssueNumbersContain, parseClosingIssueNumbers } from './pr-issue-linking.lib.mjs';
+import { buildPushRejectionExplanation, getRemoteBranchDivergenceSnapshot, synchronizeExistingIssueBranchBeforeAutoPrCreation } from './solve.branch-divergence.lib.mjs';
+import { emitForkAwareDiagnostic } from './solve.auto-pr-fork-diagnostic.lib.mjs';
+
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too.
+
 export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
   // Skip auto-PR creation if:
   // 1. Auto-PR creation is disabled AND we're not in continue mode with no PR
@@ -30,6 +36,16 @@ export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNum
   const issueUrl = argv['issue-url'] || argv._[0];
 
   try {
+    await synchronizeExistingIssueBranchBeforeAutoPrCreation({
+      tempDir,
+      branchName,
+      isContinueMode,
+      prNumber,
+      log,
+      formatAligned,
+      $,
+    });
+
     // Determine which file to create based on CLI flags
     let useClaudeFile = argv.claudeFile !== false;
     const useAutoGitkeepFile = argv.autoGitkeepFile !== false;
@@ -524,6 +540,7 @@ Proceed.
           await log('');
           throw new Error('Permission denied - need fork or collaborator access');
         } else if (errorOutput.includes('non-fast-forward') || errorOutput.includes('rejected') || errorOutput.includes('! [rejected]')) {
+          const divergence = await getRemoteBranchDivergenceSnapshot({ $, tempDir, branchName });
           // Push rejected due to conflicts or diverged history
           await log('');
           await log(formatAligned('❌', 'PUSH REJECTED:', 'Branch has diverged from remote'), { level: 'error' });
@@ -531,6 +548,9 @@ Proceed.
           await log('  🔍 What happened:');
           await log('     The remote branch has changes that conflict with your local changes.');
           await log('     This typically means someone else has pushed to this branch.');
+          for (const line of buildPushRejectionExplanation({ branchName, isContinueMode, prNumber, divergence })) {
+            await log(line);
+          }
           await log('');
           await log('  💡 Why we cannot fix this automatically:');
           await log('     • We never use force push to preserve history');
@@ -602,7 +622,7 @@ Proceed.
           }
           compareResult = await $({
             silent: true,
-          })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
+          })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --paginate --jq '.ahead_by' 2>&1`;
 
           if (compareResult.code === 0) {
             const aheadBy = parseInt(compareResult.stdout.toString().trim(), 10);
@@ -796,9 +816,9 @@ Proceed.
             // Use the correct head reference for the compare API check
             if (argv.fork && forkedRepo) {
               const forkUser = forkedRepo.split('/')[0];
-              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName}`);
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName} --paginate`);
             } else {
-              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName}`);
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName} --paginate`);
             }
             await log('');
 
@@ -884,16 +904,16 @@ Proceed.
           await log(`   Current user: ${currentUser}`, { verbose: true });
 
           // Check if user has push access (is a collaborator or owner)
-          // IMPORTANT: We need to completely suppress the JSON error output
-          // Using async exec to have full control over stderr
+          // IMPORTANT: We need to completely suppress the JSON error output.
+          // Issue #1756: route through execGhWithRetry so transient 5xx
+          // (504) and rate-limit responses are retried instead of being
+          // mistaken for "user is not a collaborator".
           try {
-            const { exec } = await import('child_process');
-            const { promisify } = await import('util');
-            const execAsync = promisify(exec);
             // This will throw if user doesn't have access, but won't print anything
-            await execAsync(`gh api repos/${owner}/${repo}/collaborators/${currentUser} 2>/dev/null`, {
-              encoding: 'utf8',
-              env: process.env,
+            await execGhWithRetry(`gh api repos/${owner}/${repo}/collaborators/${currentUser} 2>/dev/null`, {
+              execOptions: { encoding: 'utf8', env: process.env },
+              label: `gh api collaborators (${owner}/${repo}/${currentUser})`,
+              log: msg => log(msg, { level: 'warn' }),
             });
             canAssign = true;
             await log('   User has collaborator access', { verbose: true });
@@ -1074,13 +1094,11 @@ ${prBody}`,
           );
         }
 
-        // Use async exec for gh pr create to avoid command-stream output issues
-        // Similar to how create-test-repo.mjs handles it
+        // Issue #1756: route `gh pr create` through execGhWithRetry so a
+        // single transient 5xx (e.g. `HTTP 504: 504 Gateway Timeout
+        // (https://api.github.com/graphql)`) or rate-limit response retries
+        // instead of aborting the whole solve session.
         try {
-          const { exec } = await import('child_process');
-          const { promisify } = await import('util');
-          const execAsync = promisify(exec);
-
           // Write PR body to temp file to avoid shell escaping issues
           const prBodyFile = `/tmp/pr-body-${Date.now()}.md`;
           await fs.writeFile(prBodyFile, prBody);
@@ -1095,13 +1113,15 @@ ${prBody}`,
           // Build command with optional assignee and handle forks
           // Note: targetBranch is already defined above
           // IMPORTANT: Use --title-file instead of --title to avoid shell parsing issues with special characters
+          // --repo is always passed (Issue #1774) so a fork-of-fork target
+          // does not silently switch to the upstream parent via `gh repo clone`'s
+          // auto-added `upstream` remote.
           let command;
           if (argv.fork && forkedRepo) {
-            // For forks, specify the full head reference
             const forkUser = forkedRepo.split('/')[0];
             command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${forkUser}:${branchName} --repo ${owner}/${repo}`;
           } else {
-            command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName}`;
+            command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName} --repo ${owner}/${repo}`;
           }
           // Only add assignee if user has permissions
           if (currentUser && canAssign) {
@@ -1116,9 +1136,16 @@ ${prBody}`,
           let prCreateStderr = '';
           let assigneeFailed = false;
 
+          const prCreateExecOptions = { encoding: 'utf8', cwd: tempDir, env: process.env };
+          const prCreateRetryLogger = msg => log(msg, { level: 'warn' });
+
           // Try to create PR with assignee first (if specified)
           try {
-            const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+            const result = await execGhWithRetry(command, {
+              execOptions: prCreateExecOptions,
+              label: 'gh pr create',
+              log: prCreateRetryLogger,
+            });
             output = result.stdout;
             prCreateStderr = result.stderr || '';
           } catch (firstError) {
@@ -1133,12 +1160,12 @@ ${prBody}`,
               });
               await log('     Retrying PR creation without assignee...');
 
-              // Rebuild command without --assignee flag
+              // Rebuild command without --assignee flag (Issue #1774: --repo always pinned)
               if (argv.fork && forkedRepo) {
                 const forkUser = forkedRepo.split('/')[0];
                 command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${forkUser}:${branchName} --repo ${owner}/${repo}`;
               } else {
-                command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName}`;
+                command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName} --repo ${owner}/${repo}`;
               }
 
               if (argv.verbose) {
@@ -1146,7 +1173,11 @@ ${prBody}`,
               }
 
               // Retry without assignee - if this fails, let the error propagate to outer catch
-              const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+              const retryResult = await execGhWithRetry(command, {
+                execOptions: prCreateExecOptions,
+                label: 'gh pr create (no assignee)',
+                log: prCreateRetryLogger,
+              });
               output = retryResult.stdout;
               prCreateStderr = retryResult.stderr || '';
             } else {
@@ -1329,12 +1360,8 @@ ${prBody}`,
                 const linkCheckResult = await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${localPrNumber}) { closingIssuesReferences(first: 10) { nodes { number } } } } }' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'`;
 
                 if (linkCheckResult.code === 0) {
-                  const linkedIssues = linkCheckResult.stdout
-                    .toString()
-                    .trim()
-                    .split('\n')
-                    .filter(n => n);
-                  if (linkedIssues.includes(issueNumber)) {
+                  const linkedIssues = parseClosingIssueNumbers(linkCheckResult.stdout);
+                  if (closingIssueNumbersContain(linkedIssues, issueNumber)) {
                     await log(formatAligned('✅', 'Link verified:', `Issue #${issueNumber} → PR #${localPrNumber}`));
                   } else {
                     // This is a problem - the link wasn't created
@@ -1436,6 +1463,10 @@ ${prBody}`,
     await log('  🔍 What happened:');
     await log(`     ${prError.message}`);
     await log('');
+
+    // Issue #1774: fork-base resolution failure diagnostic.
+    await emitForkAwareDiagnostic({ errorMessage: prError.message, tempDir, owner, repo, defaultBranch, branchName, issueNumber, log, $, reportError });
+
     await log('  💡 The solve command cannot continue without a pull request.');
     await log('');
     await log('  🔧 How to fix:');
@@ -1446,14 +1477,14 @@ ${prBody}`,
     await log('');
     await log('  Option 2: Create PR manually first');
     await log(`     cd ${tempDir}`);
-    await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
+    await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}" --repo ${owner}/${repo}`);
     await log(`     Then use: ./solve.mjs "${issueUrl}" --continue`);
     await log('');
     await log('  Option 3: Debug the issue');
     await log(`     cd ${tempDir}`);
     await log('     git status');
     await log('     git log --oneline -5');
-    await log('     gh pr create --draft  # Try manually to see detailed error');
+    await log(`     gh pr create --draft --repo ${owner}/${repo}  # Try manually to see detailed error`);
     await log('');
 
     // Re-throw the error to stop execution - use prError.message directly

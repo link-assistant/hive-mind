@@ -12,8 +12,9 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 const path = (await use('path')).default;
 
 // Import shared library functions
@@ -26,6 +27,14 @@ import { safeExit } from './exit-handler.lib.mjs';
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
+
+// Issue #1745: process-wide sanitization counters used to print a one-line
+// "we masked N secrets" summary at the end of each run.
+const { formatSanitizationSummary } = await import('./token-sanitization.lib.mjs');
+// Issue #1745: post-finish retroactive sanitization of bot-authored PR
+// comments and the PR description. Runs by default; can be skipped via
+// --dangerously-skip-output-sanitization.
+const { runPostFinishSweep } = await import('./post-finish-sanitization-sweep.lib.mjs');
 
 // Import continuation functions (session resumption, PR detection)
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
@@ -40,15 +49,20 @@ const { autoContinueWhenLimitResets } = autoContinue;
 const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
 export const { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
 
+// Issue #942: buildSolveResumeCommand lives in its own module so it can be safely
+// imported from tool libraries (claude/codex/gemini) without circular imports.
+import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs';
+export { buildSolveResumeCommand };
+
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
-// Import GitHub linking detection library
-const githubLinking = await import('./github-linking.lib.mjs');
-const { hasGitHubLinkingKeyword } = githubLinking;
+// Import pull request issue-link preservation helpers
+const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
+const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking;
 
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
@@ -93,6 +107,83 @@ export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) =>
     lines.push('Pull request description was not updated.');
   }
   return lines;
+};
+
+/**
+ * Ensure an existing pull request body contains a GitHub closing keyword for the issue.
+ *
+ * @param {Object} options
+ * @param {string|number} options.prNumber - Pull request number
+ * @param {string|number} options.issueNumber - Issue number to link
+ * @param {string} options.owner - Repository owner
+ * @param {string} options.repo - Repository name
+ * @param {Object} [options.argv] - Parsed CLI arguments
+ * @param {Function} [options.command] - command-stream tagged template
+ * @param {Function} [options.logger] - Logger function
+ * @returns {Promise<{checked: boolean, updated: boolean, body: string, issueRef: string, error?: string}>}
+ */
+export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner, repo, argv = {}, command = $, logger = log }) => {
+  if (!prNumber || !issueNumber || !owner || !repo) {
+    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error: 'missing required pull request or issue data' };
+  }
+
+  let prBody = '';
+  const prBodyResult = await command`gh pr view ${prNumber} --repo ${owner}/${repo} --json body --jq .body`;
+  if (prBodyResult.code !== 0) {
+    const error = prBodyResult.stderr ? prBodyResult.stderr.toString().trim() : 'Unknown error';
+    await logger(`  ⚠️  Could not read PR body for issue link check: ${error}`);
+    return { checked: false, updated: false, body: prBody, issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error };
+  }
+
+  prBody = prBodyResult.stdout.toString();
+  const linkResult = ensureIssueLinkInPullRequestBody(prBody, {
+    issueNumber,
+    owner,
+    repo,
+    fork: argv.fork,
+  });
+
+  if (!linkResult.updated) {
+    await logger('  ✅ PR body already contains issue reference');
+    return { checked: true, updated: false, body: linkResult.body, issueRef: linkResult.issueRef };
+  }
+
+  await logger(`  📝 Updating PR body to link issue #${issueNumber}...`);
+
+  const fs = (await use('fs')).promises;
+  const tempBodyFile = `/tmp/pr-body-update-${prNumber}-${Date.now()}.md`;
+  await fs.writeFile(tempBodyFile, linkResult.body);
+
+  try {
+    const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+    await fs.unlink(tempBodyFile).catch(() => {});
+
+    if (updateResult.code === 0) {
+      await logger(`  ✅ Updated PR body to include "Fixes ${linkResult.issueRef}"`);
+      return { checked: true, updated: true, body: linkResult.body, issueRef: linkResult.issueRef };
+    }
+
+    const error = updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error';
+    await logger(`  ⚠️  Could not update PR body: ${error}`);
+    return { checked: true, updated: false, body: prBody, issueRef: linkResult.issueRef, error };
+  } catch (updateError) {
+    await fs.unlink(tempBodyFile).catch(() => {});
+    throw updateError;
+  }
+};
+
+export const verifyPullRequestIssueLinkAfterAutoRestart = async ({ prNumber, issueNumber, owner, repo, argv = {}, cleanErrorMessage = error => error.message }) => {
+  if (!prNumber) {
+    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }) };
+  }
+
+  await log('🔗 Verifying PR issue link after auto-restart...');
+  try {
+    return await ensurePullRequestIssueLink({ prNumber, issueNumber, owner, repo, argv });
+  } catch (issueLinkError) {
+    await log(`⚠️  Could not verify PR issue link after auto-restart: ${cleanErrorMessage(issueLinkError)}`, { level: 'warning' });
+    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error: issueLinkError.message };
+  }
 };
 
 /**
@@ -238,6 +329,20 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
   }
 };
 
+const wasFileTouchedAfterCommit = async (tempDir, commitHash, fileName) => {
+  const changedCommitsResult = await $({ cwd: tempDir, silent: true })`git log --format=%H ${commitHash}..HEAD -- ${fileName}`;
+  if (changedCommitsResult.code === 0) {
+    return Boolean(changedCommitsResult.stdout?.trim());
+  }
+
+  if (changedCommitsResult.code !== 0) {
+    await log(`   Could not inspect ${fileName} changes after initial commit`, { verbose: true });
+    await log(`   git log output: ${changedCommitsResult.stderr || changedCommitsResult.stdout || 'no output'}`, { verbose: true });
+  }
+
+  return true;
+};
+
 // Revert the CLAUDE.md or .gitkeep commit to restore original state
 export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = null) => {
   try {
@@ -272,7 +377,26 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     await log(formatAligned('🔄', 'Cleanup:', `Reverting ${fileName} commit`));
     await log(`   Using saved commit hash: ${claudeCommitHash.substring(0, 7)}...`, { verbose: true });
 
+    // Issue #1572: Sync local branch with remote before cleanup to prevent push failures.
+    // After auto-restart sessions, the local branch may be behind the remote.
+    const pullResult = await $({ cwd: tempDir })`git pull origin ${branchName} 2>&1`;
+    if (pullResult.code === 0) {
+      await log(`   Synced local branch before cleanup`, { verbose: true });
+    } else {
+      throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout || pullResult.stderr || 'no output'}`);
+    }
+
     const commitToRevert = claudeCommitHash;
+
+    // Issue #1791: .gitkeep is a normal repository file in some projects, and
+    // user work may intentionally edit or delete it. Once later PR commits touch
+    // .gitkeep, final cleanup must not restore the pre-session version.
+    if (fileName === '.gitkeep' && (await wasFileTouchedAfterCommit(tempDir, commitToRevert, fileName))) {
+      await log(`   ${fileName} changed after the initial auto-commit; leaving PR changes untouched`, {
+        verbose: true,
+      });
+      return;
+    }
 
     // APPROACH 3: Check for modifications before reverting (proactive detection)
     // This is the main strategy - detect if the file was modified after initial commit
@@ -432,35 +556,56 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
 export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
   await log('\n=== Session Summary ===');
 
+  // Issue #1745: report how many tokens were masked during this run, with the
+  // "use --dangerously-skip-output-sanitization to skip" hint when > 0.
+  try {
+    const sanitizationSummary = formatSanitizationSummary();
+    if (sanitizationSummary) {
+      await log(sanitizationSummary);
+    }
+  } catch {
+    /* never fail the summary because of this */
+  }
+
   if (sessionId) {
     await log(`✅ Session ID: ${sessionId}`);
     // Always use absolute path for log file display
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
-    // Show dual resume commands (interactive + autonomous) only for --tool claude
-    if ((argv.tool || 'claude') === 'claude') {
-      await log('');
-      await log('💡 To continue this session:');
-      await log(`   Interactive mode: ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
-      await log(`   Autonomous mode:  ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
-      await log('');
+    // Show three resume options:
+    //   1. Interactive claude  - opens Claude Code interactively (claude only)
+    //   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)
+    //   3. Solve resume        - re-enters solve.mjs with --resume so the full flow continues
+    //                            (works for every supported tool, including codex/gemini/etc.)
+    const tool = argv.tool || 'claude';
+    await log('');
+    await log('💡 To continue this session:');
+    if (tool === 'claude') {
+      await log(`   Interactive mode:    ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+      await log(`   Autonomous mode:     ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
     }
+    if (issueUrl) {
+      const solveResumeCmd = buildSolveResumeCommand({ issueUrl, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
+      await log(`   Solve resume mode:   ${solveResumeCmd}`);
+    }
+    await log('');
 
     if (limitReached) {
       await log('⏰ LIMIT REACHED DETECTED!');
 
-      if (argv.autoResumeOnLimitReset && global.limitResetTime) {
-        await log(`\n🔄 AUTO-RESUME ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
+      if ((argv.autoResumeOnLimitReset || argv.autoRestartOnLimitReset) && global.limitResetTime) {
+        const isRestart = !!argv.autoRestartOnLimitReset;
+        await log(`\n🔄 AUTO-${isRestart ? 'RESTART' : 'RESUME'} ON LIMIT RESET ENABLED - Will ${isRestart ? 'restart' : 'resume'} at ${global.limitResetTime}`);
         // Pass tempDir to ensure resumed session uses the same working directory
         // This is critical for Claude Code session resume to work correctly
-        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs, tempDir);
+        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs, tempDir, isRestart);
       } else {
         if (global.limitResetTime) {
           await log(`\n⏰ Limit resets at: ${global.limitResetTime}`);
         }
 
-        await log('\n💡 After the limit resets, resume using the Claude command above.');
+        await log('\n💡 After the limit resets, resume using the command above.');
 
         if (argv.autoCleanup !== false) {
           await log('');
@@ -488,11 +633,70 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     const logFilePath = path.resolve(getLogFile());
     await log(`📁 Log file available: ${logFilePath}`);
   }
+
+  // Issue #1745: post-finish retroactive sanitization sweep. Re-reads
+  // bot-authored PR comments and the PR description, runs them through
+  // sanitizeOutput, and edits in place if a leak slipped past the live
+  // sanitizer. Honors --dangerously-skip-output-sanitization and the related
+  // active-tokens flag.
+  try {
+    const owner = argv.owner;
+    const repo = argv.repo;
+    const prNumber = argv.prNumber;
+    const skipOutputSanitization = argv['dangerously-skip-output-sanitization'] === true;
+    const skipActiveTokensOutputSanitization = argv['dangerously-skip-active-tokens-output-sanitization'] === true;
+    if (owner && repo && prNumber && !skipOutputSanitization) {
+      const sweepResult = await runPostFinishSweep({
+        $,
+        owner,
+        repo,
+        prNumber,
+        log,
+        sanitizationOptions: {
+          warnOnMismatch: false,
+          skipActiveTokensOutputSanitization,
+        },
+      });
+      if (sweepResult.totalEdited > 0) {
+        await log(`🔒 Post-finish sweep: edited ${sweepResult.totalEdited} bot-authored item(s) to mask leaked tokens.`);
+        const followup = formatSanitizationSummary(sweepResult.sanitizationStatsAfter);
+        if (followup) await log(followup);
+      }
+    }
+  } catch (sweepErr) {
+    await log(`⚠️ Post-finish sanitization sweep failed: ${sweepErr.message || sweepErr}`);
+  }
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null, streamTokenUsage = null, subAgentCalls = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
+
+  // Issue #1491, #1526: Build budget stats data for GitHub comment (computed once, used in both PR and issue paths)
+  let budgetStatsData = null;
+  if (argv.tokensBudgetStats && sessionId && tempDir) {
+    try {
+      const { calculateSessionTokens } = await import('./claude.lib.mjs');
+      const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
+      if (tokenUsage) {
+        budgetStatsData = { tokenUsage, streamTokenUsage, subAgentCalls };
+      }
+    } catch (budgetError) {
+      if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });
+    }
+  }
+  // Issue #1526: Build budget stats from Agent CLI token/context data when no JSONL session available
+  if (!budgetStatsData && argv.tokensBudgetStats && pricingInfo?.tokenUsage) {
+    try {
+      const { buildAgentBudgetStats } = await import('./claude.budget-stats.lib.mjs');
+      const agentBudgetData = buildAgentBudgetStats(pricingInfo.tokenUsage, pricingInfo);
+      if (agentBudgetData) {
+        budgetStatsData = { tokenUsage: agentBudgetData };
+      }
+    } catch (agentBudgetError) {
+      if (argv.verbose) await log(`  ⚠️  Could not build agent budget stats: ${agentBudgetError.message}`, { verbose: true });
+    }
+  }
 
   try {
     // Get the current user's GitHub username
@@ -546,52 +750,16 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
-          // Check if PR body has proper issue linking keywords
-          let prBody = '';
-          const prBodyResult = await $`gh pr view ${pr.number} --repo ${owner}/${repo} --json body --jq .body`;
-          if (prBodyResult.code === 0) {
-            prBody = prBodyResult.stdout.toString();
-            const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
-
-            // Use the new GitHub linking detection library to check for valid keywords
-            // This ensures we only detect actual GitHub-recognized linking keywords
-            // (fixes, closes, resolves and their variants) in proper format
-            // See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
-            const hasLinkingKeyword = hasGitHubLinkingKeyword(prBody, issueNumber, argv.fork ? owner : null, argv.fork ? repo : null);
-
-            if (!hasLinkingKeyword) {
-              await log(`  📝 Updating PR body to link issue #${issueNumber}...`);
-
-              // Add proper issue reference to the PR body
-              const linkingText = `\n\nFixes ${issueRef}`;
-              const updatedBody = prBody + linkingText;
-
-              // Use --body-file instead of --body to avoid command-line length limits
-              // and special character escaping issues that can cause hangs/timeouts
-              const fs = (await use('fs')).promises;
-              const tempBodyFile = `/tmp/pr-body-update-${pr.number}-${Date.now()}.md`;
-              await fs.writeFile(tempBodyFile, updatedBody);
-
-              try {
-                const updateResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
-
-                // Clean up temp file
-                await fs.unlink(tempBodyFile).catch(() => {});
-
-                if (updateResult.code === 0) {
-                  await log(`  ✅ Updated PR body to include "Fixes ${issueRef}"`);
-                } else {
-                  await log(`  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`);
-                }
-              } catch (updateError) {
-                // Clean up temp file on error
-                await fs.unlink(tempBodyFile).catch(() => {});
-                throw updateError;
-              }
-            } else {
-              await log('  ✅ PR body already contains issue reference');
-            }
-          }
+          const issueLinkResult = await ensurePullRequestIssueLink({
+            prNumber: pr.number,
+            issueNumber,
+            owner,
+            repo,
+            argv,
+            command: $,
+            logger: log,
+          });
+          const prBody = issueLinkResult.body || '';
 
           // Issue #1162: Detect if PR title/description still have auto-generated placeholder content
           // Track this before cleanup for --auto-restart-on-non-updated-pull-request-description
@@ -633,7 +801,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
             // Build new description
             const fs = (await use('fs')).promises;
-            const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
+            const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
             const newDescription = `## Summary
 
 This pull request implements a solution for ${issueRef}: ${issueTitle}
@@ -706,10 +874,12 @@ Fixes ${issueRef}
             // Issue #1152: Pass sessionType for differentiated log comments
             sessionType,
             // Issue #1225: Pass model and tool info for PR comments
-            requestedModel: argv.model,
+            requestedModel: argv.originalModel || argv.model,
             tool: argv.tool || 'claude',
             // Issue #1454: Pass resultModelUsage for accurate multi-model display
             resultModelUsage,
+            // Issue #1491: Pass budget stats for token budget display in comment
+            budgetStatsData,
           });
         }
 
@@ -790,10 +960,12 @@ Fixes ${issueRef}
           // Issue #1152: Pass sessionType for differentiated log comments
           sessionType,
           // Issue #1225: Pass model and tool info for issue comments
-          requestedModel: argv.model,
+          requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
           // Issue #1454: Pass resultModelUsage for accurate multi-model display
           resultModelUsage,
+          // Issue #1491: Pass budget stats for token budget display in comment
+          budgetStatsData,
         });
       }
 
@@ -879,7 +1051,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           verbose: argv.verbose || false,
           errorMessage: cleanErrorMessage(error),
           // Issue #1225: Pass model and tool info for PR comments
-          requestedModel: argv.model,
+          requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
         });
 
@@ -920,21 +1092,31 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
   await safeExit(1, 'Execution error');
 };
 
+// Issue #1625: Markers and in-memory comment-ID tracking are centralized in
+// src/tool-comments.lib.mjs so that every place that *posts* a tool-generated
+// comment and the filter that *detects* them share the exact same constants.
+// Re-exported here for backwards compatibility with imports that expect them
+// from solve.results.lib.mjs.
+const toolComments = await import('./tool-comments.lib.mjs');
+export const { TOOL_GENERATED_COMMENT_MARKERS, isToolGeneratedComment, trackToolCommentId, isToolTrackedCommentId, getTrackedToolCommentIds, postTrackedComment } = toolComments;
+
 /**
  * Check if new comments were created by the AI during the session.
  * This is used by --auto-attach-solution-summary to determine if the AI
  * already provided feedback.
  *
  * Issue #1263: Support for --attach-solution-summary and --auto-attach-solution-summary
+ * Issue #1625: Filter out comments produced by solve.mjs itself (session start,
+ * log upload, auto-restart, etc.) so they do not falsely count as AI-authored.
  *
- * @param {Date} referenceTime - The timestamp before tool execution
+ * @param {Date} sessionStartTime - The timestamp when this solve work session started
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number (null if working on issue only)
  * @param {number} issueNumber - Issue number
  * @returns {Promise<boolean>} - True if AI created comments during the session
  */
-export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNumber, issueNumber) => {
+export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, prNumber, issueNumber) => {
   try {
     // Get the current user's GitHub username
     const userResult = await $`gh api user --jq .login`;
@@ -946,13 +1128,62 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       return false;
     }
 
+    await log(`🔎 Checking comments by '${currentUser}' after session start ${sessionStartTime.toISOString()} (PR #${prNumber ?? 'none'}, issue #${issueNumber ?? 'none'})`, { verbose: true });
+
+    // Issue #1625: A comment counts as an "AI comment" only if it was posted
+    // by the current user AFTER sessionStartTime AND solve.mjs did NOT post it
+    // itself. We identify tool-posted comments in two ways, in order:
+    //   1. Primary: comment ID is in the in-memory tracked set populated by
+    //      every solve.mjs posting site (postTrackedComment / trackToolCommentId).
+    //      This is robust to comment-body changes.
+    //   2. Fallback: comment body matches a known TOOL_GENERATED_COMMENT_MARKERS
+    //      marker. This catches comments whose IDs weren't captured — for
+    //      example, on resumed sessions where the posting happened in an
+    //      earlier process, or legacy code paths that predate tracking.
+    // Review-type inline comments cannot be posted by solve.mjs, so they are
+    // treated as AI-authored by default.
+    const filterNewAiComments = (comments, kind) => {
+      const filtered = [];
+      const skippedCounts = {};
+      const skippedByIdCount = { n: 0 };
+      for (const comment of comments) {
+        if (!comment || !comment.user || comment.user.login !== currentUser) continue;
+        if (!(new Date(comment.created_at) > sessionStartTime)) continue;
+
+        const isReview = kind === 'review';
+        if (!isReview) {
+          if (isToolTrackedCommentId(comment.id)) {
+            skippedByIdCount.n += 1;
+            continue;
+          }
+          if (isToolGeneratedComment(comment.body)) {
+            const markerMatch = TOOL_GENERATED_COMMENT_MARKERS.find(m => (comment.body || '').includes(m)) || 'unknown';
+            skippedCounts[markerMatch] = (skippedCounts[markerMatch] || 0) + 1;
+            continue;
+          }
+        }
+        filtered.push(comment);
+      }
+      if (skippedByIdCount.n > 0) {
+        log(`   ⏭️  Skipped ${kind} tool-tracked comment IDs: ${skippedByIdCount.n}`, { verbose: true }).catch(() => {});
+      }
+      if (Object.keys(skippedCounts).length > 0) {
+        const summary = Object.entries(skippedCounts)
+          .map(([m, c]) => `${m}=${c}`)
+          .join(', ');
+        log(`   ⏭️  Skipped ${kind} tool-generated comments (marker fallback): ${summary}`, { verbose: true }).catch(() => {});
+      }
+      return filtered;
+    };
+
     // Check comments on the PR first (if we have a PR)
     if (prNumber) {
       // Check PR conversation comments
       const prCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
       if (prCommentsResult.code === 0) {
         const prComments = JSON.parse(prCommentsResult.stdout.toString().trim() || '[]');
-        const newPrComments = prComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        const newPrComments = filterNewAiComments(prComments, 'pr');
+        await log(`   📨 PR conversation comments after session start by '${currentUser}' (excluding tool-generated): ${newPrComments.length}`, { verbose: true });
         if (newPrComments.length > 0) {
           return true;
         }
@@ -962,7 +1193,8 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       const reviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
       if (reviewCommentsResult.code === 0) {
         const reviewComments = JSON.parse(reviewCommentsResult.stdout.toString().trim() || '[]');
-        const newReviewComments = reviewComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        const newReviewComments = filterNewAiComments(reviewComments, 'review');
+        await log(`   📝 PR review (inline) comments after session start by '${currentUser}': ${newReviewComments.length}`, { verbose: true });
         if (newReviewComments.length > 0) {
           return true;
         }
@@ -974,7 +1206,8 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
       const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
       if (issueCommentsResult.code === 0) {
         const issueComments = JSON.parse(issueCommentsResult.stdout.toString().trim() || '[]');
-        const newIssueComments = issueComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        const newIssueComments = filterNewAiComments(issueComments, 'issue');
+        await log(`   📨 Issue comments after session start by '${currentUser}' (excluding tool-generated): ${newIssueComments.length}`, { verbose: true });
         if (newIssueComments.length > 0) {
           return true;
         }
@@ -990,11 +1223,17 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
 };
 
 /**
- * Attach the AI's solution summary as a comment to the PR or issue.
+ * Attach the AI's working session summary as a comment to the PR or issue.
  * The summary is extracted from the tool's result field and posted
- * with a "Solution summary" header.
+ * with a "Working session summary" header.
  *
  * Issue #1263: Support for --attach-solution-summary and --auto-attach-solution-summary
+ * Issue #1728: Renamed comment header from "Solution summary" to "Working session
+ * summary" so it accurately describes continuation/restart iterations too. CLI
+ * flag names are preserved for backwards compatibility. Posting now uses
+ * postTrackedComment so the comment ID is registered in the in-memory tool-
+ * comment set — that way the next iteration's --auto-attach-solution-summary
+ * check doesn't mistake a previous iteration's summary for an AI comment.
  *
  * @param {Object} options - Options object
  * @param {string} options.resultSummary - The AI's result summary text
@@ -1006,34 +1245,33 @@ export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNu
  */
 export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo }) => {
   if (!resultSummary || typeof resultSummary !== 'string') {
-    await log('⚠️  No solution summary available to attach', { verbose: true });
+    await log('⚠️  No working session summary available to attach', { verbose: true });
     return false;
   }
 
   const targetNumber = prNumber || issueNumber;
   const targetType = prNumber ? 'pr' : 'issue';
-  const ghCommand = prNumber ? 'pr' : 'issue';
 
   if (!targetNumber) {
-    await log('⚠️  No PR or issue number to attach solution summary to', { verbose: true });
+    await log('⚠️  No PR or issue number to attach working session summary to', { verbose: true });
     return false;
   }
 
   try {
-    const comment = `## Solution summary
+    const comment = `## Working session summary
 
 ${resultSummary}
 
 ---
 *This summary was automatically extracted from the AI working session output.*`;
 
-    const result = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body ${comment}`;
+    const { ok, commentId, stderr } = await postTrackedComment({ $, owner, repo, targetNumber, body: comment });
 
-    if (result.code === 0) {
-      await log(`✅ Solution summary attached to ${targetType} #${targetNumber}`);
+    if (ok) {
+      await log(`✅ Working session summary attached to ${targetType} #${targetNumber}${commentId ? ` (id=${commentId})` : ''}`);
       return true;
     } else {
-      await log(`⚠️  Failed to attach solution summary: ${result.stderr?.toString() || 'Unknown error'}`, {
+      await log(`⚠️  Failed to attach working session summary: ${stderr || 'Unknown error'}`, {
         level: 'warning',
       });
       return false;
@@ -1043,9 +1281,78 @@ ${resultSummary}
       context: 'attach_solution_summary',
       targetType,
       targetNumber,
-      operation: 'post_solution_summary_comment',
+      operation: 'post_working_session_summary_comment',
     });
-    await log(`⚠️  Error attaching solution summary: ${error.message}`, { level: 'warning' });
+    await log(`⚠️  Error attaching working session summary: ${error.message}`, { level: 'warning' });
     return false;
   }
+};
+
+/**
+ * Decide whether to attach a working session summary for a single working
+ * session and, if so, post it. Single source of truth for the attach decision
+ * shared by every working-session call site:
+ *
+ *   - solve.mjs (top-level, end-of-run)
+ *   - solve.auto-merge.lib.mjs (auto-restart-until-mergeable iterations)
+ *   - solve.watch.lib.mjs (watch / temporary auto-restart iterations)
+ *
+ * Issue #1728: Before this helper, only solve.mjs ran the attach decision, so
+ * iterations inside auto-restart-until-mergeable / watch silently dropped the
+ * AI's `resultSummary` whenever the AI itself posted no comment. Centralising
+ * the decision here means every working session ends with either an AI-authored
+ * comment OR an automated "Working session summary" comment, matching the
+ * issue's "unify logic for all working sessions" requirement.
+ *
+ * @param {Object} options
+ * @param {Object} options.argv - parsed CLI arguments (reads attachSolutionSummary
+ *   and autoAttachSolutionSummary; flag names preserved for backwards compat)
+ * @param {string|null|undefined} options.resultSummary - AI's last-message summary
+ * @param {Date} options.workStartTime - the iteration's own start time, used to
+ *   scope the AI-comment check to this iteration only
+ * @param {string} options.owner
+ * @param {string} options.repo
+ * @param {number|null} options.prNumber
+ * @param {number|null} options.issueNumber
+ * @param {boolean} [options.success=true] - skip attachment for failed iterations
+ * @returns {Promise<{attached: boolean, reason: string}>}
+ */
+export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, workStartTime, owner, repo, prNumber, issueNumber, success = true }) => {
+  if (!success) {
+    return { attached: false, reason: 'iteration_failed' };
+  }
+
+  const attachFlag = argv && (argv.attachSolutionSummary || argv['attach-solution-summary']);
+  const autoAttachFlag = argv && (argv.autoAttachSolutionSummary || argv['auto-attach-solution-summary']);
+
+  if (!attachFlag && !autoAttachFlag) {
+    return { attached: false, reason: 'flag_disabled' };
+  }
+
+  if (!resultSummary || typeof resultSummary !== 'string') {
+    await log('ℹ️  No working session summary available from AI tool output', { verbose: true });
+    return { attached: false, reason: 'no_result_summary' };
+  }
+
+  let shouldAttach = false;
+  if (attachFlag) {
+    shouldAttach = true;
+    await log('📝 --attach-solution-summary enabled, attaching working session summary...');
+  } else if (autoAttachFlag) {
+    await log('🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...');
+    const aiCreatedComments = await checkForAiCreatedComments(workStartTime, owner, repo, prNumber, issueNumber);
+    if (aiCreatedComments) {
+      await log('ℹ️  AI created comments during session, skipping working session summary attachment');
+      return { attached: false, reason: 'ai_comments_present' };
+    }
+    shouldAttach = true;
+    await log('📝 No AI comments detected, attaching working session summary...');
+  }
+
+  if (!shouldAttach) {
+    return { attached: false, reason: 'no_attach_decision' };
+  }
+
+  const ok = await attachSolutionSummary({ resultSummary, prNumber, issueNumber, owner, repo });
+  return { attached: !!ok, reason: ok ? 'attached' : 'post_failed' };
 };

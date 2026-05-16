@@ -3,6 +3,10 @@
  * Handles repository cloning, forking, and remote setup
  */
 
+// Issue #1625: centralized markers + tracked posting for the "empty repo"
+// issue comment so it's excluded from --auto-attach-solution-summary's check.
+import { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
+
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
   // Set up repository and handle forking
   const { repoToClone, forkedRepo, upstreamRemote, prForkOwner } = await setupRepository(argv, owner, repo, forkOwner, issueUrl, forkRepoName);
@@ -67,12 +71,10 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   }
 
   let defaultBranch = defaultBranchResult.stdout.toString().trim();
-  if (!defaultBranch) {
-    // Repository is likely empty (no commits) - detect and handle
-    const isEmptyRepo = await detectEmptyRepository(tempDir, $);
+  const isEmptyRepo = await detectEmptyRepository(tempDir, $);
 
-    if (isEmptyRepo && argv && argv.autoInitRepository && owner && repo) {
-      // --auto-init-repository is enabled, try to initialize
+  if (isEmptyRepo) {
+    if (argv && argv.autoInitRepository && owner && repo) {
       await log('');
       await log(`${formatAligned('⚠️', 'EMPTY REPOSITORY', 'detected')}`, { level: 'warn' });
       await log(`${formatAligned('', '', `Repository ${owner}/${repo} contains no commits`)}`);
@@ -122,7 +124,6 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
         await log(`${formatAligned('✅', 'Repository initialized:', `Now on branch ${defaultBranch}`)}`);
         await log(`\n${formatAligned('📌', 'Default branch:', defaultBranch)}`);
       } else {
-        // Auto-init failed - provide helpful message with --auto-init-repository context
         await log('');
         await log(`${formatAligned('❌', 'AUTO-INIT FAILED', '')}`, { level: 'error' });
         await log('');
@@ -145,8 +146,7 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
 
         throw new Error('Empty repository auto-initialization failed');
       }
-    } else if (isEmptyRepo) {
-      // Empty repo detected but --auto-init-repository is not enabled
+    } else {
       await log('');
       await log(`${formatAligned('❌', 'EMPTY REPOSITORY DETECTED', '')}`, { level: 'error' });
       await log('');
@@ -166,25 +166,24 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
       await tryCommentOnIssueAboutEmptyRepo({ issueUrl, owner, repo, log, formatAligned, $ });
 
       throw new Error('Empty repository detected - use --auto-init-repository to initialize');
-    } else {
-      // Not an empty repo, some other issue with branch detection
-      await log('');
-      await log(`${formatAligned('❌', 'DEFAULT BRANCH DETECTION FAILED', '')}`, { level: 'error' });
-      await log('');
-      await log('  🔍 What happened:');
-      await log("     Unable to determine the repository's default branch.");
-      await log('');
-      await log('  💡 This might mean:');
-      await log('     • Unusual repository configuration');
-      await log('     • Git command issues');
-      await log('');
-      await log('  🔧 How to fix:');
-      await log('     1. Check repository status');
-      await log(`     2. Verify locally: cd ${tempDir} && git branch`);
-      await log(`     3. Check remote: cd ${tempDir} && git branch -r`);
-      await log('');
-      throw new Error('Default branch detection failed');
     }
+  } else if (!defaultBranch) {
+    await log('');
+    await log(`${formatAligned('❌', 'DEFAULT BRANCH DETECTION FAILED', '')}`, { level: 'error' });
+    await log('');
+    await log('  🔍 What happened:');
+    await log("     Unable to determine the repository's default branch.");
+    await log('');
+    await log('  💡 This might mean:');
+    await log('     • Unusual repository configuration');
+    await log('     • Git command issues');
+    await log('');
+    await log('  🔧 How to fix:');
+    await log('     1. Check repository status');
+    await log(`     2. Verify locally: cd ${tempDir} && git branch`);
+    await log(`     3. Check remote: cd ${tempDir} && git branch -r`);
+    await log('');
+    throw new Error('Default branch detection failed');
   } else {
     await log(`\n${formatAligned('📌', 'Default branch:', defaultBranch)}`);
   }
@@ -223,7 +222,7 @@ async function tryCommentOnIssueAboutEmptyRepo({ issueUrl, owner, repo, log, for
     const issueNumber = issueMatch[1];
     await log(`${formatAligned('💬', 'Creating comment:', 'Informing about empty repository...')}`);
 
-    const commentBody = `## ⚠️ Repository Initialization Required
+    const commentBody = `## ⚠️ ${REPOSITORY_INITIALIZATION_REQUIRED_MARKER}
 
 Hello! I attempted to work on this issue, but encountered a problem:
 
@@ -245,9 +244,9 @@ Once the repository contains at least one commit with any file, I'll be able to 
 
 Thank you!`;
 
-    const commentResult = await $`gh issue comment ${issueNumber} --repo ${owner}/${repo} --body ${commentBody}`;
-    if (commentResult.code === 0) {
-      await log(`${formatAligned('✅', 'Comment created:', `Posted to issue #${issueNumber}`)}`);
+    const posted = await postTrackedComment({ $, owner, repo, targetNumber: issueNumber, body: commentBody });
+    if (posted.ok) {
+      await log(`${formatAligned('✅', 'Comment created:', `Posted to issue #${issueNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}`)}`);
     } else {
       await log(`${formatAligned('⚠️', 'Note:', 'Could not post comment to issue (this is not critical)')}`);
     }
@@ -263,16 +262,19 @@ Thank you!`;
  */
 async function detectEmptyRepository(tempDir, $) {
   // Check if there are any commits in the repository
-  const logResult = await $({ cwd: tempDir })`git rev-parse HEAD 2>&1`;
-  if (logResult.code !== 0) {
-    // git rev-parse HEAD fails when there are no commits
-    const output = (logResult.stdout || logResult.stderr || '').toString();
-    if (output.includes('unknown revision') || output.includes('bad default revision') || output.includes('does not have any commits')) {
-      return true;
-    }
+  const logResult = await $({ cwd: tempDir })`git rev-parse --verify HEAD 2>&1`;
+  if (logResult.code === 0) {
+    return false;
   }
 
-  // Also check if there are any remote branches
+  // git rev-parse HEAD fails when there are no commits
+  const output = (logResult.stdout || logResult.stderr || '').toString();
+  if (output.includes('unknown revision') || output.includes('ambiguous argument') || output.includes('bad default revision') || output.includes('does not have any commits') || output.includes('Needed a single revision')) {
+    return true;
+  }
+
+  // Fall back to remote branch absence for Git versions with different
+  // no-commit messages, but only after HEAD lookup failed.
   const remoteBranchResult = await $({ cwd: tempDir })`git branch -r`;
   if (remoteBranchResult.code === 0) {
     const branches = remoteBranchResult.stdout.toString().trim();

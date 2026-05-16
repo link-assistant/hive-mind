@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
   const { getVersion } = await import('./version.lib.mjs');
@@ -16,18 +17,12 @@ if (earlyArgs.includes('--version')) {
 if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   try {
     // Load minimal modules needed for help
-    const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
-    globalThis.use = use;
-    const yargsModule = await use('yargs@17.7.2');
-    const yargs = yargsModule.default || yargsModule;
-    const helpersModuleHelp = await use('yargs@17.7.2/helpers');
-    const _helpersHelp = helpersModuleHelp.default || helpersModuleHelp;
-    const hideBinHelp = _helpersHelp.hideBin || (argv => argv.slice(2));
-    const rawArgs = hideBinHelp(process.argv);
+    const { getLinoYargsFactory, hideBin } = await import('./cli-arguments.lib.mjs');
+    const yargs = getLinoYargsFactory();
+    const rawArgs = hideBin(process.argv);
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
-    // Show help and exit
     helpYargs.showHelp();
     process.exit(0);
   } catch (error) {
@@ -39,29 +34,13 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   }
 }
 export { createYargsConfig } from './hive.config.lib.mjs';
-// Only execute main logic if this module is being run directly (not imported)
-// This prevents heavy module loading when hive.mjs is imported by other modules
-// Check if we're being executed (not imported) by looking at various indicators:
-// 1. process.argv[1] is the executed file path
-// 2. import.meta.url is this file's URL
-// 3. For global installs, argv[1] might be a symlink, so we check if it contains 'hive'
-import { fileURLToPath } from 'url';
-const isDirectExecution = process.argv[1] === fileURLToPath(import.meta.url) || (process.argv[1] && (process.argv[1].includes('/hive') || process.argv[1].endsWith('hive')));
-if (isDirectExecution) {
+import { isDirectExecution, withTimeout } from './hive.bootstrap.lib.mjs';
+const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
+if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
   console.log('   Initializing...');
   try {
     console.log('   Loading dependencies (this may take a moment)...');
-    // Helper function to add timeout to async operations
-    const withTimeout = (promise, timeoutMs, operation) => {
-      let timeoutId;
-      return Promise.race([
-        promise,
-        new Promise((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs);
-        }),
-      ]).finally(() => clearTimeout(timeoutId));
-    };
     // Use use-m to dynamically import modules for cross-runtime compatibility
     if (typeof use === 'undefined') {
       try {
@@ -86,23 +65,19 @@ if (isDirectExecution) {
       30000, // 30 second timeout
       'loading command-stream'
     );
-    const yargsModule = await withTimeout(use('yargs@17.7.2'), 30000, 'loading yargs');
-    const yargs = yargsModule.default || yargsModule;
-    const helpersModuleMain = await withTimeout(use('yargs@17.7.2/helpers'), 30000, 'loading yargs helpers');
-    const _helpersMain = helpersModuleMain.default || helpersModuleMain;
-    const hideBin = _helpersMain.hideBin || (argv => argv.slice(2));
+    const { parseCliArgumentsWithLino, hideBin } = await import('./cli-arguments.lib.mjs');
     const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions
     const lib = await import('./lib.mjs');
-    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories, setupVerboseLogInterceptor } = lib;
+    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
     const yargsConfigLib = await import('./hive.config.lib.mjs');
     const { createYargsConfig } = yargsConfigLib;
     const claudeLib = await import('./claude.lib.mjs');
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
     const modelValidation = await import('./models/index.mjs');
-    const { validateAndExitOnInvalidModel } = modelValidation;
+    const { validateAndExitOnInvalidModel, defaultModels, resolveRuntimeDefaultModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
     // Import YouTrack-related functions
@@ -122,6 +97,8 @@ if (isDirectExecution) {
     const { listSolutionDrafts } = solutionDraftsLib;
     const recheckLib = await import('./hive.recheck.lib.mjs');
     const { recheckIssueConditions } = recheckLib;
+    const toolConnectionValidationLib = await import('./tool-connection-validation.lib.mjs');
+    const { validateToolConnection } = toolConnectionValidationLib;
     const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
     const isLocalScript = commandName.endsWith('.mjs');
     const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
@@ -135,9 +112,6 @@ if (isDirectExecution) {
      * @returns {Promise<Array>} Array of issues
      */
     async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIssues = false) {
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
       try {
         await log(`   🔄 Using repository-by-repository fallback for ${scope}: ${owner}`);
         // Strategy 1: Try GraphQL approach first (faster but has limitations)
@@ -164,7 +138,11 @@ if (isDirectExecution) {
 
         // Add delay for rate limiting
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const { stdout: repoOutput } = await execAsync(repoListCmd, { encoding: 'utf8', env: process.env });
+        // #1756: route through execGhWithRetry for transient 5xx + rate-limit
+        const { stdout: repoOutput } = await execGhWithRetry(repoListCmd, {
+          execOptions: { encoding: 'utf8', env: process.env },
+          label: `gh api ${scope} repos (paginated)`,
+        });
         // Parse the output line by line, as gh api with --jq outputs one JSON object per line
         const repoLines = repoOutput
           .trim()
@@ -272,7 +250,12 @@ if (isDirectExecution) {
     };
 
     try {
-      argv = await createYargsConfig(yargs()).parse(rawArgs);
+      argv = parseCliArgumentsWithLino({
+        argv: process.argv,
+        commandName: 'hive',
+        createYargsConfig,
+        positionalAliases: ['github-url'],
+      });
       // Restore stderr if parsing succeeded
       process.stderr.write = originalStderrWrite;
     } catch (error) {
@@ -309,8 +292,11 @@ if (isDirectExecution) {
     // Set global verbose mode
     global.verboseMode = argv.verbose;
 
-    // Issue #1466: Intercept console.log to capture [VERBOSE] output in log files
-    setupVerboseLogInterceptor();
+    const { initI18n } = await import('./i18n.lib.mjs');
+    await initI18n({ language: argv.language, uiLanguage: argv.uiLanguage, workLanguage: argv.workLanguage });
+
+    setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
+    setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
 
     // Use the universal GitHub URL parser
     if (githubUrl) {
@@ -472,9 +458,17 @@ if (isDirectExecution) {
       if (!rawArgs.includes('--model') && !rawArgs.includes('-m') && !rawArgs.includes('--worker-model')) argv.model = 'sonnet';
     }
 
+    const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
+    if (argv.tool && !modelExplicitlyProvided && defaultModels[argv.tool]) {
+      argv.model = await resolveRuntimeDefaultModel(argv.tool);
+    }
+
     // Validate model names EARLY (simple string check, always runs)
     const tool = argv.tool || 'claude';
     await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+    if (argv.fallbackModel) {
+      await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit);
+    }
     if (argv.planModel) {
       if (tool !== 'claude') {
         await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
@@ -800,8 +794,12 @@ if (isDirectExecution) {
                 } else if (value) {
                   args.push(`--${optionName}`); // Default false: only forward when truthy
                 }
-              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined) {
-                args.push(`--${optionName}`, String(value));
+              } else if (def.type === 'array' && Array.isArray(value) && value.length > 0) {
+                for (const entry of value) {
+                  args.push(`--${optionName}`, String(entry));
+                }
+              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined && value !== false) {
+                args.push(`--${optionName}`, String(value)); // Issue #1718: skip false (some string options have default:false)
               }
             }
             // Log the actual command being executed so users can investigate/reproduce
@@ -1434,8 +1432,6 @@ if (isDirectExecution) {
       await safeExit(0, 'Process completed');
     }
 
-    // validateClaudeConnection is imported from lib.mjs
-
     // Handle graceful shutdown
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
     process.on('SIGTERM', () => gracefulShutdown('termination'));
@@ -1445,7 +1441,7 @@ if (isDirectExecution) {
       await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', {
         verbose: true,
       });
-      await log('⏩ Skipping Claude CLI connection check (dry-run mode or skip-tool-connection-check enabled)', {
+      await log('⏩ Skipping AI tool connection check (dry-run mode or skip-tool-connection-check enabled)', {
         verbose: true,
       });
     } else {
@@ -1462,10 +1458,10 @@ if (isDirectExecution) {
         await safeExit(1, 'Error occurred');
       }
 
-      // Validate Claude CLI connection before starting monitoring with the same model that will be used
-      const isClaudeConnected = await validateClaudeConnection(argv.model);
-      if (!isClaudeConnected) {
-        await log('❌ Cannot start monitoring without Claude CLI connection', { level: 'error' });
+      // Validate the selected AI tool connection before starting monitoring with the same model that will be used
+      const isToolConnected = await validateToolConnection({ tool: argv.tool, model: argv.model, verbose: argv.verbose, validateClaudeConnection });
+      if (!isToolConnected) {
+        await log(`❌ Cannot start monitoring without ${argv.tool || 'claude'} connection`, { level: 'error' });
         await safeExit(1, 'Error occurred');
       }
     }
@@ -1485,6 +1481,9 @@ if (isDirectExecution) {
       await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
       await safeExit(1, 'Error occurred');
     }
+
+    const finalStats = issueQueue.getStats(); // Issue #1718: surface worker failures via exit code
+    if (finalStats.failed > 0) await safeExit(1, `${finalStats.failed} task(s) failed (completed: ${finalStats.completed})`);
   } catch (fatalError) {
     // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');
@@ -1496,4 +1495,4 @@ if (isDirectExecution) {
     console.error('\nPlease report this issue at: https://github.com/link-assistant/hive-mind/issues');
     process.exit(1);
   }
-} // End of main execution block
+}

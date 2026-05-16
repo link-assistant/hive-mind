@@ -27,6 +27,8 @@ let logFunction = null;
 let cleanupFunction = null;
 let interruptFunction = null;
 let interruptHandlerRan = false;
+let preExitFunction = null;
+let preExitHandlerRan = false;
 
 /**
  * Initialize the exit handler with required dependencies
@@ -36,11 +38,16 @@ let interruptHandlerRan = false;
  * @param {Function} interrupt - Optional interrupt function to call on SIGINT/SIGTERM before cleanup
  *                               (e.g., auto-commit uncommitted changes, upload logs)
  */
-export const initializeExitHandler = (getLogPath, log, cleanup = null, interrupt = null) => {
+export const initializeExitHandler = (getLogPath, log, cleanup = null, interrupt = null, preExit = null) => {
   getLogPathFunction = getLogPath;
   logFunction = log;
   cleanupFunction = cleanup;
   interruptFunction = interrupt;
+  preExitFunction = preExit;
+};
+
+export const setPreExitHandler = preExit => {
+  preExitFunction = preExit;
 };
 
 /**
@@ -121,12 +128,30 @@ const drainHandles = async () => {
     // undici may not be available in all Node versions — safe to ignore
   }
 
-  // 3. Unref surviving child processes from command-stream.
-  //    These are typically already-exited but their OS handle entry lingers.
+  // 3. Detect surviving child processes from command-stream.
+  //    Issue #1516: Surviving ChildProcess handles indicate a bug — a leaked /bin/sh
+  //    child can continue executing (making commits, pushing to GitHub) after we've
+  //    declared completion. Instead of silently killing them (which hides root causes),
+  //    we log an error so each occurrence is investigated and the root cause is fixed.
+  //    The process group kill in claude.lib.mjs (killProcessTree) should have already
+  //    terminated all children; if any survive, that's a bug we need to know about.
   try {
     for (const handle of process._getActiveHandles()) {
-      if (handle?.constructor?.name === 'ChildProcess' && typeof handle.unref === 'function') {
-        handle.unref();
+      if (handle?.constructor?.name === 'ChildProcess') {
+        // Issue #1516: Report surviving child processes as errors instead of killing them.
+        // This surfaces the root cause for investigation rather than hiding it.
+        const detail = [handle.pid != null ? `pid=${handle.pid}` : null, handle.spawnfile ? `file=${handle.spawnfile}` : null, handle.killed ? 'killed=true' : 'killed=false'].filter(Boolean).join(', ');
+        const errorMsg = `❌ ERROR: Surviving ChildProcess detected at exit (${detail}). This indicates a leaked process that was not properly terminated. Investigate the root cause — do NOT suppress this error by killing the process. (Issue #1516)`;
+        if (logFunction) {
+          await logFunction(errorMsg, { level: 'error' });
+        } else {
+          console.error(errorMsg);
+        }
+        // Still unref so Node.js can exit, but do NOT kill — let the OS process
+        // continue so its effects are visible and the root cause can be diagnosed.
+        if (typeof handle.unref === 'function') {
+          handle.unref();
+        }
       }
     }
   } catch {
@@ -181,6 +206,20 @@ export const logActiveHandles = async (log = null) => {
  */
 export const safeExit = async (code = 0, reason = 'Process completed') => {
   await showExitMessage(reason, code);
+
+  if (code !== 0 && preExitFunction && !preExitHandlerRan) {
+    preExitHandlerRan = true;
+    try {
+      await preExitFunction({ code, reason });
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error);
+      if (logFunction) {
+        await logFunction(`⚠️  Pre-exit handler failed: ${message}`, { level: 'warning' });
+      } else {
+        console.warn(`⚠️  Pre-exit handler failed: ${message}`);
+      }
+    }
+  }
 
   // Issue #1431: Drain/unref active handles so the event loop exits naturally.
   // This resolves the root causes of dangling ReadStream (stdin), Socket (undici),

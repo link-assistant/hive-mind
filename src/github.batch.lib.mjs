@@ -10,52 +10,46 @@ if (typeof globalThis.use === 'undefined') {
 // Import dependencies
 import { log, cleanErrorMessage } from './lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
+import { prClosesIssue } from './github-linking.lib.mjs';
+
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
+export { prClosesIssue };
 
 /**
- * Check if a PR body/title indicates it fixes/closes/resolves a specific issue number
- * GitHub auto-closes issues when PR body contains keywords like "fixes #123", "closes #123", "resolves #123"
- * See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
- * @param {string} text - PR body or title text
- * @param {number} issueNumber - Issue number to check for
- * @returns {boolean} True if the text contains a closing keyword for this issue
+ * Extract open pull requests that are linked to an issue with closing keywords.
+ * Draft pull requests are still open in-progress solution drafts, so they must
+ * count for /hive --skip-issues-with-prs.
+ * @param {Object} issueData - GraphQL issue node with timelineItems
+ * @param {number} issueNum - Issue number to check
+ * @param {Function} logger - Async logger, defaults to shared log helper
+ * @returns {Promise<Array<Object>>} Linked open PRs that close the issue
  */
-export function prClosesIssue(text, issueNumber) {
-  if (!text || typeof text !== 'string') {
-    return false;
-  }
+export async function extractLinkedPullRequestsForIssue(issueData, issueNum, logger = log) {
+  const linkedPRs = [];
 
-  // GitHub closing keywords (case-insensitive)
-  // Supports: fix, fixes, fixed, close, closes, closed, resolve, resolves, resolved
-  // Also supports variations with repository prefix like "fixes owner/repo#123"
-  const closingKeywords = ['fix', 'fixes', 'fixed', 'close', 'closes', 'closed', 'resolve', 'resolves', 'resolved'];
+  for (const item of issueData.timelineItems?.nodes || []) {
+    if (item?.source && item.source.state === 'OPEN') {
+      // Check if PR actually closes this issue (has "fixes #N", "closes #N", or "resolves #N")
+      const prBody = item.source.body || '';
+      const prTitle = item.source.title || '';
+      const closesThisIssue = prClosesIssue(prBody, issueNum) || prClosesIssue(prTitle, issueNum);
 
-  // Build regex pattern that matches any of the keywords followed by #N or repo#N
-  // Examples matched:
-  //   - "fixes #123"
-  //   - "Closes #123"
-  //   - "RESOLVED #123"
-  //   - "fixes owner/repo#123"
-  //   - "fix: #123" (common commit style)
-  const issueNum = issueNumber.toString();
-
-  for (const keyword of closingKeywords) {
-    // Pattern: keyword + optional colon/space + optional repo prefix + # + issue number
-    // Must be followed by word boundary (not part of larger number)
-    const patterns = [
-      // Standard format: "fixes #123"
-      new RegExp(`\\b${keyword}\\s*:?\\s*#${issueNum}\\b`, 'i'),
-      // With repo prefix: "fixes owner/repo#123"
-      new RegExp(`\\b${keyword}\\s*:?\\s*[\\w.-]+/[\\w.-]+#${issueNum}\\b`, 'i'),
-    ];
-
-    for (const pattern of patterns) {
-      if (pattern.test(text)) {
-        return true;
+      if (closesThisIssue) {
+        linkedPRs.push({
+          number: item.source.number,
+          title: item.source.title,
+          state: item.source.state,
+          isDraft: Boolean(item.source.isDraft),
+          url: item.source.url,
+        });
+      } else {
+        // Log that we're skipping a PR that only mentions the issue
+        await logger(`      ℹ️  PR #${item.source.number} mentions issue #${issueNum} but doesn't close it (no fixes/closes/resolves keyword)`, { verbose: true });
       }
     }
   }
 
-  return false;
+  return linkedPRs;
 }
 
 /**
@@ -123,14 +117,14 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
           await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay));
         }
 
-        // Execute GraphQL query
-        const { exec } = await import('child_process');
-        const { promisify } = await import('util');
-        const execAsync = promisify(exec);
-        const { stdout } = await execAsync(`gh api graphql -f query='${query}'`, {
-          encoding: 'utf8',
-          maxBuffer: githubLimits.bufferMaxSize,
-          env: process.env,
+        // Execute GraphQL query (#1756: route through execGhWithRetry for transient 5xx + rate-limit)
+        const { stdout } = await execGhWithRetry(`gh api graphql -f query='${query}'`, {
+          execOptions: {
+            encoding: 'utf8',
+            maxBuffer: githubLimits.bufferMaxSize,
+            env: process.env,
+          },
+          label: 'gh api graphql (batch PR check)',
         });
 
         const data = JSON.parse(stdout);
@@ -139,31 +133,11 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
         for (const issueNum of batch) {
           const issueData = data.data?.repository?.[`issue${issueNum}`];
           if (issueData) {
-            const linkedPRs = [];
-
-            // Extract linked PRs from timeline items
+            // Extract linked PRs from timeline items, including draft PRs.
             // Issue #1094: Only count PRs that explicitly fix/close/resolve this issue
             // This prevents false positives from PRs that only mention issues without solving them
-            for (const item of issueData.timelineItems?.nodes || []) {
-              if (item?.source && item.source.state === 'OPEN' && !item.source.isDraft) {
-                // Check if PR actually closes this issue (has "fixes #N", "closes #N", or "resolves #N")
-                const prBody = item.source.body || '';
-                const prTitle = item.source.title || '';
-                const closesThisIssue = prClosesIssue(prBody, issueNum) || prClosesIssue(prTitle, issueNum);
-
-                if (closesThisIssue) {
-                  linkedPRs.push({
-                    number: item.source.number,
-                    title: item.source.title,
-                    state: item.source.state,
-                    url: item.source.url,
-                  });
-                } else {
-                  // Log that we're skipping a PR that only mentions the issue
-                  await log(`      ℹ️  PR #${item.source.number} mentions issue #${issueNum} but doesn't close it (no fixes/closes/resolves keyword)`, { verbose: true });
-                }
-              }
-            }
+            // Issue #1760: Draft PRs are still active solution drafts and must block duplicate work
+            const linkedPRs = await extractLinkedPullRequestsForIssue(issueData, issueNum);
 
             results[issueNum] = {
               title: issueData.title,
@@ -190,12 +164,13 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
 
         for (const issueNum of batch) {
           try {
-            const { exec } = await import('child_process');
-            const { promisify } = await import('util');
-            const execAsync = promisify(exec);
             const cmd = `gh api repos/${owner}/${repo}/issues/${issueNum}/timeline --paginate --jq '[.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null and .source.issue.state == "open")] | length'`;
 
-            const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
+            // #1756: route REST fallback through execGhWithRetry for transient 5xx + rate-limit
+            const { stdout } = await execGhWithRetry(cmd, {
+              execOptions: { encoding: 'utf8', env: process.env },
+              label: `gh api timeline (issue #${issueNum})`,
+            });
             const openPrCount = parseInt(stdout.trim()) || 0;
 
             results[issueNum] = {
@@ -270,14 +245,14 @@ export async function batchCheckArchivedRepositories(repositories) {
           await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay));
         }
 
-        // Execute GraphQL query
-        const { exec } = await import('child_process');
-        const { promisify } = await import('util');
-        const execAsync = promisify(exec);
-        const { stdout } = await execAsync(`gh api graphql -f query='${query}'`, {
-          encoding: 'utf8',
-          maxBuffer: githubLimits.bufferMaxSize,
-          env: process.env,
+        // Execute GraphQL query (#1756: route through execGhWithRetry for transient 5xx + rate-limit)
+        const { stdout } = await execGhWithRetry(`gh api graphql -f query='${query}'`, {
+          execOptions: {
+            encoding: 'utf8',
+            maxBuffer: githubLimits.bufferMaxSize,
+            env: process.env,
+          },
+          label: 'gh api graphql (batch archived check)',
         });
 
         const data = JSON.parse(stdout);
@@ -300,12 +275,13 @@ export async function batchCheckArchivedRepositories(repositories) {
 
         for (const repo of batch) {
           try {
-            const { exec } = await import('child_process');
-            const { promisify } = await import('util');
-            const execAsync = promisify(exec);
             const cmd = `gh api repos/${repo.owner}/${repo.name} --jq .archived`;
 
-            const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
+            // #1756: route REST fallback through execGhWithRetry for transient 5xx + rate-limit
+            const { stdout } = await execGhWithRetry(cmd, {
+              execOptions: { encoding: 'utf8', env: process.env },
+              label: `gh api repos (${repo.owner}/${repo.name})`,
+            });
             const isArchived = stdout.trim() === 'true';
 
             const repoKey = `${repo.owner}/${repo.name}`;
@@ -334,6 +310,7 @@ export async function batchCheckArchivedRepositories(repositories) {
 // Export all functions as default object too
 export default {
   prClosesIssue,
+  extractLinkedPullRequestsForIssue,
   batchCheckPullRequestsForIssues,
   batchCheckArchivedRepositories,
 };

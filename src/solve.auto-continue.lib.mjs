@@ -13,8 +13,9 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage } = lib;
@@ -48,6 +49,10 @@ const { extractLinkedIssueNumber } = githubLinking;
 
 // Import configuration
 import { autoContinue, limitReset } from './config.lib.mjs';
+import { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationCounter, normalizeAutoIterationLimit } from './auto-iteration-limits.lib.mjs';
+
+// Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
+const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 
 const { calculateWaitTime } = validation;
 
@@ -76,6 +81,15 @@ const formatWaitTime = ms => {
 // See: https://github.com/link-assistant/hive-mind/issues/1152
 export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs, tempDir = null, isRestart = false) => {
   try {
+    const maxAutoResumeIterations = normalizeAutoIterationLimit(argv.autoResumeMaxIterations);
+    const currentAutoResumeIteration = normalizeAutoIterationCounter(argv.autoResumeIteration);
+
+    if (hasReachedAutoIterationLimit(currentAutoResumeIteration, maxAutoResumeIterations)) {
+      await log(`\n⚠️  Auto-${isRestart ? 'restart' : 'resume'} limit reached: ${currentAutoResumeIteration}/${formatAutoIterationLimit(maxAutoResumeIterations)}`);
+      await safeExit(1, `Auto-${isRestart ? 'restart' : 'resume'} limit reached`);
+    }
+
+    const nextAutoResumeIteration = currentAutoResumeIteration + 1;
     const resetTime = global.limitResetTime;
     const timezone = global.limitTimezone || null;
     const baseWaitMs = calculateWaitTime(resetTime);
@@ -116,12 +130,13 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     }, countdownInterval);
 
     // Wait until reset time
-    await new Promise(resolve => setTimeout(resolve, waitMs));
+    await interruptibleSleep(waitMs);
     clearInterval(countdownTimer);
 
     const actionType = isRestart ? 'Restarting' : 'Resuming';
     await log(`\n✅ Limit reset time reached (+ ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)! ${actionType} session...`);
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
+    await log(`   Auto-${isRestart ? 'restart' : 'resume'} iteration: ${maxAutoResumeIterations === 0 ? nextAutoResumeIteration : `${nextAutoResumeIteration}/${maxAutoResumeIterations}`}`);
 
     // Recursively call the solve script
     // For resume: use --resume with session ID to maintain context
@@ -150,6 +165,8 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     if (argv.autoRestartOnLimitReset) {
       resumeArgs.push('--auto-restart-on-limit-reset');
     }
+    resumeArgs.push('--auto-resume-iteration', String(nextAutoResumeIteration));
+    resumeArgs.push('--auto-resume-max-iterations', String(maxAutoResumeIterations));
 
     // Pass session type for proper comment differentiation
     // See: https://github.com/link-assistant/hive-mind/issues/1152
@@ -157,7 +174,9 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     resumeArgs.push('--session-type', sessionType);
 
     // Preserve other flags from original invocation
+    if (argv.tool && argv.tool !== 'claude') resumeArgs.push('--tool', argv.tool);
     if (argv.model !== 'sonnet') resumeArgs.push('--model', argv.model);
+    if (argv.fallbackModel) resumeArgs.push('--fallback-model', argv.fallbackModel);
     if (argv.verbose) resumeArgs.push('--verbose');
     if (argv.fork) resumeArgs.push('--fork');
     if (shouldAttachLogs) resumeArgs.push('--attach-logs');
@@ -182,8 +201,16 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
       env: process.env,
     });
 
-    child.on('close', code => {
-      process.exit(code);
+    // Issue #1571: Await child process exit to prevent parent from continuing
+    // to post "Solution Draft Log" and "Ready to merge" comments before the
+    // resumed session starts. Without this await, the parent process would
+    // return from this function and continue executing verifyResults() and
+    // startAutoRestartUntilMergeable(), causing confusing comment ordering.
+    await new Promise(resolve => {
+      child.on('close', code => {
+        process.exit(code);
+        resolve(); // Won't be reached due to process.exit, but included for completeness
+      });
     });
   } catch (error) {
     reportError(error, {

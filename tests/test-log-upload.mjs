@@ -12,6 +12,8 @@
  * - Issue #1096 - Log upload failed due to argument parsing bug (commandArgs.join(' '))
  */
 
+import { isIntegrationEnabled } from './integration-guard.mjs';
+
 // Use use-m to dynamically import modules for cross-runtime compatibility
 if (typeof globalThis.use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
@@ -197,15 +199,19 @@ console.log('\n📋 Test 4: Edge cases');
 console.log('\n📋 Test 5: gh-upload-log availability check');
 
 {
-  try {
-    const result = execSync('which gh-upload-log || command -v gh-upload-log', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    assertTrue(result.trim().length > 0, 'gh-upload-log command is available');
-  } catch (error) {
-    console.log('  ⚠️  gh-upload-log not available (skipping integration test)');
-    console.log('     This is expected in environments without gh-upload-log installed');
+  if (!isIntegrationEnabled()) {
+    console.log('  ⏭️  Skipping gh-upload-log availability check; set HIVE_MIND_RUN_INTEGRATION=1 to enable.');
+  } else {
+    try {
+      const result = execSync('which gh-upload-log || command -v gh-upload-log', {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      assertTrue(result.trim().length > 0, 'gh-upload-log command is available');
+    } catch (error) {
+      console.log('  ⚠️  gh-upload-log not available (skipping integration test)');
+      console.log('     This is expected in environments without gh-upload-log installed');
+    }
   }
 }
 
@@ -215,24 +221,28 @@ console.log('\n📋 Test 5: gh-upload-log availability check');
 console.log('\n📋 Test 6: gh-upload-log empty argument rejection (regression)');
 
 {
-  try {
-    // This command should fail with "Unknown argument" error if we pass empty string
-    const result = execSync('gh-upload-log "" 2>&1 || true', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+  if (!isIntegrationEnabled()) {
+    console.log('  ⏭️  Skipping gh-upload-log invocation; set HIVE_MIND_RUN_INTEGRATION=1 to enable.');
+  } else {
+    try {
+      // This command should fail with "Unknown argument" error if we pass empty string
+      const result = execSync('gh-upload-log "" 2>&1 || true', {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
 
-    if (result.includes('Unknown argument')) {
-      assertTrue(true, 'gh-upload-log correctly rejects empty string argument');
-    } else if (result.includes('command not found') || result.includes('not found')) {
-      console.log('  ⚠️  gh-upload-log not installed (skipping)');
-    } else {
-      // If gh-upload-log doesn't reject empty string, our fix is still important
-      // to prevent unexpected behavior
-      assertTrue(true, 'gh-upload-log handles empty string (our fix prevents this scenario)');
+      if (result.includes('Unknown argument')) {
+        assertTrue(true, 'gh-upload-log correctly rejects empty string argument');
+      } else if (result.includes('command not found') || result.includes('not found')) {
+        console.log('  ⚠️  gh-upload-log not installed (skipping)');
+      } else {
+        // If gh-upload-log doesn't reject empty string, our fix is still important
+        // to prevent unexpected behavior
+        assertTrue(true, 'gh-upload-log handles empty string (our fix prevents this scenario)');
+      }
+    } catch (error) {
+      console.log('  ⚠️  Could not test gh-upload-log empty argument (skipping)');
     }
-  } catch (error) {
-    console.log('  ⚠️  Could not test gh-upload-log empty argument (skipping)');
   }
 }
 
@@ -242,49 +252,55 @@ console.log('\n📋 Test 6: gh-upload-log empty argument rejection (regression)'
 console.log('\n📋 Test 7: Issue #1096 - argument parsing (integration)');
 
 {
-  try {
-    // Test that gh-upload-log receives arguments correctly (not as a single joined string)
-    // The bug was: commandArgs.join(' ') made all args a single first positional argument
-    // Error was: "File does not exist: /tmp/file.txt --public --verbose"
+  if (!isIntegrationEnabled()) {
+    console.log('  ⏭️  Skipping gh-upload-log upload; set HIVE_MIND_RUN_INTEGRATION=1 to enable.');
+  } else {
+    let testFile;
+    try {
+      // Test that gh-upload-log receives arguments correctly (not as a single joined string)
+      // The bug was: commandArgs.join(' ') made all args a single first positional argument
+      // Error was: "File does not exist: /tmp/file.txt --public --verbose"
 
-    // Create a temporary test file
-    const testFile = '/tmp/test-issue-1096-' + Date.now() + '.txt';
-    await fs.writeFile(testFile, 'Test content for issue 1096 regression test\n');
+      // Create a temporary test file
+      testFile = '/tmp/test-issue-1096-' + Date.now() + '.txt';
+      await fs.writeFile(testFile, 'Test content for issue 1096 regression test\n');
 
-    // Test using the actual module with command-stream
-    const logUploadModule = await import('../src/log-upload.lib.mjs');
-    const { uploadLogWithGhUploadLog } = logUploadModule;
+      // Test using the actual module with command-stream
+      const logUploadModule = await import('../src/log-upload.lib.mjs');
+      const { uploadLogWithGhUploadLog } = logUploadModule;
 
-    // Run the upload (verbose=true to get detailed output)
-    const result = await uploadLogWithGhUploadLog({
-      logFile: testFile,
-      isPublic: false,
-      description: 'Test for issue 1096',
-      verbose: false, // Suppress output
-    });
+      // Run the upload (verbose=true to get detailed output)
+      const result = await uploadLogWithGhUploadLog({
+        logFile: testFile,
+        isPublic: false,
+        description: 'Test for issue 1096',
+        verbose: false, // Suppress output
+      });
 
-    // Cleanup test file
-    await fs.unlink(testFile).catch(() => {});
-
-    // If upload succeeded, arguments were correctly parsed
-    if (result.success) {
-      assertTrue(true, 'Upload successful - arguments correctly parsed as separate values');
-      assertTrue(result.url !== null, 'Upload URL received');
-      assertTrue(result.type !== null, 'Upload type determined');
-    } else {
-      // Check if it's a "file does not exist with flags" error (the old bug)
-      console.log('  ⚠️  Upload failed - checking if it is the old bug...');
-      // The old bug would cause the file path to include flags
-      // If we get here, it might be a network issue, not the bug
-      assertTrue(true, 'Upload did not reproduce issue #1096 argument parsing bug');
-    }
-  } catch (error) {
-    if (error.message?.includes('--public') || error.message?.includes('--verbose')) {
-      // This is the exact bug from issue #1096
-      assertFalse(true, 'Issue #1096 bug detected - flags in file path: ' + error.message);
-    } else {
-      console.log('  ⚠️  Could not run integration test: ' + error.message);
-      console.log('     This might be expected if gh-upload-log is not installed');
+      // If upload succeeded, arguments were correctly parsed
+      if (result.success) {
+        assertTrue(true, 'Upload successful - arguments correctly parsed as separate values');
+        assertTrue(result.url !== null, 'Upload URL received');
+        assertTrue(result.type !== null, 'Upload type determined');
+      } else {
+        // Check if it's a "file does not exist with flags" error (the old bug)
+        console.log('  ⚠️  Upload failed - checking if it is the old bug...');
+        // The old bug would cause the file path to include flags
+        // If we get here, it might be a network issue, not the bug
+        assertTrue(true, 'Upload did not reproduce issue #1096 argument parsing bug');
+      }
+    } catch (error) {
+      if (error.message?.includes('--public') || error.message?.includes('--verbose')) {
+        // This is the exact bug from issue #1096
+        assertFalse(true, 'Issue #1096 bug detected - flags in file path: ' + error.message);
+      } else {
+        console.log('  ⚠️  Could not run integration test: ' + error.message);
+        console.log('     This might be expected if gh-upload-log is not installed');
+      }
+    } finally {
+      if (testFile) {
+        await fs.unlink(testFile).catch(() => {});
+      }
     }
   }
 }

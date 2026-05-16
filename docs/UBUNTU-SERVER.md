@@ -1,4 +1,4 @@
-# Installation on Ubuntu 24.04 Server (Deprecated)
+# Installation on Ubuntu 24.04 Server (Deprecated) (languages: en • [zh](UBUNTU-SERVER.zh.md) • [hi](UBUNTU-SERVER.hi.md) • [ru](UBUNTU-SERVER.ru.md))
 
 > ⚠️ **DEPRECATED:** This installation method is no longer recommended.
 >
@@ -13,32 +13,38 @@
 
 The following instructions describe the legacy bare-metal installation on Ubuntu 24.04 server. This approach is kept for reference only.
 
-> **Note:** As of issue #1394, the `ubuntu-24-server-install.sh` script has been removed from the repository.
-> The Docker image now uses `konard/sandbox` (pinned to a specific version) as the base image, which provides all development tools.
-> For historical reference, the last version of the script is available at:
+> **Note:** As of issue #1639, the Docker image uses the full `konard/box`
+> image, pinned to the current Box release, as the base image that provides all
+> development tools. The standalone Hive Mind bare-metal install script was
+> removed from this repository; the last version that pre-installed all Hive
+> Mind tools on top of Ubuntu 24.04 is preserved for historical reference at:
 > https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
+>
+> The `konard/box` image is a universal base image and does not contain Hive
+> Mind specific tooling by itself, so this legacy Hive Mind script is kept as
+> the only remaining source for the bare-metal install path.
 
 ## Steps
 
 1. Reset/install VPS/VDS server with fresh Ubuntu 24.04
 2. Login to `root` user.
-3. Install sandbox first (provides all development tools)
+3. Install the Hive Mind toolchain (provides Docker, development tools, and the Hive Mind CLIs)
 
    ```bash
    # Option 1: Use Docker (recommended)
-   docker pull konard/sandbox:1.3.16
-   docker run -it konard/sandbox:1.3.16
+   docker pull konard/box:2.0.1
+   docker run -it konard/box:2.0.1
 
-   # Option 2: Use the sandbox install script (pinned to v1.3.16 release commit)
-   curl -fsSL -o- https://github.com/link-foundation/sandbox/raw/178aa3816ab2c2150844fb967ffa329c63b90131/ubuntu/24.04/full-sandbox/install.sh | bash
+   # Option 2: Use the legacy Hive Mind bare-metal install script (pinned to the last commit that carried it: 4f027b32)
+   curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash
    ```
 
    **Note:** The installation does NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
 
-4. Login to `hive` user
+4. Login to `box` user
 
    ```bash
-   su - hive
+   su - box
    ```
 
 5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete
@@ -120,12 +126,32 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
 ssh -L 1455:localhost:1455 root@123.123.123.123
 ```
 
-2. Start codex login oAuth server:
+2. Install or update Codex CLI:
 
 ```bash
-codex login
+bun install -g @openai/codex@latest
 ```
 
-The oAuth callback server on 1455 port will be started, and the link to oAuth will be printed, copy the link.
+3. Start the current Codex device auth flow:
 
-3. Use your browser on machine where you started the tunnel from, paste there the link from `codex login` command, and go there using your browser. Once redirected to localhost:1455 you will see successful login page, and in `codex login` you will see `Successfully logged in`. After that `codex login` command will complete, and you can use `codex` command as usual to verify. It should also be working with `--tool codex` in `solve` and `hive` commands.
+```bash
+codex login --device-auth
+```
+
+4. Finish login in your browser. The command should end with:
+
+```text
+Successfully logged in
+```
+
+5. Verify the Codex CLI with the same smoke test used in the Docker workflow:
+
+```bash
+codex exec --model gpt-5.4-mini "hi"
+```
+
+Codex stores its data in `~/.codex` on a regular server. The most important paths are:
+
+- `~/.codex/auth.json`
+- `~/.codex/config.toml`
+- `~/.codex/sessions/`

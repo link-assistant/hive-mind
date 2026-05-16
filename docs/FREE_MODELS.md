@@ -1,11 +1,13 @@
-# Free Models Support in Hive-Mind
+# Free Models Support in Hive-Mind (languages: en • [zh](FREE_MODELS.zh.md) • [hi](FREE_MODELS.hi.md) • [ru](FREE_MODELS.ru.md))
 
 This document provides comprehensive information about the free models supported by hive-mind when using the `--tool agent` option.
 
-> **Last Updated:** March 25, 2026
+> **Last Updated:** April 10, 2026
 > **Related:**
 >
 > - [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) - Upstream free models list (canonical source)
+> - [Agent PR #243](https://github.com/link-assistant/agent/pull/243) - Upstream: replace deprecated qwen3.6-plus-free with nemotron-3-super-free as default
+> - [Agent PR #234](https://github.com/link-assistant/agent/pull/234) - Upstream: qwen3.6-plus-free as default, add nemotron-3-super-free
 > - [Agent PR #209](https://github.com/link-assistant/agent/pull/209) - Upstream free model updates (minimax-m2.5-free as default)
 > - [Agent Issue #208](https://github.com/link-assistant/agent/issues/208) - kimi-k2.5-free removed from OpenCode Zen
 
@@ -13,18 +15,32 @@ This document provides comprehensive information about the free models supported
 
 Hive-mind supports free models from two providers:
 
-1. **OpenCode Zen** - 3 free models with `opencode/` prefix
+1. **OpenCode Zen** - 4 free models with `opencode/` prefix
 2. **Kilo Gateway** - 6 free models with `kilo/` prefix (Issue #1282)
 
 ---
 
 ## OpenCode Zen Free Models
 
-### 1. opencode/minimax-m2.5-free **Default Model**
+### 1. opencode/nemotron-3-super-free **Default Model**
+
+- **Short Alias**: `nemotron-3-super-free`
+- **Provider**: OpenCode Zen
+- **Status**: Fully Supported (Default for `--tool agent` as of Issue #1563)
+- **Features**: Reasoning, tool calling, hybrid Mamba-Transformer architecture
+- **Context Window**: ~262,144 tokens
+- **Output Limit**: 262,144 tokens
+- **Cost**: Free (no input/output charges)
+- **Knowledge Cutoff**: January 2025
+- **Release Date**: March 2026
+- **Open Weights**: Yes
+- **Notes**: NVIDIA hybrid Mamba-Transformer MoE, strong reasoning capabilities
+
+### 2. opencode/minimax-m2.5-free
 
 - **Short Alias**: `minimax-m2.5-free`
 - **Provider**: OpenCode Zen
-- **Status**: Fully Supported (Default for `--tool agent` as of Issue #1391)
+- **Status**: Fully Supported (Former default, Issues #1391, #1543)
 - **Features**: Reasoning, tool calling, temperature control
 - **Context Window**: 204,800 tokens
 - **Output Limit**: 131,072 tokens
@@ -33,24 +49,24 @@ Hive-mind supports free models from two providers:
 - **Release Date**: February 2026
 - **Open Weights**: Yes
 
-### 2. opencode/gpt-5-nano
+### 3. opencode/gpt-5-nano
 
 - **Short Alias**: `gpt-5-nano`
 - **Provider**: OpenCode Zen
 - **Status**: Fully Supported
 - **Features**: Reasoning, tool calling, structured output, temperature control
-- **Context Window**: 200,000 tokens
+- **Context Window**: ~400,000 tokens
 - **Output Limit**: 128,000 tokens
 - **Cost**: Free (no input/output charges)
 - **Knowledge Cutoff**: January 2025
 
-### 3. opencode/big-pickle
+### 4. opencode/big-pickle
 
 - **Short Alias**: `big-pickle`
 - **Provider**: OpenCode Zen
 - **Status**: Fully Supported
 - **Features**: Reasoning, tool calling, temperature control
-- **Context Window**: 200,000 tokens
+- **Context Window**: ~200,000 tokens
 - **Output Limit**: 128,000 tokens
 - **Cost**: Free (no input/output charges)
 - **Knowledge Cutoff**: January 2025
@@ -61,12 +77,13 @@ Hive-mind supports free models from two providers:
 
 The following models were previously free but are no longer available:
 
-| Model             | Former Model ID              | Status                                                                                                       |
-| ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Kimi K2.5 Free    | `opencode/kimi-k2.5-free`    | Removed from OpenCode Zen (March 2026) — see [agent#208](https://github.com/link-assistant/agent/issues/208) |
-| Grok Code Fast 1  | `opencode/grok-code`         | Discontinued January 2026                                                                                    |
-| MiniMax M2.1 Free | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free`                                                                     |
-| GLM 4.7 Free      | `opencode/glm-4.7-free`      | No longer free on OpenCode Zen                                                                               |
+| Model              | Former Model ID              | Status                                                                                                                                         |
+| ------------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Qwen 3.6 Plus Free | `opencode/qwen3.6-plus-free` | Free promotion ended (April 2026) — now requires OpenCode Go subscription. See [agent#242](https://github.com/link-assistant/agent/issues/242) |
+| Kimi K2.5 Free     | `opencode/kimi-k2.5-free`    | Removed from OpenCode Zen (March 2026) — see [agent#208](https://github.com/link-assistant/agent/issues/208)                                   |
+| Grok Code Fast 1   | `opencode/grok-code`         | Discontinued January 2026                                                                                                                      |
+| MiniMax M2.1 Free  | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free`                                                                                                       |
+| GLM 4.7 Free       | `opencode/glm-4.7-free`      | No longer free on OpenCode Zen                                                                                                                 |
 
 > **Note:** See [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) and [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) for the current list of free models.
 
@@ -169,11 +186,11 @@ The following Kilo models were previously the recommended free models but have b
 
 ```bash
 # OpenCode Zen models (short aliases without prefix)
-solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
-hive https://github.com/owner/repo --tool agent --model gpt-5-nano
+solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
+hive https://github.com/owner/repo --tool agent --model minimax-m2.5-free
 
 # OpenCode Zen models (full model IDs)
-solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/minimax-m2.5-free
+solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/nemotron-3-super-free
 hive https://github.com/owner/repo --tool agent --model opencode/big-pickle
 
 # Kilo Gateway models (full model IDs)
@@ -189,8 +206,9 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 
 ```bash
 # OpenCode Zen models (short aliases)
+/solve https://github.com/owner/repo/issues/123 --tool agent --model nemotron-3-super-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
+/agent https://github.com/owner/repo/issues/123 --model nemotron-3-super-free
 
 # Kilo Gateway models (full model IDs)
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
@@ -200,16 +218,17 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
 /hive https://github.com/owner/repo --tool agent --model glm-4.5-air-free
 
-# Default model (minimax-m2.5-free via OpenCode Zen):
+# Default model (nemotron-3-super-free via OpenCode Zen):
 /solve https://github.com/owner/repo/issues/123 --tool agent
+/agent https://github.com/owner/repo/issues/123
 ```
 
 ### Direct Agent CLI Usage
 
 ```bash
 # OpenCode Zen models
+echo "Your prompt here" | agent --model opencode/nemotron-3-super-free
 echo "Your prompt here" | agent --model opencode/minimax-m2.5-free
-echo "Your prompt here" | agent --model opencode/gpt-5-nano
 
 # Kilo Gateway models
 echo "Your prompt here" | agent --model kilo/glm-5-free
@@ -224,8 +243,8 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 **Flagship Free Models**:
 
+- `opencode/nemotron-3-super-free` - NVIDIA hybrid Mamba-Transformer, strong reasoning (OpenCode, default)
 - `kilo/glm-5-free` - Z.AI flagship, matches Opus 4.5 on many tasks (Kilo)
-- `opencode/minimax-m2.5-free` - Strong general-purpose performance (OpenCode, default)
 
 **General Purpose & Reasoning**:
 
@@ -236,9 +255,10 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 **For Large Context Tasks**:
 
-- `kilo/giga-potato-free` - Very large context (256,000 tokens)
+- `opencode/gpt-5-nano` - Very large context (~400,000 tokens)
+- `opencode/nemotron-3-super-free` - Large context (~262,144 tokens)
+- `kilo/giga-potato-free` - Large context (256,000 tokens)
 - `opencode/minimax-m2.5-free` - Large context (204,800 tokens)
-- `kilo/glm-5-free` - Large context (202,752 tokens)
 
 **Agent-Centric / Coding**:
 
@@ -250,16 +270,16 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 ## Provider Comparison
 
-| Feature       | OpenCode Zen                        | Kilo Gateway             |
-| ------------- | ----------------------------------- | ------------------------ |
-| Free Models   | 3 models                            | 6 models                 |
-| Default Model | minimax-m2.5-free                   | glm-5-free (recommended) |
-| API Format    | OpenAI-compatible                   | OpenAI-compatible        |
-| Free API Key  | `public`                            | `public`                 |
-| Total Models  | 50+                                 | 500+                     |
-| Flagship Free | MiniMax M2.5                        | GLM-5 (limited time)     |
-| BYOK Support  | Yes                                 | Yes                      |
-| New Models    | MiniMax M2.5 (default, Issue #1391) | DeepSeek R1, GLM 4.5 Air |
+| Feature       | OpenCode Zen                          | Kilo Gateway             |
+| ------------- | ------------------------------------- | ------------------------ |
+| Free Models   | 4 models                              | 6 models                 |
+| Default Model | nemotron-3-super-free (~262K context) | glm-5-free (recommended) |
+| API Format    | OpenAI-compatible                     | OpenAI-compatible        |
+| Free API Key  | `public`                              | `public`                 |
+| Total Models  | 50+                                   | 500+                     |
+| Flagship Free | Nemotron 3 Super (~262K context)      | GLM-5 (limited time)     |
+| BYOK Support  | Yes                                   | Yes                      |
+| New Models    | Nemotron 3 Super (Issue #1543, #1563) | DeepSeek R1, GLM 4.5 Air |
 
 ---
 
@@ -296,11 +316,13 @@ If you encounter issues with any of these models:
 - [Case Study: Issue #1300](./case-studies/issue-1300/README.md) - Free models update (MiniMax M2.5, DeepSeek R1)
 - [Case Study: Issue #1391](./case-studies/issue-1391/README.md) - Free models update (minimax-m2.5-free as default, kimi-k2.5-free deprecated)
 - [Case Study: Issue #1473](./case-studies/issue-1473/README.md) - Model recognition fix and free models sync
+- [Case Study: Issue #1543](./case-studies/issue-1543/README.md) - Free models update (qwen3.6-plus-free as default, nemotron-3-super-free added)
+- [Case Study: Issue #1563](./case-studies/issue-1563/README.md) - Free models update (qwen3.6-plus-free deprecated, nemotron-3-super-free as default)
 - [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) - OpenCode Zen provider details
 - [Kilo Gateway Documentation](https://kilo.ai/docs/gateway) - Kilo Gateway provider details
 
 ---
 
-**Last Updated**: March 25, 2026
-**Hive-Mind Version**: 1.35.9
-**Agent CLI Version**: Latest (with free model updates from PR #209)
+**Last Updated**: April 10, 2026
+**Hive-Mind Version**: 1.48.2
+**Agent CLI Version**: Latest (with free model updates from PR #243)

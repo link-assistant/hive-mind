@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.71.1
+
+### Patch Changes
+
+- aae5a08: Serialize merge queue auto-resolve sessions so conflicting pull requests resolve and drain CI one at a time.
+
 ## 1.71.0
 
 ### Minor Changes

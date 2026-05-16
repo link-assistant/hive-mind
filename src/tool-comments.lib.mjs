@@ -64,10 +64,15 @@ export const CANCELLED_CI_REVIEW_MARKER = 'Cancelled CI/CD Requires Review';
 // iteration, or watch-mode iteration). Issue #1728: Renamed from
 // "Solution summary" because not every working session is a solution draft —
 // many are continuation/restart iterations that are part of an in-progress
-// solution. Tracking it as a tool-generated marker prevents the next
-// iteration's --auto-attach-solution-summary check from mistaking a
-// previous iteration's summary for an AI-authored comment.
+// solution. Automation evidence is tracked separately so the visible heading
+// can still be used by real AI-authored comments.
 export const WORKING_SESSION_SUMMARY_MARKER = 'Working session summary';
+// Issue #1813: the visible "Working session summary" heading is natural text
+// that Codex can write in its own PR comment. Do not treat the heading alone as
+// a tool-generated marker. New automated summaries include this hidden marker;
+// legacy automated summaries are still recognized by the footer text below.
+export const WORKING_SESSION_SUMMARY_AUTOMATION_MARKER = '<!-- hive-mind:working-session-summary -->';
+export const WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER = 'This summary was automatically extracted from the AI working session output.';
 
 // github.lib.mjs — fork contributor "Allow edits by maintainers" request
 export const MAINTAINER_ACCESS_REQUEST_MARKER = 'Allow edits by maintainers';
@@ -102,7 +107,7 @@ export const USAGE_LIMIT_REACHED_MARKER = 'Usage Limit Reached';
  * named constants above so that adding a new marker only requires adding
  * the constant and appending it here.
  */
-export const TOOL_GENERATED_COMMENT_MARKERS = [AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, WORKING_SESSION_SUMMARY_MARKER];
+export const TOOL_GENERATED_COMMENT_MARKERS = [AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER];
 
 /**
  * Markers that indicate the end of a working session. Used by
@@ -119,9 +124,14 @@ export const SESSION_ENDING_MARKERS = [NOW_WORKING_SESSION_IS_ENDED_MARKER, AI_W
  * @param {string} body - The comment body
  * @returns {boolean} - True if the body contains a tool-generated marker
  */
+export const isAutomatedWorkingSessionSummaryComment = body => {
+  if (!body || typeof body !== 'string') return false;
+  return body.includes(WORKING_SESSION_SUMMARY_AUTOMATION_MARKER) || (body.includes(`## ${WORKING_SESSION_SUMMARY_MARKER}`) && body.includes(WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER));
+};
+
 export const isToolGeneratedComment = body => {
   if (!body || typeof body !== 'string') return false;
-  return TOOL_GENERATED_COMMENT_MARKERS.some(marker => body.includes(marker));
+  return isAutomatedWorkingSessionSummaryComment(body) || TOOL_GENERATED_COMMENT_MARKERS.some(marker => body.includes(marker));
 };
 
 // ----------------------------------------------------------------------------

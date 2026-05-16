@@ -1290,12 +1290,13 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
   }
 
   try {
-    const comment = `## Working session summary
+    const comment = `${toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}
+## ${toolComments.WORKING_SESSION_SUMMARY_MARKER}
 
 ${resultSummary}
 
 ---
-*This summary was automatically extracted from the AI working session output.*`;
+*${toolComments.WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER}*`;
 
     const { ok, commentId, stderr } = await postTrackedComment({ $, owner, repo, targetNumber, body: comment });
 

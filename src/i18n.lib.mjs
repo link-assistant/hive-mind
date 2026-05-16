@@ -1,6 +1,6 @@
 // i18n module for hive-mind.
 // - Translation files live in src/locales/<locale>.lino and are stored
-//   in Links Notation, parsed via lino-objects-codec.
+//   in Links Notation, parsed and resolved via lino-i18n.
 // - Supported locales: en (default fallback), ru, zh, hi.
 // - Two locale tracks: ui (user-facing strings) and work (AI prompts /
 //   tool preferred language). Both default to the value of --language.
@@ -9,10 +9,10 @@
 //   normalizeLocale, getUserLocale, setUserLocale, clearUserLocale,
 //   resolveLocaleFromTelegramCtx.
 
-import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { parseIndented } from 'lino-objects-codec';
+import { createI18n } from 'lino-i18n';
+import { loadLocalesFromFile } from 'lino-i18n/loaders';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,10 +22,16 @@ const SUPPORTED_LOCALES = ['en', 'ru', 'zh', 'hi'];
 
 const localeCache = new Map(); // locale -> { key: string }
 const userLocales = new Map(); // userId/chatId -> locale (in-memory)
+const localesDir = path.join(__dirname, 'locales');
 
 let currentUiLocale = DEFAULT_LOCALE;
 let currentWorkLocale = DEFAULT_LOCALE;
 let fallbackLoaded = false;
+let i18n = createI18n({
+  locales: {},
+  defaultLocale: DEFAULT_LOCALE,
+  fallback: [DEFAULT_LOCALE],
+});
 
 export function getSupportedLocales() {
   return [...SUPPORTED_LOCALES];
@@ -46,31 +52,19 @@ export function detectLocale() {
 }
 
 async function readLocaleFile(locale) {
-  const localesDir = path.join(__dirname, 'locales');
   const linoFile = path.join(localesDir, `${locale}.lino`);
-  const data = await fs.readFile(linoFile, 'utf-8');
-  return parseIndentedToFlatMap(data);
+  const loaded = await loadLocalesFromFile(linoFile);
+  const match = loaded.find(catalogue => catalogue.locale === locale) || loaded[0];
+  return match?.translations || {};
 }
 
-// parseIndented returns { id, obj } where obj is the key->value map.
-// Some keys contain dots (e.g., error.invalid_github_url). The parser
-// supports them when the key is a plain reference (no spaces/quotes).
-function unescapeString(s) {
-  // Convert literal escape sequences (e.g., "\n" inside a quoted string in
-  // Links Notation) into the corresponding JS characters. This keeps the
-  // .lino files single-line and human-friendly.
-  return s.replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\r/g, '\r').replace(/\\\\/g, '\\');
-}
-
-function parseIndentedToFlatMap(text) {
-  const parsed = parseIndented({ text });
-  // parsed: { id: <localeName>, obj: { key: value, ... } }
-  if (!parsed || !parsed.obj) return {};
-  const out = {};
-  for (const [k, v] of Object.entries(parsed.obj)) {
-    out[k] = typeof v === 'string' ? unescapeString(v) : String(v);
-  }
-  return out;
+function refreshI18nRuntime() {
+  i18n = createI18n({
+    locales: Object.fromEntries(localeCache.entries()),
+    defaultLocale: currentUiLocale,
+    fallback: [DEFAULT_LOCALE],
+  });
+  i18n.setLocale(currentUiLocale);
 }
 
 export async function loadTranslations(locale) {
@@ -83,6 +77,7 @@ export async function loadTranslations(locale) {
     translations = {};
   }
   localeCache.set(locale, translations);
+  refreshI18nRuntime();
 
   // Always have the fallback (English) ready
   if (!fallbackLoaded && locale !== DEFAULT_LOCALE) {
@@ -93,6 +88,7 @@ export async function loadTranslations(locale) {
       localeCache.set(DEFAULT_LOCALE, {});
     }
     fallbackLoaded = true;
+    refreshI18nRuntime();
   } else if (locale === DEFAULT_LOCALE) {
     fallbackLoaded = true;
   }
@@ -157,10 +153,8 @@ export function t(key, params = {}, options = {}) {
   } else {
     locale = currentUiLocale;
   }
-  const main = localeCache.get(locale) || {};
-  const fallback = localeCache.get(DEFAULT_LOCALE) || {};
-  const value = main[key] ?? fallback[key] ?? key;
-  return applyParams(value, params);
+  const value = i18n.t(key, params, { ...options, locale });
+  return typeof value === 'string' ? value : applyParams(String(value), params);
 }
 
 // Convenience helper for work-language strings (AI prompts).
@@ -185,12 +179,16 @@ export function setLocale(locale) {
   if (normalized) {
     currentUiLocale = normalized;
     currentWorkLocale = normalized;
+    i18n.setLocale(normalized);
   }
 }
 
 export function setUiLocale(locale) {
   const normalized = normalizeLocale(locale);
-  if (normalized) currentUiLocale = normalized;
+  if (normalized) {
+    currentUiLocale = normalized;
+    i18n.setLocale(normalized);
+  }
 }
 
 export function setWorkLocale(locale) {

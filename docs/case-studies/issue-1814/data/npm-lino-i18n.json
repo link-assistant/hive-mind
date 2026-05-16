@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "dist-tags": {
+    "latest": "0.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/link-foundation/lino-i18n.git"
+  }
+}

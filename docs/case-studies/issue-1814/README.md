@@ -53,6 +53,7 @@ Raw research data is stored in [data](data/):
 - [lino-i18n-js-package.json](data/lino-i18n-js-package.json)
 - [lino-i18n-latest-release.json](data/lino-i18n-latest-release.json)
 - [npm-lino-i18n.json](data/npm-lino-i18n.json)
+- [lino-i18n-upstream-reports.json](data/lino-i18n-upstream-reports.json)
 
 Relevant primary sources:
 
@@ -117,10 +118,23 @@ This is the implemented option.
 - Added tests that verify nested keys, deeper grouping, multiline values,
   compatibility aliases, and locale key-set parity.
 
-No upstream `lino-i18n` issue was opened. The library has enough functionality
-to implement Hive Mind's current translations. The old mixed key shape is
-handled inside Hive Mind's compatibility layer because it is specific to the
-project's historic public translation keys.
+After review feedback requested upstream follow-up before merge, three
+`lino-i18n` issues were opened from the Hive Mind migration experience:
+
+- [link-foundation/lino-i18n#10](https://github.com/link-foundation/lino-i18n/issues/10):
+  preserve scalar parent translations when a key is both a label and a
+  namespace for deeper children.
+- [link-foundation/lino-i18n#11](https://github.com/link-foundation/lino-i18n/issues/11):
+  provide migration aliases for old underscore-tail keys when catalogues are
+  rewritten with deeper nesting.
+- [link-foundation/lino-i18n#12](https://github.com/link-foundation/lino-i18n/issues/12):
+  add a real-world deeply nested Hive Mind-style catalogue example to the
+  default documentation/tests.
+
+Until those upstream improvements exist, Hive Mind keeps a small local
+compatibility layer so existing public keys such as `error`,
+`telegram.help_title`, and `telegram.help_solve_alias_detail` continue to
+resolve while the source catalogues use deeper `.lino` groups.
 
 ## Verification
 

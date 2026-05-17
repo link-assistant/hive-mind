@@ -250,14 +250,18 @@ runTest('attachSolutionSummary posts a "Working session summary" comment (Issue 
   assertFalse(/^[^*\/]*## Solution summary/m.test(resultsLibSrc), 'comment header should no longer say "Solution summary" outside comments');
 });
 
-// Issue #1728: The new "Working session summary" header must be tracked in
-// TOOL_GENERATED_COMMENT_MARKERS so that an iteration's auto-attach summary
-// doesn't make the next iteration's auto-attach check think the AI posted.
-runTest('TOOL_GENERATED_COMMENT_MARKERS includes "Working session summary" (Issue #1728)', async () => {
-  const { TOOL_GENERATED_COMMENT_MARKERS, WORKING_SESSION_SUMMARY_MARKER, isToolGeneratedComment } = await import('../src/tool-comments.lib.mjs');
+// Issue #1813: The visible "Working session summary" header is not enough to
+// prove a comment was posted by hive-mind; Codex can use the same heading in a
+// real AI-authored comment. New automated comments use a hidden marker, and
+// legacy automated comments are still detected by their standard footer.
+runTest('Working session summary detection requires automation evidence (Issues #1728, #1813)', async () => {
+  const { TOOL_GENERATED_COMMENT_MARKERS, WORKING_SESSION_SUMMARY_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER, isToolGeneratedComment } = await import('../src/tool-comments.lib.mjs');
   assertEqual(WORKING_SESSION_SUMMARY_MARKER, 'Working session summary', 'WORKING_SESSION_SUMMARY_MARKER constant should be the header text');
-  assertTrue(TOOL_GENERATED_COMMENT_MARKERS.includes(WORKING_SESSION_SUMMARY_MARKER), 'marker must be in TOOL_GENERATED_COMMENT_MARKERS');
-  assertTrue(isToolGeneratedComment('## Working session summary\n\nresult body'), 'isToolGeneratedComment should match the new header');
+  assertFalse(TOOL_GENERATED_COMMENT_MARKERS.includes(WORKING_SESSION_SUMMARY_MARKER), 'visible header alone must not be in TOOL_GENERATED_COMMENT_MARKERS');
+  assertTrue(TOOL_GENERATED_COMMENT_MARKERS.includes(WORKING_SESSION_SUMMARY_AUTOMATION_MARKER), 'hidden automation marker must be in TOOL_GENERATED_COMMENT_MARKERS');
+  assertFalse(isToolGeneratedComment('## Working session summary\n\nresult body'), 'visible header alone should not look tool-generated');
+  assertTrue(isToolGeneratedComment(`${WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}\n## Working session summary\n\nresult body`), 'hidden marker should identify new automated summaries');
+  assertTrue(isToolGeneratedComment(`## Working session summary\n\nresult body\n\n---\n*${WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER}*`), 'legacy automated footer should still identify old summaries');
 });
 
 // Issue #1625: Tool-generated comments should not count as AI-created comments
@@ -334,7 +338,7 @@ console.log('\n📋 Centralized Marker Module Tests (Issue #1625)\n');
 
 runTest('tool-comments.lib.mjs exports every named marker constant', async () => {
   const toolComments = await import('../src/tool-comments.lib.mjs');
-  const expectedNames = ['AI_WORK_SESSION_STARTED_MARKER', 'AI_WORK_SESSION_COMPLETED_MARKER', 'AI_WORK_SESSION_RESUMED_MARKER', 'AUTO_RESUME_ON_LIMIT_RESET_MARKER', 'AUTO_RESTART_ON_LIMIT_RESET_MARKER', 'SOLUTION_DRAFT_LOG_MARKER', 'AUTO_RESTART_MARKER', 'AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER', 'READY_TO_MERGE_MARKER', 'AUTO_MERGED_MARKER', 'BILLING_LIMIT_MARKER', 'MAINTAINER_ACCESS_REQUEST_MARKER', 'LIVE_PROGRESS_SECTION_START_MARKER', 'LIVE_PROGRESS_SECTION_END_MARKER', 'SESSION_FORCE_KILLED_MARKER', 'REPOSITORY_INITIALIZATION_REQUIRED_MARKER', 'INTERACTIVE_SESSION_STARTED_MARKER', 'INTERACTIVE_SESSION_ENDED_MARKER', 'NOW_WORKING_SESSION_IS_ENDED_MARKER', 'SOLUTION_DRAFT_FAILED_MARKER', 'SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER', 'USAGE_LIMIT_REACHED_MARKER'];
+  const expectedNames = ['AI_WORK_SESSION_STARTED_MARKER', 'AI_WORK_SESSION_COMPLETED_MARKER', 'AI_WORK_SESSION_RESUMED_MARKER', 'AUTO_RESUME_ON_LIMIT_RESET_MARKER', 'AUTO_RESTART_ON_LIMIT_RESET_MARKER', 'SOLUTION_DRAFT_LOG_MARKER', 'AUTO_RESTART_MARKER', 'AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER', 'READY_TO_MERGE_MARKER', 'AUTO_MERGED_MARKER', 'BILLING_LIMIT_MARKER', 'MAINTAINER_ACCESS_REQUEST_MARKER', 'LIVE_PROGRESS_SECTION_START_MARKER', 'LIVE_PROGRESS_SECTION_END_MARKER', 'SESSION_FORCE_KILLED_MARKER', 'REPOSITORY_INITIALIZATION_REQUIRED_MARKER', 'INTERACTIVE_SESSION_STARTED_MARKER', 'INTERACTIVE_SESSION_ENDED_MARKER', 'NOW_WORKING_SESSION_IS_ENDED_MARKER', 'SOLUTION_DRAFT_FAILED_MARKER', 'SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER', 'USAGE_LIMIT_REACHED_MARKER', 'WORKING_SESSION_SUMMARY_MARKER', 'WORKING_SESSION_SUMMARY_AUTOMATION_MARKER', 'WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER'];
   for (const name of expectedNames) {
     assertTrue(typeof toolComments[name] === 'string' && toolComments[name].length > 0, `${name} should be a non-empty string export`);
   }
@@ -342,7 +346,7 @@ runTest('tool-comments.lib.mjs exports every named marker constant', async () =>
 
 runTest('TOOL_GENERATED_COMMENT_MARKERS is derived from named constants (no orphaned literals)', async () => {
   const toolComments = await import('../src/tool-comments.lib.mjs');
-  const expectedInList = [toolComments.AI_WORK_SESSION_STARTED_MARKER, toolComments.AI_WORK_SESSION_COMPLETED_MARKER, toolComments.AI_WORK_SESSION_RESUMED_MARKER, toolComments.AUTO_RESUME_ON_LIMIT_RESET_MARKER, toolComments.AUTO_RESTART_ON_LIMIT_RESET_MARKER, toolComments.SOLUTION_DRAFT_LOG_MARKER, toolComments.AUTO_RESTART_MARKER, toolComments.READY_TO_MERGE_MARKER, toolComments.AUTO_MERGED_MARKER, toolComments.BILLING_LIMIT_MARKER, toolComments.MAINTAINER_ACCESS_REQUEST_MARKER, toolComments.LIVE_PROGRESS_SECTION_START_MARKER, toolComments.SESSION_FORCE_KILLED_MARKER, toolComments.REPOSITORY_INITIALIZATION_REQUIRED_MARKER, toolComments.INTERACTIVE_SESSION_STARTED_MARKER, toolComments.NOW_WORKING_SESSION_IS_ENDED_MARKER, toolComments.SOLUTION_DRAFT_FAILED_MARKER, toolComments.SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, toolComments.USAGE_LIMIT_REACHED_MARKER];
+  const expectedInList = [toolComments.AI_WORK_SESSION_STARTED_MARKER, toolComments.AI_WORK_SESSION_COMPLETED_MARKER, toolComments.AI_WORK_SESSION_RESUMED_MARKER, toolComments.AUTO_RESUME_ON_LIMIT_RESET_MARKER, toolComments.AUTO_RESTART_ON_LIMIT_RESET_MARKER, toolComments.SOLUTION_DRAFT_LOG_MARKER, toolComments.AUTO_RESTART_MARKER, toolComments.READY_TO_MERGE_MARKER, toolComments.AUTO_MERGED_MARKER, toolComments.BILLING_LIMIT_MARKER, toolComments.MAINTAINER_ACCESS_REQUEST_MARKER, toolComments.LIVE_PROGRESS_SECTION_START_MARKER, toolComments.SESSION_FORCE_KILLED_MARKER, toolComments.REPOSITORY_INITIALIZATION_REQUIRED_MARKER, toolComments.INTERACTIVE_SESSION_STARTED_MARKER, toolComments.NOW_WORKING_SESSION_IS_ENDED_MARKER, toolComments.SOLUTION_DRAFT_FAILED_MARKER, toolComments.SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, toolComments.USAGE_LIMIT_REACHED_MARKER, toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER];
   for (const m of expectedInList) {
     assertTrue(toolComments.TOOL_GENERATED_COMMENT_MARKERS.includes(m), `TOOL_GENERATED_COMMENT_MARKERS should include "${m}" (via named constant)`);
   }

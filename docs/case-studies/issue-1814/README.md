@@ -26,12 +26,15 @@ the issue asked us to prefer:
 2. Add `lino-i18n` as a project dependency.
 3. Prefer nested `.lino` examples and multiline quoted strings like the
    `link-foundation/lino-i18n` README.
-4. Preserve all existing translation keys and user-visible translations.
-5. Report missing `lino-i18n` capabilities upstream if Hive Mind cannot be
+4. Reduce duplication in all existing translation strings with deeper nested
+   grouping, including unlimited-depth nesting where it makes the catalogue
+   clearer.
+5. Preserve all existing translation keys and user-visible translations.
+6. Report missing `lino-i18n` capabilities upstream if Hive Mind cannot be
    fully implemented with the library.
-6. Collect issue-related data under `docs/case-studies/issue-1814`.
-7. Analyze requirements, related work, available libraries, and solution plans.
-8. Implement and verify the solution in PR 1816.
+7. Collect issue-related data under `docs/case-studies/issue-1814`.
+8. Analyze requirements, related work, available libraries, and solution plans.
+9. Implement and verify the solution in PR 1816.
 
 ## Research
 
@@ -40,6 +43,9 @@ Raw research data is stored in [data](data/):
 - [issue-1814.json](data/issue-1814.json)
 - [issue-1814-comments.json](data/issue-1814-comments.json)
 - [pr-1816.json](data/pr-1816.json)
+- [pr-1816-comments.json](data/pr-1816-comments.json)
+- [pr-1816-review-comments.json](data/pr-1816-review-comments.json)
+- [pr-1816-reviews.json](data/pr-1816-reviews.json)
 - [related-i18n-prs.json](data/related-i18n-prs.json)
 - [lino-i18n-repo.json](data/lino-i18n-repo.json)
 - [lino-i18n-readme.md](data/lino-i18n-readme.md)
@@ -66,10 +72,8 @@ Related Hive Mind work:
 
 The old loader converted only top-level parsed values into strings. Once a
 catalogue used nested `.lino` blocks, nested objects were not flattened into
-runtime keys. The focused reproduction in
-[test-logs/before-fix-i18n.log](test-logs/before-fix-i18n.log) shows existing
-translations resolving to raw keys after the locale files were converted to
-nested authoring.
+runtime keys. A focused reproduction showed existing translations resolving to
+raw keys after the locale files were converted to nested authoring.
 
 ## Options Considered
 
@@ -99,37 +103,46 @@ This is the implemented option.
 
 - Added `lino-i18n` to `dependencies`.
 - Updated `src/i18n.lib.mjs` to use `lino-i18n/loaders` and `createI18n`.
-- Converted locale files to nested `.lino` where possible.
-- Kept `error.*`, `success.*`, `warning.*`, and `info.*` flat because each
-  family also has a direct parent label (`error`, `success`, `warning`,
-  `info`). A single nested node cannot be both a string and an object, so this
-  hybrid shape preserves every existing runtime key while still preferring
-  nested blocks for representable groups.
+- Converted every locale catalogue to deeper nested `.lino` blocks, including
+  mixed parent-label families such as `error`, `success`, `warning`, and
+  `info`.
+- Represented mixed scalar/object nodes with a nested `label` child, then added
+  runtime compatibility aliases so existing keys such as `error`,
+  `error.invalid_github_url`, and `telegram.help_title` still resolve.
+- Added collapse-tail compatibility aliases for underscore-based legacy keys,
+  so canonical nested keys such as `telegram.help.solve.alias.detail` also
+  resolve through the old `telegram.help_solve_alias_detail` shape.
 - Converted multiline values to `"""` blocks.
 - Updated `examples/test-i18n.mjs` to use the current i18n public API.
-- Added tests that verify nested keys, multiline values, and locale key-set
-  parity.
+- Added tests that verify nested keys, deeper grouping, multiline values,
+  compatibility aliases, and locale key-set parity.
 
 No upstream `lino-i18n` issue was opened. The library has enough functionality
-to implement Hive Mind's current translations; the only shape conflict is
-representable with flat keys for the affected families.
+to implement Hive Mind's current translations. The old mixed key shape is
+handled inside Hive Mind's compatibility layer because it is specific to the
+project's historic public translation keys.
 
 ## Verification
 
-Logs are stored under [test-logs](test-logs/):
+Verification commands were captured in local implementation logs and produced
+these results:
 
-- `before-fix-i18n.log`: focused i18n reproduction failed with the custom
-  loader.
-- `after-fix-i18n.log`: focused i18n tests passed after adopting `lino-i18n`.
-- `after-fix-focused.log`: i18n, Telegram UI, version, limits, and queue tests
-  passed.
-- `example-i18n.log`: the i18n example script ran successfully.
-- `lint.log`: `npm run lint` passed.
-- `format-check.log`: `npm run format:check` passed.
-- `docs-validation.log`: `node tests/docs-validation.mjs` passed.
-- `check-file-line-limits.log`: `bash scripts/check-file-line-limits.sh`
-  passed with warnings only for pre-existing near-limit files.
-- `npm-test.log`: `npm test` passed with all 212 selected test files.
+- Focused i18n reproduction failed before replacing the custom loader, then
+  `node tests/test-i18n.mjs` passed after adopting `lino-i18n`.
+- A deeper-nesting regression test failed before applying the PR feedback, then
+  `node tests/test-i18n.mjs` passed after converting all locale catalogues and
+  adding compatibility aliases.
+- A legacy-key compatibility check confirmed every pre-change runtime key still
+  exists in the expanded current translations for `en`, `ru`, `zh`, and `hi`.
+- Focused regression coverage passed for i18n, Telegram UI, version, limits,
+  queue display, and solve queue behavior.
+- `node examples/test-i18n.mjs` ran successfully.
+- `npm run lint` passed.
+- `npm run format:check` passed.
+- `node tests/docs-validation.mjs` passed.
+- `bash scripts/check-file-line-limits.sh` passed with warnings only for
+  pre-existing near-limit files.
+- `npm test` passed with all 212 selected test files.
 
 `npm install` emitted engine warnings because the local shell used Node
 v20.20.2 while this repository and `lino-i18n` declare Node >=24. The full local

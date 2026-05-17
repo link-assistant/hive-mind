@@ -55,7 +55,45 @@ async function readLocaleFile(locale) {
   const linoFile = path.join(localesDir, `${locale}.lino`);
   const loaded = await loadLocalesFromFile(linoFile);
   const match = loaded.find(catalogue => catalogue.locale === locale) || loaded[0];
-  return match?.translations || {};
+  return expandCompatibilityTranslations(match?.translations || {});
+}
+
+function collapseTailAliases(parts) {
+  const aliases = new Set();
+  for (let prefixLength = 1; prefixLength < parts.length - 1; prefixLength++) {
+    const prefix = parts.slice(0, prefixLength).join('.');
+    const tail = parts.slice(prefixLength).join('_');
+    aliases.add(`${prefix}.${tail}`);
+  }
+  return aliases;
+}
+
+function compatibilityAliasesForKey(key) {
+  const parts = key.split('.');
+  const aliases = collapseTailAliases(parts);
+
+  if (parts.at(-1) === 'label' && parts.length > 1) {
+    const parentParts = parts.slice(0, -1);
+    aliases.add(parentParts.join('.'));
+    for (const alias of collapseTailAliases(parentParts)) {
+      aliases.add(alias);
+    }
+  }
+
+  aliases.delete(key);
+  return aliases;
+}
+
+function expandCompatibilityTranslations(translations) {
+  const expanded = { ...translations };
+  for (const [key, value] of Object.entries(translations)) {
+    for (const alias of compatibilityAliasesForKey(key)) {
+      if (!Object.prototype.hasOwnProperty.call(expanded, alias)) {
+        expanded[alias] = value;
+      }
+    }
+  }
+  return expanded;
 }
 
 function refreshI18nRuntime() {

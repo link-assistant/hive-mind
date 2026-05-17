@@ -94,17 +94,32 @@ await test('Newline escapes are decoded', async () => {
 await test('Nested locale authoring resolves existing dotted keys', async () => {
   await initI18n('en');
   const source = await readFile(new URL('../src/locales/en.lino', import.meta.url), 'utf8');
-  assert.match(source, /\n  telegram\n[\s\S]*\n    solve_disabled /, 'expected the locale source to use nested Telegram keys');
+  assert.match(source, /\n    solve\n[\s\S]*\n      disabled /, 'expected the locale source to use nested Telegram keys');
   assert.strictEqual(t('telegram.solve_disabled'), '❌ The solve command is disabled on this bot instance.');
 });
 
 await test('Multiline translations use quoted multiline strings', async () => {
   await initI18n('en');
   const source = await readFile(new URL('../src/locales/en.lino', import.meta.url), 'utf8');
-  assert.match(source, /no_github_link_in_reply\s+"""/, 'expected multiline source to use triple quotes');
+  assert.match(source, /\n            reply """/, 'expected multiline source to use triple quotes');
   const msg = t('telegram.no_github_link_in_reply');
   assert.ok(msg.includes('Example: Reply to a message containing a GitHub issue link with `/solve`'));
   assert.ok(msg.includes('\n\nOr with options: `/solve --model opus`'));
+});
+
+await test('Locale catalogues use deeper lino nesting without breaking existing keys', async () => {
+  await initI18n('en');
+  const source = await readFile(new URL('../src/locales/en.lino', import.meta.url), 'utf8');
+  assert.match(source, /\n  error\n    label "Error"\n    invalid\n/, 'expected mixed parent label keys to use nested label blocks');
+  assert.doesNotMatch(source, /\n  error\.invalid_github_url /, 'expected error keys to avoid repeated dotted prefixes');
+  assert.match(source, /\n  telegram\n[\s\S]*\n    help\n[\s\S]*\n      solve\n[\s\S]*\n        alias\n          detail /, 'expected Telegram help keys to use nested help/solve/alias grouping');
+  assert.doesNotMatch(source, /\n    help_solve_alias_detail /, 'expected Telegram help keys to avoid repeated help_solve prefixes');
+  assert.ok(source.includes('\n      general\n        guidelines\n          header "General guidelines."\n          body """'), 'expected prompt system keys to use deeper general/guidelines grouping');
+  assert.strictEqual(t('error'), 'Error');
+  assert.strictEqual(t('error.invalid_github_url'), 'Error: Invalid GitHub URL format');
+  assert.strictEqual(t('telegram.help_title'), '🤖 *SwarmMindBot Help*');
+  assert.strictEqual(t('telegram.help.solve.alias.detail'), 'Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`');
+  assert.strictEqual(t('telegram.help.solve.alias_detail'), 'Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`');
 });
 
 await test('Per-call locale override', async () => {

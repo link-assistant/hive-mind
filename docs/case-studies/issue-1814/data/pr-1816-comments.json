@@ -1,0 +1,72 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4468594211",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1816#issuecomment-4468594211",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1816",
+    "id": 4468594211,
+    "node_id": "IC_kwDOPUU0qc8AAAABCllWIw",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-05-17T00:07:59Z",
+    "updated_at": "2026-05-17T00:07:59Z",
+    "body": "## Working session summary\n\nImplemented and pushed the fix on `issue-1814-0f855d3671ac`.\n\nPR 1816 is ready for review: https://github.com/link-assistant/hive-mind/pull/1816\n\nWhat changed:\n- Added `lino-i18n` and routed Hive Mind translation loading/runtime lookup through it.\n- Converted locale catalogues to nested `.lino` structure and triple-quoted multiline strings where possible.\n- Added regression tests for nested keys, multiline values, and locale key parity.\n- Refreshed the i18n example and added the issue 1814 case study with research data and verification logs.\n- Added a patch changeset.\n\nVerification:\n- Local `npm test` passed: all 212 selected test files.\n- Local lint, format, docs validation, file-line checks, focused i18n/Telegram tests all passed.\n- GitHub Actions run `25976245334` passed for commit `502e78f3`.\n- PR is non-draft, merge state is `CLEAN`, working tree is clean.\n\nSources used:\n- `lino-i18n` repo: https://github.com/link-foundation/lino-i18n\n- npm package: https://www.npmjs.com/package/lino-i18n\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4468594211/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4468595010",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1816#issuecomment-4468595010",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1816",
+    "id": 4468595010,
+    "node_id": "IC_kwDOPUU0qc8AAAABCllZQg",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-05-17T00:08:16Z",
+    "updated_at": "2026-05-17T00:08:16Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-5.5\n- Provider: OpenAI\n- Public pricing estimate: $55.946008\n\n### 📊 **Context and tokens usage:**\n- 780.8K / 1.1M (74%) input tokens, 78.7K / 128K (61%) output tokens\n\nTotal: (780.8K + 44.6M cached) input tokens, 78.7K output tokens, $55.946008 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-5.5`\n- **Model: GPT-5.5** (`gpt-5.5`)\n\n### 📎 **Log file uploaded as Repository** (86832KB)\n- [View complete solution draft log](https://raw.githubusercontent.com/konard/public-logs/main/log-tmp-solution-draft-log-pr-1778976486586.txt/tmp-solution-draft-log-pr-1778976486586.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4468595010/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4468600492",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1816#issuecomment-4468600492",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1816",
+    "id": 4468600492,
+    "node_id": "IC_kwDOPUU0qc8AAAABCllurA",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-05-17T00:10:36Z",
+    "updated_at": "2026-05-17T00:10:36Z",
+    "body": "## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4468600492/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4470209360",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1816#issuecomment-4470209360",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1816",
+    "id": 4470209360,
+    "node_id": "IC_kwDOPUU0qc8AAAABCnH7UA",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-05-17T09:53:34Z",
+    "updated_at": "2026-05-17T09:53:51Z",
+    "body": "We should reduce duplication in internationalization strings, by using more nested grouping as in hero example of readme of https://github.com/link-foundation/lino-i18n\r\n\r\nPlease apply it to all our existing translations. Nesting can be unlimited in depth.",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4470209360/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4470211237",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/1816#issuecomment-4470211237",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/1816",
+    "id": 4470211237,
+    "node_id": "IC_kwDOPUU0qc8AAAABCnICpQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-05-17T09:54:33Z",
+    "updated_at": "2026-05-17T09:54:33Z",
+    "body": "🤖 **AI Work Session Started**\n\nStarting automated work session at 2026-05-17T09:54:31.068Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4470211237/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  }
+]

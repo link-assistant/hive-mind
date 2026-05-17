@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 1.72.2
+
+### Patch Changes
+
+- 055a1a0: Fix `--auto-attach-solution-summary` so Codex-authored comments that use the
+  visible "Working session summary" heading are counted as AI comments instead of
+  being mistaken for hive-mind's automated summary comment.
+
 ## 1.72.1
 
 ### Patch Changes

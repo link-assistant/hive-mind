@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.72.3
+
+### Patch Changes
+
+- 502e78f: Use `lino-i18n` for Hive Mind translation loading and runtime lookup.
+
 ## 1.72.2
 
 ### Patch Changes

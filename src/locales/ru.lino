@@ -1,312 +1,880 @@
 ru
-  error "Ошибка"
-  success "Успешно"
-  warning "Предупреждение"
+  error
+    label "Ошибка"
+    invalid
+      github
+        url
+          label "Ошибка: Неверный формат URL GitHub"
+          monitoring "Ошибка: Неверный URL GitHub для мониторинга"
+          solve "Ошибка: Неверный URL GitHub для команды solve"
+      url
+        type "Ошибка: Неверный формат URL GitHub"
+      language "Неверный язык '{{value}}'. Поддерживаются: {{supported}}"
+    missing
+      required
+        url "Ошибка: Отсутствует обязательный URL проблемы или запроса на слияние GitHub"
+    unable
+      determine
+        version "Ошибка: Не удается определить версию"
+    url
+      type
+        not
+          supported "Тип URL '{{type}}' не поддерживается"
+    failed
+      to
+        get
+          current
+            user "Ошибка: Не удалось получить текущего пользователя"
+            branch "Не удалось получить текущую ветку"
+          default
+            branch "Не удалось получить имя ветки по умолчанию"
+        initialize
+          repository "Ошибка: Не удалось инициализировать репозиторий"
+        create
+          fork "Не удалось создать форк после всех попыток"
+        add
+          upstream
+            remote "Не удалось добавить удалённый репозиторий upstream"
+          pr
+            fork
+              remote "Не удалось добавить удалённый репозиторий pr-fork"
+        checkout "Не удалось переключиться на {{branch}}"
+        sync "Не удалось синхронизировать {{branch}} с upstream"
+        fetch
+          upstream "Не удалось получить данные из upstream"
+          from
+            pr
+              fork "Не удалось получить данные из pr-fork"
+    fork
+      not
+        accessible "Форк существует, но недоступен после нескольких попыток"
+    pr
+      does
+        not
+          exist "Ошибка: PR #{{prNumber}} не существует в {{owner}}/{{repo}}"
+    youtrack
+      url
+        detected
+          no
+            config "Ошибка: Обнаружен URL YouTrack, но конфигурация YouTrack не найдена"
+    telegram
+      bot
+        token
+          not
+            set "Ошибка: Переменная окружения TELEGRAM_BOT_TOKEN или опция --token не установлена"
+  success
+    label "Успешно"
+    readme
+      created "README.md успешно создан"
+    process
+      completed "Процесс завершён"
+    error
+      reported
+        to
+          sentry "Ошибка успешно отправлена в Sentry"
+    language
+      set "Язык установлен: {{language}}"
+  warning
+    label "Предупреждение"
+    session
+      log
+        not
+          found "Предупреждение: Журнал сеанса для {{session}} не найден, но продолжаем попытку возобновления"
+    failed
+      to
+        create
+          readme "Не удалось: Не удалось создать README.md"
+        fetch
+          branches "Предупреждение: Не удалось получить ветки из удалённого репозитория"
+    could
+      not
+        determine
+          root
+            repository "Не удалось определить корневой репозиторий"
+          token
+            scopes "Предупреждение: Не удалось определить области токена из статуса аутентификации"
+        check
+          fork
+            status "Предупреждение: Не удалось проверить статус форка: {{message}}"
+          github
+            permissions "Предупреждение: Не удалось проверить разрешения GitHub: {{message}}"
+          convert
+            pr
+              draft
+                status "Предупреждение: Не удалось проверить/преобразовать статус черновика PR"
+        search
+          for
+            existing
+              prs "Предупреждение: Не удалось найти существующие PR: {{message}}"
+        get
+          current
+            user "Предупреждение: Не удалось получить текущего пользователя GitHub"
+        convert
+          pr
+            to
+              draft "Предупреждение: Не удалось преобразовать PR в черновик"
+              ready
+                label "Предупреждение: Не удалось преобразовать PR в готовый"
+                status "Предупреждение: Не удалось преобразовать статус PR в готовый"
+        post
+          work
+            start
+              comment "Предупреждение: Не удалось опубликовать комментарий о начале работы"
+            end
+              comment "Предупреждение: Не удалось опубликовать комментарий о завершении работы"
+        assign
+          user "Не удалось назначить пользователя"
+    no
+      linked
+        issue
+          found "Предупреждение: Связанная проблема не найдена в теле PR"
+    error
+      during
+        auto
+          pr
+            creation "Предупреждение: Ошибка при автоматическом создании PR: {{message}}"
+    pr
+      created
+        but
+          no
+            url "Предупреждение: PR создан, но URL не возвращён"
   failed "Не удалось"
-  info "Информация"
-  error.invalid_github_url "Ошибка: Неверный формат URL GitHub"
-  error.invalid_github_url_monitoring "Ошибка: Неверный URL GitHub для мониторинга"
-  error.missing_required_url "Ошибка: Отсутствует обязательный URL проблемы или запроса на слияние GitHub"
-  error.unable_determine_version "Ошибка: Не удается определить версию"
-  error.invalid_url_type "Ошибка: Неверный формат URL GitHub"
-  error.url_type_not_supported "Тип URL '{{type}}' не поддерживается"
-  error.failed_to_get_current_user "Ошибка: Не удалось получить текущего пользователя"
-  error.failed_to_initialize_repository "Ошибка: Не удалось инициализировать репозиторий"
-  error.failed_to_create_fork "Не удалось создать форк после всех попыток"
-  error.fork_not_accessible "Форк существует, но недоступен после нескольких попыток"
-  error.failed_to_add_upstream_remote "Не удалось добавить удалённый репозиторий upstream"
-  error.failed_to_checkout "Не удалось переключиться на {{branch}}"
-  error.failed_to_sync "Не удалось синхронизировать {{branch}} с upstream"
-  error.failed_to_get_default_branch "Не удалось получить имя ветки по умолчанию"
-  error.failed_to_get_current_branch "Не удалось получить текущую ветку"
-  error.failed_to_fetch_upstream "Не удалось получить данные из upstream"
-  error.failed_to_add_pr_fork_remote "Не удалось добавить удалённый репозиторий pr-fork"
-  error.failed_to_fetch_from_pr_fork "Не удалось получить данные из pr-fork"
-  error.pr_does_not_exist "Ошибка: PR #{{prNumber}} не существует в {{owner}}/{{repo}}"
-  error.youtrack_url_detected_no_config "Ошибка: Обнаружен URL YouTrack, но конфигурация YouTrack не найдена"
-  error.telegram_bot_token_not_set "Ошибка: Переменная окружения TELEGRAM_BOT_TOKEN или опция --token не установлена"
-  error.invalid_github_url_solve "Ошибка: Неверный URL GitHub для команды solve"
-  error.invalid_language "Неверный язык '{{value}}'. Поддерживаются: {{supported}}"
-  success.readme_created "README.md успешно создан"
-  success.process_completed "Процесс завершён"
-  success.error_reported_to_sentry "Ошибка успешно отправлена в Sentry"
-  success.language_set "Язык установлен: {{language}}"
-  warning.session_log_not_found "Предупреждение: Журнал сеанса для {{session}} не найден, но продолжаем попытку возобновления"
-  warning.failed_to_create_readme "Не удалось: Не удалось создать README.md"
-  warning.could_not_determine_root_repository "Не удалось определить корневой репозиторий"
-  warning.could_not_check_fork_status "Предупреждение: Не удалось проверить статус форка: {{message}}"
-  warning.no_linked_issue_found "Предупреждение: Связанная проблема не найдена в теле PR"
-  warning.could_not_search_for_existing_prs "Предупреждение: Не удалось найти существующие PR: {{message}}"
-  warning.could_not_get_current_user "Предупреждение: Не удалось получить текущего пользователя GitHub"
-  warning.could_not_check_github_permissions "Предупреждение: Не удалось проверить разрешения GitHub: {{message}}"
-  warning.could_not_determine_token_scopes "Предупреждение: Не удалось определить области токена из статуса аутентификации"
-  warning.failed_to_fetch_branches "Предупреждение: Не удалось получить ветки из удалённого репозитория"
-  warning.error_during_auto_pr_creation "Предупреждение: Ошибка при автоматическом создании PR: {{message}}"
-  warning.could_not_convert_pr_to_draft "Предупреждение: Не удалось преобразовать PR в черновик"
-  warning.could_not_check_convert_pr_draft_status "Предупреждение: Не удалось проверить/преобразовать статус черновика PR"
-  warning.could_not_post_work_start_comment "Предупреждение: Не удалось опубликовать комментарий о начале работы"
-  warning.could_not_post_work_end_comment "Предупреждение: Не удалось опубликовать комментарий о завершении работы"
-  warning.could_not_convert_pr_to_ready "Предупреждение: Не удалось преобразовать PR в готовый"
-  warning.could_not_convert_pr_to_ready_status "Предупреждение: Не удалось преобразовать статус PR в готовый"
-  warning.pr_created_but_no_url "Предупреждение: PR создан, но URL не возвращён"
-  warning.could_not_assign_user "Не удалось назначить пользователя"
-  info.expected_github_url_format "Ожидается: https://github.com/owner или https://github.com/owner/repo"
-  info.you_can_use_formats "Вы можете использовать любой из этих форматов:"
-  info.format_https_owner "- https://github.com/owner"
-  info.format_https_owner_repo "- https://github.com/owner/repo"
-  info.format_http_owner "- http://github.com/owner (будет преобразовано в https)"
-  info.format_github_owner "- github.com/owner (будет добавлено https://)"
-  info.format_owner "- owner (будет преобразовано в https://github.com/owner)"
-  info.format_owner_repo "- owner/repo (будет преобразовано в https://github.com/owner/repo)"
-  info.full_log_file "Полный файл журнала: {{path}}"
-  info.process_exited_with_code "Процесс завершился с кодом {{code}}"
-  info.current_configuration "Текущая конфигурация:"
-  process.using_repository_fallback "Использование резервного метода репозиторий-за-репозиторием для {{scope}}: {{owner}}"
-  process.fetching_repository_list "Получение списка репозиториев..."
-  process.command "Команда: {{command}}"
-  check.number "Проверка #{{iteration}}:"
-  time.current "Текущее время: {{time}}"
-  limits.additional_codex_limits "Дополнительные лимиты Codex"
-  limits.balance "баланс"
-  limits.claude_5_hour_session "5-часовой сеанс Claude"
-  limits.claude_limits "Лимиты Claude"
-  limits.codex_5_hour_session "5-часовой сеанс Codex"
-  limits.codex_credits "Кредиты Codex"
-  limits.codex_limits "Лимиты Codex"
-  limits.cpu "CPU"
-  limits.cpu_cores_used "используемых ядер CPU"
-  limits.current_time "Текущее время"
-  limits.current_week_all_models "Текущая неделя (все модели)"
-  limits.current_week_sonnet_only "Текущая неделя (только Sonnet)"
-  limits.disabled_by_admin "`--show-limits` отключён администратором бота."
-  limits.disk_space "Дисковое пространство"
-  limits.duration_day_short "д"
-  limits.duration_hour_short "ч"
-  limits.duration_minute_short "мин"
-  limits.duration_second_short "с"
-  limits.end "Конец"
-  limits.five_hour_session "5-часовой сеанс"
-  limits.five_min_load_avg "средняя нагрузка за 5 мин"
-  limits.github_api "GitHub API"
-  limits.limits_at_end "Лимиты в конце"
-  limits.limits_at_start "Лимиты в начале"
-  limits.limits_change "Изменение лимитов"
-  limits.na "Н/Д"
-  limits.note_delta_approx "Примечание: дельта приблизительная (параллельные сеансы используют общий бюджет)."
-  limits.passed "прошло"
-  limits.plan "План"
-  limits.ram "RAM"
-  limits.reason_claude_5_hour_session "Лимит 5-часового сеанса Claude {{currentPercent}}% (порог: {{thresholdPercent}})"
-  limits.reason_claude_running "Процесс Claude уже выполняется"
-  limits.reason_claude_weekly "Недельный лимит Claude {{currentPercent}}% (порог: {{thresholdPercent}})"
-  limits.reason_codex_5_hour_session "Лимит 5-часового сеанса Codex {{currentPercent}}% (порог: {{thresholdPercent}})"
-  limits.reason_codex_running "Процесс Codex уже выполняется"
-  limits.reason_codex_weekly "Недельный лимит Codex {{currentPercent}}% (порог: {{thresholdPercent}})"
-  limits.reason_cpu_usage "Использование CPU {{currentPercent}}% (порог: {{thresholdPercent}})"
-  limits.reason_disk_usage "Использование диска {{currentPercent}}% (порог: {{thresholdPercent}})"
-  limits.reason_gemini_running "Процесс Gemini CLI уже выполняется"
-  limits.reason_github_api "Использование GitHub API {{currentPercent}}% (порог: {{thresholdPercent}})"
-  limits.reason_min_interval "Минимальный интервал между командами ещё не прошёл"
-  limits.reason_qwen_running "Процесс Qwen Code уже выполняется"
-  limits.reason_ram_usage "Использование RAM {{currentPercent}}% (порог: {{thresholdPercent}})"
-  limits.reason_threshold_exceeded "Превышен порог {{metric}}"
-  limits.remaining "осталось {{duration}}"
-  limits.requests "запросов"
-  limits.resets_at "Сброс {{time}}"
-  limits.resets_in "Сброс через {{duration}}"
-  limits.resource_limit_exceeded "Превышен лимит ресурсов"
-  limits.solve_queue_status "Статус очереди solve"
-  limits.queue_completed "Завершено"
-  limits.queue_failed "С ошибкой"
-  limits.queue_and_more "и ещё {{count}}"
-  limits.queue_pending "ожидает"
-  limits.queue_processing "выполняется"
-  limits.queue_processes "процессов: {{count}}"
-  limits.queue_status_cancelled "отменено"
-  limits.queue_status_failed "ошибка"
-  limits.queue_status_queued "в очереди"
-  limits.queue_status_started "запущено"
-  limits.queue_status_starting "запускается"
-  limits.queue_status_waiting "ожидание"
-  limits.queue_waiting_current_command "ожидание текущей команды"
-  limits.queue_waiting_in_queue "Ожидание в очереди"
-  limits.queues "Очереди"
-  limits.seven_day_all_models "7 дней, все модели"
-  limits.seven_day_sonnet_only "7 дней, только Sonnet"
-  limits.session "сеанс"
-  limits.start "Начало"
-  limits.subscription_ends "Подписка заканчивается {{time}}"
-  limits.subscription_ends_in "Подписка заканчивается через {{duration}} ({{time}})"
-  limits.subscription_status "Подписка: {{status}}"
-  limits.trial_ends "Пробный период заканчивается {{time}}"
-  limits.trial_ends_in "Пробный период заканчивается через {{duration}} ({{time}})"
-  limits.unavailable "недоступно"
-  limits.unlimited "без ограничений"
-  limits.used "использовано"
-  limits.week "неделя"
-  limits.weekly "Неделя"
-  telegram.fetching_limits "🔄 Получение лимитов использования..."
-  telegram.gathering_version "🔄 Сбор информации о версии..."
-  telegram.usage_limits_title "📊 *Лимиты использования*"
-  telegram.version_information_title "🤖 *Информация о версиях*"
-  telegram.formatting_fallback_warning "⚠️ Обнаружена ошибка форматирования. Показываю обычный текст."
-  telegram.limits_only_in_groups "❌ Команда /limits работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
-  telegram.version_only_in_groups "❌ Команда /version работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
-  telegram.solve_only_in_groups "❌ Команда {{commandDisplay}} работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
-  telegram.solve_queue_only_in_groups "❌ Команда /solve_queue работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
-  telegram.hive_only_in_groups "❌ Команда /hive работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
-  telegram.solve_disabled "❌ Команда solve отключена в этом экземпляре бота."
-  telegram.hive_disabled "❌ Команда /hive отключена в этом экземпляре бота."
-  telegram.no_github_link_in_reply "❌ В сообщении, на которое вы ответили, не найдена ссылка на проблему/PR GitHub.\n\nПример: Ответьте на сообщение со ссылкой на проблему GitHub командой `/solve`\n\nИли с опциями: `/solve --model opus`"
-  telegram.invalid_options "❌ Неверные опции: {{message}}\n\nИспользуйте /help, чтобы увидеть доступные опции"
-  telegram.invalid_isolation "❌ Неверное значение --isolation '{{value}}'. Допустимо: screen, tmux или docker"
-  telegram.invalid_locked_isolation "❌ Неверное заблокированное значение --isolation '{{value}}'. Допустимо: screen, tmux или docker"
-  telegram.option_syntax_check "Проверьте синтаксис опций."
-  telegram.url_status_active "❌ Этот URL имеет статус {{statusText}}.\n\nURL: {{url}}\nСтатус: {{status}}\n\n💡 Используйте /solve_queue для проверки очереди."
-  telegram.url_session_running "❌ Для этого URL уже выполняется рабочий сеанс.\n\nURL: {{url}}\nСеанс: `{{session}}`\n\n💡 Дождитесь завершения текущего сеанса или используйте /solve\\_stop для отмены."
-  telegram.solve_rejected "❌ Команда solve отклонена.\n\n{{infoBlock}}\n\n🚫 Причина: {{reason}}"
-  telegram.language_invalid "❌ Неверный язык. Поддерживаются: {{supported}}.\nИспользование: /language <код>"
-  telegram.language_set "✅ Язык установлен: *{{language}}*."
-  telegram.language_current "🌐 Текущий язык: *{{language}}*.\nПоддерживаются: {{supported}}.\nИспользование: /language <код>"
-  telegram.yes "✅ Да"
-  telegram.no "❌ Нет"
-  telegram.info_requested_by_label "Запросил"
-  telegram.info_issue_label "Задача"
-  telegram.info_pull_request_label "Pull request"
-  telegram.info_url_label "URL"
-  telegram.info_options_label "🛠 Опции"
-  telegram.info_locked_options_label "🔒 Заблокированные опции"
-  telegram.help_title "🤖 *Справка SwarmMindBot*"
-  telegram.help_status_stopped "🛑 *Статус бота: ОСТАНОВЛЕН*"
-  telegram.help_reason "Причина: {{reason}}"
-  telegram.help_stopped "Остановлен: {{stoppedAt}}"
-  telegram.help_resume "Используйте /start (только владелец чата), чтобы возобновить работу."
-  telegram.help_diagnostic_information "📋 *Диагностическая информация:*"
-  telegram.help_chat_id "• ID чата: `{{chatId}}`"
-  telegram.help_topic_id "• ID темы: `{{topicId}}`"
-  telegram.help_chat_type "• Тип чата: {{chatType}}"
-  telegram.help_chat_title "• Название чата: {{chatTitle}}"
-  telegram.help_available_commands "📝 *Доступные команды:*"
-  telegram.help_solve_enabled "*/solve* (алиасы: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - Решить задачу GitHub"
-  telegram.help_solve_usage "Использование: `/solve <github-url> [options]`"
-  telegram.help_solve_example "Пример: `/solve https://github.com/owner/repo/issues/123 --model sonnet`"
-  telegram.help_solve_alias_detail "Алиасы инструментов добавляют `--tool <tool>`: `/codex <github-url>` равно `/solve <github-url> --tool codex`"
-  telegram.help_solve_reply "Или ответьте на сообщение со ссылкой GitHub: `/solve`"
-  telegram.help_solve_disabled "*/solve* (алиасы: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Отключено"
-  telegram.help_locked_options "🔒 Заблокированные опции: `{{options}}`"
-  telegram.help_task_enabled "*/task* - Создать задачу GitHub из ссылки на репозиторий и текста задачи"
-  telegram.help_task_usage "Использование: `/task <github-repository-url>` с текстом задачи после команды или ответом `/task`"
-  telegram.help_task_example "Пример: `/task https://github.com/owner/repo`, затем текст задачи на следующих строках"
-  telegram.help_split_enabled "*/split* - Разделить задачу GitHub на меньшие задачи"
-  telegram.help_split_usage "Использование: `/split <github-issue-url> [options]` или `/task --split <github-issue-url>`"
-  telegram.help_split_example "Пример: `/split https://github.com/owner/repo/issues/123 --split-count 2`"
-  telegram.help_task_disabled "*/task* / */split* - ❌ Отключено"
-  telegram.help_hive_enabled "*/hive* - Выполнить команду hive"
-  telegram.help_hive_usage "Использование: `/hive <github-url> [options]`"
-  telegram.help_hive_example "Пример: `/hive https://github.com/owner/repo`"
-  telegram.help_hive_disabled "*/hive* - ❌ Отключено"
-  telegram.help_solve_queue "`/solve_queue` - Показать состояние очереди solve"
-  telegram.help_limits "*/limits* - Показать лимиты использования"
-  telegram.help_version "*/version* - Показать версии бота и среды выполнения"
-  telegram.help_language "*/language* `[en|ru|zh|hi]` - Установить или показать предпочитаемый язык ответов (в памяти, для пользователя)"
-  telegram.help_accept_invites "`/accept_invites` - Принять все ожидающие приглашения GitHub"
-  telegram.help_merge "*/merge* - Очередь слияния (экспериментально)"
-  telegram.help_merge_usage "Использование: `/merge <github-repo-url>`"
-  telegram.help_merge_description "Последовательно сливает все PR с меткой 'ready'."
-  telegram.help_subscribe "*/subscribe* / */unsubscribe* - 🔔 Получать личную пересылку завершения /solve (экспериментально, #1688)"
-  telegram.help_help "*/help* - Показать это справочное сообщение"
-  telegram.help_stop_start "*/stop* / */start* - Остановить или возобновить прием новых задач (только владелец)"
-  telegram.help_stop_uuid "*/stop* `<uuid>` - Отправить CTRL+C в изолированный сеанс solve/hive (только владелец). Также работает ответом на сообщение с UUID."
-  telegram.help_log "*/log* - Получить лог изолированного сеанса (только владелец). Использование: `/log <uuid>` или ответ `/log`"
-  telegram.help_terminal_watch "*/terminal\\_watch* (псевдоним: */watch*) - Обновлять лог изолированного сеанса вживую (владелец чата или пользователь, запустивший сеанс). Использование: `/terminal_watch <uuid>`, `/watch <uuid>` или ответ одной из этих команд"
-  telegram.help_notifications "🔔 *Уведомления о сеансах:* Уведомления о завершении автоматические; используйте /subscribe для личных пересылок."
-  telegram.help_isolation_mode "🔒 *Режим изоляции:* `{{isolationBackend}}` (экспериментально)"
-  telegram.help_group_note "⚠️ *Замечание:* команды /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop и /start работают только в групповых чатах. /terminal\\_watch, /watch, /subscribe и /unsubscribe работают в личных и групповых чатах."
-  telegram.help_common_options "🔧 *Общие опции:*"
-  telegram.help_model_option "• `--model <model>` или `-m` - {{modelDescription}}"
-  telegram.help_base_branch_option "• `--base-branch <branch>` или `-b` - Целевая ветка для PR (по умолчанию ветка репозитория)"
-  telegram.help_think_option "• `--think <level>` - уровень размышления (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - бюджет токенов (0-63999)"
-  telegram.help_verbose_option "• `--verbose` или `-v` - подробный вывод | `--attach-logs` - прикрепить логи к PR"
-  telegram.help_show_limits_option "• `--show-limits` - Экспериментально: добавить использование Claude/Codex в начале, в конце и дельту (#594)"
-  telegram.help_tip "💡 *Подсказка:* Доступно больше опций. Полный список смотрите в документации."
-  telegram.help_restricted_mode "🔒 *Ограниченный режим:* Авторизован: {{authorized}}"
-  telegram.help_allow_topic_hint "💡 Чтобы разрешить эту тему: `{{allowTopicHint}}`"
-  telegram.help_troubleshooting_header "🔧 *Диагностика:*"
-  telegram.help_troubleshooting_body "Если бот не получает сообщения:\n1. Проверьте privacy mode в @BotFather\n   • Отправьте `/setprivacy` в @BotFather\n   • Выберите 'Disable' для вашего бота\n   • Удалите бота из группы и добавьте снова\n2. Или сделайте бота администратором группы\n3. Перезапустите бота с флагом `--verbose` для диагностики"
-  telegram.solve_queued "📋 Команда solve поставлена в очередь (позиция #{{position}} в очереди {{tool}})"
-  telegram.solve_waiting "⏳ Ожидание (очередь {{tool}} #{{position}})"
-  telegram.waiting_label "⏳ Ожидание"
-  telegram.reason_label "Причина"
-  telegram.did_you_mean "💡 Вы имели в виду: `{{suggestion}}`"
-  telegram.solve_invalid_url_help "Пример: `/solve https://github.com/owner/repo/issues/123`\n\nИли ответьте `/solve` на сообщение со ссылкой GitHub"
-  telegram.hive_invalid_url_help "Пример: `/hive https://github.com/owner/repo`"
-  telegram.missing_github_url "Не указан GitHub URL. Использование: /{{commandName}} <github-url> [options]"
-  telegram.first_arg_must_be_github_url "Первый аргумент должен быть GitHub URL"
-  telegram.url_issues_list_error "URL ведет на список задач, но нужна конкретная задача\n\n💡 Как исправить:\n1. Откройте репозиторий: {{url}}\n2. Нажмите на конкретную задачу\n3. Скопируйте URL (он должен заканчиваться на /issues/NUMBER)\n\nПример: `{{example}}`"
-  telegram.url_pulls_list_error "URL ведет на список pull request'ов, но нужен конкретный pull request\n\n💡 Как исправить:\n1. Откройте репозиторий: {{url}}\n2. Нажмите на конкретный pull request\n3. Скопируйте URL (он должен заканчиваться на /pull/NUMBER)\n\nПример: `{{example}}`"
-  telegram.url_repo_error "URL ведет на репозиторий, но нужен конкретный {{allowedTypes}}\n\n💡 Как исправить:\n1. Перейдите: {{url}}/issues\n2. Нажмите на задачу для решения\n3. Используйте полный URL с номером задачи\n\nПример: `{{example}}`"
-  telegram.url_must_be_type "URL должен быть GitHub {{allowedTypes}} (не {{type}})"
-  telegram.work_session_starting "🔄 Запуск..."
-  telegram.work_session_executing "⏳ Выполняется..."
-  telegram.work_session_finished "Рабочий сеанс успешно завершен"
-  telegram.work_session_failed "Рабочий сеанс завершился с ошибкой (код выхода: {{exitCode}})"
-  telegram.duration_label "Длительность"
-  telegram.session_label "Сеанс"
-  telegram.isolation_label "Изоляция"
-  telegram.error_executing_command "❌ Ошибка выполнения команды {{commandName}}"
-  language.en "Английский"
-  language.ru "Русский"
-  language.zh "Китайский"
-  language.hi "Хинди"
-  version.ai_agents "AI-агенты"
-  version.browsers "Браузеры"
-  version.browser_automation "Автоматизация браузера"
-  version.connected "подключено"
-  version.development_tools "Инструменты разработки"
-  version.environment "Среда"
-  version.architecture "Архитектура"
-  version.kernel "Ядро"
-  version.not_connected "не подключено"
-  version.os "ОС"
-  version.platform "Платформа"
-  version.process_running_restart_needed "Запущенный процесс: `{{processVersion}}` (требуется перезапуск)"
-  version.system "Система"
-  version.version "Версия"
-  prompt.user.issue_to_solve "Задача для решения: {{issueUrl}}"
-  prompt.user.issue_linked_to_pr "Задача для решения: задача, связанная с PR #{{prNumber}}"
-  prompt.user.prepared_branch "Подготовленная ветка: {{branchName}}"
-  prompt.user.prepared_working_directory "Подготовленный рабочий каталог: {{tempDir}}"
-  prompt.user.prepared_tmp_directory "Подготовленный временный каталог для логов и загрузок: {{workspaceTmpDir}}"
-  prompt.user.prepared_pull_request "Подготовленный Pull Request: {{prUrl}}"
-  prompt.user.forked_repository "Ваш форк репозитория: {{forkedRepo}}"
-  prompt.user.original_repository "Исходный репозиторий (upstream): {{owner}}/{{repo}}"
-  prompt.user.fork_actions_url "GitHub Actions в вашем форке: {{forkActionsUrl}}"
-  prompt.user.continue "Продолжай."
-  prompt.user.proceed "Приступай."
-  prompt.system.intro 'Ты ИИ-решатель задач. Когда исследуешь задачи, отдавай предпочтение анализу первопричин. Когда общаешься, опирайся на факты, которые ты сам проверил, либо ссылайся на источники, подтверждающие доказательства, такие как цитированный код или ссылки на документы или веб-страницы. Когда ты не уверен или работаешь на основе предположений, проверяй их сам или задавай уточняющие вопросы.'
-  prompt.system.workspace_instructions 'Временный каталог рабочего пространства.\n   - Используй {{workspaceTmpDir}} для всех временных файлов, логов и загрузок.\n   - Когда сохраняешь вывод команд в файлы, сохраняй в {{workspaceTmpDir}}/command-output.log.\n   - Когда скачиваешь логи CI, сохраняй в {{workspaceTmpDir}}/ci-logs/.\n   - Когда сохраняешь diff для проверки, сохраняй в {{workspaceTmpDir}}/diffs/.\n   - Когда создаёшь отладочные файлы, сохраняй в {{workspaceTmpDir}}/debug/.'
-  prompt.system.general_guidelines_header 'Общие рекомендации.'
-  prompt.system.general_guidelines_body '   - Когда выполняешь команды и вывод становится большим, сохраняй логи в файлы для удобного просмотра.\n   - Когда запускаешь команды, не задавай таймаут самостоятельно. Дай им работать столько, сколько нужно. Стандартного таймаута в 2 минуты обычно достаточно, и после завершения команды просмотри логи в файле.\n   - Когда запускаешь команды sudo, особенно установку пакетов вроде apt-get, yum или npm install, запускай их в фоне, чтобы избежать таймаутов и ошибок прав доступа при необходимости остановить процесс. Используй параметр run_in_background или добавляй & в конце команды.'
-  prompt.system.issue_reporting '   - Когда замечаешь ошибки, баги или мелкие проблемы во время рабочей сессии, не относящиеся к основным требованиям задачи, заводи issue для их отслеживания, если такие ещё не существуют. Issue должна включать воспроизводимые примеры, по возможности минимальный воспроизводимый пример, обходные пути и предложения по исправлению в коде. Для issue в текущем репозитории используй gh issue create --repo {{owner}}/{{repo}} --title "Заголовок" --body "Описание". Для issue в сторонних GitHub-репозиториях, используемых рабочим репозиторием, используй gh issue create --repo owner/repo --title "Заголовок" --body "Описание". Когда возможно существование похожих issue, сначала проверь с помощью gh issue list --repo owner/repo --search "ключевые слова", чтобы избежать дубликатов. Если похожая issue уже существует, добавь комментарий командой gh issue comment <issue-number> --repo owner/repo --body "Текст комментария", описывающий твой случай, включая обезличенные логи (с удалёнными личными или конфиденциальными данными), шаги воспроизведения, минимальный воспроизводимый пример, если это возможно, обходные пути и предложения по исправлению.'
-  prompt.system.ci_investigation '   - Когда CI падает или пользователь сообщает о сбоях, добавляй в свой todo-лист подробный протокол расследования с такими шагами:\n      Шаг 1: Перечисли последние запуски с временными метками: gh run list --repo {{owner}}/{{repo}} --branch {{branchName}} --limit 5 --json databaseId,conclusion,createdAt,headSha\n      Шаг 2: Убедись, что запуски соответствуют последнему коммиту, проверив временные метки и SHA\n      Шаг 3: Для каждого непрошедшего запуска скачай логи, чтобы сохранить их: gh run view {run-id} --repo {{owner}}/{{repo}} --log > ci-logs/{workflow}-{run-id}.log\n      Шаг 4: Прочитай каждый скачанный лог-файл инструментом Read, чтобы понять реальные сбои\n      Шаг 5: Сообщи о находках с конкретными ошибками и номерами строк из логов\n      Это подробное расследование особенно полезно, когда пользователь упоминает падения CI, просит просмотреть логи, ты видишь непрошедшие статусы или финализируешь PR.\n      Замечание: Если пользователь говорит "не проходит", а инструменты показывают "проходит", это может означать устаревшие данные — скачай свежие логи и проверь временные метки, чтобы устранить расхождение.'
-  prompt.system.large_files "   - Когда файл с кодом или логом длиннее 1500 строк, читай его кусками по 1500 строк."
-  prompt.system.complex_problems "   - Когда сталкиваешься со сложной задачей, проводи как можно больше трассировки и включай все режимы подробного вывода."
-  prompt.system.divide_and_conquer "   - Когда сталкиваешься с чем-то очень сложным, используй принцип «разделяй и властвуй»."
-  prompt.system.initial_research_header "Первоначальное исследование."
-  prompt.system.initial_research_body '   - Когда начинаешь, составь подробный план для себя и пошагово следуй своему todo-листу. Добавь как можно больше уместных пунктов из этих рекомендаций в todo-лист, чтобы чётко отслеживать работу.\n   - Когда пользователь упоминает падения CI или просит изучить логи, добавляй в todo такие шаги расследования: (1) перечислить последние запуски CI с временными метками, (2) скачать логи неуспешных запусков в каталог ci-logs/, (3) проанализировать сообщения об ошибках и определить первопричину, (4) реализовать исправление, (5) убедиться, что исправление устраняет конкретные ошибки из логов.\n   - Когда читаешь задачу, тщательно изучи все детали и комментарии.\n   - Когда видишь скриншоты или изображения в описаниях задач, описаниях PR, комментариях или обсуждениях, сначала скачивай изображение в локальный файл, затем используй инструмент Read для просмотра и анализа. Перед чтением скачанных изображений инструментом Read убедись, что файл — действительно изображение, а не HTML, например, с помощью CLI-утилиты file. Когда повреждённые или не-графические файлы (например, страницы GitHub "Not Found", сохранённые как .png) читаются, это может вызывать ошибки "Could not process image" и приводить к падению решателя. Когда команда file показывает "HTML", "text" или "ASCII text", скачивание не удалось — не вызывай Read на этом файле. Вместо этого: (1) когда изображения относятся к GitHub issue или PR, например URL содержит "github.com/user-attachments", повтори: curl -L -H "Authorization: token $(gh auth token)" -o <filename> "<url>"; (2) когда повтор тоже не помогает, пропусти изображение и отметь, что оно недоступно.\n   - Когда нужны детали задачи, используй gh issue view https://github.com/{{owner}}/{{repo}}/issues/{{issueNumber}}.\n   - Когда нужен связанный код, используй gh search code --owner {{owner}} [ключевые слова].\n   - Когда нужен контекст репозитория, читай файлы в своём рабочем каталоге.'
-  prompt.system.explore_subagent "   - Когда нужно изучить структуру кодовой базы, шаблоны или принципы работы, используй инструмент Task с subagent_type=Explore для тщательного исследования кодовой базы."
-  prompt.system.check_sibling_prs "   - Когда изучаешь связанную работу, изучи самые свежие связанные pull request'ы."
-  prompt.system.initial_research_tail '   - Когда задача описана недостаточно чётко, напиши комментарий с уточняющими вопросами.\n   - Когда обращаешься к GitHub Gists (особенно приватным), используй команду gh gist view вместо прямого fetch URL, чтобы обеспечить корректную аутентификацию.\n   - Когда исправляешь баг, сначала найди настоящую первопричину и проводи столько экспериментов, сколько потребуется.\n   - Когда исправляешь баг и в коде недостаточно трассировки или логов, добавляй их и оставляй в коде с выключенным состоянием по умолчанию.\n   - Когда нужны комментарии к pull request, помни, что у GitHub есть три разных типа комментариев с разными API-эндпоинтами:\n      1. Комментарии в обзоре PR (инлайновые комментарии к коду): gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/comments --paginate\n      2. Комментарии в обсуждении PR (общая дискуссия): gh api repos/{{owner}}/{{repo}}/issues/{{prNumber}}/comments --paginate\n      3. Обзоры PR (одобрение/запрос изменений): gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate\n      Замечание: команда "gh pr view --json comments" возвращает только комментарии обсуждения и пропускает комментарии в обзоре.\n   - Когда нужны последние комментарии к задаче, используй gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate.'
-  prompt.system.general_purpose_subagent "   - Когда задача большая и требует обработки многих файлов или папок, используй `general-purpose` суб-агентов, чтобы делегировать работу. Каждый отдельный файл или папка может быть делегирован суб-агенту для более эффективной обработки."
-  prompt.system.case_studies "   - Когда работаешь над этой задачей, создай подробный case study в каталоге ./docs/case-studies/issue-{{issueNumber}}/. Скачай все логи и данные, относящиеся к задаче, в репозиторий. Проведи глубокий анализ: ищи дополнительные факты и данные онлайн, восстанавливай хронологию событий, выявляй первопричины проблемы и предлагай возможные решения. Включи такие файлы, как README.md (executive summary, постановка проблемы, хронология, первопричина), TECHNICAL_SUMMARY.md (глубокий технический анализ), ANALYSIS.md (детали расследования), improvements.md (предлагаемые решения) и сопроводительные логи/данные."
-  prompt.system.solution_development 'Разработка и тестирование решения.\n   - Когда задача решаема, сначала создай тест, воспроизводящий проблему, затем реализуй исправление.\n   - Когда реализуешь функционал, ищи похожие реализации в кодовой базе и используй их как образцы вместо реализации всего с нуля.\n   - Когда программируешь, фиксируй каждый атомарный шаг, полезный сам по себе, в ветку pull request, чтобы прерванная работа сохранялась в pull request.\n   - Когда тестируешь:\n      начинай с тестирования маленьких функций отдельными скриптами;\n      пиши юнит-тесты с моками для быстрого старта.\n   - Когда тестируешь интеграции, используй существующий фреймворк.\n   - Когда тестируешь черновик решения, добавляй автоматические проверки в pr.\n   - Когда пишешь или меняешь тесты, рассмотри установку разумных таймаутов на уровне теста, набора и job CI, чтобы сбои выявлялись быстро, а не зависали.\n   - Когда видишь повторяющиеся таймауты тестов в CI, исследуй первопричину, а не увеличивай таймауты.\n   - Когда задача неясна, напиши комментарий с вопросами.\n   - Когда сталкиваешься с проблемами, которые не можешь решить сам, и нужна человеческая помощь, напиши комментарий в pull request с просьбой о помощи.\n   - Когда нужна помощь человека, используй gh pr comment {{prNumber}} --body "сообщение", чтобы оставить комментарий в существующем PR.'
-  prompt.system.reproducible_testing "Воспроизводимое тестирование.\n   - Когда исправляешь баг, создавай тест, воспроизводящий проблему, ДО реализации исправления. Если ты не можешь воспроизвести проблему, ты не сможешь проверить исправление.\n   - Когда сталкиваешься с логическими багами, пиши автоматический тест, который падает из-за бага, затем реализуй исправление, чтобы он прошёл.\n   - Когда сталкиваешься с UI-багами, делай скриншот состояния проблемы, затем создавай тест визуальной регрессии или скриншот ручной проверки после исправления.\n   - Когда пишешь тесты, отдавай предпочтение минимальным воспроизводимым примерам — простейшим тест-кейсам, демонстрирующим проблему.\n   - Когда отправляешь исправление, включай в описание PR: (1) как воспроизвести проблему, (2) автоматический тест, проверяющий исправление, (3) скриншоты до/после для UI-проблем.\n   - Когда у исправления бага нет воспроизводящего теста, считай исправление неполным, потому что регрессии могут произойти позже без предупреждения."
-  prompt.system.preparing_pr 'Подготовка pull request.\n   - Когда программируешь, следуй contributing guidelines.\n   - Когда коммитишь, пиши понятное сообщение.\n   - Когда нужны примеры стиля, используй gh pr list --repo {{owner}}/{{repo}} --state merged --search [ключевые слова].\n   - Когда открываешь pr, описывай черновик решения и включай тесты.\n   - Когда есть пакет с версией и GitHub Actions workflow для автоматического релиза, обновляй версию (или другой необходимый триггер релиза) в своём pull request, чтобы подготовить следующий релиз.\n   - Когда обновляешь существующий pr {{prNumber}}, используй gh pr edit для изменения заголовка и описания.\n   - Когда собираешься коммитить или пушить код, сначала запускай локальные CI-проверки, если они описаны в contributing guidelines (вроде ruff check, mypy, eslint и т.п.), чтобы поймать ошибки до пуша.\n   - Когда финализируешь pull request:\n      следуй стилю слитых pr для кода, заголовка и описания,\n      проверь, что нет несохранённых изменений, относящихся к исходным требованиям,\n      проверь, что ветка по умолчанию слита в ветку pull request,\n      проверь, что все CI-проверки проходят (если они есть) до завершения,\n      проверь последние комментарии к задаче и pull request, чтобы не пропустить недавнюю обратную связь,\n      перепроверь, что все изменения в pull request соответствуют исходным требованиям задачи,\n      проверь на новые баги в pull request, внимательно читая gh pr diff,\n      проверь, что ранее существовавшие функции не были удалены без явной просьбы в описании задачи, комментариях задачи или комментариях pull request.\n   - Когда заканчиваешь реализацию, используй gh pr ready {{prNumber}}.'
-  prompt.system.workflow "Рабочий процесс и сотрудничество.\n   - Когда проверяешь ветку, делай это через git branch --show-current.\n   - Когда пушишь, пуш только в ветку {{branchName}}.\n   - Когда заканчиваешь, создавай pull request из ветки {{branchName}}. (Замечание: PR {{prNumber}} уже существует, обновляй его.)\n   - Когда организуешь рабочий процесс, используй pull request'ы вместо прямых merge в ветку по умолчанию (main или master).\n   - Когда управляешь коммитами, сохраняй историю коммитов для последующего анализа.\n   - Когда контрибьютишь, продвигай историю репозитория вперёд регулярными коммитами, пушами и при необходимости откатами.\n   - Когда сталкиваешься с конфликтом, который не можешь разрешить сам, проси о помощи.\n   - Когда сотрудничаешь, уважай защиту веток и работай только в {{branchName}}.\n   - Когда упоминаешь результат, включай URL pull request или URL комментария.\n   - Когда нужно создать pr, помни: pr {{prNumber}} уже существует для этой ветки."
-  prompt.system.self_review_header "Самопроверка.\n   - Когда проверяешь свой черновик решения, прогоняй все тесты локально.\n   - Когда проверяешь свой черновик решения, убедись, что git status показывает чистое рабочее дерево без незафиксированных изменений.\n   - Когда сравниваешь со стилем репозитория, используй gh pr diff [номер].\n   - Когда финализируешь, подтверди, что код, тесты и описание согласованы."
-  prompt.system.ensure_all_requirements "   - Когда явная обратная связь или требования отсутствуют, проверь, что все изменения корректны, согласованы, валидированы, протестированы, логированы и соответствуют всем обсуждённым требованиям, проверяя описание задачи и все комментарии задачи и pull request. Проверь, что все CI или CD-проверки проходят."
-  prompt.system.github_cli_patterns 'Шаблоны команд GitHub CLI.\n   - Когда получаешь списки из GitHub API, используй флаг --paginate, чтобы получить все результаты (по умолчанию GitHub возвращает максимум 30 элементов).\n   - Когда получаешь комментарии обзора PR (инлайновые комментарии к коду), используй gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.\n   - Когда получаешь комментарии обсуждения PR, используй gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.\n   - Когда получаешь обзоры PR, используй gh api repos/OWNER/REPO/pulls/NUMBER/reviews --paginate.\n   - Когда получаешь комментарии задачи, используй gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.\n   - Когда добавляешь комментарий PR, используй gh pr comment NUMBER --body "текст" --repo OWNER/REPO.\n   - Когда добавляешь комментарий задачи, используй gh issue comment NUMBER --body "текст" --repo OWNER/REPO.\n   - Когда смотришь детали PR, используй gh pr view NUMBER --repo OWNER/REPO.\n   - Когда фильтруешь через jq, используй gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/comments --paginate --jq reverse-then-slice-first-five.'
-  prompt.system.playwright_mcp "Использование Playwright MCP (автоматизация браузера через инструменты mcp__playwright__*).\n   - Когда разрабатываешь фронтенд (HTML, CSS, JavaScript, React, Vue, Angular и т.п.), используй инструменты Playwright MCP, чтобы тестировать UI в реальном браузере.\n   - Когда WebFetch не возвращает ожидаемое содержимое (например, пустой контент, страницы с JS-рендерингом или защищённые логином), используй инструменты Playwright MCP (browser_navigate, browser_snapshot) как запасной вариант для просмотра веба.\n   - Когда WebSearch не помогает или возвращает недостаточно результатов, используй инструменты Playwright MCP (browser_navigate, browser_snapshot) как запасной вариант для интернет-поиска.\n   - Когда нужно взаимодействовать с динамическими страницами, требующими выполнения JavaScript, используй инструменты Playwright MCP.\n   - Когда нужно визуально проверить, как выглядит веб-страница, или сделать скриншоты, используй browser_take_screenshot из Playwright MCP.\n   - Когда нужно заполнять формы, нажимать кнопки или выполнять пользовательские действия, используй инструменты Playwright MCP (browser_click, browser_type, browser_fill_form).\n   - Когда нужно протестировать адаптивный дизайн или разные размеры viewport, используй browser_resize из Playwright MCP.\n   - Когда заканчиваешь использование браузера, закрывай его через browser_close, чтобы освободить ресурсы.\n   - Когда воспроизводишь UI-баги, используй browser_take_screenshot, чтобы захватить состояние проблемы до реализации исправления.\n   - Когда исправляешь UI-баги, делай скриншоты до/после, чтобы предоставить визуальные доказательства исправления для проверки человеком.\n   - Когда создаёшь UI-тесты, сохраняй базовые скриншоты в репозитории для регрессии визуальной целостности.\n   - Когда проверяешь исправления UI, сравнивай скриншоты, чтобы убедиться, что исправление не вносит непреднамеренных визуальных изменений."
-  prompt.system.plan_subagent 'Использование суб-агента Plan.\n   - Когда начинаешь работу над задачей, рассмотри возможность использовать суб-агента Plan для исследования кодовой базы и создания плана реализации.\n   - Когда используешь суб-агента Plan, можешь добавить его как первый пункт в свой todo-лист.\n   - Когда делегируешь планирование, используй инструмент Task с subagent_type="Plan" до начала имплементации.'
-  prompt.system.visual_ui 'Работа с визуальным UI и скриншоты.\n   - Когда работаешь над визуальными изменениями UI (фронтенд, CSS, HTML, дизайн), включай рендер или скриншот итогового результата в описание pull request.\n   - Когда нужно показать визуальные результаты, делай скриншот и сохраняй его в репозиторий (например, в папку docs/screenshots/ или assets/).\n   - Когда сохраняешь скриншоты в репозиторий, используй постоянные ссылки в markdown описания pull request (например, https://github.com/{{screenshotRepoPath}}/blob/{{branchName}}/docs/screenshots/result.png?raw=true).\n   - Когда загружаешь изображения, сначала коммить их в ветку, затем ссылайся на них через формат GitHub blob URL с суффиксом ?raw=true (работает для публичных и приватных репозиториев).\n   - Когда визуальный результат важен для проверки, явно упоминай его в описании pull request с встроенным изображением.\n   - Когда исправляешь UI-баги, фиксируй скриншоты "до" (проблема) и "после" (исправлено) как доказательства для проверки человеком.\n   - Когда сообщаешь об UI-баге, прикладывай скриншот состояния проблемы, чтобы можно было визуально проверить исправление.\n   - Когда исправление визуальное, добавляй сравнение состояний "до/после" бок о бок или последовательно в описание PR.\n   - Когда возможно, создавай автоматические тесты визуальной регрессии, чтобы UI-баг не повторился.'
-  prompt.system.ci_examples "Расследование CI с использованием временного каталога рабочего пространства.\n   - Когда скачиваешь логи запусков CI:\n      gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log\n   - Когда скачиваешь логи неуспешных задач:\n      gh run view RUN_ID --repo {{owner}}/{{repo}} --log-failed > {{workspaceTmpDir}}/ci-logs/run-RUN_ID-failed.log\n   - Когда перечисляешь запуски CI с подробностями:\n      gh run list --repo {{owner}}/{{repo}} --branch {{branchName}} --limit 5 --json databaseId,conclusion,createdAt,headSha > {{workspaceTmpDir}}/ci-logs/recent-runs.json\n   - Когда сохраняешь PR diff для проверки:\n      gh pr diff {{prNumber}} --repo {{owner}}/{{repo}} > {{workspaceTmpDir}}/diffs/pr-{{prNumber}}.diff\n   - Когда сохраняешь вывод команды вместе с stderr:\n      npm test 2>&1 | tee {{workspaceTmpDir}}/test-output.log\n   - Когда исследуешь детали задачи:\n      gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json"
+  info
+    label "Информация"
+    expected
+      github
+        url
+          format "Ожидается: https://github.com/owner или https://github.com/owner/repo"
+    you
+      can
+        use
+          formats "Вы можете использовать любой из этих форматов:"
+    format
+      https
+        owner
+          label "- https://github.com/owner"
+          repo "- https://github.com/owner/repo"
+      http
+        owner "- http://github.com/owner (будет преобразовано в https)"
+      github
+        owner "- github.com/owner (будет добавлено https://)"
+      owner
+        label "- owner (будет преобразовано в https://github.com/owner)"
+        repo "- owner/repo (будет преобразовано в https://github.com/owner/repo)"
+    full
+      log
+        file "Полный файл журнала: {{path}}"
+    process
+      exited
+        with
+          code "Процесс завершился с кодом {{code}}"
+    current
+      configuration "Текущая конфигурация:"
+  process
+    using
+      repository
+        fallback "Использование резервного метода репозиторий-за-репозиторием для {{scope}}: {{owner}}"
+    fetching
+      repository
+        list "Получение списка репозиториев..."
+    command "Команда: {{command}}"
+  check
+    number "Проверка #{{iteration}}:"
+  time
+    current "Текущее время: {{time}}"
+  limits
+    additional
+      codex
+        limits "Дополнительные лимиты Codex"
+    balance "баланс"
+    claude
+      5
+        hour
+          session "5-часовой сеанс Claude"
+      limits "Лимиты Claude"
+    codex
+      5
+        hour
+          session "5-часовой сеанс Codex"
+      credits "Кредиты Codex"
+      limits "Лимиты Codex"
+    cpu
+      label "CPU"
+      cores
+        used "используемых ядер CPU"
+    current
+      time "Текущее время"
+      week
+        all
+          models "Текущая неделя (все модели)"
+        sonnet
+          only "Текущая неделя (только Sonnet)"
+    disabled
+      by
+        admin "`--show-limits` отключён администратором бота."
+    disk
+      space "Дисковое пространство"
+    duration
+      day
+        short "д"
+      hour
+        short "ч"
+      minute
+        short "мин"
+      second
+        short "с"
+    end "Конец"
+    five
+      hour
+        session "5-часовой сеанс"
+      min
+        load
+          avg "средняя нагрузка за 5 мин"
+    github
+      api "GitHub API"
+    limits
+      at
+        end "Лимиты в конце"
+        start "Лимиты в начале"
+      change "Изменение лимитов"
+    na "Н/Д"
+    note
+      delta
+        approx "Примечание: дельта приблизительная (параллельные сеансы используют общий бюджет)."
+    passed "прошло"
+    plan "План"
+    ram "RAM"
+    reason
+      claude
+        5
+          hour
+            session "Лимит 5-часового сеанса Claude {{currentPercent}}% (порог: {{thresholdPercent}})"
+        running "Процесс Claude уже выполняется"
+        weekly "Недельный лимит Claude {{currentPercent}}% (порог: {{thresholdPercent}})"
+      codex
+        5
+          hour
+            session "Лимит 5-часового сеанса Codex {{currentPercent}}% (порог: {{thresholdPercent}})"
+        running "Процесс Codex уже выполняется"
+        weekly "Недельный лимит Codex {{currentPercent}}% (порог: {{thresholdPercent}})"
+      cpu
+        usage "Использование CPU {{currentPercent}}% (порог: {{thresholdPercent}})"
+      disk
+        usage "Использование диска {{currentPercent}}% (порог: {{thresholdPercent}})"
+      gemini
+        running "Процесс Gemini CLI уже выполняется"
+      github
+        api "Использование GitHub API {{currentPercent}}% (порог: {{thresholdPercent}})"
+      min
+        interval "Минимальный интервал между командами ещё не прошёл"
+      qwen
+        running "Процесс Qwen Code уже выполняется"
+      ram
+        usage "Использование RAM {{currentPercent}}% (порог: {{thresholdPercent}})"
+      threshold
+        exceeded "Превышен порог {{metric}}"
+    remaining "осталось {{duration}}"
+    requests "запросов"
+    resets
+      at "Сброс {{time}}"
+      in "Сброс через {{duration}}"
+    resource
+      limit
+        exceeded "Превышен лимит ресурсов"
+    solve
+      queue
+        status "Статус очереди solve"
+    queue
+      completed "Завершено"
+      failed "С ошибкой"
+      and
+        more "и ещё {{count}}"
+      pending "ожидает"
+      processing "выполняется"
+      processes "процессов: {{count}}"
+      status
+        cancelled "отменено"
+        failed "ошибка"
+        queued "в очереди"
+        started "запущено"
+        starting "запускается"
+        waiting "ожидание"
+      waiting
+        current
+          command "ожидание текущей команды"
+        in
+          queue "Ожидание в очереди"
+    queues "Очереди"
+    seven
+      day
+        all
+          models "7 дней, все модели"
+        sonnet
+          only "7 дней, только Sonnet"
+    session "сеанс"
+    start "Начало"
+    subscription
+      ends
+        label "Подписка заканчивается {{time}}"
+        in "Подписка заканчивается через {{duration}} ({{time}})"
+      status "Подписка: {{status}}"
+    trial
+      ends
+        label "Пробный период заканчивается {{time}}"
+        in "Пробный период заканчивается через {{duration}} ({{time}})"
+    unavailable "недоступно"
+    unlimited "без ограничений"
+    used "использовано"
+    week "неделя"
+    weekly "Неделя"
+  telegram
+    fetching
+      limits "🔄 Получение лимитов использования..."
+    gathering
+      version "🔄 Сбор информации о версии..."
+    usage
+      limits
+        title "📊 *Лимиты использования*"
+    version
+      information
+        title "🤖 *Информация о версиях*"
+      only
+        in
+          groups "❌ Команда /version работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+    formatting
+      fallback
+        warning "⚠️ Обнаружена ошибка форматирования. Показываю обычный текст."
+    limits
+      only
+        in
+          groups "❌ Команда /limits работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+    solve
+      only
+        in
+          groups "❌ Команда {{commandDisplay}} работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+      queue
+        only
+          in
+            groups "❌ Команда /solve_queue работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+      disabled "❌ Команда solve отключена в этом экземпляре бота."
+      rejected """
+        ❌ Команда solve отклонена.
+
+        {{infoBlock}}
+
+        🚫 Причина: {{reason}}
+      """
+      queued "📋 Команда solve поставлена в очередь (позиция #{{position}} в очереди {{tool}})"
+      waiting "⏳ Ожидание (очередь {{tool}} #{{position}})"
+      invalid
+        url
+          help """
+            Пример: `/solve https://github.com/owner/repo/issues/123`
+
+            Или ответьте `/solve` на сообщение со ссылкой GitHub
+          """
+    hive
+      only
+        in
+          groups "❌ Команда /hive работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+      disabled "❌ Команда /hive отключена в этом экземпляре бота."
+      invalid
+        url
+          help "Пример: `/hive https://github.com/owner/repo`"
+    no
+      label "❌ Нет"
+      github
+        link
+          in
+            reply """
+              ❌ В сообщении, на которое вы ответили, не найдена ссылка на проблему/PR GitHub.
+
+              Пример: Ответьте на сообщение со ссылкой на проблему GitHub командой `/solve`
+
+              Или с опциями: `/solve --model opus`
+            """
+    invalid
+      options """
+        ❌ Неверные опции: {{message}}
+
+        Используйте /help, чтобы увидеть доступные опции
+      """
+      isolation "❌ Неверное значение --isolation '{{value}}'. Допустимо: screen, tmux или docker"
+      locked
+        isolation "❌ Неверное заблокированное значение --isolation '{{value}}'. Допустимо: screen, tmux или docker"
+    option
+      syntax
+        check "Проверьте синтаксис опций."
+    url
+      status
+        active """
+          ❌ Этот URL имеет статус {{statusText}}.
+
+          URL: {{url}}
+          Статус: {{status}}
+
+          💡 Используйте /solve_queue для проверки очереди.
+        """
+      session
+        running """
+          ❌ Для этого URL уже выполняется рабочий сеанс.
+
+          URL: {{url}}
+          Сеанс: `{{session}}`
+
+          💡 Дождитесь завершения текущего сеанса или используйте /solve\_stop для отмены.
+        """
+      issues
+        list
+          error """
+            URL ведет на список задач, но нужна конкретная задача
+
+            💡 Как исправить:
+            1. Откройте репозиторий: {{url}}
+            2. Нажмите на конкретную задачу
+            3. Скопируйте URL (он должен заканчиваться на /issues/NUMBER)
+
+            Пример: `{{example}}`
+          """
+      pulls
+        list
+          error """
+            URL ведет на список pull request'ов, но нужен конкретный pull request
+
+            💡 Как исправить:
+            1. Откройте репозиторий: {{url}}
+            2. Нажмите на конкретный pull request
+            3. Скопируйте URL (он должен заканчиваться на /pull/NUMBER)
+
+            Пример: `{{example}}`
+          """
+      repo
+        error """
+          URL ведет на репозиторий, но нужен конкретный {{allowedTypes}}
+
+          💡 Как исправить:
+          1. Перейдите: {{url}}/issues
+          2. Нажмите на задачу для решения
+          3. Используйте полный URL с номером задачи
+
+          Пример: `{{example}}`
+        """
+      must
+        be
+          type "URL должен быть GitHub {{allowedTypes}} (не {{type}})"
+    language
+      invalid """
+        ❌ Неверный язык. Поддерживаются: {{supported}}.
+        Использование: /language <код>
+      """
+      set "✅ Язык установлен: *{{language}}*."
+      current """
+        🌐 Текущий язык: *{{language}}*.
+        Поддерживаются: {{supported}}.
+        Использование: /language <код>
+      """
+    yes "✅ Да"
+    info
+      requested
+        by
+          label "Запросил"
+      issue
+        label "Задача"
+      pull
+        request
+          label "Pull request"
+      url
+        label "URL"
+      options
+        label "🛠 Опции"
+      locked
+        options
+          label "🔒 Заблокированные опции"
+    help
+      title "🤖 *Справка SwarmMindBot*"
+      status
+        stopped "🛑 *Статус бота: ОСТАНОВЛЕН*"
+      reason "Причина: {{reason}}"
+      stopped "Остановлен: {{stoppedAt}}"
+      resume "Используйте /start (только владелец чата), чтобы возобновить работу."
+      diagnostic
+        information "📋 *Диагностическая информация:*"
+      chat
+        id "• ID чата: `{{chatId}}`"
+        type "• Тип чата: {{chatType}}"
+        title "• Название чата: {{chatTitle}}"
+      topic
+        id "• ID темы: `{{topicId}}`"
+      available
+        commands "📝 *Доступные команды:*"
+      solve
+        enabled "*/solve* (алиасы: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - Решить задачу GitHub"
+        usage "Использование: `/solve <github-url> [options]`"
+        example "Пример: `/solve https://github.com/owner/repo/issues/123 --model sonnet`"
+        alias
+          detail "Алиасы инструментов добавляют `--tool <tool>`: `/codex <github-url>` равно `/solve <github-url> --tool codex`"
+        reply "Или ответьте на сообщение со ссылкой GitHub: `/solve`"
+        disabled "*/solve* (алиасы: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Отключено"
+        queue "`/solve_queue` - Показать состояние очереди solve"
+      locked
+        options "🔒 Заблокированные опции: `{{options}}`"
+      task
+        enabled "*/task* - Создать задачу GitHub из ссылки на репозиторий и текста задачи"
+        usage "Использование: `/task <github-repository-url>` с текстом задачи после команды или ответом `/task`"
+        example "Пример: `/task https://github.com/owner/repo`, затем текст задачи на следующих строках"
+        disabled "*/task* / */split* - ❌ Отключено"
+      split
+        enabled "*/split* - Разделить задачу GitHub на меньшие задачи"
+        usage "Использование: `/split <github-issue-url> [options]` или `/task --split <github-issue-url>`"
+        example "Пример: `/split https://github.com/owner/repo/issues/123 --split-count 2`"
+      hive
+        enabled "*/hive* - Выполнить команду hive"
+        usage "Использование: `/hive <github-url> [options]`"
+        example "Пример: `/hive https://github.com/owner/repo`"
+        disabled "*/hive* - ❌ Отключено"
+      limits "*/limits* - Показать лимиты использования"
+      version "*/version* - Показать версии бота и среды выполнения"
+      language "*/language* `[en|ru|zh|hi]` - Установить или показать предпочитаемый язык ответов (в памяти, для пользователя)"
+      accept
+        invites "`/accept_invites` - Принять все ожидающие приглашения GitHub"
+      merge
+        label "*/merge* - Очередь слияния (экспериментально)"
+        usage "Использование: `/merge <github-repo-url>`"
+        description "Последовательно сливает все PR с меткой 'ready'."
+      subscribe "*/subscribe* / */unsubscribe* - 🔔 Получать личную пересылку завершения /solve (экспериментально, #1688)"
+      help "*/help* - Показать это справочное сообщение"
+      stop
+        start "*/stop* / */start* - Остановить или возобновить прием новых задач (только владелец)"
+        uuid "*/stop* `<uuid>` - Отправить CTRL+C в изолированный сеанс solve/hive (только владелец). Также работает ответом на сообщение с UUID."
+      log "*/log* - Получить лог изолированного сеанса (только владелец). Использование: `/log <uuid>` или ответ `/log`"
+      terminal
+        watch "*/terminal\\_watch* (псевдоним: */watch*) - Обновлять лог изолированного сеанса вживую (владелец чата или пользователь, запустивший сеанс). Использование: `/terminal_watch <uuid>`, `/watch <uuid>` или ответ одной из этих команд"
+      notifications "🔔 *Уведомления о сеансах:* Уведомления о завершении автоматические; используйте /subscribe для личных пересылок."
+      isolation
+        mode "🔒 *Режим изоляции:* `{{isolationBackend}}` (экспериментально)"
+      group
+        note "⚠️ *Замечание:* команды /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop и /start работают только в групповых чатах. /terminal\\_watch, /watch, /subscribe и /unsubscribe работают в личных и групповых чатах."
+      common
+        options "🔧 *Общие опции:*"
+      model
+        option "• `--model <model>` или `-m` - {{modelDescription}}"
+      base
+        branch
+          option "• `--base-branch <branch>` или `-b` - Целевая ветка для PR (по умолчанию ветка репозитория)"
+      think
+        option "• `--think <level>` - уровень размышления (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - бюджет токенов (0-63999)"
+      verbose
+        option "• `--verbose` или `-v` - подробный вывод | `--attach-logs` - прикрепить логи к PR"
+      show
+        limits
+          option "• `--show-limits` - Экспериментально: добавить использование Claude/Codex в начале, в конце и дельту (#594)"
+      tip "💡 *Подсказка:* Доступно больше опций. Полный список смотрите в документации."
+      restricted
+        mode "🔒 *Ограниченный режим:* Авторизован: {{authorized}}"
+      allow
+        topic
+          hint "💡 Чтобы разрешить эту тему: `{{allowTopicHint}}`"
+      troubleshooting
+        header "🔧 *Диагностика:*"
+        body """
+          Если бот не получает сообщения:
+          1. Проверьте privacy mode в @BotFather
+             • Отправьте `/setprivacy` в @BotFather
+             • Выберите 'Disable' для вашего бота
+             • Удалите бота из группы и добавьте снова
+          2. Или сделайте бота администратором группы
+          3. Перезапустите бота с флагом `--verbose` для диагностики
+        """
+    waiting
+      label "⏳ Ожидание"
+    reason
+      label "Причина"
+    did
+      you
+        mean "💡 Вы имели в виду: `{{suggestion}}`"
+    missing
+      github
+        url "Не указан GitHub URL. Использование: /{{commandName}} <github-url> [options]"
+    first
+      arg
+        must
+          be
+            github
+              url "Первый аргумент должен быть GitHub URL"
+    work
+      session
+        starting "🔄 Запуск..."
+        executing "⏳ Выполняется..."
+        finished "Рабочий сеанс успешно завершен"
+        failed "Рабочий сеанс завершился с ошибкой (код выхода: {{exitCode}})"
+    duration
+      label "Длительность"
+    session
+      label "Сеанс"
+    isolation
+      label "Изоляция"
+    error
+      executing
+        command "❌ Ошибка выполнения команды {{commandName}}"
+  language
+    en "Английский"
+    ru "Русский"
+    zh "Китайский"
+    hi "Хинди"
+  version
+    ai
+      agents "AI-агенты"
+    browsers "Браузеры"
+    browser
+      automation "Автоматизация браузера"
+    connected "подключено"
+    development
+      tools "Инструменты разработки"
+    environment "Среда"
+    architecture "Архитектура"
+    kernel "Ядро"
+    not
+      connected "не подключено"
+    os "ОС"
+    platform "Платформа"
+    process
+      running
+        restart
+          needed "Запущенный процесс: `{{processVersion}}` (требуется перезапуск)"
+    system "Система"
+    version "Версия"
+  prompt
+    user
+      issue
+        to
+          solve "Задача для решения: {{issueUrl}}"
+        linked
+          to
+            pr "Задача для решения: задача, связанная с PR #{{prNumber}}"
+      prepared
+        branch "Подготовленная ветка: {{branchName}}"
+        working
+          directory "Подготовленный рабочий каталог: {{tempDir}}"
+        tmp
+          directory "Подготовленный временный каталог для логов и загрузок: {{workspaceTmpDir}}"
+        pull
+          request "Подготовленный Pull Request: {{prUrl}}"
+      forked
+        repository "Ваш форк репозитория: {{forkedRepo}}"
+      original
+        repository "Исходный репозиторий (upstream): {{owner}}/{{repo}}"
+      fork
+        actions
+          url "GitHub Actions в вашем форке: {{forkActionsUrl}}"
+      continue "Продолжай."
+      proceed "Приступай."
+    system
+      intro "Ты ИИ-решатель задач. Когда исследуешь задачи, отдавай предпочтение анализу первопричин. Когда общаешься, опирайся на факты, которые ты сам проверил, либо ссылайся на источники, подтверждающие доказательства, такие как цитированный код или ссылки на документы или веб-страницы. Когда ты не уверен или работаешь на основе предположений, проверяй их сам или задавай уточняющие вопросы."
+      workspace
+        instructions """
+          Временный каталог рабочего пространства.
+             - Используй {{workspaceTmpDir}} для всех временных файлов, логов и загрузок.
+             - Когда сохраняешь вывод команд в файлы, сохраняй в {{workspaceTmpDir}}/command-output.log.
+             - Когда скачиваешь логи CI, сохраняй в {{workspaceTmpDir}}/ci-logs/.
+             - Когда сохраняешь diff для проверки, сохраняй в {{workspaceTmpDir}}/diffs/.
+             - Когда создаёшь отладочные файлы, сохраняй в {{workspaceTmpDir}}/debug/.
+        """
+      general
+        guidelines
+          header "Общие рекомендации."
+          body """
+               - Когда выполняешь команды и вывод становится большим, сохраняй логи в файлы для удобного просмотра.
+               - Когда запускаешь команды, не задавай таймаут самостоятельно. Дай им работать столько, сколько нужно. Стандартного таймаута в 2 минуты обычно достаточно, и после завершения команды просмотри логи в файле.
+               - Когда запускаешь команды sudo, особенно установку пакетов вроде apt-get, yum или npm install, запускай их в фоне, чтобы избежать таймаутов и ошибок прав доступа при необходимости остановить процесс. Используй параметр run_in_background или добавляй & в конце команды.
+          """
+        purpose
+          subagent "   - Когда задача большая и требует обработки многих файлов или папок, используй `general-purpose` суб-агентов, чтобы делегировать работу. Каждый отдельный файл или папка может быть делегирован суб-агенту для более эффективной обработки."
+      issue
+        reporting "   - Когда замечаешь ошибки, баги или мелкие проблемы во время рабочей сессии, не относящиеся к основным требованиям задачи, заводи issue для их отслеживания, если такие ещё не существуют. Issue должна включать воспроизводимые примеры, по возможности минимальный воспроизводимый пример, обходные пути и предложения по исправлению в коде. Для issue в текущем репозитории используй gh issue create --repo {{owner}}/{{repo}} --title \"Заголовок\" --body \"Описание\". Для issue в сторонних GitHub-репозиториях, используемых рабочим репозиторием, используй gh issue create --repo owner/repo --title \"Заголовок\" --body \"Описание\". Когда возможно существование похожих issue, сначала проверь с помощью gh issue list --repo owner/repo --search \"ключевые слова\", чтобы избежать дубликатов. Если похожая issue уже существует, добавь комментарий командой gh issue comment <issue-number> --repo owner/repo --body \"Текст комментария\", описывающий твой случай, включая обезличенные логи (с удалёнными личными или конфиденциальными данными), шаги воспроизведения, минимальный воспроизводимый пример, если это возможно, обходные пути и предложения по исправлению."
+      ci
+        investigation """
+             - Когда CI падает или пользователь сообщает о сбоях, добавляй в свой todo-лист подробный протокол расследования с такими шагами:
+                Шаг 1: Перечисли последние запуски с временными метками: gh run list --repo {{owner}}/{{repo}} --branch {{branchName}} --limit 5 --json databaseId,conclusion,createdAt,headSha
+                Шаг 2: Убедись, что запуски соответствуют последнему коммиту, проверив временные метки и SHA
+                Шаг 3: Для каждого непрошедшего запуска скачай логи, чтобы сохранить их: gh run view {run-id} --repo {{owner}}/{{repo}} --log > ci-logs/{workflow}-{run-id}.log
+                Шаг 4: Прочитай каждый скачанный лог-файл инструментом Read, чтобы понять реальные сбои
+                Шаг 5: Сообщи о находках с конкретными ошибками и номерами строк из логов
+                Это подробное расследование особенно полезно, когда пользователь упоминает падения CI, просит просмотреть логи, ты видишь непрошедшие статусы или финализируешь PR.
+                Замечание: Если пользователь говорит "не проходит", а инструменты показывают "проходит", это может означать устаревшие данные — скачай свежие логи и проверь временные метки, чтобы устранить расхождение.
+        """
+        examples """
+          Расследование CI с использованием временного каталога рабочего пространства.
+             - Когда скачиваешь логи запусков CI:
+                gh run view RUN_ID --repo {{owner}}/{{repo}} --log > {{workspaceTmpDir}}/ci-logs/run-RUN_ID.log
+             - Когда скачиваешь логи неуспешных задач:
+                gh run view RUN_ID --repo {{owner}}/{{repo}} --log-failed > {{workspaceTmpDir}}/ci-logs/run-RUN_ID-failed.log
+             - Когда перечисляешь запуски CI с подробностями:
+                gh run list --repo {{owner}}/{{repo}} --branch {{branchName}} --limit 5 --json databaseId,conclusion,createdAt,headSha > {{workspaceTmpDir}}/ci-logs/recent-runs.json
+             - Когда сохраняешь PR diff для проверки:
+                gh pr diff {{prNumber}} --repo {{owner}}/{{repo}} > {{workspaceTmpDir}}/diffs/pr-{{prNumber}}.diff
+             - Когда сохраняешь вывод команды вместе с stderr:
+                npm test 2>&1 | tee {{workspaceTmpDir}}/test-output.log
+             - Когда исследуешь детали задачи:
+                gh issue view {{issueNumber}} --repo {{owner}}/{{repo}} --json body,comments > {{workspaceTmpDir}}/issue-{{issueNumber}}.json
+        """
+      large
+        files "   - Когда файл с кодом или логом длиннее 1500 строк, читай его кусками по 1500 строк."
+      complex
+        problems "   - Когда сталкиваешься со сложной задачей, проводи как можно больше трассировки и включай все режимы подробного вывода."
+      divide
+        and
+          conquer "   - Когда сталкиваешься с чем-то очень сложным, используй принцип «разделяй и властвуй»."
+      initial
+        research
+          header "Первоначальное исследование."
+          body """
+               - Когда начинаешь, составь подробный план для себя и пошагово следуй своему todo-листу. Добавь как можно больше уместных пунктов из этих рекомендаций в todo-лист, чтобы чётко отслеживать работу.
+               - Когда пользователь упоминает падения CI или просит изучить логи, добавляй в todo такие шаги расследования: (1) перечислить последние запуски CI с временными метками, (2) скачать логи неуспешных запусков в каталог ci-logs/, (3) проанализировать сообщения об ошибках и определить первопричину, (4) реализовать исправление, (5) убедиться, что исправление устраняет конкретные ошибки из логов.
+               - Когда читаешь задачу, тщательно изучи все детали и комментарии.
+               - Когда видишь скриншоты или изображения в описаниях задач, описаниях PR, комментариях или обсуждениях, сначала скачивай изображение в локальный файл, затем используй инструмент Read для просмотра и анализа. Перед чтением скачанных изображений инструментом Read убедись, что файл — действительно изображение, а не HTML, например, с помощью CLI-утилиты file. Когда повреждённые или не-графические файлы (например, страницы GitHub "Not Found", сохранённые как .png) читаются, это может вызывать ошибки "Could not process image" и приводить к падению решателя. Когда команда file показывает "HTML", "text" или "ASCII text", скачивание не удалось — не вызывай Read на этом файле. Вместо этого: (1) когда изображения относятся к GitHub issue или PR, например URL содержит "github.com/user-attachments", повтори: curl -L -H "Authorization: token $(gh auth token)" -o <filename> "<url>"; (2) когда повтор тоже не помогает, пропусти изображение и отметь, что оно недоступно.
+               - Когда нужны детали задачи, используй gh issue view https://github.com/{{owner}}/{{repo}}/issues/{{issueNumber}}.
+               - Когда нужен связанный код, используй gh search code --owner {{owner}} [ключевые слова].
+               - Когда нужен контекст репозитория, читай файлы в своём рабочем каталоге.
+          """
+          tail """
+               - Когда задача описана недостаточно чётко, напиши комментарий с уточняющими вопросами.
+               - Когда обращаешься к GitHub Gists (особенно приватным), используй команду gh gist view вместо прямого fetch URL, чтобы обеспечить корректную аутентификацию.
+               - Когда исправляешь баг, сначала найди настоящую первопричину и проводи столько экспериментов, сколько потребуется.
+               - Когда исправляешь баг и в коде недостаточно трассировки или логов, добавляй их и оставляй в коде с выключенным состоянием по умолчанию.
+               - Когда нужны комментарии к pull request, помни, что у GitHub есть три разных типа комментариев с разными API-эндпоинтами:
+                  1. Комментарии в обзоре PR (инлайновые комментарии к коду): gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/comments --paginate
+                  2. Комментарии в обсуждении PR (общая дискуссия): gh api repos/{{owner}}/{{repo}}/issues/{{prNumber}}/comments --paginate
+                  3. Обзоры PR (одобрение/запрос изменений): gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/reviews --paginate
+                  Замечание: команда "gh pr view --json comments" возвращает только комментарии обсуждения и пропускает комментарии в обзоре.
+               - Когда нужны последние комментарии к задаче, используй gh api repos/{{owner}}/{{repo}}/issues/{{issueNumber}}/comments --paginate.
+          """
+      explore
+        subagent "   - Когда нужно изучить структуру кодовой базы, шаблоны или принципы работы, используй инструмент Task с subagent_type=Explore для тщательного исследования кодовой базы."
+      check
+        sibling
+          prs "   - Когда изучаешь связанную работу, изучи самые свежие связанные pull request'ы."
+      case
+        studies "   - Когда работаешь над этой задачей, создай подробный case study в каталоге ./docs/case-studies/issue-{{issueNumber}}/. Скачай все логи и данные, относящиеся к задаче, в репозиторий. Проведи глубокий анализ: ищи дополнительные факты и данные онлайн, восстанавливай хронологию событий, выявляй первопричины проблемы и предлагай возможные решения. Включи такие файлы, как README.md (executive summary, постановка проблемы, хронология, первопричина), TECHNICAL_SUMMARY.md (глубокий технический анализ), ANALYSIS.md (детали расследования), improvements.md (предлагаемые решения) и сопроводительные логи/данные."
+      solution
+        development """
+          Разработка и тестирование решения.
+             - Когда задача решаема, сначала создай тест, воспроизводящий проблему, затем реализуй исправление.
+             - Когда реализуешь функционал, ищи похожие реализации в кодовой базе и используй их как образцы вместо реализации всего с нуля.
+             - Когда программируешь, фиксируй каждый атомарный шаг, полезный сам по себе, в ветку pull request, чтобы прерванная работа сохранялась в pull request.
+             - Когда тестируешь:
+                начинай с тестирования маленьких функций отдельными скриптами;
+                пиши юнит-тесты с моками для быстрого старта.
+             - Когда тестируешь интеграции, используй существующий фреймворк.
+             - Когда тестируешь черновик решения, добавляй автоматические проверки в pr.
+             - Когда пишешь или меняешь тесты, рассмотри установку разумных таймаутов на уровне теста, набора и job CI, чтобы сбои выявлялись быстро, а не зависали.
+             - Когда видишь повторяющиеся таймауты тестов в CI, исследуй первопричину, а не увеличивай таймауты.
+             - Когда задача неясна, напиши комментарий с вопросами.
+             - Когда сталкиваешься с проблемами, которые не можешь решить сам, и нужна человеческая помощь, напиши комментарий в pull request с просьбой о помощи.
+             - Когда нужна помощь человека, используй gh pr comment {{prNumber}} --body "сообщение", чтобы оставить комментарий в существующем PR.
+        """
+      reproducible
+        testing """
+          Воспроизводимое тестирование.
+             - Когда исправляешь баг, создавай тест, воспроизводящий проблему, ДО реализации исправления. Если ты не можешь воспроизвести проблему, ты не сможешь проверить исправление.
+             - Когда сталкиваешься с логическими багами, пиши автоматический тест, который падает из-за бага, затем реализуй исправление, чтобы он прошёл.
+             - Когда сталкиваешься с UI-багами, делай скриншот состояния проблемы, затем создавай тест визуальной регрессии или скриншот ручной проверки после исправления.
+             - Когда пишешь тесты, отдавай предпочтение минимальным воспроизводимым примерам — простейшим тест-кейсам, демонстрирующим проблему.
+             - Когда отправляешь исправление, включай в описание PR: (1) как воспроизвести проблему, (2) автоматический тест, проверяющий исправление, (3) скриншоты до/после для UI-проблем.
+             - Когда у исправления бага нет воспроизводящего теста, считай исправление неполным, потому что регрессии могут произойти позже без предупреждения.
+        """
+      preparing
+        pr """
+          Подготовка pull request.
+             - Когда программируешь, следуй contributing guidelines.
+             - Когда коммитишь, пиши понятное сообщение.
+             - Когда нужны примеры стиля, используй gh pr list --repo {{owner}}/{{repo}} --state merged --search [ключевые слова].
+             - Когда открываешь pr, описывай черновик решения и включай тесты.
+             - Когда есть пакет с версией и GitHub Actions workflow для автоматического релиза, обновляй версию (или другой необходимый триггер релиза) в своём pull request, чтобы подготовить следующий релиз.
+             - Когда обновляешь существующий pr {{prNumber}}, используй gh pr edit для изменения заголовка и описания.
+             - Когда собираешься коммитить или пушить код, сначала запускай локальные CI-проверки, если они описаны в contributing guidelines (вроде ruff check, mypy, eslint и т.п.), чтобы поймать ошибки до пуша.
+             - Когда финализируешь pull request:
+                следуй стилю слитых pr для кода, заголовка и описания,
+                проверь, что нет несохранённых изменений, относящихся к исходным требованиям,
+                проверь, что ветка по умолчанию слита в ветку pull request,
+                проверь, что все CI-проверки проходят (если они есть) до завершения,
+                проверь последние комментарии к задаче и pull request, чтобы не пропустить недавнюю обратную связь,
+                перепроверь, что все изменения в pull request соответствуют исходным требованиям задачи,
+                проверь на новые баги в pull request, внимательно читая gh pr diff,
+                проверь, что ранее существовавшие функции не были удалены без явной просьбы в описании задачи, комментариях задачи или комментариях pull request.
+             - Когда заканчиваешь реализацию, используй gh pr ready {{prNumber}}.
+        """
+      workflow """
+        Рабочий процесс и сотрудничество.
+           - Когда проверяешь ветку, делай это через git branch --show-current.
+           - Когда пушишь, пуш только в ветку {{branchName}}.
+           - Когда заканчиваешь, создавай pull request из ветки {{branchName}}. (Замечание: PR {{prNumber}} уже существует, обновляй его.)
+           - Когда организуешь рабочий процесс, используй pull request'ы вместо прямых merge в ветку по умолчанию (main или master).
+           - Когда управляешь коммитами, сохраняй историю коммитов для последующего анализа.
+           - Когда контрибьютишь, продвигай историю репозитория вперёд регулярными коммитами, пушами и при необходимости откатами.
+           - Когда сталкиваешься с конфликтом, который не можешь разрешить сам, проси о помощи.
+           - Когда сотрудничаешь, уважай защиту веток и работай только в {{branchName}}.
+           - Когда упоминаешь результат, включай URL pull request или URL комментария.
+           - Когда нужно создать pr, помни: pr {{prNumber}} уже существует для этой ветки.
+      """
+      self
+        review
+          header """
+            Самопроверка.
+               - Когда проверяешь свой черновик решения, прогоняй все тесты локально.
+               - Когда проверяешь свой черновик решения, убедись, что git status показывает чистое рабочее дерево без незафиксированных изменений.
+               - Когда сравниваешь со стилем репозитория, используй gh pr diff [номер].
+               - Когда финализируешь, подтверди, что код, тесты и описание согласованы.
+          """
+      ensure
+        all
+          requirements "   - Когда явная обратная связь или требования отсутствуют, проверь, что все изменения корректны, согласованы, валидированы, протестированы, логированы и соответствуют всем обсуждённым требованиям, проверяя описание задачи и все комментарии задачи и pull request. Проверь, что все CI или CD-проверки проходят."
+      github
+        cli
+          patterns """
+            Шаблоны команд GitHub CLI.
+               - Когда получаешь списки из GitHub API, используй флаг --paginate, чтобы получить все результаты (по умолчанию GitHub возвращает максимум 30 элементов).
+               - Когда получаешь комментарии обзора PR (инлайновые комментарии к коду), используй gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.
+               - Когда получаешь комментарии обсуждения PR, используй gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
+               - Когда получаешь обзоры PR, используй gh api repos/OWNER/REPO/pulls/NUMBER/reviews --paginate.
+               - Когда получаешь комментарии задачи, используй gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
+               - Когда добавляешь комментарий PR, используй gh pr comment NUMBER --body "текст" --repo OWNER/REPO.
+               - Когда добавляешь комментарий задачи, используй gh issue comment NUMBER --body "текст" --repo OWNER/REPO.
+               - Когда смотришь детали PR, используй gh pr view NUMBER --repo OWNER/REPO.
+               - Когда фильтруешь через jq, используй gh api repos/{{owner}}/{{repo}}/pulls/{{prNumber}}/comments --paginate --jq reverse-then-slice-first-five.
+          """
+      playwright
+        mcp """
+          Использование Playwright MCP (автоматизация браузера через инструменты mcp__playwright__*).
+             - Когда разрабатываешь фронтенд (HTML, CSS, JavaScript, React, Vue, Angular и т.п.), используй инструменты Playwright MCP, чтобы тестировать UI в реальном браузере.
+             - Когда WebFetch не возвращает ожидаемое содержимое (например, пустой контент, страницы с JS-рендерингом или защищённые логином), используй инструменты Playwright MCP (browser_navigate, browser_snapshot) как запасной вариант для просмотра веба.
+             - Когда WebSearch не помогает или возвращает недостаточно результатов, используй инструменты Playwright MCP (browser_navigate, browser_snapshot) как запасной вариант для интернет-поиска.
+             - Когда нужно взаимодействовать с динамическими страницами, требующими выполнения JavaScript, используй инструменты Playwright MCP.
+             - Когда нужно визуально проверить, как выглядит веб-страница, или сделать скриншоты, используй browser_take_screenshot из Playwright MCP.
+             - Когда нужно заполнять формы, нажимать кнопки или выполнять пользовательские действия, используй инструменты Playwright MCP (browser_click, browser_type, browser_fill_form).
+             - Когда нужно протестировать адаптивный дизайн или разные размеры viewport, используй browser_resize из Playwright MCP.
+             - Когда заканчиваешь использование браузера, закрывай его через browser_close, чтобы освободить ресурсы.
+             - Когда воспроизводишь UI-баги, используй browser_take_screenshot, чтобы захватить состояние проблемы до реализации исправления.
+             - Когда исправляешь UI-баги, делай скриншоты до/после, чтобы предоставить визуальные доказательства исправления для проверки человеком.
+             - Когда создаёшь UI-тесты, сохраняй базовые скриншоты в репозитории для регрессии визуальной целостности.
+             - Когда проверяешь исправления UI, сравнивай скриншоты, чтобы убедиться, что исправление не вносит непреднамеренных визуальных изменений.
+        """
+      plan
+        subagent """
+          Использование суб-агента Plan.
+             - Когда начинаешь работу над задачей, рассмотри возможность использовать суб-агента Plan для исследования кодовой базы и создания плана реализации.
+             - Когда используешь суб-агента Plan, можешь добавить его как первый пункт в свой todo-лист.
+             - Когда делегируешь планирование, используй инструмент Task с subagent_type="Plan" до начала имплементации.
+        """
+      visual
+        ui """
+          Работа с визуальным UI и скриншоты.
+             - Когда работаешь над визуальными изменениями UI (фронтенд, CSS, HTML, дизайн), включай рендер или скриншот итогового результата в описание pull request.
+             - Когда нужно показать визуальные результаты, делай скриншот и сохраняй его в репозиторий (например, в папку docs/screenshots/ или assets/).
+             - Когда сохраняешь скриншоты в репозиторий, используй постоянные ссылки в markdown описания pull request (например, https://github.com/{{screenshotRepoPath}}/blob/{{branchName}}/docs/screenshots/result.png?raw=true).
+             - Когда загружаешь изображения, сначала коммить их в ветку, затем ссылайся на них через формат GitHub blob URL с суффиксом ?raw=true (работает для публичных и приватных репозиториев).
+             - Когда визуальный результат важен для проверки, явно упоминай его в описании pull request с встроенным изображением.
+             - Когда исправляешь UI-баги, фиксируй скриншоты "до" (проблема) и "после" (исправлено) как доказательства для проверки человеком.
+             - Когда сообщаешь об UI-баге, прикладывай скриншот состояния проблемы, чтобы можно было визуально проверить исправление.
+             - Когда исправление визуальное, добавляй сравнение состояний "до/после" бок о бок или последовательно в описание PR.
+             - Когда возможно, создавай автоматические тесты визуальной регрессии, чтобы UI-баг не повторился.
+        """

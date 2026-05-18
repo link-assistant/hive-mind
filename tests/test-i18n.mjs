@@ -122,6 +122,12 @@ await test('Locale catalogues use deeper lino nesting without breaking existing 
   assert.strictEqual(t('telegram.help.solve.alias_detail'), 'Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`');
 });
 
+await test('Loaded translations expose upstream compatibility aliases', async () => {
+  const translations = await loadTranslations('en');
+  assert.strictEqual(translations.error, 'Error');
+  assert.strictEqual(translations['telegram.help_solve_alias_detail'], 'Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`');
+});
+
 await test('Per-call locale override', async () => {
   await initI18n('en');
   assert.strictEqual(t('error', {}, { locale: 'ru' }), 'Ошибка');

@@ -60,8 +60,9 @@ Relevant primary sources:
 - `link-foundation/lino-i18n`: https://github.com/link-foundation/lino-i18n
 - JavaScript package README: https://github.com/link-foundation/lino-i18n/tree/main/js
 - npm package `lino-i18n`: https://www.npmjs.com/package/lino-i18n
-- Latest release observed during implementation: `js-v0.0.1`, published
-  2026-05-16.
+- Latest JavaScript release observed after PR feedback: `js-v0.1.1`,
+  published 2026-05-18. npm reported `lino-i18n@0.1.1` as the `latest`
+  dist-tag at 2026-05-18T18:00:31.707Z.
 
 Related Hive Mind work:
 
@@ -102,17 +103,19 @@ This is the implemented option.
 
 ## Implementation Notes
 
-- Added `lino-i18n` to `dependencies`.
+- Added `lino-i18n` to `dependencies` and updated it to `^0.1.1` after the
+  upstream fixes were released.
 - Updated `src/i18n.lib.mjs` to use `lino-i18n/loaders` and `createI18n`.
 - Converted every locale catalogue to deeper nested `.lino` blocks, including
   mixed parent-label families such as `error`, `success`, `warning`, and
   `info`.
-- Represented mixed scalar/object nodes with a nested `label` child, then added
-  runtime compatibility aliases so existing keys such as `error`,
-  `error.invalid_github_url`, and `telegram.help_title` still resolve.
-- Added collapse-tail compatibility aliases for underscore-based legacy keys,
-  so canonical nested keys such as `telegram.help.solve.alias.detail` also
-  resolve through the old `telegram.help_solve_alias_detail` shape.
+- Represented mixed scalar/object nodes with a nested `label` child, then used
+  `lino-i18n`'s `parentLabel` compatibility alias so existing keys such as
+  `error` still resolve.
+- Used `lino-i18n`'s `collapseTail` compatibility alias for underscore-based
+  legacy keys, so canonical nested keys such as
+  `telegram.help.solve.alias.detail` also resolve through the old
+  `telegram.help_solve_alias_detail` shape.
 - Converted multiline values to `"""` blocks.
 - Updated `examples/test-i18n.mjs` to use the current i18n public API.
 - Added tests that verify nested keys, deeper grouping, multiline values,
@@ -131,10 +134,10 @@ After review feedback requested upstream follow-up before merge, three
   add a real-world deeply nested Hive Mind-style catalogue example to the
   default documentation/tests.
 
-Until those upstream improvements exist, Hive Mind keeps a small local
-compatibility layer so existing public keys such as `error`,
-`telegram.help_title`, and `telegram.help_solve_alias_detail` continue to
-resolve while the source catalogues use deeper `.lino` groups.
+Those reports were closed upstream before merge. Hive Mind now uses
+`lino-i18n@0.1.1` and passes `compatibilityAliases: ['collapseTail',
+'parentLabel']` to the upstream loader/runtime instead of maintaining local
+alias-expansion code.
 
 ## Verification
 
@@ -153,11 +156,14 @@ these results:
 - `node examples/test-i18n.mjs` ran successfully.
 - `npm run lint` passed.
 - `npm run format:check` passed.
+- After updating to `lino-i18n@0.1.1`, `node tests/test-i18n.mjs` and
+  `node examples/test-i18n.mjs` passed with alias expansion provided by the
+  upstream package.
 - `node tests/docs-validation.mjs` passed.
 - `bash scripts/check-file-line-limits.sh` passed with warnings only for
   pre-existing near-limit files.
 - `npm test` passed with all 212 selected test files.
 
 `npm install` emitted engine warnings because the local shell used Node
-v20.20.2 while this repository and `lino-i18n` declare Node >=24. The full local
-test suite passed in the same environment after the dependency update.
+v20.20.2 while this repository declares Node >=24. The focused i18n checks
+passed in the same environment after the `lino-i18n@0.1.1` update.

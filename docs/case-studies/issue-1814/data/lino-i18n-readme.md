@@ -37,12 +37,26 @@ text and trivial to diff.
 ```lino
 en
   greeting "Hello, {{name}}!"
-  hero
-    title "Localization that reads like content"
-    description """
-      Keep each language in its own block, nest related messages together,
-      and still resolve the same runtime keys.
-    """
+  telegram
+    help
+      title "Help"
+      solve
+        alias
+          detail "Tool aliases imply `--tool <tool>`"
+  prompt
+    system
+      general
+        guidelines
+          header "General guidelines."
+          body """
+            When you start, create a detailed plan for yourself.
+            Follow your todo list step by step.
+          """
+  error
+    label "Error"
+    invalid
+      github
+        url "Error: Invalid GitHub URL format"
   cart
     title "Your cart"
     items
@@ -55,9 +69,35 @@ en
     other "They are a developer"
 ```
 
-The loader flattens that catalogue to runtime keys like `cart.title`,
-`cart.items_one`, and `role_female`, so existing `t('cart.items', { count })`
-and context calls stay compact.
+The loader flattens that catalogue to runtime keys like
+`telegram.help.solve.alias.detail`,
+`prompt.system.general.guidelines.body`, `error.label`,
+`error.invalid.github.url`, `cart.items_one`, and `role_female`, so deeply
+nested authoring still resolves stable flat runtime keys.
+
+A nested group's `label` child is also exposed as the parent key, so
+`error.label` and `error` both resolve to `"Error"` while an explicit `error`
+entry still takes precedence. The Hive Mind migration that motivated this
+pattern is summarized in
+[docs/case-studies/issue-12](./docs/case-studies/issue-12).
+
+### Migration aliases
+
+Projects that migrate older mixed dot/underscore keys to deeper `.lino`
+nesting can opt into generated compatibility aliases:
+
+```js
+const catalogues = await loadLocalesFromDirectory('./locales', {
+  compatibilityAliases: ['collapseTail', 'parentLabel'],
+});
+const i18n = createI18n({ locales: catalogues, defaultLocale: 'en' });
+```
+
+With `collapseTail`, a canonical key such as
+`telegram.help.solve.alias.detail` also exposes
+`telegram.help_solve_alias_detail`, `telegram.help.solve_alias_detail`, and
+`telegram.help.solve.alias_detail`. With `parentLabel`, `error.label` also
+exposes `error`. Explicit catalogue entries always win over generated aliases.
 
 The full design rationale lives in [docs/case-studies/issue-1](./docs/case-studies/issue-1).
 
@@ -187,7 +227,7 @@ comparison including code samples and benchmarks.
 │   └── Cargo.toml                 # Workspace manifest
 ├── docs/case-studies/issue-1/     # Design rationale + benchmarks
 └── .github/workflows/
-    ├── js.yml                     # JS lint+test matrix
+    ├── js.yml                     # JS CI/CD, npm release, and docs deployment
     └── rust.yml                   # Rust fmt+clippy+test matrix
 ```
 
@@ -200,7 +240,9 @@ Two purpose-built workflows live in `.github/workflows/`:
   smoke test that round-trips an `i18next` JSON catalogue to `.lino`. On
   `main`, it also dry-runs the npm package, publishes missing package versions,
   creates `js-v*` GitHub releases, and deploys generated JavaScript docs to
-  GitHub Pages.
+  GitHub Pages. The filename stays aligned with npm Trusted Publisher
+  configuration because npm validates the workflow identity during OIDC
+  publishing.
 - **`rust.yml`** runs `cargo fmt --check`, `cargo clippy -D warnings`, and
   `cargo test --all-targets` on the same three operating systems whenever
   anything under `rust/**` changes. On `main`, it also verifies crate package

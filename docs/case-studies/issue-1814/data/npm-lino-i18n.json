@@ -1,10 +1,13 @@
 {
-  "version": "0.0.1",
+  "version": "0.1.1",
   "dist-tags": {
-    "latest": "0.0.1"
+    "latest": "0.1.1"
   },
+  "publishedAt": "2026-05-18T18:00:31.707Z",
+  "versions": ["0.0.1", "0.1.1"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/link-foundation/lino-i18n.git"
-  }
+  },
+  "homepage": "https://github.com/link-foundation/lino-i18n#readme"
 }

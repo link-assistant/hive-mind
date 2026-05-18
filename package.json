@@ -76,7 +76,7 @@
     "dayjs": "^1.11.19",
     "decimal.js-light": "^2.5.1",
     "lino-arguments": "^0.3.0",
-    "lino-i18n": "^0.0.1",
+    "lino-i18n": "^0.1.1",
     "lino-objects-codec": "^0.3.6",
     "secretlint": "^11.2.5",
     "semver": "^7.7.3",

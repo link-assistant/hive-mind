@@ -19,6 +19,7 @@ const __dirname = path.dirname(__filename);
 
 const DEFAULT_LOCALE = 'en';
 const SUPPORTED_LOCALES = ['en', 'ru', 'zh', 'hi'];
+const LINO_COMPATIBILITY_ALIASES = ['collapseTail', 'parentLabel'];
 
 const localeCache = new Map(); // locale -> { key: string }
 const userLocales = new Map(); // userId/chatId -> locale (in-memory)
@@ -31,6 +32,7 @@ let i18n = createI18n({
   locales: {},
   defaultLocale: DEFAULT_LOCALE,
   fallback: [DEFAULT_LOCALE],
+  compatibilityAliases: LINO_COMPATIBILITY_ALIASES,
 });
 
 export function getSupportedLocales() {
@@ -53,47 +55,11 @@ export function detectLocale() {
 
 async function readLocaleFile(locale) {
   const linoFile = path.join(localesDir, `${locale}.lino`);
-  const loaded = await loadLocalesFromFile(linoFile);
+  const loaded = await loadLocalesFromFile(linoFile, {
+    compatibilityAliases: LINO_COMPATIBILITY_ALIASES,
+  });
   const match = loaded.find(catalogue => catalogue.locale === locale) || loaded[0];
-  return expandCompatibilityTranslations(match?.translations || {});
-}
-
-function collapseTailAliases(parts) {
-  const aliases = new Set();
-  for (let prefixLength = 1; prefixLength < parts.length - 1; prefixLength++) {
-    const prefix = parts.slice(0, prefixLength).join('.');
-    const tail = parts.slice(prefixLength).join('_');
-    aliases.add(`${prefix}.${tail}`);
-  }
-  return aliases;
-}
-
-function compatibilityAliasesForKey(key) {
-  const parts = key.split('.');
-  const aliases = collapseTailAliases(parts);
-
-  if (parts.at(-1) === 'label' && parts.length > 1) {
-    const parentParts = parts.slice(0, -1);
-    aliases.add(parentParts.join('.'));
-    for (const alias of collapseTailAliases(parentParts)) {
-      aliases.add(alias);
-    }
-  }
-
-  aliases.delete(key);
-  return aliases;
-}
-
-function expandCompatibilityTranslations(translations) {
-  const expanded = { ...translations };
-  for (const [key, value] of Object.entries(translations)) {
-    for (const alias of compatibilityAliasesForKey(key)) {
-      if (!Object.prototype.hasOwnProperty.call(expanded, alias)) {
-        expanded[alias] = value;
-      }
-    }
-  }
-  return expanded;
+  return match?.translations || {};
 }
 
 function refreshI18nRuntime() {
@@ -101,6 +67,7 @@ function refreshI18nRuntime() {
     locales: Object.fromEntries(localeCache.entries()),
     defaultLocale: currentUiLocale,
     fallback: [DEFAULT_LOCALE],
+    compatibilityAliases: LINO_COMPATIBILITY_ALIASES,
   });
   i18n.setLocale(currentUiLocale);
 }

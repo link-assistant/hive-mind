@@ -4,7 +4,7 @@
  */
 
 import { closingIssueNumbersContain, parseClosingIssueNumbers } from './pr-issue-linking.lib.mjs';
-import { buildPushRejectionExplanation, getRemoteBranchDivergenceSnapshot, synchronizeExistingIssueBranchBeforeAutoPrCreation } from './solve.branch-divergence.lib.mjs';
+import { handleRejectedPushForAutoPr, synchronizeExistingIssueBranchBeforeAutoPrCreation } from './solve.branch-divergence.lib.mjs';
 import { emitForkAwareDiagnostic } from './solve.auto-pr-fork-diagnostic.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too.
@@ -409,6 +409,9 @@ Proceed.
         }
       }
 
+      let branchReadyForPrCreation = pushResult.code === 0;
+      let recoveredFromPushRejection = false;
+
       if (pushResult.code !== 0) {
         const errorOutput = pushResult.stderr ? pushResult.stderr.toString() : pushResult.stdout ? pushResult.stdout.toString() : 'Unknown error';
 
@@ -539,48 +542,41 @@ Proceed.
           }
           await log('');
           throw new Error('Permission denied - need fork or collaborator access');
-        } else if (errorOutput.includes('non-fast-forward') || errorOutput.includes('rejected') || errorOutput.includes('! [rejected]')) {
-          const divergence = await getRemoteBranchDivergenceSnapshot({ $, tempDir, branchName });
-          // Push rejected due to conflicts or diverged history
-          await log('');
-          await log(formatAligned('❌', 'PUSH REJECTED:', 'Branch has diverged from remote'), { level: 'error' });
-          await log('');
-          await log('  🔍 What happened:');
-          await log('     The remote branch has changes that conflict with your local changes.');
-          await log('     This typically means someone else has pushed to this branch.');
-          for (const line of buildPushRejectionExplanation({ branchName, isContinueMode, prNumber, divergence })) {
-            await log(line);
-          }
-          await log('');
-          await log('  💡 Why we cannot fix this automatically:');
-          await log('     • We never use force push to preserve history');
-          await log('     • We never use rebase or reset to avoid altering git history');
-          await log('     • Manual conflict resolution is required');
-          await log('');
-          await log('  🔧 How to fix:');
-          await log('     1. Clone the repository and checkout the branch:');
-          await log(`        git clone https://github.com/${owner}/${repo}.git`);
-          await log(`        cd ${repo}`);
-          await log(`        git checkout ${branchName}`);
-          await log('');
-          await log('     2. Pull and merge the remote changes:');
-          await log(`        git pull origin ${branchName}`);
-          await log('');
-          await log('     3. Resolve any conflicts manually, then:');
-          await log(`        git push origin ${branchName}`);
-          await log('');
-          await log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-          await log('');
-          throw new Error('Push rejected - branch has diverged, manual resolution required');
         } else {
-          // Other push errors
-          await log(`${formatAligned('❌', 'Failed to push:', 'See error below')}`, { level: 'error' });
-          await log(`   Error: ${errorOutput}`, { level: 'error' });
-          throw new Error('Failed to push branch');
+          const rejectedPush = await handleRejectedPushForAutoPr({
+            errorOutput,
+            $,
+            tempDir,
+            log,
+            formatAligned,
+            branchName,
+            isContinueMode,
+            prNumber,
+            owner,
+            repo,
+            defaultBranch,
+            forkedRepo,
+          });
+
+          if (rejectedPush.handled) {
+            branchReadyForPrCreation = rejectedPush.branchReadyForPrCreation;
+            recoveredFromPushRejection = rejectedPush.recoveredFromPushRejection;
+          } else {
+            // Other push errors
+            await log(`${formatAligned('❌', 'Failed to push:', 'See error below')}`, { level: 'error' });
+            await log(`   Error: ${errorOutput}`, { level: 'error' });
+            throw new Error('Failed to push branch');
+          }
         }
-      } else {
-        await log(`${formatAligned('✅', 'Branch pushed:', 'Successfully to remote')}`);
-        if (argv.verbose) {
+      }
+
+      if (branchReadyForPrCreation) {
+        if (recoveredFromPushRejection) {
+          await log(`${formatAligned('✅', 'Branch available:', 'Remote branch matches local HEAD')}`);
+        } else {
+          await log(`${formatAligned('✅', 'Branch pushed:', 'Successfully to remote')}`);
+        }
+        if (argv.verbose && pushResult.code === 0) {
           await log(`   Push output: ${pushResult.stdout.toString().trim()}`, { verbose: true });
         }
 
@@ -1453,6 +1449,10 @@ ${prBody}`,
       issueNumber,
       operation: 'handle_auto_pr',
     });
+
+    if (prError?.hiveMindUserFacingLogged) {
+      throw prError;
+    }
 
     // Issue #1462: Single consolidated error message for PR creation failure.
     // Previously this was the third of three error blocks, causing confusing output.

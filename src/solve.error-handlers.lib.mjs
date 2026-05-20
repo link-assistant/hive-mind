@@ -68,6 +68,7 @@ export const handleFailure = async options => {
           sanitizeLogContent,
           verbose: argv.verbose,
           errorMessage: cleanErrorMessage(error),
+          failureActionSection: error?.failureActionSection || null,
           // Issue #1225: Pass model and tool info for PR comments
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
@@ -236,7 +237,9 @@ export const handleMainExecutionError = async options => {
     return;
   }
 
-  await log('Error executing command:', cleanErrorMessage(error));
+  if (!error?.hiveMindUserFacingLogged) {
+    await log('Error executing command:', cleanErrorMessage(error));
+  }
   await log(`Stack trace: ${error.stack}`, { verbose: true });
   await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 

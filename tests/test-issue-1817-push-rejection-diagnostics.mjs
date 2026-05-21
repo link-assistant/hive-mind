@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { buildBranchSubjectLinks, buildPushRejectionFailureActionSection, buildPushRejectionExplanation, classifyPushRejection, shouldTreatPushRejectionAsRemoteSynchronized } from '../src/solve.branch-divergence.lib.mjs';
+import { buildBranchSubjectLinks, buildPushRejectionFailureActionSection, buildPushRejectionExplanation, classifyPushRejection, handleRejectedPushForAutoPr, shouldTreatPushRejectionAsRemoteSynchronized } from '../src/solve.branch-divergence.lib.mjs';
 import { buildPrePullRequestFailureActionSection } from '../src/solve.pre-pr-failure-notifier.lib.mjs';
 
 const incidentOutput = `To https://github.com/ideav/crm.git
@@ -12,9 +12,9 @@ const nonFastForwardOutput = `To https://github.com/example/repo.git
  ! [rejected]        feature -> feature (non-fast-forward)
 error: failed to push some refs to 'https://github.com/example/repo.git'`;
 
-function test(name, fn) {
+async function test(name, fn) {
   try {
-    fn();
+    await fn();
     console.log(`PASS ${name}`);
   } catch (error) {
     console.error(`FAIL ${name}`);
@@ -23,26 +23,49 @@ function test(name, fn) {
   }
 }
 
-test('classifies the issue #1817 incident as a remote-ref-already-exists rejection, not generic divergence', () => {
+function createMockDollar(resolver) {
+  const calls = [];
+  const dollar =
+    () =>
+    async (strings, ...values) => {
+      const command = strings.reduce((text, part, index) => text + part + (values[index] ?? ''), '');
+      calls.push(command);
+      return resolver(command);
+    };
+  dollar.calls = calls;
+  return dollar;
+}
+
+function result({ code = 0, stdout = '', stderr = '' } = {}) {
+  return {
+    code,
+    stdout: Buffer.from(stdout),
+    stderr: Buffer.from(stderr),
+  };
+}
+
+await test('classifies the issue #1817 incident as a remote-ref-already-exists rejection, not generic divergence', () => {
   assert.equal(classifyPushRejection(incidentOutput), 'remote-ref-already-exists');
 });
 
-test('classifies ordinary non-fast-forward output separately', () => {
+await test('classifies ordinary non-fast-forward output separately', () => {
   assert.equal(classifyPushRejection(nonFastForwardOutput), 'non-fast-forward');
 });
 
-test('treats rejected push as recoverable when origin branch equals local HEAD', () => {
+await test('treats rejected push as recoverable when origin branch equals local HEAD', () => {
   assert.equal(
     shouldTreatPushRejectionAsRemoteSynchronized({
       remoteExists: true,
       ahead: 0,
       behind: 0,
+      localSha: '198c75161c3b3cbd8cadf6834d60c3f444996220',
+      remoteSha: '198c75161c3b3cbd8cadf6834d60c3f444996220',
     }),
     true
   );
 });
 
-test('does not recover when the local and remote branch histories differ', () => {
+await test('does not recover when the local and remote branch histories differ', () => {
   assert.equal(
     shouldTreatPushRejectionAsRemoteSynchronized({
       remoteExists: true,
@@ -53,7 +76,20 @@ test('does not recover when the local and remote branch histories differ', () =>
   );
 });
 
-test('builds links for the exact repository, branch, base, head, and compare subject', () => {
+await test('does not recover when ahead and behind counts are zero but SHAs disagree', () => {
+  assert.equal(
+    shouldTreatPushRejectionAsRemoteSynchronized({
+      remoteExists: true,
+      ahead: 0,
+      behind: 0,
+      localSha: '198c75161c3b3cbd8cadf6834d60c3f444996220',
+      remoteSha: '8b47be7c00f0ba4ace61ffba086f8a55a50cfae2',
+    }),
+    false
+  );
+});
+
+await test('builds links for the exact repository, branch, base, head, and compare subject', () => {
   const links = buildBranchSubjectLinks({
     owner: 'ideav',
     repo: 'crm',
@@ -69,7 +105,7 @@ test('builds links for the exact repository, branch, base, head, and compare sub
   assert.equal(links.compareUrl, 'https://github.com/ideav/crm/compare/main...issue-2746-7b9af1dbec7d');
 });
 
-test('push rejection explanation includes subject links and exact ahead/behind counts', () => {
+await test('push rejection explanation includes subject links and exact branch state', () => {
   const lines = buildPushRejectionExplanation({
     branchName: 'issue-2746-7b9af1dbec7d',
     owner: 'ideav',
@@ -80,6 +116,8 @@ test('push rejection explanation includes subject links and exact ahead/behind c
       remoteExists: true,
       ahead: 0,
       behind: 0,
+      localSha: '198c75161c3b3cbd8cadf6834d60c3f444996220',
+      remoteSha: '198c75161c3b3cbd8cadf6834d60c3f444996220',
     },
   });
   const text = lines.join('\n');
@@ -89,9 +127,57 @@ test('push rejection explanation includes subject links and exact ahead/behind c
   assert.match(text, /Branch URL: https:\/\/github\.com\/ideav\/crm\/tree\/issue-2746-7b9af1dbec7d/);
   assert.match(text, /Compare URL: https:\/\/github\.com\/ideav\/crm\/compare\/main\.\.\.issue-2746-7b9af1dbec7d/);
   assert.match(text, /0 commit\(s\) ahead, 0 commit\(s\) behind origin\/issue-2746-7b9af1dbec7d/);
+  assert.match(text, /Local HEAD: 198c75161c3b/);
+  assert.match(text, /Remote HEAD: 198c75161c3b/);
 });
 
-test('GitHub failure action section points reviewers at the exact branch and compare page', () => {
+await test('rejected push handler recovers when the remote branch already equals local HEAD', async () => {
+  const logs = [];
+  const $ = createMockDollar(command => {
+    if (command.startsWith('git fetch origin refs/heads/issue-2746-7b9af1dbec7d:refs/remotes/origin/issue-2746-7b9af1dbec7d')) {
+      return result();
+    }
+    if (command.startsWith('git rev-list --count origin/issue-2746-7b9af1dbec7d..HEAD')) {
+      return result({ stdout: '0\n' });
+    }
+    if (command.startsWith('git rev-list --count HEAD..origin/issue-2746-7b9af1dbec7d')) {
+      return result({ stdout: '0\n' });
+    }
+    if (command.startsWith('git rev-parse HEAD')) {
+      return result({ stdout: '198c75161c3b3cbd8cadf6834d60c3f444996220\n' });
+    }
+    if (command.startsWith('git rev-parse origin/issue-2746-7b9af1dbec7d')) {
+      return result({ stdout: '198c75161c3b3cbd8cadf6834d60c3f444996220\n' });
+    }
+    return result({ code: 1, stderr: `unexpected command: ${command}` });
+  });
+
+  const handled = await handleRejectedPushForAutoPr({
+    errorOutput: incidentOutput,
+    $,
+    tempDir: '/tmp/repro',
+    log: async message => logs.push(String(message)),
+    formatAligned: (icon, label, message) => `${icon} ${label} ${message}`,
+    branchName: 'issue-2746-7b9af1dbec7d',
+    isContinueMode: false,
+    prNumber: null,
+    owner: 'ideav',
+    repo: 'crm',
+    defaultBranch: 'main',
+  });
+
+  assert.equal(handled.handled, true);
+  assert.equal(handled.branchReadyForPrCreation, true);
+  assert.equal(handled.recoveredFromPushRejection, true);
+  const text = logs.join('\n');
+  assert.match(text, /PUSH REPORTED FAILURE/);
+  assert.match(text, /Remote branch already matches local HEAD/);
+  assert.match(text, /Local HEAD: 198c75161c3b/);
+  assert.match(text, /Remote HEAD: 198c75161c3b/);
+  assert.match(text, /Continuing with PR creation because no local commit would be lost/);
+});
+
+await test('GitHub failure action section points reviewers at the exact branch and compare page', () => {
   const section = buildPushRejectionFailureActionSection({
     owner: 'ideav',
     repo: 'crm',
@@ -103,7 +189,7 @@ test('GitHub failure action section points reviewers at the exact branch and com
   assert.match(section, /https:\/\/github\.com\/ideav\/crm\/compare\/main\.\.\.issue-2746-7b9af1dbec7d/);
 });
 
-test('pre-PR failure comments keep push rejection remediation branch-specific', () => {
+await test('pre-PR failure comments keep push rejection remediation branch-specific', () => {
   const section = buildPrePullRequestFailureActionSection('Push rejected for ideav/crm:issue-2746-7b9af1dbec7d; compare https://github.com/ideav/crm/compare/main...issue-2746-7b9af1dbec7d and inspect https://github.com/ideav/crm/tree/issue-2746-7b9af1dbec7d');
 
   assert.match(section, /https:\/\/github\.com\/ideav\/crm\/tree\/issue-2746-7b9af1dbec7d/);

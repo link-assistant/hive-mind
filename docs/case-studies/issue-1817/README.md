@@ -4,7 +4,9 @@
 - Pull request: https://github.com/link-assistant/hive-mind/pull/1818
 - Branch: `issue-1817-686e45442e7f`
 - Related incident: https://github.com/ideav/crm/issues/2746#issuecomment-4500248720
-- Date investigated: 2026-05-20
+- Counterexample run: https://github.com/ideav/crm/pull/2747#issuecomment-4500578664
+- Follow-up review comment: https://github.com/link-assistant/hive-mind/pull/1818#issuecomment-4501407080
+- Date investigated: 2026-05-20 and 2026-05-21
 
 ## Summary
 
@@ -21,27 +23,40 @@ diagnostic collapsed every rejected push into "Branch has diverged from remote",
 then printed a second "PR creation failed" block and a third main-catch
 "Error executing command" block.
 
+The later successful run is a counterexample to the old fatal diagnosis, not to
+the root cause. At 16:35 UTC the solver found the same existing branch, checked
+it out at the commit created by the failed 16:00 run, created another bootstrap
+commit, pushed normally, and opened `ideav/crm#2747`. This proves the first
+failure was recoverable: the branch was already available remotely and was not
+diverged from local `HEAD`.
+
 The fix is to classify push rejections, include exact repository/branch/compare
-links, recover when the remote branch equals local `HEAD`, and suppress generic
-error wrappers once a detailed user-facing push error has already been logged.
+links, log local and remote HEAD SHAs, recover when the remote branch equals
+local `HEAD`, and suppress generic error wrappers once a detailed user-facing
+push error has already been logged.
 
 ## Timeline
 
 All times UTC on 2026-05-20.
 
-| Time     | Event                                                                                                          | Evidence                                                      |
-| -------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 16:00:00 | `ideav/crm#2746` is opened.                                                                                    | `raw/linked-issue-ideav-crm-2746.json`                        |
-| 16:00:30 | Solver run starts for `https://github.com/ideav/crm/issues/2746` with `--attach-logs --verbose`.               | `raw/linked-comment-4500248720.md`, line 23                   |
-| 16:00:46 | Existing PRs for the issue are skipped because their branches do not match `issue-2746-*`.                     | `raw/linked-comment-4500248720.md`, lines 1049-1055           |
-| 16:00:49 | The solver creates local branch `issue-2746-7b9af1dbec7d` from `main`.                                         | `raw/linked-comment-4500248720.md`, lines 1070-1077           |
-| 16:00:49 | The solver creates bootstrap commit `198c7516` on the issue branch.                                            | `raw/linked-comment-4500248720.md`, lines 1093-1102           |
-| 16:00:51 | `git push` reports `remote rejected` because `refs/heads/issue-2746-7b9af1dbec7d` already exists.              | `raw/linked-comment-4500248720.md`, lines 1111-1119           |
-| 16:00:51 | The solver fetches the remote branch and prints `0` ahead and `0` behind.                                      | `raw/linked-comment-4500248720.md`, lines 1120-1131           |
-| 16:00:51 | The solver incorrectly reports "Branch has diverged from remote".                                              | `raw/linked-comment-4500248720.md`, lines 1125-1131           |
-| 16:00:51 | The solver prints duplicate generic failures: `FATAL ERROR: PR creation failed` and `Error executing command`. | `raw/linked-comment-4500248720.md`, lines 1153-1178           |
-| 16:35:26 | The branch is later visible on PR #2747.                                                                       | `raw/linked-branch-prs.json`                                  |
-| 16:42    | Captured compare data shows `main...issue-2746-7b9af1dbec7d` is ahead by 4 and includes `198c7516`.            | `raw/linked-branch-compare-main-issue-2746-7b9af1dbec7d.json` |
+| Time     | Event                                                                                                          | Evidence                                                                      |
+| -------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 16:00:00 | `ideav/crm#2746` is opened.                                                                                    | `raw/linked-issue-ideav-crm-2746.json`                                        |
+| 16:00:30 | Solver run starts for `https://github.com/ideav/crm/issues/2746` with `--attach-logs --verbose`.               | `raw/linked-comment-4500248720.md`, line 23                                   |
+| 16:00:46 | Existing PRs for the issue are skipped because their branches do not match `issue-2746-*`.                     | `raw/linked-comment-4500248720.md`, lines 1049-1055                           |
+| 16:00:49 | The solver creates local branch `issue-2746-7b9af1dbec7d` from `main`.                                         | `raw/linked-comment-4500248720.md`, lines 1070-1077                           |
+| 16:00:49 | The solver creates bootstrap commit `198c7516` on the issue branch.                                            | `raw/linked-comment-4500248720.md`, lines 1093-1102                           |
+| 16:00:51 | `git push` reports `remote rejected` because `refs/heads/issue-2746-7b9af1dbec7d` already exists.              | `raw/linked-comment-4500248720.md`, lines 1111-1119                           |
+| 16:00:51 | The solver fetches the remote branch and prints `0` ahead and `0` behind.                                      | `raw/linked-comment-4500248720.md`, lines 1120-1131                           |
+| 16:00:51 | The solver incorrectly reports "Branch has diverged from remote".                                              | `raw/linked-comment-4500248720.md`, lines 1125-1131                           |
+| 16:00:51 | The solver prints duplicate generic failures: `FATAL ERROR: PR creation failed` and `Error executing command`. | `raw/linked-comment-4500248720.md`, lines 1153-1178                           |
+| 16:35:26 | The branch is later visible on PR #2747.                                                                       | `raw/linked-branch-prs.json`                                                  |
+| 16:35:14 | A later run lists `issue-2746-7b9af1dbec7d` before cloning and decides to reuse it.                            | `raw/counterexample-solution-draft-log-pr-1779295404334.txt`, lines 1004-1020 |
+| 16:35:18 | The later run checks out the existing branch from `origin/issue-2746-7b9af1dbec7d`.                            | `raw/counterexample-solution-draft-log-pr-1779295404334.txt`, lines 1035-1044 |
+| 16:35:19 | Before the second bootstrap commit, the branch is `0` ahead and `0` behind the remote branch.                  | `raw/counterexample-solution-draft-log-pr-1779295404334.txt`, lines 1049-1052 |
+| 16:35:20 | The later run fast-forwards the same branch from `198c7516` to `8b47be7c`.                                     | `raw/counterexample-solution-draft-log-pr-1779295404334.txt`, lines 1081-1093 |
+| 16:35:28 | The later run creates PR #2747 from `issue-2746-7b9af1dbec7d`.                                                 | `raw/counterexample-solution-draft-log-pr-1779295404334.txt`, lines 1116-1144 |
+| 16:42    | Captured compare data shows `main...issue-2746-7b9af1dbec7d` is ahead by 4 and includes `198c7516`.            | `raw/linked-branch-compare-main-issue-2746-7b9af1dbec7d.json`                 |
 
 ## Requirements
 
@@ -58,6 +73,9 @@ All times UTC on 2026-05-20.
    `HEAD`.
 7. Add a regression test for the reported incident.
 8. Check whether the issue belongs upstream and document the result.
+9. Recheck the later successful run and the screenshots from the PR review
+   comment, then update the analysis if the counterexample changes any
+   conclusion.
 
 ## Root Cause
 
@@ -70,6 +88,22 @@ The solver already had `getRemoteBranchDivergenceSnapshot()`, which fetched the
 remote branch and counted both sides with `git rev-list --count`. The old push
 handler ignored the semantic meaning of `ahead=0` and `behind=0`, so it treated
 an already-synchronized branch as a conflict that required manual resolution.
+
+The deepest hive-mind root cause is that branch discovery and branch push were
+handled as if they were atomic. They are not. A matching branch can appear after
+the pre-clone branch listing and before or during `git push`. In this incident,
+the 16:00 branch listing did not show `issue-2746-7b9af1dbec7d`, but the 16:00
+push received a remote-ref collision and an immediate fetch found
+`origin/issue-2746-7b9af1dbec7d` at the same commit as local `HEAD`. The solver
+should have treated that state as idempotent success for branch availability.
+
+The available logs are enough to prove that the failure was not a local/remote
+history divergence and that continuing to PR creation was safe. They are not
+enough to prove whether the remote ref was created by another concurrent worker,
+by GitHub accepting the ref before returning the collision, or by a GitHub
+visibility/cache race. The fix therefore avoids depending on that unknown
+external cause: after any rejected push, hive-mind now inspects the actual remote
+state and continues only when local and remote HEAD are the same commit.
 
 The duplicate output had two causes:
 
@@ -89,13 +123,16 @@ instead of preserving the branch-specific remediation.
   - `non-fast-forward`
   - other `remote-rejected` / `rejected` output
 - Added `shouldTreatPushRejectionAsRemoteSynchronized()` so `remoteExists=true`,
-  `ahead=0`, and `behind=0` is handled as a recoverable push race.
+  `ahead=0`, `behind=0`, and matching local/remote HEAD SHAs are handled as a
+  recoverable push race.
 - Added `buildBranchSubjectLinks()` and branch-specific failure action text with:
   - repository URL
   - base branch ref
   - remote/head branch ref
   - remote branch URL
   - compare URL
+- Extended the divergence snapshot and diagnostic text with local and remote
+  HEAD SHAs so a future report can show the exact commit relationship.
 - Updated auto-PR push handling so:
   - synchronized rejected pushes continue into PR creation
   - genuinely different branch histories print one detailed diagnostic
@@ -106,6 +143,11 @@ instead of preserving the branch-specific remediation.
 - Updated pre-PR failure comments to keep push-rejection remediation
   branch-specific when no full log is attached.
 - Added `tests/test-issue-1817-push-rejection-diagnostics.mjs`.
+
+The later successful run does not require a different code path. It demonstrates
+why the new recovery behavior is needed: the first run should have continued
+from the same remote branch state instead of forcing a human or a second run to
+retry the workflow.
 
 ## Existing Components and References
 
@@ -129,12 +171,22 @@ hive-mind's classification, recovery decision, and duplicate error wrapping.
 - `raw/issue-1817.json` - issue body and metadata.
 - `raw/issue-1817-comments.json` - issue comments at investigation time.
 - `raw/pr-1818.json` - prepared pull request metadata.
+- `raw/pr-1818-conversation-comments.json` - PR conversation comments, including
+  the counterexample review request.
 - `raw/pr-1818-review-comments.json` - PR inline review comments at investigation time.
 - `raw/pr-1818-reviews.json` - PR review records at investigation time.
 - `raw/pr-1818-ci-runs.json` - recent CI runs for the prepared PR branch.
 - `raw/linked-issue-ideav-crm-2746.json` - related external issue metadata.
 - `raw/linked-comment-4500248720.json` - related failure comment metadata.
 - `raw/linked-comment-4500248720.md` - full failure comment body with the solver log.
+- `raw/counterexample-comment-4500578664.json` - linked successful-run comment
+  from `ideav/crm#2747`.
+- `raw/counterexample-solution-draft-log-pr-1779295404334.txt` - full linked
+  gist log for the later successful run.
+- `raw/screenshots/pr-comment-4501407080-1.png` - screenshot of the failed
+  44-second work session.
+- `raw/screenshots/pr-comment-4501407080-2.png` - screenshot of the later
+  successful 11-minute work session.
 - `raw/linked-branch-ref-issue-2746-7b9af1dbec7d.json` - current GitHub ref data for the incident branch.
 - `raw/linked-branch-compare-main-issue-2746-7b9af1dbec7d.json` - current compare data for `main...issue-2746-7b9af1dbec7d`.
 - `raw/linked-branch-prs.json` - pull requests that currently use the incident branch.

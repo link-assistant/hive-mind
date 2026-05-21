@@ -9,6 +9,8 @@ const outputOf = result => {
   return stdout || stderr;
 };
 
+const shortSha = sha => (sha ? String(sha).slice(0, 12) : null);
+
 const encodeRefForGitHubUrl = ref =>
   encodeURI(String(ref || ''))
     .replaceAll('#', '%23')
@@ -37,7 +39,15 @@ export function classifyPushRejection(errorOutput = '') {
 }
 
 export function shouldTreatPushRejectionAsRemoteSynchronized(divergence = null) {
-  return !!divergence?.remoteExists && divergence.ahead === 0 && divergence.behind === 0;
+  if (!divergence?.remoteExists || divergence.ahead !== 0 || divergence.behind !== 0) {
+    return false;
+  }
+
+  if (divergence.localSha && divergence.remoteSha) {
+    return divergence.localSha === divergence.remoteSha;
+  }
+
+  return true;
 }
 
 export function buildBranchSubjectLinks({ owner, repo, branchName, defaultBranch, forkedRepo = null }) {
@@ -101,6 +111,12 @@ export function buildPushRejectionExplanation({ branchName, isContinueMode, prNu
 
   if (divergence?.remoteExists && divergence.ahead !== null && divergence.behind !== null) {
     lines.push(`     Current branch state for ${branchName}: ${divergence.ahead} commit(s) ahead, ${divergence.behind} commit(s) behind origin/${branchName}.`);
+    if (divergence.localSha) {
+      lines.push(`     Local HEAD: ${shortSha(divergence.localSha)}`);
+    }
+    if (divergence.remoteSha) {
+      lines.push(`     Remote HEAD: ${shortSha(divergence.remoteSha)}`);
+    }
     if (shouldTreatPushRejectionAsRemoteSynchronized(divergence)) {
       lines.push('     The remote branch currently matches local HEAD, so this is not a branch divergence.');
     }
@@ -260,11 +276,15 @@ export async function getRemoteBranchDivergenceSnapshot({ $, tempDir, branchName
 
   const aheadResult = await $({ cwd: tempDir, silent: true })`git rev-list --count origin/${branchName}..HEAD 2>&1`;
   const behindResult = await $({ cwd: tempDir, silent: true })`git rev-list --count HEAD..origin/${branchName} 2>&1`;
+  const localShaResult = await $({ cwd: tempDir, silent: true })`git rev-parse HEAD 2>&1`;
+  const remoteShaResult = await $({ cwd: tempDir, silent: true })`git rev-parse origin/${branchName} 2>&1`;
 
   return {
     remoteExists: aheadResult.code === 0 && behindResult.code === 0,
     ahead: aheadResult.code === 0 ? toCount(aheadResult.stdout) : null,
     behind: behindResult.code === 0 ? toCount(behindResult.stdout) : null,
+    localSha: localShaResult.code === 0 ? outputOf(localShaResult) : null,
+    remoteSha: remoteShaResult.code === 0 ? outputOf(remoteShaResult) : null,
     fetchError: aheadResult.code === 0 && behindResult.code === 0 ? null : outputOf(aheadResult) || outputOf(behindResult) || 'could not compare local and remote branch',
   };
 }

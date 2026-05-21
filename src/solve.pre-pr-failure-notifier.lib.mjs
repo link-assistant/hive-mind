@@ -15,6 +15,16 @@ const isForkDivergenceFailure = reason => {
   return normalizedReason.includes('fork divergence') || (normalizedReason.includes('fork') && normalizedReason.includes('non-fast-forward')) || normalizedReason.includes('force-with-lease');
 };
 
+const extractUrlAfter = (reason, label) => {
+  const match = String(reason || '').match(new RegExp(`${label}\\s+(https://github\\.com/[^\\s;]+)`, 'i'));
+  return match ? match[1] : null;
+};
+
+const isPushRejectionFailure = reason => {
+  const normalizedReason = String(reason || '').toLowerCase();
+  return normalizedReason.includes('push rejected for ') || (normalizedReason.includes('failed to push') && normalizedReason.includes('github.com'));
+};
+
 export function buildPrePullRequestFailureActionSection(reason = '') {
   const normalizedReason = String(reason || '').toLowerCase();
   const isForkOrRecoveryFailure = normalizedReason.includes('fork') || normalizedReason.includes('auto-recovery') || normalizedReason.includes('repository setup');
@@ -24,6 +34,18 @@ export function buildPrePullRequestFailureActionSection(reason = '') {
 - If the fork's default branch can be overwritten safely, rerun with \`${FORK_DIVERGENCE_RESOLUTION_OPTION}\` to allow a guarded force-with-lease sync.
 - If the fork has commits you need to preserve, resolve the divergence manually, then rerun the solver.
 - If this requires elevated Hive Mind access, ask a Hive Mind administrator to handle the affected fork or repository.
+
+Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this GitHub comment.`;
+  }
+
+  if (isPushRejectionFailure(reason)) {
+    const branchUrl = extractUrlAfter(reason, 'inspect');
+    const compareUrl = extractUrlAfter(reason, 'compare');
+    return `### What you can do
+- Inspect the remote branch${branchUrl ? `: ${branchUrl}` : ' named in the failure'}.
+- Compare the base and head histories${compareUrl ? `: ${compareUrl}` : ' using the compare link named in the failure'}.
+- If the branch belongs to you, merge the remote branch state or choose a new branch name, then rerun the solver.
+- Do not force-push unless you have manually confirmed that overwriting the remote branch is safe.
 
 Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this GitHub comment.`;
   }

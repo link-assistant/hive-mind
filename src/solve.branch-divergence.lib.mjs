@@ -9,23 +9,258 @@ const outputOf = result => {
   return stdout || stderr;
 };
 
-export function buildPushRejectionExplanation({ branchName, isContinueMode, prNumber, divergence = null }) {
+const shortSha = sha => (sha ? String(sha).slice(0, 12) : null);
+
+const encodeRefForGitHubUrl = ref =>
+  encodeURI(String(ref || ''))
+    .replaceAll('#', '%23')
+    .replaceAll('?', '%3F');
+
+export function classifyPushRejection(errorOutput = '') {
+  const normalized = String(errorOutput || '').toLowerCase();
+
+  if (normalized.includes('cannot lock ref') && normalized.includes('reference already exists')) {
+    return 'remote-ref-already-exists';
+  }
+
+  if (normalized.includes('non-fast-forward') || normalized.includes('not fast-forward') || normalized.includes('fetch first') || normalized.includes('stale info') || normalized.includes('tip of your current branch is behind') || normalized.includes('updates were rejected')) {
+    return 'non-fast-forward';
+  }
+
+  if (normalized.includes('remote rejected') || normalized.includes('[remote rejected]')) {
+    return 'remote-rejected';
+  }
+
+  if (normalized.includes('rejected') || normalized.includes('failed to push some refs')) {
+    return 'rejected';
+  }
+
+  return 'unknown';
+}
+
+export function shouldTreatPushRejectionAsRemoteSynchronized(divergence = null) {
+  if (!divergence?.remoteExists || divergence.ahead !== 0 || divergence.behind !== 0) {
+    return false;
+  }
+
+  if (divergence.localSha && divergence.remoteSha) {
+    return divergence.localSha === divergence.remoteSha;
+  }
+
+  return true;
+}
+
+export function buildBranchSubjectLinks({ owner, repo, branchName, defaultBranch, forkedRepo = null }) {
+  const repository = `${owner}/${repo}`;
+  const headRepository = forkedRepo || repository;
+  const headOwner = headRepository.split('/')[0];
+  const baseBranch = defaultBranch || 'main';
+  const compareHead = forkedRepo ? `${headOwner}:${branchName}` : branchName;
+
+  return {
+    repository,
+    headRepository,
+    baseBranchRef: `${repository}:${baseBranch}`,
+    headBranchRef: `${headRepository}:${branchName}`,
+    remoteBranchRef: `origin/${branchName}`,
+    repositoryUrl: `https://github.com/${repository}`,
+    branchUrl: `https://github.com/${headRepository}/tree/${encodeRefForGitHubUrl(branchName)}`,
+    compareUrl: `https://github.com/${repository}/compare/${encodeRefForGitHubUrl(baseBranch)}...${encodeRefForGitHubUrl(compareHead)}`,
+  };
+}
+
+export function buildPushRejectionFailureActionSection({ owner, repo, branchName, defaultBranch, forkedRepo = null }) {
+  if (!owner || !repo || !branchName) {
+    return `### What you can do
+- Inspect the remote branch and compare it with the local branch before retrying.
+- If the remote branch already contains the intended commit, rerun the solver.
+- If the histories differ, merge or resolve the branch manually, then rerun the solver.`;
+  }
+
+  const links = buildBranchSubjectLinks({ owner, repo, branchName, defaultBranch, forkedRepo });
+
+  return `### What you can do
+- Inspect the remote branch: ${links.branchUrl}
+- Compare the base and head branches: ${links.compareUrl}
+- If the remote branch already contains the intended commit, rerun the solver. Matching remote branches are treated as usable after this fix.
+- If the histories differ, merge or resolve \`${links.headBranchRef}\` against \`${links.baseBranchRef}\`, then rerun the solver.
+
+Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this GitHub comment.`;
+}
+
+export function buildPushRejectionExplanation({ branchName, isContinueMode, prNumber, divergence = null, owner = null, repo = null, defaultBranch = null, forkedRepo = null, classification = 'unknown' }) {
   const lines = [];
 
   if (isContinueMode && !prNumber) {
     lines.push('     This run reused an existing issue branch because auto-continue found a matching branch with no PR.');
     lines.push('     It is not a fresh branch created by this run, even though auto-PR creation is running now.');
+  } else if (classification === 'remote-ref-already-exists') {
+    lines.push('     GitHub rejected the push while creating or updating the remote ref because that ref already exists.');
   } else {
     lines.push('     The remote branch changed after the local branch state used for this push.');
   }
 
+  if (owner && repo) {
+    const links = buildBranchSubjectLinks({ owner, repo, branchName, defaultBranch, forkedRepo });
+    lines.push(`     Repository: ${links.repositoryUrl}`);
+    lines.push(`     Base branch: ${links.baseBranchRef}`);
+    lines.push(`     Remote branch: ${links.headBranchRef}`);
+    lines.push(`     Branch URL: ${links.branchUrl}`);
+    lines.push(`     Compare URL: ${links.compareUrl}`);
+  }
+
   if (divergence?.remoteExists && divergence.ahead !== null && divergence.behind !== null) {
     lines.push(`     Current branch state for ${branchName}: ${divergence.ahead} commit(s) ahead, ${divergence.behind} commit(s) behind origin/${branchName}.`);
+    if (divergence.localSha) {
+      lines.push(`     Local HEAD: ${shortSha(divergence.localSha)}`);
+    }
+    if (divergence.remoteSha) {
+      lines.push(`     Remote HEAD: ${shortSha(divergence.remoteSha)}`);
+    }
+    if (shouldTreatPushRejectionAsRemoteSynchronized(divergence)) {
+      lines.push('     The remote branch currently matches local HEAD, so this is not a branch divergence.');
+    }
   } else if (divergence?.fetchError) {
     lines.push(`     Could not inspect origin/${branchName}: ${divergence.fetchError}`);
   }
 
   return lines;
+}
+
+export async function logRecoverablePushRejection({ log, formatAligned, branchName, isContinueMode, prNumber, divergence, owner, repo, defaultBranch, forkedRepo, classification }) {
+  const links = buildBranchSubjectLinks({ owner, repo, branchName, defaultBranch, forkedRepo });
+
+  await log('');
+  await log(formatAligned('⚠️', 'PUSH REPORTED FAILURE:', 'Remote branch already matches local HEAD'), { level: 'warning' });
+  await log('');
+  await log('  🔍 What happened:');
+  for (const line of buildPushRejectionExplanation({
+    branchName,
+    isContinueMode,
+    prNumber,
+    divergence,
+    owner,
+    repo,
+    defaultBranch,
+    forkedRepo,
+    classification,
+  })) {
+    await log(line);
+  }
+  await log('');
+  await log('  ✅ Recovery:');
+  await log(`     The branch is available at ${links.branchUrl}.`);
+  await log('     Continuing with PR creation because no local commit would be lost.');
+  await log('');
+
+  return links;
+}
+
+export async function logBlockingPushRejection({ log, formatAligned, branchName, isContinueMode, prNumber, divergence, owner, repo, defaultBranch, forkedRepo, classification }) {
+  const links = buildBranchSubjectLinks({ owner, repo, branchName, defaultBranch, forkedRepo });
+  const isRefCollision = classification === 'remote-ref-already-exists';
+
+  await log('');
+  await log(formatAligned('❌', isRefCollision ? 'REMOTE BRANCH COLLISION:' : 'PUSH REJECTED:', isRefCollision ? 'Remote ref already exists and differs from local branch' : 'Local and remote branch histories differ'), { level: 'error' });
+  await log('');
+  await log('  🔍 What happened:');
+  if (isRefCollision) {
+    await log(`     GitHub rejected creation or update of ${links.headBranchRef} because that remote ref already exists.`);
+    await log('     The existing remote branch does not match this local branch, so hive-mind cannot assume it is safe to continue.');
+  } else {
+    await log(`     Git rejected updating ${links.headBranchRef} from this local branch.`);
+    await log('     The local and remote histories are not in a state that a normal push can update safely.');
+  }
+  for (const line of buildPushRejectionExplanation({
+    branchName,
+    isContinueMode,
+    prNumber,
+    divergence,
+    owner,
+    repo,
+    defaultBranch,
+    forkedRepo,
+    classification,
+  })) {
+    await log(line);
+  }
+  await log('');
+  await log('  💡 Why we cannot fix this automatically:');
+  await log('     • We never use force push to preserve history');
+  await log('     • We never use rebase or reset to avoid altering git history');
+  await log(`     • Manual review is required before changing ${links.headBranchRef}`);
+  await log('');
+  await log('  🔧 How to fix:');
+  await log(`     1. Inspect the remote branch: ${links.branchUrl}`);
+  await log(`     2. Compare base and head: ${links.compareUrl}`);
+  await log('     3. Clone the repository and checkout the branch:');
+  await log(`        git clone https://github.com/${links.headRepository}.git`);
+  await log(`        cd ${links.headRepository.split('/')[1]}`);
+  await log(`        git checkout ${branchName}`);
+  await log('');
+  await log('     4. Merge the remote branch state, resolve conflicts if any, then push:');
+  await log(`        git pull origin ${branchName}`);
+  await log(`        git push origin ${branchName}`);
+  await log('');
+  await log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  await log('');
+
+  return {
+    links,
+    failureActionSection: buildPushRejectionFailureActionSection({ owner, repo, branchName, defaultBranch, forkedRepo }),
+  };
+}
+
+export async function handleRejectedPushForAutoPr({ errorOutput, $, tempDir, log, formatAligned, branchName, isContinueMode, prNumber, owner, repo, defaultBranch, forkedRepo }) {
+  const classification = classifyPushRejection(errorOutput);
+  if (classification === 'unknown') {
+    return {
+      handled: false,
+      branchReadyForPrCreation: false,
+      recoveredFromPushRejection: false,
+    };
+  }
+
+  const divergence = await getRemoteBranchDivergenceSnapshot({ $, tempDir, branchName });
+
+  if (shouldTreatPushRejectionAsRemoteSynchronized(divergence)) {
+    await logRecoverablePushRejection({
+      log,
+      formatAligned,
+      branchName,
+      isContinueMode,
+      prNumber,
+      divergence,
+      owner,
+      repo,
+      defaultBranch,
+      forkedRepo,
+      classification,
+    });
+    return {
+      handled: true,
+      branchReadyForPrCreation: true,
+      recoveredFromPushRejection: true,
+    };
+  }
+
+  const { links, failureActionSection } = await logBlockingPushRejection({
+    log,
+    formatAligned,
+    branchName,
+    isContinueMode,
+    prNumber,
+    divergence,
+    owner,
+    repo,
+    defaultBranch,
+    forkedRepo,
+    classification,
+  });
+  const error = new Error(`Push rejected for ${links.headBranchRef}; compare ${links.compareUrl} and inspect ${links.branchUrl}`);
+  error.hiveMindUserFacingLogged = true;
+  error.failureActionSection = failureActionSection;
+  throw error;
 }
 
 export async function getRemoteBranchDivergenceSnapshot({ $, tempDir, branchName }) {
@@ -41,11 +276,15 @@ export async function getRemoteBranchDivergenceSnapshot({ $, tempDir, branchName
 
   const aheadResult = await $({ cwd: tempDir, silent: true })`git rev-list --count origin/${branchName}..HEAD 2>&1`;
   const behindResult = await $({ cwd: tempDir, silent: true })`git rev-list --count HEAD..origin/${branchName} 2>&1`;
+  const localShaResult = await $({ cwd: tempDir, silent: true })`git rev-parse HEAD 2>&1`;
+  const remoteShaResult = await $({ cwd: tempDir, silent: true })`git rev-parse origin/${branchName} 2>&1`;
 
   return {
     remoteExists: aheadResult.code === 0 && behindResult.code === 0,
     ahead: aheadResult.code === 0 ? toCount(aheadResult.stdout) : null,
     behind: behindResult.code === 0 ? toCount(behindResult.stdout) : null,
+    localSha: localShaResult.code === 0 ? outputOf(localShaResult) : null,
+    remoteSha: remoteShaResult.code === 0 ? outputOf(remoteShaResult) : null,
     fetchError: aheadResult.code === 0 && behindResult.code === 0 ? null : outputOf(aheadResult) || outputOf(behindResult) || 'could not compare local and remote branch',
   };
 }

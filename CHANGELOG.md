@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.72.4
+
+### Patch Changes
+
+- 82d440c: Fix fork creation verification for dotted repository names such as GitHub Pages forks.
+
 ## 1.72.3
 
 ### Patch Changes

@@ -28,6 +28,7 @@ const { log, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
+import { parseForkFullNameFromGhOutput } from './github-repository-names.lib.mjs';
 
 // Import GitHub utilities for permission checks
 const githubLib = await import('./github.lib.mjs');
@@ -589,11 +590,10 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         const forkOutput = (forkResult.stderr ? forkResult.stderr.toString() : '') + (forkResult.stdout ? forkResult.stdout.toString() : '');
         if (argv.verbose) await log(`${formatAligned('🔧', 'Fork output:', forkOutput.split('\n')[0] || '(empty)')}`); // Issue #1518
         // Parse actual fork name from output (e.g., "konard/netkeep80-jsonRVM already exists")
-        // GitHub may create forks with modified names to avoid conflicts
-        // Use regex that won't match domain names like "github.com/user" -> "com/user"
-        const forkNameMatch = forkOutput.match(/(?:github\.com\/|^|\s)([a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+)/);
-        if (forkNameMatch) {
-          actualForkName = forkNameMatch[1];
+        // Issue #1819: repository names can contain dots, such as "*.github.io".
+        const parsedForkName = parseForkFullNameFromGhOutput(forkOutput);
+        if (parsedForkName) {
+          actualForkName = parsedForkName;
         }
 
         if (forkResult.code === 0) {

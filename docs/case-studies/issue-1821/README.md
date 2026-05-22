@@ -7,13 +7,16 @@ detected by hive-mind's auto-restart loop. The auto-restart comment that followe
 only reported `CI failures detected`, even though a human comment had been posted
 first.
 
-The root cause was in `checkForNonBotComments`: it classified every comment from
-the authenticated GitHub user as bot-generated. In this incident both the human
-review feedback and hive-mind's automation comments were posted by `konard`, so
-the human feedback was filtered out before restart reasons were built.
+The root cause was in `checkForNonBotComments`: in auto-restart monitoring it
+classified every comment from the authenticated GitHub user as bot-generated.
+In this incident both the human review feedback and hive-mind's automation
+comments were posted by `konard`, so the human feedback was filtered out before
+restart reasons were built.
 
-The fix is to keep filtering known bot logins, but stop treating the
-authenticated user as a bot. Tool-generated same-account comments are now
+The fix keeps filtering known bot logins and keeps the safe default that treats
+the authenticated user as tool-owned while an AI tool may still be running.
+`auto-restart-until-mergeable` opts in to trusting same-account comments only
+between tool executions, when tool-generated same-account comments can be
 filtered by the shared comment marker/ID helpers from `tool-comments.lib.mjs`.
 
 ## Local Evidence
@@ -113,8 +116,10 @@ No new library is required. The right local component is the existing
 - Uses `isToolTrackedCommentId(comment.id)` and
   `isToolGeneratedComment(comment.body)` to skip hive-mind/tool-generated
   comments.
-- Treats same-account non-tool comments as human feedback, including comments
-  posted by the authenticated GitHub user.
+- Treats same-account non-tool comments as human feedback only when the caller
+  explicitly passes `trustAuthenticatedUserComments: true`.
+- Keeps the default safe for contexts where an AI tool may still be running by
+  treating authenticated-user comments as tool-owned.
 - Emits more precise verbose output for skipped tool comments, skipped bot
   comments, and detected same-account feedback.
 - Accepts an injectable command runner so the behavior can be tested without
@@ -131,7 +136,11 @@ The test reproduces the incident shape:
 - Authenticated user: `konard`.
 - Same-account solution log comment: ignored by marker.
 - Same-account auto-restart comment: ignored by marker.
-- Same-account human feedback comment `4518909964`: detected.
+- Same-account human feedback comment `4518909964`: detected only in the
+  auto-restart idle-monitoring context.
+- Same-account human feedback comment without the opt-in: ignored for the safe
+  default.
+- Other-account human comment: detected by default.
 - Bot account comment: ignored by login pattern.
 
 Before the filter fix, the test failed because the human feedback comment was

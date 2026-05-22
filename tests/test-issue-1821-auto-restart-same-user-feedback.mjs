@@ -4,8 +4,8 @@
  *
  * Regression test for issue #1821: auto-restart must not hide a human
  * feedback comment just because it was posted by the same GitHub account that
- * is running hive-mind. Tool-generated comments from that account are filtered
- * by markers instead.
+ * is running hive-mind, once the caller knows the AI tool is idle.
+ * Tool-generated comments from that account are filtered by markers instead.
  */
 
 import assert from 'node:assert/strict';
@@ -79,7 +79,9 @@ const incidentComments = [
 
 {
   const fakeGh = createFakeGh({ prComments: incidentComments });
-  const result = await checkForNonBotComments('link-assistant', 'formal-ai', 222, 222, lastCheckTime, false, fakeGh);
+  const result = await checkForNonBotComments('link-assistant', 'formal-ai', 222, 222, lastCheckTime, false, fakeGh, {
+    trustAuthenticatedUserComments: true,
+  });
 
   assert.equal(result.hasNewComments, true, 'same-account human feedback must trigger auto-restart');
   assert.equal(result.comments.length, 1, 'only the human feedback comment should remain after filtering');
@@ -88,13 +90,42 @@ const incidentComments = [
 }
 
 {
+  const fakeGh = createFakeGh({ prComments: incidentComments });
+  const result = await checkForNonBotComments('link-assistant', 'formal-ai', 222, 222, lastCheckTime, false, fakeGh);
+
+  assert.equal(result.hasNewComments, false, 'same-account comments must be ignored by default while a tool may still be running');
+  assert.deepEqual(result.comments, []);
+}
+
+{
   const fakeGh = createFakeGh({
     prComments: incidentComments.filter(comment => comment.id !== 4518909964),
   });
-  const result = await checkForNonBotComments('link-assistant', 'formal-ai', 222, 222, lastCheckTime, false, fakeGh);
+  const result = await checkForNonBotComments('link-assistant', 'formal-ai', 222, 222, lastCheckTime, false, fakeGh, {
+    trustAuthenticatedUserComments: true,
+  });
 
   assert.equal(result.hasNewComments, false, 'same-account tool comments alone must not trigger auto-restart');
   assert.deepEqual(result.comments, []);
+}
+
+{
+  const fakeGh = createFakeGh({
+    prComments: [
+      ...incidentComments.filter(comment => comment.id !== 4518909964),
+      {
+        id: 4518940000,
+        created_at: '2026-05-22T13:10:00Z',
+        user: { login: 'reviewer' },
+        body: 'Please keep the cache human-readable.',
+      },
+    ],
+  });
+  const result = await checkForNonBotComments('link-assistant', 'formal-ai', 222, 222, lastCheckTime, false, fakeGh);
+
+  assert.equal(result.hasNewComments, true, 'comments from other human users should still be detected by default');
+  assert.equal(result.comments.length, 1);
+  assert.equal(result.comments[0].user.login, 'reviewer');
 }
 
 console.log('Issue #1821 same-account auto-restart feedback regression tests passed');

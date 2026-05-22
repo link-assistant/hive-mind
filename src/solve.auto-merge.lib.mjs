@@ -206,8 +206,12 @@ export const watchUntilMergeable = async params => {
         // Keep the counter as-is (it reached the safety valve or wasn't needed).
       }
 
-      // Check for new comments from non-bot users
-      const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose);
+      // Check for new comments from non-bot users. At this point the AI tool
+      // is not executing, so same-account non-tool comments can be trusted as
+      // human feedback while known tool comments remain filtered by markers/IDs.
+      const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose, $, {
+        trustAuthenticatedUserComments: true,
+      });
 
       // Check for uncommitted changes using shared utility
       const hasUncommittedChanges = await checkForUncommittedChanges(tempDir, argv);

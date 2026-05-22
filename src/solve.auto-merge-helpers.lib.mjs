@@ -168,11 +168,21 @@ export const checkForExistingComment = async (owner, repo, prNumber, commentSign
 
 /**
  * Check for new comments from non-bot users since last commit
+ *
+ * Same-account comments are only considered feedback when
+ * `trustAuthenticatedUserComments` is true. Keep the default false for callers
+ * that may run while an AI tool is still active: those tools can post through
+ * the authenticated GitHub account.
+ *
  * @param {Function} commandRunner - Tagged-template command runner, injectable for tests
+ * @param {Object} options - Comment classification options
+ * @param {boolean} options.trustAuthenticatedUserComments - True only when the caller knows the AI tool is not running
  * @returns {Promise<{hasNewComments: boolean, comments: Array}>}
  */
-export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCheckTime, verbose = false, commandRunner = $) => {
+export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCheckTime, verbose = false, commandRunner = $, options = {}) => {
   try {
+    const { trustAuthenticatedUserComments = false } = options;
+
     // Get current GitHub user to identify which comments are from the bot/hive-mind
     let currentUser = null;
     try {
@@ -185,10 +195,11 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
     }
 
     // Common bot usernames and patterns to filter out.
-    // Issue #1821: Do not treat the authenticated GitHub user as a bot. In
-    // same-account operation, humans and hive-mind both post through that
-    // account. Tool-generated comments are filtered by tracked IDs and shared
-    // marker strings instead, so human feedback remains visible.
+    // Issue #1821: In same-account operation, humans and AI tools can both
+    // post through the authenticated account. The safe default treats that
+    // account as tool-owned; auto-restart-until-mergeable opts in to trusting
+    // same-account comments only while no AI tool execution is active, and
+    // still filters tool-generated comments by tracked IDs and marker strings.
     // Note: Patterns use word boundaries or end-of-string to avoid false positives
     // (e.g., "claudeuser" should NOT match as a bot)
     const botPatterns = [
@@ -245,12 +256,16 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
       const commentTime = new Date(comment.created_at);
       const isAfterLastCheck = commentTime > lastCheckTime;
       const login = comment.user?.login;
-      const isFromBot = isBot(login);
+      const isFromAuthenticatedUser = Boolean(currentUser && login === currentUser);
       const isFromTool = isToolComment(comment);
+      const isFromAuthenticatedUserToolContext = isFromAuthenticatedUser && !trustAuthenticatedUserComments;
+      const isFromBot = isBot(login) || isFromAuthenticatedUserToolContext;
       const isFromNonBot = !isFromBot && !isFromTool;
 
       if (verbose && isAfterLastCheck && isFromTool) {
         console.log(`[VERBOSE] Skipping tool-generated comment from ${login} at ${comment.created_at}`);
+      } else if (verbose && isAfterLastCheck && isFromAuthenticatedUserToolContext) {
+        console.log(`[VERBOSE] Skipping authenticated-user comment from ${login} at ${comment.created_at} because same-account feedback is not trusted in this context`);
       } else if (verbose && isAfterLastCheck && isFromBot) {
         console.log(`[VERBOSE] Skipping bot comment from ${login} at ${comment.created_at}`);
       } else if (verbose && isAfterLastCheck && isFromNonBot) {

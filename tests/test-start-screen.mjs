@@ -3,6 +3,8 @@
 
 import { parseGitHubUrl } from '../src/github.lib.mjs';
 import { execSync, spawnSync } from 'child_process';
+import { mkdtempSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,7 +12,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const repoRoot = join(__dirname, '..');
 const startScreenPath = join(repoRoot, 'src', 'start-screen.mjs');
-const noScreenEnv = { PATH: dirname(process.execPath) };
+
+const npmPath = execSync('command -v npm', { encoding: 'utf8' }).trim();
+const noScreenBinDir = mkdtempSync(join(tmpdir(), 'hive-mind-no-screen-bin-'));
+symlinkSync(npmPath, join(noScreenBinDir, 'npm'));
+
+const noScreenEnv = { PATH: `${dirname(process.execPath)}:${noScreenBinDir}` };
 
 function runStartScreen(args, env = {}) {
   const result = spawnSync(process.execPath, [startScreenPath, ...args], {

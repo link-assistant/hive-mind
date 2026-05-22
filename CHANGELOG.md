@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.72.6
+
+### Patch Changes
+
+- 57f15ec: Detect same-account human feedback in auto-restart comment monitoring only when the AI tool is idle, while still filtering hive-mind tool-generated comments by marker and tracked ID.
+
 ## 1.72.5
 
 ### Patch Changes

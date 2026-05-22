@@ -76,7 +76,7 @@ const formatRunLine = run => {
 // search scope for checkForExistingComment() stays in lock-step with the
 // markers actually embedded in tool-posted comments.
 const toolComments = await import('./tool-comments.lib.mjs');
-const { SESSION_ENDING_MARKERS } = toolComments;
+const { SESSION_ENDING_MARKERS, isToolGeneratedComment, isToolTrackedCommentId } = toolComments;
 
 /**
  * Issue #1323: Check if a comment with specific content already exists on the PR
@@ -168,14 +168,15 @@ export const checkForExistingComment = async (owner, repo, prNumber, commentSign
 
 /**
  * Check for new comments from non-bot users since last commit
+ * @param {Function} commandRunner - Tagged-template command runner, injectable for tests
  * @returns {Promise<{hasNewComments: boolean, comments: Array}>}
  */
-export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCheckTime, verbose = false) => {
+export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCheckTime, verbose = false, commandRunner = $) => {
   try {
     // Get current GitHub user to identify which comments are from the bot/hive-mind
     let currentUser = null;
     try {
-      const userResult = await $`gh api user --jq .login`;
+      const userResult = await commandRunner`gh api user --jq .login`;
       if (userResult.code === 0) {
         currentUser = userResult.stdout.toString().trim();
       }
@@ -183,7 +184,11 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
       // If we can't get the current user, continue without filtering
     }
 
-    // Common bot usernames and patterns to filter out
+    // Common bot usernames and patterns to filter out.
+    // Issue #1821: Do not treat the authenticated GitHub user as a bot. In
+    // same-account operation, humans and hive-mind both post through that
+    // account. Tool-generated comments are filtered by tracked IDs and shared
+    // marker strings instead, so human feedback remains visible.
     // Note: Patterns use word boundaries or end-of-string to avoid false positives
     // (e.g., "claudeuser" should NOT match as a bot)
     const botPatterns = [
@@ -201,21 +206,21 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
 
     const isBot = login => {
       if (!login) return false;
-      // Check if it's the current user (the bot running hive-mind)
-      if (currentUser && login === currentUser) return true;
       // Check against known bot patterns
       return botPatterns.some(pattern => pattern.test(login));
     };
 
+    const isToolComment = comment => isToolTrackedCommentId(comment.id) || isToolGeneratedComment(comment.body);
+
     // Fetch PR conversation comments
-    const prCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
+    const prCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
     let prComments = [];
     if (prCommentsResult.code === 0 && prCommentsResult.stdout) {
       prComments = JSON.parse(prCommentsResult.stdout.toString() || '[]');
     }
 
     // Fetch PR review comments (inline code comments)
-    const prReviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
+    const prReviewCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
     let prReviewComments = [];
     if (prReviewCommentsResult.code === 0 && prReviewCommentsResult.stdout) {
       prReviewComments = JSON.parse(prReviewCommentsResult.stdout.toString() || '[]');
@@ -224,7 +229,7 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
     // Fetch issue comments if we have an issue number
     let issueComments = [];
     if (issueNumber && issueNumber !== prNumber) {
-      const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
+      const issueCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
       if (issueCommentsResult.code === 0 && issueCommentsResult.stdout) {
         issueComments = JSON.parse(issueCommentsResult.stdout.toString() || '[]');
       }
@@ -233,14 +238,24 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
     // Combine all comments
     const allComments = [...prComments, ...prReviewComments, ...issueComments];
 
-    // Filter for new comments from non-bot users
+    // Filter for new comments from non-bot users. Automated hive-mind/tool
+    // comments are excluded by marker/ID, including comments posted by the
+    // authenticated user during the current or a previous process.
     const newNonBotComments = allComments.filter(comment => {
       const commentTime = new Date(comment.created_at);
       const isAfterLastCheck = commentTime > lastCheckTime;
-      const isFromNonBot = !isBot(comment.user?.login);
+      const login = comment.user?.login;
+      const isFromBot = isBot(login);
+      const isFromTool = isToolComment(comment);
+      const isFromNonBot = !isFromBot && !isFromTool;
 
-      if (verbose && isAfterLastCheck && isFromNonBot) {
-        console.log(`[VERBOSE] New non-bot comment from ${comment.user?.login} at ${comment.created_at}`);
+      if (verbose && isAfterLastCheck && isFromTool) {
+        console.log(`[VERBOSE] Skipping tool-generated comment from ${login} at ${comment.created_at}`);
+      } else if (verbose && isAfterLastCheck && isFromBot) {
+        console.log(`[VERBOSE] Skipping bot comment from ${login} at ${comment.created_at}`);
+      } else if (verbose && isAfterLastCheck && isFromNonBot) {
+        const sameAccountSuffix = currentUser && login === currentUser ? ' (authenticated user)' : '';
+        console.log(`[VERBOSE] New non-bot comment from ${login}${sameAccountSuffix} at ${comment.created_at}`);
       }
 
       return isAfterLastCheck && isFromNonBot;

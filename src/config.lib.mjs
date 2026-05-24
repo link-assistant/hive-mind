@@ -75,6 +75,41 @@ export const timeouts = {
   // The 5-minute timeout was force-killing sessions during `sleep 300 && gh run view ...` commands.
   // Default: 3600000ms (1 hour). Set to 0 to disable. Configurable via environment variable.
   streamActivityMs: parseIntWithDefault('HIVE_MIND_STREAM_ACTIVITY_MS', 3600000),
+  // Issue #1811: Default per-call timeout (ms) for `gh` API shell calls routed
+  // through `ghWithRateLimitRetry` / `wrapDollarWithGhRetry`. `gh` has no
+  // network timeout of its own (Go's http.Client.Timeout defaults to 0), so a
+  // half-open TCP socket or unresponsive load-balancer can stall the wrapper
+  // forever. Setting this to a positive number aborts the spawned `gh` via
+  // AbortController/command-stream `signal`, turning the silent hang into a
+  // retryable timeout error. 0 disables the timeout (legacy behavior).
+  // Default: 15000ms (15 seconds) — `gh api user` / `gh pr list` finish in
+  // < 2 s under normal conditions; anything past 15 s is overwhelmingly a
+  // hung connection.
+  ghApiMs: parseIntWithDefault('HIVE_MIND_GH_API_TIMEOUT_MS', 15000),
+};
+
+// Hive parent → solve worker inactivity watchdog (Issue #1811)
+// hive.mjs:worker() spawns solve.mjs but only listens for stdout/stderr/close
+// events; if the child stalls (e.g. inside verifyResults waiting on a hung
+// `gh api user`), there is no time-based signal to surface or recover. These
+// thresholds drive a setInterval watchdog inside the parent process.
+export const workers = {
+  // Warn into the hive log when a worker emits no stdout/stderr for this many
+  // milliseconds. The warning is throttled — at most once per warn window per
+  // worker per silent period. Set to 0 to disable warnings.
+  // Default: 300000ms (5 minutes). CLI override:
+  // --worker-inactivity-warn-seconds.
+  inactivityWarnMs: parseIntWithDefault('HIVE_MIND_WORKER_INACTIVITY_WARN_SECONDS', 300) * 1000,
+  // Optional hard SIGTERM after this many milliseconds of silence. 0 disables
+  // the kill (warn-only mode). When non-zero, the parent sends SIGTERM and,
+  // 10 seconds later, SIGKILL if the child is still alive. CLI override:
+  // --worker-inactivity-kill-seconds.
+  // Default: 0 (disabled) — opt-in because killing a worker discards its
+  // partial work.
+  inactivityKillMs: parseIntWithDefault('HIVE_MIND_WORKER_INACTIVITY_KILL_SECONDS', 0) * 1000,
+  // Hard SIGKILL grace period after SIGTERM. 10s gives the child a chance to
+  // flush logs.
+  killGraceMs: parseIntWithDefault('HIVE_MIND_WORKER_KILL_GRACE_MS', 10000),
 };
 
 // Auto-continue configurations
@@ -676,7 +711,7 @@ export const mergeQueue = {
 // Helper function to validate configuration values
 export function validateConfig() {
   // Ensure all numeric values are valid
-  const numericConfigs = [...Object.values(timeouts), ...Object.values(githubLimits), ...Object.values(systemLimits), ...Object.values(retryLimits).filter(v => typeof v === 'number'), ...Object.values(textProcessing), display.labelWidth, autoContinue.ageThresholdHours];
+  const numericConfigs = [...Object.values(timeouts), ...Object.values(githubLimits), ...Object.values(systemLimits), ...Object.values(retryLimits).filter(v => typeof v === 'number'), ...Object.values(textProcessing), ...Object.values(workers), display.labelWidth, autoContinue.ageThresholdHours];
 
   for (const value of numericConfigs) {
     if (isNaN(value) || value < 0) {
@@ -709,6 +744,7 @@ export function getAllConfigurations() {
     githubLimits,
     systemLimits,
     retryLimits,
+    workers,
     claudeCode,
     cacheTtl,
     filePaths,

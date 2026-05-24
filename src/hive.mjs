@@ -2,6 +2,7 @@
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
+import { wireHiveWorkerWatchdog } from './hive-worker-watchdog.lib.mjs'; // issue #1811: parent-side watchdog for spawned workers.
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
   const { getVersion } = await import('./version.lib.mjs');
@@ -813,6 +814,7 @@ if (isRunningDirectly) {
                 env: process.env,
               });
 
+              wireHiveWorkerWatchdog({ argv, child, log, workerId, issueUrl }); // #1811
               // Handle stdout data - stream output in real-time
               child.stdout.on('data', data => {
                 const lines = data.toString().split('\n');

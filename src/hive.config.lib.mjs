@@ -8,7 +8,7 @@ import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
 
 // Hive-only options that are NOT solve options (hive-specific functionality).
 // These are excluded when auto-registering solve-passthrough options.
-const HIVE_ONLY_OPTION_NAMES = new Set(['monitor-tag', 'all-issues', 'skip-issues-with-prs', 'concurrency', 'pull-requests-per-issue', 'interval', 'max-issues', 'once', 'project-number', 'project-owner', 'project-status', 'project-mode', 'youtrack-mode', 'youtrack-stage', 'youtrack-project', 'target-branch', 'issue-order']);
+const HIVE_ONLY_OPTION_NAMES = new Set(['monitor-tag', 'all-issues', 'skip-issues-with-prs', 'concurrency', 'pull-requests-per-issue', 'interval', 'max-issues', 'once', 'project-number', 'project-owner', 'project-status', 'project-mode', 'youtrack-mode', 'youtrack-stage', 'youtrack-project', 'target-branch', 'issue-order', 'worker-inactivity-warn-seconds', 'worker-inactivity-kill-seconds']);
 
 // Solve-only options that should NOT be registered in hive
 // (they are internal to solve and not meaningful when passed from hive)
@@ -187,6 +187,16 @@ export const createYargsConfig = yargsInstance => {
       alias: 'o',
       default: 'asc',
       choices: ['asc', 'desc'],
+    })
+    .option('worker-inactivity-warn-seconds', {
+      type: 'number',
+      description: 'Warn when a hive worker emits no stdout/stderr for N seconds (0 disables). See docs/case-studies/issue-1811.',
+      default: 300,
+    })
+    .option('worker-inactivity-kill-seconds', {
+      type: 'number',
+      description: 'Kill a hive worker after N seconds of no stdout/stderr (0 disables). SIGTERM first, then SIGKILL after a 10s grace period.',
+      default: 0,
     });
 
   // Register options with hive-specific customizations (different defaults/descriptions than solve)

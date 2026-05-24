@@ -16,10 +16,12 @@
  */
 
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
-export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
 import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
-export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
-import { QUEUE_CONFIG } from './queue-config.lib.mjs';
+export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+import { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
+export { QUEUE_CONFIG, THRESHOLD_STRATEGIES };
+import { normalizeAgentModelKey } from './models/index.mjs';
+import { canStartUnderConcurrencyMode as _canStartUnderConcurrencyMode, countProcessingByTool, countProcessingByToolAndModel } from './telegram-solve-queue.concurrency.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
@@ -62,6 +64,7 @@ class SolveQueueItem {
     this.requester = options.requester;
     this.infoBlock = options.infoBlock;
     this.tool = options.tool || 'claude';
+    this.model = normalizeAgentModelKey(options.model) || options.model || null;
     // Issue #1688: keep parsed URL context (owner/repo/number/type) so completion
     //   notifications can look up linked PRs for issue URLs.
     this.urlContext = options.urlContext || null;
@@ -356,20 +359,15 @@ export class SolveQueue {
   }
 
   /**
-   * Count processing items by tool type
-   * Used for tool-specific limit checking - e.g., Claude limits only count Claude processing items
-   * @param {string} tool - Tool type to count ('claude', 'agent', 'codex', 'gemini', etc.)
-   * @returns {number} Count of processing items with the specified tool
+   * Count processing items by tool type.
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   getProcessingCountByTool(tool) {
-    let count = 0;
-    for (const item of this.processing.values()) {
-      if (item.tool === tool) {
-        count++;
-      }
-    }
-    return count;
+    return countProcessingByTool(this.processing, tool);
+  }
+
+  getProcessingCountByToolAndModel(tool, model) {
+    return countProcessingByToolAndModel(this.processing, tool, model);
   }
 
   /**
@@ -412,11 +410,17 @@ export class SolveQueue {
           // Skip but don't block other tools
           continue;
         }
+
+        if (!this.canStartUnderConcurrencyMode(tool, item)) continue;
         startableItems.push({ item, tool, index: 0, check });
       }
     }
 
     return startableItems;
+  }
+
+  canStartUnderConcurrencyMode(tool, item) {
+    return _canStartUnderConcurrencyMode(this.processing, tool, item);
   }
 
   /**

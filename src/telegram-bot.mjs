@@ -770,11 +770,20 @@ async function handleSolveCommand(ctx) {
 
   // Determine tool from args (default: claude)
   let solveTool = 'claude';
+  // Issue #1474: also extract --model alias at the queue boundary so the
+  //   queue can gate per-free-model concurrency. Mirrors the parsing in
+  //   validateModelInArgs() but only needs the literal string value, not
+  //   resolution to a provider ID — equality is enough for gating.
+  let solveModel = null;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--tool' && i + 1 < args.length) {
       solveTool = args[i + 1];
     } else if (args[i].startsWith('--tool=')) {
       solveTool = args[i].substring('--tool='.length);
+    } else if ((args[i] === '--model' || args[i] === '-m') && i + 1 < args.length) {
+      solveModel = args[i + 1];
+    } else if (args[i].startsWith('--model=')) {
+      solveModel = args[i].substring('--model='.length);
     }
   }
 
@@ -874,7 +883,7 @@ async function handleSolveCommand(ctx) {
     const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
   } else {
-    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
+    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, tool: solveTool, model: solveModel, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
     const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };

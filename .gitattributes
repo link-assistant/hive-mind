@@ -1,1 +1,3 @@
 docs/case-studies/issue-1645/logs/*.log -diff
+docs/case-studies/issue-1823/logs/*.log -diff
+docs/case-studies/issue-1823/logs/*.log.gz -diff

@@ -30,6 +30,14 @@ let interruptHandlerRan = false;
 let preExitFunction = null;
 let preExitHandlerRan = false;
 
+// Issue #1823: When an external owner (e.g. hive's gracefulShutdown) takes over signal
+// handling, the global SIGINT/SIGTERM handlers must stand down and NOT call process.exit().
+// Otherwise the global handler's process.exit() races with the external graceful handler
+// and cuts its wait short — the root cause of premature shutdown that aborts an in-flight
+// /solve (and its codex child) mid-turn. Defaults to false to preserve existing behavior
+// for solve.mjs, telegram-bot, and other entry points that rely on the global handlers.
+let signalHandlingDelegated = false;
+
 /**
  * Initialize the exit handler with required dependencies
  * @param {Function} getLogPath - Function that returns the current log path
@@ -48,6 +56,20 @@ export const initializeExitHandler = (getLogPath, log, cleanup = null, interrupt
 
 export const setPreExitHandler = preExit => {
   preExitFunction = preExit;
+};
+
+/**
+ * Issue #1823: Delegate SIGINT/SIGTERM handling to an external graceful shutdown owner.
+ *
+ * When enabled, the global SIGINT/SIGTERM handlers installed by installGlobalExitHandlers()
+ * stand down (return early) instead of calling process.exit(). This lets a caller such as
+ * hive's gracefulShutdown() fully wait for in-progress work (e.g. an executing /solve) to
+ * finish and then exit via safeExit(), without the global handler racing it to process.exit().
+ *
+ * @param {boolean} enabled - true to delegate (caller owns exit), false to restore default.
+ */
+export const delegateSignalHandling = (enabled = true) => {
+  signalHandlingDelegated = enabled;
 };
 
 /**
@@ -273,6 +295,13 @@ export const installGlobalExitHandlers = () => {
 
   // Handle SIGINT (CTRL+C)
   process.on('SIGINT', async () => {
+    // Issue #1823: If an external graceful-shutdown owner is registered, stand down.
+    // That owner (e.g. hive's gracefulShutdown) is responsible for waiting for in-progress
+    // work and exiting via safeExit(). Calling process.exit(130) here would race with it
+    // and cut the wait short — the root cause of the premature shutdown.
+    if (signalHandlingDelegated) {
+      return;
+    }
     // Run interrupt handler first (auto-commit, log upload, etc.) — guard against double invocation
     if (interruptFunction && !interruptHandlerRan) {
       interruptHandlerRan = true;
@@ -303,6 +332,10 @@ export const installGlobalExitHandlers = () => {
 
   // Handle SIGTERM
   process.on('SIGTERM', async () => {
+    // Issue #1823: Stand down when an external graceful-shutdown owner is registered.
+    if (signalHandlingDelegated) {
+      return;
+    }
     if (cleanupFunction) {
       try {
         await cleanupFunction();
@@ -377,4 +410,5 @@ export const installGlobalExitHandlers = () => {
 export const resetExitHandler = () => {
   exitMessageShown = false;
   interruptHandlerRan = false;
+  signalHandlingDelegated = false;
 };

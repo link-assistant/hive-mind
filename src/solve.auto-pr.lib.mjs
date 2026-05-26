@@ -8,6 +8,7 @@ import { handleRejectedPushForAutoPr, synchronizeExistingIssueBranchBeforeAutoPr
 import { emitForkAwareDiagnostic } from './solve.auto-pr-fork-diagnostic.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too.
+import { addPlaceholderFileToGit } from './solve.auto-pr-placeholder.lib.mjs'; // Issue #1825: force-adds the seed placeholder when the target repo gitignores it.
 
 export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
   // Skip auto-PR creation if:
@@ -166,12 +167,13 @@ Proceed.
     // Add and commit the file
     await log(formatAligned('📦', 'Adding file:', 'To git staging'));
 
-    // Use explicit cwd option for better reliability
-    const addResult = await $({ cwd: tempDir })`git add ${fileName}`;
+    // Issue #1825: force-adds the placeholder when the target repo gitignores
+    // it (e.g. ignores `.gitkeep`), so PR creation is no longer aborted.
+    const addResult = await addPlaceholderFileToGit({ $, tempDir, fileName, log, formatAligned, verbose: argv.verbose });
 
     if (addResult.code !== 0) {
       await log(`❌ Failed to add ${fileName}`, { level: 'error' });
-      await log(`   Error: ${addResult.stderr ? addResult.stderr.toString() : 'Unknown error'}`, { level: 'error' });
+      await log(`   Error: ${addResult.stderr || 'Unknown error'}`, { level: 'error' });
       throw new Error(`Failed to add ${fileName}`);
     }
 
@@ -212,12 +214,12 @@ Proceed.
           await fs.writeFile(gitkeepPath, gitkeepContent);
           await log(formatAligned('✅', 'Created:', '.gitkeep file'));
 
-          // Try to add .gitkeep
-          const gitkeepAddResult = await $({ cwd: tempDir })`git add .gitkeep`;
+          // Try to add .gitkeep (force-added if it too is gitignored — issue #1825)
+          const gitkeepAddResult = await addPlaceholderFileToGit({ $, tempDir, fileName: '.gitkeep', log, formatAligned, verbose: argv.verbose });
 
           if (gitkeepAddResult.code !== 0) {
             await log('❌ Failed to add .gitkeep', { level: 'error' });
-            await log(`   Error: ${gitkeepAddResult.stderr ? gitkeepAddResult.stderr.toString() : 'Unknown error'}`, {
+            await log(`   Error: ${gitkeepAddResult.stderr || 'Unknown error'}`, {
               level: 'error',
             });
             throw new Error('Failed to add .gitkeep');

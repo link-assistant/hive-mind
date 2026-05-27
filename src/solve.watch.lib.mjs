@@ -46,6 +46,12 @@ const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIte
 const toolComments = await import('./tool-comments.lib.mjs');
 const { AUTO_RESTART_MARKER, postTrackedComment } = toolComments;
 
+// Issue #1827: After each AI session, register the authenticated account's own
+// comments (free-form status updates the agent posts itself) so the next
+// detectAndCountFeedback() call doesn't mistake them for new human feedback.
+const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
+const { trackAuthenticatedUserCommentsSince } = autoMergeHelpers;
+
 // Issue #1728: Per-iteration working session summary attachment helper
 // Issue #1763: Per-iteration PR ↔ issue link verification (in case the AI
 // agent overwrites the PR body without a closing keyword and the iteration
@@ -338,6 +344,24 @@ export const watchForFeedback = async params => {
 
         if (toolResult.sessionId && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart'])) {
           global.previousSessionId = toolResult.sessionId;
+        }
+
+        // Issue #1827: Track the authenticated account's own comments posted
+        // during this session window so they are filtered (by ID) on the next
+        // feedback check instead of re-triggering a restart.
+        try {
+          const tracked = await trackAuthenticatedUserCommentsSince(owner, repo, prNumber, issueNumber, iterationStartTime, $, { verbose: argv.verbose });
+          if (argv.verbose && tracked.length > 0) {
+            await log(formatAligned('🧷', 'Tracked own session comments:', `${tracked.length} (won't count as feedback)`, 2));
+          }
+        } catch (trackError) {
+          reportError(trackError, {
+            context: 'track_authenticated_user_session_comments',
+            prNumber,
+            owner,
+            repo,
+            operation: 'track_session_comments',
+          });
         }
 
         if (!toolResult.success) {

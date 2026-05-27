@@ -48,6 +48,8 @@ const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs'
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
+// Issue #1823: working-session guard for --do-not-shutdown-in-the-middle-of-working-session.
+const { configureWorkingSession, beginWorkingSession, endWorkingSession } = await import('./working-session.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
 const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('./solve.repo-setup.lib.mjs');
@@ -148,6 +150,11 @@ const cleanupWrapper = async () => {
 const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper, ({ code, reason }) => notifyIssueAboutPrePullRequestFailure({ code, reason, argv, globalState: global, $, log, getLogFile, shouldAttachLogs, attachLogToGitHub, sanitizeLogContent, rawCommand }));
 installGlobalExitHandlers();
+// Issue #1823: Configure the working-session guard. When the experimental
+// --do-not-shutdown-in-the-middle-of-working-session flag is set (hive passes it to every
+// worker), an interrupt received during an AI working session is deferred: solve lets the AI
+// finish, auto-commits, then shuts down gracefully instead of aborting the AI tool mid-run.
+configureWorkingSession({ enabled: argv['do-not-shutdown-in-the-middle-of-working-session'] === true, log });
 const markFailureNotificationPosted = targetType => {
   global.preExitFailureNotificationPosted = true;
   if (targetType === 'pr') {
@@ -705,6 +712,11 @@ try {
   // Execute tool command with all prompts and settings
   let toolResult;
 
+  // Issue #1823: Mark the start of the AI working session. While this is active and the
+  // --do-not-shutdown-in-the-middle-of-working-session flag is set, an interrupt (CTRL+C/SIGTERM)
+  // is deferred until the AI tool finishes its turn (see exit-handler.lib.mjs + working-session.lib.mjs).
+  beginWorkingSession();
+
   // If --use-agent-commander is enabled, use agent-commander for all tools
   if (argv.useAgentCommander) {
     // Ensure agent-commander is available
@@ -811,6 +823,24 @@ try {
       $,
     });
     toolResult = claudeResult;
+  }
+
+  // Issue #1823: Mark the end of the AI working session. If a graceful-shutdown interrupt arrived
+  // during the session (deferred by the working-session guard), honor it now: auto-commit any
+  // uncommitted changes and exit gracefully — only AFTER the AI tool has fully finished its turn.
+  const workingSessionState = endWorkingSession();
+  if (workingSessionState.shutdownRequested) {
+    const shutdownExitCode = workingSessionState.shutdownSignal === 'SIGINT' ? 130 : 143;
+    await log('\n🛑 Graceful shutdown requested during the AI working session — the session has finished.', { level: 'warning' });
+    await log('   Auto-committing any uncommitted changes, then shutting down...', { level: 'warning' });
+    try {
+      await interruptWrapper();
+    } catch (interruptError) {
+      await log(`⚠️  Auto-commit on graceful shutdown failed: ${cleanErrorMessage(interruptError)}`, { level: 'warning' });
+    }
+    // Graceful shutdown is NOT a failure: skip the pre-exit failure notifier so no spurious
+    // "solver failed" comment is posted (issue #1823: no errors on graceful shutdown).
+    await safeExit(shutdownExitCode, 'Graceful shutdown after AI working session', { skipPreExit: true });
   }
 
   const { success } = toolResult;

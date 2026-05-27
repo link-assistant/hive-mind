@@ -29,6 +29,29 @@ export const createShutdownManager = ({ log, safeExit, reportError, cleanErrorMe
   // Global shutdown state to prevent duplicate shutdown messages / re-entrancy.
   let isShuttingDown = false;
 
+  // Issue #1823: Forward the operator's interrupt to each in-flight solve worker as SIGTERM,
+  // signalling the solve PROCESS itself (positive PID), NOT its process group (negative PID).
+  // Rationale (validated — see experiments/command-stream-signals.mjs): command-stream installs
+  // only a SIGINT handler and ignores SIGTERM, so signalling solve with SIGTERM never collaterally
+  // kills the AI child mid-turn. solve's own session-aware handler then decides what to do:
+  //   - if an AI working session is in progress, it finishes it, auto-commits, and exits 143;
+  //   - if it is only idle-waiting (e.g. for CI/CD), it stops immediately.
+  // This implements "send CTRL+C to solve command also" while still letting the AI session finish.
+  async function forwardShutdownToActiveSolveChildren() {
+    for (const child of activeSolveChildren) {
+      if (!child || child.pid == null) {
+        continue;
+      }
+      try {
+        process.kill(child.pid, 'SIGTERM'); // positive pid → just the solve process, not its group
+      } catch (signalError) {
+        await log(`   ⚠️  Could not forward SIGTERM to solve (pid ${child.pid}): ${signalError.message}`, {
+          verbose: true,
+        });
+      }
+    }
+  }
+
   // Issue #1823: Force-kill all in-flight detached solve children (and their codex
   // descendants) by signalling their process groups. Used only when the operator insists on
   // an immediate exit (a SECOND interrupt). A negative PID targets the whole process group,
@@ -71,10 +94,20 @@ export const createShutdownManager = ({ log, safeExit, reportError, cleanErrorMe
 
     try {
       await log(`\n\n🛑 Received ${signal} signal, shutting down gracefully...`);
-      await log('   ℹ️  Waiting for in-progress solve worker(s) to finish naturally. Press CTRL+C again to force-stop.');
+      await log('   ℹ️  Forwarding the interrupt to in-progress solve worker(s); each finishes its current AI working session, auto-commits, then stops. Press CTRL+C again to force-stop.');
 
       // Stop the queue so each worker exits its loop after its current solve completes.
       issueQueue.stop();
+
+      // Issue #1823: Forward the operator's CTRL+C to each in-flight solve worker (as SIGTERM).
+      // Previously hive only waited; now it actively tells solve to wind down so a worker that is
+      // merely idle-waiting (e.g. for CI/CD) stops promptly instead of sleeping out its interval,
+      // while a worker mid-AI-session still finishes that session before exiting (see solve's
+      // --do-not-shutdown-in-the-middle-of-working-session guard, which hive enables by default).
+      if (activeSolveChildren.size > 0) {
+        await log(`   📨 Forwarding shutdown to ${activeSolveChildren.size} in-flight solve worker(s)...`);
+        await forwardShutdownToActiveSolveChildren();
+      }
 
       // Issue #1823: Wait for in-flight solve commands to FINISH NATURALLY. We intentionally
       // do NOT cap this wait — the issue requires that CTRL+C / `$ --stop` fully waits for each
@@ -124,5 +157,5 @@ export const createShutdownManager = ({ log, safeExit, reportError, cleanErrorMe
     await safeExit(0, 'Process completed');
   }
 
-  return { gracefulShutdown, forceKillActiveSolveChildren };
+  return { gracefulShutdown, forceKillActiveSolveChildren, forwardShutdownToActiveSolveChildren };
 };

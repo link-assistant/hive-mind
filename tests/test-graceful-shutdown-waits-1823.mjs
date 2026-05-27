@@ -130,6 +130,19 @@ console.log('─'.repeat(60));
   assert(shutdown.includes('Received second'), 'a second interrupt triggers force-stop messaging');
   // The graceful wait must remain authoritative (Promise.all over workers).
   assert(shutdown.includes('await Promise.all(issueQueue.workers)'), 'gracefulShutdown still awaits Promise.all(issueQueue.workers)');
+  // Issue #1823 (working-session): the first interrupt FORWARDS the operator's CTRL+C to each
+  // in-flight solve as SIGTERM (positive pid) so it can finish its AI session and auto-commit.
+  assert(shutdown.includes('forwardShutdownToActiveSolveChildren'), 'shutdown lib has a SIGTERM-forwarding helper for the first interrupt');
+  assert(shutdown.includes("process.kill(child.pid, 'SIGTERM')"), 'forwarding targets the solve PROCESS via positive pid (command-stream ignores SIGTERM)');
+
+  // hive enables the working-session guard for every solve worker by default (the one CTRL+C change).
+  const hiveConfig = await readFile(join(repoRoot, 'src', 'hive.config.lib.mjs'), 'utf-8');
+  assert(hiveConfig.includes("'do-not-shutdown-in-the-middle-of-working-session'"), 'hive registers the working-session option');
+  assert(/do-not-shutdown-in-the-middle-of-working-session'[\s\S]*?default: true/.test(hiveConfig), 'hive defaults the working-session guard to true (forwarded to each /solve)');
+
+  // hive must treat a graceful-shutdown exit (130/143) as a graceful stop, not a failure.
+  assert(/exitCode === 130 \|\| exitCode === 143/.test(hive), 'hive treats solve exit 130/143 during shutdown as a graceful stop');
+  assert(hive.includes('gracefulStop'), 'hive tracks a graceful stop so the issue is neither completed nor failed');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -352,9 +365,19 @@ console.log('─'.repeat(60));
 
       const before = killCalls.length;
       await mgr.gracefulShutdown('interrupt');
+      const firstInterruptKills = killCalls.slice(before);
       assert(workersResolved, 'first interrupt awaits Promise.all(workers) before exiting');
       assert(exitCalls.length === 1 && exitCalls[0].code === 0, 'first interrupt exits 0 after workers finish naturally', `exitCalls=${JSON.stringify(exitCalls)}`);
-      assert(killCalls.length === before, 'first interrupt does NOT force-kill in-flight solve children');
+      // Issue #1823: the first interrupt now FORWARDS the operator's CTRL+C to each in-flight solve
+      // as SIGTERM (positive pid) so it can finish its AI working session and auto-commit, but it
+      // must NOT force-kill the process group (negative pid) — that escalation is reserved for a
+      // second interrupt.
+      assert(
+        firstInterruptKills.some(k => k.pid === 999999 && k.sig === 'SIGTERM'),
+        'first interrupt forwards SIGTERM to the solve process (positive pid)',
+        `kills=${JSON.stringify(firstInterruptKills)}`
+      );
+      assert(!firstInterruptKills.some(k => k.pid < 0), 'first interrupt does NOT force-kill the solve process group (no negative pid)', `kills=${JSON.stringify(firstInterruptKills)}`);
     }
 
     // --- Case B: SECOND interrupt force-kills the process group and exits 130. ---

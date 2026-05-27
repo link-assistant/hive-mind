@@ -211,25 +211,123 @@ other spawner/signal owner:
 Conclusion: the premature-shutdown root cause is unique to `hive.mjs` and is fixed
 there; the false-ERROR tagging is also unique to `hive.mjs`'s worker stderr handler.
 
+## Follow-up — "send CTRL+C to solve too" and the working-session guard
+
+The first fix fully **isolated** `/solve` (its own detached process group) so the
+terminal's `CTRL+C` never reached it, and hive simply waited. Review feedback on PR
+#1824 ([comment 4552826822](https://github.com/link-assistant/hive-mind/pull/1824#issuecomment-4552826822))
+refined the desired behavior:
+
+> _"send CTRL+C to solve command also … if it just waits for CI/CD we can stop it for
+> sure … for /hive workflow, we should pass option
+> `--do-not-shutdown-in-the-middle-of-working-session` to solve command (as experimental
+> option), that will not shutdown the solve command immediately, but instead will wait
+> once the AI working session is finished, make sure no uncommitted changes, and only
+> after that we can do graceful shutdown … if we use graceful shutdown by default we
+> should double check in all paths we really do automatically commit all uncommitted
+> changes … Ensure backwards compatibility is preserved, only thing we are changing is
+> how CTRL+C will work, when sent from hive command."_
+
+### The "AI working session" concept
+
+The **AI working session** is the window during which the AI tool child
+(`claude`/`codex`/`gemini`/`opencode`/`qwen`/`agent`) is actively running a turn. The
+new contract is: an interrupt is allowed to stop solve **between** sessions or while it
+is merely idle-waiting, but must let an **in-progress** session finish (and auto-commit)
+rather than killing the model mid-turn.
+
+### Why hive→solve uses SIGTERM (not SIGINT)
+
+`command-stream` (the library solve uses to run the AI child) installs **only** a
+`SIGINT` handler that forwards SIGINT to the active child's process group — and calls
+`process.exit(130)` when it is the sole SIGINT listener. It has **no** SIGTERM handler
+(validated in `experiments/command-stream-signals.mjs`). So:
+
+- hive forwards the operator's CTRL+C to each in-flight solve worker as **SIGTERM**, to
+  the **positive PID** (the solve process itself, not its group). command-stream ignores
+  SIGTERM, so the AI child is **never collaterally killed** by the library.
+- solve's own session-aware SIGTERM handler then decides: finish the in-progress session
+  and auto-commit (flag on), or stop promptly if only idle-waiting.
+- A **second** interrupt escalates to the negative-PID group kill (codex and
+  grandchildren included), exactly as before.
+
+### New module — `src/working-session.lib.mjs`
+
+A per-process singleton state machine: `configureWorkingSession({enabled, log})`,
+`beginWorkingSession()` / `endWorkingSession()` (bracket the AI dispatch in `solve.mjs`),
+`requestShutdown(signal)` (records a deferred shutdown; a repeat sets `forceRequested`),
+and `forceKillActiveChildren()` (reuses command-stream's own SIGINT listener — found by
+matching its internal helper names — while temporarily installing a no-op SIGINT
+listener so the library sees `listeners.length > 1` and does **not** `process.exit(130)`,
+leaving solve in control to auto-commit first).
+
+### Wiring
+
+- **`solve.mjs`** — `configureWorkingSession(...)` from the CLI flag;
+  `beginWorkingSession()` immediately before AI dispatch and `endWorkingSession()`
+  immediately after. If a shutdown was requested during the session, solve auto-commits
+  via the interrupt wrapper and exits 130 (SIGINT) / 143 (SIGTERM).
+- **`exit-handler.lib.mjs`** — when the flag is on and a session is active, the
+  SIGINT/SIGTERM handlers `requestShutdown(...)` and **defer** instead of exiting; a
+  second interrupt calls `forceKillActiveChildren()` then exits. A new `safeExit(code,
+reason, { skipPreExit })` option lets the graceful path **skip** the pre-exit failure
+  notifier, so a graceful shutdown never posts a spurious "🚨 solution draft failed"
+  comment (it is a normal stop, not a failure).
+- **`interruptible-sleep.lib.mjs`** — idle/CI-wait loops resolve early on **both** SIGINT
+  and SIGTERM, so "if it just waits for CI/CD we can stop it for sure" holds.
+- **`hive.config.lib.mjs`** — registers
+  `--do-not-shutdown-in-the-middle-of-working-session` in `HIVE_CUSTOM_SOLVE_OPTIONS`
+  with `default: true`, so hive's existing auto-forward loop passes the flag to every
+  `/solve` worker. Standalone solve keeps `default: false` — **backwards compatible**.
+- **`hive.shutdown.lib.mjs`** — first interrupt now calls
+  `forwardShutdownToActiveSolveChildren()` (positive-PID SIGTERM) before the uncapped
+  wait; second interrupt still force-kills the group.
+- **`hive.mjs`** — a worker that exits 130/143 **while the queue is stopping** is treated
+  as a graceful stop (logged, `gracefulStop = true`), not a failure: it is neither
+  `markCompleted` nor `markFailed`, so no failure comment and no false "completed" count.
+
+### Auto-commit in every graceful path (the "double check" requirement)
+
+| Path                                   | Flag           | Auto-commits?                                     | Exit         |
+| -------------------------------------- | -------------- | ------------------------------------------------- | ------------ |
+| solve SIGINT, no session active        | off            | yes (interrupt wrapper)                           | 130          |
+| solve SIGTERM, no session active       | off            | yes (**new** — was previously no SIGTERM handler) | 143          |
+| solve interrupt, session active        | on             | yes, **after** the session finishes               | 130/143      |
+| solve second interrupt, session active | on             | yes, then force-stop                              | 130          |
+| hive first CTRL+C                      | on (forwarded) | yes (each solve auto-commits)                     | hive exits 0 |
+
 ## Regression Coverage
 
-`tests/test-graceful-shutdown-waits-1823.mjs` — 33 assertions across 6 suites:
+`tests/test-graceful-shutdown-waits-1823.mjs` — 40 assertions across 6 suites:
 
 1. `exit-handler` exposes `delegateSignalHandling` / `resetExitHandler`.
 2. Source assertions on `hive.mjs` + `hive.shutdown.lib.mjs` (delegate call,
    `detached: true`, `activeSolveChildren`, `createShutdownManager`, negative-PID
    force-kill, uncapped `await Promise.all(issueQueue.workers)`, neutral `stderr]`
-   tag and absence of the old `worker-${workerId} ERROR]` tag).
+   tag and absence of the old `worker-${workerId} ERROR]` tag, plus the new
+   `forwardShutdownToActiveSolveChildren` positive-PID SIGTERM, the hive config option
+   with `default: true`, and the `exitCode === 130 || 143` graceful-stop handling).
 3. The exit-handler SIGINT/SIGTERM handlers contain the `signalHandlingDelegated`
    guard before any exit.
 4. Integration: a delegated harness exits 0; a non-delegated harness exits 130.
 5. Integration: a `detached` child survives `process.kill(-pid, 'SIGINT')` to the
    group and reports `COMPLETED`, while a non-detached child reports `INTERRUPTED`.
 6. Unit test of `createShutdownManager` with a mocked `process.kill`: first interrupt
-   waits + exits 0 + no kill; second interrupt force-kills the group + exits 130.
+   waits + exits 0 + forwards positive-PID SIGTERM (no group kill); second interrupt
+   force-kills the group + exits 130.
+
+`tests/test-working-session-shutdown-1823.mjs` — 45 assertions across 5 suites covering
+the new guard: (1) `working-session.lib.mjs` unit API incl. `forceKillActiveChildren`
+against a fake command-stream listener; (2) static wiring across
+`solve.mjs`/`exit-handler`/`interruptible-sleep`/`solve.config`/`hive.config`; (3)
+integration — a deferred interrupt during a protected session honors the shutdown only
+**after** the session ends, auto-commits, and exits 143; (4) a second interrupt
+force-stops (exit 130, still auto-commits); (5) backwards compatibility with the flag
+**off** (SIGTERM auto-commits + exits 143; SIGINT auto-commits + exits 130).
 
 ```bash
 node tests/test-graceful-shutdown-waits-1823.mjs
+node tests/test-working-session-shutdown-1823.mjs
 ```
 
 ## Debug / Verbose Output (requirement d)

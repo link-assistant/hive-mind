@@ -710,11 +710,9 @@ if (isRunningDirectly) {
     // Create global queue instance
     const issueQueue = new IssueQueue();
 
-    // Issue #1823: Track in-flight solve child processes so a *second* interrupt (CTRL+C /
-    // SIGTERM) can force-kill them. On a *first* interrupt we deliberately do NOT kill them —
-    // each solve runs in its own process group (spawned with detached: true) so the terminal's
-    // SIGINT (or screen's injected \003 from `$ --stop`) does not reach it, and graceful
-    // shutdown waits for it to finish naturally.
+    // Issue #1823: Track in-flight solve child processes. A *first* interrupt forwards a
+    // controlled SIGTERM to each (they run in their own detached process group, so the
+    // terminal's SIGINT never reaches them); a *second* interrupt force-kills the groups.
     const activeSolveChildren = new Set();
 
     // Worker function to process issues from queue
@@ -744,6 +742,8 @@ if (isRunningDirectly) {
 
         // Track if this issue failed
         let issueFailed = false;
+        // Issue #1823: Track a graceful shutdown stop so it is neither failed nor completed.
+        let gracefulStop = false;
 
         // Process the issue multiple times if needed
         for (let prNum = 1; prNum <= argv.pullRequestsPerIssue; prNum++) {
@@ -816,14 +816,10 @@ if (isRunningDirectly) {
               const child = spawn(solveCommand, args, {
                 stdio: ['pipe', 'pipe', 'pipe'],
                 env: process.env,
-                // Issue #1823: Run solve in its own process group/session so a terminal SIGINT
-                // (CTRL+C) — or the \003 that `$ --stop`/screen injects into the PTY — is delivered
-                // only to hive's foreground group, NOT to solve and its codex child. Without this,
-                // solve was interrupted mid-turn (codex died → "Could not read Codex final message
-                // file: ENOENT") instead of finishing. Graceful shutdown now waits for solve to
-                // complete naturally via Promise.all(issueQueue.workers); a *second* interrupt
-                // force-kills the group (see gracefulShutdown). stdio stays piped so we keep
-                // streaming/logging output. We must NOT unref() — hive must keep waiting for it.
+                // Issue #1823: run solve in its own process group so a terminal SIGINT (or the
+                // \003 `$ --stop`/screen injects) hits only hive, not solve+codex. hive instead
+                // forwards a controlled SIGTERM (see gracefulShutdown). stdio stays piped and we
+                // must NOT unref() — hive keeps waiting. See docs/case-studies/issue-1823.
                 detached: true,
               });
 
@@ -848,12 +844,10 @@ if (isRunningDirectly) {
               });
 
               // Handle stderr data - stream output in real-time.
-              // Issue #1823: Do NOT blanket-tag stderr as ERROR. solve relays a lot of
-              // non-error diagnostics to stderr — codex DEBUG/INFO/WARN traces, git's normal
-              // "Switched to a new branch" messages, "Process exited with code 0", etc. Tagging
-              // every such line `ERROR` (level: 'error') produced hundreds of false errors in the
-              // log. The authoritative failure signal is the child's non-zero exit code (handled
-              // below), so stderr is logged at the default level under a neutral `stderr` marker.
+              // Issue #1823: Do NOT blanket-tag stderr as ERROR — solve relays non-error
+              // diagnostics there (codex DEBUG/INFO traces, git branch messages, etc.), which
+              // produced hundreds of false errors. The authoritative failure signal is the
+              // child's non-zero exit code (below), so log stderr at default level.
               child.stderr.on('data', data => {
                 const lines = data.toString().split('\n');
                 for (const line of lines) {
@@ -897,6 +891,13 @@ if (isRunningDirectly) {
 
             if (exitCode === 0) {
               await log(`   ✅ Worker ${workerId} completed ${issueUrl} (${duration}s)`);
+            } else if (!issueQueue.isRunning && (exitCode === 130 || exitCode === 143)) {
+              // Issue #1823: during shutdown, solve auto-commits and exits 130/143 — a graceful
+              // stop, NOT a failure. Don't throw/post an error; leave the issue in "processing"
+              // (neither completed nor failed) since work was cut short. See case-study issue-1823.
+              await log(`   🛑 Worker ${workerId} stopped gracefully during shutdown on ${issueUrl} (exit ${exitCode}, ${duration}s)`);
+              gracefulStop = true;
+              break; // stop processing more PRs for this issue
             } else {
               throw new Error(`${solveCommand} exited with code ${exitCode}`);
             }
@@ -921,8 +922,10 @@ if (isRunningDirectly) {
           }
         }
 
-        // Only mark as completed if it didn't fail
-        if (!issueFailed) {
+        // Only mark as completed if it didn't fail and wasn't gracefully stopped mid-shutdown.
+        // Issue #1823: a graceful stop is neither a success nor a failure — leave it in
+        // "processing" so it is not miscounted as completed (which would also trigger cleanup).
+        if (!issueFailed && !gracefulStop) {
           issueQueue.markCompleted(issueUrl);
         }
 

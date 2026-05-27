@@ -50,6 +50,17 @@ const HIVE_CUSTOM_SOLVE_OPTIONS = {
     choices: ['claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini'],
     default: 'claude',
   },
+  // Issue #1823: hive enables the experimental working-session guard for every /solve worker by
+  // default. This is the ONLY change to how CTRL+C behaves in the hive workflow: instead of
+  // aborting the AI tool mid-run, a forwarded interrupt lets the worker finish its current AI
+  // working session, auto-commit, then shut down gracefully. solve keeps default:false (standalone
+  // behavior unchanged); hive overrides the default to true so the loop below forwards the flag.
+  // Operators can opt out with --no-do-not-shutdown-in-the-middle-of-working-session.
+  'do-not-shutdown-in-the-middle-of-working-session': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] On CTRL+C, let each /solve worker finish its current AI working session and auto-commit before shutting down, instead of aborting it mid-run. If a worker is only idle-waiting (e.g. for CI/CD), it stops immediately. Press CTRL+C again to force-stop. Enabled by default for the hive workflow.',
+    default: true,
+  },
 };
 
 // Compute the set of solve options that hive auto-registers from SOLVE_OPTION_DEFINITIONS.

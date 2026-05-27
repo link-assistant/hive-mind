@@ -306,6 +306,43 @@ const isTransientNetworkError = error => {
 };
 
 /**
+ * Patterns that identify a *transient* failure of GitHub's compare/diff
+ * rendering endpoint (`/repos/{owner}/{repo}/compare/{base}...{head}`).
+ *
+ * Issue #1829: under heavy server load GitHub returns
+ *   `HTTP 500: {"message":"...","errors":[{"code":"not_available",...}]}`
+ * with the body "this diff is temporarily unavailable due to heavy server
+ * load". This is NOT a "commits not indexed yet" condition — the branch and
+ * commits are already pushed and `gh pr create` (which does not render the
+ * full diff) would succeed. The readiness gate in `solve.auto-pr.lib.mjs`
+ * used to treat this as fatal and abort the whole session. These patterns let
+ * callers recognise the transient case and degrade gracefully instead.
+ *
+ * Note: HTTP 500 is deliberately matched here (and NOT in
+ * `TRANSIENT_NETWORK_PATTERNS`) because a bare 500 from arbitrary endpoints is
+ * too broad to retry blindly; it is only safe to treat as transient for the
+ * compare endpoint, alongside the explicit "not_available" / "heavy server
+ * load" markers.
+ */
+const TRANSIENT_COMPARE_API_PATTERNS = ['this diff is temporarily unavailable', 'temporarily unavailable due to heavy server load', 'heavy server load', 'not_available', 'http 500', 'http 502', 'http 503', 'http 504'];
+
+/**
+ * Detect whether `error` represents a transient failure of GitHub's
+ * compare/diff endpoint (issue #1829). Returns true for the documented
+ * "heavy server load" / `not_available` HTTP 500 response as well as the
+ * standard transient gateway codes (502/503/504), so the auto-PR readiness
+ * gate can fall through to PR creation rather than aborting.
+ *
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+const isTransientCompareApiError = error => {
+  const text = collectErrorText(error).toLowerCase();
+  if (!text) return false;
+  return TRANSIENT_COMPARE_API_PATTERNS.some(pattern => text.includes(pattern));
+};
+
+/**
  * Wrap `fn` so that GitHub rate-limit errors are converted into a sleep until
  * (resetTime + bufferMs + jitterMs) followed by a retry. Transient network
  * errors (504/502/503, socket hang up, TLS timeouts) get exponential backoff
@@ -438,11 +475,12 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
   return wrapped;
 };
 
-export { isTransientNetworkError };
+export { isTransientNetworkError, isTransientCompareApiError };
 
 export default {
   isRateLimitError,
   isTransientNetworkError,
+  isTransientCompareApiError,
   parseRateLimitReset,
   fetchNextRateLimitReset,
   fetchGitHubRateLimitUsage,

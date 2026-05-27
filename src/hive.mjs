@@ -35,6 +35,7 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
 }
 export { createYargsConfig } from './hive.config.lib.mjs';
 import { isDirectExecution, withTimeout } from './hive.bootstrap.lib.mjs';
+import { createShutdownManager } from './hive.shutdown.lib.mjs';
 const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
 if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
@@ -88,7 +89,7 @@ if (isRunningDirectly) {
     const memCheck = await import('./memory-check.mjs');
     const { checkSystem } = memCheck;
     const exitHandler = await import('./exit-handler.lib.mjs');
-    const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
+    const { initializeExitHandler, installGlobalExitHandlers, safeExit, delegateSignalHandling } = exitHandler;
     const sentryLib = await import('./sentry.lib.mjs');
     const { initializeSentry, withSentry, addBreadcrumb, reportError } = sentryLib;
     const graphqlLib = await import('./github.graphql.lib.mjs');
@@ -709,8 +710,10 @@ if (isRunningDirectly) {
     // Create global queue instance
     const issueQueue = new IssueQueue();
 
-    // Global shutdown state to prevent duplicate shutdown messages
-    let isShuttingDown = false;
+    // Issue #1823: Track in-flight solve child processes. A *first* interrupt forwards a
+    // controlled SIGTERM to each (they run in their own detached process group, so the
+    // terminal's SIGINT never reaches them); a *second* interrupt force-kills the groups.
+    const activeSolveChildren = new Set();
 
     // Worker function to process issues from queue
     async function worker(workerId) {
@@ -739,6 +742,8 @@ if (isRunningDirectly) {
 
         // Track if this issue failed
         let issueFailed = false;
+        // Issue #1823: Track a graceful shutdown stop so it is neither failed nor completed.
+        let gracefulStop = false;
 
         // Process the issue multiple times if needed
         for (let prNum = 1; prNum <= argv.pullRequestsPerIssue; prNum++) {
@@ -811,7 +816,16 @@ if (isRunningDirectly) {
               const child = spawn(solveCommand, args, {
                 stdio: ['pipe', 'pipe', 'pipe'],
                 env: process.env,
+                // Issue #1823: run solve in its own process group so a terminal SIGINT (or the
+                // \003 `$ --stop`/screen injects) hits only hive, not solve+codex. hive instead
+                // forwards a controlled SIGTERM (see gracefulShutdown). stdio stays piped and we
+                // must NOT unref() — hive keeps waiting. See docs/case-studies/issue-1823.
+                detached: true,
               });
+
+              // Issue #1823: register the in-flight child for optional force-kill on a 2nd signal
+              activeSolveChildren.add(child);
+              log(`   🧒 Spawned ${solveCommand} worker-${workerId} (pid ${child.pid}, detached process group)`, { verbose: true }).catch(() => {});
 
               // Handle stdout data - stream output in real-time
               child.stdout.on('data', data => {
@@ -829,16 +843,20 @@ if (isRunningDirectly) {
                 }
               });
 
-              // Handle stderr data - stream errors in real-time
+              // Handle stderr data - stream output in real-time.
+              // Issue #1823: Do NOT blanket-tag stderr as ERROR — solve relays non-error
+              // diagnostics there (codex DEBUG/INFO traces, git branch messages, etc.), which
+              // produced hundreds of false errors. The authoritative failure signal is the
+              // child's non-zero exit code (below), so log stderr at default level.
               child.stderr.on('data', data => {
                 const lines = data.toString().split('\n');
                 for (const line of lines) {
                   if (line.trim()) {
-                    log(`   [${solveCommand} worker-${workerId} ERROR] ${line}`, { level: 'error' }).catch(logError => {
+                    log(`   [${solveCommand} worker-${workerId} stderr] ${line}`).catch(logError => {
                       reportError(logError, {
                         context: 'worker_stderr_log',
                         workerId,
-                        operation: 'log_error',
+                        operation: 'log_stderr',
                       });
                     });
                   }
@@ -847,12 +865,14 @@ if (isRunningDirectly) {
 
               // Handle process completion
               child.on('close', code => {
+                activeSolveChildren.delete(child); // Issue #1823: no longer in-flight
                 exitCode = code || 0;
                 resolve();
               });
 
               // Handle process errors
               child.on('error', error => {
+                activeSolveChildren.delete(child); // Issue #1823: no longer in-flight
                 exitCode = 1;
                 log(`   [${solveCommand} worker-${workerId} ERROR] Process error: ${error.message}`, {
                   level: 'error',
@@ -871,6 +891,13 @@ if (isRunningDirectly) {
 
             if (exitCode === 0) {
               await log(`   ✅ Worker ${workerId} completed ${issueUrl} (${duration}s)`);
+            } else if (!issueQueue.isRunning && (exitCode === 130 || exitCode === 143)) {
+              // Issue #1823: during shutdown, solve auto-commits and exits 130/143 — a graceful
+              // stop, NOT a failure. Don't throw/post an error; leave the issue in "processing"
+              // (neither completed nor failed) since work was cut short. See case-study issue-1823.
+              await log(`   🛑 Worker ${workerId} stopped gracefully during shutdown on ${issueUrl} (exit ${exitCode}, ${duration}s)`);
+              gracefulStop = true;
+              break; // stop processing more PRs for this issue
             } else {
               throw new Error(`${solveCommand} exited with code ${exitCode}`);
             }
@@ -895,8 +922,10 @@ if (isRunningDirectly) {
           }
         }
 
-        // Only mark as completed if it didn't fail
-        if (!issueFailed) {
+        // Only mark as completed if it didn't fail and wasn't gracefully stopped mid-shutdown.
+        // Issue #1823: a graceful stop is neither a success nor a failure — leave it in
+        // "processing" so it is not miscounted as completed (which would also trigger cleanup).
+        if (!issueFailed && !gracefulStop) {
           issueQueue.markCompleted(issueUrl);
         }
 
@@ -1384,55 +1413,27 @@ if (isRunningDirectly) {
       await log(`   📁 Full log file: ${absoluteLogPath}`);
     }
 
-    // Graceful shutdown handler
-    async function gracefulShutdown(signal) {
-      if (isShuttingDown) {
-        return; // Prevent duplicate shutdown messages
-      }
-      isShuttingDown = true;
+    // Issue #1823: Graceful-shutdown + force-kill logic lives in hive.shutdown.lib.mjs.
+    // gracefulShutdown waits (uncapped) for in-flight solve workers to finish on the first
+    // interrupt; on a second interrupt it force-kills their detached process groups.
+    const { gracefulShutdown } = createShutdownManager({
+      log,
+      safeExit,
+      reportError,
+      cleanErrorMessage,
+      cleanupTempDirectories,
+      issueQueue,
+      argv,
+      absoluteLogPath,
+      activeSolveChildren,
+    });
 
-      try {
-        await log(`\n\n🛑 Received ${signal} signal, shutting down gracefully...`);
-
-        // Stop the queue and wait for workers to finish
-        issueQueue.stop();
-
-        // Give workers a moment to finish their current tasks
-        const stats = issueQueue.getStats();
-        if (stats.processing > 0) {
-          await log(`   ⏳ Waiting for ${stats.processing} worker(s) to finish current tasks...`);
-
-          // Wait up to 10 seconds for workers to finish
-          const maxWaitTime = 10000;
-          const startTime = Date.now();
-          while (issueQueue.getStats().processing > 0 && Date.now() - startTime < maxWaitTime) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        }
-
-        await Promise.all(issueQueue.workers);
-
-        // Perform cleanup if enabled and there were successful completions
-        const finalStats = issueQueue.getStats();
-        if (finalStats.completed > 0) {
-          await cleanupTempDirectories(argv);
-        }
-
-        await log('   ✅ Shutdown complete');
-        await log(`   📁 Full log file: ${absoluteLogPath}`);
-      } catch (error) {
-        reportError(error, {
-          context: 'monitor_issues_shutdown',
-          operation: 'cleanup_and_exit',
-        });
-        await log(`   ⚠️  Error during shutdown: ${cleanErrorMessage(error)}`, { level: 'error' });
-        await log(`   📁 Full log file: ${absoluteLogPath}`);
-      }
-
-      await safeExit(0, 'Process completed');
-    }
-
-    // Handle graceful shutdown
+    // Handle graceful shutdown.
+    // Issue #1823: Tell the global exit handler (installed earlier via installGlobalExitHandlers)
+    // to stand down on SIGINT/SIGTERM so it does not call process.exit() and race us. From here
+    // on, gracefulShutdown is the SOLE owner of these signals: it waits for in-progress solve
+    // worker(s) to finish and then exits via safeExit().
+    delegateSignalHandling(true);
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
     process.on('SIGTERM', () => gracefulShutdown('termination'));
 

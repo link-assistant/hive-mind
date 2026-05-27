@@ -6,6 +6,10 @@
  * the process exits, whether due to normal completion, errors, or signals.
  */
 
+// Issue #1823: working-session guard for --do-not-shutdown-in-the-middle-of-working-session.
+// Static import is safe: working-session.lib.mjs has no heavy deps and does NOT import this module.
+import { isFlagEnabled as isWorkingSessionFlagEnabled, isWorkingSessionActive, requestShutdown as requestWorkingSessionShutdown, forceKillActiveChildren as forceKillWorkingSessionChildren } from './working-session.lib.mjs';
+
 // Lazy-load Sentry to avoid keeping the event loop alive when not needed
 let Sentry = null;
 const getSentry = async () => {
@@ -30,6 +34,14 @@ let interruptHandlerRan = false;
 let preExitFunction = null;
 let preExitHandlerRan = false;
 
+// Issue #1823: When an external owner (e.g. hive's gracefulShutdown) takes over signal
+// handling, the global SIGINT/SIGTERM handlers must stand down and NOT call process.exit().
+// Otherwise the global handler's process.exit() races with the external graceful handler
+// and cuts its wait short — the root cause of premature shutdown that aborts an in-flight
+// /solve (and its codex child) mid-turn. Defaults to false to preserve existing behavior
+// for solve.mjs, telegram-bot, and other entry points that rely on the global handlers.
+let signalHandlingDelegated = false;
+
 /**
  * Initialize the exit handler with required dependencies
  * @param {Function} getLogPath - Function that returns the current log path
@@ -48,6 +60,20 @@ export const initializeExitHandler = (getLogPath, log, cleanup = null, interrupt
 
 export const setPreExitHandler = preExit => {
   preExitFunction = preExit;
+};
+
+/**
+ * Issue #1823: Delegate SIGINT/SIGTERM handling to an external graceful shutdown owner.
+ *
+ * When enabled, the global SIGINT/SIGTERM handlers installed by installGlobalExitHandlers()
+ * stand down (return early) instead of calling process.exit(). This lets a caller such as
+ * hive's gracefulShutdown() fully wait for in-progress work (e.g. an executing /solve) to
+ * finish and then exit via safeExit(), without the global handler racing it to process.exit().
+ *
+ * @param {boolean} enabled - true to delegate (caller owns exit), false to restore default.
+ */
+export const delegateSignalHandling = (enabled = true) => {
+  signalHandlingDelegated = enabled;
 };
 
 /**
@@ -203,11 +229,17 @@ export const logActiveHandles = async (log = null) => {
 
 /**
  * Safe exit function that ensures log path is shown
+ *
+ * @param {number} code - Process exit code
+ * @param {string} reason - Human-readable exit reason
+ * @param {object} [options]
+ * @param {boolean} [options.skipPreExit=false] - Issue #1823: skip the pre-exit failure notifier
+ *   (e.g. on graceful shutdown, which is NOT a failure and must not post a "solver failed" comment).
  */
-export const safeExit = async (code = 0, reason = 'Process completed') => {
+export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false } = {}) => {
   await showExitMessage(reason, code);
 
-  if (code !== 0 && preExitFunction && !preExitHandlerRan) {
+  if (!skipPreExit && code !== 0 && preExitFunction && !preExitHandlerRan) {
     preExitHandlerRan = true;
     try {
       await preExitFunction({ code, reason });
@@ -273,6 +305,34 @@ export const installGlobalExitHandlers = () => {
 
   // Handle SIGINT (CTRL+C)
   process.on('SIGINT', async () => {
+    // Issue #1823: If an external graceful-shutdown owner is registered, stand down.
+    // That owner (e.g. hive's gracefulShutdown) is responsible for waiting for in-progress
+    // work and exiting via safeExit(). Calling process.exit(130) here would race with it
+    // and cut the wait short — the root cause of the premature shutdown.
+    if (signalHandlingDelegated) {
+      return;
+    }
+    // Issue #1823: With --do-not-shutdown-in-the-middle-of-working-session, defer shutdown while
+    // an AI working session is in progress so the AI tool is never aborted mid-run.
+    if (isWorkingSessionFlagEnabled() && isWorkingSessionActive()) {
+      const { first } = requestWorkingSessionShutdown('SIGINT');
+      if (first) {
+        if (logFunction) {
+          await logFunction('\n⚠️  Shutdown requested (CTRL+C). Finishing the current AI working session, then auto-committing and stopping. Press CTRL+C again to force-stop now.', { level: 'warning' });
+        }
+        return; // defer — solve will auto-commit + exit once the session ends
+      }
+      // Second interrupt → operator insists. Force-kill the AI child group, then fall through to
+      // auto-commit + exit below.
+      if (logFunction) {
+        await logFunction('\n⚠️  Second interrupt — force-stopping the AI working session now.', { level: 'warning' });
+      }
+      try {
+        forceKillWorkingSessionChildren();
+      } catch {
+        // ignore — child may already be gone
+      }
+    }
     // Run interrupt handler first (auto-commit, log upload, etc.) — guard against double invocation
     if (interruptFunction && !interruptHandlerRan) {
       interruptHandlerRan = true;
@@ -303,6 +363,40 @@ export const installGlobalExitHandlers = () => {
 
   // Handle SIGTERM
   process.on('SIGTERM', async () => {
+    // Issue #1823: Stand down when an external graceful-shutdown owner is registered.
+    if (signalHandlingDelegated) {
+      return;
+    }
+    // Issue #1823: hive forwards the operator's CTRL+C to each /solve worker as SIGTERM (which
+    // command-stream ignores). With --do-not-shutdown-in-the-middle-of-working-session, defer
+    // shutdown while an AI working session is in progress so the AI tool finishes its turn.
+    if (isWorkingSessionFlagEnabled() && isWorkingSessionActive()) {
+      const { first } = requestWorkingSessionShutdown('SIGTERM');
+      if (first) {
+        if (logFunction) {
+          await logFunction('\n⚠️  Shutdown requested. Finishing the current AI working session, then auto-committing and stopping. Send the signal again to force-stop now.', { level: 'warning' });
+        }
+        return; // defer — solve will auto-commit + exit once the session ends
+      }
+      if (logFunction) {
+        await logFunction('\n⚠️  Second signal — force-stopping the AI working session now.', { level: 'warning' });
+      }
+      try {
+        forceKillWorkingSessionChildren();
+      } catch {
+        // ignore — child may already be gone
+      }
+    }
+    // Issue #1823: Auto-commit uncommitted changes on SIGTERM too (previously only SIGINT did).
+    // This ensures graceful shutdown preserves work in ALL signal paths.
+    if (interruptFunction && !interruptHandlerRan) {
+      interruptHandlerRan = true;
+      try {
+        await interruptFunction();
+      } catch {
+        // Ignore interrupt handler errors
+      }
+    }
     if (cleanupFunction) {
       try {
         await cleanupFunction();
@@ -377,4 +471,5 @@ export const installGlobalExitHandlers = () => {
 export const resetExitHandler = () => {
   exitMessageShown = false;
   interruptHandlerRan = false;
+  signalHandlingDelegated = false;
 };

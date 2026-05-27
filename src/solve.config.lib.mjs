@@ -115,6 +115,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: '[EXPERIMENTAL] Temporarily copy AGENTS.md/agents.md to CLAUDE.md while Claude runs, then remove the temporary copy',
     default: false,
   },
+  'do-not-shutdown-in-the-middle-of-working-session': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] On interrupt (CTRL+C / SIGTERM), do not abort the AI tool mid-run. If an AI working session is in progress, wait for it to finish, auto-commit any uncommitted changes, then shut down gracefully. If solve is only idle-waiting (e.g. for CI/CD), stop immediately. A second interrupt force-stops. hive passes this automatically to every /solve worker.',
+    default: false,
+  },
   'attach-logs': {
     type: 'boolean',
     description: 'Upload the solution draft log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',

@@ -135,17 +135,24 @@ _not_ in `TRANSIENT_NETWORK_PATTERNS`) because it is only safe to treat 500 as
 transient in the compare-endpoint context, alongside the explicit markers.
 Exported as a named export and on the default export.
 
-### 2. `src/solve.auto-pr.lib.mjs` — degrade gracefully instead of aborting
+### 2. `src/solve.auto-pr-compare-readiness.lib.mjs` (new) — degrade gracefully instead of aborting
 
-- The compare-loop failure branch now logs a **concise warning in normal output**
-  (not just `--verbose`), tagging transient errors, so the decision is explainable.
-- The `if (!compareReady)` block computes the last compare output **as a string**
+The "compare API not ready" decision is extracted into its own module so
+`solve.auto-pr.lib.mjs` stays under the 1500-line CI cap (matching the existing
+`solve.auto-pr-fork-diagnostic.lib.mjs` precedent). `solve.auto-pr.lib.mjs`
+imports and delegates to it: `compareReady = await handleCompareApiNotReady({...})`.
+
+- The compare-loop failure branch (still in `solve.auto-pr.lib.mjs`) now logs a
+  **concise warning in normal output** (not just `--verbose`), tagging transient
+  errors, so the decision is explainable.
+- `handleCompareApiNotReady` computes the last compare output **as a string**
   (the command-stream result exposes `stdout`/`stderr` as Buffers, and
   `collectErrorText` returns `''` for a raw Buffer, so the detectors would
   silently no-op otherwise).
 - A new branch `else if (compareFailedTransiently)` — guarded by
-  `!isRepositoryMismatch` — logs a `⚠️ COMPARE API DEGRADED` explanation and sets
-  `compareReady = true`, **falling through to PR creation** instead of throwing.
+  `!isRepositoryMismatch` — logs a `⚠️ COMPARE API DEGRADED` explanation and
+  **returns `true`** (so the caller sets `compareReady = true` and proceeds to
+  PR creation) instead of throwing.
 
 The degraded path remains safe because the existing downstream safety nets still run:
 
@@ -178,10 +185,11 @@ The risk profiles differ: degrading is correct for a **non-destructive** action
   a Buffer-backed stderr, **and the exact verbatim string from this issue's log**.
 - Negative cases that must **not** degrade: HTTP 404 (fork mismatch), a literal
   `"0"` (genuine 0 commits), generic errors, `null`/`undefined`/`''`, and a raw Buffer.
-- Source-level guarantees on `solve.auto-pr.lib.mjs`: import present, last output
-  built as a string, degraded branch sets `compareReady = true` and does **not**
-  throw, the original hard-error path and fork-404 path are preserved, and the
-  degraded decision is guarded by `!isRepositoryMismatch`.
+- Source-level guarantees: `solve.auto-pr.lib.mjs` imports and delegates to
+  `handleCompareApiNotReady`; in `solve.auto-pr-compare-readiness.lib.mjs` the
+  last output is built as a string, the degraded branch returns `true` and does
+  **not** throw, the original hard-error path and fork-404 path are preserved,
+  and the degraded decision is guarded by `!isRepositoryMismatch`.
 
 ## Alternatives considered
 
@@ -204,10 +212,9 @@ under load, which is why we capture the exact bytes from the original report.
 
 ## Verification
 
-- `node tests/test-issue-1829-compare-api-transient.mjs` → 18/18 pass.
-- `node tests/test-execgh-transient-retry-1756.mjs` → still passes (additive change).
-- `node tests/test-issue-1774-auto-pr-fork-repo-flag.mjs` → still passes.
-- `npm run lint` clean.
+- `node tests/test-issue-1829-compare-api-transient.mjs` → 19/19 pass.
+- `npm test` (default suite) → 220 test files pass.
+- `npm run lint`, `npm run format:check`, `bash scripts/check-file-line-limits.sh` → all clean.
 
 ## Cross-project follow-ups
 

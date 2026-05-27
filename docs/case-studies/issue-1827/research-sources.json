@@ -1,0 +1,49 @@
+{
+  "issue": "https://github.com/link-assistant/hive-mind/issues/1827",
+  "pull_request": "https://github.com/link-assistant/hive-mind/pull/1828",
+  "incident_pull_request": "https://github.com/link-foundation/rust-web-box/pull/34",
+  "incident_anchor_comment": "https://github.com/link-foundation/rust-web-box/pull/34#issuecomment-4553699345",
+  "related_issues": [
+    {
+      "id": 1821,
+      "title": "Auto-restart missed same-account feedback",
+      "relation": "Introduced trustAuthenticatedUserComments:true for the auto-restart loop, which removed the previous same-account safety net and exposed this loop.",
+      "case_study": "docs/case-studies/issue-1821/README.md"
+    },
+    {
+      "id": 1323,
+      "relation": "Origin of checkForExistingComment / tool-comment marker checks."
+    },
+    {
+      "id": 1593,
+      "relation": "Extracted auto-merge helpers into solve.auto-merge-helpers.lib.mjs."
+    }
+  ],
+  "external_references": [
+    {
+      "title": "Working with comments - GitHub REST API guide",
+      "url": "https://docs.github.com/en/rest/guides/working-with-comments",
+      "note": "A pull request is an issue with code: PR conversation comments use the Issues comments endpoints, while line-level comments use the pull request review comment endpoints."
+    },
+    {
+      "title": "REST API endpoints for issue comments - GitHub Docs",
+      "url": "https://docs.github.com/en/rest/issues/comments",
+      "note": "Endpoint used for PR conversation comments: /repos/{owner}/{repo}/issues/{number}/comments."
+    },
+    {
+      "title": "REST API endpoints for pull request review comments - GitHub Docs",
+      "url": "https://docs.github.com/en/rest/pulls/comments",
+      "note": "Endpoint used for inline review comments: /repos/{owner}/{repo}/pulls/{number}/comments."
+    },
+    {
+      "title": "Endless cycle of GitHub Actions initiated by a build - community discussion #74772",
+      "url": "https://github.com/orgs/community/discussions/74772",
+      "note": "Canonical self-triggering loop: automation reacts to events (or comments) it produced itself. Standard mitigations are actor/identity checks and skip markers."
+    },
+    {
+      "title": "Workflow infinite loop - community discussion #26970",
+      "url": "https://github.com/orgs/community/discussions/26970",
+      "note": "Same class of bug; the GITHUB_TOKEN deliberately does not re-trigger workflows to break the loop. hive-mind has no equivalent guard for AI-authored comments, so it must filter them itself."
+    }
+  ]
+}

@@ -2,11 +2,14 @@
 
 - **Issue:** [link-assistant/hive-mind#1825](https://github.com/link-assistant/hive-mind/issues/1825) — _Failed to add .gitkeep_ (label: `bug`)
 - **Reported by:** @konard, 2026-05-26
-- **Pull request:** [#1826](https://github.com/link-assistant/hive-mind/pull/1826)
+- **Pull requests:**
+  - [#1826](https://github.com/link-assistant/hive-mind/pull/1826) — _initial fix_ (merged 2026-05-27): force-added the placeholder when it was gitignored.
+  - [#1830](https://github.com/link-assistant/hive-mind/pull/1830) — _this follow-up_: stop forcing by default; instead explain the root cause and offer two opt-in flags.
 - **First observed on:** [rumaster/tg-games#3](https://github.com/rumaster/tg-games/issues/3) (two solver runs: Claude Sonnet 4.6 and OpenAI GPT‑5.5)
-- **Affected version:** `solve` v1.72.6
+- **Affected version:** `solve` v1.72.6 (fixed across v1.73.x)
 
-> Raw evidence (issue JSON, upstream issue JSON, and the two full failure logs) is archived under [`logs/`](./logs).
+> Raw evidence (issue JSON, upstream issue JSON, the two full failure logs, and
+> the follow-up comment) is archived under [`raw/`](./raw).
 
 ---
 
@@ -23,18 +26,29 @@ files"_. The code treated any non‑zero `git add` as fatal and threw
 `Failed to add .gitkeep`, which bubbled up to `❌ FATAL ERROR: PR creation
 failed` and aborted the whole session before the agent could do any work.
 
-The placeholder belongs to `solve` and is temporary, so the fix is to **detect
-the gitignore case (`git check-ignore`) and force‑add it (`git add -f`)**. This
-is exactly what the solver's own error hint already told users to do manually
-(`git add -f .gitkeep`).
+PR #1826 first fixed this by **force-adding** the placeholder (`git add -f`).
+The maintainer then asked (issue comment, archived in
+[`raw/comment-4553865398-konard-followup.md`](./raw/comment-4553865398-konard-followup.md))
+to **not silently force through** the user's `.gitignore`. This follow-up
+(PR #1830) changes the default to: **explain the root cause clearly and stop**,
+and adds two **opt-in** flags for users who want the tool to resolve it:
+
+| Behaviour                           | Result                                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| **default** (no flag)               | Print a friendly root-cause explanation + resolution options, then stop. Nothing is forced. |
+| `--remove-git-keep-from-git-ignore` | Remove the literal `.gitkeep` entry from `.gitignore` first, then commit normally.          |
+| `--force-git-keep-commit`           | Commit the placeholder anyway with `git add -f`, ignoring the `.gitignore` rule.            |
+
+The explanation is **environment-agnostic**: it shows both `solve <url> …` and
+`/solve <url> …` invocations and never assumes a specific runtime.
 
 ---
 
 ## 2. Timeline / sequence of events
 
-Reconstructed from [`logs/comment-4548365659-konard.md`](./logs/comment-4548365659-konard.md)
+Reconstructed from [`raw/comment-4548365659-konard.md`](./raw/comment-4548365659-konard.md)
 (Claude Sonnet 4.6 run); the GPT‑5.5 run in
-[`logs/comment-4548385976-konard.md`](./logs/comment-4548385976-konard.md) is
+[`raw/comment-4548385976-konard.md`](./raw/comment-4548385976-konard.md) is
 identical in the failing step.
 
 | Time (UTC) | Event                                                                                                                                                   |
@@ -48,35 +62,40 @@ identical in the failing step.
 | 20:11:06   | `❌ Failed to add .gitkeep` → `❌ FATAL ERROR: PR creation failed`.                                                                                     |
 | 20:11:06   | Stack trace: `handleAutoPrCreation (…/src/solve.auto-pr.lib.mjs:175:13)` → `solve.mjs:559`. Session ends with no work done.                             |
 
-The exact stack frame (`solve.auto-pr.lib.mjs:175`) is the `throw new Error('Failed to add ${fileName}')` line.
+The exact stack frame (`solve.auto-pr.lib.mjs:175`) was the
+`throw new Error('Failed to add ${fileName}')` line as it existed in v1.72.6.
 
 ---
 
 ## 3. Requirements extracted from the issue
 
-The issue is a meta-task. Each explicit requirement and how it is addressed:
+The issue is a meta-task with a follow-up comment. Each explicit requirement and
+how it is addressed:
 
-| #   | Requirement                                                                                                                              | Status                                                                                                                                                                            |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R1  | Download all logs/data about the issue into `./docs/case-studies/issue-1825/`.                                                           | ✅ [`logs/`](./logs)                                                                                                                                                              |
-| R2  | Deep case-study analysis (incl. online research for additional facts).                                                                   | ✅ this document (§7 cites git docs/behavior).                                                                                                                                    |
-| R3  | Reconstruct the timeline / sequence of events.                                                                                           | ✅ §2                                                                                                                                                                             |
-| R4  | List each and all requirements from the issue.                                                                                           | ✅ this table                                                                                                                                                                     |
-| R5  | Find the root cause of each problem.                                                                                                     | ✅ §4                                                                                                                                                                             |
-| R6  | Propose solutions / solution plans, checking existing components/libraries.                                                              | ✅ §5, §7                                                                                                                                                                         |
-| R7  | If data is insufficient for root cause, add debug output / verbose mode.                                                                 | ✅ §6 — data was already sufficient (`--verbose` log pinpointed the line); the fix adds verbose diagnostics for the force‑add path.                                               |
-| R8  | If the issue is related to another repo where issues can be reported, report it (reproducible example, workaround, code fix suggestion). | ✅ §8 — the defect is in hive-mind, not in `rumaster/tg-games`; the third‑party repo only has a harmless config quirk (workaround documented), so no spurious bug is filed there. |
-| R9  | Fully apply the fix across the entire codebase (fix every place the issue can occur).                                                    | ✅ §5 — both `git add` placeholder sites in `solve.auto-pr.lib.mjs` are fixed; the cleanup path operates on already-tracked files and is unaffected.                              |
-| R10 | Plan and execute everything in the single PR #1826.                                                                                      | ✅                                                                                                                                                                                |
+| #   | Requirement                                                                                                                                                                            | Status                                                                                                                                                               |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | Download all logs/data about the issue into `./docs/case-studies/issue-1825/`.                                                                                                         | ✅ [`raw/`](./raw)                                                                                                                                                   |
+| R2  | Deep case-study analysis (incl. online research for additional facts).                                                                                                                 | ✅ this document (§7 cites git docs/behavior).                                                                                                                       |
+| R3  | Reconstruct the timeline / sequence of events.                                                                                                                                         | ✅ §2                                                                                                                                                                |
+| R4  | List each and all requirements from the issue.                                                                                                                                         | ✅ this table                                                                                                                                                        |
+| R5  | Find the root cause of each problem.                                                                                                                                                   | ✅ §4                                                                                                                                                                |
+| R6  | Propose solutions / solution plans, checking existing components/libraries.                                                                                                            | ✅ §5, §7                                                                                                                                                            |
+| R7  | If data is insufficient for root cause, add debug output / verbose mode.                                                                                                               | ✅ §6 — data was already sufficient; the fix adds verbose diagnostics for the new paths.                                                                             |
+| R8  | If the issue is related to another repo where issues can be reported, report it.                                                                                                       | ✅ §8 — the defect is in hive-mind, not in `rumaster/tg-games`; no spurious bug is filed there.                                                                      |
+| R9  | Fully apply the fix across the entire codebase (every place the issue can occur).                                                                                                      | ✅ §5 — both `git add` placeholder sites in `solve.auto-pr.lib.mjs` route through the shared helper; the cleanup path operates on tracked files and is unaffected.   |
+| R10 | **(follow-up)** Do not force through `.gitignore` by default — explain the root cause to the user instead.                                                                             | ✅ §5 — default `action: 'blocked'` + friendly explanation, run stops cleanly.                                                                                       |
+| R11 | **(follow-up)** Add `--force-git-keep-commit` (off by default) and `--remove-git-keep-from-git-ignore`, usable with both `solve` and `/solve`, message environment-agnostic.           | ✅ §5 — both options registered in `SOLVE_OPTION_DEFINITIONS` (auto-passthrough to `/solve`); message shows both invocations.                                        |
+| R12 | **(follow-up)** Verify the claim that `--auto-init-repository` created a `.gitignore` containing `.gitkeep`; if a `.gitignore` must be created, use a GitHub default template or none. | ✅ §4.5 — verified the solver **never** creates a `.gitignore`; `--auto-init-repository` only creates `README.md`. No code change needed; the premise does not hold. |
+| R13 | **(follow-up)** Redo the analysis deeply and execute everything in this single PR.                                                                                                     | ✅ this document was fully rewritten; all changes are in PR #1830.                                                                                                   |
 
 ---
 
 ## 4. Root-cause analysis
 
-### 4.1 The defect
+### 4.1 The surface defect
 
 `src/solve.auto-pr.lib.mjs` staged the placeholder with a plain add and treated
-any non‑zero exit as fatal:
+any non‑zero exit as fatal (v1.72.6):
 
 ```js
 const addResult = await $({ cwd: tempDir })`git add ${fileName}`;
@@ -96,7 +115,7 @@ repo that gitignores `.gitkeep` makes this throw.
 `solve.auto-pr.lib.mjs` already had ignore-handling, but only for `CLAUDE.md`:
 
 1. **Pre-check (CLAUDE.md → .gitkeep):** `if (useClaudeFile && useAutoGitkeepFile)` runs `git check-ignore CLAUDE.md` and switches to `.gitkeep`. It never checks whether **`.gitkeep` itself** is ignored.
-2. **"Nothing staged" fallback:** only reached when `git add` exits **0** but stages nothing (identical content). When `.gitkeep` is ignored, `git add` exits **1**, so the hard throw at line 175 fires _before_ this fallback.
+2. **"Nothing staged" fallback:** only reached when `git add` exits **0** but stages nothing (identical content). When `.gitkeep` is ignored, `git add` exits **1**, so the hard throw fired _before_ this fallback.
 
 Since v1.72.x the **default placeholder is `.gitkeep`** (see
 `docs/case-studies/issue-804-gitkeep-vs-claude-file/`), so the unprotected path
@@ -120,112 +139,186 @@ coverage/
 ### 4.4 Reproduction
 
 [`experiments/issue-1825-reproduce-gitkeep-ignored.mjs`](../../../experiments/issue-1825-reproduce-gitkeep-ignored.mjs)
-creates a repo whose `.gitignore` contains `.gitkeep` and shows:
+creates a repo whose `.gitignore` contains `.gitkeep` and exercises every branch:
 
 ```
-=== Step 1: plain `git add .gitkeep` (current code) ===
+=== Step 1: plain `git add .gitkeep` (the original bug) ===
 exit code: 1  → reproduces bug: YES (add failed)
-=== Step 2: `git check-ignore .gitkeep` ===
-exit code: 0 (0 means ignored)
-=== Step 3: `git add -f .gitkeep` (the fix) ===
-exit code: 0  → git status --short: A  .gitkeep  → fix works: YES (staged)
+=== Step 2: default behaviour (no flags) ===
+action: blocked | code: 1 | ignored: true  → blocked (no force): YES
+=== Step 3: --force-git-keep-commit ===
+action: forced  | code: 0  → force works: YES (staged)
+=== Step 4: --remove-git-keep-from-git-ignore ===
+action: removed-from-gitignore | code: 0  → remove works: YES (staged)
 ```
+
+### 4.5 The deeper root cause the maintainer asked about (`--auto-init-repository`)
+
+The follow-up comment hypothesised that the offending `.gitignore` was created
+by `solve` itself when `--auto-init-repository` was used:
+
+> _"the actual root cause … was solve command itself, when --auto-init-repository
+> was used, repository was initialized with .gitignore, that contained .gitkeep"_
+
+**This was investigated and does not hold.** The auto-init path
+(`tryInitializeEmptyRepository` in `src/solve.repository.lib.mjs:288`, called
+from `src/solve.repo-setup.lib.mjs:77`) creates **only** a `README.md`:
+
+```js
+let readmeContent = `# ${repo}\n`;
+if (description) readmeContent += `\n${description}\n`;
+const base64Content = Buffer.from(readmeContent).toString('base64');
+await $`gh api repos/${owner}/${repo}/contents/README.md --method PUT --silent \
+  --field message="Initialize repository with README" \
+  --field content="${base64Content}"`;
+```
+
+There is **no `.gitignore` creation anywhere in the solver's repo-init or
+repo-setup code** (verified with a repository-wide search). The `.gitignore`
+that ignores `.gitkeep` in `rumaster/tg-games` was authored by the **AI agent
+while scaffolding that Telegram-games project** (a conventional Node `.gitignore`
+to which a `.gitkeep` line was added), not by `--auto-init-repository`.
+
+Consequence for R12: because the solver never creates a `.gitignore`, there is
+nothing to switch to a "GitHub default template" — the safest behaviour the
+comment asked for (no `.gitignore`, or a standard template) is already what the
+solver does (`README.md` only). No code change is required here; the finding is
+documented so the misattribution does not resurface.
 
 ---
 
 ## 5. The fix (and full-codebase coverage)
 
-A small, testable helper is added in
-[`src/solve.auto-pr-placeholder.lib.mjs`](../../../src/solve.auto-pr-placeholder.lib.mjs):
+### 5.1 New opt-in options
+
+`src/solve.config.lib.mjs` registers two boolean options (both `default: false`)
+in `SOLVE_OPTION_DEFINITIONS`, which auto-propagates them to the hive `/solve`
+passthrough:
 
 ```js
-export async function addPlaceholderFileToGit({ $, tempDir, fileName, log, formatAligned, verbose }) {
-  const addResult = await $({ cwd: tempDir, silent: true })`git add ${fileName}`;
-  if (addResult.code === 0) return { code: 0, forced: false, ignored: false, stderr: '' };
-
-  const checkIgnore = await $({ cwd: tempDir, silent: true })`git check-ignore ${fileName}`;
-  if (checkIgnore.code !== 0) {
-    // Not a gitignore failure — surface the original error unchanged.
-    return { code: addResult.code, forced: false, ignored: false, stderr: addResult.stderr?.toString() ?? '' };
-  }
-  // It is ignored, and the placeholder is ours + temporary → force-add it.
-  const forced = await $({ cwd: tempDir, silent: true })`git add -f ${fileName}`;
-  return { code: forced.code, forced: true, ignored: true, stderr: forced.stderr?.toString() ?? '' };
-}
+'force-git-keep-commit': {
+  type: 'boolean',
+  description: 'If the auto-PR placeholder (.gitkeep) is listed in .gitignore, commit it anyway with `git add -f` instead of stopping (issue #1825). Off by default.',
+  default: false,
+},
+'remove-git-keep-from-git-ignore': {
+  type: 'boolean',
+  description: 'If the auto-PR placeholder (.gitkeep) is listed in .gitignore, remove that entry from .gitignore first, then commit normally (issue #1825). Off by default.',
+  default: false,
+},
 ```
 
-Key safety properties:
+### 5.2 The staging helper
 
-- **Force-add only for the ignored case.** A non‑ignore failure (permissions,
-  corrupt index, …) is returned unchanged so genuine errors are not masked.
-- **The placeholder is ours and temporary.** It is created solely to seed the
-  initial commit and is removed at task completion by `cleanupClaudeFile`
-  (`git rm -f`, which works regardless of `.gitignore`). Force-adding it cannot
-  leak unwanted files into the final PR.
-- It is the same remedy the tool already printed as a manual hint.
+The logic lives in its own small, testable module,
+[`src/solve.auto-pr-placeholder.lib.mjs`](../../../src/solve.auto-pr-placeholder.lib.mjs)
+(kept separate so `solve.auto-pr.lib.mjs` stays under the 1500-line `max-lines`
+budget). `addPlaceholderFileToGit` always tries a plain `git add` first, and only
+branches when the add fails **because the file is gitignored** (`git check-ignore`
+exits 0):
 
-**Every placeholder `git add` site is routed through the helper** (R9):
+| Condition                                                         | `action`                 | `code` | Effect                                                |
+| ----------------------------------------------------------------- | ------------------------ | ------ | ----------------------------------------------------- |
+| plain add succeeds                                                | `added`                  | 0      | normal case                                           |
+| add fails, **not** gitignored                                     | `failed`                 | ≠0     | genuine error surfaced unchanged (not masked)         |
+| gitignored, no flag (**default**)                                 | `blocked`                | ≠0     | caller explains + stops; nothing forced               |
+| gitignored, `--remove-git-keep-from-git-ignore` (literal entry)   | `removed-from-gitignore` | 0      | strips the literal line, stages `.gitignore`, re-adds |
+| gitignored, `--remove-git-keep-from-git-ignore` (glob / external) | `remove-failed`          | ≠0     | refuses to over-edit; caller explains + stops         |
+| gitignored, `--force-git-keep-commit`                             | `forced`                 | 0      | `git add -f`                                          |
 
-| Location                                                                     | Placeholder                                      | Fixed                                                                                      |
-| ---------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `solve.auto-pr.lib.mjs` primary add (was line 170/throw 175)                 | `.gitkeep` **or** `CLAUDE.md`                    | ✅                                                                                         |
-| `solve.auto-pr.lib.mjs` inner `CLAUDE.md → .gitkeep` fallback (was line 216) | `.gitkeep`                                       | ✅                                                                                         |
-| `solve.results.lib.mjs:482` (cleanup conflict resolution)                    | restores a **tracked** file from a parent commit | N/A — `.gitignore` does not affect `git add` on already‑tracked paths, so no force needed. |
+`removePlaceholderFromGitignore` only removes an **exact** entry (`.gitkeep`,
+`/.gitkeep`, `.gitkeep/`, `/.gitkeep/`) from `.gitignore` files **inside the
+working tree**; it walks the ignore chain (`git check-ignore -v`) and refuses
+glob rules (e.g. `.git*`) and external sources (global excludes) so it never
+un-ignores unrelated files or mangles user config.
 
-The helper lives in its own module to keep `solve.auto-pr.lib.mjs` under the
-1500-line `max-lines` lint budget.
+### 5.3 The friendly explanation (default)
 
-### Tests
+`stagePlaceholderFileOrExplain` wraps the helper; when the result is `blocked`
+or `remove-failed` it calls `reportIgnoredPlaceholderAndThrow`, which prints:
+
+```
+🛑 Cannot add placeholder: .gitkeep is listed in .gitignore
+
+  🔍 Root cause:
+     The repository's .gitignore matches the temporary placeholder file ".gitkeep".
+     The placeholder is created only to seed the initial draft pull request and is
+     removed automatically when the task completes — but git refuses to add an ignored
+     file, so the initial commit cannot be created.
+
+  💡 How to resolve (pick one):
+     1. Remove ".gitkeep" from .gitignore in the repository, then re-run.
+     2. Let the tool remove it for you before committing:
+          solve <issue-url> --remove-git-keep-from-git-ignore
+          /solve <issue-url> --remove-git-keep-from-git-ignore
+     3. Commit the placeholder anyway, ignoring the .gitignore rule:
+          solve <issue-url> --force-git-keep-commit
+          /solve <issue-url> --force-git-keep-commit
+```
+
+The thrown error carries `hiveMindUserFacingLogged = true`, which suppresses the
+generic `❌ FATAL ERROR: PR creation failed` stack-trace block so the run ends
+cleanly with just the explanation above.
+
+### 5.4 Full-codebase coverage (R9)
+
+**Every placeholder `git add` site is routed through the helper:**
+
+| Location                                                      | Placeholder                                      | Fixed                                                                                       |
+| ------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `solve.auto-pr.lib.mjs` primary add                           | `.gitkeep` **or** `CLAUDE.md`                    | ✅ `stagePlaceholderFileOrExplain`                                                          |
+| `solve.auto-pr.lib.mjs` inner `CLAUDE.md → .gitkeep` fallback | `.gitkeep`                                       | ✅ `stagePlaceholderFileOrExplain`                                                          |
+| `solve.results.lib.mjs` (cleanup conflict resolution)         | restores a **tracked** file from a parent commit | N/A — `.gitignore` does not affect `git add` on already‑tracked paths, so no change needed. |
+
+### 5.5 Tests
 
 [`tests/test-issue-1825-gitkeep-ignored.mjs`](../../../tests/test-issue-1825-gitkeep-ignored.mjs)
-(node:test, `default` suite) covers:
+(node:test, `default` suite) covers each branch:
 
 1. Plain `git add .gitkeep` fails when ignored (guards the reproduction).
-2. Helper force-adds `.gitkeep` when ignored (`forced=true, ignored=true`, staged).
-3. Helper force-adds `CLAUDE.md` when ignored.
-4. Helper handles a glob ignore (`.git*`) that matches `.gitkeep` indirectly.
-5. Helper adds normally (`forced=false`) when the placeholder is **not** ignored.
+2. **Default** → `action: 'blocked'`, non-zero, nothing staged.
+3. `--force-git-keep-commit` → `action: 'forced'` for `.gitkeep` and `CLAUDE.md`.
+4. `--remove-git-keep-from-git-ignore` (literal entry) → `action: 'removed-from-gitignore'`; other entries preserved; `.gitignore` staged.
+5. `--remove-git-keep-from-git-ignore` (glob `.git*`) → `action: 'remove-failed'`; nothing staged.
+6. Not ignored → `action: 'added'`.
+7. `removePlaceholderFromGitignore` removes the literal entry and stages `.gitignore`.
+8. `stagePlaceholderFileOrExplain` throws a user-facing error mentioning `.gitignore`, both flags, and both `solve` / `/solve` invocations.
+9. `stagePlaceholderFileOrExplain` returns normally when the placeholder is not ignored.
 
 ---
 
 ## 6. Debug / verbose output (R7)
 
-The existing `--verbose` log already contained enough to pinpoint the failure
-(the staging step, the git stderr, and a stack trace to the exact line). To make
-the new behaviour observable, the helper emits, when the placeholder is ignored:
+The existing `--verbose` log already pinpointed the failure (the staging step,
+the git stderr, and a stack trace to the exact line). The probing `git add` now
+runs **silently** (its stderr is captured and only re-surfaced on a genuine,
+non-ignore failure), so the noisy git hint no longer leaks into normal output.
+The new behaviours are observable:
 
-```
-ℹ️  .gitkeep is ignored:  Force-adding placeholder (git add -f)
-```
-
-and, under `--verbose`:
-
-```
-   .gitkeep matched a .gitignore rule; retrying with: git add -f .gitkeep
-```
-
-The probing `git add` runs silently (its stderr is captured and only
-re-surfaced on a genuine failure), so the noisy git hint no longer leaks into
-normal output.
+- When the placeholder is ignored and a flag is set, an `ℹ️` line names the
+  chosen path (force-add, or remove-from-.gitignore).
+- Under `--verbose`, the helper logs the exact retried command (`git add -f …`)
+  or which `.gitignore` files were edited.
 
 ---
 
 ## 7. Existing components / libraries considered (R6)
 
-- **`git add -f` / `git check-ignore` (git itself).** The canonical mechanism.
-  `git check-ignore` exits 0 when a path is ignored; `git add -f` overrides the
-  ignore for a deliberate add. No third-party dependency is needed — git already
-  solves this, and the tool was already recommending it in its own hint text.
+- **`git add -f` / `git check-ignore` / `git check-ignore -v` (git itself).** The
+  canonical mechanism. `git check-ignore` exits 0 when a path is ignored;
+  `-v` reports `<source>:<linenum>:<pattern>` so the remove path can locate the
+  exact line to delete. No third-party dependency is needed.
 - **`command-stream` `$`** (already used throughout `solve`). Returns
   `{ code, stdout, stderr }` and does **not** throw on non-zero exit, so the
   helper can branch on `.code` cleanly.
 - **In-repo precedent.** `cleanupClaudeFile` (`solve.results.lib.mjs`) already
-  uses `git rm -f` for the symmetric teardown of the same placeholder, so
-  force-handling the placeholder is consistent with existing design.
+  uses `git rm -f` for the symmetric teardown of the same placeholder.
+- **Alternative rejected — silently force-adding by default (PR #1826's first
+  approach).** The maintainer asked not to override the user's `.gitignore`
+  without consent; forcing is now strictly opt-in (`--force-git-keep-commit`).
 - **Alternative rejected — appending a `.gitignore` negation (`!.gitkeep`).**
-  This would modify the target repo's `.gitignore`, changing user-owned content
-  and polluting the PR diff. Force-adding our own temporary file is strictly
-  less invasive.
+  This modifies user-owned content more than necessary; removing the exact
+  offending line (opt-in) or stopping with an explanation (default) is cleaner.
 
 ---
 
@@ -240,18 +333,18 @@ gracefully. Therefore:
 - **No bug is filed against `rumaster/tg-games`** — there is no genuine defect in
   their code, and filing a non-issue on a third party's tracker would be noise.
 - **Workaround for any affected target repo (documented, not required):** remove
-  `.gitkeep` from `.gitignore` (or add `!.gitkeep`). After PR #1826 this is no
-  longer necessary — the solver force-adds its own placeholder.
+  `.gitkeep` from `.gitignore` (or run `solve … --remove-git-keep-from-git-ignore`).
 - **The code fix** lives in this repository (§5) and is the authoritative remedy.
 
 ---
 
 ## 9. Files in this case study
 
-| Path                                                                           | Contents                                           |
-| ------------------------------------------------------------------------------ | -------------------------------------------------- |
-| [`logs/hive-mind-issue-1825.json`](./logs/hive-mind-issue-1825.json)           | The hive-mind issue (title, body, labels, author). |
-| [`logs/tg-games-issue-3.json`](./logs/tg-games-issue-3.json)                   | Upstream issue where the failure was observed.     |
-| [`logs/tg-games-issue-3-comments.json`](./logs/tg-games-issue-3-comments.json) | Raw comments API payload.                          |
-| [`logs/comment-4548365659-konard.md`](./logs/comment-4548365659-konard.md)     | Full failure log — Claude Sonnet 4.6 run.          |
-| [`logs/comment-4548385976-konard.md`](./logs/comment-4548385976-konard.md)     | Full failure log — OpenAI GPT‑5.5 run.             |
+| Path                                                                                       | Contents                                             |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| [`raw/hive-mind-issue-1825.json`](./raw/hive-mind-issue-1825.json)                         | The hive-mind issue (title, body, labels, author).   |
+| [`raw/tg-games-issue-3.json`](./raw/tg-games-issue-3.json)                                 | Upstream issue where the failure was observed.       |
+| [`raw/tg-games-issue-3-comments.json`](./raw/tg-games-issue-3-comments.json)               | Raw comments API payload.                            |
+| [`raw/comment-4548365659-konard.md`](./raw/comment-4548365659-konard.md)                   | Full failure log — Claude Sonnet 4.6 run.            |
+| [`raw/comment-4548385976-konard.md`](./raw/comment-4548385976-konard.md)                   | Full failure log — OpenAI GPT‑5.5 run.               |
+| [`raw/comment-4553865398-konard-followup.md`](./raw/comment-4553865398-konard-followup.md) | The maintainer's follow-up comment driving PR #1830. |

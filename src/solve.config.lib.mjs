@@ -110,6 +110,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically use .gitkeep if CLAUDE.md is in .gitignore (pre-checks before creating file)',
     default: true,
   },
+  'force-git-keep-commit': {
+    type: 'boolean',
+    description: 'If the auto-PR placeholder (.gitkeep) is listed in .gitignore, commit it anyway with `git add -f` instead of stopping (issue #1825). Off by default.',
+    default: false,
+  },
+  'remove-git-keep-from-git-ignore': {
+    type: 'boolean',
+    description: 'If the auto-PR placeholder (.gitkeep) is listed in .gitignore, remove that entry from .gitignore first, then commit normally (issue #1825). Off by default.',
+    default: false,
+  },
   'auto-support-agents-md-as-claude-md': {
     type: 'boolean',
     description: '[EXPERIMENTAL] Temporarily copy AGENTS.md/agents.md to CLAUDE.md while Claude runs, then remove the temporary copy',

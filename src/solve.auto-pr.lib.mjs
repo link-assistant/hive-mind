@@ -8,7 +8,7 @@ import { handleRejectedPushForAutoPr, synchronizeExistingIssueBranchBeforeAutoPr
 import { emitForkAwareDiagnostic } from './solve.auto-pr-fork-diagnostic.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too.
-import { addPlaceholderFileToGit } from './solve.auto-pr-placeholder.lib.mjs'; // Issue #1825: force-adds the seed placeholder when the target repo gitignores it.
+import { stagePlaceholderFileOrExplain, explainNothingStagedAndThrow } from './solve.auto-pr-placeholder.lib.mjs'; // Issue #1825: handles the seed placeholder when the target repo gitignores it.
 
 export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
   // Skip auto-PR creation if:
@@ -167,9 +167,22 @@ Proceed.
     // Add and commit the file
     await log(formatAligned('📦', 'Adding file:', 'To git staging'));
 
-    // Issue #1825: force-adds the placeholder when the target repo gitignores
-    // it (e.g. ignores `.gitkeep`), so PR creation is no longer aborted.
-    const addResult = await addPlaceholderFileToGit({ $, tempDir, fileName, log, formatAligned, verbose: argv.verbose });
+    // Issue #1825: by default we no longer force the placeholder through when
+    // the target repo gitignores it. stagePlaceholderFileOrExplain stops with a
+    // clear root-cause message unless --force-git-keep-commit /
+    // --remove-git-keep-from-git-ignore is set. Shared opts are reused by the
+    // .gitkeep fallback below.
+    const placeholderStageOpts = {
+      $,
+      tempDir,
+      log,
+      formatAligned,
+      verbose: argv.verbose,
+      issueUrl,
+      forceGitKeepCommit: argv.forceGitKeepCommit,
+      removeGitKeepFromGitIgnore: argv.removeGitKeepFromGitIgnore,
+    };
+    const addResult = await stagePlaceholderFileOrExplain({ ...placeholderStageOpts, fileName });
 
     if (addResult.code !== 0) {
       await log(`❌ Failed to add ${fileName}`, { level: 'error' });
@@ -214,14 +227,13 @@ Proceed.
           await fs.writeFile(gitkeepPath, gitkeepContent);
           await log(formatAligned('✅', 'Created:', '.gitkeep file'));
 
-          // Try to add .gitkeep (force-added if it too is gitignored — issue #1825)
-          const gitkeepAddResult = await addPlaceholderFileToGit({ $, tempDir, fileName: '.gitkeep', log, formatAligned, verbose: argv.verbose });
+          // Try to add .gitkeep. If it too is gitignored, honor the opt-in
+          // flags or explain the root cause (issue #1825).
+          const gitkeepAddResult = await stagePlaceholderFileOrExplain({ ...placeholderStageOpts, fileName: '.gitkeep' });
 
           if (gitkeepAddResult.code !== 0) {
             await log('❌ Failed to add .gitkeep', { level: 'error' });
-            await log(`   Error: ${gitkeepAddResult.stderr || 'Unknown error'}`, {
-              level: 'error',
-            });
+            await log(`   Error: ${gitkeepAddResult.stderr || 'Unknown error'}`, { level: 'error' });
             throw new Error('Failed to add .gitkeep');
           }
 
@@ -231,9 +243,7 @@ Proceed.
 
           if (!gitStatus || gitStatus.length === 0) {
             await log('');
-            await log(formatAligned('❌', 'GIT ADD FAILED:', 'Neither CLAUDE.md nor .gitkeep could be staged'), {
-              level: 'error',
-            });
+            await log(formatAligned('❌', 'GIT ADD FAILED:', 'Neither CLAUDE.md nor .gitkeep could be staged'), { level: 'error' });
             await log('');
             await log('  🔍 What happened:');
             await log('     Both CLAUDE.md and .gitkeep failed to stage.');
@@ -249,58 +259,11 @@ Proceed.
           commitFileName = '.gitkeep';
           await log(formatAligned('✅', 'File staged:', '.gitkeep'));
         } else {
-          await log('');
-          await log(formatAligned('❌', 'GIT ADD FAILED:', 'Nothing was staged'), { level: 'error' });
-          await log('');
-          await log('  🔍 What happened:');
-          await log('     CLAUDE.md was created but git did not stage any changes.');
-          await log('');
-          await log('  💡 Possible causes:');
-          await log('     • CLAUDE.md already exists with identical content');
-          await log('     • File system sync issue');
-          await log('');
-          await log('  🔧 Troubleshooting steps:');
-          await log(`     1. Check file exists: ls -la "${tempDir}/CLAUDE.md"`);
-          await log(`     2. Check git status: cd "${tempDir}" && git status`);
-          await log(`     3. Force add: cd "${tempDir}" && git add -f CLAUDE.md`);
-          await log('');
-          await log('  📂 Debug information:');
-          await log(`     Working directory: ${tempDir}`);
-          await log(`     Branch: ${branchName}`);
-          if (existingContent) {
-            await log('     Note: CLAUDE.md already existed (attempted to update with timestamp)');
-          }
-          await log('');
-          throw new Error('Git add staged nothing - CLAUDE.md may be unchanged');
+          await explainNothingStagedAndThrow({ fileName: 'CLAUDE.md', useClaudeFile: true, tempDir, branchName, existingContent, log, formatAligned });
         }
       } else {
         // In --gitkeep-file mode, if .gitkeep couldn't be staged, this is an error
-        await log('');
-        await log(formatAligned('❌', 'GIT ADD FAILED:', 'Nothing was staged'), { level: 'error' });
-        await log('');
-        await log('  🔍 What happened:');
-        await log(`     ${fileName} was created but git did not stage any changes.`);
-        await log('');
-        await log('  💡 Possible causes:');
-        await log(`     • ${fileName} already exists with identical content`);
-        await log('     • File system sync issue');
-        await log(`     • ${fileName} is in .gitignore`);
-        await log('');
-        await log('  🔧 Troubleshooting steps:');
-        await log(`     1. Check file exists: ls -la "${tempDir}/${fileName}"`);
-        await log(`     2. Check git status: cd "${tempDir}" && git status`);
-        await log(`     3. Check if ignored: cd "${tempDir}" && git check-ignore ${fileName}`);
-        await log(`     4. Force add: cd "${tempDir}" && git add -f ${fileName}`);
-        await log('');
-        await log('  📂 Debug information:');
-        await log(`     Working directory: ${tempDir}`);
-        await log(`     Branch: ${branchName}`);
-        await log(`     Mode: ${useClaudeFile ? 'CLAUDE.md' : '.gitkeep'}`);
-        if (existingContent) {
-          await log(`     Note: ${fileName} already existed (attempted to update with timestamp)`);
-        }
-        await log('');
-        throw new Error(`Git add staged nothing - ${fileName} may be unchanged or ignored`);
+        await explainNothingStagedAndThrow({ fileName, useClaudeFile: false, tempDir, branchName, existingContent, log, formatAligned });
       }
     }
 
@@ -419,9 +382,7 @@ Proceed.
 
         // Check for archived repository error
         if (errorOutput.includes('archived') && errorOutput.includes('read-only')) {
-          await log(`\n${formatAligned('❌', 'REPOSITORY ARCHIVED:', 'Cannot push to archived repository')}`, {
-            level: 'error',
-          });
+          await log(`\n${formatAligned('❌', 'REPOSITORY ARCHIVED:', 'Cannot push to archived repository')}`, { level: 'error' });
           await log('');
           await log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
           await log('');
@@ -717,9 +678,7 @@ Proceed.
             } else if (parentRepo !== `${owner}/${repo}` && sourceRepo !== `${owner}/${repo}`) {
               // Repository IS a fork, but of a different repository
               await log('');
-              await log(formatAligned('❌', 'WRONG FORK PARENT:', 'Fork is from different repository'), {
-                level: 'error',
-              });
+              await log(formatAligned('❌', 'WRONG FORK PARENT:', 'Fork is from different repository'), { level: 'error' });
               await log('');
               await log('  🔍 What happened:');
               await log(`     The repository ${forkedRepo} IS a GitHub fork,`);

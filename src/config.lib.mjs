@@ -137,6 +137,13 @@ export const retryLimits = {
   // Default: 5 — retry generously even when API signals not retryable, since the signal can be wrong
   // for transient backend glitches (e.g. overloaded errors observed as non-retryable 500s).
   maxNotRetryableAttempts: parseIntWithDefault('HIVE_MIND_MAX_NOT_RETRYABLE_ATTEMPTS', 5),
+  // Corrupted extended-thinking-block recovery (Issue #1834)
+  // When Claude Code returns a 400 "`thinking` or `redacted_thinking` blocks ... cannot be modified",
+  // the on-disk session is permanently un-resumable (upstream anthropics/claude-code#63147: the
+  // transcript stores thinking text as "" but keeps the original signature, so every resumed turn
+  // fails signature validation). The only recovery is to discard the session and start a fresh one
+  // (equivalent to `/clear`). Cap fresh restarts to avoid expensive re-run loops.
+  maxThinkingBlockRestarts: parseIntWithDefault('HIVE_MIND_MAX_THINKING_BLOCK_RESTARTS', 2),
 };
 
 // Claude Code CLI configurations

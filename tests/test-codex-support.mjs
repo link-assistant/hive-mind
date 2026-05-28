@@ -88,8 +88,9 @@ test('Codex default fallback model resolves from gpt-5.5 to gpt-5.4', () => {
   assert.equal(resolveDefaultFallbackModel('codex', 'gpt-5.5'), 'gpt-5.4');
 });
 
-test('Claude default fallback model resolves from opus to opus-4-6', () => {
-  assert.equal(resolveDefaultFallbackModel('claude', 'opus'), 'opus-4-6');
+test('Claude default fallback model resolves from opus to opus-4-7', () => {
+  // Updated for Issue #1832: opus is now claude-opus-4-8 with fallback to opus-4-7
+  assert.equal(resolveDefaultFallbackModel('claude', 'opus'), 'opus-4-7');
 });
 
 test('Models without configured defaults keep fallback unset', () => {

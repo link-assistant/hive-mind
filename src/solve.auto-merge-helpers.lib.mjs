@@ -76,7 +76,7 @@ const formatRunLine = run => {
 // search scope for checkForExistingComment() stays in lock-step with the
 // markers actually embedded in tool-posted comments.
 const toolComments = await import('./tool-comments.lib.mjs');
-const { SESSION_ENDING_MARKERS, isToolGeneratedComment, isToolTrackedCommentId } = toolComments;
+const { SESSION_ENDING_MARKERS, isToolGeneratedComment, isToolTrackedCommentId, trackToolCommentId } = toolComments;
 
 /**
  * Issue #1323: Check if a comment with specific content already exists on the PR
@@ -290,6 +290,121 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
     });
     return { hasNewComments: false, comments: [] };
   }
+};
+
+/**
+ * Issue #1827: Compute the next monotonic check-window cutoff for the
+ * auto-restart-until-mergeable loop. The cutoff must never move backwards:
+ * after an AI session, lastCheckTime is set to a moment *after* the agent's own
+ * comments, so rewinding it to the iteration's start time (captured before the
+ * AI ran) would re-detect those comments as new feedback — the root cause of
+ * the restart loop in #1827. Returns whichever timestamp is later.
+ *
+ * @param {Date} lastCheckTime - current cutoff
+ * @param {Date} candidate - proposed new cutoff (usually the iteration start time)
+ * @returns {Date} the later of the two timestamps
+ */
+export const nextMonotonicCheckTime = (lastCheckTime, candidate) => {
+  if (!(lastCheckTime instanceof Date)) return candidate;
+  if (!(candidate instanceof Date)) return lastCheckTime;
+  return candidate.getTime() > lastCheckTime.getTime() ? candidate : lastCheckTime;
+};
+
+/**
+ * Issue #1827: Register every comment authored by the authenticated GitHub
+ * account during an AI working session as a tool-generated comment.
+ *
+ * During a session, the AI agent can post free-form status comments through the
+ * authenticated account (e.g. "✅ CI now green", "✅ Verification pass"). These
+ * are NOT routed through postTrackedComment(), so their IDs were never captured,
+ * and they match none of the tool markers. Once issue #1821 made the watch loop
+ * trust same-account comments as human feedback, the very next iteration
+ * re-detected these comments as fresh feedback and triggered an endless
+ * auto-restart loop until the limit was hit.
+ *
+ * Because the authenticated account is busy running the AI for the whole
+ * session window, any comment it authored within that window is the tool's own,
+ * not human feedback. Tracking those IDs makes checkForNonBotComments filter
+ * them by ID regardless of timestamps — a defense that also survives clock skew
+ * between the local clock and GitHub's `created_at` (which a purely
+ * time-based cutoff cannot).
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {number} issueNumber - Issue number (may equal prNumber)
+ * @param {Date|string|number} sinceTime - Start of the session window
+ * @param {Function} commandRunner - Tagged-template command runner, injectable for tests
+ * @param {Object} options
+ * @param {boolean} [options.verbose=false]
+ * @param {string} [options.currentUser] - Pre-resolved authenticated login (skips the `gh api user` call)
+ * @returns {Promise<string[]>} Newly tracked comment IDs (as strings)
+ */
+export const trackAuthenticatedUserCommentsSince = async (owner, repo, prNumber, issueNumber, sinceTime, commandRunner = $, options = {}) => {
+  const { verbose = false, currentUser: providedUser } = options;
+  const trackedIds = [];
+
+  try {
+    let currentUser = providedUser || null;
+    if (!currentUser) {
+      try {
+        const userResult = await commandRunner`gh api user --jq .login`;
+        if (userResult.code === 0) {
+          currentUser = userResult.stdout.toString().trim();
+        }
+      } catch {
+        // Without the authenticated login we cannot attribute comments; bail out.
+      }
+    }
+    if (!currentUser) return trackedIds;
+
+    const since = sinceTime instanceof Date ? sinceTime : new Date(sinceTime);
+
+    const fetchComments = async path => {
+      try {
+        const result = await commandRunner`gh api ${path} --paginate`;
+        if (result.code === 0 && result.stdout) {
+          return JSON.parse(result.stdout.toString() || '[]');
+        }
+      } catch {
+        // Ignore fetch/parse failures for an individual endpoint.
+      }
+      return [];
+    };
+
+    const prComments = await fetchComments(`repos/${owner}/${repo}/issues/${prNumber}/comments`);
+    const prReviewComments = await fetchComments(`repos/${owner}/${repo}/pulls/${prNumber}/comments`);
+    let issueComments = [];
+    if (issueNumber && issueNumber !== prNumber) {
+      issueComments = await fetchComments(`repos/${owner}/${repo}/issues/${issueNumber}/comments`);
+    }
+
+    const allComments = [...prComments, ...prReviewComments, ...issueComments];
+    for (const comment of allComments) {
+      const login = comment.user?.login;
+      if (!login || login !== currentUser) continue;
+      // Inclusive lower bound: a comment posted at the exact session start is
+      // still the tool's own. created_at uses GitHub's clock, so allow equality.
+      const createdAt = new Date(comment.created_at);
+      if (createdAt < since) continue;
+      if (isToolTrackedCommentId(comment.id)) continue;
+      trackToolCommentId(comment.id);
+      trackedIds.push(String(comment.id));
+      if (verbose) {
+        console.log(`[VERBOSE] Tracking authenticated-user session comment ${comment.id} from ${login} at ${comment.created_at}`);
+      }
+    }
+  } catch (error) {
+    reportError(error, {
+      context: 'track_authenticated_user_comments',
+      owner,
+      repo,
+      prNumber,
+      operation: 'track_session_comments',
+    });
+  }
+
+  return trackedIds;
 };
 
 /**

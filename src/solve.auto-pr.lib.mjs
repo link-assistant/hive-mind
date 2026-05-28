@@ -6,8 +6,9 @@
 import { closingIssueNumbersContain, parseClosingIssueNumbers } from './pr-issue-linking.lib.mjs';
 import { handleRejectedPushForAutoPr, synchronizeExistingIssueBranchBeforeAutoPrCreation } from './solve.branch-divergence.lib.mjs';
 import { emitForkAwareDiagnostic } from './solve.auto-pr-fork-diagnostic.lib.mjs';
+import { handleCompareApiNotReady } from './solve.auto-pr-compare-readiness.lib.mjs'; // Issue #1829: decides whether a failed compare-API readiness poll is fatal (fork mismatch / 0 commits) or a transient diff-render failure to degrade past.
 
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too.
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry, isTransientCompareApiError } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too. Issue #1829: isTransientCompareApiError lets the compare-API readiness gate degrade gracefully on transient diff-render failures.
 import { stagePlaceholderFileOrExplain, explainNothingStagedAndThrow } from './solve.auto-pr-placeholder.lib.mjs'; // Issue #1825: handles the seed placeholder when the target repo gitignores it.
 
 export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
@@ -596,191 +597,40 @@ Proceed.
               await log(`   ⚠️ GitHub compare API shows 0 commits ahead (attempt ${compareAttempts}/${maxCompareAttempts})`, { level: 'warning' });
             }
           } else {
-            if (argv.verbose) {
-              await log(`   Compare API error (attempt ${compareAttempts}/${maxCompareAttempts}): ${compareResult.stdout || compareResult.stderr || 'unknown'}`, { verbose: true });
+            // Issue #1829: surface compare-API failures in normal output (not
+            // only verbose) so the degraded-mode decision below is explainable
+            // from the logs. Build the text as a STRING — the command-stream
+            // result exposes stdout/stderr as Buffers, and the transient
+            // detectors call String.prototype.toLowerCase().
+            const errorText = `${compareResult.stdout?.toString?.() ?? ''}${compareResult.stderr?.toString?.() ?? ''}`.trim();
+            const firstLine =
+              errorText
+                .split('\n')
+                .map(s => s.trim())
+                .filter(Boolean)[0] || 'unknown';
+            const transientNote = isTransientCompareApiError(errorText) ? ' (transient server error)' : '';
+            await log(`   ⚠️ GitHub compare API error${transientNote} (attempt ${compareAttempts}/${maxCompareAttempts}): ${firstLine}`, { level: 'warning' });
+            if (argv.verbose && errorText) {
+              await log(`   Compare API full output: ${errorText}`, { verbose: true });
             }
           }
         }
 
         if (!compareReady) {
-          // Check if this is a repository mismatch error (HTTP 404 from compare API)
-          let isRepositoryMismatch = false;
-          if (argv.fork && forkedRepo) {
-            // For fork mode, check the last compare API call result for 404
-            const lastCompareOutput = compareResult.stdout || compareResult.stderr || '';
-            if (lastCompareOutput.includes('HTTP 404') || lastCompareOutput.includes('Not Found')) {
-              isRepositoryMismatch = true;
-            }
-          }
-
-          if (isRepositoryMismatch) {
-            // BEFORE showing any error, verify if the repository is actually a GitHub fork
-            await log('');
-            await log(formatAligned('🔍', 'Investigating:', 'Checking fork relationship...'));
-
-            const forkInfoResult = await $({
-              silent: true,
-            })`gh api repos/${forkedRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}' 2>&1`;
-
-            let isFork = false;
-            let parentRepo = null;
-            let sourceRepo = null;
-
-            if (forkInfoResult.code === 0) {
-              try {
-                const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
-                isFork = forkInfo.fork === true;
-                parentRepo = forkInfo.parent || null;
-                sourceRepo = forkInfo.source || null;
-              } catch {
-                // Failed to parse fork info
-              }
-            }
-
-            if (!isFork) {
-              // Repository is NOT a fork at all
-              await log('');
-              await log(formatAligned('❌', 'NOT A GITHUB FORK:', 'Repository is not a fork'), { level: 'error' });
-              await log('');
-              await log('  🔍 What happened:');
-              await log(`     The repository ${forkedRepo} is NOT a GitHub fork.`);
-              await log('     GitHub API reports: fork=false, parent=null');
-              await log('');
-              await log('  💡 Why this happens:');
-              await log('     This repository was likely created by cloning and pushing (git clone + git push)');
-              await log("     instead of using GitHub's Fork button or API.");
-              await log('');
-              await log('     When a repository is created this way:');
-              await log('     • GitHub does not track it as a fork');
-              await log('     • It has no parent relationship with the original repository');
-              await log('     • Pull requests cannot be created to the original repository');
-              await log('     • Compare API returns 404 when comparing with unrelated repositories');
-              await log('');
-              await log('  📦 Repository details:');
-              await log('     • Target repository: ' + `${owner}/${repo}`);
-              await log('     • Your repository: ' + forkedRepo);
-              await log('     • Fork status: false (NOT A FORK)');
-              await log('');
-              await log('  🔧 How to fix:');
-              await log('     Option 1: Delete the non-fork repository and create a proper fork');
-              await log(`        gh repo delete ${forkedRepo}`);
-              await log(`        Then run this command again to create a proper GitHub fork of ${owner}/${repo}`);
-              await log('');
-              await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid name conflicts');
-              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
-              await log('        This creates forks with names like "owner-repo" instead of just "repo"');
-              await log('');
-              await log('     Option 3: Work directly on the repository (if you have write access)');
-              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --no-fork`);
-              await log('');
-
-              throw new Error('Repository is not a GitHub fork - cannot create PR to unrelated repository');
-            } else if (parentRepo !== `${owner}/${repo}` && sourceRepo !== `${owner}/${repo}`) {
-              // Repository IS a fork, but of a different repository
-              await log('');
-              await log(formatAligned('❌', 'WRONG FORK PARENT:', 'Fork is from different repository'), { level: 'error' });
-              await log('');
-              await log('  🔍 What happened:');
-              await log(`     The repository ${forkedRepo} IS a GitHub fork,`);
-              await log(`     but it's a fork of a DIFFERENT repository than ${owner}/${repo}.`);
-              await log('');
-              await log('  📦 Fork relationship:');
-              await log('     • Your fork: ' + forkedRepo);
-              await log('     • Fork parent: ' + (parentRepo || 'unknown'));
-              await log('     • Fork source: ' + (sourceRepo || 'unknown'));
-              await log('     • Target repository: ' + `${owner}/${repo}`);
-              await log('');
-              await log('  💡 Why this happens:');
-              await log('     You have an existing fork from a different repository');
-              await log('     that shares the same name but is from a different source.');
-              await log('     GitHub treats forks hierarchically - each fork tracks its root repository.');
-              await log('');
-              await log('  🔧 How to fix:');
-              await log('     Option 1: Delete the conflicting fork and create a new one');
-              await log(`        gh repo delete ${forkedRepo}`);
-              await log(`        Then run this command again to create a proper fork of ${owner}/${repo}`);
-              await log('');
-              await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid conflicts');
-              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
-              await log('        This creates forks with names like "owner-repo" instead of just "repo"');
-              await log('');
-              await log('     Option 3: Work directly on the repository (if you have write access)');
-              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --no-fork`);
-              await log('');
-
-              throw new Error('Fork parent mismatch - fork is from different repository tree');
-            } else {
-              // Repository is a fork of the correct parent, but compare API still failed
-              // This is unexpected - show detailed error
-              await log('');
-              await log(formatAligned('❌', 'COMPARE API ERROR:', 'Unexpected failure'), { level: 'error' });
-              await log('');
-              await log('  🔍 What happened:');
-              await log(`     The repository ${forkedRepo} is a valid fork of ${owner}/${repo},`);
-              await log("     but GitHub's compare API still returned an error.");
-              await log('');
-              await log('  📦 Fork verification:');
-              await log('     • Your fork: ' + forkedRepo);
-              await log('     • Fork status: true (VALID FORK)');
-              await log('     • Fork parent: ' + (parentRepo || 'unknown'));
-              await log('     • Target repository: ' + `${owner}/${repo}`);
-              await log('');
-              await log('  💡 This is unexpected:');
-              await log('     The fork relationship is correct, but the compare API failed.');
-              await log('     This might be a temporary GitHub API issue.');
-              await log('');
-              await log('  🔧 How to fix:');
-              await log('     1. Wait a minute and try creating the PR manually:');
-              if (argv.fork && forkedRepo) {
-                const forkUser = forkedRepo.split('/')[0];
-                await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
-              }
-              await log('     2. Check if the issue persists - it might be a GitHub API outage');
-              await log('');
-
-              throw new Error('Compare API failed unexpectedly despite valid fork relationship');
-            }
-          } else {
-            // Original timeout error for other cases
-            await log('');
-            await log(formatAligned('❌', 'GITHUB SYNC TIMEOUT:', 'Compare API not ready after retries'), {
-              level: 'error',
-            });
-            await log('');
-            await log('  🔍 What happened:');
-            await log(`     After ${maxCompareAttempts} attempts, GitHub's compare API still shows no commits`);
-            await log(`     between ${targetBranchForCompare} and ${branchName}.`);
-            await log('');
-            await log('  💡 This usually means:');
-            await log("     • GitHub's backend systems haven't finished indexing the push");
-            await log("     • There's a temporary issue with GitHub's API");
-            await log('     • The commits may not have been pushed correctly');
-            await log('');
-            await log('  🔧 How to fix:');
-            await log('     1. Wait a minute and try creating the PR manually:');
-            // For fork mode, use the correct head reference format
-            if (argv.fork && forkedRepo) {
-              const forkUser = forkedRepo.split('/')[0];
-              await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
-            } else {
-              await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${branchName}`);
-            }
-            await log('     2. Check if the branch exists on GitHub:');
-            // Show the correct repository where the branch was pushed
-            const branchRepo = argv.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;
-            await log(`        https://github.com/${branchRepo}/tree/${branchName}`);
-            await log('     3. Check the commit is on GitHub:');
-            // Use the correct head reference for the compare API check
-            if (argv.fork && forkedRepo) {
-              const forkUser = forkedRepo.split('/')[0];
-              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName} --paginate`);
-            } else {
-              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName} --paginate`);
-            }
-            await log('');
-
-            throw new Error('GitHub compare API not ready - cannot create PR safely');
-          }
+          compareReady = await handleCompareApiNotReady({
+            argv,
+            forkedRepo,
+            owner,
+            repo,
+            issueNumber,
+            branchName,
+            targetBranchForCompare,
+            maxCompareAttempts,
+            compareResult,
+            log,
+            formatAligned,
+            $,
+          });
         }
 
         // Verify the push actually worked by checking GitHub API

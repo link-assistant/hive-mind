@@ -1,0 +1,5 @@
+---
+"@link-assistant/hive-mind": patch
+---
+
+Fix `solve` aborting with `GitHub compare API not ready - cannot create PR safely` when the compare/diff endpoint returns a transient HTTP 500 (`this diff is temporarily unavailable due to heavy server load`, code `not_available`). The auto-PR readiness gate polled `/repos/{owner}/{repo}/compare/{base}...{head}` to confirm the pushed commits were visible, but GitHub renders that diff lazily and returns 500 under load even though the branch and commits were already pushed and `gh pr create` (which does not render the full diff) would have succeeded. A new `isTransientCompareApiError` detector recognises the "heavy server load" / `not_available` 500 and the standard 5xx gateway codes (but NOT 404 fork mismatch or a literal `0`), and the gate now degrades gracefully — marking the compare ready and proceeding to PR creation, still guarded by branch verification and the local `git rev-list` commit check. The fork-404 mismatch and genuine 0-commits paths remain fatal.

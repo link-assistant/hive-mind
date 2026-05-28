@@ -144,6 +144,20 @@ export const retryLimits = {
   // fails signature validation). The only recovery is to discard the session and start a fresh one
   // (equivalent to `/clear`). Cap fresh restarts to avoid expensive re-run loops.
   maxThinkingBlockRestarts: parseIntWithDefault('HIVE_MIND_MAX_THINKING_BLOCK_RESTARTS', 2),
+  // PR #1835 feedback: "in case of this specific error we should try resume first, and if not
+  // possible try to restart." Before discarding the session we first attempt to resume it this many
+  // times (context-preserving). Only after these resume attempts also fail do we fall back to a
+  // fresh restart. Default: 1 — one cheap resume attempt, then escalate to a fresh session.
+  maxThinkingBlockResumes: parseIntWithDefault('HIVE_MIND_MAX_THINKING_BLOCK_RESUMES', 1),
+};
+
+// Critical-error recovery behaviour (Issue #1834, PR #1835 feedback)
+// "On all critical errors we auto commit uncommitted changes by default." When a critical error
+// forces the tool to discard/restart a session, any uncommitted work on disk would be lost when the
+// session context resets. Auto-committing (and pushing) preserves it in the PR branch. On by default;
+// set HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false to disable.
+export const criticalErrorRecovery = {
+  autoCommitUncommittedChanges: getenv('HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR', 'true').toLowerCase() === 'true',
 };
 
 // Claude Code CLI configurations

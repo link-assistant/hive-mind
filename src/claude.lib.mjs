@@ -28,6 +28,7 @@ import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
+import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log, argv = null) => {
   if (!sessionId || !tempDir) return;
@@ -607,9 +608,10 @@ export const executeClaudeCommand = async params => {
   // Issue #1331: Unified retry configuration for all transient API errors
   // (Overloaded, 503 Network Error, Internal Server Error) - same params, all with session preservation
   let retryCount = 0;
-  // Issue #1834: Counts fresh-session restarts triggered by corrupted extended-thinking blocks.
-  // Declared outside executeWithRetry so it persists across recursive retry calls.
-  let thinkingBlockRestartCount = 0;
+  // Issue #1834 (PR #1835 feedback): corrupted-thinking-block recovery — resume the session first,
+  // then escalate to a fresh restart, auto-committing uncommitted work before each attempt. Created
+  // once so its resume/restart caps persist across recursive retry calls.
+  const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
   // Helper `waitWithCountdown` (per-minute countdown for delays >1 minute, Issue #1331) is shared
   // from tool-retry.lib.mjs so claude/codex/gemini/qwen/opencode all use one implementation.
   // Function to execute with retry logic
@@ -640,26 +642,6 @@ export const executeClaudeCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
     let commandFailed = false;
     let sessionId = null;
-    // Issue #1834: Corrupted extended-thinking blocks make the on-disk session permanently
-    // un-resumable (Claude Code persists thinking text as "" but keeps the original signature,
-    // so the API rejects every resumed turn with a 400). Resuming always fails — the only
-    // recovery is to discard the session and start fresh (equivalent to `/clear`).
-    // Upstream: https://github.com/anthropics/claude-code/issues/63147
-    // Returns true when a fresh-session restart was initiated; false when the restart cap is hit.
-    const tryFreshSessionRestart = async (classified, source) => {
-      if (thinkingBlockRestartCount >= retryLimits.maxThinkingBlockRestarts) {
-        await log(`\n\n❌ Corrupted thinking blocks persisted after ${thinkingBlockRestartCount} fresh-session restart(s) (Issue #1834).\n   This is an upstream Claude Code bug (anthropics/claude-code#63147). Failing to avoid an endless restart loop.`, { level: 'error' });
-        return false;
-      }
-      thinkingBlockRestartCount++;
-      await log(`\n⚠️ ${classified.label} (${source}). Restart ${thinkingBlockRestartCount}/${retryLimits.maxThinkingBlockRestarts} with a fresh session (Issue #1834)...`, { level: 'warning' });
-      await log(`   Discarding session ${argv.resume || sessionId || '(none)'} and starting fresh — the corrupted thinking blocks can never be replayed (upstream anthropics/claude-code#63147).`, { verbose: true });
-      // Force a fresh session — do NOT resume the corrupted one, otherwise the 400 repeats forever.
-      argv.resume = undefined;
-      await waitWithCountdown(5000, log);
-      await log('\n🔄 Restarting with a fresh session now...');
-      return true;
-    };
     let limitReached = false;
     let limitResetTime = null;
     let limitTimezone = null;
@@ -1177,11 +1159,11 @@ export const executeClaudeCommand = async params => {
       // Issue #817: Stop bidirectional mode monitoring and collect queued feedback
       queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
       const retryableLastError = classifyRetryableError(lastMessage);
-      // Issue #1834: Corrupted extended-thinking blocks → discard the un-resumable session and restart
-      // fresh. When the restart cap is reached, tryFreshSessionRestart logs the failure and returns
-      // false; we fall through to the normal commandFailed return below (the 400 is not a transient
-      // pattern, so it is not retried).
-      if (commandFailed && retryableLastError.requiresFreshSession && (await tryFreshSessionRestart(retryableLastError, 'result'))) {
+      // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
+      // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery
+      // logs the failure and returns false; we fall through to the normal commandFailed return below
+      // (the 400 is not a transient pattern, so it is not retried).
+      if (commandFailed && retryableLastError.requiresFreshSession && (await tryThinkingBlockRecovery({ classified: retryableLastError, source: 'result', sessionId }))) {
         return await executeWithRetry();
       }
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
@@ -1354,8 +1336,8 @@ export const executeClaudeCommand = async params => {
       const errorStr = error.message || error.toString();
       const retryableException = classifyRetryableError(errorStr);
       // Issue #1834: Corrupted extended-thinking blocks surfaced as a thrown exception. Same recovery
-      // as the streamed-result path: discard the un-resumable session and restart fresh.
-      if (retryableException.requiresFreshSession && (await tryFreshSessionRestart(retryableException, 'exception'))) {
+      // as the streamed-result path: resume the session first, then fall back to a fresh restart.
+      if (retryableException.requiresFreshSession && (await tryThinkingBlockRecovery({ classified: retryableException, source: 'exception', sessionId }))) {
         retryCount++;
         return await executeWithRetry();
       }

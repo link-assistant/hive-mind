@@ -1136,6 +1136,20 @@ try {
       }
     }
 
+    // Issue #1834 (PR #1835 feedback): "on all critical errors we auto commit uncommitted changes
+    // by default." A failed session is a critical error and exits here before the normal
+    // auto-commit chokepoint below, so preserve (commit + push) any work the agent left on disk
+    // first. On by default; disable via HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false. Never throws.
+    try {
+      const { criticalErrorRecovery } = await import('./config.lib.mjs');
+      if (criticalErrorRecovery.autoCommitUncommittedChanges) {
+        const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
+        await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: `${argv.tool || 'claude'} execution failed` });
+      }
+    } catch (preserveError) {
+      await log(`  ⚠️  Could not auto-commit before failure exit: ${preserveError.message}`, { verbose: true });
+    }
+
     await safeExit(1, `${argv.tool.toUpperCase()} execution failed`);
   }
 
@@ -1159,8 +1173,13 @@ try {
     await log('ℹ️  Playwright MCP auto-cleanup disabled via --no-playwright-mcp-auto-cleanup', { verbose: true });
   }
 
-  // When limit is reached, force auto-commit of any uncommitted changes to preserve work
-  const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
+  // When limit is reached, force auto-commit of any uncommitted changes to preserve work.
+  // Issue #1834 (PR #1835 feedback): "on all critical errors we auto commit uncommitted changes by
+  // default." A failed/errored session is a critical error, so auto-commit (and push) to preserve any
+  // work the agent left on disk. On by default; disable via HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false.
+  const { criticalErrorRecovery } = await import('./config.lib.mjs');
+  const criticalError = success === false || errorDuringExecution === true;
+  const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached || (criticalError && criticalErrorRecovery.autoCommitUncommittedChanges);
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
   const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
 

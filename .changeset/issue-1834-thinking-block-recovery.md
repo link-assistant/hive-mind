@@ -13,9 +13,18 @@ message cannot be modified`, permanently poisoning the on-disk session — so an
 (anthropics/claude-code#63147).
 
 Hive Mind now detects this terminal error (`classifyRetryableError` →
-`requiresFreshSession`) and recovers by discarding the un-resumable session and
-restarting fresh (capped by `HIVE_MIND_MAX_THINKING_BLOCK_RESTARTS`, default 2),
-rather than retrying the dead session or failing outright. Verbose logging
-records the `request_id` and `messages.N.content.N` path for diagnostics. A deep
-case study with the full reproduction log is added under
+`requiresFreshSession`) and recovers with a two-phase escalation: it **tries to
+resume the existing session first** (capped by
+`HIVE_MIND_MAX_THINKING_BLOCK_RESUMES`, default 1) and only when resume is not
+possible does it **discard the un-resumable session and restart fresh** (capped
+by `HIVE_MIND_MAX_THINKING_BLOCK_RESTARTS`, default 2) — rather than retrying the
+dead session or failing outright.
+
+Additionally, on **all** critical errors Hive Mind now auto-commits (and
+best-effort pushes) any uncommitted changes by default before recovery resets
+the session, so partial work is preserved in the PR branch history. This is
+on by default and can be toggled with `HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR`.
+
+Verbose logging records the `request_id` and `messages.N.content.N` path for
+diagnostics. A deep case study with the full reproduction log is added under
 `docs/case-studies/issue-1834`.

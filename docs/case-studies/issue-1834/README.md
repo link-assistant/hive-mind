@@ -14,8 +14,10 @@ the original response.
 The error is **not** a Hive Mind logic bug — it is an upstream Claude Code / Anthropic
 API bug ([anthropics/claude-code#63147](https://github.com/anthropics/claude-code/issues/63147)).
 Hive Mind's contribution is **detection and recovery**: instead of resuming a poisoned
-session forever (or failing outright), it now discards the un-resumable session and
-restarts fresh.
+session forever (or failing outright), it now **tries to resume the existing session
+first** and, only when resume is not possible, **discards the un-resumable session and
+restarts fresh**. On every such critical error it also auto-commits (and best-effort
+pushes) any uncommitted work first, so nothing is lost when the session context resets.
 
 ## Issue Details
 
@@ -134,25 +136,51 @@ codex/gemini/qwen/opencode/agent tools, and only the claude executor knows how t
 `requiresFreshSession`. Other tools simply see a non-retryable error (their previous
 behavior — no regression).
 
-### 2. Recover — `src/claude.lib.mjs`
+### 2. Recover — `src/claude.thinking-block-recovery.lib.mjs` (wired into `src/claude.lib.mjs`)
 
 `executeClaudeCommand` handles `requiresFreshSession` in both the streamed-result path and
-the thrown-exception path via a shared helper `tryFreshSessionRestart`, which:
+the thrown-exception path via a stateful handler built by
+`createThinkingBlockRecovery({ argv, tempDir, branchName, $, log })`. The handler keeps its
+resume/restart counters across recursive retries and implements a **two-phase escalation**
+(per PR #1835 feedback: _"try resume first, and if not possible try to restart"_):
 
-- discards the session (`argv.resume = undefined`) so the next run starts a **brand-new**
-  conversation,
-- waits briefly, then re-invokes `executeWithRetry`,
-- is capped by `retryLimits.maxThinkingBlockRestarts` (default **2**) so a deterministically
-  reproducing corruption fails cleanly instead of looping forever.
+- **Phase 1 — resume first.** While `resumeCount < retryLimits.maxThinkingBlockResumes`
+  (default **1**) and a session id is known, it preserves work, sets `argv.resume = sessionId`,
+  waits briefly, and re-enters `executeWithRetry` to **resume the existing session** (cheapest,
+  keeps accumulated context). For this specific corruption a resume usually fails again — when it
+  does, the same error re-invokes the handler, the resume cap is now exhausted, and it falls
+  through to Phase 2.
+- **Phase 2 — restart fresh.** While `restartCount < retryLimits.maxThinkingBlockRestarts`
+  (default **2**), it discards the session (`argv.resume = undefined`) so the next run starts a
+  **brand-new** conversation, waits briefly, then re-invokes `executeWithRetry`.
+- When both caps are exhausted it returns `false`; the streamed path falls through to the normal
+  `commandFailed` return (the 400 is not a transient pattern, so it is not retried) — a
+  deterministically reproducing corruption fails cleanly instead of looping forever.
 
-When the cap is reached, the streamed path falls through to the normal `commandFailed`
-return (the 400 is not a transient pattern, so it is not retried).
+**Auto-commit on every critical error.** Before each resume/restart the handler calls
+`preserveWork()`, which (when `criticalErrorRecovery.autoCommitUncommittedChanges` is on,
+the default) runs `commitUncommittedChangesOnCriticalError` from
+`src/critical-error-commit.lib.mjs` to commit — and best-effort push — any uncommitted changes
+so partial work survives the session reset. The same chokepoint in `src/solve.mjs` also
+auto-commits whenever a run ends in a critical error (`success === false ||
+errorDuringExecution === true`), satisfying PR #1835's _"on all critical errors we auto commit
+uncommitted changes by default."_ The helper is dependency-light and **never throws**, so a
+failed commit can never mask the original error.
 
 ### 3. Configure — `src/config.lib.mjs`
 
 ```js
 // Corrupted extended-thinking-block recovery (Issue #1834)
+// PR #1835 feedback: try resume first (cap below), then fall back to a fresh restart.
+maxThinkingBlockResumes: parseIntWithDefault('HIVE_MIND_MAX_THINKING_BLOCK_RESUMES', 1),
 maxThinkingBlockRestarts: parseIntWithDefault('HIVE_MIND_MAX_THINKING_BLOCK_RESTARTS', 2),
+```
+
+```js
+// PR #1835 feedback: "on all critical errors we auto commit uncommitted changes by default."
+export const criticalErrorRecovery = {
+  autoCommitUncommittedChanges: getenv('HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR', 'true').toLowerCase() === 'true',
+};
 ```
 
 ### Refactor (keep `claude.lib.mjs` ≤ 1500 lines)
@@ -178,7 +206,9 @@ from logs. When the error is detected in the streamed-result path, Hive Mind log
    Will discard the session and restart fresh (Issue #1834, upstream anthropics/claude-code#63147).
 ```
 
-and each restart logs the discarded session id and the restart counter.
+Each recovery attempt logs the phase and counter — `Resume attempt N/M …` for Phase 1 and
+`Resume not possible — restart N/M with a fresh session` for Phase 2 (including the discarded
+session id) — and any auto-commit of preserved work is logged with the staged file list.
 
 ## Coverage Across the Codebase
 
@@ -188,6 +218,11 @@ The recovery is wired into `executeClaudeCommand` (the claude executor) in **bot
 paths (streamed result and thrown exception). Non-claude tools (codex/gemini/qwen/opencode)
 share the classifier; they treat the error as non-retryable exactly as before. No other
 call site constructs this error or needs separate handling.
+
+The auto-commit-on-critical-error behavior is similarly centralized: the recovery handler
+preserves work before each resume/restart, and `src/solve.mjs`'s single end-of-session
+commit chokepoint preserves work whenever any run ends in a critical error — both routed
+through the one shared `commitUncommittedChangesOnCriticalError` helper.
 
 ## Upstream Issues (already filed)
 
@@ -214,30 +249,38 @@ automatically.
 The fix intentionally reuses Hive Mind's existing retry/recovery infrastructure rather than
 adding new machinery:
 
-| Component                                                | Reused for                                                                             |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `classifyRetryableError` (`tool-retry.lib.mjs`)          | Single source of truth for error classification; extended with `requiresFreshSession`. |
-| `retryLimits` + `parseIntWithDefault` (`config.lib.mjs`) | Env-overridable numeric limits, validated/exported like every other limit.             |
-| `waitWithCountdown` (`tool-retry.lib.mjs`)               | Shared backoff wait (also de-duplicated from `claude.lib.mjs` by this PR).             |
-| `executeWithRetry` recursion (`claude.lib.mjs`)          | The existing retry loop; the fresh restart re-enters it with `argv.resume` cleared.    |
-| `claude.budget-stats.lib.mjs`                            | Home for the extracted `displaySessionTokenUsage`.                                     |
+| Component                                                | Reused for                                                                                         |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `classifyRetryableError` (`tool-retry.lib.mjs`)          | Single source of truth for error classification; extended with `requiresFreshSession`.             |
+| `retryLimits` + `parseIntWithDefault` (`config.lib.mjs`) | Env-overridable numeric limits, validated/exported like every other limit.                         |
+| `waitWithCountdown` (`tool-retry.lib.mjs`)               | Shared backoff wait (also de-duplicated from `claude.lib.mjs` by this PR).                         |
+| `executeWithRetry` recursion (`claude.lib.mjs`)          | The existing retry loop; resume re-enters with `argv.resume = sessionId`, restart with it cleared. |
+| `solve.mjs` end-of-session commit chokepoint             | Existing auto-commit path, now also triggered on critical errors by default.                       |
+| `reportError` (`sentry.lib.mjs`)                         | Best-effort error reporting from the never-throwing auto-commit helper.                            |
 
 ## Verification
 
 - New unit test: [`tests/test-issue-1834-thinking-block-recovery.mjs`](../../../tests/test-issue-1834-thinking-block-recovery.mjs)
-  — 14 assertions covering detection (exact issue message, `redacted_thinking`, case-insensitive,
+  — 26 assertions covering detection (exact issue message, `redacted_thinking`, case-insensitive,
   structured-object input), no-false-positives (casual "thinking", unrelated "cannot be
-  modified", transient errors unaffected), and the restart-cap config.
-- Full default test suite passes (223 test files).
-- `npm run lint` and `prettier --check` pass; `claude.lib.mjs` is back under 1500 lines.
+  modified", transient errors unaffected), the resume/restart-cap config, the
+  auto-commit-on-critical-error config, the **resume-first-then-restart escalation** (Phase 1
+  sets `argv.resume`; Phase 2 clears it; eventual give-up; no-session-id skips resume), and the
+  `commitUncommittedChangesOnCriticalError` helper (commits+pushes when dirty, no-ops when clean,
+  never throws when misconfigured).
+- Full default test suite passes.
+- `npm run lint` and `prettier --check` pass; every source file stays under the 1500-line limit.
 
 ## Files Changed
 
-| File                                                | Change                                                                           |
-| --------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `src/tool-retry.lib.mjs`                            | Detect corrupted-thinking 400 → `requiresFreshSession`.                          |
-| `src/claude.lib.mjs`                                | Fresh-session recovery in both failure paths; verbose diagnostics; refactors.    |
-| `src/config.lib.mjs`                                | `maxThinkingBlockRestarts` (`HIVE_MIND_MAX_THINKING_BLOCK_RESTARTS`, default 2). |
-| `src/claude.budget-stats.lib.mjs`                   | New `displaySessionTokenUsage` (extracted from `claude.lib.mjs`).                |
-| `tests/test-issue-1834-thinking-block-recovery.mjs` | New regression test.                                                             |
-| `docs/case-studies/issue-1834/`                     | This case study + the full reproduction log.                                     |
+| File                                                | Change                                                                                      |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `src/tool-retry.lib.mjs`                            | Detect corrupted-thinking 400 → `requiresFreshSession`.                                     |
+| `src/claude.lib.mjs`                                | Wire the two-phase recovery into both failure paths; verbose diagnostics; refactors.        |
+| `src/claude.thinking-block-recovery.lib.mjs`        | New stateful resume-first-then-restart recovery handler (`createThinkingBlockRecovery`).    |
+| `src/critical-error-commit.lib.mjs`                 | New never-throwing `commitUncommittedChangesOnCriticalError` auto-commit helper.            |
+| `src/config.lib.mjs`                                | `maxThinkingBlockResumes` + `maxThinkingBlockRestarts`; new `criticalErrorRecovery` config. |
+| `src/solve.mjs`                                     | Auto-commit uncommitted changes when a run ends in a critical error (default on).           |
+| `src/claude.budget-stats.lib.mjs`                   | New `displaySessionTokenUsage` (extracted from `claude.lib.mjs`).                           |
+| `tests/test-issue-1834-thinking-block-recovery.mjs` | New regression test (26 assertions).                                                        |
+| `docs/case-studies/issue-1834/`                     | This case study + the full reproduction log.                                                |

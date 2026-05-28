@@ -19,7 +19,9 @@
 import assert from 'assert';
 
 const { classifyRetryableError } = await import('../src/tool-retry.lib.mjs');
-const { retryLimits } = await import('../src/config.lib.mjs');
+const { retryLimits, criticalErrorRecovery } = await import('../src/config.lib.mjs');
+const { createThinkingBlockRecovery } = await import('../src/claude.thinking-block-recovery.lib.mjs');
+const { commitUncommittedChangesOnCriticalError } = await import('../src/critical-error-commit.lib.mjs');
 
 console.log('Testing Corrupted Thinking-Block Recovery (Issue #1834)\n');
 
@@ -36,6 +38,32 @@ const test = (name, fn) => {
     console.log(`     Error: ${error.message}`);
     failed++;
   }
+};
+
+const testAsync = async (name, fn) => {
+  try {
+    await fn();
+    console.log(`  ✅ ${name}`);
+    passed++;
+  } catch (error) {
+    console.log(`  ❌ ${name}`);
+    console.log(`     Error: ${error.message}`);
+    failed++;
+  }
+};
+
+// A noop async logger and a scriptable command-stream `$` double for the behavioral tests.
+const noopLog = async () => {};
+const makeFake$ = (statusOutput = '') => {
+  const calls = [];
+  const fake = () => async strings => {
+    const cmd = strings.join(' ');
+    calls.push(cmd);
+    if (cmd.includes('git status')) return { code: 0, stdout: statusOutput, stderr: '' };
+    return { code: 0, stdout: '', stderr: '' };
+  };
+  fake.calls = calls;
+  return fake;
 };
 
 // ============================================================
@@ -136,6 +164,160 @@ test('maxThinkingBlockRestarts defaults to 2', () => {
 test('maxThinkingBlockRestarts is a small positive bound (prevents endless restart loop)', () => {
   assert(retryLimits.maxThinkingBlockRestarts > 0, 'Must allow at least one fresh-session restart');
   assert(retryLimits.maxThinkingBlockRestarts <= 5, 'Must remain a small cap to avoid endless restart loops');
+});
+
+// ============================================================
+// Section 3b: Resume-cap configuration (PR #1835: "try resume first")
+// ============================================================
+console.log('\n=== 3b. Resume-first cap (Issue #1834 / PR #1835 feedback) ===');
+
+test('retryLimits.maxThinkingBlockResumes is defined', () => {
+  assert(typeof retryLimits.maxThinkingBlockResumes === 'number', `maxThinkingBlockResumes should be a number, got: ${typeof retryLimits.maxThinkingBlockResumes}`);
+});
+
+test('maxThinkingBlockResumes defaults to 1 (resume is tried first, but only briefly)', () => {
+  // Default value (overridable via HIVE_MIND_MAX_THINKING_BLOCK_RESUMES).
+  assert.strictEqual(retryLimits.maxThinkingBlockResumes, 1, `Expected default 1, got: ${retryLimits.maxThinkingBlockResumes}`);
+});
+
+test('maxThinkingBlockResumes is a small positive bound (resume rarely succeeds for this error)', () => {
+  assert(retryLimits.maxThinkingBlockResumes > 0, 'Must allow at least one resume attempt (resume-first)');
+  assert(retryLimits.maxThinkingBlockResumes <= 5, 'Must remain a small cap to avoid endless resume loops');
+});
+
+// ============================================================
+// Section 3c: Auto-commit-on-critical-error configuration
+// ============================================================
+console.log('\n=== 3c. Auto-commit on critical errors (PR #1835 feedback) ===');
+
+test('criticalErrorRecovery.autoCommitUncommittedChanges is defined', () => {
+  assert(typeof criticalErrorRecovery.autoCommitUncommittedChanges === 'boolean', `Expected a boolean, got: ${typeof criticalErrorRecovery.autoCommitUncommittedChanges}`);
+});
+
+test('autoCommitUncommittedChanges defaults to true (preserve work by default)', () => {
+  // "on all critical errors we auto commit uncommitted changes by default"
+  assert.strictEqual(criticalErrorRecovery.autoCommitUncommittedChanges, true, 'Auto-commit must be ON by default');
+});
+
+// ============================================================
+// Section 4: Recovery escalation — resume FIRST, then fresh restart
+// ============================================================
+console.log('\n=== 4. Recovery escalation: resume-first then restart ===');
+
+const classified = classifyRetryableError(issueMessage);
+
+await testAsync('First attempt resumes the existing session (does not discard it)', async () => {
+  const argv = {};
+  const recover = createThinkingBlockRecovery({
+    argv,
+    tempDir: '/tmp/none',
+    branchName: 'b',
+    $: makeFake$(''),
+    log: noopLog,
+    waitMs: 0,
+  });
+  const proceed = await recover({ classified, source: 'result', sessionId: 'sess-abc' });
+  assert.strictEqual(proceed, true, 'Recovery should signal the caller to retry');
+  assert.strictEqual(argv.resume, 'sess-abc', 'Phase 1 must RESUME the existing session id first');
+});
+
+await testAsync('After the resume cap, it discards the session and restarts fresh', async () => {
+  const argv = {};
+  const recover = createThinkingBlockRecovery({
+    argv,
+    tempDir: '/tmp/none',
+    branchName: 'b',
+    $: makeFake$(''),
+    log: noopLog,
+    waitMs: 0,
+  });
+  // 1 resume (default cap) then fall through to fresh restart on the next invocation.
+  await recover({ classified, source: 'result', sessionId: 'sess-abc' });
+  const proceed = await recover({ classified, source: 'result', sessionId: 'sess-abc' });
+  assert.strictEqual(proceed, true, 'Restart phase should still signal retry');
+  assert.strictEqual(argv.resume, undefined, 'Phase 2 must CLEAR argv.resume to force a fresh session');
+});
+
+await testAsync('Eventually gives up after resume + restart caps are exhausted', async () => {
+  const argv = {};
+  const recover = createThinkingBlockRecovery({
+    argv,
+    tempDir: '/tmp/none',
+    branchName: 'b',
+    $: makeFake$(''),
+    log: noopLog,
+    waitMs: 0,
+  });
+  // Defaults: 1 resume + 2 restarts = 3 successful attempts, then failure.
+  const total = retryLimits.maxThinkingBlockResumes + retryLimits.maxThinkingBlockRestarts;
+  for (let i = 0; i < total; i++) {
+    const proceed = await recover({ classified, source: 'result', sessionId: 'sess-abc' });
+    assert.strictEqual(proceed, true, `Attempt ${i + 1} should still proceed`);
+  }
+  const giveUp = await recover({ classified, source: 'result', sessionId: 'sess-abc' });
+  assert.strictEqual(giveUp, false, 'After all caps are exhausted, recovery must fail (no endless loop)');
+});
+
+await testAsync('Without a session id it skips resume and goes straight to a fresh restart', async () => {
+  const argv = {};
+  const recover = createThinkingBlockRecovery({
+    argv,
+    tempDir: '/tmp/none',
+    branchName: 'b',
+    $: makeFake$(''),
+    log: noopLog,
+    waitMs: 0,
+  });
+  const proceed = await recover({ classified, source: 'result', sessionId: null });
+  assert.strictEqual(proceed, true, 'Should still proceed with a fresh restart');
+  assert.strictEqual(argv.resume, undefined, 'No session id → fresh restart, argv.resume stays cleared');
+});
+
+// ============================================================
+// Section 5: Auto-commit helper preserves uncommitted work
+// ============================================================
+console.log('\n=== 5. commitUncommittedChangesOnCriticalError ===');
+
+await testAsync('Commits and pushes when there are uncommitted changes', async () => {
+  const fake$ = makeFake$(' M src/foo.mjs');
+  const result = await commitUncommittedChangesOnCriticalError({
+    tempDir: '/tmp/none',
+    branchName: 'my-branch',
+    $: fake$,
+    log: noopLog,
+    reason: 'unit-test',
+  });
+  assert.strictEqual(result.committed, true, 'Should commit when the tree is dirty');
+  assert.strictEqual(result.pushed, true, 'Should push the preserved work');
+  assert(
+    fake$.calls.some(c => c.includes('git add')),
+    'Should stage changes'
+  );
+  assert(
+    fake$.calls.some(c => c.includes('git commit')),
+    'Should commit changes'
+  );
+  assert(
+    fake$.calls.some(c => c.includes('git push')),
+    'Should push changes'
+  );
+});
+
+await testAsync('No-ops cleanly when the working tree is clean', async () => {
+  const fake$ = makeFake$('');
+  const result = await commitUncommittedChangesOnCriticalError({
+    tempDir: '/tmp/none',
+    branchName: 'my-branch',
+    $: fake$,
+    log: noopLog,
+  });
+  assert.strictEqual(result.committed, false, 'Nothing to commit on a clean tree');
+  assert(!fake$.calls.some(c => c.includes('git commit')), 'Must not commit on a clean tree');
+});
+
+await testAsync('Never throws and returns a safe result when misconfigured', async () => {
+  const result = await commitUncommittedChangesOnCriticalError({ tempDir: '', $: undefined, log: noopLog });
+  assert.deepStrictEqual(result, { committed: false, pushed: false }, 'Must degrade gracefully without a working tree/$');
 });
 
 // ============================================================

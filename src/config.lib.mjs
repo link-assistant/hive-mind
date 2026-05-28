@@ -177,7 +177,7 @@ export const DEFAULT_MAX_THINKING_BUDGET = 31999;
 export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46', 31999);
 
 /**
- * Check if a model is Opus 4.6 or later (Issue #1221, updated in Issue #1238)
+ * Check if a model is Opus 4.6 or later (Issue #1221, updated in Issue #1238, Issue #1832)
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model is Opus 4.6 or later
  */
@@ -185,22 +185,22 @@ export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
   // Check for explicit opus-4-6 or later versions, or opusplan (Issue #1223)
-  // Note: The 'opus' alias now maps to Opus 4.7 (Issue #1620), so we also check for the alias directly
+  // Note: The 'opus' alias now maps to Opus 4.8 (Issue #1832), so we also check for the alias directly
   // opusplan uses Opus for planning, so it should get Opus-level settings
-  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
+  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-4-8') || normalizedModel.includes('opus-5');
 };
 
 const isOpus47 = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
-  // 'opus' alias now maps to Opus 4.7 (Issue #1620)
+  // 'opus' alias now maps to Opus 4.8 (Issue #1832), which inherits 4.7 behaviour
   // opusplan uses Opus for planning, so it gets Opus-level settings
-  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-7');
+  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-4-8');
 };
 
 /**
- * Check if a model is Opus 4.7 or later (Issue #1620)
- * These models use Opus 4.7+ adaptive thinking behavior.
+ * Check if a model is Opus 4.7 or later (Issue #1620, Issue #1832)
+ * These models use Opus 4.7+ adaptive thinking behavior (also applies to Opus 4.8).
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model is Opus 4.7 or later
  */
@@ -208,6 +208,22 @@ export const isOpus47OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
   return isOpus47(model) || normalizedModel.includes('opus-5');
+};
+
+/**
+ * Check if a model is Opus 4.8 or later (Issue #1832)
+ * Opus 4.8 inherits all Opus 4.7 API constraints (adaptive thinking only, no sampling
+ * params) and adds new features such as mid-conversation system messages, refusal stop
+ * details, and fast mode. These are not exposed through Claude Code today, but this
+ * helper enables finer-grained control for future wiring.
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model is Opus 4.8 or later
+ */
+export const isOpus48OrLater = model => {
+  if (!model) return false;
+  const normalizedModel = model.toLowerCase();
+  // 'opus' alias now maps to Opus 4.8 (Issue #1832)
+  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-8') || normalizedModel.includes('opus-5');
 };
 
 const isOpus45 = model => {
@@ -247,7 +263,7 @@ export const supportsEffortLevel = model => {
 
 /**
  * Check if a model supports the xhigh effort level.
- * Official docs list xhigh only for Claude Opus 4.7.
+ * Official docs list xhigh for Claude Opus 4.7 and Opus 4.8 (Issue #1832).
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model supports xhigh effort
  */
@@ -336,8 +352,10 @@ export const tokensToThinkingLevel = getTokensToThinkingLevel(DEFAULT_MAX_THINKI
 export const OPUS_46_EFFORT_LEVELS = ['low', 'medium', 'high', 'max'];
 
 /**
- * Valid effort levels for Opus 4.7 (Issue #1620)
- * Opus 4.7 supports the additional 'xhigh' level.
+ * Valid effort levels for Opus 4.7 and Opus 4.8 (Issue #1620, Issue #1832)
+ * Both models support the additional 'xhigh' level.
+ * Opus 4.8 keeps the same effort level set; the default effort level is 'high'
+ * (enforced by Claude Code itself, not by this module).
  * See: https://platform.claude.com/docs/en/build-with-claude/effort
  * @type {string[]}
  */
@@ -438,12 +456,13 @@ export const getClaudeEnv = (options = {}) => {
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
   });
 
-  // Opus 4.7+ always uses adaptive thinking — MAX_THINKING_TOKENS has no effect (Issue #1620)
+  // Opus 4.7+ always uses adaptive thinking — MAX_THINKING_TOKENS has no effect (Issue #1620, Issue #1832)
+  // Opus 4.8 inherits this constraint: adaptive thinking is the only thinking mode.
   // For Opus 4.6 and earlier, MAX_THINKING_TOKENS controls extended thinking (Claude Code >= 2.1.12)
   // Default is 0 (thinking disabled) per Issue #1238.
   const opus47 = options.model && isOpus47OrLater(options.model);
   if (opus47) {
-    // Remove any inherited MAX_THINKING_TOKENS from process.env — Opus 4.7 ignores it
+    // Remove any inherited MAX_THINKING_TOKENS from process.env — Opus 4.7+ ignores it
     delete env.MAX_THINKING_TOKENS;
   } else {
     env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
@@ -467,8 +486,9 @@ export const getClaudeEnv = (options = {}) => {
     }
   }
 
-  // Opus 4.7 omits thinking content by default; opt in with --show-thinking-content (Issue #1620)
+  // Opus 4.7+ omits thinking content by default; opt in with --show-thinking-content (Issue #1620, Issue #1832)
   // Sets CLAUDE_CODE_SHOW_THINKING=1 which Claude Code uses to request display: "summarized"
+  // Applies to Opus 4.8 as well, which inherits Opus 4.7 thinking display behaviour.
   if (options.showThinkingContent) {
     env.CLAUDE_CODE_SHOW_THINKING = '1';
   }

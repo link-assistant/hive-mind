@@ -28,23 +28,25 @@ const execFileAsync = promisify(execFile);
 // ─── MODEL DATA ──────────────────────────────────────────────────────────────
 
 // Claude models (Anthropic API)
-// Updated for Opus 4.5/4.6/4.7 and Sonnet 4.6 support (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620)
+// Updated for Opus 4.5/4.6/4.7/4.8 and Sonnet 4.6 support (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832)
 export const claudeModels = {
   sonnet: 'claude-sonnet-4-6', // Sonnet 4.6 (default, Issue #1329)
-  opus: 'claude-opus-4-7', // Opus 4.7 (Issue #1620)
+  opus: 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
   opusplan: 'opusplan', // Special mode: Opus for planning, Sonnet for execution (Issue #1223)
   // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
   'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
-  'opus-4-7': 'claude-opus-4-7', // Opus 4.7 short alias (Issue #1620)
+  'opus-4-8': 'claude-opus-4-8', // Opus 4.8 short alias (Issue #1832)
+  'opus-4-7': 'claude-opus-4-7', // Opus 4.7 short alias (backward compatibility)
   'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias (backward compatibility)
   'opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5 short alias
   'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias (backward compatibility)
   'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
-  // Version aliases for backward compatibility (Issue #1221, Issue #1329, Issue #1620)
-  'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 (Issue #1620)
+  // Version aliases for backward compatibility (Issue #1221, Issue #1329, Issue #1620, Issue #1832)
+  'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
+  'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 (backward compatibility)
   'claude-sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
   'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6 (backward compatibility)
   'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
@@ -175,9 +177,10 @@ export const defaultModels = {
   gemini: 'flash',
 };
 
-// Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329)
+// Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329, Issue #1832)
 // See: https://code.claude.com/docs/en/model-config
 export const MODELS_SUPPORTING_1M_CONTEXT = [
+  'claude-opus-4-8', // Opus 4.8 (Issue #1832)
   'claude-opus-4-7', // Opus 4.7 (Issue #1620)
   'claude-opus-4-6',
   'claude-opus-4-5-20251101',
@@ -186,7 +189,8 @@ export const MODELS_SUPPORTING_1M_CONTEXT = [
   'claude-sonnet-4-5',
   'sonnet', // Now maps to Sonnet 4.6 (Issue #1329)
   'sonnet-4-6', // Short alias (Issue #1329)
-  'opus', // Now maps to Opus 4.7 (Issue #1620)
+  'opus', // Now maps to Opus 4.8 (Issue #1832)
+  'opus-4-8', // Short alias (Issue #1832)
   'opus-4-7', // Short alias (Issue #1620)
   'opus-4-6', // Short alias (Issue #1221 - PR comment feedback)
   'opus-4-5', // Short alias (Issue #1238)
@@ -216,6 +220,7 @@ export const freeToBaseModelMap = {
 
 export const CLAUDE_MODELS = {
   ...claudeModels,
+  'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 full ID (Issue #1832)
   'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 full ID (Issue #1620)
   'claude-sonnet-4-5-20250929': 'claude-sonnet-4-5-20250929',
   'claude-opus-4-5-20251101': 'claude-opus-4-5-20251101',
@@ -989,6 +994,7 @@ export const resolveModelId = (requestedModel, tool) => {
 
 export const defaultFallbackModels = {
   claude: {
+    'claude-opus-4-8': 'opus-4-7',
     'claude-opus-4-7': 'opus-4-6',
   },
   codex: {

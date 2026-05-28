@@ -285,7 +285,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   think: {
     type: 'string',
-    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, xhigh/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported. Opus 4.7 supports xhigh and max; Opus 4.6/Sonnet 4.6/Mythos support max; Opus 4.5 uses high for xhigh/max. For Codex, mapped to reasoning effort (off=none, low=low, medium=medium, high=high, xhigh/max=xhigh).',
+    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, xhigh/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported. Opus 4.8/4.7 support xhigh and max; Opus 4.6/Sonnet 4.6/Mythos support max; Opus 4.5 uses high for xhigh/max. For Codex, mapped to reasoning effort (off=none, low=low, medium=medium, high=high, xhigh/max=xhigh).',
     choices: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],
     default: undefined,
   },
@@ -316,12 +316,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'fallback-model': {
     type: 'string',
-    description: 'Fallback model to switch to on model capacity/overload errors. When supported, retries resume the same session with this model. Defaults: claude opus/opus-4-7 -> opus-4-6; codex gpt-5.5 -> gpt-5.4; all others unset.',
+    description: 'Fallback model to switch to on model capacity/overload errors. When supported, retries resume the same session with this model. Defaults: claude opus/opus-4-8 -> opus-4-7; claude opus-4-7 -> opus-4-6; codex gpt-5.5 -> gpt-5.4; all others unset.',
     default: undefined,
   },
   'show-thinking-content': {
     type: 'boolean',
-    description: 'Show thinking content in Claude responses. Opus 4.7 omits thinking content by default; this option opts in to receive summarized thinking blocks. Disabled by default. Only affects --tool claude.',
+    description: 'Show thinking content in Claude responses. Opus 4.7+ omits thinking content by default (applies to Opus 4.8 as well); this option opts in to receive summarized thinking blocks. Disabled by default. Only affects --tool claude.',
     default: false,
   },
   'prompt-plan-sub-agent': {

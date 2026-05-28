@@ -7,6 +7,9 @@
 import { reportError } from './sentry.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+// Issue #1827: tool-generated comments (markers + in-memory tracked IDs) must
+// not count as feedback in watch/continue mode, mirroring checkForNonBotComments.
+import { isToolGeneratedComment, isToolTrackedCommentId } from './tool-comments.lib.mjs';
 export const detectAndCountFeedback = async params => {
   const { prNumber, branchName, owner, repo, issueNumber, isContinueMode, argv, mergeStateStatus, prState, workStartTime, log, formatAligned, cleanErrorMessage, $, repositoryPath = null } = params;
 
@@ -93,6 +96,14 @@ export const detectAndCountFeedback = async params => {
         // Define log patterns to filter out comments containing logs from solve.mjs
         const logPatterns = [/📊.*Log file|solution\s+draft.*log/i, /🔗.*Link:|💻.*Session:/i, /Generated with.*solve\.mjs/i, /Session ID:|Log file available:/i];
 
+        // Issue #1827: A comment is tool-generated if its ID was tracked in
+        // memory during this run (system status comments AND the agent's own
+        // session comments) or if its body carries a known tool marker (catches
+        // comments from previous runs whose IDs are gone). These must never
+        // count as feedback — otherwise the agent's own "CI now green" / status
+        // comments trigger an endless restart loop (see PR link-foundation/rust-web-box#34).
+        const isToolComment = comment => isToolTrackedCommentId(comment.id) || isToolGeneratedComment(comment.body);
+
         // Count new PR comments after last commit (both code review comments and conversation comments)
         let prReviewComments = [];
         let prConversationComments = [];
@@ -112,6 +123,10 @@ export const detectAndCountFeedback = async params => {
 
         // Helper function to filter comments based on time and log patterns
         const filterComment = comment => {
+          // Issue #1827: never count tool-generated comments as feedback.
+          if (isToolComment(comment)) {
+            return false;
+          }
           const commentTime = new Date(comment.created_at);
           const isAfterCommit = commentTime > lastCommitTime;
           const isNotLogPattern = !logPatterns.some(pattern => pattern.test(comment.body || ''));
@@ -145,6 +160,10 @@ export const detectAndCountFeedback = async params => {
         if (issueCommentsResult.code === 0) {
           const issueComments = JSON.parse(issueCommentsResult.stdout.toString());
           const filteredIssueComments = issueComments.filter(comment => {
+            // Issue #1827: never count tool-generated comments as feedback.
+            if (isToolComment(comment)) {
+              return false;
+            }
             const commentTime = new Date(comment.created_at);
             const isAfterCommit = commentTime > lastCommitTime;
             const isNotLogPattern = !logPatterns.some(pattern => pattern.test(comment.body || ''));

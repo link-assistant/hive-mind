@@ -1,5 +1,17 @@
 # @link-assistant/hive-mind
 
+## 1.73.2
+
+### Patch Changes
+
+- 0af65ad: Handle the auto-PR placeholder being listed in the target repository's `.gitignore` without aborting the whole run (issue #1825). Previously `git add .gitkeep` exited non-zero and the solver threw `Failed to add .gitkeep` → `FATAL ERROR: PR creation failed`. Now, when the placeholder (`.gitkeep` or `CLAUDE.md`) is gitignored, the solver by default prints a clear, environment-agnostic root-cause explanation and stops cleanly instead of forcing the commit. Two opt-in flags are added (usable with both `solve` and `/solve`): `--remove-git-keep-from-git-ignore` removes the literal placeholder entry from `.gitignore` first and then commits normally, and `--force-git-keep-commit` commits the placeholder anyway with `git add -f`.
+
+## 1.73.1
+
+### Patch Changes
+
+- df8b776: Stop the auto-restart-until-mergeable and watch loops from treating the AI agent's own session comments (e.g. free-form "CI now green" status updates posted through the authenticated account) as new human feedback, which caused an endless restart loop until the iteration limit (issue #1827). The check window is now advanced monotonically, every comment the authenticated account posts during a session is tracked by ID, and watch-mode feedback counting excludes tool-generated comments by marker and tracked ID.
+
 ## 1.73.0
 
 ### Minor Changes

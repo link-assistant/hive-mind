@@ -53,7 +53,7 @@ import { limitReset } from './config.lib.mjs';
 
 // Import helper functions extracted for file size management (Issue #1593)
 const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
-const { checkForExistingComment, checkForNonBotComments, getMergeBlockers } = autoMergeHelpers;
+const { checkForExistingComment, checkForNonBotComments, getMergeBlockers, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = autoMergeHelpers;
 
 // Issue #1769: cancelled/stale CI re-run failures need a human action stop, not polling forever.
 const cancelledCiRerunLib = await import('./cancelled-ci-rerun.lib.mjs');
@@ -1031,6 +1031,26 @@ No further AI sessions will be started automatically for this run. Please review
           await log(formatAligned('✅', `${argv.tool.toUpperCase()} execution completed:`, 'Checking if PR is now mergeable...'));
         }
 
+        // Issue #1827: Register every comment the authenticated account posted
+        // during this AI session (free-form status comments like "✅ CI now
+        // green" the agent writes itself, which bypass postTrackedComment and
+        // match no tool marker). Tracking their IDs stops the next iteration's
+        // checkForNonBotComments from mistaking them for fresh human feedback.
+        try {
+          const tracked = await trackAuthenticatedUserCommentsSince(owner, repo, prNumber, issueNumber, iterationStartTime, $, { verbose: argv.verbose });
+          if (argv.verbose && tracked.length > 0) {
+            await log(formatAligned('🧷', 'Tracked own session comments:', `${tracked.length} (won't count as new feedback)`, 2));
+          }
+        } catch (trackError) {
+          reportError(trackError, {
+            context: 'track_authenticated_user_session_comments',
+            prNumber,
+            owner,
+            repo,
+            operation: 'track_session_comments',
+          });
+        }
+
         // Update last check time after restart
         lastCheckTime = new Date();
       } else if (blockers.length > 0) {
@@ -1071,8 +1091,16 @@ No further AI sessions will be started automatically for this run. Please review
         await log(formatAligned('', 'No action needed', 'Continuing to monitor...', 2));
       }
 
-      // Update last check time
-      lastCheckTime = currentTime;
+      // Issue #1827: Advance the check window monotonically — never move it
+      // backwards. In the restart branch above, lastCheckTime was already set
+      // to a moment *after* the AI session (and after any comments the agent
+      // posted). currentTime was captured at the *start* of this iteration,
+      // before the AI ran, so assigning it unconditionally here would rewind
+      // the window and re-detect the agent's own comments as new feedback
+      // (the root cause of the auto-restart loop in #1827). In the non-restart
+      // branches lastCheckTime is still the previous iteration's value, which
+      // is < currentTime, so this correctly advances it.
+      lastCheckTime = nextMonotonicCheckTime(lastCheckTime, currentTime);
     } catch (error) {
       reportError(error, {
         context: 'watch_until_mergeable',

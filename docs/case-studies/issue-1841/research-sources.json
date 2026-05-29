@@ -1,0 +1,48 @@
+{
+  "topic": "Claude Code 'Prompt is too long' after auto-compaction fails (too_few_groups), headless/-p mode",
+  "retrieved": "2026-05-29",
+  "sources": [
+    {
+      "title": "Error reference - Claude Code Docs (official)",
+      "url": "https://code.claude.com/docs/en/errors",
+      "key_facts": ["'Prompt is too long' = conversation plus attached files exceeds the model's context window.", "Recovery: run /compact to summarize earlier turns, or /clear to start fresh; /context shows the breakdown.", "Auto-compact is on by default and normally prevents this error.", "Claude Code auto-retries ONLY transient failures (5xx, 529 overloaded, timeouts, 429) up to 10x; request errors like 'Prompt is too long' are surfaced immediately, not retried.", "For the auto-mode classifier variant: 'In non-interactive mode the run aborts because the transcript only grows and retrying cannot succeed.'"]
+    },
+    {
+      "title": "[BUG] Claude Code fails with 'Prompt is too long' instead of auto-compacting · Issue #46348",
+      "url": "https://github.com/anthropics/claude-code/issues/46348",
+      "key_facts": ["Auto-compaction fails to trigger near the limit; Claude Code returns repeated 'Prompt is too long'.", "Reported as a regression (worked in earlier versions). Closed as duplicate.", "Version 2.1.100 (VS Code), Opus."]
+    },
+    {
+      "title": "Compaction fails with 'Conversation too long' at 48% context usage (Opus 4.6) · Issue #23751",
+      "url": "https://github.com/anthropics/claude-code/issues/23751"
+    },
+    {
+      "title": "Context compaction fails with 'Conversation too long' when context limit is reached · Issue #26317",
+      "url": "https://github.com/anthropics/claude-code/issues/26317"
+    },
+    {
+      "title": "/compact fails with 'Conversation too long' when context limit is reached · Issue #23047",
+      "url": "https://github.com/anthropics/claude-code/issues/23047"
+    },
+    {
+      "title": "[BUG] Reaching context limit is not allowing to manual /compact at all · Issue #25620",
+      "url": "https://github.com/anthropics/claude-code/issues/25620"
+    },
+    {
+      "title": "Context Limit Reached error should auto-compact and queue user message instead of failing · Issue #24976",
+      "url": "https://github.com/anthropics/claude-code/issues/24976"
+    },
+    {
+      "title": "Prompt too long error persists when compact command fails despite CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=60 · Issue #25867",
+      "url": "https://github.com/anthropics/claude-code/issues/25867"
+    },
+    {
+      "title": "Compaction death spiral in Cowork: 6 compactions in 3.5min · Issue #24677",
+      "url": "https://github.com/anthropics/claude-code/issues/24677"
+    },
+    {
+      "title": "[BUG] Prompt is too long (Claude for VS Code) · Issue #15896",
+      "url": "https://github.com/anthropics/claude-code/issues/15896"
+    }
+  ]
+}

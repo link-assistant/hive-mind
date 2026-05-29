@@ -29,6 +29,7 @@ import { classifyRetryableError, maybeSwitchToFallbackModel, waitWithCountdown }
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
+import { createContextLimitRecovery } from './claude.context-limit-recovery.lib.mjs'; // Issue #1841
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log, argv = null) => {
   if (!sessionId || !tempDir) return;
@@ -612,6 +613,11 @@ export const executeClaudeCommand = async params => {
   // then escalate to a fresh restart, auto-committing uncommitted work before each attempt. Created
   // once so its resume/restart caps persist across recursive retry calls.
   const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
+  // Issue #1841: "Prompt is too long" recovery — Claude Code's auto-compaction failed to reduce the
+  // context window, so the session is un-resumable (resuming replays the same oversized transcript).
+  // Discard the session and start fresh, auto-committing uncommitted work first. Created once so its
+  // restart cap persists across recursive retry calls.
+  const tryContextLimitRecovery = createContextLimitRecovery({ argv, tempDir, branchName, $, log });
   // Helper `waitWithCountdown` (per-minute countdown for delays >1 minute, Issue #1331) is shared
   // from tool-retry.lib.mjs so claude/codex/gemini/qwen/opencode all use one implementation.
   // Function to execute with retry logic
@@ -652,6 +658,7 @@ export const executeClaudeCommand = async params => {
     let is503Error = false;
     let isInternalServerError = false;
     let isRequestTimeout = false;
+    let compactionFailed = false; // Issue #1841: Claude Code auto-compaction reported compact_result: failed
     let apiMarkedNotRetryable = false;
     let resultNumTurns = 0;
     let stderrErrors = [];
@@ -980,6 +987,14 @@ export const executeClaudeCommand = async params => {
                     const contentPath = (lastMessage.match(/messages\.\d+\.content\.\d+/) || [])[0] || 'unknown';
                     await log(`🧠 Detected corrupted thinking-block error (un-resumable session). request_id=${data.request_id || 'unknown'}, at=${contentPath}. Will discard the session and restart fresh (Issue #1834, upstream anthropics/claude-code#63147).`, { verbose: true });
                   }
+                  // Issue #1841: Detect "Prompt is too long" / context-window-exhausted failure. This is
+                  // surfaced as a synthetic result (subtype 'success' but is_error true) with
+                  // terminal_reason 'blocking_limit'. Capture diagnostics — output_tokens of the final
+                  // turn is the key signal for the upstream `too_few_groups` compaction failure.
+                  if (lastMessage.includes('Prompt is too long') || data.terminal_reason === 'blocking_limit') {
+                    const outTokens = data.usage?.output_tokens ?? 'unknown';
+                    await log(`📏 Detected "Prompt is too long" (context window exhausted, terminal_reason=${data.terminal_reason || 'unknown'}). compaction_failed=${compactionFailed}, final_turn_output_tokens=${outTokens}, num_turns=${data.num_turns ?? 'unknown'}. Will discard the session and restart fresh (Issue #1841, upstream anthropics/claude-code#46348).`, { verbose: true });
+                  }
                 }
               }
               if (data.type === 'text' && data.text) lastMessage = data.text;
@@ -1006,6 +1021,21 @@ export const executeClaudeCommand = async params => {
                 if (callEntry && data.usage && data.usage.total_tokens) {
                   callEntry.usage.totalTokens = data.usage.total_tokens;
                   await log(`🤖 Sub-agent "${callEntry.description || 'unknown'}" completed: ${data.usage.total_tokens} total tokens`, { verbose: true });
+                }
+              }
+              // Issue #1841: Claude Code auto-compaction lifecycle events (system/status). Surface them
+              // so a "Prompt is too long" failure can be traced to a failed compaction. The sequence
+              // observed in the failing run was: { status: 'compacting' } → { status: null,
+              // compact_result: 'failed', compact_error: 'too_few_groups' } → synthetic assistant
+              // "Prompt is too long" → result is_error/terminal_reason: 'blocking_limit'.
+              if (data.type === 'system' && data.subtype === 'status') {
+                if (data.status === 'compacting') {
+                  await log('🗜️ Claude Code is auto-compacting the context (window near limit)...', { verbose: true });
+                } else if (data.compact_result === 'failed') {
+                  compactionFailed = true;
+                  await log(`⚠️ Claude Code auto-compaction FAILED (compact_error: ${data.compact_error || 'unknown'}). The prompt could not be reduced — a "Prompt is too long" error is likely next (Issue #1841, upstream anthropics/claude-code#46348).`, { level: 'warning' });
+                } else if (data.compact_result === 'success' || data.compact_result === 'completed') {
+                  await log('✅ Claude Code auto-compaction succeeded — context reduced.', { verbose: true });
                 }
               }
               if (data.type === 'assistant' && data.message && data.message.content) {
@@ -1163,7 +1193,14 @@ export const executeClaudeCommand = async params => {
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery
       // logs the failure and returns false; we fall through to the normal commandFailed return below
       // (the 400 is not a transient pattern, so it is not retried).
-      if (commandFailed && retryableLastError.requiresFreshSession && (await tryThinkingBlockRecovery({ classified: retryableLastError, source: 'result', sessionId }))) {
+      if (commandFailed && retryableLastError.requiresFreshSession && !retryableLastError.isContextLimit && (await tryThinkingBlockRecovery({ classified: retryableLastError, source: 'result', sessionId }))) {
+        return await executeWithRetry();
+      }
+      // Issue #1841: "Prompt is too long" → Claude Code auto-compaction failed; resuming would replay
+      // the same over-long transcript, so discard the session and restart fresh (auto-committing work
+      // first). When the restart cap is reached tryContextLimitRecovery logs the failure and returns
+      // false; we fall through to the normal commandFailed return below.
+      if (commandFailed && retryableLastError.isContextLimit && (await tryContextLimitRecovery({ classified: retryableLastError, source: 'result', sessionId }))) {
         return await executeWithRetry();
       }
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
@@ -1337,7 +1374,14 @@ export const executeClaudeCommand = async params => {
       const retryableException = classifyRetryableError(errorStr);
       // Issue #1834: Corrupted extended-thinking blocks surfaced as a thrown exception. Same recovery
       // as the streamed-result path: resume the session first, then fall back to a fresh restart.
-      if (retryableException.requiresFreshSession && (await tryThinkingBlockRecovery({ classified: retryableException, source: 'exception', sessionId }))) {
+      if (retryableException.requiresFreshSession && !retryableException.isContextLimit && (await tryThinkingBlockRecovery({ classified: retryableException, source: 'exception', sessionId }))) {
+        retryCount++;
+        return await executeWithRetry();
+      }
+      // Issue #1841: "Prompt is too long" surfaced as a thrown exception — same recovery as the
+      // streamed-result path: discard the session and restart fresh (resuming replays the over-long
+      // prompt). Auto-commits uncommitted work first.
+      if (retryableException.isContextLimit && (await tryContextLimitRecovery({ classified: retryableException, source: 'exception', sessionId }))) {
         retryCount++;
         return await executeWithRetry();
       }

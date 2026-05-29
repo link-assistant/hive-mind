@@ -149,6 +149,16 @@ export const retryLimits = {
   // times (context-preserving). Only after these resume attempts also fail do we fall back to a
   // fresh restart. Default: 1 — one cheap resume attempt, then escalate to a fresh session.
   maxThinkingBlockResumes: parseIntWithDefault('HIVE_MIND_MAX_THINKING_BLOCK_RESUMES', 1),
+  // Context-window-exhausted recovery (Issue #1841)
+  // When Claude Code returns "Prompt is too long" (the conversation + attached files exceed the
+  // model's context window) AND its own auto-compaction has already failed to reduce the prompt
+  // (observed: `compact_result: failed` / `compact_error: too_few_groups`, result
+  // `terminal_reason: blocking_limit`), the session is effectively un-resumable: in headless mode the
+  // transcript only grows, so resuming replays the same oversized prompt. The only recovery is a
+  // fresh session (equivalent to `/clear`). Cap fresh restarts to avoid an expensive re-run loop —
+  // a fresh session re-reads the issue/PR context, so each restart has a real cost.
+  // Upstream: https://github.com/anthropics/claude-code/issues/46348
+  maxContextLimitRestarts: parseIntWithDefault('HIVE_MIND_MAX_CONTEXT_LIMIT_RESTARTS', 1),
 };
 
 // Critical-error recovery behaviour (Issue #1834, PR #1835 feedback)

@@ -58,6 +58,21 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: false, isCapacity: false, requiresFreshSession: true, label: 'Corrupted thinking blocks (un-resumable session)' };
   }
 
+  // Issue #1841: "Prompt is too long" — the conversation plus attached files exceeds the model's
+  // context window (Claude Code error reference: https://code.claude.com/docs/en/errors). Claude
+  // Code's auto-compaction (on by default) normally prevents this, but when compaction itself fails
+  // (observed: status `compact_result: failed` with `compact_error: too_few_groups`, and a result
+  // with `terminal_reason: blocking_limit`) the prompt cannot be reduced and the run aborts. In
+  // headless/`-p` mode the transcript only ever grows, so resuming the SAME session just replays the
+  // oversized prompt and fails again — the only recovery is to discard the session and start fresh
+  // (equivalent to `/clear`). This is an upstream Claude Code limitation, tracked at
+  // anthropics/claude-code#46348 (and #23751, #26317, #25620, #24976). We flag it with
+  // `requiresFreshSession` (NOT a transient retry) and `isContextLimit` so the caller routes it to
+  // context-limit recovery instead of thinking-block recovery.
+  if (lower.includes('prompt is too long') || lower.includes('prompt too long') || lower.includes('input is too long') || (lower.includes('context') && lower.includes('too long') && lower.includes('compact'))) {
+    return { message, isRetryable: false, isCapacity: false, requiresFreshSession: true, isContextLimit: true, label: 'Prompt is too long (context window exhausted, compaction failed)' };
+  }
+
   if (lower.includes('api error: 503') || (lower.includes('503') && (lower.includes('upstream connect error') || lower.includes('remote connection failure')))) {
     return { message, isRetryable: true, isCapacity: false, label: '503 network error' };
   }

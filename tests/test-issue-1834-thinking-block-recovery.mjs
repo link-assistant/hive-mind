@@ -17,11 +17,15 @@
 // same corrupted session forever).
 
 import assert from 'assert';
+import { promises as fs } from 'fs';
+import os from 'os';
+import path from 'path';
 
 const { classifyRetryableError } = await import('../src/tool-retry.lib.mjs');
 const { retryLimits, criticalErrorRecovery } = await import('../src/config.lib.mjs');
 const { createThinkingBlockRecovery } = await import('../src/claude.thinking-block-recovery.lib.mjs');
 const { commitUncommittedChangesOnCriticalError } = await import('../src/critical-error-commit.lib.mjs');
+const { repairCorruptedThinkingBlocks, resolveSessionTranscriptPath } = await import('../src/claude.session-transcript-repair.lib.mjs');
 
 console.log('Testing Corrupted Thinking-Block Recovery (Issue #1834)\n');
 
@@ -318,6 +322,167 @@ await testAsync('No-ops cleanly when the working tree is clean', async () => {
 await testAsync('Never throws and returns a safe result when misconfigured', async () => {
   const result = await commitUncommittedChangesOnCriticalError({ tempDir: '', $: undefined, log: noopLog });
   assert.deepStrictEqual(result, { committed: false, pushed: false }, 'Must degrade gracefully without a working tree/$');
+});
+
+// ============================================================
+// Section 6: Transcript repair (Issue #1834 "can we do even better?")
+// ============================================================
+console.log('\n=== 6. repairCorruptedThinkingBlocks ===');
+
+// Build an isolated fake ~/.claude/projects tree and a session JSONL inside it, then return the
+// (homeDir, tempDir, sessionId) needed to drive the repair. The transcript reproduces the exact
+// corruption from the issue log: an assistant message whose thinking block has empty text but a
+// kept signature.
+const writeFakeSession = async lines => {
+  const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'issue1834-home-'));
+  const tempDir = '/tmp/some-work-dir';
+  const sessionId = 'sess-repair-test';
+  const sessionFile = resolveSessionTranscriptPath(tempDir, sessionId, homeDir);
+  await fs.mkdir(path.dirname(sessionFile), { recursive: true });
+  await fs.writeFile(sessionFile, lines.map(l => (typeof l === 'string' ? l : JSON.stringify(l))).join('\n'), 'utf8');
+  return { homeDir, tempDir, sessionId, sessionFile };
+};
+
+await testAsync('Strips an empty-text thinking block but keeps the rest of the message', async () => {
+  const corruptedEntry = {
+    type: 'assistant',
+    message: {
+      role: 'assistant',
+      content: [
+        { type: 'thinking', thinking: '', signature: 'EucBCmMIstale-signature' },
+        { type: 'text', text: 'Here is my answer.' },
+      ],
+    },
+  };
+  const { homeDir, tempDir, sessionId, sessionFile } = await writeFakeSession([corruptedEntry]);
+  const result = await repairCorruptedThinkingBlocks({ tempDir, sessionId, homeDir, log: noopLog });
+  assert.strictEqual(result.repaired, true, 'Should report a repair was made');
+  assert.strictEqual(result.removedBlocks, 1, 'Should remove exactly the 1 corrupted block');
+  const repaired = JSON.parse((await fs.readFile(sessionFile, 'utf8')).trim());
+  assert.strictEqual(repaired.message.content.length, 1, 'Only the text block should remain');
+  assert.strictEqual(repaired.message.content[0].type, 'text', 'The surviving block must be the text block');
+});
+
+await testAsync('Writes a one-time .pre-repair-backup of the original transcript', async () => {
+  const { homeDir, tempDir, sessionId, sessionFile } = await writeFakeSession([
+    {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: '', signature: 's' },
+          { type: 'text', text: 'hi' },
+        ],
+      },
+    },
+  ]);
+  const original = await fs.readFile(sessionFile, 'utf8');
+  await repairCorruptedThinkingBlocks({ tempDir, sessionId, homeDir, log: noopLog });
+  const backup = await fs.readFile(`${sessionFile}.pre-repair-backup`, 'utf8');
+  assert.strictEqual(backup, original, 'Backup must contain the unmodified original transcript');
+});
+
+await testAsync('Removes redacted_thinking blocks with empty data', async () => {
+  const { homeDir, tempDir, sessionId, sessionFile } = await writeFakeSession([
+    {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'redacted_thinking', data: '' },
+          { type: 'text', text: 'ok' },
+        ],
+      },
+    },
+  ]);
+  const result = await repairCorruptedThinkingBlocks({ tempDir, sessionId, homeDir, log: noopLog });
+  assert.strictEqual(result.removedBlocks, 1, 'Should remove the empty redacted_thinking block');
+  const repaired = JSON.parse((await fs.readFile(sessionFile, 'utf8')).trim());
+  assert.strictEqual(repaired.message.content.length, 1, 'Only the text block should remain');
+});
+
+await testAsync('Leaves a valid (signed, non-empty) thinking block untouched', async () => {
+  const { homeDir, tempDir, sessionId, sessionFile } = await writeFakeSession([
+    {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: 'real reasoning', signature: 'sig' },
+          { type: 'text', text: 'answer' },
+        ],
+      },
+    },
+  ]);
+  const before = await fs.readFile(sessionFile, 'utf8');
+  const result = await repairCorruptedThinkingBlocks({ tempDir, sessionId, homeDir, log: noopLog });
+  assert.strictEqual(result.repaired, false, 'A healthy transcript must not be modified');
+  assert.strictEqual(result.removedBlocks, 0, 'Nothing should be removed from a healthy transcript');
+  assert.strictEqual(await fs.readFile(sessionFile, 'utf8'), before, 'A healthy transcript must be byte-identical after repair');
+});
+
+await testAsync('Never empties a message: a thinking-only message is left as-is', async () => {
+  const { homeDir, tempDir, sessionId, sessionFile } = await writeFakeSession([{ type: 'assistant', message: { role: 'assistant', content: [{ type: 'thinking', thinking: '', signature: 's' }] } }]);
+  const before = await fs.readFile(sessionFile, 'utf8');
+  const result = await repairCorruptedThinkingBlocks({ tempDir, sessionId, homeDir, log: noopLog });
+  assert.strictEqual(result.repaired, false, 'Must not produce an empty content array');
+  assert.strictEqual(await fs.readFile(sessionFile, 'utf8'), before, 'Message must be left unchanged to avoid an invalid empty content array');
+});
+
+await testAsync('Returns gracefully (no throw) when the transcript does not exist', async () => {
+  const result = await repairCorruptedThinkingBlocks({ tempDir: '/tmp/none', sessionId: 'does-not-exist', homeDir: '/tmp/none', log: noopLog });
+  assert.strictEqual(result.repaired, false, 'Missing transcript must not be reported as repaired');
+  assert.strictEqual(result.removedBlocks, 0, 'Missing transcript removes nothing');
+});
+
+await testAsync('Returns gracefully when called with no arguments', async () => {
+  const result = await repairCorruptedThinkingBlocks();
+  assert.strictEqual(result.repaired, false, 'Must degrade gracefully with no opts');
+});
+
+// ============================================================
+// Section 7: Phase 1 repairs the transcript before resuming
+// ============================================================
+console.log('\n=== 7. Recovery Phase 1 repairs then resumes ===');
+
+await testAsync('Phase 1 invokes transcript repair before setting argv.resume', async () => {
+  const argv = {};
+  let repairCalledWith = null;
+  const recover = createThinkingBlockRecovery({
+    argv,
+    tempDir: '/tmp/none',
+    branchName: 'b',
+    $: makeFake$(''),
+    log: noopLog,
+    waitMs: 0,
+    repair: async opts => {
+      repairCalledWith = opts;
+      return { repaired: true, removedBlocks: 3 };
+    },
+  });
+  const proceed = await recover({ classified, source: 'result', sessionId: 'sess-xyz' });
+  assert.strictEqual(proceed, true, 'Recovery should signal retry');
+  assert.strictEqual(argv.resume, 'sess-xyz', 'Phase 1 must resume the existing session after repair');
+  assert(repairCalledWith, 'Repair must be invoked in Phase 1');
+  assert.strictEqual(repairCalledWith.sessionId, 'sess-xyz', 'Repair must target the failing session id');
+});
+
+await testAsync('Phase 1 still resumes even if repair throws (repair must never block recovery)', async () => {
+  const argv = {};
+  const recover = createThinkingBlockRecovery({
+    argv,
+    tempDir: '/tmp/none',
+    branchName: 'b',
+    $: makeFake$(''),
+    log: noopLog,
+    waitMs: 0,
+    repair: async () => {
+      throw new Error('boom');
+    },
+  });
+  const proceed = await recover({ classified, source: 'result', sessionId: 'sess-xyz' });
+  assert.strictEqual(proceed, true, 'A repair failure must not abort recovery');
+  assert.strictEqual(argv.resume, 'sess-xyz', 'Phase 1 must still resume after a failed repair');
 });
 
 // ============================================================

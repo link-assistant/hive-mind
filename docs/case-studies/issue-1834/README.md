@@ -14,10 +14,21 @@ the original response.
 The error is **not** a Hive Mind logic bug — it is an upstream Claude Code / Anthropic
 API bug ([anthropics/claude-code#63147](https://github.com/anthropics/claude-code/issues/63147)).
 Hive Mind's contribution is **detection and recovery**: instead of resuming a poisoned
-session forever (or failing outright), it now **tries to resume the existing session
-first** and, only when resume is not possible, **discards the un-resumable session and
-restarts fresh**. On every such critical error it also auto-commits (and best-effort
-pushes) any uncommitted work first, so nothing is lost when the session context resets.
+session forever (or failing outright), it now **repairs the on-disk transcript and resumes
+the existing session first** and, only when repair+resume is not possible, **discards the
+un-resumable session and restarts fresh**. On every such critical error it also auto-commits
+(and best-effort pushes) any uncommitted work first, so nothing is lost when the session
+context resets.
+
+> **PR #1836 — "can we do even better?"** The original PR #1835 recovery was _reactive_: a
+> plain resume of a poisoned transcript just repeats the 400, so recovery almost always fell
+> through to a **fresh restart that discards dozens of turns** of accumulated context (50
+> turns / **$3.84** in the second reproduction; 129 turns / $1.66 in the first). This PR adds a
+> **proactive transcript repair** (`src/claude.session-transcript-repair.lib.mjs`): before
+> resuming, it strips the corrupted empty-text `thinking`/`redacted_thinking` blocks from the
+> session JSONL (a workaround proven upstream — the API permits _omitting_ earlier thinking,
+> just not _modifying_ it). When repair succeeds the resume **keeps all accumulated context**;
+> when it can't help, recovery still falls back to a fresh restart, so there is no regression.
 
 ## Issue Details
 
@@ -25,8 +36,10 @@ pushes) any uncommitted work first, so nothing is lost when the session context 
 - **Title**: API Error: 400 messages.1.content.19: `thinking` or `redacted_thinking` blocks in the latest assistant message cannot be modified.
 - **Labels**: bug
 - **Reported**: 2026-05-28
-- **Pull Request**: [#1835](https://github.com/link-assistant/hive-mind/pull/1835)
-- **Reproduction log**: [`reproduction-log.txt`](./reproduction-log.txt) (the full 16,573-line solution-draft log from the issue's gist)
+- **Pull Requests**: [#1835](https://github.com/link-assistant/hive-mind/pull/1835) (initial detect + resume-first-then-restart + auto-commit), [#1836](https://github.com/link-assistant/hive-mind/pull/1836) (proactive transcript repair — "can we do even better?")
+- **Reproduction logs**:
+  - [`reproduction-log.txt`](./reproduction-log.txt) — the full 16,573-line solution-draft log from the issue's gist (`solve v1.73.4`, 129 turns).
+  - [`reproduction-log-2.txt`](./reproduction-log-2.txt) — a second 5,932-line `solve v1.73.4` run from the PR #1836 comment gist (50 turns, **$3.84**), which captures the corrupted `"thinking": ""` blocks **live in the stream** (lines 860, 1205) before the final 400 at `messages.1.content.17`.
 
 ## Requirements (extracted verbatim from the issue)
 
@@ -38,7 +51,7 @@ The issue body lists the following requirements. Each is addressed in this PR:
 4. **If not enough data to find the root cause, add debug output / verbose mode** for the next iteration. → Verbose diagnostics added (request id + content path). See [Diagnostics](#diagnostics--observability).
 5. **If the issue belongs to another repo where we can file issues, do so** (with reproducible examples, workarounds, fix suggestions). → The upstream bug is already extensively reported; we link the canonical issues rather than file duplicates. See [Upstream Issues](#upstream-issues-already-filed).
 6. **Apply the fix to the entire codebase** — fix in all places where it occurs. → See [Coverage Across the Codebase](#coverage-across-the-codebase).
-7. **Plan and execute everything in the single existing PR #1835.** → All work is on branch `issue-1834-60cf8031f181`.
+7. **Plan and execute everything in the single existing PR.** → PR #1835 landed the initial recovery; the "can we do even better?" follow-up (proactive transcript repair) is delivered in PR #1836 on branch `issue-1834-710b1033fbca`.
 
 ## Timeline / Sequence of Events
 
@@ -68,6 +81,27 @@ Reconstructed from [`reproduction-log.txt`](./reproduction-log.txt):
   `api_error_status`.
 - `x-should-retry: false` — the API itself says this is not retryable. Retrying with the
   same history (resume) is futile.
+
+### Second occurrence (`reproduction-log-2.txt`, PR #1836 comment)
+
+A second `solve v1.73.4` run (still **pre-fix**) reproduced the identical failure and, crucially,
+captured the **corruption forming live in the stream** — not just the final rejection:
+
+| Time (UTC) | Log line | Event                                                                                                                                               |
+| ---------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10:14:26   | 6        | `solve v1.73.4` started (fresh session, no `--resume`).                                                                                             |
+| 10:15:00   | 604      | Session `fdc50a04-b97f-4e03-b634-de446f0456b4` begins.                                                                                              |
+| 10:15:04   | 860      | A streamed assistant message already contains `"thinking": ""` — an **empty-text thinking block** (with kept signature) persisted into the history. |
+| 10:15:17   | 1205     | A second empty `"thinking": ""` block appears — the poison is accumulating early in the conversation.                                               |
+| 10:33:37   | 5827     | After 50 turns the request fails: `400 messages.1.content.17 … cannot be modified`.                                                                 |
+| 10:33:37   | 5840     | Result event: `subtype: "success"`, `is_error: true`, `api_error_status: 400`, `num_turns: 50`, `total_cost_usd: 3.8426…`.                          |
+
+This run is the direct motivation for PR #1836: the corrupted blocks are **visibly present in the
+on-disk transcript** (`"thinking": ""`), which is exactly what the transcript-repair step strips so
+the session can resume with its 50 turns of context intact instead of being discarded. Note the
+offending block is at `messages.1.content.17` here vs `messages.1.content.19` in log 1 — both are
+the **first assistant message** (an early-conversation thinking block), consistent with the
+compaction/round-trip root cause.
 
 ## Root Cause Analysis
 
@@ -144,12 +178,17 @@ the thrown-exception path via a stateful handler built by
 resume/restart counters across recursive retries and implements a **two-phase escalation**
 (per PR #1835 feedback: _"try resume first, and if not possible try to restart"_):
 
-- **Phase 1 — resume first.** While `resumeCount < retryLimits.maxThinkingBlockResumes`
-  (default **1**) and a session id is known, it preserves work, sets `argv.resume = sessionId`,
-  waits briefly, and re-enters `executeWithRetry` to **resume the existing session** (cheapest,
-  keeps accumulated context). For this specific corruption a resume usually fails again — when it
-  does, the same error re-invokes the handler, the resume cap is now exhausted, and it falls
-  through to Phase 2.
+- **Phase 1 — repair the transcript, then resume (PR #1836).** While
+  `resumeCount < retryLimits.maxThinkingBlockResumes` (default **1**) and a session id is known, it
+  preserves work, **repairs the on-disk transcript** via
+  `repairCorruptedThinkingBlocks({ tempDir, sessionId })` (strips the empty-text
+  `thinking`/`redacted_thinking` blocks, backing up the original first), sets
+  `argv.resume = sessionId`, waits briefly, and re-enters `executeWithRetry` to **resume the
+  existing session**. With the corrupted blocks removed the replayed history is valid, so resume now
+  **preserves the accumulated context** (the 50 turns / $3.84 the old behavior would have thrown
+  away). If repair finds nothing to fix or resume still fails, the same error re-invokes the handler,
+  the resume cap is now exhausted, and it falls through to Phase 2 — so there is **no regression**
+  relative to the PR #1835 behavior.
 - **Phase 2 — restart fresh.** While `restartCount < retryLimits.maxThinkingBlockRestarts`
   (default **2**), it discards the session (`argv.resume = undefined`) so the next run starts a
   **brand-new** conversation, waits briefly, then re-invokes `executeWithRetry`.
@@ -166,6 +205,37 @@ auto-commits whenever a run ends in a critical error (`success === false ||
 errorDuringExecution === true`), satisfying PR #1835's _"on all critical errors we auto commit
 uncommitted changes by default."_ The helper is dependency-light and **never throws**, so a
 failed commit can never mask the original error.
+
+### 2b. Repair the transcript — `src/claude.session-transcript-repair.lib.mjs` (PR #1836)
+
+`repairCorruptedThinkingBlocks({ tempDir, sessionId, homeDir, log })` is the "do better" step. It
+resolves the session JSONL (`~/.claude/projects/<cwd-with-/-as-->/<sessionId>.jsonl`, the same path
+logic `claude.lib.mjs` already uses for usage stats), parses it line-by-line, and for each assistant
+message with an array `content` removes any block that is a corrupted thinking block:
+
+```js
+const isCorruptedThinkingBlock = block => {
+  if (!block || typeof block !== 'object') return false;
+  if (block.type === 'thinking') return !block.thinking; // '' / undefined / null
+  if (block.type === 'redacted_thinking') return !block.data;
+  return false;
+};
+```
+
+This mirrors the proven community workaround (e.g.
+[anthropics/claude-code#46843](https://github.com/anthropics/claude-code/issues/46843) and the
+`claude-code-thinking-blocks-fix` scripts): the API rejects _modified_ thinking blocks but happily
+accepts a history where the earlier thinking is simply **omitted**, so deleting the empty-text blocks
+makes the transcript replayable again. The implementation is deliberately conservative:
+
+- **Never throws** — every failure path (missing file, unparseable line, write error) returns a
+  result object so recovery can still fall back to a fresh restart.
+- **Only removes empty-text blocks** — a legitimate signed, non-empty thinking block is left
+  byte-identical.
+- **Never empties a message** — if stripping would leave an assistant message with an empty `content`
+  array (itself an invalid request), that message is left untouched.
+- **Backs up first** — writes a one-time `<session>.jsonl.pre-repair-backup` before rewriting, so the
+  original poisoned transcript is preserved for forensics.
 
 ### 3. Configure — `src/config.lib.mjs`
 
@@ -208,7 +278,10 @@ from logs. When the error is detected in the streamed-result path, Hive Mind log
 
 Each recovery attempt logs the phase and counter — `Resume attempt N/M …` for Phase 1 and
 `Resume not possible — restart N/M with a fresh session` for Phase 2 (including the discarded
-session id) — and any auto-commit of preserved work is logged with the staged file list.
+session id) — and any auto-commit of preserved work is logged with the staged file list. The
+Phase 1 transcript repair logs (verbose) how many corrupted blocks it stripped and the backup path
+(`🩹 Repaired session transcript: stripped N corrupted thinking block(s) …`), or why it made no
+change (`ℹ️ Transcript repair made no change (<reason>) — resuming as-is`).
 
 ## Coverage Across the Codebase
 
@@ -249,38 +322,45 @@ automatically.
 The fix intentionally reuses Hive Mind's existing retry/recovery infrastructure rather than
 adding new machinery:
 
-| Component                                                | Reused for                                                                                         |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `classifyRetryableError` (`tool-retry.lib.mjs`)          | Single source of truth for error classification; extended with `requiresFreshSession`.             |
-| `retryLimits` + `parseIntWithDefault` (`config.lib.mjs`) | Env-overridable numeric limits, validated/exported like every other limit.                         |
-| `waitWithCountdown` (`tool-retry.lib.mjs`)               | Shared backoff wait (also de-duplicated from `claude.lib.mjs` by this PR).                         |
-| `executeWithRetry` recursion (`claude.lib.mjs`)          | The existing retry loop; resume re-enters with `argv.resume = sessionId`, restart with it cleared. |
-| `solve.mjs` end-of-session commit chokepoint             | Existing auto-commit path, now also triggered on critical errors by default.                       |
-| `reportError` (`sentry.lib.mjs`)                         | Best-effort error reporting from the never-throwing auto-commit helper.                            |
+| Component                                                | Reused for                                                                                                      |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `classifyRetryableError` (`tool-retry.lib.mjs`)          | Single source of truth for error classification; extended with `requiresFreshSession`.                          |
+| `retryLimits` + `parseIntWithDefault` (`config.lib.mjs`) | Env-overridable numeric limits, validated/exported like every other limit.                                      |
+| `waitWithCountdown` (`tool-retry.lib.mjs`)               | Shared backoff wait (also de-duplicated from `claude.lib.mjs` by this PR).                                      |
+| `executeWithRetry` recursion (`claude.lib.mjs`)          | The existing retry loop; resume re-enters with `argv.resume = sessionId`, restart with it cleared.              |
+| Session-path logic (mirrors `getModelUsageFromSession`)  | `resolveSessionTranscriptPath` reuses the same `~/.claude/projects/<cwd>/<id>.jsonl` convention for the repair. |
+| `solve.mjs` end-of-session commit chokepoint             | Existing auto-commit path, now also triggered on critical errors by default.                                    |
+| `reportError` (`sentry.lib.mjs`)                         | Best-effort error reporting from the never-throwing auto-commit helper.                                         |
 
 ## Verification
 
-- New unit test: [`tests/test-issue-1834-thinking-block-recovery.mjs`](../../../tests/test-issue-1834-thinking-block-recovery.mjs)
-  — 26 assertions covering detection (exact issue message, `redacted_thinking`, case-insensitive,
+- Unit test: [`tests/test-issue-1834-thinking-block-recovery.mjs`](../../../tests/test-issue-1834-thinking-block-recovery.mjs)
+  — **35 assertions** covering detection (exact issue message, `redacted_thinking`, case-insensitive,
   structured-object input), no-false-positives (casual "thinking", unrelated "cannot be
   modified", transient errors unaffected), the resume/restart-cap config, the
   auto-commit-on-critical-error config, the **resume-first-then-restart escalation** (Phase 1
-  sets `argv.resume`; Phase 2 clears it; eventual give-up; no-session-id skips resume), and the
+  sets `argv.resume`; Phase 2 clears it; eventual give-up; no-session-id skips resume), the
   `commitUncommittedChangesOnCriticalError` helper (commits+pushes when dirty, no-ops when clean,
-  never throws when misconfigured).
+  never throws when misconfigured), and — new in PR #1836 — the **transcript repair** (strips an
+  empty-text `thinking` block while keeping the rest of the message, removes empty
+  `redacted_thinking`, leaves valid signed thinking byte-identical, never empties a message, writes a
+  backup, degrades gracefully on a missing transcript / no args) plus the **Phase 1 repair-then-resume
+  integration** (repair is invoked before `argv.resume` is set, and a thrown repair never blocks
+  recovery).
 - Full default test suite passes.
 - `npm run lint` and `prettier --check` pass; every source file stays under the 1500-line limit.
 
 ## Files Changed
 
-| File                                                | Change                                                                                      |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `src/tool-retry.lib.mjs`                            | Detect corrupted-thinking 400 → `requiresFreshSession`.                                     |
-| `src/claude.lib.mjs`                                | Wire the two-phase recovery into both failure paths; verbose diagnostics; refactors.        |
-| `src/claude.thinking-block-recovery.lib.mjs`        | New stateful resume-first-then-restart recovery handler (`createThinkingBlockRecovery`).    |
-| `src/critical-error-commit.lib.mjs`                 | New never-throwing `commitUncommittedChangesOnCriticalError` auto-commit helper.            |
-| `src/config.lib.mjs`                                | `maxThinkingBlockResumes` + `maxThinkingBlockRestarts`; new `criticalErrorRecovery` config. |
-| `src/solve.mjs`                                     | Auto-commit uncommitted changes when a run ends in a critical error (default on).           |
-| `src/claude.budget-stats.lib.mjs`                   | New `displaySessionTokenUsage` (extracted from `claude.lib.mjs`).                           |
-| `tests/test-issue-1834-thinking-block-recovery.mjs` | New regression test (26 assertions).                                                        |
-| `docs/case-studies/issue-1834/`                     | This case study + the full reproduction log.                                                |
+| File                                                | Change                                                                                                                                 |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/tool-retry.lib.mjs`                            | Detect corrupted-thinking 400 → `requiresFreshSession` (PR #1835).                                                                     |
+| `src/claude.lib.mjs`                                | Wire the two-phase recovery into both failure paths; verbose diagnostics; refactors (PR #1835).                                        |
+| `src/claude.thinking-block-recovery.lib.mjs`        | Stateful resume-first-then-restart handler; **PR #1836** adds repair-then-resume to Phase 1.                                           |
+| `src/claude.session-transcript-repair.lib.mjs`      | **New (PR #1836)** — `repairCorruptedThinkingBlocks`: strips empty-text thinking blocks from the session JSONL (backup + never-throw). |
+| `src/critical-error-commit.lib.mjs`                 | Never-throwing `commitUncommittedChangesOnCriticalError` auto-commit helper (PR #1835).                                                |
+| `src/config.lib.mjs`                                | `maxThinkingBlockResumes` + `maxThinkingBlockRestarts`; `criticalErrorRecovery` config (PR #1835).                                     |
+| `src/solve.mjs`                                     | Auto-commit uncommitted changes when a run ends in a critical error (default on) (PR #1835).                                           |
+| `src/claude.budget-stats.lib.mjs`                   | `displaySessionTokenUsage` (extracted from `claude.lib.mjs`) (PR #1835).                                                               |
+| `tests/test-issue-1834-thinking-block-recovery.mjs` | Regression test — **35 assertions** (PR #1836 adds the repair + repair-then-resume tests).                                             |
+| `docs/case-studies/issue-1834/`                     | This case study + both reproduction logs.                                                                                              |

@@ -42,6 +42,12 @@ jobs:
   # === BUILD + VERIFY ===
   build:
     runs-on: ubuntu-latest
+    # Backstop against a hung browser download (the playwright CDN can stall a
+    # connection with no built-in timeout); the retry step below recovers from
+    # most stalls, this just prevents a runaway job in the worst case.
+    timeout-minutes: 20
+    env:
+      PLAYWRIGHT_VERSION: 1.59.1
     steps:
       - uses: actions/checkout@v5
 
@@ -61,13 +67,39 @@ jobs:
       - name: Build static download page
         run: npm run build:site
 
-      - name: Install Playwright (kept out of published deps)
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ runner.os }}
+
+      - name: Install Playwright package (kept out of published deps)
         # playwright is a heavy, browser-bearing dependency only needed for the
         # page e2e test and screenshot capture, so it is installed with
-        # --no-save rather than declared in package.json.
+        # --no-save rather than declared in package.json. Skip the postinstall
+        # browser download here — it has no timeout and could stall; the next
+        # step performs the download under a timeout+retry guard instead.
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npm install --no-save playwright@"$PLAYWRIGHT_VERSION"
+
+      - name: Install Playwright Chromium (retry on stalled download)
+        # The playwright CDN occasionally stalls a download with no internal
+        # timeout, hanging the job. Cap each attempt with `timeout` and retry so
+        # a transient stall self-heals instead of blocking CI. On a cache hit the
+        # browser is already present, so this mostly just runs the apt deps step.
         run: |
-          npm install --no-save playwright@1.59.1
-          npx playwright install --with-deps chromium
+          for attempt in 1 2 3; do
+            if timeout 360 npx playwright install --with-deps chromium; then
+              echo "Playwright Chromium installed on attempt $attempt"
+              exit 0
+            fi
+            echo "::warning::Playwright install attempt $attempt failed or timed out; retrying in 10s"
+            sleep 10
+          done
+          echo "::error::Playwright Chromium install failed after 3 attempts"
+          exit 1
 
       - name: Run download page e2e checks
         run: npm run test:pages:e2e -- --site-dir site/dist
@@ -93,6 +125,7 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pages: write
       id-token: write

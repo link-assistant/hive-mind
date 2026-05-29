@@ -43,12 +43,17 @@ jobs:
   build:
     name: Build and verify
     runs-on: ubuntu-latest
-    # Backstop against a hung browser download (the playwright CDN can stall
-    # after the archive reaches 100% with no built-in timeout); the retry step
-    # below recovers from most stalls, this just prevents a runaway job in the
-    # worst case. Sized to fit the full retry budget (5 short attempts) plus the
-    # build/test preamble.
-    timeout-minutes: 30
+    # Run inside the official Playwright image so the Chromium browser and all
+    # of its system libraries are baked in — no CDN download at all. This avoids
+    # the playwright CDN stall (it can hang *after* the 170 MiB archive reaches
+    # 100%, during extraction or the next component's connection, a phase the
+    # download's own socket timeout does not cover). The image ships Node 24,
+    # matching the repo, and sets PLAYWRIGHT_BROWSERS_PATH=/ms-playwright so the
+    # locally installed playwright package finds the pre-baked browser.
+    # NOTE: keep this tag in sync with PLAYWRIGHT_VERSION below.
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
+    timeout-minutes: 15
     env:
       PLAYWRIGHT_VERSION: 1.59.1
     steps:
@@ -70,75 +75,15 @@ jobs:
       - name: Build static download page
         run: npm run build:site
 
-      - name: Restore Playwright browser cache
-        id: playwright-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ runner.os }}
-
-      - name: Install Playwright package (kept out of published deps)
+      - name: Install Playwright package (browser pre-baked in the image)
         # playwright is a heavy, browser-bearing dependency only needed for the
         # page e2e test and screenshot capture, so it is installed with
-        # --no-save rather than declared in package.json. Skip the postinstall
-        # browser download here — it has no timeout and could stall; the steps
-        # below perform the download under a timeout+retry guard instead.
+        # --no-save rather than declared in package.json. The browser itself is
+        # already present in the image (found via PLAYWRIGHT_BROWSERS_PATH), so
+        # skip the postinstall download entirely.
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         run: npm install --no-save playwright@"$PLAYWRIGHT_VERSION"
-
-      - name: Install Playwright system dependencies
-        # The apt dependency install is reliable (no CDN download), so keep it
-        # out of the retry loop below — that way a retried browser download does
-        # not needlessly re-run apt. Always run it: the cache restores the
-        # browser binaries but not the apt system libraries they need to launch.
-        run: npx playwright install-deps chromium
-
-      - name: Install Playwright Chromium (retry on stalled download)
-        # The playwright CDN can stall *after* the browser archive reaches 100%
-        # (during extraction or while opening the connection for the next
-        # component), a phase the download's own socket timeout does not cover —
-        # so the process hangs with no internal timeout. Guard each attempt with
-        # an outer `timeout`, clear any partial download between attempts, and
-        # retry so a transient stall self-heals instead of blocking CI. A healthy
-        # download+extract finishes in well under a minute, so short attempts let
-        # several retries fit comfortably under the job timeout. On a cache hit
-        # the browser is already present and this no-ops. DEBUG=pw:install emits
-        # per-component progress so any future stall is diagnosable from the log.
-        id: playwright-install
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        env:
-          DEBUG: pw:install
-          # Fail a stalled mid-download socket fast instead of waiting out the
-          # default 30s; the outer `timeout` still backstops non-socket stalls.
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '60000'
-        run: |
-          for attempt in 1 2 3 4 5; do
-            # Drop any partial/temp artifacts a killed attempt left behind so a
-            # retry starts clean (and disk does not fill across attempts).
-            rm -rf ~/.cache/ms-playwright/*.tmp ~/.cache/ms-playwright/.links 2>/dev/null || true
-            if timeout 240 npx playwright install chromium; then
-              echo "Playwright Chromium installed on attempt $attempt"
-              exit 0
-            fi
-            echo "::warning::Playwright install attempt $attempt failed or timed out"
-            df -h / | tail -1
-            du -sh ~/.cache/ms-playwright 2>/dev/null || true
-            echo "retrying in 10s"
-            sleep 10
-          done
-          echo "::error::Playwright Chromium install failed after 5 attempts"
-          exit 1
-
-      - name: Save Playwright browser cache
-        # Persist only a freshly completed install (skip on a cache hit, and
-        # never cache a partial/failed download — that would poison future runs
-        # into skipping the install with an incomplete browser).
-        if: steps.playwright-cache.outputs.cache-hit != 'true' && steps.playwright-install.outcome == 'success'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ runner.os }}
 
       - name: Run download page e2e checks
         run: npm run test:pages:e2e -- --site-dir site/dist

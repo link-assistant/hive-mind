@@ -7,6 +7,64 @@ import { lt } from './limits-i18n.lib.mjs';
 const execAsync = promisify(exec);
 
 /**
+ * Build a clickable, human-readable link to a queued issue/PR for the
+ * /solve_queue (/queue) detailed status (issue #1837).
+ *
+ * For GitHub issue/PR URLs we render a compact `[owner/repo#number](url)`
+ * Markdown link so the list is scannable and clickable. When the label would
+ * contain Markdown-special characters (e.g. `_` or `*` in an owner/repo name)
+ * that could break Telegram's legacy Markdown parser, we fall back to the bare
+ * URL — which Telegram still auto-links and renders as clickable.
+ *
+ * Non-GitHub or unparseable URLs also fall back to the bare URL.
+ *
+ * @param {string} url - The issue/PR URL.
+ * @returns {string} A Markdown link or bare URL safe for `parse_mode: 'Markdown'`.
+ */
+export function formatQueueItemLink(url) {
+  if (!url || typeof url !== 'string') return String(url ?? '');
+  const match = url.match(/github\.com\/([^/\s]+)\/([^/\s]+)\/(?:issues|pull)\/(\d+)/i);
+  if (!match) return url;
+  const [, owner, repo, number] = match;
+  const label = `${owner}/${repo}#${number}`;
+  // Only build a Markdown link when the label has no Markdown-special chars
+  // that would break the legacy parser inside link text. Otherwise the bare
+  // URL is still clickable in Telegram.
+  if (/^[A-Za-z0-9/#.-]+$/.test(label)) {
+    return `[${label}](${url})`;
+  }
+  return url;
+}
+
+/**
+ * Render a history section (Completed / Failed) for the detailed queue status
+ * as a clickable list, most-recent-first, capped at `max` items with a
+ * "... and N more" line (issue #1837).
+ *
+ * @param {object} opts
+ * @param {Array} opts.items - History items (each with `url`, optional `error`).
+ * @param {string} opts.emoji - Leading emoji for each row (e.g. '✅' or '❌').
+ * @param {string} opts.label - Localized section heading.
+ * @param {number} opts.max - Maximum items to list before collapsing.
+ * @param {string|null} opts.locale - Locale for the "and N more" label.
+ * @param {boolean} [opts.withError] - Append `— error` when the item failed.
+ * @returns {string} The formatted section (empty string when no items).
+ */
+export function formatQueueHistorySection({ items, emoji, label, max, locale, withError = false }) {
+  if (!items || items.length === 0) return '';
+  let section = `*${label}* (${items.length}):\n`;
+  for (const item of [...items].reverse().slice(0, max)) {
+    section += `  ${emoji} ${formatQueueItemLink(item.url)}`;
+    if (withError && item.error) section += ` — ${item.error}`;
+    section += '\n';
+  }
+  if (items.length > max) {
+    section += `    ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
+  }
+  return `${section}\n`;
+}
+
+/**
  * Count running processes by name.
  * @param {string} processName - Process name to search for (e.g., 'claude', 'agent', 'codex', 'gemini')
  * @param {boolean} verbose - Whether to log verbose output

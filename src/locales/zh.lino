@@ -515,7 +515,7 @@ zh
           detail "工具别名会添加 `--tool <tool>`：`/codex <github-url>` 等同于 `/solve <github-url> --tool codex`"
         reply "也可以回复包含 GitHub 链接的消息：`/solve`"
         disabled "*/solve*（别名：*/do*、*/continue*、*/claude*、*/codex*、*/opencode*、*/agent*、*/gemini*、*/qwen*）- ❌ 已禁用"
-        queue "`/solve_queue` - 显示 solve 队列状态"
+        queue "`/solve_queue`（别名：`/queue`）- 显示 solve 队列状态"
       locked
         options "🔒 锁定选项：`{{options}}`"
       task

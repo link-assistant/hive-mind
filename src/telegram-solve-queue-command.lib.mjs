@@ -97,11 +97,12 @@ export function registerSolveQueueCommand(bot, options) {
     });
   }
 
-  // Match /solve_queue, /solve-queue, or /solvequeue (case-insensitive)
+  // Match /solve_queue, /solve-queue, /solvequeue, or the short /queue alias (case-insensitive)
   // Note: Telegram Bot API only supports underscores in command names, not hyphens.
-  // The entity-based matching handles /solve_queue and /solvequeue.
+  // The entity-based matching handles /solve_queue, /solvequeue, and /queue.
   // /solve-queue is handled by the text-based fallback in telegram-bot.mjs (issue #1232).
-  bot.command(/^solve[_-]?queue$/i, handleSolveQueueCommand);
+  // The /queue alias was added in issue #1837 to make checking the queue faster to type.
+  bot.command(/^(?:solve[_-]?queue|queue)$/i, handleSolveQueueCommand);
 
   return { handleSolveQueueCommand };
 }

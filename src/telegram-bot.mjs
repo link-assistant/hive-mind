@@ -1169,7 +1169,8 @@ bot.on('message', async (ctx, next) => {
   // /subscribe + /unsubscribe (#1688) are intentionally not in the text fallback — Telegraf's bot.command() is sufficient.
   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
-  const handlers = { ...solveHandlers, ...taskHandlers, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
+  // /queue is the short alias for /solve_queue (issue #1837)
+  const handlers = { ...solveHandlers, ...taskHandlers, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand, queue: handleSolveQueueCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();

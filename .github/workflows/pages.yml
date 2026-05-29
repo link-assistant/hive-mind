@@ -26,11 +26,11 @@ on:
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
-# Only one Pages deployment per ref at a time; queue (don't cancel) so an
-# in-flight deploy completes before the next starts.
+# Supersede stale PR runs, but never cancel a main deploy mid-flight (let an
+# in-flight Pages deployment finish before the next starts).
 concurrency:
-  group: pages-${{ github.ref }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -41,6 +41,7 @@ env: # Force Node.js 24 for actions without native support. See issue #1417.
 jobs:
   # === BUILD + VERIFY ===
   build:
+    name: Build and verify
     runs-on: ubuntu-latest
     # Backstop against a hung browser download (the playwright CDN can stall a
     # connection with no built-in timeout); the retry step below recovers from
@@ -58,7 +59,7 @@ jobs:
           cache: npm
 
       - name: Configure Pages
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v6
 
       - name: Install dependencies
@@ -115,15 +116,16 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5
         with:
           path: site/dist
 
   # === DEPLOY (main only) ===
   deploy:
+    name: Deploy to GitHub Pages
     needs: build
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

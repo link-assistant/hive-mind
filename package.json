@@ -19,6 +19,9 @@
     "test:queue": "node tests/solve-queue.test.mjs",
     "test:limits-display": "node tests/limits-display.test.mjs",
     "test:usage-limit": "node tests/test-usage-limit.mjs",
+    "build:site": "node scripts/build-site.mjs",
+    "test:pages:e2e": "node scripts/test-pages-e2e.mjs",
+    "preview:update": "node scripts/update-preview-images.mjs",
     "lint": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}'",
     "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' --fix",
     "check:duplication": "jscpd .",
@@ -58,6 +61,7 @@
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
     "@eslint/js": "^9.35.0",
+    "esbuild": "^0.25.12",
     "eslint": "^9.35.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
@@ -65,6 +69,8 @@
     "jscpd": "^4.0.5",
     "lint-staged": "^16.2.7",
     "prettier": "^3.6.2",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "test-anywhere": "^0.9.1"
   },
   "dependencies": {

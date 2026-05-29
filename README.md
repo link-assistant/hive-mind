@@ -92,6 +92,8 @@ Minimum system requirements to run `hive.mjs`:
 
 ## 🚀 Quick Start
 
+> 📥 **Prefer a guided installer?** The [**download page**](https://link-assistant.github.io/hive-mind/) offers copy-paste install commands for macOS, Windows, and Linux (npm, npx, and Docker), with light/dark themes and four languages.
+
 ### Global Installation
 
 #### Using Bun (Recommended)

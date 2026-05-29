@@ -473,57 +473,29 @@ await asyncTest('formatDetailedStatus includes all sections', async () => {
 
 // Issue #1837: the detailed status must show the actual executed issues/PRs as a
 // clickable list (not just counts), so stuck/running tasks are easy to find.
-await asyncTest('formatDetailedStatus renders clickable Markdown links for queued items (issue #1837)', async () => {
+await asyncTest('formatDetailedStatus renders clickable links for queued/completed/failed items (issue #1837)', async () => {
   beforeEach();
   const queue = new SolveQueue();
 
-  queue.enqueue({
-    url: 'https://github.com/test/repo/issues/42',
-    args: '',
-    requester: 'testuser',
-    infoBlock: 'Test info',
-  });
-
-  const status = await queue.formatDetailedStatus();
-
-  // Pending items should appear as a compact, clickable Markdown link
-  // [owner/repo#number](url) rather than a bare count.
-  assert.ok(status.includes('[test/repo#42](https://github.com/test/repo/issues/42)'), 'Should render queued item as a clickable Markdown link');
-
-  queue.stop();
-});
-
-await asyncTest('formatDetailedStatus lists completed and failed items as clickable links (issue #1837)', async () => {
-  beforeEach();
-  const queue = new SolveQueue();
-
-  // Simulate one completed and one failed item directly in history.
-  const completedItem = queue.enqueue({
-    url: 'https://github.com/test/repo/pull/7',
-    args: '',
-    requester: 'testuser',
-    infoBlock: 'done',
-  });
-  const failedItem = queue.enqueue({
-    url: 'https://github.com/test/repo/issues/8',
-    args: '',
-    requester: 'testuser',
-    infoBlock: 'broke',
-  });
-  // Move them out of the pending queues into history.
+  // One pending item, plus one completed + one failed item placed in history.
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/42', args: '', requester: 'u', infoBlock: 'x' });
+  const done = queue.enqueue({ url: 'https://github.com/test/repo/pull/7', args: '', requester: 'u', infoBlock: 'd' });
+  const bad = queue.enqueue({ url: 'https://github.com/test/repo/issues/8', args: '', requester: 'u', infoBlock: 'b' });
   for (const tool of Object.keys(queue.queues)) {
-    queue.queues[tool] = queue.queues[tool].filter(i => i !== completedItem && i !== failedItem);
+    queue.queues[tool] = queue.queues[tool].filter(i => i !== done && i !== bad);
   }
-  completedItem.status = QueueItemStatus.STARTED;
-  queue.completed.push(completedItem);
-  failedItem.setFailed(new Error('boom'));
-  queue.failed.push(failedItem);
+  done.status = QueueItemStatus.STARTED;
+  queue.completed.push(done);
+  bad.setFailed(new Error('boom'));
+  queue.failed.push(bad);
 
   const status = await queue.formatDetailedStatus();
 
-  assert.ok(status.includes('[test/repo#7](https://github.com/test/repo/pull/7)'), 'Completed section should list the PR as a clickable link');
-  assert.ok(status.includes('[test/repo#8](https://github.com/test/repo/issues/8)'), 'Failed section should list the issue as a clickable link');
-  assert.ok(status.includes('boom'), 'Failed item should include the error reason');
+  // Items render as compact, clickable [owner/repo#number](url) links, not counts.
+  assert.ok(status.includes('[test/repo#42](https://github.com/test/repo/issues/42)'), 'queued item should be a clickable link');
+  assert.ok(status.includes('[test/repo#7](https://github.com/test/repo/pull/7)'), 'completed PR should be a clickable link');
+  assert.ok(status.includes('[test/repo#8](https://github.com/test/repo/issues/8)'), 'failed issue should be a clickable link');
+  assert.ok(status.includes('boom'), 'failed item should include the error reason');
 
   queue.stop();
 });

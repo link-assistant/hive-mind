@@ -12,9 +12,12 @@
 //
 // PR #1835 feedback: "in case of this specific error we should try resume first, and if not possible
 // try to restart." Recovery is therefore a two-phase escalation:
-//   Phase 1 — resume the existing session (context-preserving; occasionally the transcript is intact
-//             enough to continue).
-//   Phase 2 — resume unavailable or already failed → discard the session and start fresh (`/clear`).
+//   Phase 1 — REPAIR the on-disk transcript (strip the corrupted empty-text thinking blocks) and
+//             resume the existing session (context-preserving). Plain resume of a poisoned
+//             transcript is futile — the 400 just repeats — so we first remove the offending blocks,
+//             which the API permits omitting. When repair succeeds the resume keeps all accumulated
+//             text/tool-use history (Issue #1834 "can we do even better?").
+//   Phase 2 — repair/resume unavailable or already failed → discard the session and start fresh.
 // On every attempt we first auto-commit any uncommitted work (Issue #1834 / PR #1835 feedback:
 // "on all critical errors we auto commit uncommitted changes by default") so nothing is lost when
 // the session context resets.
@@ -22,6 +25,7 @@
 import { retryLimits, criticalErrorRecovery } from './config.lib.mjs';
 import { waitWithCountdown } from './tool-retry.lib.mjs';
 import { commitUncommittedChangesOnCriticalError } from './critical-error-commit.lib.mjs';
+import { repairCorruptedThinkingBlocks } from './claude.session-transcript-repair.lib.mjs';
 
 /**
  * Create a stateful corrupted-thinking-block recovery handler. The returned function persists its
@@ -36,11 +40,13 @@ import { commitUncommittedChangesOnCriticalError } from './critical-error-commit
  * @param {Function} ctx.$ - command-stream executor.
  * @param {Function} ctx.log - async logger.
  * @param {number} [ctx.waitMs=5000] - settle delay before re-running (overridable for tests).
+ * @param {Function} [ctx.repair=repairCorruptedThinkingBlocks] - transcript repair (injectable for tests).
+ * @param {string} [ctx.homeDir] - override home dir for transcript lookup (tests).
  * @returns {(opts: {classified: object, source: string, sessionId: string|null}) => Promise<boolean>}
  *          Resolves true when a recovery attempt was initiated (caller should re-run); false when
  *          both caps are exhausted (caller should fail).
  */
-export const createThinkingBlockRecovery = ({ argv, tempDir, branchName, $, log, waitMs = 5000 }) => {
+export const createThinkingBlockRecovery = ({ argv, tempDir, branchName, $, log, waitMs = 5000, repair = repairCorruptedThinkingBlocks, homeDir }) => {
   let resumeCount = 0;
   let restartCount = 0;
   return async ({ classified, source, sessionId }) => {
@@ -49,11 +55,22 @@ export const createThinkingBlockRecovery = ({ argv, tempDir, branchName, $, log,
         await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: `${classified.label} (${source})` });
       }
     };
-    // Phase 1 — resume the existing session first (cheaper, keeps accumulated context).
+    // Phase 1 — repair the on-disk transcript, then resume (keeps accumulated context).
     if (sessionId && resumeCount < retryLimits.maxThinkingBlockResumes) {
       resumeCount++;
       await preserveWork();
-      await log(`\n⚠️ ${classified.label} (${source}). Resume attempt ${resumeCount}/${retryLimits.maxThinkingBlockResumes} — trying to resume the existing session first before discarding it (Issue #1834)...`, { level: 'warning' });
+      await log(`\n⚠️ ${classified.label} (${source}). Resume attempt ${resumeCount}/${retryLimits.maxThinkingBlockResumes} — repairing the corrupted transcript then resuming the existing session before discarding it (Issue #1834)...`, { level: 'warning' });
+      // Strip the corrupted (empty-text) thinking blocks so resume isn't doomed to repeat the 400.
+      try {
+        const repairResult = await repair({ tempDir, sessionId, homeDir, log });
+        if (repairResult?.repaired) {
+          await log(`   🩹 Stripped ${repairResult.removedBlocks} corrupted thinking block(s) from the transcript — resume will preserve context (Issue #1834).`, { verbose: true });
+        } else {
+          await log(`   ℹ️ Transcript repair made no change (${repairResult?.reason || 'unknown'}) — resuming as-is (Issue #1834).`, { verbose: true });
+        }
+      } catch {
+        // Repair must never block recovery — fall through to a plain resume attempt.
+      }
       argv.resume = sessionId;
       await waitWithCountdown(waitMs, log);
       await log('\n🔄 Resuming the session now...');

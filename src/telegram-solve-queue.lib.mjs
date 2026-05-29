@@ -17,7 +17,7 @@
 
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
-import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+import { formatDuration, formatQueueHistorySection, formatQueueItemLink, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
@@ -1320,28 +1320,17 @@ export class SolveQueue {
   }
 
   /**
-   * Format detailed queue status for Telegram message
-   * Groups output by tool queue, shows first 5 items per queue, and uses human-readable time.
+   * Format detailed queue status for Telegram message.
+   * Groups output by tool queue (clickable links per item), then lists the
+   * Completed and Failed history as clickable links, capped per section.
    *
    * Processing count = max(actual AI CLI processes via pgrep, tracked
    * `$ --status` executing screen-isolated sessions), not queue state.
    *
-   * Output format:
-   * ```
-   * 📋 Solve Queue Status
-   *
-   * claude (pending: 6, processing: 0)
-   * • url1 (waiting, 5h 43m 23s)
-   *   └ RAM usage is 70% (threshold: 65%)
-   * • url2 (queued, 2m 15s)
-   *
-   * agent (pending: 2, processing: 0)
-   * • url3 (waiting, 1h 2m 5s)
-   * ```
-   *
    * @returns {Promise<string>}
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    * @see https://github.com/link-assistant/hive-mind/issues/1267
+   * @see https://github.com/link-assistant/hive-mind/issues/1837
    */
   async formatDetailedStatus(options = {}) {
     const locale = getLocale(options);
@@ -1359,21 +1348,36 @@ export class SolveQueue {
       const processing = externalProcessing.byTool[tool] || 0;
       message += `*${tool}* (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
 
-      // Show first 5 queued items for this tool
-      const displayItems = toolQueue.slice(0, 5);
+      // Show the items this queue is actively processing for this tool, with a
+      // clickable link to each issue/PR (issue #1837). These come from the
+      // queue's own tracking, so they may differ from the pgrep-based count above.
+      const processingItems = Array.from(this.processing.values()).filter(item => item.tool === tool);
+      for (const item of processingItems.slice(0, QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE)) {
+        const waitTime = formatDuration(item.getWaitTime(), { locale });
+        message += `  ▶️ ${formatQueueItemLink(item.url)} (${queueStatusLabel(item.status, locale)}, ${waitTime})\n`;
+      }
+
+      // Show first queued items for this tool with clickable links
+      const displayItems = toolQueue.slice(0, QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE);
       for (const item of displayItems) {
         const waitTime = formatDuration(item.getWaitTime(), { locale });
-        message += `  • ${item.url} (${queueStatusLabel(item.status, locale)}, ${waitTime})\n`;
+        message += `  • ${formatQueueItemLink(item.url)} (${queueStatusLabel(item.status, locale)}, ${waitTime})\n`;
         if (item.waitingReason) {
           message += `    └ ${item.waitingReason}\n`;
         }
       }
-      if (toolQueue.length > 5) {
-        message += `    ... ${lt('queue_and_more', { count: toolQueue.length - 5 }, { locale })}\n`;
+      if (toolQueue.length > QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE) {
+        message += `    ... ${lt('queue_and_more', { count: toolQueue.length - QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE }, { locale })}\n`;
       }
 
       message += '\n';
     }
+
+    // Completed / Failed lists - clickable links to the executed issues/PRs,
+    // most-recent-first so the newest results are easy to find (issue #1837).
+    const max = QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE;
+    message += formatQueueHistorySection({ items: this.completed, emoji: '✅', label: lt('queue_completed', {}, { locale }), max, locale });
+    message += formatQueueHistorySection({ items: this.failed, emoji: '❌', label: lt('queue_failed', {}, { locale }), max, locale, withError: true });
 
     // Summary stats
     message += `${lt('queue_completed', {}, { locale })}: ${stats.completed}, ${lt('queue_failed', {}, { locale })}: ${stats.failed}\n`;

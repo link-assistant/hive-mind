@@ -515,7 +515,7 @@ hi
           detail "Tool aliases `--tool <tool>` लगाते हैं: `/codex <github-url>` का अर्थ `/solve <github-url> --tool codex` है"
         reply "या GitHub लिंक वाले संदेश का उत्तर दें: `/solve`"
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ अक्षम"
-        queue "`/solve_queue` - solve queue status दिखाएँ"
+        queue "`/solve_queue` (उपनाम: `/queue`) - solve queue status दिखाएँ"
       locked
         options "🔒 लॉक किए गए विकल्प: `{{options}}`"
       task

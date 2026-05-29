@@ -148,11 +148,26 @@ test('Command regex does not match solve', () => {
   assert.ok(!pattern.test('solve'), 'Should not match solve');
 });
 
-test('Command regex does not match queue', () => {
+test('Command regex matches queue (alias added in issue #1837)', () => {
   const bot = createMockBot();
   registerSolveQueueCommand(bot, createOptions());
   const pattern = bot.registeredCommands[0].pattern;
-  assert.ok(!pattern.test('queue'), 'Should not match queue');
+  assert.ok(pattern.test('queue'), 'Should match the /queue alias');
+});
+
+test('Command regex matches QUEUE (case insensitive alias)', () => {
+  const bot = createMockBot();
+  registerSolveQueueCommand(bot, createOptions());
+  const pattern = bot.registeredCommands[0].pattern;
+  assert.ok(pattern.test('QUEUE'), 'Should match the /QUEUE alias case-insensitively');
+});
+
+test('Command regex does not match unrelated commands like queued', () => {
+  const bot = createMockBot();
+  registerSolveQueueCommand(bot, createOptions());
+  const pattern = bot.registeredCommands[0].pattern;
+  assert.ok(!pattern.test('queued'), 'Should not match queued');
+  assert.ok(!pattern.test('myqueue'), 'Should not match myqueue');
 });
 
 // ============================================================================
@@ -307,6 +322,11 @@ await asyncTest('help message includes /solve_queue using backtick code block', 
 await asyncTest('telegram-bot.mjs includes solve_queue in text fallback handlers', async () => {
   const content = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
   assert.ok(content.includes('solve_queue: handleSolveQueueCommand'), 'Text fallback should include solve_queue handler');
+});
+
+await asyncTest('telegram-bot.mjs includes /queue alias in text fallback handlers (issue #1837)', async () => {
+  const content = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
+  assert.ok(content.includes('queue: handleSolveQueueCommand'), 'Text fallback should include the /queue alias handler');
 });
 
 await asyncTest('telegram-solve-queue.lib.mjs uses /solve_queue in log messages (not /solve-queue)', async () => {

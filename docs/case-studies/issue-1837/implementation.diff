@@ -1,0 +1,384 @@
+diff --git a/src/locales/en.lino b/src/locales/en.lino
+index 3038f59a..31fce6f7 100644
+--- a/src/locales/en.lino
++++ b/src/locales/en.lino
+@@ -515,7 +515,7 @@ en
+           detail "Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`"
+         reply "Or reply to a message with a GitHub link: `/solve`"
+         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Disabled"
+-        queue "`/solve_queue` - Show solve queue status"
++        queue "`/solve_queue` (alias: `/queue`) - Show solve queue status"
+       locked
+         options "🔒 Locked options: `{{options}}`"
+       task
+diff --git a/src/locales/hi.lino b/src/locales/hi.lino
+index 3f578c7c..728fce6f 100644
+--- a/src/locales/hi.lino
++++ b/src/locales/hi.lino
+@@ -515,7 +515,7 @@ hi
+           detail "Tool aliases `--tool <tool>` लगाते हैं: `/codex <github-url>` का अर्थ `/solve <github-url> --tool codex` है"
+         reply "या GitHub लिंक वाले संदेश का उत्तर दें: `/solve`"
+         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ अक्षम"
+-        queue "`/solve_queue` - solve queue status दिखाएँ"
++        queue "`/solve_queue` (उपनाम: `/queue`) - solve queue status दिखाएँ"
+       locked
+         options "🔒 लॉक किए गए विकल्प: `{{options}}`"
+       task
+diff --git a/src/locales/ru.lino b/src/locales/ru.lino
+index f89e3f68..2a832268 100644
+--- a/src/locales/ru.lino
++++ b/src/locales/ru.lino
+@@ -515,7 +515,7 @@ ru
+           detail "Алиасы инструментов добавляют `--tool <tool>`: `/codex <github-url>` равно `/solve <github-url> --tool codex`"
+         reply "Или ответьте на сообщение со ссылкой GitHub: `/solve`"
+         disabled "*/solve* (алиасы: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Отключено"
+-        queue "`/solve_queue` - Показать состояние очереди solve"
++        queue "`/solve_queue` (псевдоним: `/queue`) - Показать состояние очереди solve"
+       locked
+         options "🔒 Заблокированные опции: `{{options}}`"
+       task
+diff --git a/src/locales/zh.lino b/src/locales/zh.lino
+index eccea63f..721f3981 100644
+--- a/src/locales/zh.lino
++++ b/src/locales/zh.lino
+@@ -515,7 +515,7 @@ zh
+           detail "工具别名会添加 `--tool <tool>`：`/codex <github-url>` 等同于 `/solve <github-url> --tool codex`"
+         reply "也可以回复包含 GitHub 链接的消息：`/solve`"
+         disabled "*/solve*（别名：*/do*、*/continue*、*/claude*、*/codex*、*/opencode*、*/agent*、*/gemini*、*/qwen*）- ❌ 已禁用"
+-        queue "`/solve_queue` - 显示 solve 队列状态"
++        queue "`/solve_queue`（别名：`/queue`）- 显示 solve 队列状态"
+       locked
+         options "🔒 锁定选项：`{{options}}`"
+       task
+diff --git a/src/queue-config.lib.mjs b/src/queue-config.lib.mjs
+index cfdc9755..9528c16a 100644
+--- a/src/queue-config.lib.mjs
++++ b/src/queue-config.lib.mjs
+@@ -280,6 +280,13 @@ export const QUEUE_CONFIG = {
+ 
+   // Process detection
+   CLAUDE_PROCESS_NAMES: ['claude'], // Process names to detect
++
++  // Display
++  // Maximum number of items shown per section (pending/processing/completed/failed)
++  // in the /solve_queue (/queue) detailed status before collapsing into a
++  // "... and N more" line. Keeps the Telegram message under the 4096-char cap.
++  // See: https://github.com/link-assistant/hive-mind/issues/1837
++  MAX_DISPLAY_ITEMS_PER_QUEUE: parseIntWithDefault('HIVE_MIND_MAX_DISPLAY_ITEMS_PER_QUEUE', 5),
+ };
+ 
+ /**
+diff --git a/src/telegram-bot.mjs b/src/telegram-bot.mjs
+index ea71473b..574c9c91 100755
+--- a/src/telegram-bot.mjs
++++ b/src/telegram-bot.mjs
+@@ -1169,7 +1169,8 @@ bot.on('message', async (ctx, next) => {
+   // /subscribe + /unsubscribe (#1688) are intentionally not in the text fallback — Telegraf's bot.command() is sufficient.
+   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
+   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
+-  const handlers = { ...solveHandlers, ...taskHandlers, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand };
++  // /queue is the short alias for /solve_queue (issue #1837)
++  const handlers = { ...solveHandlers, ...taskHandlers, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand, queue: handleSolveQueueCommand };
+ 
+   const handler = handlers[extracted.command];
+   if (!handler) return next();
+diff --git a/src/telegram-solve-queue-command.lib.mjs b/src/telegram-solve-queue-command.lib.mjs
+index 58c62a81..c7dd59b6 100644
+--- a/src/telegram-solve-queue-command.lib.mjs
++++ b/src/telegram-solve-queue-command.lib.mjs
+@@ -97,11 +97,12 @@ export function registerSolveQueueCommand(bot, options) {
+     });
+   }
+ 
+-  // Match /solve_queue, /solve-queue, or /solvequeue (case-insensitive)
++  // Match /solve_queue, /solve-queue, /solvequeue, or the short /queue alias (case-insensitive)
+   // Note: Telegram Bot API only supports underscores in command names, not hyphens.
+-  // The entity-based matching handles /solve_queue and /solvequeue.
++  // The entity-based matching handles /solve_queue, /solvequeue, and /queue.
+   // /solve-queue is handled by the text-based fallback in telegram-bot.mjs (issue #1232).
+-  bot.command(/^solve[_-]?queue$/i, handleSolveQueueCommand);
++  // The /queue alias was added in issue #1837 to make checking the queue faster to type.
++  bot.command(/^(?:solve[_-]?queue|queue)$/i, handleSolveQueueCommand);
+ 
+   return { handleSolveQueueCommand };
+ }
+diff --git a/src/telegram-solve-queue.helpers.lib.mjs b/src/telegram-solve-queue.helpers.lib.mjs
+index 0f39a8db..a144a925 100644
+--- a/src/telegram-solve-queue.helpers.lib.mjs
++++ b/src/telegram-solve-queue.helpers.lib.mjs
+@@ -6,6 +6,64 @@ import { lt } from './limits-i18n.lib.mjs';
+ 
+ const execAsync = promisify(exec);
+ 
++/**
++ * Build a clickable, human-readable link to a queued issue/PR for the
++ * /solve_queue (/queue) detailed status (issue #1837).
++ *
++ * For GitHub issue/PR URLs we render a compact `[owner/repo#number](url)`
++ * Markdown link so the list is scannable and clickable. When the label would
++ * contain Markdown-special characters (e.g. `_` or `*` in an owner/repo name)
++ * that could break Telegram's legacy Markdown parser, we fall back to the bare
++ * URL — which Telegram still auto-links and renders as clickable.
++ *
++ * Non-GitHub or unparseable URLs also fall back to the bare URL.
++ *
++ * @param {string} url - The issue/PR URL.
++ * @returns {string} A Markdown link or bare URL safe for `parse_mode: 'Markdown'`.
++ */
++export function formatQueueItemLink(url) {
++  if (!url || typeof url !== 'string') return String(url ?? '');
++  const match = url.match(/github\.com\/([^/\s]+)\/([^/\s]+)\/(?:issues|pull)\/(\d+)/i);
++  if (!match) return url;
++  const [, owner, repo, number] = match;
++  const label = `${owner}/${repo}#${number}`;
++  // Only build a Markdown link when the label has no Markdown-special chars
++  // that would break the legacy parser inside link text. Otherwise the bare
++  // URL is still clickable in Telegram.
++  if (/^[A-Za-z0-9/#.-]+$/.test(label)) {
++    return `[${label}](${url})`;
++  }
++  return url;
++}
++
++/**
++ * Render a history section (Completed / Failed) for the detailed queue status
++ * as a clickable list, most-recent-first, capped at `max` items with a
++ * "... and N more" line (issue #1837).
++ *
++ * @param {object} opts
++ * @param {Array} opts.items - History items (each with `url`, optional `error`).
++ * @param {string} opts.emoji - Leading emoji for each row (e.g. '✅' or '❌').
++ * @param {string} opts.label - Localized section heading.
++ * @param {number} opts.max - Maximum items to list before collapsing.
++ * @param {string|null} opts.locale - Locale for the "and N more" label.
++ * @param {boolean} [opts.withError] - Append `— error` when the item failed.
++ * @returns {string} The formatted section (empty string when no items).
++ */
++export function formatQueueHistorySection({ items, emoji, label, max, locale, withError = false }) {
++  if (!items || items.length === 0) return '';
++  let section = `*${label}* (${items.length}):\n`;
++  for (const item of [...items].reverse().slice(0, max)) {
++    section += `  ${emoji} ${formatQueueItemLink(item.url)}`;
++    if (withError && item.error) section += ` — ${item.error}`;
++    section += '\n';
++  }
++  if (items.length > max) {
++    section += `    ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
++  }
++  return `${section}\n`;
++}
++
+ /**
+  * Count running processes by name.
+  * @param {string} processName - Process name to search for (e.g., 'claude', 'agent', 'codex', 'gemini')
+diff --git a/src/telegram-solve-queue.lib.mjs b/src/telegram-solve-queue.lib.mjs
+index ececea66..2a8b7846 100644
+--- a/src/telegram-solve-queue.lib.mjs
++++ b/src/telegram-solve-queue.lib.mjs
+@@ -17,7 +17,7 @@
+ 
+ import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
+ export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+-import { formatDuration, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
++import { formatDuration, formatQueueHistorySection, formatQueueItemLink, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+ export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
+ import { QUEUE_CONFIG } from './queue-config.lib.mjs';
+ import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+@@ -1320,28 +1320,17 @@ export class SolveQueue {
+   }
+ 
+   /**
+-   * Format detailed queue status for Telegram message
+-   * Groups output by tool queue, shows first 5 items per queue, and uses human-readable time.
++   * Format detailed queue status for Telegram message.
++   * Groups output by tool queue (clickable links per item), then lists the
++   * Completed and Failed history as clickable links, capped per section.
+    *
+    * Processing count = max(actual AI CLI processes via pgrep, tracked
+    * `$ --status` executing screen-isolated sessions), not queue state.
+    *
+-   * Output format:
+-   * ```
+-   * 📋 Solve Queue Status
+-   *
+-   * claude (pending: 6, processing: 0)
+-   * • url1 (waiting, 5h 43m 23s)
+-   *   └ RAM usage is 70% (threshold: 65%)
+-   * • url2 (queued, 2m 15s)
+-   *
+-   * agent (pending: 2, processing: 0)
+-   * • url3 (waiting, 1h 2m 5s)
+-   * ```
+-   *
+    * @returns {Promise<string>}
+    * @see https://github.com/link-assistant/hive-mind/issues/1159
+    * @see https://github.com/link-assistant/hive-mind/issues/1267
++   * @see https://github.com/link-assistant/hive-mind/issues/1837
+    */
+   async formatDetailedStatus(options = {}) {
+     const locale = getLocale(options);
+@@ -1359,22 +1348,37 @@ export class SolveQueue {
+       const processing = externalProcessing.byTool[tool] || 0;
+       message += `*${tool}* (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
+ 
+-      // Show first 5 queued items for this tool
+-      const displayItems = toolQueue.slice(0, 5);
++      // Show the items this queue is actively processing for this tool, with a
++      // clickable link to each issue/PR (issue #1837). These come from the
++      // queue's own tracking, so they may differ from the pgrep-based count above.
++      const processingItems = Array.from(this.processing.values()).filter(item => item.tool === tool);
++      for (const item of processingItems.slice(0, QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE)) {
++        const waitTime = formatDuration(item.getWaitTime(), { locale });
++        message += `  ▶️ ${formatQueueItemLink(item.url)} (${queueStatusLabel(item.status, locale)}, ${waitTime})\n`;
++      }
++
++      // Show first queued items for this tool with clickable links
++      const displayItems = toolQueue.slice(0, QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE);
+       for (const item of displayItems) {
+         const waitTime = formatDuration(item.getWaitTime(), { locale });
+-        message += `  • ${item.url} (${queueStatusLabel(item.status, locale)}, ${waitTime})\n`;
++        message += `  • ${formatQueueItemLink(item.url)} (${queueStatusLabel(item.status, locale)}, ${waitTime})\n`;
+         if (item.waitingReason) {
+           message += `    └ ${item.waitingReason}\n`;
+         }
+       }
+-      if (toolQueue.length > 5) {
+-        message += `    ... ${lt('queue_and_more', { count: toolQueue.length - 5 }, { locale })}\n`;
++      if (toolQueue.length > QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE) {
++        message += `    ... ${lt('queue_and_more', { count: toolQueue.length - QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE }, { locale })}\n`;
+       }
+ 
+       message += '\n';
+     }
+ 
++    // Completed / Failed lists - clickable links to the executed issues/PRs,
++    // most-recent-first so the newest results are easy to find (issue #1837).
++    const max = QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE;
++    message += formatQueueHistorySection({ items: this.completed, emoji: '✅', label: lt('queue_completed', {}, { locale }), max, locale });
++    message += formatQueueHistorySection({ items: this.failed, emoji: '❌', label: lt('queue_failed', {}, { locale }), max, locale, withError: true });
++
+     // Summary stats
+     message += `${lt('queue_completed', {}, { locale })}: ${stats.completed}, ${lt('queue_failed', {}, { locale })}: ${stats.failed}\n`;
+ 
+diff --git a/tests/solve-queue.test.mjs b/tests/solve-queue.test.mjs
+index 675370f3..9fb618d5 100644
+--- a/tests/solve-queue.test.mjs
++++ b/tests/solve-queue.test.mjs
+@@ -471,6 +471,72 @@ await asyncTest('formatDetailedStatus includes all sections', async () => {
+   queue.stop();
+ });
+ 
++// Issue #1837: the detailed status must show the actual executed issues/PRs as a
++// clickable list (not just counts), so stuck/running tasks are easy to find.
++await asyncTest('formatDetailedStatus renders clickable Markdown links for queued items (issue #1837)', async () => {
++  beforeEach();
++  const queue = new SolveQueue();
++
++  queue.enqueue({
++    url: 'https://github.com/test/repo/issues/42',
++    args: '',
++    requester: 'testuser',
++    infoBlock: 'Test info',
++  });
++
++  const status = await queue.formatDetailedStatus();
++
++  // Pending items should appear as a compact, clickable Markdown link
++  // [owner/repo#number](url) rather than a bare count.
++  assert.ok(
++    status.includes('[test/repo#42](https://github.com/test/repo/issues/42)'),
++    'Should render queued item as a clickable Markdown link'
++  );
++
++  queue.stop();
++});
++
++await asyncTest('formatDetailedStatus lists completed and failed items as clickable links (issue #1837)', async () => {
++  beforeEach();
++  const queue = new SolveQueue();
++
++  // Simulate one completed and one failed item directly in history.
++  const completedItem = queue.enqueue({
++    url: 'https://github.com/test/repo/pull/7',
++    args: '',
++    requester: 'testuser',
++    infoBlock: 'done',
++  });
++  const failedItem = queue.enqueue({
++    url: 'https://github.com/test/repo/issues/8',
++    args: '',
++    requester: 'testuser',
++    infoBlock: 'broke',
++  });
++  // Move them out of the pending queues into history.
++  for (const tool of Object.keys(queue.queues)) {
++    queue.queues[tool] = queue.queues[tool].filter((i) => i !== completedItem && i !== failedItem);
++  }
++  completedItem.status = QueueItemStatus.STARTED;
++  queue.completed.push(completedItem);
++  failedItem.setFailed(new Error('boom'));
++  queue.failed.push(failedItem);
++
++  const status = await queue.formatDetailedStatus();
++
++  assert.ok(
++    status.includes('[test/repo#7](https://github.com/test/repo/pull/7)'),
++    'Completed section should list the PR as a clickable link'
++  );
++  assert.ok(
++    status.includes('[test/repo#8](https://github.com/test/repo/issues/8)'),
++    'Failed section should list the issue as a clickable link'
++  );
++  assert.ok(status.includes('boom'), 'Failed item should include the error reason');
++
++  queue.stop();
++});
++
+ // ============================================================================
+ // Claude Process Detection Tests
+ // ============================================================================
+diff --git a/tests/test-solve-queue-command.mjs b/tests/test-solve-queue-command.mjs
+index 823fed00..4cc51040 100644
+--- a/tests/test-solve-queue-command.mjs
++++ b/tests/test-solve-queue-command.mjs
+@@ -148,11 +148,26 @@ test('Command regex does not match solve', () => {
+   assert.ok(!pattern.test('solve'), 'Should not match solve');
+ });
+ 
+-test('Command regex does not match queue', () => {
++test('Command regex matches queue (alias added in issue #1837)', () => {
+   const bot = createMockBot();
+   registerSolveQueueCommand(bot, createOptions());
+   const pattern = bot.registeredCommands[0].pattern;
+-  assert.ok(!pattern.test('queue'), 'Should not match queue');
++  assert.ok(pattern.test('queue'), 'Should match the /queue alias');
++});
++
++test('Command regex matches QUEUE (case insensitive alias)', () => {
++  const bot = createMockBot();
++  registerSolveQueueCommand(bot, createOptions());
++  const pattern = bot.registeredCommands[0].pattern;
++  assert.ok(pattern.test('QUEUE'), 'Should match the /QUEUE alias case-insensitively');
++});
++
++test('Command regex does not match unrelated commands like queued', () => {
++  const bot = createMockBot();
++  registerSolveQueueCommand(bot, createOptions());
++  const pattern = bot.registeredCommands[0].pattern;
++  assert.ok(!pattern.test('queued'), 'Should not match queued');
++  assert.ok(!pattern.test('myqueue'), 'Should not match myqueue');
+ });
+ 
+ // ============================================================================
+@@ -309,6 +324,11 @@ await asyncTest('telegram-bot.mjs includes solve_queue in text fallback handlers
+   assert.ok(content.includes('solve_queue: handleSolveQueueCommand'), 'Text fallback should include solve_queue handler');
+ });
+ 
++await asyncTest('telegram-bot.mjs includes /queue alias in text fallback handlers (issue #1837)', async () => {
++  const content = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
++  assert.ok(content.includes('queue: handleSolveQueueCommand'), 'Text fallback should include the /queue alias handler');
++});
++
+ await asyncTest('telegram-solve-queue.lib.mjs uses /solve_queue in log messages (not /solve-queue)', async () => {
+   const content = await readFile(join(__dirname, '..', 'src', 'telegram-solve-queue.lib.mjs'), 'utf-8');
+   assert.ok(!content.includes('[VERBOSE] /solve-queue'), 'Should NOT use /solve-queue in VERBOSE log messages');

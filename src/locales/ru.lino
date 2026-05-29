@@ -515,7 +515,7 @@ ru
           detail "Алиасы инструментов добавляют `--tool <tool>`: `/codex <github-url>` равно `/solve <github-url> --tool codex`"
         reply "Или ответьте на сообщение со ссылкой GitHub: `/solve`"
         disabled "*/solve* (алиасы: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Отключено"
-        queue "`/solve_queue` - Показать состояние очереди solve"
+        queue "`/solve_queue` (псевдоним: `/queue`) - Показать состояние очереди solve"
       locked
         options "🔒 Заблокированные опции: `{{options}}`"
       task

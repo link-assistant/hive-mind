@@ -471,6 +471,35 @@ await asyncTest('formatDetailedStatus includes all sections', async () => {
   queue.stop();
 });
 
+// Issue #1837: the detailed status must show the actual executed issues/PRs as a
+// clickable list (not just counts), so stuck/running tasks are easy to find.
+await asyncTest('formatDetailedStatus renders clickable links for queued/completed/failed items (issue #1837)', async () => {
+  beforeEach();
+  const queue = new SolveQueue();
+
+  // One pending item, plus one completed + one failed item placed in history.
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/42', args: '', requester: 'u', infoBlock: 'x' });
+  const done = queue.enqueue({ url: 'https://github.com/test/repo/pull/7', args: '', requester: 'u', infoBlock: 'd' });
+  const bad = queue.enqueue({ url: 'https://github.com/test/repo/issues/8', args: '', requester: 'u', infoBlock: 'b' });
+  for (const tool of Object.keys(queue.queues)) {
+    queue.queues[tool] = queue.queues[tool].filter(i => i !== done && i !== bad);
+  }
+  done.status = QueueItemStatus.STARTED;
+  queue.completed.push(done);
+  bad.setFailed(new Error('boom'));
+  queue.failed.push(bad);
+
+  const status = await queue.formatDetailedStatus();
+
+  // Items render as compact, clickable [owner/repo#number](url) links, not counts.
+  assert.ok(status.includes('[test/repo#42](https://github.com/test/repo/issues/42)'), 'queued item should be a clickable link');
+  assert.ok(status.includes('[test/repo#7](https://github.com/test/repo/pull/7)'), 'completed PR should be a clickable link');
+  assert.ok(status.includes('[test/repo#8](https://github.com/test/repo/issues/8)'), 'failed issue should be a clickable link');
+  assert.ok(status.includes('boom'), 'failed item should include the error reason');
+
+  queue.stop();
+});
+
 // ============================================================================
 // Claude Process Detection Tests
 // ============================================================================

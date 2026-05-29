@@ -43,6 +43,21 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: true, isCapacity: false, label: 'Stream disconnected before completion' };
   }
 
+  // Issue #1834: Corrupted extended-thinking blocks. When extended thinking is combined with tool
+  // use, Claude Code can persist a thinking block to the session transcript with the `thinking`
+  // text emptied to "" while retaining the original `signature`. On resume/continue the block is
+  // replayed as `{ type: 'thinking', thinking: '', signature: <original> }`; the API validates the
+  // signature against the (now empty) text and rejects every subsequent turn with:
+  //   400 ... `thinking` or `redacted_thinking` blocks in the latest assistant message cannot be
+  //   modified. These blocks must remain as they were in the original response.
+  // The session is therefore permanently un-resumable — retrying with --resume always fails. The
+  // only recovery is to discard the session and start fresh (equivalent to `/clear`), so this is
+  // flagged with `requiresFreshSession` rather than the plain `isRetryable` retry-with-resume path.
+  // Upstream: https://github.com/anthropics/claude-code/issues/63147
+  if ((lower.includes('thinking') || lower.includes('redacted_thinking')) && lower.includes('cannot be modified')) {
+    return { message, isRetryable: false, isCapacity: false, requiresFreshSession: true, label: 'Corrupted thinking blocks (un-resumable session)' };
+  }
+
   if (lower.includes('api error: 503') || (lower.includes('503') && (lower.includes('upstream connect error') || lower.includes('remote connection failure')))) {
     return { message, isRetryable: true, isCapacity: false, label: '503 network error' };
   }

@@ -15,7 +15,7 @@ import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidire
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
-import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage, getRawRequestInputTokens } from './claude.budget-stats.lib.mjs';
+import { createEmptySubSessionUsage, accumulateModelUsage, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage, getRawRequestInputTokens, displaySessionTokenUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
@@ -25,9 +25,10 @@ import { buildMcpConfigWithoutPlaywright } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
-import { classifyRetryableError, maybeSwitchToFallbackModel } from './tool-retry.lib.mjs';
+import { classifyRetryableError, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
+import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log, argv = null) => {
   if (!sessionId || !tempDir) return;
@@ -607,20 +608,12 @@ export const executeClaudeCommand = async params => {
   // Issue #1331: Unified retry configuration for all transient API errors
   // (Overloaded, 503 Network Error, Internal Server Error) - same params, all with session preservation
   let retryCount = 0;
-  // Helper: wait with per-minute countdown for delays >1 minute (Issue #1331)
-  const waitWithCountdown = async (delayMs, log) => {
-    if (delayMs <= 60000) {
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-      return;
-    }
-    let remaining = delayMs;
-    const timer = setInterval(async () => {
-      remaining -= 60000;
-      if (remaining > 0) await log(`⏳ ${Math.round(remaining / 60000)} min remaining...`);
-    }, 60000);
-    await new Promise(resolve => setTimeout(resolve, delayMs));
-    clearInterval(timer);
-  };
+  // Issue #1834 (PR #1835 feedback): corrupted-thinking-block recovery — resume the session first,
+  // then escalate to a fresh restart, auto-committing uncommitted work before each attempt. Created
+  // once so its resume/restart caps persist across recursive retry calls.
+  const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
+  // Helper `waitWithCountdown` (per-minute countdown for delays >1 minute, Issue #1331) is shared
+  // from tool-retry.lib.mjs so claude/codex/gemini/qwen/opencode all use one implementation.
   // Function to execute with retry logic
   const executeWithRetry = async () => {
     // Execute claude command from the cloned repository directory
@@ -981,6 +974,12 @@ export const executeClaudeCommand = async params => {
                     isRequestTimeout = true;
                     await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });
                   }
+                  // Issue #1834: Detect corrupted extended-thinking-block 400 (un-resumable session).
+                  // Capture diagnostics (request id, content path) to aid debugging and upstream reports.
+                  if ((lastMessage.includes('thinking') || lastMessage.includes('redacted_thinking')) && lastMessage.includes('cannot be modified')) {
+                    const contentPath = (lastMessage.match(/messages\.\d+\.content\.\d+/) || [])[0] || 'unknown';
+                    await log(`🧠 Detected corrupted thinking-block error (un-resumable session). request_id=${data.request_id || 'unknown'}, at=${contentPath}. Will discard the session and restart fresh (Issue #1834, upstream anthropics/claude-code#63147).`, { verbose: true });
+                  }
                 }
               }
               if (data.type === 'text' && data.text) lastMessage = data.text;
@@ -1160,6 +1159,13 @@ export const executeClaudeCommand = async params => {
       // Issue #817: Stop bidirectional mode monitoring and collect queued feedback
       queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
       const retryableLastError = classifyRetryableError(lastMessage);
+      // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
+      // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery
+      // logs the failure and returns false; we fall through to the normal commandFailed return below
+      // (the 400 is not a transient pattern, so it is not retried).
+      if (commandFailed && retryableLastError.requiresFreshSession && (await tryThinkingBlockRecovery({ classified: retryableLastError, source: 'result', sessionId }))) {
+        return await executeWithRetry();
+      }
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
       const isTransientError = isStartupTimeout || isActivityTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || retryableLastError.isRetryable || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
       if ((commandFailed || isTransientError) && isTransientError) {
@@ -1300,68 +1306,9 @@ export const executeClaudeCommand = async params => {
         await log('\n\n✅ Claude command completed');
       }
       await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
-      // Calculate and display total token usage from session JSONL file
-      if (sessionId && tempDir) {
-        try {
-          const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
-          if (tokenUsage) {
-            // Issue #1501: Log deduplication stats in verbose mode
-            if (tokenUsage.duplicateEntriesSkipped > 0) {
-              await log(`\n⚠️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries (upstream: anthropics/claude-code#6805)`, { verbose: true });
-            }
-            if (tokenUsage.peakContextUsage > 0) {
-              await log(`📊 Peak restored-context input: ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
-            }
-            await log('\n💰 Token Usage Summary:');
-            // Display per-model breakdown
-            if (tokenUsage.modelUsage) {
-              const modelIds = Object.keys(tokenUsage.modelUsage);
-              const modelsFromResult = modelIds.filter(id => tokenUsage.modelUsage[id]._sourceResultJson);
-              if (modelsFromResult.length > 0) {
-                await log(`📊 Token data supplemented from result JSON for: ${modelsFromResult.join(', ')}`, { verbose: true });
-              }
-              for (const modelId of modelIds) {
-                const usage = tokenUsage.modelUsage[modelId];
-                const sourceNote = usage._sourceResultJson ? ' (from result JSON)' : '';
-                await log(`\n   📊 ${usage.modelName || modelId}:${sourceNote}`);
-                await displayModelUsage(usage, log);
-                // Display budget stats if flag is enabled
-                if (argv.tokensBudgetStats && usage.modelInfo?.limit) {
-                  await displayBudgetStats(usage, tokenUsage, log);
-                }
-              }
-              // Show totals if multiple models were used
-              if (modelIds.length > 1) {
-                await log('\n   📈 Total across all models:');
-              }
-              // Show cost comparison (for both single and multiple models)
-              await displayCostComparison(tokenUsage.totalCostUSD, anthropicTotalCostUSD, log);
-              // Show total tokens for single model only
-              if (modelIds.length === 1) {
-                await log(`      Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
-              }
-            } else {
-              // Fallback to old format if modelUsage is not available
-              await log(`   Input tokens: ${formatNumber(tokenUsage.inputTokens)}`);
-              if (tokenUsage.cacheCreationTokens > 0) {
-                await log(`   Cache creation tokens: ${formatNumber(tokenUsage.cacheCreationTokens)}`);
-              }
-              if (tokenUsage.cacheReadTokens > 0) {
-                await log(`   Cache read tokens: ${formatNumber(tokenUsage.cacheReadTokens)}`);
-              }
-              await log(`   Output tokens: ${formatNumber(tokenUsage.outputTokens)}`);
-              await log(`   Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
-            }
-          }
-        } catch (tokenError) {
-          reportError(tokenError, {
-            context: 'calculate_session_tokens',
-            sessionId,
-            operation: 'read_session_jsonl',
-          });
-          await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
-        }
-      }
+      // Calculate and display total token usage from session JSONL file.
+      // Extracted to claude.budget-stats.lib.mjs to keep this file under the line limit (Issue #1834).
+      await displaySessionTokenUsage({ sessionId, tempDir, resultModelUsage, anthropicTotalCostUSD, argv, log });
       await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
       return {
         success: true,
@@ -1388,6 +1335,12 @@ export const executeClaudeCommand = async params => {
       });
       const errorStr = error.message || error.toString();
       const retryableException = classifyRetryableError(errorStr);
+      // Issue #1834: Corrupted extended-thinking blocks surfaced as a thrown exception. Same recovery
+      // as the streamed-result path: resume the session first, then fall back to a fresh restart.
+      if (retryableException.requiresFreshSession && (await tryThinkingBlockRecovery({ classified: retryableException, source: 'exception', sessionId }))) {
+        retryCount++;
+        return await executeWithRetry();
+      }
       // Issue #1331: Unified handler for all transient API errors in exception block
       // Issue #1353: Also handle "Request timed out" in exception block
       // (Overloaded, 503, Internal Server Error, Request timed out) - all with session preservation

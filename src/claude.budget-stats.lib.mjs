@@ -2,7 +2,8 @@
 // Token budget statistics display module
 // Extracted from claude.lib.mjs to maintain file line limits
 
-import { formatNumber } from './claude.lib.mjs';
+import { formatNumber, calculateSessionTokens } from './claude.lib.mjs';
+import { reportError } from './sentry.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { getCacheReadTokenCount, getCacheWriteTokenCount, getCumulativeContextInputTokens, getDisplayContextInputTokens, getExplicitContextFillInputTokens, getInputTokenCount, getOutputTokenCount, getRestoredContextInputTokens } from './context-fill.lib.mjs';
 
@@ -304,6 +305,81 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
 
   // Issue #1710: verbose-only, never affects default output.
   await dumpBudgetTrace(usage, tokenUsage, log);
+};
+
+/**
+ * Calculate and display the total token-usage summary for a finished Claude session.
+ * Extracted from claude.lib.mjs to keep that file under the 1500-line limit (Issue #1834).
+ * Reads the session JSONL, logs the per-model breakdown, cost comparison and (optionally)
+ * budget stats. Failures are reported but never thrown — token reporting is best-effort.
+ * @param {Object} params
+ * @param {string} params.sessionId - Claude session id (skips when falsy)
+ * @param {string} params.tempDir - Working directory containing the session JSONL (skips when falsy)
+ * @param {Object|null} params.resultModelUsage - Authoritative per-model usage from the result JSON event
+ * @param {number} params.anthropicTotalCostUSD - Anthropic's official total cost (for the comparison line)
+ * @param {Object} params.argv - Parsed CLI args (reads argv.tokensBudgetStats)
+ * @param {Function} params.log - Logger
+ */
+export const displaySessionTokenUsage = async ({ sessionId, tempDir, resultModelUsage, anthropicTotalCostUSD, argv, log }) => {
+  if (!sessionId || !tempDir) return;
+  try {
+    const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
+    if (!tokenUsage) return;
+    // Issue #1501: Log deduplication stats in verbose mode
+    if (tokenUsage.duplicateEntriesSkipped > 0) {
+      await log(`\n⚠️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries (upstream: anthropics/claude-code#6805)`, { verbose: true });
+    }
+    if (tokenUsage.peakContextUsage > 0) {
+      await log(`📊 Peak restored-context input: ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
+    }
+    await log('\n💰 Token Usage Summary:');
+    // Display per-model breakdown
+    if (tokenUsage.modelUsage) {
+      const modelIds = Object.keys(tokenUsage.modelUsage);
+      const modelsFromResult = modelIds.filter(id => tokenUsage.modelUsage[id]._sourceResultJson);
+      if (modelsFromResult.length > 0) {
+        await log(`📊 Token data supplemented from result JSON for: ${modelsFromResult.join(', ')}`, { verbose: true });
+      }
+      for (const modelId of modelIds) {
+        const usage = tokenUsage.modelUsage[modelId];
+        const sourceNote = usage._sourceResultJson ? ' (from result JSON)' : '';
+        await log(`\n   📊 ${usage.modelName || modelId}:${sourceNote}`);
+        await displayModelUsage(usage, log);
+        // Display budget stats if flag is enabled
+        if (argv.tokensBudgetStats && usage.modelInfo?.limit) {
+          await displayBudgetStats(usage, tokenUsage, log);
+        }
+      }
+      // Show totals if multiple models were used
+      if (modelIds.length > 1) {
+        await log('\n   📈 Total across all models:');
+      }
+      // Show cost comparison (for both single and multiple models)
+      await displayCostComparison(tokenUsage.totalCostUSD, anthropicTotalCostUSD, log);
+      // Show total tokens for single model only
+      if (modelIds.length === 1) {
+        await log(`      Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
+      }
+    } else {
+      // Fallback to old format if modelUsage is not available
+      await log(`   Input tokens: ${formatNumber(tokenUsage.inputTokens)}`);
+      if (tokenUsage.cacheCreationTokens > 0) {
+        await log(`   Cache creation tokens: ${formatNumber(tokenUsage.cacheCreationTokens)}`);
+      }
+      if (tokenUsage.cacheReadTokens > 0) {
+        await log(`   Cache read tokens: ${formatNumber(tokenUsage.cacheReadTokens)}`);
+      }
+      await log(`   Output tokens: ${formatNumber(tokenUsage.outputTokens)}`);
+      await log(`   Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
+    }
+  } catch (tokenError) {
+    reportError(tokenError, {
+      context: 'calculate_session_tokens',
+      sessionId,
+      operation: 'read_session_jsonl',
+    });
+    await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
+  }
 };
 
 /**

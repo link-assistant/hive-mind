@@ -27,9 +27,22 @@ into both the streamed-result and thrown-exception paths of `claude.lib.mjs`, an
 the thinking-block recovery (#1834) is now guarded with `!isContextLimit` so the
 two recoveries don't collide.
 
+As prevention (not just recovery), `getClaudeEnv` now **caps per-turn output** so a
+single turn can no longer dominate the compaction window and cause `too_few_groups`.
+The failing run had already lowered the compaction *threshold*
+(`CLAUDE_CODE_AUTO_COMPACT_WINDOW=150000` via `--sub-session-size`) yet still failed,
+because one turn emitted 125,310 output tokens (allowed by
+`CLAUDE_CODE_MAX_OUTPUT_TOKENS=128000`). Lowering the threshold cannot fix that — only
+bounding per-turn output can. `CLAUDE_CODE_MAX_OUTPUT_TOKENS` is now capped to
+`floor(window × 0.45)` (fraction `< 0.5` guarantees ≥2 compaction groups fit), with a
+32K floor; configurable via `HIVE_MIND_MAX_OUTPUT_COMPACTION_FRACTION` (set `0` to
+disable) and `HIVE_MIND_MIN_OUTPUT_TOKENS`.
+
 Verbose tracing of the auto-compaction lifecycle is added (`🗜️ compacting`,
-`⚠️ compaction FAILED (compact_error: …)`, and a `📏 Detected "Prompt is too long"`
-diagnostic with the final-turn output-token count), so the root cause is visible in
-the log next time. A deep case study and reproducible upstream-report draft live
-under `docs/case-studies/issue-1841`, with 22 new assertions in
+`⚠️ compaction FAILED (compact_error: …)`, a `📏 Detected "Prompt is too long"`
+diagnostic with the final-turn output-token count, and a `📏 Capped per-turn output …`
+line when the cap is applied), so the root cause is visible in the log next time. A deep
+case study and reproducible upstream-report draft live under
+`docs/case-studies/issue-1841` (including §4.1 verifying Claude Code v2.1.157's
+compaction config against the binary), with 33 assertions in
 `tests/test-issue-1841-context-limit-recovery.mjs`.

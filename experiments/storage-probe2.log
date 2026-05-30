@@ -1,0 +1,16 @@
+=========== RUN 2026-05-30T17:16:48Z  repo=link-assistant/hive-mind ===========
+blob=097ca541a3f7d512873141c12dab0a7edc13493d
+tree=0c0825ccef7519e05610f8911c756a7163aac700
+commit=17f986e1cdbef08fbd5328d12499ee0236817e37
+--- create ref ---
+refs/hive-mind-media/probe2  -> 17f986e1cdbef08fbd5328d12499ee0236817e37
+--- GET single ref (git/ref/hive-mind-media/probe2) ---
+{"ref":"refs/hive-mind-media/probe2","sha":"17f986e1cdbef08fbd5328d12499ee0236817e37","type":"commit"}
+--- re-create same ref (expect 422) ---
+{"message":"Reference already exists","documentation_url":"https://docs.github.com/rest/git/refs#create-a-reference","status":"422"}gh: Reference already exists (HTTP 422)
+--- commit-SHA raw URL ---
+blob?raw=true -> 200 image/png 70
+--- cleanup ---
+deleted (0)
+exists after delete? {"message":"Not Found","documentation_url":"https://docs.github.com/rest/git/refs#get-a-reference","status":"404"}gh: Not Found (HTTP 404)
+=== DONE ===

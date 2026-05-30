@@ -90,6 +90,16 @@ Full detail and sources are in `external/research-notes.md`. Key conclusions:
   `source.{data,media_type}` (Read + Playwright screenshots) plus a Read-only
   `tool_use_result.file.{base64,type,originalSize}`; Codex/MCP emit
   `{data, mimeType}`. Claude downscales images, so streamed base64 is small.
+- **Storing images _without a branch_** (maintainer follow-up question): a live
+  experiment against this repo (`experiments/storage-probe.sh`) confirms that
+  **GitHub Actions artifacts cannot be embedded inline** (zip archives,
+  auth/expiring URLs, workflow-only creation), release assets require a tag and
+  pollute Releases, and gists are cross-account. The token-only, inline-renderable
+  options that need **no branch** are a **git tag** (`…/blob/<tag>/…?raw=true`,
+  HTTP 200 verified) or a **custom ref namespace** `refs/hive-mind-media/*`
+  embedded via the **commit-SHA** `…/blob/<sha>/…?raw=true` URL (HTTP 200
+  verified) — the latter is invisible in every GitHub UI list. See
+  `external/research-notes.md` Finding 6.
 
 ## Root Causes
 

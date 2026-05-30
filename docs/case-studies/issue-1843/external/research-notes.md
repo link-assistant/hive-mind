@@ -121,6 +121,80 @@ Verified against real session logs already stored in this repository:
 The implementation normalizes all three shapes (`source.data`/`media_type`,
 `file.base64`/`type`, and `data`/`mimeType`) through a single extractor.
 
+## Finding 6 — Storing images *without introducing a branch* (maintainer question)
+
+The maintainer asked whether images can be stored without creating a branch —
+specifically calling out **GitHub Actions artifacts**, **PR-linked attachments**,
+**Actions**, and **repository-wide** storage. Each option was evaluated and the
+viable ones were **verified with a live experiment** against this very
+(public) repository (`experiments/storage-probe.sh` / `experiments/storage-probe2.sh`,
+logs in `experiments/storage-probe.log` / `experiments/storage-probe2.log`).
+
+### What does NOT work
+
+- **GitHub Actions artifacts** — cannot be embedded inline. Artifacts are stored
+  as **zip archives**, their download URLs are **authenticated, signed and
+  expiring** (and subject to a retention window, 90 days by default), and they can
+  only be **created from inside a workflow run** (`actions/upload-artifact`); there
+  is no PAT-usable public REST endpoint to upload an artifact, and no stable
+  `https://` URL that GitHub Markdown/Camo will render as an image. → **No.**
+- **PR-linked "attachments"** (the `github.com/user-attachments/assets/…` URLs the
+  web editor produces) — the uploader (`github.com/upload/policies/assets`) is
+  **cookie/session-gated and rejects PATs (HTTP 422)**, as already documented in
+  Finding 2. Not drivable headlessly. → **No.**
+- **Gists** — creatable with a token (`POST /gists`), but a gist is owned by the
+  **token's user account**, not the repository; binary/image support is poor and
+  access control for private content is inconsistent. → **Not suitable.**
+- **"Repository-wide" loose objects** — a git blob/commit that is **not reachable
+  from any ref gets garbage-collected**. You always need *some* ref to keep the
+  bytes alive and servable. So the real question is *which kind of ref* — and a
+  branch is only one option.
+
+### What DOES work (token-only, renders inline, public + private)
+
+GitHub serves raw bytes (and proxies them through Camo for comments) for content
+reachable by **(a)** a branch name, **(b)** a tag name, or **(c)** a **commit
+SHA**. Only branches and tags appear in the friendly `/blob/<name>/…` and
+`raw.githubusercontent.com/<name>/…` URLs, **but a commit SHA works the same way**
+— and a commit SHA can be kept alive by *any* ref, including a **custom ref
+namespace** that is neither a branch nor a tag and therefore appears in **no**
+GitHub UI list (branch dropdown, PR base picker, tags/releases).
+
+Live experiment results (all against `link-assistant/hive-mind`, refs cleaned up
+afterward — see the probe logs):
+
+| Approach | Embed URL | Result |
+| --- | --- | --- |
+| **Git tag** `refs/tags/…` | `…/blob/<tag>/<path>?raw=true` and `raw.githubusercontent.com/<o>/<r>/<tag>/<path>` | **HTTP 200, `image/png`** ✅ |
+| **Custom ref** `refs/hive-mind-media/…` (no branch, no tag) | `…/blob/<commit-sha>/<path>?raw=true` and `raw.githubusercontent.com/<o>/<r>/<commit-sha>/<path>` | **HTTP 200, `image/png`** ✅ |
+| **Release asset** | `…/releases/download/<tag>/<asset>` | token-uploadable, but **requires a tag**, pollutes the Releases UI, and does not reliably render inline for private repos |
+
+Both verified options use the **same token-only Git Data API flow already in the
+code** (blob → tree → parentless commit → create ref); the only change is the ref
+*kind* and, for the custom-ref option, embedding by **commit SHA** instead of by
+ref name (because GitHub's friendly URLs resolve only `heads/*` and `tags/*`,
+while a SHA resolves regardless of the ref namespace that keeps it alive).
+
+Probe 2 additionally confirmed the exact API contract a custom-ref store relies
+on: a single custom ref can be fetched via
+`GET /repos/{o}/{r}/git/ref/hive-mind-media/<name>` (returns
+`object.{type:'commit', sha}`), re-creating an existing ref returns **HTTP 422**
+("Reference already exists" — the natural cross-run de-dup signal), and the
+commit-SHA `?raw=true` URL serves the bytes (**HTTP 200 `image/png`**).
+
+### Recommendation
+
+For a truly "no branch" store, a **custom ref namespace
+(`refs/hive-mind-media/*`) embedded via the commit-SHA `?raw=true` URL** is the
+cleanest: it keeps the bytes alive, is invisible in every GitHub UI list, needs no
+new credentials/services, and renders inline for public and private repos. A
+**git tag** is the simpler alternative (friendly URL, one-line change from the
+current code) at the cost of showing up under Tags/Releases. The current orphan
+**branch** remains a valid third option; it works but is visible in the branch
+list and as a potential (never-intended) merge target — which is what prompted the
+question. The choice between custom-ref and tag is an architectural decision for
+the maintainer.
+
 ## Sources
 
 - GitHub Docs — _Attaching files_ (web UI drag-and-drop; no token API documented):
@@ -140,3 +214,11 @@ The implementation normalizes all three shapes (`source.data`/`media_type`,
   https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-anonymized-urls
 - Model Context Protocol — image content type (`{type, data, mimeType}`):
   https://modelcontextprotocol.io/
+- GitHub Actions — _Storing and sharing data with artifacts_ (zip archives,
+  retention window, workflow-only creation; no inline-embeddable URL):
+  https://docs.github.com/en/actions/using-workflows/storing-workflow-data-as-artifacts
+- GitHub REST — _Git references_ (create/update/delete arbitrary refs, including
+  custom namespaces, with a token):
+  https://docs.github.com/en/rest/git/refs
+- Live experiment in this repo confirming tag and custom-ref serving:
+  `experiments/storage-probe.sh` / `experiments/storage-probe2.sh` and their logs

@@ -184,6 +184,23 @@ export const claudeCode = {
   // Maximum output tokens for Opus 4.6 (Issue #1221)
   // See: https://platform.claude.com/docs/en/about-claude/models/overview
   maxOutputTokensOpus46: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPUS_46', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPUS_46', 128000)),
+  // Issue #1841: cap a single turn's output so it cannot dominate the auto-compaction
+  // window and trigger `compact_error: "too_few_groups"` → synthetic "Prompt is too long".
+  //
+  // Why this matters (verified against the failing run, see docs/case-studies/issue-1841):
+  // the run already lowered the compaction *threshold* (CLAUDE_CODE_AUTO_COMPACT_WINDOW=150000
+  // via --sub-session-size) yet still failed, because ONE assistant turn emitted 125,310 output
+  // tokens (allowed by CLAUDE_CODE_MAX_OUTPUT_TOKENS=128000). Auto-compaction groups the
+  // transcript into summarizable chunks; a single turn that fills most of the window is one
+  // un-splittable group, so there are "too few groups" to compact and the prompt can never be
+  // reduced. Lowering the *threshold* cannot fix this — only bounding *per-turn output* can.
+  //
+  // We cap output at `floor(effectiveCompactionWindow * fraction)`, with a floor so the cap can
+  // never be set absurdly low. fraction < 0.5 guarantees at least two compaction groups fit in
+  // the window. Set HIVE_MIND_MAX_OUTPUT_COMPACTION_FRACTION=0 to disable the cap entirely.
+  maxOutputCompactionFraction: parseFloatWithDefault('HIVE_MIND_MAX_OUTPUT_COMPACTION_FRACTION', 0.45),
+  // Hard floor for the per-turn output cap above, so legitimate long answers are still possible.
+  minOutputTokensFloor: parseIntWithDefault('HIVE_MIND_MIN_OUTPUT_TOKENS', 32000),
   // MCP (Model Context Protocol) timeout configurations
   // See: https://github.com/link-assistant/hive-mind/issues/1066
   // See: https://code.claude.com/docs/en/settings#environment-variables
@@ -318,6 +335,46 @@ export const getMaxOutputTokensForModel = model => {
     return claudeCode.maxOutputTokensOpus46;
   }
   return claudeCode.maxOutputTokens;
+};
+
+/**
+ * Issue #1841: compute a per-turn output-token cap that prevents a single turn
+ * from dominating the auto-compaction window.
+ *
+ * Claude Code's auto-compaction groups the transcript into summarizable chunks. If one
+ * assistant turn fills most of the window it becomes a single un-splittable group, so
+ * compaction fails with `compact_error: "too_few_groups"` and the next call returns the
+ * synthetic "Prompt is too long". Lowering the compaction *threshold*
+ * (CLAUDE_CODE_AUTO_COMPACT_WINDOW) does not help — the failing run already did that. The
+ * only lever that prevents this failure is bounding *per-turn output*.
+ *
+ * We cap output at floor(window * fraction) with `fraction < 0.5` so at least two groups
+ * fit in the window, never raising the requested value and never dropping below `floor`.
+ *
+ * @param {number} requestedMaxOutputTokens - model/config max output tokens.
+ * @param {number|null} compactionWindowTokens - effective auto-compact window in tokens.
+ * @param {object} [cfg] - { fraction, floor } overrides; default from `claudeCode`.
+ * @returns {{ cap: number, applied: boolean, window: number|null }}
+ */
+export const computeCompactionSafeOutputCap = (requestedMaxOutputTokens, compactionWindowTokens, cfg = {}) => {
+  const fraction = cfg.fraction ?? claudeCode.maxOutputCompactionFraction;
+  const floor = cfg.floor ?? claudeCode.minOutputTokensFloor;
+  // No-op unless we have a positive request, a positive fraction, and a known window.
+  if (!Number.isFinite(requestedMaxOutputTokens) || requestedMaxOutputTokens <= 0) {
+    return { cap: requestedMaxOutputTokens, applied: false, window: null };
+  }
+  if (!Number.isFinite(fraction) || fraction <= 0) {
+    return { cap: requestedMaxOutputTokens, applied: false, window: null };
+  }
+  if (!Number.isFinite(compactionWindowTokens) || compactionWindowTokens <= 0) {
+    return { cap: requestedMaxOutputTokens, applied: false, window: null };
+  }
+  const safeFloor = Number.isFinite(floor) && floor > 0 ? floor : 0;
+  const cap = Math.max(safeFloor, Math.floor(compactionWindowTokens * fraction));
+  if (cap >= requestedMaxOutputTokens) {
+    return { cap: requestedMaxOutputTokens, applied: false, window: compactionWindowTokens };
+  }
+  return { cap, applied: true, window: compactionWindowTokens };
 };
 
 /**
@@ -571,6 +628,18 @@ export const getClaudeEnv = (options = {}) => {
         env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = String(window);
       }
     }
+  }
+
+  // Issue #1841: bound per-turn output so a single turn cannot dominate the auto-compaction
+  // window and trigger `too_few_groups` → "Prompt is too long". Basis is the effective
+  // compaction window we configured (CLAUDE_CODE_AUTO_COMPACT_WINDOW, possibly inherited from
+  // process.env), falling back to the model context window. This is applied after the
+  // sub-session-size block so it sees the final window.
+  const configuredWindow = parseInt(env.CLAUDE_CODE_AUTO_COMPACT_WINDOW, 10);
+  const compactionWindow = Number.isFinite(configuredWindow) && configuredWindow > 0 ? configuredWindow : Number.isFinite(options.contextWindowTokens) && options.contextWindowTokens > 0 ? options.contextWindowTokens : null;
+  const { cap, applied } = computeCompactionSafeOutputCap(maxOutputTokens, compactionWindow);
+  if (applied) {
+    env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = String(cap);
   }
 
   return env;

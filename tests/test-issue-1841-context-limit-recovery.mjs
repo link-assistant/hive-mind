@@ -21,7 +21,7 @@
 import assert from 'assert';
 
 const { classifyRetryableError } = await import('../src/tool-retry.lib.mjs');
-const { retryLimits, criticalErrorRecovery } = await import('../src/config.lib.mjs');
+const { retryLimits, criticalErrorRecovery, computeCompactionSafeOutputCap, getClaudeEnv } = await import('../src/config.lib.mjs');
 const { createContextLimitRecovery } = await import('../src/claude.context-limit-recovery.lib.mjs');
 
 console.log('Testing "Prompt is too long" / Context-Limit Recovery (Issue #1841)\n');
@@ -254,6 +254,123 @@ await testAsync('Works from the exception source too', async () => {
   const proceed = await recover({ classified, source: 'exception', sessionId: 'sess-xyz' });
   assert.strictEqual(proceed, true, 'Should proceed from the exception path');
   assert.strictEqual(argv.resume, undefined, 'Must clear argv.resume from the exception path too');
+});
+
+// ============================================================
+// Section 5: Per-turn output cap (Issue #1841)
+// ============================================================
+// The failing run had already lowered the auto-compaction *threshold*
+// (CLAUDE_CODE_AUTO_COMPACT_WINDOW=150000) yet still failed because a single turn emitted
+// 125,310 output tokens — one un-splittable group → `too_few_groups` → "Prompt is too long".
+// computeCompactionSafeOutputCap bounds per-turn output to floor(window * fraction) with
+// fraction < 0.5, so at least two groups always fit in the window.
+console.log('\n=== 5. Per-turn output cap prevents too_few_groups ===');
+
+test('Caps Opus 4.8 output (128000) to floor(150000 * 0.45) = 67500', () => {
+  const { cap, applied } = computeCompactionSafeOutputCap(128000, 150000);
+  assert.strictEqual(applied, true, 'Should apply the cap when request > floor(window*fraction)');
+  assert.strictEqual(cap, 67500, `Expected 67500, got: ${cap}`);
+});
+
+test('Capped output leaves room for >=2 groups in the window (cap*2 < window)', () => {
+  const window = 150000;
+  const { cap } = computeCompactionSafeOutputCap(128000, window);
+  assert(cap * 2 < window, `cap*2 (${cap * 2}) must be < window (${window}) so compaction can form >=2 groups`);
+});
+
+test('Does NOT cap when the request already fits (non-Opus 64000 under floor(150000*0.45))', () => {
+  const { cap, applied } = computeCompactionSafeOutputCap(64000, 150000);
+  assert.strictEqual(applied, false, '64000 <= 67500 so no cap should apply');
+  assert.strictEqual(cap, 64000, 'Request must be returned unchanged');
+});
+
+test('No-op when the compaction window is unknown (null)', () => {
+  const { cap, applied } = computeCompactionSafeOutputCap(128000, null);
+  assert.strictEqual(applied, false, 'Without a window we cannot size the cap');
+  assert.strictEqual(cap, 128000, 'Request must be returned unchanged');
+});
+
+test('No-op when the window is zero or negative', () => {
+  assert.strictEqual(computeCompactionSafeOutputCap(128000, 0).applied, false);
+  assert.strictEqual(computeCompactionSafeOutputCap(128000, -1).applied, false);
+});
+
+test('Disabled when fraction <= 0 (escape hatch)', () => {
+  const { cap, applied } = computeCompactionSafeOutputCap(128000, 150000, { fraction: 0 });
+  assert.strictEqual(applied, false, 'fraction=0 disables the cap');
+  assert.strictEqual(cap, 128000, 'Request must be returned unchanged when disabled');
+});
+
+test('Honors the floor for tiny windows (never drops below minOutputTokensFloor)', () => {
+  // floor(50000 * 0.45) = 22500, but the floor (default 32000) wins.
+  const { cap, applied } = computeCompactionSafeOutputCap(128000, 50000, { floor: 32000 });
+  assert.strictEqual(applied, true, 'Still applies because 32000 < 128000');
+  assert.strictEqual(cap, 32000, `Expected floor 32000, got: ${cap}`);
+});
+
+test('Custom fraction is respected', () => {
+  const { cap } = computeCompactionSafeOutputCap(128000, 150000, { fraction: 0.25, floor: 0 });
+  assert.strictEqual(cap, 37500, `Expected floor(150000*0.25)=37500, got: ${cap}`);
+});
+
+test('No-op for non-finite / non-positive requested values', () => {
+  assert.strictEqual(computeCompactionSafeOutputCap(0, 150000).applied, false);
+  assert.strictEqual(computeCompactionSafeOutputCap(NaN, 150000).applied, false);
+  assert.strictEqual(computeCompactionSafeOutputCap(-5, 150000).applied, false);
+});
+
+// Integration: getClaudeEnv must apply the cap end-to-end. The harness environment may set
+// CLAUDE_CODE_AUTO_COMPACT_WINDOW, so we control it explicitly for deterministic assertions.
+console.log('\n=== 5b. getClaudeEnv applies the cap end-to-end ===');
+
+const withEnv = (overrides, fn) => {
+  const saved = {};
+  for (const key of Object.keys(overrides)) {
+    saved[key] = process.env[key];
+    if (overrides[key] === undefined) delete process.env[key];
+    else process.env[key] = overrides[key];
+  }
+  try {
+    return fn();
+  } finally {
+    for (const key of Object.keys(saved)) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  }
+};
+
+test('getClaudeEnv lowers CLAUDE_CODE_MAX_OUTPUT_TOKENS for Opus 4.8 with a 150k window', () => {
+  withEnv(
+    {
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: '150000',
+      CLAUDE_CODE_MAX_OUTPUT_TOKENS: undefined,
+      HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS: undefined,
+      HIVE_MIND_MAX_OUTPUT_COMPACTION_FRACTION: undefined,
+      HIVE_MIND_MIN_OUTPUT_TOKENS: undefined,
+    },
+    () => {
+      const env = getClaudeEnv({ model: 'claude-opus-4-8' });
+      assert.strictEqual(env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, '67500', `Expected 67500, got: ${env.CLAUDE_CODE_MAX_OUTPUT_TOKENS}`);
+    }
+  );
+});
+
+test('getClaudeEnv falls back to the model context window when no compact window is set', () => {
+  withEnv(
+    {
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: undefined,
+      CLAUDE_CODE_MAX_OUTPUT_TOKENS: undefined,
+      HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS: undefined,
+      HIVE_MIND_MAX_OUTPUT_COMPACTION_FRACTION: undefined,
+      HIVE_MIND_MIN_OUTPUT_TOKENS: undefined,
+    },
+    () => {
+      // 200k window → floor(200000*0.45)=90000 < 128000 → capped.
+      const env = getClaudeEnv({ model: 'claude-opus-4-8', contextWindowTokens: 200000 });
+      assert.strictEqual(env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, '90000', `Expected 90000, got: ${env.CLAUDE_CODE_MAX_OUTPUT_TOKENS}`);
+    }
+  );
 });
 
 // ============================================================

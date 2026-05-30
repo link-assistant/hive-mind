@@ -1,0 +1,11 @@
+import { computeCompactionSafeOutputCap, getClaudeEnv } from '../src/config.lib.mjs';
+const f = computeCompactionSafeOutputCap;
+console.log('opus default (128000, window 150000):', JSON.stringify(f(128000, 150000)));
+console.log('non-opus (64000, window 150000):', JSON.stringify(f(64000, 150000)));
+console.log('window null:', JSON.stringify(f(128000, null)));
+console.log('fraction 0 disable:', JSON.stringify(f(128000, 150000, { fraction: 0 })));
+console.log('floor kicks in (128000, window 40000):', JSON.stringify(f(128000, 40000)));
+const env = getClaudeEnv({ model: 'claude-opus-4-8', subSessionSize: { kind: 'tokens', tokens: 150000 }, contextWindowTokens: 200000 });
+console.log('END2END MAX_OUTPUT:', env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, 'WINDOW:', env.CLAUDE_CODE_AUTO_COMPACT_WINDOW, 'PCT:', env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE);
+const env2 = getClaudeEnv({ model: 'claude-opus-4-8' });
+console.log('NO-SUBSESSION MAX_OUTPUT:', env2.CLAUDE_CODE_MAX_OUTPUT_TOKENS, 'WINDOW:', env2.CLAUDE_CODE_AUTO_COMPACT_WINDOW);

@@ -752,8 +752,11 @@ export const executeClaudeCommand = async params => {
       const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens });
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
+      // Issue #1841: getClaudeEnv may lower CLAUDE_CODE_MAX_OUTPUT_TOKENS so a single turn can't dominate the auto-compaction window (→ too_few_groups → "Prompt is too long").
+      const effectiveMaxOutputTokens = parseInt(claudeEnv.CLAUDE_CODE_MAX_OUTPUT_TOKENS, 10) || modelMaxOutputTokens;
       if (argv.verbose) {
-        await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms, ANTHROPIC_LOG: debug`, { verbose: true });
+        await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${effectiveMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms, ANTHROPIC_LOG: debug`, { verbose: true });
+        if (effectiveMaxOutputTokens < modelMaxOutputTokens) await log(`📏 Capped per-turn output ${modelMaxOutputTokens} → ${effectiveMaxOutputTokens} so a single turn can't dominate the auto-compaction window (Issue #1841)`, { verbose: true });
         if (resolvedPlanModel) await log(`📊 opusplan: plan=${resolvedPlanModel}, exec=${resolvedExecutionModel}`, { verbose: true });
         if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });

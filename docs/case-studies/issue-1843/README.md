@@ -71,13 +71,13 @@ Full detail and sources are in `external/research-notes.md`. Key conclusions:
 
 - **`data:` URIs are stripped by GitHub's Markdown sanitizer** (scheme allow-list
   is `http`/`https`/`mailto`/relative). So the issue's base64 fallback cannot
-  render inline — requirement 2's "if there is no other way" condition is *met*,
+  render inline — requirement 2's "if there is no other way" condition is _met_,
   forcing a real upload path.
 - **No token-driven attachments API exists.** The web UI uploader
   (`github.com/upload/policies/assets`) is cookie-gated and returns 422 for PATs,
   so requirements 3 and 4 cannot be satisfied with the user-attachments URL from a
   headless context.
-- **Token-viable hosting** that renders inline for public *and* private repos:
+- **Token-viable hosting** that renders inline for public _and_ private repos:
   (a) commit to a dedicated branch and reference the `?raw=true` blob URL via the
   Contents API (which accepts base64 directly — exactly what we already have);
   (b) Release Assets; (c) external object storage. We chose (a).
@@ -95,7 +95,7 @@ Full detail and sources are in `external/research-notes.md`. Key conclusions:
 
 - `src/interactive-mode.lib.mjs#handleToolResult()` mapped array tool-result
   content with `c => c.type === 'text' ? c.text : safeJsonStringify(c)`. For an
-  image block this serialized the base64 into a ```` ``` ```` fence — never an
+  image block this serialized the base64 into a ` ``` ` fence — never an
   image — and produced enormous comments.
 - The same handler appended `createRawJsonSection([toolData, data])`, which
   re-serialized the entire event **including** the base64 image data, doubling the
@@ -113,17 +113,19 @@ Implemented in this PR:
   - `extractImagePayload(node)` / `isImageNode(node)` normalize the three verified
     payload shapes into `{ base64, mediaType }`.
   - `extensionForMediaType(mediaType)` maps MIME → file extension.
-  - `createImageUploader({ owner, repo, prNumber, branch, log, verbose, execFile,
-    enabled })` returns `{ uploadImage }`. It lazily creates an **orphan media
-    branch** once (Git Data API: blob → tree → parentless commit → ref), then
-    uploads each image via the Contents API `PUT .../contents/{path}` (base64 body),
-    de-duplicates by SHA-256 content hash (so repeated identical frames upload once),
-    and returns a `https://github.com/{owner}/{repo}/blob/{branch}/{path}?raw=true`
-    URL. All failures degrade gracefully to `null`.
+  - `createImageUploader({ owner, repo, prNumber, branch, ... })` returns
+    `{ uploadImage }`. It lazily creates an **orphan media branch** once (Git Data
+    API: blob → tree → parentless commit → ref), then uploads each image via the
+    Contents API `PUT .../contents/{path}` (base64 body), de-duplicates by SHA-256
+    content hash (so repeated identical frames upload once), and returns a
+    `https://github.com/{owner}/{repo}/blob/{branch}/{path}?raw=true` URL. All
+    failures degrade gracefully to `null`.
 - **`src/interactive-mode.shared.lib.mjs`:** add `redactImageData(data)` (deep-clone
-  that replaces base64 image fields with a `<image: N base64 chars, type>`
-  placeholder) and `formatImageEmbeds(...)` / `imageMetadataNote(...)` helpers so the
-  raw-JSON sections never carry base64 and rendering is consistent.
+  that replaces base64 image fields with a `<image data: N base64 chars>`
+  placeholder), `createRedactedRawJsonSection(data)`, and `formatImageEmbeds(...)`
+  (which renders `![](url)` embeds, or a compact "image upload unavailable" note when
+  no URL is available) so the raw-JSON sections never carry base64 and rendering is
+  consistent.
 - **`src/interactive-mode.lib.mjs`:**
   - `handleToolResult()` detects image nodes (in `toolResult.content` and the
     top-level `tool_use_result.file`), uploads them, and appends a rendered
@@ -131,9 +133,9 @@ Implemented in this PR:
     is disabled/failed). Image blocks are replaced with a short text placeholder in
     the textual output, and the raw-JSON section uses the redacted event.
   - `handleCodexMcpToolCall()` does the same for `item.result`.
-  - The handler builds the uploader from its existing `owner/repo/prNumber/log/
-    verbose/execFile` context, honoring a new `imageUploadEnabled` flag; tests can
-    inject a fake `imageUploader`.
+  - The handler builds the uploader from its existing context (owner, repo,
+    prNumber, log, verbose, execFile), honoring a new `imageUploadEnabled` flag;
+    tests can inject a fake `imageUploader`.
 - **`src/solve.config.lib.mjs`:** add boolean option `interactive-image-upload`
   (default **true**, disable with `--no-interactive-image-upload`).
 - **`src/claude.lib.mjs` / `src/codex.lib.mjs`:** thread

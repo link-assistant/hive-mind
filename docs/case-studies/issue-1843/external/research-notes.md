@@ -74,8 +74,8 @@ keeps the PR diff clean, and renders for public and private repos alike.
 ## Finding 4 — Existing components / prior art
 
 - **`Addono/gh-attach`** — a tool dedicated to this exact problem. It documents
-  four strategies: *Browser Session*, *Cookie Extraction*, *Release Assets*, and
-  *Repository Branch*. Only the last two are headless-viable, which corroborates
+  four strategies: _Browser Session_, _Cookie Extraction_, _Release Assets_, and
+  _Repository Branch_. Only the last two are headless-viable, which corroborates
   Finding 3. Supported media: PNG, GIF, JPEG, SVG, WebP, MP4, MOV, WEBM. It also
   ships an MCP server. Confirms our "repository branch" choice is established
   practice, not a novel hack.
@@ -97,8 +97,7 @@ Verified against real session logs already stored in this repository:
   `docs/case-studies/issue-1096/full-log.txt:975`:
 
   ```json
-  { "type": "image",
-    "source": { "type": "base64", "data": "iVBORw0KGgo…", "media_type": "image/png" } }
+  { "type": "image", "source": { "type": "base64", "data": "iVBORw0KGgo…", "media_type": "image/png" } }
   ```
 
 - **Claude `Read` tool bonus field** — same event, top-level
@@ -124,13 +123,13 @@ The implementation normalizes all three shapes (`source.data`/`media_type`,
 
 ## Sources
 
-- GitHub Docs — *Attaching files* (web UI drag-and-drop; no token API documented):
+- GitHub Docs — _Attaching files_ (web UI drag-and-drop; no token API documented):
   https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files
-- GitHub REST — *Create or update file contents* (accepts base64 `content`):
+- GitHub REST — _Create or update file contents_ (accepts base64 `content`):
   https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents
-- GitHub REST — *Git database (blobs/trees/commits/refs)* (orphan-branch creation):
+- GitHub REST — _Git database (blobs/trees/commits/refs)_ (orphan-branch creation):
   https://docs.github.com/en/rest/git
-- GitHub REST — *Release assets* (alternative token-based hosting):
+- GitHub REST — _Release assets_ (alternative token-based hosting):
   https://docs.github.com/en/rest/releases/assets
 - `github/markup` HTML-pipeline sanitization (scheme allow-list excludes `data:`):
   https://github.com/github/markup

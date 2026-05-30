@@ -20,7 +20,7 @@ const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
+const { log, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getLogFile } = lib;
 
 // Import feedback detection functions
 const feedbackLib = await import('./solve.feedback.lib.mjs');
@@ -421,7 +421,7 @@ export const watchForFeedback = async params => {
                   sessionId: toolResult.sessionId || latestSessionId,
                   tempDir,
                   // Include error information in the log upload
-                  errorMessage: toolResult.errorInfo?.message || toolResult.result || `${argv.tool.toUpperCase()} execution failed`,
+                  errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }),
                   // Include pricing data if available from failed attempt
                   publicPricingEstimate: toolResult.publicPricingEstimate,
                   pricingInfo: toolResult.pricingInfo,

@@ -21,7 +21,7 @@ const fs = (await use('fs')).promises;
 const crypto = (await use('crypto')).default;
 const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
-const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, getVersionInfo, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
+const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getVersionInfo, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
@@ -1072,6 +1072,10 @@ try {
     //   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)
     //   3. Solve resume        - re-enters solve.mjs with --resume, preserving tool/model/dir
     const toolForFailure = argv.tool || 'claude';
+    // Issue #1845: include the core error (e.g. "API Error: Output blocked by content filtering
+    // policy") instead of just "<TOOL> execution failed", so users immediately understand what
+    // went wrong both in the terminal and in the failure comment posted to GitHub.
+    const toolFailureMessage = formatToolExecutionFailure({ tool: toolForFailure, toolResult });
     if (sessionId) {
       await log('');
       await log('💡 To continue this session:');
@@ -1116,7 +1120,7 @@ try {
           // Include sessionId so the PR comment can present it
           sessionId,
           // If not a usage limit case, fall back to generic failure format
-          errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`,
+          errorMessage: limitReached ? undefined : toolFailureMessage,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
           // Issue #1454: Pass resultModelUsage for accurate multi-model display
@@ -1144,13 +1148,13 @@ try {
       const { criticalErrorRecovery } = await import('./config.lib.mjs');
       if (criticalErrorRecovery.autoCommitUncommittedChanges) {
         const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
-        await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: `${argv.tool || 'claude'} execution failed` });
+        await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: toolFailureMessage });
       }
     } catch (preserveError) {
       await log(`  ⚠️  Could not auto-commit before failure exit: ${preserveError.message}`, { verbose: true });
     }
 
-    await safeExit(1, `${argv.tool.toUpperCase()} execution failed`);
+    await safeExit(1, toolFailureMessage);
   }
 
   // Clean up .playwright-mcp/ to prevent browser artifacts from triggering auto-restart (Issue #1124)

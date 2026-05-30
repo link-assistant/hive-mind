@@ -22,7 +22,7 @@ const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
+const { log, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getLogFile } = lib;
 
 // Note: We don't use detectAndCountFeedback from solve.feedback.lib.mjs
 // because we have our own non-bot comment detection logic that's more
@@ -822,7 +822,7 @@ No further AI sessions will be started automatically for this run. Please review
                         log,
                         sanitizeLogContent,
                         verbose: argv.verbose,
-                        errorMessage: `${argv.tool.toUpperCase()} execution failed after limit reset`,
+                        errorMessage: `${formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult })} after limit reset`,
                         sessionId: latestSessionId,
                         tempDir,
                         requestedModel: argv.originalModel || argv.model,
@@ -872,7 +872,7 @@ No further AI sessions will be started automatically for this run. Please review
                   log,
                   sanitizeLogContent,
                   verbose: argv.verbose,
-                  errorMessage: `${argv.tool.toUpperCase()} execution failed`,
+                  errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }),
                   sessionId: latestSessionId,
                   tempDir,
                   requestedModel: argv.originalModel || argv.model,

@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 
-// Issue #1841: recovery for the "Prompt is too long" / context-window-exhausted failure.
+// Issue #1841: recovery for context-window-exhausted failures. Two failure modes share this recovery:
 //
-// Symptom (from the failed run in the issue): the context window (200000 tokens) filled up, Claude
-// Code triggered its built-in auto-compaction (`system` event `status: compacting`), the compaction
-// FAILED (`compact_result: failed`, `compact_error: too_few_groups`), and the next API call returned
-// the synthetic error "Prompt is too long" (`error: invalid_request`) with the result reporting
-// `terminal_reason: blocking_limit`. The process then exited with code 1.
+//   1. "Prompt is too long" (`terminal_reason: blocking_limit`) — the context window filled up, Claude
+//      Code triggered its built-in auto-compaction (`system` event `status: compacting`), the
+//      compaction FAILED (`compact_result: failed`, `compact_error: too_few_groups`), and the next API
+//      call returned the synthetic error "Prompt is too long" (`error: invalid_request`).
+//   2. "Autocompact is thrashing" (`terminal_reason: rapid_refill_breaker`) — a large file read or
+//      tool output kept refilling the context to the limit within a few turns of each compaction, so
+//      Claude Code tripped its rapid-refill breaker and emitted a synthetic "Autocompact is thrashing
+//      … use /clear to start fresh" message (`error: invalid_request`).
+//
+// In both cases the failed run exited with code 1 before this recovery was added.
 //
 // Root cause is on Claude Code's side: auto-compaction normally prevents this, but it summarizes the
 // transcript with a smaller-context model and can itself overflow / refuse when the history cannot be
@@ -65,7 +70,7 @@ export const createContextLimitRecovery = ({ argv, tempDir, branchName, $, log, 
       await log('\n🔄 Restarting with a fresh session now...');
       return true;
     }
-    await log(`\n\n❌ "Prompt is too long" persisted after ${restartCount} fresh-session restart(s) (Issue #1841).\n   Claude Code's auto-compaction failed to reduce the context (upstream anthropics/claude-code#46348) and a fresh session still overflowed — the issue/PR context alone may exceed the window. Failing to avoid an endless recovery loop.`, { level: 'error' });
+    await log(`\n\n❌ Context-limit failure (${classified.label}) persisted after ${restartCount} fresh-session restart(s) (Issue #1841).\n   Claude Code's auto-compaction could not keep the context under the window (upstream anthropics/claude-code#46348) and a fresh session still overflowed — the issue/PR context alone may exceed the window, or a single file/tool output is too large. Failing to avoid an endless recovery loop.`, { level: 'error' });
     return false;
   };
 };

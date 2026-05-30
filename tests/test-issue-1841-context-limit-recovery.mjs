@@ -122,6 +122,50 @@ test('Accepts the synthetic result shape ({ result: "Prompt is too long" })', ()
 });
 
 // ============================================================
+// Section 1b: "Autocompact is thrashing" / rapid-refill breaker (second failure mode)
+// ============================================================
+// Verified against Claude Code v2.1.158: when a large file read or tool output keeps refilling
+// the context within `nc6 = 3` turns of each compaction, the breaker trips after `t08 = 3`
+// consecutive rapid refills and emits a synthetic "Autocompact is thrashing …" message with
+// `terminal_reason: "rapid_refill_breaker"`. Resuming replays the same over-large context, so it
+// must route through the same fresh-session (context-limit) recovery as "Prompt is too long".
+console.log('\n=== 1b. "Autocompact is thrashing" detection ===');
+
+const thrashingMessage = 'Autocompact is thrashing: the context refilled to the limit within 3 turns of the previous ' + 'compact, 3 times in a row. A file being read or a tool output is likely too large for the ' + 'context window. Try reading in smaller chunks, or use /clear to start fresh.';
+
+test('Flags "Autocompact is thrashing" with requiresFreshSession=true', () => {
+  const result = classifyRetryableError(thrashingMessage);
+  assert.strictEqual(result.requiresFreshSession, true, `Expected requiresFreshSession=true, got: ${result.requiresFreshSession}`);
+});
+
+test('Flags "Autocompact is thrashing" with isContextLimit=true (same recovery as Prompt is too long)', () => {
+  const result = classifyRetryableError(thrashingMessage);
+  assert.strictEqual(result.isContextLimit, true, `Expected isContextLimit=true, got: ${result.isContextLimit}`);
+});
+
+test('"Autocompact is thrashing" is NOT a transient resume-retry (would loop forever)', () => {
+  const result = classifyRetryableError(thrashingMessage);
+  assert.strictEqual(result.isRetryable, false, 'Thrashing must not use the transient resume-retry path');
+  assert.strictEqual(result.isCapacity, false, 'Thrashing is not a capacity error');
+});
+
+test('Detects the rapid_refill_breaker terminal_reason token', () => {
+  const result = classifyRetryableError('run aborted: terminal_reason=rapid_refill_breaker');
+  assert.strictEqual(result.isContextLimit, true, 'The rapid_refill_breaker token should be flagged');
+  assert.strictEqual(result.requiresFreshSession, true, 'rapid_refill_breaker requires a fresh session');
+});
+
+test('"Autocompact is thrashing" detection is case-insensitive', () => {
+  const result = classifyRetryableError('AUTOCOMPACT IS THRASHING: the context refilled to the limit');
+  assert.strictEqual(result.isContextLimit, true, 'Detection should be case-insensitive');
+});
+
+test('"Autocompact is thrashing" provides a descriptive label', () => {
+  const result = classifyRetryableError(thrashingMessage);
+  assert(typeof result.label === 'string' && result.label.toLowerCase().includes('thrashing'), `Label should mention thrashing, got: ${result.label}`);
+});
+
+// ============================================================
 // Section 2: No false positives / routing separation from thinking-block recovery
 // ============================================================
 console.log('\n=== 2. No false positives & recovery routing ===');

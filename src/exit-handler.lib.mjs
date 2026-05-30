@@ -418,6 +418,17 @@ export const installGlobalExitHandlers = () => {
 
   // Handle uncaught exceptions
   process.on('uncaughtException', async error => {
+    // Issue #1841 (PR #1842 feedback): "for all errors we do auto-commit of uncommitted changes."
+    // An uncaught exception is an error path too — run the interrupt handler (auto-commit + push)
+    // first so the agent's work is never lost, then clean up. Guarded against double invocation.
+    if (interruptFunction && !interruptHandlerRan) {
+      interruptHandlerRan = true;
+      try {
+        await interruptFunction();
+      } catch {
+        // Ignore interrupt handler errors on exception
+      }
+    }
     if (cleanupFunction) {
       try {
         await cleanupFunction();
@@ -442,6 +453,17 @@ export const installGlobalExitHandlers = () => {
 
   // Handle unhandled rejections
   process.on('unhandledRejection', async reason => {
+    // Issue #1841 (PR #1842 feedback): "for all errors we do auto-commit of uncommitted changes."
+    // An unhandled rejection is an error path too — run the interrupt handler (auto-commit + push)
+    // first so the agent's work is never lost, then clean up. Guarded against double invocation.
+    if (interruptFunction && !interruptHandlerRan) {
+      interruptHandlerRan = true;
+      try {
+        await interruptFunction();
+      } catch {
+        // Ignore interrupt handler errors on rejection
+      }
+    }
     if (cleanupFunction) {
       try {
         await cleanupFunction();

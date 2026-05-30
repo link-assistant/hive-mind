@@ -998,6 +998,15 @@ export const executeClaudeCommand = async params => {
                     const outTokens = data.usage?.output_tokens ?? 'unknown';
                     await log(`📏 Detected "Prompt is too long" (context window exhausted, terminal_reason=${data.terminal_reason || 'unknown'}). compaction_failed=${compactionFailed}, final_turn_output_tokens=${outTokens}, num_turns=${data.num_turns ?? 'unknown'}. Will discard the session and restart fresh (Issue #1841, upstream anthropics/claude-code#46348).`, { verbose: true });
                   }
+                  // Issue #1841: Detect the "Autocompact is thrashing" / rapid-refill-breaker failure
+                  // (a second context-exhaustion mode). Surfaced as a synthetic result with
+                  // terminal_reason 'rapid_refill_breaker' and a message recommending /clear. This
+                  // fires when a large file read / tool output keeps refilling the context to the limit
+                  // within a few turns of each compaction (3 times in a row in v2.1.158). Same recovery:
+                  // discard the session and restart fresh.
+                  if (lastMessage.includes('Autocompact is thrashing') || data.terminal_reason === 'rapid_refill_breaker') {
+                    await log(`📏 Detected "Autocompact is thrashing" (rapid-refill breaker, terminal_reason=${data.terminal_reason || 'unknown'}). A large file read or tool output kept refilling the context to the limit. num_turns=${data.num_turns ?? 'unknown'}. Will discard the session and restart fresh (Issue #1841, upstream anthropics/claude-code#46348).`, { verbose: true });
+                  }
                 }
               }
               if (data.type === 'text' && data.text) lastMessage = data.text;

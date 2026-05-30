@@ -14,7 +14,14 @@ root cause is on the Claude Code side (a documented upstream limitation,
 anthropics/claude-code#46348 and friends); hive-mind simply had no handling for
 it.
 
-`classifyRetryableError` now flags `Prompt is too long` / `input is too long` with
+A second, closely-related failure mode in the same subsystem is now handled too:
+`Autocompact is thrashing` (`terminal_reason: rapid_refill_breaker`), emitted when a
+large file read or tool output keeps refilling the context within a few turns of each
+compaction so Claude Code trips its rapid-refill breaker. It is the same upstream
+limitation and the message itself recommends `/clear` (a fresh session).
+
+`classifyRetryableError` now flags `Prompt is too long` / `input is too long` **and**
+`Autocompact is thrashing` / `rapid_refill_breaker` with
 `{ requiresFreshSession: true, isContextLimit: true }` (centralized, so every tool
 benefits). A new `createContextLimitRecovery`
 (`src/claude.context-limit-recovery.lib.mjs`) **discards the session and restarts
@@ -26,6 +33,13 @@ avoid an expensive loop when even a fresh session overflows. The recovery is wir
 into both the streamed-result and thrown-exception paths of `claude.lib.mjs`, and
 the thinking-block recovery (#1834) is now guarded with `!isContextLimit` so the
 two recoveries don't collide.
+
+To guarantee "auto-commit on **all** errors", the `uncaughtException` /
+`unhandledRejection` handlers in `src/exit-handler.lib.mjs` now run the interrupt
+(auto-commit + push) before cleanup — previously they ran cleanup only and skipped
+auto-commit, so a crash could lose uncommitted work. Backward compatibility is
+preserved: every change is additive and gated by existing defaults (the `150k`
+`--sub-session-size` default is unchanged; compacting earlier stays opt-in).
 
 As prevention (not just recovery), `getClaudeEnv` now **caps per-turn output** so a
 single turn can no longer dominate the compaction window and cause `too_few_groups`.
@@ -43,6 +57,8 @@ Verbose tracing of the auto-compaction lifecycle is added (`🗜️ compacting`,
 diagnostic with the final-turn output-token count, and a `📏 Capped per-turn output …`
 line when the cap is applied), so the root cause is visible in the log next time. A deep
 case study and reproducible upstream-report draft live under
-`docs/case-studies/issue-1841` (including §4.1 verifying Claude Code v2.1.157's
-compaction config against the binary), with 33 assertions in
+`docs/case-studies/issue-1841` (including §0 before/after summary and §4.1 verifying
+Claude Code v2.1.158's compaction config against the binary — clamp constants
+`cc6=1e5`/`hL4=1e6`, breaker constants `nc6=t08=3`, and the finding that compaction is
+env-only with no CLI flags), with 39 assertions in
 `tests/test-issue-1841-context-limit-recovery.mjs`.

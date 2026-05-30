@@ -1,21 +1,43 @@
-# Case Study — Issue #1841: `Prompt is too long`
+# Case Study — Issue #1841: `Prompt is too long` (and `Autocompact is thrashing`)
 
 > **TL;DR** — A headless `solve` run filled Claude Code's 200K-token context window. Claude Code's
 > built-in auto-compaction triggered but **failed** (`compact_error: too_few_groups`), so the prompt
 > could not be reduced and the next API call returned the synthetic error **`Prompt is too long`**
-> (`terminal_reason: blocking_limit`). The process exited 1. **Root cause is on the Claude Code
-> side** (a well-documented upstream limitation). On hive-mind's side the failure was treated as a
-> generic exit-1 with no graceful recovery. This PR adds **prevention (a per-turn output cap so a
-> single turn can't dominate the compaction window) + detection + fresh-session recovery + verbose
-> compaction tracing + auto-commit-on-error**, so the run avoids the failure where possible and
-> preserves work + continues instead of dying when it can't. See **§4.1** for why lowering the
-> compaction _threshold_ alone cannot fix this and what does.
+> (`terminal_reason: blocking_limit`). The process exited 1. A **second, closely-related failure
+> mode** exists in the same auto-compaction subsystem: when a large file read or tool output keeps
+> refilling the context within a few turns of each compaction, Claude Code trips its **rapid-refill
+> breaker** and emits **`Autocompact is thrashing …` (`terminal_reason: rapid_refill_breaker`)**.
+> Both are **root-caused on the Claude Code side** (well-documented upstream limitations). On
+> hive-mind's side both were treated as a generic exit-1 with no graceful recovery. This PR adds
+> **prevention (a per-turn output cap so a single turn can't dominate the compaction window) +
+> detection of BOTH failure modes + fresh-session recovery + verbose compaction tracing +
+> auto-commit-on-every-error**, so the run avoids the failure where possible and preserves work +
+> continues instead of dying when it can't. See **§4.1** for why lowering the compaction _threshold_
+> alone cannot fix this and what does, and **§0** for a before/after summary.
 
 - **Issue:** https://github.com/link-assistant/hive-mind/issues/1841
 - **PR:** https://github.com/link-assistant/hive-mind/pull/1842
 - **Source log (gist):** [`solution-draft-log-pr-1780093061356.txt`](./raw-data/solution-draft-log-pr-1780093061356.txt) — the failed run that prompted the issue.
 - **Failing run target:** `solve https://github.com/link-assistant/formal-ai/pull/346` (a `write_program` Rust task, PR #346 / issue #340).
 - **Session id:** `88c9c3b2-a155-4b1b-8a88-afdcffd31beb`
+- **Claude Code version verified against:** **v2.1.158** (installed locally; all strings/constants below were read from this binary).
+
+---
+
+## 0. What changed in this PR — before / after summary
+
+| Behavior                                                       | **Before this PR**                                                          | **After this PR**                                                                                        |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `Prompt is too long` (`blocking_limit`)                        | Unrecognized → fell through to generic `exit 1`. Work could be lost.        | Classified (`isContextLimit`), traced, **auto-committed**, recovered via a capped fresh-session restart. |
+| `Autocompact is thrashing` (`rapid_refill_breaker`)            | Unrecognized → fell through to generic `exit 1`.                            | Classified (`isContextLimit`), traced, **auto-committed**, recovered via the same fresh-session restart. |
+| Oversized single turn (→ `too_few_groups`)                     | `CLAUDE_CODE_MAX_OUTPUT_TOKENS` allowed up to 128K (the 125K failing turn). | Capped to `floor(window × 0.45)` so ≥2 compaction groups always fit. Prevention, not just recovery.      |
+| Compaction lifecycle in logs                                   | **Invisible** — no tracing of `compacting` / `failed` / `terminal_reason`.  | Verbose tracing of `compacting`, `compact_result: failed`, both terminal reasons.                        |
+| Auto-commit on a **handled** critical error                    | Done at the failure-exit chokepoint.                                        | Unchanged (still done).                                                                                  |
+| Auto-commit on an **uncaught exception / unhandled rejection** | ❌ **Gap** — handlers ran cleanup only, **skipped** auto-commit.            | ✅ Both handlers now run the interrupt (auto-commit) before cleanup. "For all errors we auto-commit."    |
+| Compaction threshold default                                   | `150k` via `--sub-session-size` (Issue #1706).                              | **Unchanged** (backward compatible). Earlier compaction stays opt-in via the same flag — see §4.2.       |
+
+Every change is additive and gated by existing config flags/defaults, so **no existing behavior is
+removed or altered for runs that never hit these errors** (backward compatibility — see §4.2).
 
 ---
 
@@ -60,21 +82,65 @@ assistant "<synthetic>": "Prompt is too long"   (error: "invalid_request")
 result is_error:true, terminal_reason:"blocking_limit"  →  exit 1
 ```
 
+### 1.1 The second failure mode — `Autocompact is thrashing` (rapid-refill breaker)
+
+The same auto-compaction subsystem has a second terminal failure that surfaces a different message.
+When compaction **succeeds** but the context **immediately refills to the limit again** — typically
+because a single file read or tool output is large enough to re-fill the window within a couple of
+turns of each compaction — Claude Code detects the loop and trips a **rapid-refill breaker** rather
+than compacting forever. It emits a synthetic assistant message and aborts:
+
+```
+Autocompact is thrashing: the context refilled to the limit within 3 turns of the previous
+compact, 3 times in a row. A file being read or a tool output is likely too large for the
+context window. Try reading in smaller chunks, or use /clear to start fresh.
+```
+
+with `error: "invalid_request"` and result `terminal_reason: "rapid_refill_breaker"`.
+
+**Verified against the v2.1.158 binary** (constants read directly from the bundle — see §4.1):
+
+- The literal string `Autocompact is thrashing` and the terminal reason `rapid_refill_breaker` are
+  both present in the binary, gated behind the `tengu_auto_compact_rapid_refill_breaker` feature.
+- The displayed numbers come from hard-coded constants: a refill is counted as "rapid" when it
+  happens within **`nc6 = 3`** turns of the previous compact, and the breaker trips after
+  **`t08 = 3`** consecutive rapid refills (the "3 turns … 3 times in a row" in the message).
+- These thresholds are **not tunable by any env var or CLI flag** — they are compiled constants.
+
+Why it shares the same recovery as `Prompt is too long`: in headless (`-p`) mode resuming the same
+session replays the same over-large transcript, so the breaker (or the limit) trips again. The
+message's own advice — _"use /clear to start fresh"_ — is exactly the fresh-session restart this PR
+performs. Note the per-turn **output** cap (§4.1) does **not** directly prevent thrashing, because
+thrashing is driven by large **input** (a file/tool output being read), not by output token count;
+for thrashing the fresh-session recovery is the handling, and §7 notes input-side trimming as a
+follow-up.
+
 ---
 
 ## 2. Requirements from the issue (checklist)
 
 The issue body enumerates the following; each is addressed in this PR:
 
-| #   | Requirement                                                                                                                                                                                              | Status                                                                                                                                                                             |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R1  | Understand the **root cause**; fix it if it's on our side, **report** it if it's on Claude Code's side.                                                                                                  | ✅ Root cause found (Claude Code side). Documented here; upstream issues referenced (see §5).                                                                                      |
-| R2  | **Auto-commit** uncommitted changes on such errors (and on all errors by default).                                                                                                                       | ✅ Recovery preserves work before each restart; failure-exit also auto-commits. On by default.                                                                                     |
-| R3  | **Download all logs/data** to `./docs/case-studies/issue-1841/` and produce a **deep case study** (timeline, requirements, root causes, solutions, existing-library survey), searching online for facts. | ✅ This document + `raw-data/` + `research-sources.json`.                                                                                                                          |
-| R4  | If **not enough data** to find the root cause, add **debug output / verbose mode** to capture it next time.                                                                                              | ✅ Verbose compaction-lifecycle tracing added (`compacting` / `compact_result: failed` / `terminal_reason`).                                                                       |
-| R5  | If the issue relates to **another repo** where we can file issues, report there with reproducible examples, workarounds, and code-level fix suggestions.                                                 | ✅ It's a Claude Code limitation; already reported upstream multiple times — filing a new one would duplicate. Draft + references in [`upstream-report.md`](./upstream-report.md). |
-| R6  | Apply the fix across the **entire codebase** (fix in all places).                                                                                                                                        | ✅ Detection is centralized in `classifyRetryableError` (shared by all tools); recovery wired into both the result-path and exception-path of `claude.lib.mjs`.                    |
-| R7  | Plan and execute everything in the **single PR #1842**.                                                                                                                                                  | ✅ All commits land on `issue-1841-528a4ab747d3`.                                                                                                                                  |
+| #   | Requirement                                                                                                                                                                                              | Status                                                                                                                                                                                                     |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | Understand the **root cause**; fix it if it's on our side, **report** it if it's on Claude Code's side.                                                                                                  | ✅ Root cause found (Claude Code side). Documented here; upstream issues referenced (see §5).                                                                                                              |
+| R2  | **Auto-commit** uncommitted changes on such errors (and on all errors by default).                                                                                                                       | ✅ Recovery preserves work before each restart; failure-exit also auto-commits; **and the `uncaughtException` / `unhandledRejection` handlers now auto-commit too** (gap fixed — see §3.4). On by default. |
+| R3  | **Download all logs/data** to `./docs/case-studies/issue-1841/` and produce a **deep case study** (timeline, requirements, root causes, solutions, existing-library survey), searching online for facts. | ✅ This document + `raw-data/` + `research-sources.json`.                                                                                                                                                  |
+| R4  | If **not enough data** to find the root cause, add **debug output / verbose mode** to capture it next time.                                                                                              | ✅ Verbose compaction-lifecycle tracing added (`compacting` / `compact_result: failed` / `terminal_reason`).                                                                                               |
+| R5  | If the issue relates to **another repo** where we can file issues, report there with reproducible examples, workarounds, and code-level fix suggestions.                                                 | ✅ It's a Claude Code limitation; already reported upstream multiple times — filing a new one would duplicate. Draft + references in [`upstream-report.md`](./upstream-report.md).                         |
+| R6  | Apply the fix across the **entire codebase** (fix in all places).                                                                                                                                        | ✅ Detection is centralized in `classifyRetryableError` (shared by all tools); recovery wired into both the result-path and exception-path of `claude.lib.mjs`.                                            |
+| R7  | Plan and execute everything in the **single PR #1842**.                                                                                                                                                  | ✅ All commits land on `issue-1841-528a4ab747d3`.                                                                                                                                                          |
+
+### 2.1 Additional requirements from PR #1842 review feedback
+
+| #   | Requirement (from review comment 2026-05-30)                                                           | Status                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| F1  | Report **and handle** the `Autocompact is thrashing` error as well.                                    | ✅ Classified + detected + recovered (§1.1, §4); reported in [`upstream-report.md`](./upstream-report.md).        |
+| F2  | Update the analysis; **recheck every statement** for it to be verified and correct.                    | ✅ All constants/strings re-read from the v2.1.158 binary (§4.1); version, test count, and clamp logic corrected. |
+| F3  | Clearly show **what changed** with a **before/after** summary.                                         | ✅ §0 before/after table.                                                                                         |
+| F4  | Check not only ENVs but also **CLI options** on Claude Code.                                           | ✅ `claude --help` has **no** compaction-related flags; compaction is env-only (§4.1).                            |
+| F5  | Ensure **for all errors** we auto-commit uncommitted changes.                                          | ✅ Filled the `uncaughtException` / `unhandledRejection` gap (§3.4).                                              |
+| F6  | Preserve **backward compatibility** (don't break existing behavior); optionally compact a bit earlier. | ✅ Defaults unchanged; earlier compaction stays opt-in via `--sub-session-size` (§4.2).                           |
 
 ---
 
@@ -129,20 +195,31 @@ Before this PR, `Prompt is too long`:
 So the run died with no attempt to preserve context or restart cleanly. The compaction events were
 also **invisible** in the logs (no tracing), making the root cause hard to see.
 
+### 3.4 The auto-commit gap (fixed for "auto-commit on ALL errors")
+
+Reviewing R2 + F5 ("for all errors we auto-commit"), the exit handlers in `src/exit-handler.lib.mjs`
+had a gap. The `SIGINT` / `SIGTERM` paths ran the **interrupt** function (which performs the
+auto-commit), but the **`uncaughtException`** and **`unhandledRejection`** handlers ran only the
+**cleanup** function and **skipped the interrupt** — so a crash via an uncaught error would _not_
+auto-commit uncommitted work. This PR adds the interrupt (auto-commit) invocation to both handlers,
+guarded by the existing `interruptHandlerRan` latch so it runs at most once. Now every termination
+path — signal, handled critical error, or uncaught exception/rejection — preserves uncommitted work.
+
 ---
 
 ## 4. The fix (what this PR changes)
 
-| Area                     | File                                                                                                 | Change                                                                                                                                                                                                                                                                                                       |
-| ------------------------ | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Detection** (R1, R6)   | `src/tool-retry.lib.mjs`                                                                             | New branch in `classifyRetryableError` that flags `Prompt is too long` / `input is too long` with `{ requiresFreshSession: true, isContextLimit: true }`. Centralized → applies to every tool that uses this classifier.                                                                                     |
-| **Recovery** (R1)        | `src/claude.context-limit-recovery.lib.mjs` _(new)_                                                  | `createContextLimitRecovery` — a stateful, capped handler that **forces a fresh session** (`argv.resume = undefined`) because resuming the over-long transcript just replays the same prompt. Modeled on the #1834 thinking-block recovery.                                                                  |
-| **Wiring** (R6)          | `src/claude.lib.mjs`                                                                                 | Invokes context-limit recovery in **both** the streamed-result path and the thrown-exception path. The thinking-block recovery is now guarded with `!isContextLimit` so the two recoveries don't collide.                                                                                                    |
-| **Config** (R1)          | `src/config.lib.mjs`                                                                                 | New `retryLimits.maxContextLimitRestarts` (default **1**, env `HIVE_MIND_MAX_CONTEXT_LIMIT_RESTARTS`) — bounds fresh restarts to avoid an expensive loop.                                                                                                                                                    |
-| **Auto-commit** (R2)     | `src/claude.context-limit-recovery.lib.mjs` + existing `critical-error-commit.lib.mjs` / `solve.mjs` | Recovery calls `commitUncommittedChangesOnCriticalError` (commit + push) **before** each restart; the failure-exit chokepoint in `solve.mjs` also auto-commits. Both gated by `criticalErrorRecovery.autoCommitUncommittedChanges` (default **true**).                                                       |
-| **Verbose tracing** (R4) | `src/claude.lib.mjs`                                                                                 | Logs the compaction lifecycle: `🗜️ … auto-compacting`, `⚠️ … auto-compaction FAILED (compact_error: …)`, and a `📏 Detected "Prompt is too long" … final_turn_output_tokens=… terminal_reason=…` diagnostic. So next time the root cause is visible directly in the log.                                     |
-| **Prevention** (R1)      | `src/config.lib.mjs` (`computeCompactionSafeOutputCap`, applied in `getClaudeEnv`)                   | **Bounds per-turn output** so a single turn cannot dominate the compaction window and cause `too_few_groups`. Caps `CLAUDE_CODE_MAX_OUTPUT_TOKENS` to `floor(window × 0.45)` (fraction `< 0.5` guarantees ≥2 groups fit), with a 32K floor. This is the lever that actually prevents the failure — see §4.1. |
-| **Tests**                | `tests/test-issue-1841-context-limit-recovery.mjs` _(new)_                                           | 33 assertions: classification, no-false-positives, routing separation from thinking-block recovery, restart cap, fresh-restart-only behavior, auto-commit-before-restart, and the per-turn output cap math + `getClaudeEnv` integration.                                                                     |
+| Area                         | File                                                                                                 | Change                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Detection** (R1, R6)       | `src/tool-retry.lib.mjs`                                                                             | Two new branches in `classifyRetryableError`: one flags `Prompt is too long` / `input is too long`, the other flags `Autocompact is thrashing` / `rapid_refill_breaker` — **both** with `{ requiresFreshSession: true, isContextLimit: true }`. Centralized → applies to every tool that uses this classifier.                                    |
+| **Recovery** (R1)            | `src/claude.context-limit-recovery.lib.mjs` _(new)_                                                  | `createContextLimitRecovery` — a stateful, capped handler that **forces a fresh session** (`argv.resume = undefined`) because resuming the over-long transcript just replays the same prompt. Modeled on the #1834 thinking-block recovery.                                                                                                       |
+| **Wiring** (R6)              | `src/claude.lib.mjs`                                                                                 | Invokes context-limit recovery in **both** the streamed-result path and the thrown-exception path, and detects/traces both `Prompt is too long` and `Autocompact is thrashing` results. The thinking-block recovery is now guarded with `!isContextLimit` so the two recoveries don't collide.                                                    |
+| **Auto-commit gap** (R2, F5) | `src/exit-handler.lib.mjs`                                                                           | The `uncaughtException` / `unhandledRejection` handlers now run the interrupt (auto-commit) before cleanup — previously they ran cleanup only and skipped auto-commit (§3.4). Guarded by the existing `interruptHandlerRan` latch.                                                                                                                |
+| **Config** (R1)              | `src/config.lib.mjs`                                                                                 | New `retryLimits.maxContextLimitRestarts` (default **1**, env `HIVE_MIND_MAX_CONTEXT_LIMIT_RESTARTS`) — bounds fresh restarts to avoid an expensive loop.                                                                                                                                                                                         |
+| **Auto-commit** (R2)         | `src/claude.context-limit-recovery.lib.mjs` + existing `critical-error-commit.lib.mjs` / `solve.mjs` | Recovery calls `commitUncommittedChangesOnCriticalError` (commit + push) **before** each restart; the failure-exit chokepoint in `solve.mjs` also auto-commits. Both gated by `criticalErrorRecovery.autoCommitUncommittedChanges` (default **true**).                                                                                            |
+| **Verbose tracing** (R4)     | `src/claude.lib.mjs`                                                                                 | Logs the compaction lifecycle: `🗜️ … auto-compacting`, `⚠️ … auto-compaction FAILED (compact_error: …)`, and a `📏 Detected "Prompt is too long" … final_turn_output_tokens=… terminal_reason=…` diagnostic. So next time the root cause is visible directly in the log.                                                                          |
+| **Prevention** (R1)          | `src/config.lib.mjs` (`computeCompactionSafeOutputCap`, applied in `getClaudeEnv`)                   | **Bounds per-turn output** so a single turn cannot dominate the compaction window and cause `too_few_groups`. Caps `CLAUDE_CODE_MAX_OUTPUT_TOKENS` to `floor(window × 0.45)` (fraction `< 0.5` guarantees ≥2 groups fit), with a 32K floor. This is the lever that actually prevents the failure — see §4.1.                                      |
+| **Tests**                    | `tests/test-issue-1841-context-limit-recovery.mjs` _(new)_                                           | 39 assertions: classification of **both** failure modes (`Prompt is too long` and `Autocompact is thrashing` / `rapid_refill_breaker`), no-false-positives, routing separation from thinking-block recovery, restart cap, fresh-restart-only behavior, auto-commit-before-restart, and the per-turn output cap math + `getClaudeEnv` integration. |
 
 ### Why "fresh session" and not "resume"?
 
@@ -155,11 +232,12 @@ large and looping won't help.
 
 ### Contrast with related recoveries
 
-| Error class                          | Upstream          | Recovery strategy                                                                 |
-| ------------------------------------ | ----------------- | --------------------------------------------------------------------------------- |
-| Corrupted thinking blocks (#1834)    | claude-code#63147 | **Repair transcript → resume first**, then fresh restart. Context is recoverable. |
-| Prompt is too long (#1841)           | claude-code#46348 | **Fresh restart only.** Resuming replays the over-long prompt — never useful.     |
-| Transient (overload/503/500/timeout) | —                 | Retry with backoff, **session preserved**.                                        |
+| Error class                          | Upstream          | Recovery strategy                                                                           |
+| ------------------------------------ | ----------------- | ------------------------------------------------------------------------------------------- |
+| Corrupted thinking blocks (#1834)    | claude-code#63147 | **Repair transcript → resume first**, then fresh restart. Context is recoverable.           |
+| Prompt is too long (#1841)           | claude-code#46348 | **Fresh restart only.** Resuming replays the over-long prompt — never useful.               |
+| Autocompact is thrashing (#1841)     | claude-code#46348 | **Fresh restart only.** Resuming replays the same over-large input that refills the window. |
+| Transient (overload/503/500/timeout) | —                 | Retry with backoff, **session preserved**.                                                  |
 
 ---
 
@@ -172,18 +250,40 @@ large and looping won't help.
 **Short answer:** Yes — and we now do, but **not** by lowering the threshold (which the failing run
 already did and which did **not** help). The lever that actually prevents `too_few_groups` is
 **bounding per-turn output**. Below is what the docs say and what the local Claude Code binary
-(**v2.1.157**, the version installed here) actually does.
+(**v2.1.158**, the version installed here) actually does.
+
+### CLI options vs. env vars (F4)
+
+`claude --help` on v2.1.158 exposes **no compaction-related CLI flag** — there is no
+`--compact-window`, `--autocompact`, `--context-window`, or similar. Compaction is configured
+**exclusively through environment variables**. So the only levers are the env vars below, which is
+why hive-mind maps `--sub-session-size` onto them (Issue #1706) rather than passing a CLI flag.
+
+The compaction-related env vars actually referenced by the v2.1.158 binary are:
+
+| Env var                               | Role                                                               |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| `CLAUDE_CODE_AUTO_COMPACT_WINDOW`     | Compaction threshold (clamped, see below).                         |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`     | Percentage trigger override (parsed as float, `0 ≤ x < 1`).        |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS`       | Per-turn output cap (the lever this PR uses).                      |
+| `CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE` | Override read alongside the pct override in the compaction config. |
+| `CLAUDE_CODE_COLD_COMPACT`            | Toggles the "cold compact" code path.                              |
+
+The breaker thresholds themselves (`nc6 = 3` turns, `t08 = 3` refills, `dc6 = 3` consecutive
+compaction failures) are **hard-coded constants** with **no** env/CLI override.
 
 ### The three relevant knobs
 
-| Env var                           | What it controls                                                                | Verified behavior                                                                                                                                                                                                                                                                                                                                                                                                         |
-| --------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | The auto-compaction **threshold** (context usage at which compaction triggers). | In v2.1.157 the effective window is `min(modelContextWindow, max(100000, value))` — clamped to a **minimum of `1e5` (100K)** and a **maximum of `1e6` (1M)**, then capped to the model's window. The settings UI states: _"The actual threshold is the minimum of this setting and your model's maximum context window."_ hive-mind already sets this to **150K** via `--sub-session-size` (default `150k`, Issue #1706). |
-| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | A percentage override for the trigger point.                                    | Parsed as a float (`testPctOverride`) inside the compaction config. Lower-only in practice; upstream #25867 reports it does **not** reliably prevent the failure. hive-mind derives it from `--sub-session-size`.                                                                                                                                                                                                         |
-| `CLAUDE_CODE_MAX_OUTPUT_TOKENS`   | The **maximum tokens a single turn may emit**.                                  | Standard Anthropic env var; bounds each assistant turn. **This is the knob that prevents `too_few_groups`** — it limits the size of the largest single group.                                                                                                                                                                                                                                                             |
+| Env var                           | What it controls                                                                | Verified behavior                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | The auto-compaction **threshold** (context usage at which compaction triggers). | In v2.1.158 the effective window is `min(modelContextWindow, max(1e5, min(value, 1e6)))` — the env value is clamped to a **maximum of `hL4 = 1e6` (1M)**, then floored to a **minimum of `cc6 = 1e5` (100K)**, then capped to the model's window (all three steps read directly from the binary's `Il` / `D8H` functions). hive-mind already sets this to **150K** via `--sub-session-size` (default `150k`, Issue #1706). |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | A percentage override for the trigger point.                                    | Parsed as a float (`testPctOverride`) inside the compaction config. Lower-only in practice; upstream #25867 reports it does **not** reliably prevent the failure. hive-mind derives it from `--sub-session-size`.                                                                                                                                                                                                          |
+| `CLAUDE_CODE_MAX_OUTPUT_TOKENS`   | The **maximum tokens a single turn may emit**.                                  | Standard Anthropic env var; bounds each assistant turn. **This is the knob that prevents `too_few_groups`** — it limits the size of the largest single group.                                                                                                                                                                                                                                                              |
 
-(All three strings, plus `too_few_groups` / `compact_error`, are present in the installed binary;
-the clamp constants `1e5` / `1e6` were read directly from the v2.1.157 binary.)
+(All three strings, plus `too_few_groups` / `compact_error` / `Autocompact is thrashing` /
+`rapid_refill_breaker`, are present in the installed binary; the clamp constants `cc6 = 1e5` /
+`hL4 = 1e6` and the breaker constants `dc6 = nc6 = t08 = 3` were read directly from the v2.1.158
+binary's JS bundle.)
 
 ### Why lowering the _threshold_ alone cannot fix this
 
@@ -222,14 +322,41 @@ fresh-session recovery (§4) still catches it if it somehow occurs anyway.
 
 ```bash
 $ claude --version
-2.1.157 (Claude Code)
+2.1.158 (Claude Code)
 
-$ node tests/test-issue-1841-context-limit-recovery.mjs   # 33 passed, 0 failed
+$ claude --help | grep -iE 'compact|context|window'   # → no compaction-related CLI flag
+
+$ node tests/test-issue-1841-context-limit-recovery.mjs   # 39 passed, 0 failed
+  ✅ Flags "Autocompact is thrashing" with isContextLimit=true (same recovery as Prompt is too long)
+  ✅ Detects the rapid_refill_breaker terminal_reason token
   ✅ Caps Opus 4.8 output (128000) to floor(150000 * 0.45) = 67500
   ✅ Capped output leaves room for >=2 groups in the window (cap*2 < window)
   ✅ getClaudeEnv lowers CLAUDE_CODE_MAX_OUTPUT_TOKENS for Opus 4.8 with a 150k window
   …
 ```
+
+---
+
+## 4.2 Backward compatibility & "compact a bit earlier" (F6)
+
+Two constraints from the review: **don't break anything existing**, and we **might** want to compact
+a bit earlier.
+
+- **Backward compatibility is preserved.** Every change is additive and gated by existing
+  defaults/flags: the new classifier branches only fire on the two specific error strings; the
+  recovery only runs when `isContextLimit` is set; the per-turn output cap was already introduced in
+  this PR's earlier commits with an escape hatch (`HIVE_MIND_MAX_OUTPUT_COMPACTION_FRACTION=0`); the
+  exit-handler change only adds an auto-commit step on crash paths that previously did nothing for
+  uncommitted work. No default value was changed and no existing code path was removed. A run that
+  never hits these errors behaves exactly as before.
+- **Compacting earlier stays opt-in.** hive-mind already compacts earlier than Claude Code's stock
+  behavior by defaulting `--sub-session-size` to `150k` (→ `CLAUDE_CODE_AUTO_COMPACT_WINDOW=150000` +
+  a derived `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`). Operators who want to compact **even earlier** can
+  lower it (e.g. `--sub-session-size 120k` or `--sub-session-size 50%`) without any code change. We
+  deliberately did **not** lower the `150k` default in this PR, because doing so would change
+  behavior for every existing run (the opposite of "don't break anything"). The real fix for the
+  failure is the per-turn cap (prevention) + fresh-session recovery, not an earlier trigger — see
+  §4.1 for why an earlier trigger alone cannot rescue an oversized single turn.
 
 ---
 
@@ -243,12 +370,15 @@ $ node tests/test-issue-1841-context-limit-recovery.mjs   # 33 passed, 0 failed
   - `classifyRetryableError` (`src/tool-retry.lib.mjs`) — the single, shared error-classification
     chokepoint; extending it satisfies R6 (one fix, all tools).
 - **Claude Code built-ins:** auto-compaction (`compact` / `compact_result` events),
-  `CLAUDE_CODE_AUTO_COMPACT_WINDOW` (threshold; clamped `min(modelWindow, max(100K, value))` in
-  v2.1.157), `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` (an env override some users try; per upstream #25867 it
-  does not reliably prevent the failure). `CLAUDE_CODE_MAX_OUTPUT_TOKENS` (hive-mind already sets
-  this) bounds output — the failing run allowed 128K, which permitted the 125K final turn; **this PR
-  now caps it to `floor(window × 0.45)` so a single turn can no longer dominate the window** (see
-  §4.1).
+  `CLAUDE_CODE_AUTO_COMPACT_WINDOW` (threshold; clamped `min(modelWindow, max(1e5, min(value, 1e6)))`
+  in v2.1.158), `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` (an env override some users try; per upstream #25867
+  it does not reliably prevent the failure), `CLAUDE_CODE_BLOCKING_LIMIT_OVERRIDE` /
+  `CLAUDE_CODE_COLD_COMPACT` (also referenced by the compaction config), and the rapid-refill breaker
+  (`rapid_refill_breaker`, gate `tengu_auto_compact_rapid_refill_breaker`, constants `nc6 = t08 = 3`).
+  `CLAUDE_CODE_MAX_OUTPUT_TOKENS` (hive-mind already sets this) bounds output — the failing run
+  allowed 128K, which permitted the 125K final turn; **this PR now caps it to `floor(window × 0.45)`
+  so a single turn can no longer dominate the window** (see §4.1). **No compaction-related CLI flag
+  exists** in v2.1.158 (`claude --help`).
 - **Upstream reports (no new issue filed — would duplicate):**
   - [#46348](https://github.com/anthropics/claude-code/issues/46348) — _fails with "Prompt is too
     long" instead of auto-compacting_ (most relevant; closed as duplicate).
@@ -270,10 +400,17 @@ See [`research-sources.json`](./research-sources.json) for the full source list 
 node tests/test-issue-1841-context-limit-recovery.mjs
 ```
 
-**Reproduce the original failure shape:** drive `solve` at a task that causes the agent to generate
-one enormous turn near the context limit (e.g. repeatedly dumping large files). The log will now show
-the `🗜️ auto-compacting` → `⚠️ auto-compaction FAILED (too_few_groups)` → `📏 Detected "Prompt is
-too long"` sequence, followed by an auto-commit and a single fresh-session restart.
+**Reproduce the original failure shape (`Prompt is too long`):** drive `solve` at a task that causes
+the agent to generate one enormous turn near the context limit (e.g. repeatedly dumping large files).
+The log will now show the `🗜️ auto-compacting` → `⚠️ auto-compaction FAILED (too_few_groups)` →
+`📏 Detected "Prompt is too long"` sequence, followed by an auto-commit and a single fresh-session
+restart.
+
+**Reproduce the thrashing shape (`Autocompact is thrashing`):** drive `solve` at a task that
+repeatedly reads a single very large file/tool output so the context refills within a few turns of
+each compaction. After 3 rapid refills the breaker trips; the log shows
+`📏 Detected "Autocompact is thrashing" (rapid-refill breaker …)`, followed by an auto-commit and a
+fresh-session restart.
 
 ---
 
@@ -283,6 +420,9 @@ too long"` sequence, followed by an auto-commit and a single fresh-session resta
   capped to `floor(window × 0.45)` (§4.1) so a single turn can no longer dominate the compaction
   window.
 - Consider further trimming **tool-output bytes fed back** to the model (a different axis: input
-  growth rather than output), to reduce overall context pressure.
+  growth rather than output), to reduce overall context pressure. This is the axis that drives the
+  `Autocompact is thrashing` breaker (large file/tool-output reads), which the per-turn output cap
+  does not address — so input-side trimming would be the _preventive_ complement to the fresh-session
+  recovery for thrashing.
 - Consider passing `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` to compact earlier — but upstream reports
   indicate it is not a reliable fix, so it is not relied upon here.

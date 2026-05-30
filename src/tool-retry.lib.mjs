@@ -58,6 +58,22 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: false, isCapacity: false, requiresFreshSession: true, label: 'Corrupted thinking blocks (un-resumable session)' };
   }
 
+  // Issue #1841: "Autocompact is thrashing" / rapid-refill breaker. A second context-exhaustion
+  // failure mode in Claude Code: when a large file read or tool output keeps refilling the context to
+  // the limit within a few turns of each auto-compaction, Claude Code trips its "rapid refill breaker"
+  // and emits a synthetic assistant message ("Autocompact is thrashing: the context refilled to the
+  // limit within 3 turns of the previous compact, 3 times in a row. … Try reading in smaller chunks,
+  // or use /clear to start fresh.") with `error: "invalid_request"` and result `terminal_reason:
+  // "rapid_refill_breaker"`. Verified against the installed Claude Code binary (v2.1.158): the breaker
+  // fires after `t08 = 3` consecutive rapid refills, each detected within `nc6 = 3` turns of the prior
+  // compact (the thresholds are hard-coded — there is no env var to tune them). Just like "Prompt is
+  // too long", resuming the same headless transcript replays the same over-large context, so the only
+  // recovery the message itself recommends is `/clear` (a fresh session). We route it through the same
+  // context-limit recovery (`requiresFreshSession` + `isContextLimit`).
+  if (lower.includes('autocompact is thrashing') || lower.includes('rapid_refill_breaker') || lower.includes('rapid refill breaker')) {
+    return { message, isRetryable: false, isCapacity: false, requiresFreshSession: true, isContextLimit: true, label: 'Autocompact is thrashing (context refilled to limit repeatedly, rapid-refill breaker tripped)' };
+  }
+
   // Issue #1841: "Prompt is too long" — the conversation plus attached files exceeds the model's
   // context window (Claude Code error reference: https://code.claude.com/docs/en/errors). Claude
   // Code's auto-compaction (on by default) normally prevents this, but when compaction itself fails

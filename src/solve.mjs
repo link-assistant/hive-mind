@@ -1072,9 +1072,7 @@ try {
     //   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)
     //   3. Solve resume        - re-enters solve.mjs with --resume, preserving tool/model/dir
     const toolForFailure = argv.tool || 'claude';
-    // Issue #1845: include the core error (e.g. "API Error: Output blocked by content filtering
-    // policy") instead of just "<TOOL> execution failed", so users immediately understand what
-    // went wrong both in the terminal and in the failure comment posted to GitHub.
+    // Issue #1845: surface the core error instead of just "<TOOL> execution failed" (terminal + comment).
     const toolFailureMessage = formatToolExecutionFailure({ tool: toolForFailure, toolResult });
     if (sessionId) {
       await log('');
@@ -1140,10 +1138,9 @@ try {
       }
     }
 
-    // Issue #1834 (PR #1835 feedback): "on all critical errors we auto commit uncommitted changes
-    // by default." A failed session is a critical error and exits here before the normal
-    // auto-commit chokepoint below, so preserve (commit + push) any work the agent left on disk
-    // first. On by default; disable via HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false. Never throws.
+    // Issue #1834 (PR #1835 feedback): "on all critical errors we auto commit uncommitted changes by
+    // default." A failed session exits here before the normal auto-commit chokepoint below, so commit
+    // + push any work first. On by default; disable via HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false.
     try {
       const { criticalErrorRecovery } = await import('./config.lib.mjs');
       if (criticalErrorRecovery.autoCommitUncommittedChanges) {

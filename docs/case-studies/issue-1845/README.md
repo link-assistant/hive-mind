@@ -106,6 +106,15 @@ And the consumption side had four independent display/exit/log sites:
 
 A fix in only one place would have left the bug in the others — matching R6's "fix it in all of them."
 
+A deeper audit for R6 found a **fifth** consumer that read the same dropped field for a
+different purpose: `isApiError()` in `src/solve.restart-shared.lib.mjs` classified a failure
+as an API error by scanning `toolResult.result` only. Because Claude (and now gemini /
+opencode / qwen) report failures via `errorInfo` and never set `result`, a real
+`API Error:` from Claude was misclassified as **non-API**. The watch-mode loop
+(`solve.watch.lib.mjs`) then reset its consecutive-API-error counter and could retry a hard
+API error indefinitely, defeating the `MAX_API_ERROR_RETRIES` infinite-loop guard. The same
+"reads `result`, ignores `errorInfo`" root cause, so it is fixed the same way (see §4.3).
+
 ---
 
 ## 4. Solution implemented
@@ -163,6 +172,7 @@ Design decisions:
 - `solve.auto-merge.lib.mjs`: resume-failure and general-failure GitHub `errorMessage` use `formatToolExecutionFailure`; the **terminal** `RESUME FAILED` / `EXECUTION FAILED` blocks now also print an `Error details:` line via `extractToolErrorCore(...)`.
 - `solve.watch.lib.mjs`: watch-mode failure GitHub `errorMessage` uses `formatToolExecutionFailure`; the **terminal** `MAXIMUM API ERROR RETRIES REACHED` block's `Error details:` line now uses `extractToolErrorCore(...)` instead of `toolResult.result` (which is frequently unset on Claude failures, so it previously printed "Unknown API error").
 - `review.mjs`: the generic `❌ Command execution failed. Check the log file for details.` now appends the core error via `extractToolErrorCore(...)` when one is available.
+- `solve.restart-shared.lib.mjs`: `isApiError()` now classifies via `extractToolErrorCore(...)` instead of reading `toolResult.result` directly, so an `API Error:` reported through `errorInfo` (the Claude failure shape) is correctly detected. It still falls back to `result`, preserving back-compat for any runner that sets it. This keeps the watch-mode `MAX_API_ERROR_RETRIES` backoff/escalation guard working for Claude API errors instead of looping forever.
 
 **Result:** for the exact scenario in this issue, the user now sees
 
@@ -229,6 +239,13 @@ result` precedence, whitespace collapsing, null cases, and that it does **not**
 the exception/rejection/main-error paths by driving `handleFailure()` with a
 scriptable `$` command-stream double — see §4.4.
 
+`tests/test-auto-restart-usage-limit-1356.mjs` was extended with 7 assertions
+(now 26 total) covering the `isApiError()` fix from §4.3: an `API Error:` reported
+through `errorInfo.message` (the Claude failure shape with no `result` field),
+through `errorInfo` as a plain string, and through `errorInfo.errorMatch` are all
+detected; legacy `result`-based detection still works; a generic `errorInfo`
+failure is not an API error; and `resultSummary` never drives classification.
+
 ---
 
 ## 6. Known components / libraries considered (R3)
@@ -274,7 +291,9 @@ scriptable `$` command-stream double — see §4.4.
 | `src/solve.auto-merge.lib.mjs`                      | Helper for resume + general failure GitHub messages; new `Error details:` terminal line via `extractToolErrorCore`                             |
 | `src/solve.watch.lib.mjs`                           | Helper for watch-mode GitHub message; `Error details:` terminal line now uses `extractToolErrorCore`                                           |
 | `src/review.mjs`                                    | Append the core error to the generic `Command execution failed` message via `extractToolErrorCore`                                             |
+| `src/solve.restart-shared.lib.mjs`                  | `isApiError()` classifies via `extractToolErrorCore` so `errorInfo`-only Claude API errors are detected (keeps watch-mode retry guard working) |
 | `src/solve.error-handlers.lib.mjs`                  | `handleFailure()` auto-commits uncommitted work (R2) on exception / rejection / main-error exits before exiting                                |
 | `tests/format-tool-execution-failure-1845.test.mjs` | Unit + cross-tool tests + `extractToolErrorCore` tests (27)                                                                                    |
 | `tests/test-issue-1845-failure-auto-commit.mjs`     | New tests for the R2 exception-path auto-commit in `handleFailure()` (6)                                                                       |
+| `tests/test-auto-restart-usage-limit-1356.mjs`      | Extended with `isApiError()` `errorInfo`-shape tests (Issue #1845, +7)                                                                         |
 | `docs/case-studies/issue-1845/`                     | This case study + raw failure log                                                                                                              |

@@ -18,7 +18,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { formatToolExecutionFailure } from '../src/lib.mjs';
+import { formatToolExecutionFailure, extractToolErrorCore } from '../src/lib.mjs';
 import { getCodexErrorEventSummary } from '../src/codex.lib.mjs';
 
 let testsPassed = 0;
@@ -219,6 +219,46 @@ test('qwen.lib failure shape -> includes the combined error text', () => {
 test('agent.lib failure shape -> includes the agent error message', () => {
   const toolResult = { success: false, errorInfo: { message: 'Agent reported error: rate limit', errorType: 'UsageLimit' } };
   assert.equal(formatToolExecutionFailure({ tool: 'agent', toolResult }), 'AGENT execution failed with Agent reported error: rate limit');
+});
+
+// ---------------------------------------------------------------------------
+// extractToolErrorCore — the shared root-cause extractor reused by the terminal
+// "Error details:" lines (watch / auto-merge / review) so they show the same
+// core error as the GitHub comment, without the "<TOOL> execution failed with"
+// prefix (issue #1845: apply the fix across the codebase).
+// ---------------------------------------------------------------------------
+
+console.log('\n📋 extractToolErrorCore Tests\n');
+
+test('extractToolErrorCore returns just the core error from errorInfo.message', () => {
+  assert.equal(extractToolErrorCore({ toolResult: { errorInfo: { message: 'API Error: blocked' } } }), 'API Error: blocked');
+});
+
+test('extractToolErrorCore precedence: message > errorMatch > string > result', () => {
+  assert.equal(extractToolErrorCore({ toolResult: { errorInfo: { message: 'm', errorMatch: 'e' }, result: 'r' } }), 'm');
+  assert.equal(extractToolErrorCore({ toolResult: { errorInfo: { errorMatch: 'e' }, result: 'r' } }), 'e');
+  assert.equal(extractToolErrorCore({ toolResult: { errorInfo: 'str', result: 'r' } }), 'str');
+  assert.equal(extractToolErrorCore({ toolResult: { result: 'r' } }), 'r');
+});
+
+test('extractToolErrorCore collapses whitespace into a single line', () => {
+  assert.equal(extractToolErrorCore({ toolResult: { errorInfo: { message: 'API Error:\n  blocked\tby   policy\n' } } }), 'API Error: blocked by policy');
+});
+
+test('extractToolErrorCore returns null when no usable error is present', () => {
+  assert.equal(extractToolErrorCore({ toolResult: { success: false } }), null);
+  assert.equal(extractToolErrorCore({ toolResult: {} }), null);
+  assert.equal(extractToolErrorCore({}), null);
+  assert.equal(extractToolErrorCore(), null);
+});
+
+test('extractToolErrorCore returns null for empty/whitespace and non-string messages', () => {
+  assert.equal(extractToolErrorCore({ toolResult: { errorInfo: { message: '   \n\t ' } } }), null);
+  assert.equal(extractToolErrorCore({ toolResult: { errorInfo: { message: 12345 } } }), null);
+});
+
+test('extractToolErrorCore does NOT use resultSummary (success summary, not an error)', () => {
+  assert.equal(extractToolErrorCore({ toolResult: { resultSummary: 'Implemented the feature.' } }), null);
 });
 
 // ============================================================================

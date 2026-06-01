@@ -20,7 +20,7 @@ const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getLogFile } = lib;
+const { log, cleanErrorMessage, formatAligned, formatToolExecutionFailure, extractToolErrorCore, getLogFile } = lib;
 
 // Import feedback detection functions
 const feedbackLib = await import('./solve.feedback.lib.mjs');
@@ -373,7 +373,9 @@ export const watchForFeedback = async params => {
             if (consecutiveApiErrors >= MAX_API_ERROR_RETRIES) {
               await log('');
               await log(formatAligned('❌', 'MAXIMUM API ERROR RETRIES REACHED', ''));
-              await log(formatAligned('', 'Error details:', toolResult.result || 'Unknown API error', 2));
+              // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content
+              // filtering policy"); toolResult.result is often unset on failure, so prefer errorInfo.
+              await log(formatAligned('', 'Error details:', extractToolErrorCore({ toolResult }) || 'Unknown API error', 2));
               await log(formatAligned('', 'Consecutive failures:', `${consecutiveApiErrors}`, 2));
               await log(formatAligned('', 'Action:', 'Exiting watch mode to prevent infinite loop', 2));
               await log('');

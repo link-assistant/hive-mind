@@ -22,7 +22,7 @@ const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getLogFile } = lib;
+const { log, cleanErrorMessage, formatAligned, formatToolExecutionFailure, extractToolErrorCore, getLogFile } = lib;
 
 // Note: We don't use detectAndCountFeedback from solve.feedback.lib.mjs
 // because we have our own non-bot comment detection logic that's more
@@ -805,6 +805,8 @@ No further AI sessions will be started automatically for this run. Please review
                 // Resume failed for a non-limit reason — stop the loop
                 await log('');
                 await log(formatAligned('❌', `${argv.tool.toUpperCase()} RESUME FAILED`, ''));
+                // Issue #1845: surface the core error in the terminal, not just in the GitHub log.
+                await log(formatAligned('', 'Error details:', extractToolErrorCore({ toolResult: resumeResult }) || 'Unknown error', 2));
                 await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed after limit reset', 2));
                 // Issue #1439: Attach failure log before stopping, so user can see what happened
                 const shouldAttachLogsOnResumeFail = argv.attachLogs || argv['attach-logs'];
@@ -855,6 +857,8 @@ No further AI sessions will be started automatically for this run. Please review
           // Per reviewer feedback: non-limit failures should fail and stop attempts
           await log('');
           await log(formatAligned('❌', `${argv.tool.toUpperCase()} EXECUTION FAILED`, ''));
+          // Issue #1845: surface the core error in the terminal, not just in the GitHub log.
+          await log(formatAligned('', 'Error details:', extractToolErrorCore({ toolResult }) || 'Unknown error', 2));
           await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed', 2));
           // Issue #1439: Attach failure log before stopping, so user can see what happened
           const shouldAttachLogsOnFail = argv.attachLogs || argv['attach-logs'];

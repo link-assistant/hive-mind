@@ -181,9 +181,8 @@ const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = u
 issueUrl = normalizedUrl || issueUrl;
 global.owner = owner;
 global.repo = repo;
-// Issue #1752: failures before PR creation can happen during checks that run
-// before the normal issue-mode setup below. Record the source issue as soon as
-// the URL is validated so the pre-exit notifier can still comment on it.
+// Issue #1752: record the source issue as soon as the URL is validated so the pre-exit
+// notifier can still comment on it if a check fails before normal issue-mode setup below.
 if (isIssueUrl) {
   global.issueNumber = urlNumber;
 }
@@ -193,8 +192,7 @@ if (argv.autoLanguage) {
   const { applyAutoLanguageToArgv } = await import('./auto-language.lib.mjs');
   await applyAutoLanguageToArgv({ argv, githubLib, owner, repo, number: urlNumber, isIssueUrl, isPrUrl, log });
 }
-// Initialize i18n based on --language / --ui-language / --work-language
-// (or detected system locale). --auto-language may set only the work track.
+// Initialize i18n from --language / --ui-language / --work-language (or system locale).
 const { initI18n } = await import('./i18n.lib.mjs');
 await initI18n({
   language: argv.language,
@@ -209,6 +207,7 @@ const errorHandlerOptions = {
   shouldAttachLogs,
   argv,
   global,
+  cleanupContext, // #1845: mutated in place; lets exception handlers auto-commit uncommitted work
   owner: null, // Will be set later when parsed
   repo: null, // Will be set later when parsed
   getLogFile,
@@ -1464,6 +1463,7 @@ try {
   }
   await handleMainExecutionError({
     error,
+    cleanupContext, // #1845: enable auto-commit of uncommitted work before the failure exit
     log,
     cleanErrorMessage,
     absoluteLogPath,

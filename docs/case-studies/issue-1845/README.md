@@ -15,7 +15,7 @@ Each requirement is tracked with its status in this PR.
 | #   | Requirement                                                                                                                                                                                                                     | Status                                                                                                |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | R1  | Show the **core error message** to the user: instead of `CLAUDE execution failed`, show `CLAUDE execution failed with API Error: Output blocked by content filtering policy`, so the user has a rough idea what went wrong.     | ✅ Implemented                                                                                        |
-| R2  | On **all failures**, automatically commit (and push) uncommitted changes.                                                                                                                                                       | ✅ Verified / wired to the improved message                                                           |
+| R2  | On **all failures**, automatically commit (and push) uncommitted changes.                                                                                                                                                       | ✅ Tool-failure path verified + **exception/rejection/main-error paths gap closed** (see §4.4)        |
 | R3  | Download all logs/data about the issue into `./docs/case-studies/issue-1845/` and do a **deep case study** (timeline, requirement list, root causes, solution plans, known libraries). Also search online for additional facts. | ✅ This document                                                                                      |
 | R4  | If there is **not enough data** to find the root cause, add debug output / verbose mode for the next iteration.                                                                                                                 | ✅ Root cause found; verbose tracing already present and confirmed sufficient                         |
 | R5  | If the issue relates to **another repository/project**, report it there with reproducible examples, workarounds, and fix suggestions.                                                                                           | ✅ Analyzed — see §7 (upstream is Anthropic Claude CLI behavior; no hive-mind bug to report upstream) |
@@ -97,11 +97,12 @@ The same pattern existed across **every** AI tool runner except `codex` and `age
 - `opencode.lib.mjs` — 3 failure returns
 - `qwen.lib.mjs` — 2 non-limit failure returns
 
-And the consumption side had three independent display/exit/log sites:
+And the consumption side had four independent display/exit/log sites:
 
 - `solve.mjs` (terminal exit + GitHub failure comment + auto-commit reason)
 - `solve.auto-merge.lib.mjs` (auto-merge resume + general failure)
 - `solve.watch.lib.mjs` (watch-mode failure)
+- `review.mjs` (review-command failure)
 
 A fix in only one place would have left the bug in the others — matching R6's "fix it in all of them."
 
@@ -120,17 +121,25 @@ Each tool runner's failure return now includes a structured
 - `qwen.lib.mjs` — `errorInfo: { message: combinedErrorText || errorMessage || ... }` + exception case.
 - `codex.lib.mjs` / `agent.lib.mjs` — already returned structured error info; left as-is (their `errorInfo.message` is compatible).
 
-### 4.2 Shared formatter — single source of truth
+### 4.2 Shared extractor + formatter — single source of truth
 
-A new exported helper in `src/lib.mjs`:
+Two exported helpers in `src/lib.mjs` share **one** precedence so every failure
+surface shows the same root cause and they can never diverge:
 
 ```js
-export const formatToolExecutionFailure = ({ tool, toolResult, maxLength = 300 } = {}) => {
-  const base = `${(tool || 'claude').toUpperCase()} execution failed`;
+// Returns just the core error string (no prefix), or null when none is available.
+export const extractToolErrorCore = ({ toolResult } = {}) => {
   const errorInfo = toolResult?.errorInfo;
   const rawCore = errorInfo?.message || errorInfo?.errorMatch || (typeof errorInfo === 'string' ? errorInfo : null) || toolResult?.result || null;
-  if (!rawCore || typeof rawCore !== 'string') return base;
-  let core = rawCore.replace(/\s+/g, ' ').trim();
+  if (!rawCore || typeof rawCore !== 'string') return null;
+  const core = rawCore.replace(/\s+/g, ' ').trim();
+  return core || null;
+};
+
+// Builds the full "<TOOL> execution failed with <core>" message for comments/exit.
+export const formatToolExecutionFailure = ({ tool, toolResult, maxLength = 300 } = {}) => {
+  const base = `${(tool || 'claude').toUpperCase()} execution failed`;
+  let core = extractToolErrorCore({ toolResult });
   if (!core) return base;
   if (core.toLowerCase().includes('execution failed')) return base; // avoid duplication
   if (core.length > maxLength) core = `${core.slice(0, maxLength - 1)}…`;
@@ -142,14 +151,18 @@ Design decisions:
 
 - **Does not** fall back to `resultSummary` — that field holds the agent's _normal_ work summary on success, and would be misleading as an "error."
 - Collapses whitespace/newlines to a single clean line.
-- Caps at 300 chars to keep terminal/comment output readable.
+- Caps at 300 chars (in the formatter) to keep terminal/comment output readable.
 - Avoids duplicating the base phrase when the core already contains "execution failed."
+- `extractToolErrorCore` is the shared root-cause extractor reused by the terminal
+  "Error details:" lines (watch / auto-merge / review) so they show the **same**
+  core error as the GitHub comment, without the "<TOOL> execution failed with" prefix.
 
-### 4.3 Consumer side — all three display sites use the helper
+### 4.3 Consumer side — every display / exit / log site shows the core error
 
 - `solve.mjs`: terminal exit message, GitHub failure-comment `errorMessage`, and the auto-commit `reason` all use `formatToolExecutionFailure(...)`.
-- `solve.auto-merge.lib.mjs`: resume-failure and general-failure `errorMessage`.
-- `solve.watch.lib.mjs`: watch-mode failure `errorMessage`.
+- `solve.auto-merge.lib.mjs`: resume-failure and general-failure GitHub `errorMessage` use `formatToolExecutionFailure`; the **terminal** `RESUME FAILED` / `EXECUTION FAILED` blocks now also print an `Error details:` line via `extractToolErrorCore(...)`.
+- `solve.watch.lib.mjs`: watch-mode failure GitHub `errorMessage` uses `formatToolExecutionFailure`; the **terminal** `MAXIMUM API ERROR RETRIES REACHED` block's `Error details:` line now uses `extractToolErrorCore(...)` instead of `toolResult.result` (which is frequently unset on Claude failures, so it previously printed "Unknown API error").
+- `review.mjs`: the generic `❌ Command execution failed. Check the log file for details.` now appends the core error via `extractToolErrorCore(...)` when one is available.
 
 **Result:** for the exact scenario in this issue, the user now sees
 
@@ -157,7 +170,8 @@ Design decisions:
 CLAUDE execution failed with API Error: Output blocked by content filtering policy
 ```
 
-both in the terminal and in the posted GitHub failure comment.
+both in the terminal and in the posted GitHub failure comment — and the same core
+string appears in the watch / auto-merge "Error details:" terminal lines.
 
 ### 4.4 Auto-commit on all failures (R2)
 
@@ -167,13 +181,36 @@ Issue #1834 already added `commitUncommittedChangesOnCriticalError` (gated by
 failure-exit block of `solve.mjs` (before `safeExit(1, ...)`) and again at the
 general post-session chokepoint for limit/error cases. This PR routes the
 improved failure message into the commit `reason`, so the auto-commit is both
-**guaranteed on the failure path** and **labeled with the real cause**.
+**guaranteed on the tool-failure path** and **labeled with the real cause**.
+
+**Gap closed in this PR.** The tool-failure chokepoint in `solve.mjs` only covers
+the _graceful_ failure path. Three other exits bypassed it entirely and could
+leave the agent's work uncommitted on disk:
+
+- `uncaughtException` (`createUncaughtExceptionHandler`)
+- `unhandledRejection` (`createUnhandledRejectionHandler`)
+- the top-level `catch` in `solve.mjs` (`handleMainExecutionError`)
+
+All three funnel through `handleFailure()` in `src/solve.error-handlers.lib.mjs`,
+so this PR adds the **same guarded auto-commit at the very start of
+`handleFailure()`** — before issue creation / log attachment / PR close. It is
+gated by the identical config flag and only acts when `cleanupContext.tempDir`
+is set (a working tree exists). To make the working-tree state reachable from the
+exception handlers, `solve.mjs` now threads the in-place-mutated `cleanupContext`
+object into `errorHandlerOptions` and the `handleMainExecutionError` call. The
+step is best-effort: a commit/push failure is swallowed (logged at verbose level)
+so it can never mask the original error that triggered the exit.
+
+This is verified by `tests/test-issue-1845-failure-auto-commit.mjs` (6 tests):
+commit+push on a dirty tree, no-commit on a clean tree, skip when
+`cleanupContext` is absent or has no `tempDir`, never-throws when git fails, and
+the config default being `true`.
 
 ---
 
 ## 5. Tests
 
-`tests/format-tool-execution-failure-1845.test.mjs` (21 assertions) reproduces
+`tests/format-tool-execution-failure-1845.test.mjs` (27 assertions) reproduces
 the bug and locks in the fix:
 
 - The exact issue example (`API Error: Output blocked by content filtering policy`).
@@ -183,6 +220,14 @@ the bug and locks in the fix:
 - **Cross-tool result-shape tests** confirming the helper extracts the message
   from the real shapes returned by claude / codex (`getCodexErrorEventSummary`)
   / gemini / opencode / qwen / agent.
+- **`extractToolErrorCore` tests** (the shared extractor used by the terminal
+  "Error details:" lines): core extraction, the `message → errorMatch → string →
+result` precedence, whitespace collapsing, null cases, and that it does **not**
+  use `resultSummary`.
+
+`tests/test-issue-1845-failure-auto-commit.mjs` (6 assertions) locks in R2 for
+the exception/rejection/main-error paths by driving `handleFailure()` with a
+scriptable `$` command-stream double — see §4.4.
 
 ---
 
@@ -218,15 +263,18 @@ the bug and locks in the fix:
 
 ## 8. Files changed
 
-| File                                                | Change                                                                                 |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `src/lib.mjs`                                       | Added exported `formatToolExecutionFailure` helper                                     |
-| `src/claude.lib.mjs`                                | Added `errorInfo` to all 4 failure returns                                             |
-| `src/gemini.lib.mjs`                                | Added `errorInfo` to command-failed + exception returns                                |
-| `src/opencode.lib.mjs`                              | Added `errorInfo` to 3 failure returns                                                 |
-| `src/qwen.lib.mjs`                                  | Added `errorInfo` to command-failed + exception returns                                |
-| `src/solve.mjs`                                     | Use `formatToolExecutionFailure` for terminal exit, GitHub comment, auto-commit reason |
-| `src/solve.auto-merge.lib.mjs`                      | Use the helper for resume + general failure messages                                   |
-| `src/solve.watch.lib.mjs`                           | Use the helper for watch-mode failure message                                          |
-| `tests/format-tool-execution-failure-1845.test.mjs` | New unit + cross-tool tests                                                            |
-| `docs/case-studies/issue-1845/`                     | This case study + raw failure log                                                      |
+| File                                                | Change                                                                                                                                         |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib.mjs`                                       | Added exported `extractToolErrorCore` extractor + `formatToolExecutionFailure` helper (formatter reuses extractor)                             |
+| `src/claude.lib.mjs`                                | Added `errorInfo` to all 4 failure returns                                                                                                     |
+| `src/gemini.lib.mjs`                                | Added `errorInfo` to command-failed + exception returns                                                                                        |
+| `src/opencode.lib.mjs`                              | Added `errorInfo` to 3 failure returns                                                                                                         |
+| `src/qwen.lib.mjs`                                  | Added `errorInfo` to command-failed + exception returns                                                                                        |
+| `src/solve.mjs`                                     | Use `formatToolExecutionFailure` for terminal exit / GitHub comment / auto-commit reason; thread `cleanupContext` into the error handlers (R2) |
+| `src/solve.auto-merge.lib.mjs`                      | Helper for resume + general failure GitHub messages; new `Error details:` terminal line via `extractToolErrorCore`                             |
+| `src/solve.watch.lib.mjs`                           | Helper for watch-mode GitHub message; `Error details:` terminal line now uses `extractToolErrorCore`                                           |
+| `src/review.mjs`                                    | Append the core error to the generic `Command execution failed` message via `extractToolErrorCore`                                             |
+| `src/solve.error-handlers.lib.mjs`                  | `handleFailure()` auto-commits uncommitted work (R2) on exception / rejection / main-error exits before exiting                                |
+| `tests/format-tool-execution-failure-1845.test.mjs` | Unit + cross-tool tests + `extractToolErrorCore` tests (27)                                                                                    |
+| `tests/test-issue-1845-failure-auto-commit.mjs`     | New tests for the R2 exception-path auto-commit in `handleFailure()` (6)                                                                       |
+| `docs/case-studies/issue-1845/`                     | This case study + raw failure log                                                                                                              |

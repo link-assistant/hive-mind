@@ -128,6 +128,58 @@ test('generic failure is neither API error nor usage limit', () => {
   assert(isUsageLimitReached(toolResult) === false, 'Generic failure should not be usage limit');
 });
 
+// ===== Test: isApiError reads errorInfo, not just `result` (Issue #1845) =====
+// Claude (and gemini/opencode/qwen after #1845) report failures via `errorInfo`, NOT a
+// top-level `result` field. The previous isApiError keyed off `toolResult.result` only, so a
+// real Claude "API Error:" failure was misclassified as non-API — watch mode then reset its
+// consecutive-API-error counter and could retry the hard error indefinitely, defeating the
+// MAX_API_ERROR_RETRIES guard. These tests lock in the errorInfo-aware classification.
+console.log('\n📋 isApiError errorInfo-shape Tests (Issue #1845)\n');
+
+test('detects API error from claude errorInfo.message (no `result` field)', () => {
+  // Exact shape returned by claude.lib.mjs commandFailed return.
+  const toolResult = {
+    success: false,
+    sessionId: 'abc',
+    limitReached: false,
+    errorInfo: { message: 'API Error: Output blocked by content filtering policy', exitCode: 1 },
+  };
+  assert(isApiError(toolResult) === true, 'Claude errorInfo API error should be detected');
+  assert(isUsageLimitReached(toolResult) === false, 'Should not be misread as a usage limit');
+});
+
+test('detects not_found_error / authentication_error / invalid_request_error in errorInfo.message', () => {
+  for (const pattern of ['not_found_error', 'authentication_error', 'invalid_request_error']) {
+    const toolResult = { success: false, errorInfo: { message: `API Error: ${pattern}` } };
+    assert(isApiError(toolResult) === true, `Should detect ${pattern} from errorInfo`);
+  }
+});
+
+test('detects API error from errorInfo provided as a plain string', () => {
+  const toolResult = { success: false, errorInfo: 'API Error: overloaded_error' };
+  assert(isApiError(toolResult) === true, 'String errorInfo with API Error should be detected');
+});
+
+test('detects API error from errorInfo.errorMatch when message is absent', () => {
+  const toolResult = { success: false, errorInfo: { errorMatch: 'authentication_error' } };
+  assert(isApiError(toolResult) === true, 'errorMatch API error should be detected');
+});
+
+test('non-API errorInfo failure is NOT an API error', () => {
+  const toolResult = { success: false, errorInfo: { message: 'Claude command failed with exit code 1' } };
+  assert(isApiError(toolResult) === false, 'Generic errorInfo should not be an API error');
+});
+
+test('still detects API error from legacy top-level `result` field (back-compat)', () => {
+  const toolResult = { success: false, result: 'API Error: not_found_error' };
+  assert(isApiError(toolResult) === true, 'Legacy result-based detection must still work');
+});
+
+test('does NOT use resultSummary (success summary) to classify an API error', () => {
+  const toolResult = { success: false, resultSummary: 'Implemented the API Error handler and committed.' };
+  assert(isApiError(toolResult) === false, 'resultSummary must never drive API-error classification');
+});
+
 // ===== Test: Loop behavior simulation =====
 console.log('\n📋 Auto-restart Loop Behavior Simulation Tests\n');
 

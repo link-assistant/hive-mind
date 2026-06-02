@@ -632,6 +632,8 @@ export const executeQwenCommand = async params => {
           limitResetTime: null,
           ...usageResult,
           resultSummary,
+          // Issue #1845: surface the actual error so callers can show it to users
+          errorInfo: { message: combinedErrorText || errorMessage || `Qwen Code command failed${exitCode !== 0 ? ` with exit code ${exitCode}` : ''}`, exitCode },
         };
       }
 
@@ -665,6 +667,8 @@ export const executeQwenCommand = async params => {
         publicPricingEstimate: null,
         tokenUsage: null,
         resultSummary: null,
+        // Issue #1845: surface the actual exception message so callers can show it to users
+        errorInfo: { message: error.message || error.toString() },
       };
     }
   };

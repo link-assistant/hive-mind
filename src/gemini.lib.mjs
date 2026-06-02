@@ -575,6 +575,8 @@ export const executeGeminiCommand = async params => {
           pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
           publicPricingEstimate: null,
           resultSummary: geminiJsonState.resultSummary || null,
+          // Issue #1845: surface the actual error so callers can show it to users
+          errorInfo: { message: errorText || `Gemini command failed with exit code ${exitCode}`, exitCode },
         };
       }
 
@@ -616,6 +618,8 @@ export const executeGeminiCommand = async params => {
         pricingInfo: null,
         publicPricingEstimate: null,
         resultSummary: null,
+        // Issue #1845: surface the actual exception message so callers can show it to users
+        errorInfo: { message: error.message || error.toString() },
       };
     }
   };

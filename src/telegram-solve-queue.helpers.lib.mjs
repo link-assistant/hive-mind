@@ -65,6 +65,114 @@ export function formatQueueHistorySection({ items, emoji, label, max, locale, wi
 }
 
 /**
+ * Normalize an issue/PR URL for de-duplication: drop a trailing slash, drop any
+ * `#fragment`, and lowercase. Two URLs that point at the same issue/PR collapse
+ * to the same key so an item that is both in the queue's in-memory `processing`
+ * Map and in the tracked-session list is listed only once (issue #1837).
+ *
+ * @param {string} url
+ * @returns {string}
+ */
+function normalizeQueueUrl(url) {
+  return typeof url === 'string' ? url.replace(/\/+$/, '').replace(/#.*$/, '').toLowerCase() : '';
+}
+
+/**
+ * Build the list of tasks a tool is actively *executing* for the detailed queue
+ * status, by merging the queue's in-memory `processing` items with the
+ * externally-tracked running sessions (detached screen/isolation work),
+ * de-duplicated by issue/PR URL.
+ *
+ * This is the fix for the follow-up on issue #1837: once a task is dispatched to
+ * a detached session the queue's own `processing` Map is emptied, so the running
+ * task — although still counted via `pgrep`/`$ --status` — was never listed.
+ * Pulling the tracked running sessions in here makes executing tasks show up as
+ * clickable links again.
+ *
+ * @param {object} opts
+ * @param {Iterable} [opts.processingItems] - `this.processing.values()` (each with `tool`, `url`, `status`, `getWaitTime()`).
+ * @param {Array} [opts.sessionItems] - Tracked running sessions (`{url, tool, startTime, status}`).
+ * @param {string} opts.tool - Tool key to filter by.
+ * @param {number} [opts.now] - Current epoch ms (injectable for tests).
+ * @returns {Array<{url: string, queueStatus: (string|null), waitMs: number}>}
+ */
+export function collectExecutingItems({ processingItems = [], sessionItems = [], tool, now = Date.now() }) {
+  const byKey = new Map();
+
+  for (const item of processingItems) {
+    if (item.tool !== tool) continue;
+    const key = normalizeQueueUrl(item.url) || item.id;
+    byKey.set(key, {
+      url: item.url,
+      queueStatus: item.status || null,
+      waitMs: typeof item.getWaitTime === 'function' ? item.getWaitTime() : 0,
+    });
+  }
+
+  for (const session of sessionItems) {
+    if ((session.tool || 'claude') !== tool) continue;
+    if (!session.url) continue; // can't render a clickable link without a URL
+    const key = normalizeQueueUrl(session.url);
+    if (key && byKey.has(key)) continue; // already represented by an in-memory item
+    const startMs = session.startTime ? new Date(session.startTime).getTime() : null;
+    byKey.set(key || session.sessionName, {
+      url: session.url,
+      // Tracked sessions report a backend status (e.g. 'executing'); fall back to
+      // the generic "processing" label rendered by formatQueueProcessingItems.
+      queueStatus: null,
+      waitMs: startMs && !Number.isNaN(startMs) ? Math.max(0, now - startMs) : 0,
+    });
+  }
+
+  return [...byKey.values()];
+}
+
+/**
+ * Render the per-tool "executing" lines (`▶️ link (status, elapsed)`) for the
+ * detailed queue status, capped at `max` items with a localized "... and N more"
+ * line (issue #1837).
+ *
+ * @param {object} opts
+ * @param {Array} opts.items - Output of {@link collectExecutingItems}.
+ * @param {number} opts.max - Maximum items to list before collapsing.
+ * @param {string|null} opts.locale - Locale for labels/durations.
+ * @returns {string} The formatted lines (empty string when no items).
+ */
+export function formatQueueProcessingItems({ items, max, locale }) {
+  if (!items || items.length === 0) return '';
+  let out = '';
+  for (const item of items.slice(0, max)) {
+    const label = item.queueStatus ? lt(`queue_status_${item.queueStatus}`, {}, { locale }) : lt('queue_processing', {}, { locale });
+    out += `  ▶️ ${formatQueueItemLink(item.url)} (${label}, ${formatDuration(item.waitMs, { locale })})\n`;
+  }
+  if (items.length > max) {
+    out += `    ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
+  }
+  return out;
+}
+
+/**
+ * Lazy wrapper around session-monitor's `getRunningSessionItems` so the queue
+ * can list executing detached sessions without a static import (mirrors how the
+ * queue lazily loads isolation-session counts). Returns an empty list on error
+ * so the detailed status still renders (issue #1837).
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Array>}
+ */
+export async function getRunningSessionItems(verbose = false) {
+  try {
+    const { getRunningSessionItems: impl } = await import('./session-monitor.lib.mjs');
+    return await impl(verbose);
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /solve_queue error getting running session items:', error.message);
+    }
+    return [];
+  }
+}
+
+/**
  * Count running processes by name.
  * @param {string} processName - Process name to search for (e.g., 'claude', 'agent', 'codex', 'gemini')
  * @param {boolean} verbose - Whether to log verbose output

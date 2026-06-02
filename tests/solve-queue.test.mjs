@@ -500,6 +500,11 @@ await asyncTest('formatDetailedStatus renders clickable links for queued/complet
   queue.stop();
 });
 
+// NOTE: The executing-task listing tests (formatDetailedStatus from tracked
+// running sessions + collectExecutingItems unit tests) for issue #1837 live in
+// tests/test-issue-1837-executing-list.mjs to keep this file under the 1500-line
+// limit (issue #1730).
+
 // ============================================================================
 // Claude Process Detection Tests
 // ============================================================================

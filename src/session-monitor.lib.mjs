@@ -579,6 +579,78 @@ export async function getRunningTrackedIsolationSessions(verbose = false, option
 }
 
 /**
+ * Return the currently-executing tracked sessions with the details needed to
+ * render them as a clickable list in `/solve_queue` (`/queue`): the issue/PR
+ * `url`, the `tool`, the start time, and (for isolation sessions) the backend
+ * status. Both isolation and non-isolation screen sessions are included so the
+ * list matches what is actually executing — the queue's own in-memory
+ * `processing` Map is empty once a task has been dispatched to a detached
+ * session, which is why executing tasks were previously not listed.
+ *
+ * Liveness is determined the same way as {@link monitorSessions}: isolation
+ * sessions via `$ --status`, non-isolation screen sessions via a timeout window
+ * plus a best-effort `screen -ls` check.
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {Object} [options] - Test/support options
+ * @param {Function} [options.statusProvider] - Optional `$ --status` provider
+ * @param {Function} [options.screenChecker] - Optional screen-existence checker
+ * @returns {Promise<Array<{sessionName: string, url: string|null, tool: string, status: string|null, startTime: (Date|string|number|null), isolationBackend: (string|null)}>>}
+ * @see https://github.com/link-assistant/hive-mind/issues/1837
+ */
+export async function getRunningSessionItems(verbose = false, options = {}) {
+  const items = [];
+  const screenChecker = options.screenChecker || checkScreenSessionExists;
+
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    let running = false;
+    let status = null;
+
+    if (sessionInfo.isolationBackend) {
+      const state = await getIsolationSessionState(sessionName, sessionInfo, {
+        verbose,
+        statusProvider: options.statusProvider,
+      });
+      running = state.running;
+      status = state.status || null;
+      if (!running) {
+        sessionInfo.lastKnownStatus = state.status || null;
+        sessionInfo.lastKnownExitCode = state.exitCode ?? null;
+        continue;
+      }
+    } else {
+      const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
+      const elapsed = Date.now() - startTime.getTime();
+      if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+        if (verbose) {
+          console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s; excluded from running list`);
+        }
+        continue;
+      }
+      running = await screenChecker(sessionName);
+      if (!running) {
+        continue;
+      }
+    }
+
+    items.push({
+      sessionName,
+      url: sessionInfo.url || null,
+      tool: sessionInfo.tool || 'claude',
+      status,
+      startTime: sessionInfo.startTime || null,
+      isolationBackend: sessionInfo.isolationBackend || null,
+    });
+  }
+
+  if (verbose) {
+    console.log(`[VERBOSE] getRunningSessionItems found ${items.length} running session(s)`);
+  }
+
+  return items;
+}
+
+/**
  * Get statistics about session tracking
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Object} Statistics object

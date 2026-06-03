@@ -737,6 +737,43 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 (cd /tmp/gh-issue-solver-123456789 && claude --resume session-id)
 ```
 
+### Disk Cleanup
+
+`cleanup` frees disk space by removing stale hive-mind temporary
+directories/files (per-task clones like `/tmp/gh-issue-solver-*`, MCP config
+files, log download dirs, …) while **keeping folders that belong to
+currently-running tasks**, protected system paths, and any clone with
+uncommitted or unpushed work. It detects active tasks from running processes and
+live isolation sessions and matches clones to tasks by branch name using the
+same logic as `solve` (issue → `issue-{n}-{hex}`; PR → its resolved head
+branch).
+
+```bash
+# Preview: list kept folders and folders that would be deleted (deletes nothing)
+cleanup --dry-run
+
+# Actually delete stale temp artifacts (asks for confirmation first)
+cleanup
+
+# Delete without the confirmation prompt
+cleanup --force
+
+# Also consider non-hive-mind temp entries (more aggressive)
+cleanup --all --dry-run
+
+# Allow deleting /tmp/start-command (kept by default; holds isolation logs)
+cleanup --force-start-command
+
+# Ubuntu / system cleanup (apt caches, journald logs, npm cache)
+cleanup --system --sudo
+
+# Disable active-task detection (only protected paths are kept)
+cleanup --no-keep-active-tasks-folders --dry-run
+```
+
+Run `cleanup --help` for the full list of options. The command is dry-run
+friendly and writes a timestamped `cleanup-*.log` for every run.
+
 ## 🔍 Monitoring & Logging
 
 Find resume commands in logs:

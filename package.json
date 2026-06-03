@@ -8,6 +8,7 @@
     "hive": "./src/hive.mjs",
     "solve": "./src/solve.mjs",
     "task": "./src/task.mjs",
+    "cleanup": "./src/cleanup.mjs",
     "review": "./src/review.mjs",
     "configure-claude": "./src/configure-claude.mjs",
     "start-screen": "./src/start-screen.mjs",

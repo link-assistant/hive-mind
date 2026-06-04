@@ -713,6 +713,41 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 (cd /tmp/gh-issue-solver-123456789 && claude --resume session-id)
 ```
 
+### 磁盘清理
+
+`cleanup` 通过删除过时的 hive-mind 临时目录/文件（如每个任务的克隆
+`/tmp/gh-issue-solver-*`、MCP 配置文件、日志下载目录等）来释放磁盘空间，同时
+**保留属于当前正在运行任务的文件夹**、受保护的系统路径，以及任何包含未提交或未推送
+更改的克隆。它通过运行中的进程和实时隔离会话检测活动任务，并使用与 `solve` 相同的
+逻辑按分支名称将克隆与任务匹配（issue → `issue-{n}-{hex}`；PR → 其解析出的 head
+分支）。
+
+```bash
+# 预览：列出保留的文件夹和将被删除的文件夹（不删除任何内容）
+cleanup --dry-run
+
+# 实际删除过时的临时文件（会先要求确认）
+cleanup
+
+# 删除时不显示确认提示
+cleanup --force
+
+# 同时考虑非 hive-mind 临时项（更激进）
+cleanup --all --dry-run
+
+# 允许删除 /tmp/start-command（默认保留；其中存放隔离日志）
+cleanup --force-start-command
+
+# Ubuntu / 系统清理（apt 缓存、journald 日志、npm 缓存）
+cleanup --system --sudo
+
+# 禁用活动任务检测（仅保留受保护的路径）
+cleanup --no-keep-active-tasks-folders --dry-run
+```
+
+运行 `cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
+带时间戳的 `cleanup-*.log` 日志。
+
 ## 🔍 监控与日志
 
 在日志中查找恢复命令：

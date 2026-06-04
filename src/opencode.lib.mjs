@@ -466,6 +466,8 @@ export const executeOpenCodeCommand = async params => {
           permissionPromptDetected: true,
           ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
+          // Issue #1845: surface the actual error so callers can show it to users
+          errorInfo: { message: 'OpenCode requested an interactive permission prompt (non-interactive run cannot continue)' },
         };
       }
 
@@ -528,6 +530,8 @@ export const executeOpenCodeCommand = async params => {
           limitResetTime,
           ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
+          // Issue #1845: surface the actual error so callers can show it to users
+          errorInfo: { message: lastMessage || allOutput || `OpenCode command failed with exit code ${exitCode}`, exitCode },
         };
       }
 
@@ -593,6 +597,8 @@ export const executeOpenCodeCommand = async params => {
         pricingInfo: null,
         publicPricingEstimate: null,
         resultSummary: null, // Issue #1263: No result summary available on error
+        // Issue #1845: surface the actual exception message so callers can show it to users
+        errorInfo: { message: error.message || error.toString() },
       };
     }
   };

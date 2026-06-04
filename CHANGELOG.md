@@ -1,5 +1,100 @@
 # @link-assistant/hive-mind
 
+## 1.74.0
+
+### Minor Changes
+
+- b00a51c: feat(cleanup): add a task-aware `cleanup` command to free disk space safely (#1848)
+
+  Adds a new `cleanup` bin that removes stale hive-mind temporary
+  directories/files under the system temp dir while preserving folders that belong
+  to currently-running tasks, protected system paths, and any clone with
+  uncommitted or unpushed work.
+
+  Highlights:
+  - `--dry-run` / `-n` prints the full list of kept folders and folders that would
+    be deleted (with sizes and reasons), deleting nothing.
+  - `--keep-active-tasks-folders` (default on) detects active tasks from running
+    processes (`/proc`) and live isolation sessions (`screen`/`tmux` +
+    `$ --status`), and matches clones to tasks by branch name using the same logic
+    as `solve` (issue → `issue-{n}-{hex}` scoped to the repo; PR → its resolved
+    head branch). Disable with `--no-keep-active-tasks-folders`.
+  - Keeps `/tmp/start-command/` and system-owned temp entries by default;
+    `--force-start-command` allows deleting `/tmp/start-command` when needed.
+  - Optional Ubuntu/system cleanup behind explicit flags: `--apt`, `--journal`,
+    `--docker`, `--npm` (and `--system` shorthand), with `--sudo`.
+  - Safe by default: keeps unrecognised entries unless `--all`, never deletes
+    paths held open by a running process or used by the cleanup process itself,
+    and requires confirmation unless `--force`.
+
+## 1.73.9
+
+### Patch Changes
+
+- 0a5b615: fix(telegram): list currently-executing tasks in `/solve_queue` (`/queue`), not just count them (#1837)
+
+  After the original #1837 work added clickable lists, the detailed status still
+  showed only a `processing: N` **count** for in-flight work — the executing task
+  itself was never rendered as a clickable link, which is exactly the case the
+  issue cares most about ("search tasks that are stuck or yet executing").
+
+  Root cause: the processing **count** comes from the external snapshot
+  (`max(pgrep, tracked-isolation-session count)`), but the processing **list**
+  iterated the queue's own in-memory `processing` Map. `executeItem()` deletes an
+  item from that Map the moment the work is dispatched to a detached
+  screen/isolation session, so while a task is actually executing the Map is empty
+  — count says `1`, list shows nothing.
+
+  The fix sources the executing items from the same place the count comes from. A
+  new `getRunningSessionItems()` in `session-monitor.lib.mjs` returns the
+  currently-running detached sessions (with their GitHub `url`, `tool`, `status`,
+  `startTime`), reusing the existing isolation `$ --status` / non-isolation
+  screen-liveness checks. New helpers `collectExecutingItems` and
+  `formatQueueProcessingItems` merge those sessions with the in-memory Map (deduped
+  by normalized GitHub URL, filtered by tool) and render them as the `▶️
+[owner/repo#n](url) (status, duration)` lines, capped with `... and N more`.
+  `formatDetailedStatus()` now lists executing tasks from this merged source.
+
+  Adds `tests/test-issue-1837-executing-list.mjs` plus new `solve-queue.test.mjs`
+  cases, and documents the root cause and fix in `docs/case-studies/issue-1837`.
+
+## 1.73.8
+
+### Patch Changes
+
+- 324ed89: fix(solve): surface the core tool error instead of bare `CLAUDE execution failed` (#1845)
+
+  When an AI tool run failed, both the terminal and the posted GitHub
+  `🚨 Solution Draft Failed` comment showed only the generic
+  `CLAUDE execution failed`, even though the underlying tool had reported a
+  specific cause (for example `API Error: Output blocked by content filtering
+policy`). The real message was captured inside the tool runner but dropped at
+  the failure-return boundary, so no downstream consumer could display it.
+
+  Every AI tool runner now surfaces a structured `errorInfo` (with a `.message`)
+  on its failure returns (`claude`, `gemini`, `opencode`, `qwen`; `codex` and
+  `agent` already did). Two shared helpers in `lib.mjs` — `extractToolErrorCore`
+  (the core error string) and `formatToolExecutionFailure` (the full
+  `CLAUDE execution failed with API Error: Output blocked by content filtering
+policy` message) — share one precedence so every surface stays consistent.
+  All failure sites now use them: `solve.mjs` (terminal exit, GitHub failure
+  comment, critical-error auto-commit reason), `solve.auto-merge.lib.mjs` and
+  `solve.watch.lib.mjs` (GitHub message + new terminal `Error details:` lines),
+  and `review.mjs`. The helpers collapse whitespace, cap the core error length,
+  and never fall back to the agent's success summary.
+
+  `isApiError` in `solve.restart-shared.lib.mjs` now classifies through the same
+  extractor, so a Claude `API Error:` reported via `errorInfo` (never `result`)
+  is detected and watch mode's `MAX_API_ERROR_RETRIES` backoff guard keeps
+  working instead of retrying forever.
+
+  The auto-commit-on-critical-error path (#1834) is confirmed to run on the
+  failure exit and is now labeled with the real failure cause; the same guarded
+  auto-commit is also added to `handleFailure()` so the `uncaughtException`,
+  `unhandledRejection`, and top-level-catch exits preserve uncommitted work too.
+  Adds unit, cross-tool, auto-commit, and `isApiError` tests plus a deep case
+  study in `docs/case-studies/issue-1845`.
+
 ## 1.73.7
 
 ### Patch Changes

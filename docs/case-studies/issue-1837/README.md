@@ -299,9 +299,93 @@ The full diff is preserved in [`implementation.diff`](./implementation.diff).
   - `telegram-bot.mjs includes /queue alias in text fallback handlers (issue #1837)`
 - `npm run lint` passes (the main lib stays under the 1500-line limit).
 
+## Follow-up — executing tasks were still not listed (PR #1847)
+
+After PR #1840 merged, a new screenshot was posted on the issue (2026-05-30):
+
+> Executing tasks are not listed, so it is hard to find them in chat.
+
+The `processing: N` **count** was correct (e.g. `claude (pending: 0, processing:
+1)`), but the executing task itself was **not** rendered as a clickable link —
+exactly the case the issue cares most about ("search tasks that are stuck or yet
+executing").
+
+### Root cause
+
+There are two independent sources of truth, and they disagree once a task starts
+running:
+
+- The processing **count** comes from `getExternalProcessingSnapshot()` =
+  `max(pgrep count, tracked-isolation-session count)`. It reflects work running
+  in **detached screen/isolation sessions**.
+- The processing **list** iterated `this.processing` — the queue's own in-memory
+  `Map`. But `executeItem()` moves an item to `this.completed` and **deletes it
+  from `this.processing` in its `finally` block** the moment the work is
+  dispatched to a detached session. So while a task is actually executing,
+  `this.processing` is empty.
+
+The result: the count says `1`, the list shows nothing. The executing item lived
+only in the detached-session tracker (`session-monitor.lib.mjs`'s
+`activeSessions` Map), which the formatter never consulted.
+
+### Fix
+
+Source the executing items from the same place the **count** comes from — the
+tracked detached sessions — and merge them with the in-memory `processing` Map:
+
+1. **`src/session-monitor.lib.mjs`** — new `getRunningSessionItems(verbose,
+options)`. It walks `activeSessions` and returns the **currently-running**
+   ones with their GitHub `url`, `tool`, `status`, `startTime`, and
+   `isolationBackend`. Liveness is decided exactly as `monitorSessions` does:
+   isolation sessions via `$ --status` (skipped unless still executing),
+   non-isolation screen sessions via the `NON_ISOLATION_SESSION_TIMEOUT_MS`
+   window plus a best-effort `screen -ls` check. This reuses the existing
+   isolation-status machinery rather than adding a parallel one.
+2. **`src/telegram-solve-queue.helpers.lib.mjs`** — new
+   `collectExecutingItems({processingItems, sessionItems, tool})` merges the two
+   sources, filtering by `tool` and **deduping by normalized GitHub URL** (so a
+   task that is in both the in-memory Map and the session tracker is listed
+   once), and `formatQueueProcessingItems({items, max, locale})` renders them as
+   the `▶️ [owner/repo#n](url) (status, duration)` lines, capped at
+   `MAX_DISPLAY_ITEMS_PER_QUEUE` with the localized `... and N more`.
+3. **`src/telegram-solve-queue.lib.mjs`** — `formatDetailedStatus()` now awaits
+   `getRunningSessionItems()` and renders the merged executing list via the two
+   new helpers instead of looping over the (now-empty) `this.processing` Map. The
+   source is injectable (`options.getRunningSessionItems`) for tests.
+
+### Why this source, not another
+
+- **`pgrep` alone** gives a count but no URL — it sees `solve` processes, not
+  which issue/PR each is working on. It can power the count but not a clickable
+  list.
+- **`activeSessions`** already stores the `url` and `tool` for every detached
+  session the bot launches (it has to, in order to post the completion
+  notification and to block duplicate-URL submissions). It is the only source
+  that already knows _which_ issue/PR is executing, so listing from it needs **no
+  new bookkeeping** — only a read-side accessor.
+
+### Tests
+
+- **`tests/test-issue-1837-executing-list.mjs`** (new, 10 assertions) — unit
+  tests for `getRunningSessionItems`: only **executing** isolation sessions are
+  listed (completed ones excluded), live non-isolation screen sessions are
+  listed, sessions whose screen is gone are excluded, and expired non-isolation
+  sessions are excluded.
+- **`tests/solve-queue.test.mjs`** — added:
+  - `formatDetailedStatus lists executing tasks from tracked running sessions
+(issue #1837)` — injects a running session with no item in `this.processing`
+    and asserts the `▶️`-prefixed `[owner/repo#n](url)` link appears (and that
+    `queue.processing.size === 0`, proving the list no longer depends on the
+    in-memory Map).
+  - `collectExecutingItems dedupes processing items and tracked sessions by URL`.
+  - `collectExecutingItems skips sessions without a URL`.
+
 ## Outcome
 
-All issue requirements are addressed in PR #1840: the detailed `/solve_queue`
-(and new `/queue`) status now shows the executed issues/PRs as a clickable list,
+All issue requirements are addressed across PR #1840 (clickable lists, `/queue`
+alias, the original case study) and the follow-up PR #1847 (executing tasks now
+listed, not just counted). The detailed `/solve_queue` (and `/queue`) status
+shows the executed _and currently-executing_ issues/PRs as a clickable list,
 `/queue` works as an alias, and this case study captures the data, analysis,
-requirement breakdown, solution options, and existing-component review.
+requirement breakdown, solution options, existing-component review, and the
+follow-up root-cause fix.

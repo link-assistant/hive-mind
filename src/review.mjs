@@ -43,7 +43,7 @@ const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
 
 // Import shared functions from lib.mjs to follow DRY principle
-import { log, setLogFile, getLogFile, formatAligned } from './lib.mjs';
+import { log, setLogFile, getLogFile, formatAligned, extractToolErrorCore } from './lib.mjs';
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import * as memoryCheck from './memory-check.mjs';
@@ -398,7 +398,9 @@ Review this pull request thoroughly.`;
 
   // Handle command failure
   if (!commandSuccess) {
-    await log('\n❌ Command execution failed. Check the log file for details.');
+    // Issue #1845: surface the core error (e.g. "API Error: ...") instead of just a generic message.
+    const reviewErrorCore = extractToolErrorCore({ toolResult: result });
+    await log(`\n❌ Command execution failed${reviewErrorCore ? ` with ${reviewErrorCore}` : '. Check the log file for details.'}`);
     await log(`📁 Log file: ${getLogFile()}`);
     process.exit(1);
   }

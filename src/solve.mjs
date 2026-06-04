@@ -21,7 +21,7 @@ const fs = (await use('fs')).promises;
 const crypto = (await use('crypto')).default;
 const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
-const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, getVersionInfo, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
+const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getVersionInfo, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
@@ -181,9 +181,8 @@ const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = u
 issueUrl = normalizedUrl || issueUrl;
 global.owner = owner;
 global.repo = repo;
-// Issue #1752: failures before PR creation can happen during checks that run
-// before the normal issue-mode setup below. Record the source issue as soon as
-// the URL is validated so the pre-exit notifier can still comment on it.
+// Issue #1752: record the source issue as soon as the URL is validated so the pre-exit
+// notifier can still comment on it if a check fails before normal issue-mode setup below.
 if (isIssueUrl) {
   global.issueNumber = urlNumber;
 }
@@ -193,8 +192,7 @@ if (argv.autoLanguage) {
   const { applyAutoLanguageToArgv } = await import('./auto-language.lib.mjs');
   await applyAutoLanguageToArgv({ argv, githubLib, owner, repo, number: urlNumber, isIssueUrl, isPrUrl, log });
 }
-// Initialize i18n based on --language / --ui-language / --work-language
-// (or detected system locale). --auto-language may set only the work track.
+// Initialize i18n from --language / --ui-language / --work-language (or system locale).
 const { initI18n } = await import('./i18n.lib.mjs');
 await initI18n({
   language: argv.language,
@@ -209,6 +207,7 @@ const errorHandlerOptions = {
   shouldAttachLogs,
   argv,
   global,
+  cleanupContext, // #1845: mutated in place; lets exception handlers auto-commit uncommitted work
   owner: null, // Will be set later when parsed
   repo: null, // Will be set later when parsed
   getLogFile,
@@ -1072,6 +1071,8 @@ try {
     //   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)
     //   3. Solve resume        - re-enters solve.mjs with --resume, preserving tool/model/dir
     const toolForFailure = argv.tool || 'claude';
+    // Issue #1845: surface the core error instead of just "<TOOL> execution failed" (terminal + comment).
+    const toolFailureMessage = formatToolExecutionFailure({ tool: toolForFailure, toolResult });
     if (sessionId) {
       await log('');
       await log('💡 To continue this session:');
@@ -1116,7 +1117,7 @@ try {
           // Include sessionId so the PR comment can present it
           sessionId,
           // If not a usage limit case, fall back to generic failure format
-          errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`,
+          errorMessage: limitReached ? undefined : toolFailureMessage,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
           // Issue #1454: Pass resultModelUsage for accurate multi-model display
@@ -1136,21 +1137,20 @@ try {
       }
     }
 
-    // Issue #1834 (PR #1835 feedback): "on all critical errors we auto commit uncommitted changes
-    // by default." A failed session is a critical error and exits here before the normal
-    // auto-commit chokepoint below, so preserve (commit + push) any work the agent left on disk
-    // first. On by default; disable via HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false. Never throws.
+    // Issue #1834 (PR #1835 feedback): "on all critical errors we auto commit uncommitted changes by
+    // default." A failed session exits here before the normal auto-commit chokepoint below, so commit
+    // + push any work first. On by default; disable via HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false.
     try {
       const { criticalErrorRecovery } = await import('./config.lib.mjs');
       if (criticalErrorRecovery.autoCommitUncommittedChanges) {
         const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
-        await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: `${argv.tool || 'claude'} execution failed` });
+        await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: toolFailureMessage });
       }
     } catch (preserveError) {
       await log(`  ⚠️  Could not auto-commit before failure exit: ${preserveError.message}`, { verbose: true });
     }
 
-    await safeExit(1, `${argv.tool.toUpperCase()} execution failed`);
+    await safeExit(1, toolFailureMessage);
   }
 
   // Clean up .playwright-mcp/ to prevent browser artifacts from triggering auto-restart (Issue #1124)
@@ -1463,6 +1463,7 @@ try {
   }
   await handleMainExecutionError({
     error,
+    cleanupContext, // #1845: enable auto-commit of uncommitted work before the failure exit
     log,
     cleanErrorMessage,
     absoluteLogPath,

@@ -1193,6 +1193,8 @@ export const executeClaudeCommand = async params => {
             is503Error,
             anthropicTotalCostUSD,
             resultSummary,
+            // Issue #1845: surface the actual error so callers can show it to users
+            errorInfo: { message: lastMessage || 'API explicitly marked error as not retryable', exitCode },
             queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
@@ -1237,6 +1239,8 @@ export const executeClaudeCommand = async params => {
             is503Error, // preserve for callers that check this
             anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
             resultSummary, // Issue #1263: Include result summary
+            // Issue #1845: surface the actual error so callers can show it to users
+            errorInfo: { message: lastMessage || `Transient API error persisted after ${maxRetries} retries`, exitCode },
             queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
@@ -1296,6 +1300,9 @@ export const executeClaudeCommand = async params => {
           errorDuringExecution,
           anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           resultSummary, // Issue #1263: Include result summary
+          // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content
+          // filtering policy") so users see what actually went wrong, not just a generic message.
+          errorInfo: { message: lastMessage || `Claude command failed with exit code ${exitCode}`, exitCode },
           queuedFeedback, // Issue #817: Bidirectional mode feedback
         };
       }
@@ -1376,6 +1383,8 @@ export const executeClaudeCommand = async params => {
         toolUseCount,
         anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
         resultSummary, // Issue #1263: Include result summary
+        // Issue #1845: surface the actual exception message so callers can show it to users
+        errorInfo: { message: error.message || error.toString() },
         queuedFeedback, // Issue #817: Bidirectional mode feedback
       };
     }

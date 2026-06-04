@@ -17,7 +17,7 @@
 
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
-import { formatDuration, formatQueueHistorySection, formatQueueItemLink, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
+import { collectExecutingItems, formatDuration, formatQueueHistorySection, formatQueueItemLink, formatQueueProcessingItems, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
@@ -164,6 +164,9 @@ export class SolveQueue {
     this.messageUpdateCallback = options.messageUpdateCallback || null;
     this.getRunningProcessesFn = options.getRunningProcesses || getRunningProcesses;
     this.getRunningIsolatedSessionsFn = options.getRunningIsolatedSessions || getRunningIsolatedSessions;
+    // Source of currently-executing detached sessions (with issue/PR URLs) used
+    // to list executing tasks in the detailed status (issue #1837).
+    this.getRunningSessionItemsFn = options.getRunningSessionItems || getRunningSessionItems;
     this.autoStart = options.autoStart !== false;
 
     // Separate queues per tool type - claude tasks never block other tool tasks
@@ -1336,6 +1339,10 @@ export class SolveQueue {
     const locale = getLocale(options);
     const stats = this.getStats();
     const externalProcessing = await this.getExternalProcessingSnapshot(Object.keys(this.queues));
+    // Currently-executing detached sessions (with issue/PR URLs). These are the
+    // real running tasks; the queue's own `processing` Map is emptied once a task
+    // is dispatched, so without this the executing items are never listed (#1837).
+    const runningSessionItems = await this.getRunningSessionItemsFn(this.verbose);
 
     // Get actual processing counts for each tool queue.
     // This combines pgrep with tracked isolation status so users see detached
@@ -1348,14 +1355,12 @@ export class SolveQueue {
       const processing = externalProcessing.byTool[tool] || 0;
       message += `*${tool}* (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
 
-      // Show the items this queue is actively processing for this tool, with a
-      // clickable link to each issue/PR (issue #1837). These come from the
-      // queue's own tracking, so they may differ from the pgrep-based count above.
-      const processingItems = Array.from(this.processing.values()).filter(item => item.tool === tool);
-      for (const item of processingItems.slice(0, QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE)) {
-        const waitTime = formatDuration(item.getWaitTime(), { locale });
-        message += `  ▶️ ${formatQueueItemLink(item.url)} (${queueStatusLabel(item.status, locale)}, ${waitTime})\n`;
-      }
+      // List the tasks this tool is actively executing as clickable links. We
+      // merge the queue's in-memory processing Map with the externally-tracked
+      // running sessions (detached screen/isolation work), deduped by URL, so
+      // executing tasks are listed even after dispatch (issue #1837).
+      const executing = collectExecutingItems({ processingItems: this.processing.values(), sessionItems: runningSessionItems, tool });
+      message += formatQueueProcessingItems({ items: executing, max: QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE, locale });
 
       // Show first queued items for this tool with clickable links
       const displayItems = toolQueue.slice(0, QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE);

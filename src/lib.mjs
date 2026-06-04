@@ -665,6 +665,67 @@ export const cleanErrorMessage = error => {
 };
 
 /**
+ * Extract the core/root error string from a tool runner result (Issue #1845).
+ *
+ * Applies a single precedence everywhere so every failure surface shows the
+ * same root cause: `errorInfo.message` → `errorInfo.errorMatch` → string
+ * `errorInfo` → `result`. Returns a collapsed single line, or null when no
+ * usable error string is available. Shared by `formatToolExecutionFailure`
+ * (GitHub comments / exit message) and the terminal "Error details:" lines in
+ * watch / auto-merge so they never diverge.
+ *
+ * @param {Object} options
+ * @param {Object} [options.toolResult] - Result object returned by the tool runner
+ * @returns {string|null} The core error string, or null when none is available
+ */
+export const extractToolErrorCore = ({ toolResult } = {}) => {
+  // Prefer the structured error message surfaced by the tool runner. We do NOT
+  // fall back to resultSummary here, because that holds the agent's normal
+  // work summary on success and would be misleading when used as an error.
+  const errorInfo = toolResult?.errorInfo;
+  const rawCore = errorInfo?.message || errorInfo?.errorMatch || (typeof errorInfo === 'string' ? errorInfo : null) || toolResult?.result || null;
+
+  if (!rawCore || typeof rawCore !== 'string') return null;
+
+  // Collapse to a single clean line and strip noise.
+  const core = rawCore.replace(/\s+/g, ' ').trim();
+  return core || null;
+};
+
+/**
+ * Build a user-facing tool execution failure message that includes the core
+ * error reported by the underlying tool (Issue #1845).
+ *
+ * Previously users only saw the generic "<TOOL> execution failed" and had to
+ * dig through the full failure log to discover what actually went wrong (for
+ * example "API Error: Output blocked by content filtering policy"). When the
+ * tool runner surfaces a specific error this appends it so the failure is
+ * self-explanatory:
+ *
+ *   "CLAUDE execution failed with API Error: Output blocked by content filtering policy"
+ *
+ * Falls back to the generic phrase when no specific error is available.
+ *
+ * @param {Object} options
+ * @param {string} [options.tool] - Tool name (e.g. 'claude'); defaults to 'claude'
+ * @param {Object} [options.toolResult] - Result object returned by the tool runner
+ * @param {number} [options.maxLength=300] - Max length of the appended core error
+ * @returns {string} The formatted failure message
+ */
+export const formatToolExecutionFailure = ({ tool, toolResult, maxLength = 300 } = {}) => {
+  const base = `${(tool || 'claude').toUpperCase()} execution failed`;
+
+  let core = extractToolErrorCore({ toolResult });
+  if (!core) return base;
+
+  // Avoid duplicating the base phrase if the core error already contains it.
+  if (core.toLowerCase().includes('execution failed')) return base;
+
+  if (core.length > maxLength) core = `${core.slice(0, maxLength - 1)}…`;
+  return `${base} with ${core}`;
+};
+
+/**
  * Format aligned console output
  * @param {string} icon - Icon to display
  * @param {string} label - Label text

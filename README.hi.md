@@ -746,12 +746,25 @@ cleanup --force-start-command
 # Ubuntu / सिस्टम क्लीनअप (apt कैश, journald लॉग, npm कैश)
 cleanup --system --sudo
 
+# लाइव/अटके हुए agent PID को hive/start-command कार्य सत्रों से मिलाएँ
+cleanup --processes
+
+# किसी खास non-agent PID को ट्रेस करें, जैसे browser child या shell
+cleanup --pid 94445
+
+# रोके जा सकने वाले orphaned agents का पूर्वावलोकन करें
+cleanup --kill-orphaned-agents --dry-run
+
+# पूर्वावलोकन जाँचने के बाद orphaned agent process trees रोकें
+cleanup --kill-orphaned-agents --force
+
 # सक्रिय-कार्य पहचान अक्षम करें (केवल सुरक्षित पथ रखे जाते हैं)
 cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
 विकल्पों की पूरी सूची के लिए `cleanup --help` चलाएँ। यह कमांड dry-run के अनुकूल है और
-हर रन के लिए टाइमस्टैम्प वाला `cleanup-*.log` लिखता है।
+हर रन के लिए टाइमस्टैम्प वाला `cleanup-*.log` लिखता है। प्रक्रिया डायग्नोस्टिक आउटपुट
+कमांड लाइन प्रिंट करने से पहले सामान्य token आकारों को छिपाता है।
 
 ## 🔍 निगरानी और लॉगिंग
 
@@ -802,7 +815,22 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ## सर्वर डायग्नोस्टिक्स
 
-उन स्क्रीन की पहचान करें जो संसाधन खपत करने वाली प्रक्रियाओं के पैरेंट हैं
+किसी व्यस्त `claude`, `codex`, `gemini`, `qwen`, या `opencode` PID को उसे शुरू करने
+वाले hive कार्य से जोड़ने के लिए पहले built-in process diagnostic command उपयोग करें:
+
+```bash
+# agent PID, start-command session ID, GitHub task URL, workspace, match reasons और संभावित orphaned agents दिखाएँ।
+cleanup --processes
+
+# उसी report में कोई भी PID शामिल करें।
+cleanup --pid 62220
+
+# केवल terminal task वाले orphaned agents रोकें।
+cleanup --kill-orphaned-agents --dry-run
+cleanup --kill-orphaned-agents --force
+```
+
+Manual fallback: उन स्क्रीन की पहचान करें जो संसाधन खपत करने वाली प्रक्रियाओं के पैरेंट हैं।
 
 ```bash
 TARGETS="62220 65988 63094 66606 1028071 4127023"

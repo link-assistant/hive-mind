@@ -767,12 +767,25 @@ cleanup --force-start-command
 # Ubuntu / system cleanup (apt caches, journald logs, npm cache)
 cleanup --system --sudo
 
+# Map live/stuck agent PIDs back to hive/start-command task sessions
+cleanup --processes
+
+# Trace a specific non-agent PID, for example a browser child or shell
+cleanup --pid 94445
+
+# Preview orphaned terminal-session agents that can be stopped
+cleanup --kill-orphaned-agents --dry-run
+
+# Stop orphaned agent process trees after reviewing the preview
+cleanup --kill-orphaned-agents --force
+
 # Disable active-task detection (only protected paths are kept)
 cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
 Run `cleanup --help` for the full list of options. The command is dry-run
-friendly and writes a timestamped `cleanup-*.log` for every run.
+friendly and writes a timestamped `cleanup-*.log` for every run. Process
+diagnostic output redacts common token shapes before printing command lines.
 
 ## 🔍 Monitoring & Logging
 
@@ -823,7 +836,25 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ## Server diagnostics
 
-Identify screens that are parents of processes that eating the resources
+Prefer the built-in process diagnostic command when connecting a busy
+`claude`, `codex`, `gemini`, `qwen`, or `opencode` PID back to the hive task
+that launched it:
+
+```bash
+# Show agent PIDs, start-command session IDs, GitHub task URLs, workspaces,
+# match reasons, and possible orphaned terminal-session agents.
+cleanup --processes
+
+# Include an arbitrary PID in the same report.
+cleanup --pid 62220
+
+# Kill only agents whose matched start-command task is already terminal.
+cleanup --kill-orphaned-agents --dry-run
+cleanup --kill-orphaned-agents --force
+```
+
+Manual fallback: identify screens that are parents of processes that are eating
+the resources.
 
 ```bash
 TARGETS="62220 65988 63094 66606 1028071 4127023"

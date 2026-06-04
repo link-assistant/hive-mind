@@ -741,12 +741,25 @@ cleanup --force-start-command
 # Ubuntu / 系统清理（apt 缓存、journald 日志、npm 缓存）
 cleanup --system --sudo
 
+# 将实时/卡住的 agent PID 映射回 hive/start-command 任务会话
+cleanup --processes
+
+# 跟踪指定的非 agent PID，例如浏览器子进程或 shell
+cleanup --pid 94445
+
+# 预览可以停止的孤立 agent
+cleanup --kill-orphaned-agents --dry-run
+
+# 审查预览后停止孤立 agent 进程树
+cleanup --kill-orphaned-agents --force
+
 # 禁用活动任务检测（仅保留受保护的路径）
 cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
 运行 `cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
-带时间戳的 `cleanup-*.log` 日志。
+带时间戳的 `cleanup-*.log` 日志。进程诊断输出会在打印命令行前遮蔽常见 token
+格式。
 
 ## 🔍 监控与日志
 
@@ -797,7 +810,22 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ## 服务器诊断
 
-识别消耗资源的进程所属的 Screen 会话：
+将繁忙的 `claude`、`codex`、`gemini`、`qwen` 或 `opencode` PID 关联回启动它的
+hive 任务时，优先使用内置进程诊断命令：
+
+```bash
+# 显示 agent PID、start-command 会话 ID、GitHub 任务 URL、工作区、匹配原因和可能的孤立 agent。
+cleanup --processes
+
+# 在同一报告中包含任意 PID。
+cleanup --pid 62220
+
+# 只停止已完成任务中的孤立 agent。
+cleanup --kill-orphaned-agents --dry-run
+cleanup --kill-orphaned-agents --force
+```
+
+手动兜底：识别消耗资源的进程所属的 Screen 会话。
 
 ```bash
 TARGETS="62220 65988 63094 66606 1028071 4127023"

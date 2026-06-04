@@ -21,6 +21,8 @@
  *   --force-start-command         allow deleting /tmp/start-command
  *   --include-system              also consider system-owned temp entries
  *   --no-keep-dirty               allow deleting clones with unpushed changes
+ *   --processes                   map claude/codex/etc. PIDs to task sessions
+ *   --kill-orphaned-agents        signal orphaned terminal-session agents
  *   --apt --journal --docker --npm   Ubuntu/system cleanup (opt-in)
  *   --system                      shorthand for --apt --journal --npm
  *   --sudo                        prefix package-manager commands with sudo
@@ -34,12 +36,39 @@ import { promises as fsp } from 'node:fs';
 import { execSync } from 'node:child_process';
 
 import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES } from './cleanup.lib.mjs';
-import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, removePath, runSystemCleanup } from './cleanup.os.lib.mjs';
+import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees } from './cleanup.os.lib.mjs';
+import { formatProcessDebugReport } from './process-debug.lib.mjs';
 
 const args = process.argv.slice(2);
 
 function hasFlag(...names) {
   return names.some(n => args.includes(n));
+}
+
+function getFlagValue(name) {
+  const exact = args.indexOf(name);
+  if (exact >= 0 && args[exact + 1] && !args[exact + 1].startsWith('-')) return args[exact + 1];
+  const prefix = `${name}=`;
+  const withEquals = args.find(arg => arg.startsWith(prefix));
+  return withEquals ? withEquals.slice(prefix.length) : null;
+}
+
+function getFlagValues(name) {
+  const values = [];
+  const prefix = `${name}=`;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === name && args[i + 1] && !args[i + 1].startsWith('-')) values.push(args[i + 1]);
+    else if (arg.startsWith(prefix)) values.push(arg.slice(prefix.length));
+  }
+  return values;
+}
+
+function parsePidList(values) {
+  return values
+    .flatMap(value => String(value || '').split(','))
+    .map(value => Number(value.trim()))
+    .filter(value => Number.isInteger(value) && value > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +104,16 @@ Options:
   --no-sessions               Do not query '$ --status' for active sessions
   --no-resolve-branches       Do not resolve PR head branches via gh
 
+Process diagnostics:
+  --processes, --debug-processes
+                              Map claude/codex/gemini/qwen/opencode PIDs to
+                              hive-mind task sessions and workspaces
+  --pid <pid[,pid...]>        Include specific non-agent PIDs in the report
+  --kill-orphaned-agents      Signal orphaned agent processes whose task
+                              session has already reached a terminal status
+                              (dry-run unless --force is also set)
+  --signal <name>             Signal for --kill-orphaned-agents [SIGTERM]
+
 System / Ubuntu cleanup (opt-in):
   --apt                       apt-get clean / autoclean / autoremove
   --journal                   journalctl --vacuum-time=2weeks
@@ -103,6 +142,10 @@ const options = {
   keepDirty: !hasFlag('--no-keep-dirty'),
   useSessions: !hasFlag('--no-sessions'),
   resolveBranches: !hasFlag('--no-resolve-branches'),
+  debugProcesses: hasFlag('--processes', '--debug-processes'),
+  killOrphanedAgents: hasFlag('--kill-orphaned-agents'),
+  targetPids: parsePidList(getFlagValues('--pid')),
+  signal: getFlagValue('--signal') || 'SIGTERM',
   verbose: hasFlag('--verbose', '-v'),
   apt: hasFlag('--apt', '--system'),
   journal: hasFlag('--journal', '--system'),
@@ -110,6 +153,7 @@ const options = {
   npm: hasFlag('--npm', '--system'),
   sudo: hasFlag('--sudo'),
 };
+if (options.targetPids.length > 0) options.debugProcesses = true;
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const scriptDir = path.dirname(process.argv[1]);
@@ -155,6 +199,36 @@ async function main() {
   await log(`📂 Temp root: ${tempRoot}`);
   if (options.dryRun) await log('📝 DRY RUN — nothing will be deleted\n');
   else if (options.force) await log('⚠️  FORCE — deleting without confirmation\n');
+
+  if (options.debugProcesses || options.killOrphanedAgents) {
+    const report = await collectProcessDebugReport({ useSessions: options.useSessions, targetPids: options.targetPids });
+    await log('');
+    await log(formatProcessDebugReport(report));
+
+    if (options.killOrphanedAgents) {
+      if (report.orphans.length === 0) {
+        await log('\n✅ No orphaned terminal-session agent processes found.');
+      } else if (options.dryRun || !options.force) {
+        await log(`\n📝 Dry run: would send ${options.signal} to orphaned agent roots: ${report.orphans.map(item => item.pid).join(', ')}`);
+        await log('Re-run with --force to signal these process trees.');
+      } else {
+        await log(`\n🧯 Sending ${options.signal} to orphaned agent process trees...`);
+        const killed = signalOrphanedAgentTrees(report, { signal: options.signal, currentPid: process.pid });
+        let ok = 0;
+        let failed = 0;
+        for (const tree of killed) {
+          const pids = tree.results.map(result => `${result.pid}${result.ok ? '' : ' (failed)'}`).join(', ') || '(none)';
+          await log(`   root ${tree.rootPid}: ${pids}`);
+          ok += tree.results.filter(result => result.ok).length;
+          failed += tree.results.filter(result => !result.ok).length;
+        }
+        await log(`\n✅ Signalled ${ok} processes${failed ? `, ${failed} failed` : ''}.`);
+      }
+    }
+
+    await log(`\n📁 Log file: ${logFile}`);
+    return;
+  }
 
   // 1. Enumerate candidate entries.
   const entries = listTempEntries(tempRoot);

@@ -25,6 +25,16 @@ const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
 const RUNNING_SESSION_STATUSES = new Set(['executing', 'running']);
 const TERMINAL_SESSION_STATUSES = new Set(['executed', 'completed', 'failed', 'cancelled', 'canceled', 'error']);
 
+function normalizeProcessIds(value) {
+  if (!value || typeof value !== 'object') return {};
+  const out = {};
+  for (const [key, raw] of Object.entries(value)) {
+    const number = Number(raw);
+    if (Number.isInteger(number) && number > 0) out[key] = number;
+  }
+  return out;
+}
+
 /**
  * Generate a UUID v4 for unique session identification
  * @returns {string} UUID v4 string
@@ -41,12 +51,12 @@ export function generateSessionId() {
  * Keep the parser tolerant so completion monitoring survives either format.
  *
  * @param {string} output - Raw stdout from `$ --status`
- * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, raw: string}}
+ * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, raw: string}}
  */
 export function parseSessionStatusOutput(output) {
   const raw = (output || '').trim();
   if (!raw) {
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '' };
   }
 
   try {
@@ -58,6 +68,9 @@ export function parseSessionStatusOutput(output) {
     // field — keep accepting all three so we are tolerant of future renames.
     // See https://github.com/link-assistant/hive-mind/issues/1700.
     const isolationCandidate = (typeof data?.isolation === 'string' && data.isolation) || (typeof data?.options?.isolated === 'string' && data.options.isolated) || (typeof data?.options?.isolation === 'string' && data.options.isolation) || null;
+    const topPid = Number(data?.pid);
+    const processIds = normalizeProcessIds(data?.processIds);
+    if (Number.isInteger(topPid) && topPid > 0 && processIds.pid == null) processIds.pid = topPid;
     return {
       exists: true,
       uuid: data?.uuid || null,
@@ -70,6 +83,8 @@ export function parseSessionStatusOutput(output) {
       command: data?.command || null,
       isolation: isolationCandidate ? isolationCandidate.toLowerCase() : null,
       workingDirectory: data?.workingDirectory || null,
+      sessionName: data?.sessionName || data?.options?.sessionName || null,
+      processIds,
       raw,
     };
   } catch {
@@ -95,6 +110,12 @@ export function parseSessionStatusOutput(output) {
   // returned null for every real session and made /log + /terminal_watch
   // reject screen/tmux/docker sessions. See issue #1700.
   const isolationText = readField('isolated') || readField('isolation');
+  const processIds = {};
+  for (const name of ['pid', 'wrapperPid', 'childPid', 'processPid', 'commandPid']) {
+    const value = readField(name);
+    const number = Number(value);
+    if (Number.isInteger(number) && number > 0) processIds[name] = number;
+  }
 
   return {
     exists: Boolean(status || firstLine),
@@ -108,6 +129,8 @@ export function parseSessionStatusOutput(output) {
     command: readField('command'),
     isolation: isolationText?.toLowerCase() || null,
     workingDirectory: readField('workingDirectory'),
+    sessionName: readField('sessionName'),
+    processIds,
     raw,
   };
 }
@@ -234,7 +257,7 @@ export async function querySessionStatus(sessionId, verbose = false) {
     if (verbose) {
       console.log('[VERBOSE] isolation-runner: Cannot query status - $ binary not found');
     }
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '' };
   }
 
   try {
@@ -251,7 +274,7 @@ export async function querySessionStatus(sessionId, verbose = false) {
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: Status query error: ${error.message}`);
     }
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '' };
   }
 }
 

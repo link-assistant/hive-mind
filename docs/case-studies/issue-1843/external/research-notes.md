@@ -44,8 +44,7 @@ All of the following work with the `gh` token hive-mind already has, for both
 public and private repositories (GitHub's Camo image proxy fetches the bytes on
 the viewer's behalf, so private-repo images still render for authorized viewers):
 
-1. **Commit the image into the repository (a dedicated branch) and reference the
-   raw blob URL.**
+1. **Commit the image into the repository and reference a raw blob URL.**
    - Upload with the Contents API: `PUT /repos/{owner}/{repo}/contents/{path}`
      with a JSON body `{ message, content: <base64>, branch }`. The endpoint
      accepts base64 **directly** — which is exactly the form Claude/Codex already
@@ -57,19 +56,25 @@ the viewer's behalf, so private-repo images still render for authorized viewers)
    - To avoid polluting the PR branch / triggering PR CI, commit to a **separate,
      dedicated branch** (an orphan branch created via the Git Data API:
      blob → tree → commit with no parents → ref).
+   - Maintainer follow-up selected the no-branch variant of this same repository
+     storage approach: create/update a hidden custom ref
+     `refs/hive-mind-media/pr-<number>` via the Git Data API
+     (blob → tree → commit → ref), then embed by commit SHA:
+     `https://github.com/{owner}/{repo}/blob/{commitSha}/{path}?raw=true`.
 
 2. **GitHub Release Assets** via the official token API
    (`POST .../releases/{id}/assets`). Works headlessly, but creates user-visible
    "Releases" entries and requires managing a release/tag — more intrusive than a
-   hidden media branch.
+   hidden custom ref.
 
 3. **External object storage** (S3/GCS/Cloudinary/Imgur, etc.). Works, but adds an
    external dependency, credentials, and a data-egress/retention surface that
    hive-mind does not currently have and the issue does not ask for.
 
-**Chosen approach: option 1 (dedicated branch + Contents API + `?raw=true` blob
-URL).** It needs no new credentials (reuses the `gh` token), no external service,
-keeps the PR diff clean, and renders for public and private repos alike.
+**Chosen approach: option 1's custom-ref variant (`refs/hive-mind-media/*` + Git
+Data API + commit-SHA `?raw=true` blob URL).** It needs no new credentials (reuses
+the `gh` token), no external service, keeps the PR diff and branch/tag lists
+clean, and renders for public and private repos alike.
 
 ## Finding 4 — Existing components / prior art
 
@@ -77,7 +82,7 @@ keeps the PR diff clean, and renders for public and private repos alike.
   four strategies: _Browser Session_, _Cookie Extraction_, _Release Assets_, and
   _Repository Branch_. Only the last two are headless-viable, which corroborates
   Finding 3. Supported media: PNG, GIF, JPEG, SVG, WebP, MP4, MOV, WEBM. It also
-  ships an MCP server. Confirms our "repository branch" choice is established
+  ships an MCP server. Confirms repository-backed image storage is established
   practice, not a novel hack.
 - **hive-mind's own conventions** already recommend the blob `?raw=true` URL
   format for embedding screenshots committed to the repo (see the contributor
@@ -109,7 +114,7 @@ Verified against real session logs already stored in this repository:
   ```
 
   Note: Claude **downscales** images before streaming — the 7.5 MB original above
-  arrives as only ~5 KB of base64, comfortably within Contents-API limits.
+  arrives as only ~5 KB of base64, comfortably within GitHub API payload limits.
 
 - **MCP standard image content** (Codex `mcp_tool_call` results, e.g. Playwright
   through Codex) follows the Model Context Protocol shape:
@@ -121,7 +126,7 @@ Verified against real session logs already stored in this repository:
 The implementation normalizes all three shapes (`source.data`/`media_type`,
 `file.base64`/`type`, and `data`/`mimeType`) through a single extractor.
 
-## Finding 6 — Storing images *without introducing a branch* (maintainer question)
+## Finding 6 — Storing images _without introducing a branch_ (maintainer question)
 
 The maintainer asked whether images can be stored without creating a branch —
 specifically calling out **GitHub Actions artifacts**, **PR-linked attachments**,
@@ -146,8 +151,8 @@ logs in `experiments/storage-probe.log` / `experiments/storage-probe2.log`).
   **token's user account**, not the repository; binary/image support is poor and
   access control for private content is inconsistent. → **Not suitable.**
 - **"Repository-wide" loose objects** — a git blob/commit that is **not reachable
-  from any ref gets garbage-collected**. You always need *some* ref to keep the
-  bytes alive and servable. So the real question is *which kind of ref* — and a
+  from any ref gets garbage-collected**. You always need _some_ ref to keep the
+  bytes alive and servable. So the real question is _which kind of ref_ — and a
   branch is only one option.
 
 ### What DOES work (token-only, renders inline, public + private)
@@ -156,22 +161,22 @@ GitHub serves raw bytes (and proxies them through Camo for comments) for content
 reachable by **(a)** a branch name, **(b)** a tag name, or **(c)** a **commit
 SHA**. Only branches and tags appear in the friendly `/blob/<name>/…` and
 `raw.githubusercontent.com/<name>/…` URLs, **but a commit SHA works the same way**
-— and a commit SHA can be kept alive by *any* ref, including a **custom ref
+— and a commit SHA can be kept alive by _any_ ref, including a **custom ref
 namespace** that is neither a branch nor a tag and therefore appears in **no**
 GitHub UI list (branch dropdown, PR base picker, tags/releases).
 
 Live experiment results (all against `link-assistant/hive-mind`, refs cleaned up
 afterward — see the probe logs):
 
-| Approach | Embed URL | Result |
-| --- | --- | --- |
-| **Git tag** `refs/tags/…` | `…/blob/<tag>/<path>?raw=true` and `raw.githubusercontent.com/<o>/<r>/<tag>/<path>` | **HTTP 200, `image/png`** ✅ |
-| **Custom ref** `refs/hive-mind-media/…` (no branch, no tag) | `…/blob/<commit-sha>/<path>?raw=true` and `raw.githubusercontent.com/<o>/<r>/<commit-sha>/<path>` | **HTTP 200, `image/png`** ✅ |
-| **Release asset** | `…/releases/download/<tag>/<asset>` | token-uploadable, but **requires a tag**, pollutes the Releases UI, and does not reliably render inline for private repos |
+| Approach                                                    | Embed URL                                                                                         | Result                                                                                                                    |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Git tag** `refs/tags/…`                                   | `…/blob/<tag>/<path>?raw=true` and `raw.githubusercontent.com/<o>/<r>/<tag>/<path>`               | **HTTP 200, `image/png`** ✅                                                                                              |
+| **Custom ref** `refs/hive-mind-media/…` (no branch, no tag) | `…/blob/<commit-sha>/<path>?raw=true` and `raw.githubusercontent.com/<o>/<r>/<commit-sha>/<path>` | **HTTP 200, `image/png`** ✅                                                                                              |
+| **Release asset**                                           | `…/releases/download/<tag>/<asset>`                                                               | token-uploadable, but **requires a tag**, pollutes the Releases UI, and does not reliably render inline for private repos |
 
 Both verified options use the **same token-only Git Data API flow already in the
 code** (blob → tree → parentless commit → create ref); the only change is the ref
-*kind* and, for the custom-ref option, embedding by **commit SHA** instead of by
+_kind_ and, for the custom-ref option, embedding by **commit SHA** instead of by
 ref name (because GitHub's friendly URLs resolve only `heads/*` and `tags/*`,
 while a SHA resolves regardless of the ref namespace that keeps it alive).
 
@@ -189,19 +194,19 @@ For a truly "no branch" store, a **custom ref namespace
 cleanest: it keeps the bytes alive, is invisible in every GitHub UI list, needs no
 new credentials/services, and renders inline for public and private repos. A
 **git tag** is the simpler alternative (friendly URL, one-line change from the
-current code) at the cost of showing up under Tags/Releases. The current orphan
-**branch** remains a valid third option; it works but is visible in the branch
+branch-first draft) at the cost of showing up under Tags/Releases. The orphan
+**branch** draft remains a valid fallback; it works but is visible in the branch
 list and as a potential (never-intended) merge target — which is what prompted the
-question. The choice between custom-ref and tag is an architectural decision for
-the maintainer.
+question. The maintainer selected the custom-ref option, and the PR now implements
+that option.
 
 ## Sources
 
 - GitHub Docs — _Attaching files_ (web UI drag-and-drop; no token API documented):
   https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files
-- GitHub REST — _Create or update file contents_ (accepts base64 `content`):
+- GitHub REST — _Create or update file contents_ (branch-based alternative; accepts base64 `content`):
   https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents
-- GitHub REST — _Git database (blobs/trees/commits/refs)_ (orphan-branch creation):
+- GitHub REST — _Git database (blobs/trees/commits/refs)_ (custom-ref creation and updates):
   https://docs.github.com/en/rest/git
 - GitHub REST — _Release assets_ (alternative token-based hosting):
   https://docs.github.com/en/rest/releases/assets

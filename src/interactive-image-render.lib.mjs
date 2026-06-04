@@ -72,15 +72,16 @@ export const collectImagePayloads = (...sources) => {
  * @param {string} [options.owner]
  * @param {string} [options.repo]
  * @param {number|string} [options.prNumber]
- * @param {string} [options.branch]
+ * @param {string} [options.mediaRef]
+ * @param {string} [options.refNamespace]
  * @param {Function} [options.execFile]
  * @param {boolean} [options.enabled=true]
  * @returns {{ uploader: Object, collect: Function, render: Function, toolLabel: Function, section: Function }}
  */
 export const createImageRenderer = (options = {}) => {
-  const { uploader: injectedUploader, state, log = async () => {}, verbose = false, owner, repo, prNumber, branch, execFile, enabled = true } = options;
+  const { uploader: injectedUploader, state, log = async () => {}, verbose = false, owner, repo, prNumber, mediaRef, refNamespace, execFile, enabled = true } = options;
 
-  const uploader = injectedUploader !== undefined ? injectedUploader : createImageUploader({ owner, repo, prNumber, branch, log, verbose, execFile, enabled });
+  const uploader = injectedUploader !== undefined ? injectedUploader : createImageUploader({ owner, repo, prNumber, mediaRef, refNamespace, log, verbose, execFile, enabled });
 
   /**
    * Upload normalized payloads and render the `### 🖼️ Images` Markdown section.

@@ -10,11 +10,11 @@ captures, MCP image results) were previously serialized as multi-kilobyte
 base64 blobs inside the "Raw JSON" section — unreadable and pushing comments
 toward GitHub's size limit.
 
-Those base64 payloads are now uploaded to a dedicated orphan media branch
-(`hive-mind-interactive-media`) via the GitHub Contents API and embedded inline
-in the comment as `![](…?raw=true)` blob URLs, so reviewers see the actual image
-(GitHub's Camo proxy renders `?raw=true` blob URLs inline for both public and
-private repos, whereas `data:` URIs are stripped by the comment sanitizer).
+Those base64 payloads are now uploaded to hidden custom Git refs
+(`refs/hive-mind-media/pr-...`) via the Git Data API and embedded inline in the
+comment as commit-SHA `![](…?raw=true)` blob URLs, so reviewers see the actual
+image (GitHub's Camo proxy renders `?raw=true` blob URLs inline for both public
+and private repos, whereas `data:` URIs are stripped by the comment sanitizer).
 Uploads are content-hashed (SHA-256) for dedup, and the base64 is redacted from
 the Raw JSON section with a `<image data: N base64 chars>` placeholder.
 

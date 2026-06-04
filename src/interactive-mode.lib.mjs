@@ -80,7 +80,7 @@ export const createInteractiveHandler = options => {
     // Issue #1843: when true (default), base64 tool-result images are embedded
     // inline; when false they degrade to a metadata note. See createImageRenderer.
     imageUploadEnabled = true,
-    mediaBranch,
+    mediaRef,
     imageUploader: injectedImageUploader,
   } = options;
   // Use injected execFile for testability, or the real one by default
@@ -118,7 +118,7 @@ export const createInteractiveHandler = options => {
     editsFailed: 0,
   };
 
-  const imageRenderer = createImageRenderer({ owner, repo, prNumber, branch: mediaBranch, log, verbose, execFile: execFileFn, enabled: imageUploadEnabled, uploader: injectedImageUploader, state }); // Issue #1843
+  const imageRenderer = createImageRenderer({ owner, repo, prNumber, mediaRef, log, verbose, execFile: execFileFn, enabled: imageUploadEnabled, uploader: injectedImageUploader, state }); // Issue #1843
 
   /**
    * Sanitize a comment body and warn the chat owner when a known-local token

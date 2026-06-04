@@ -6,8 +6,8 @@
  * Covers:
  *  - the payload extractor / helpers in interactive-image-upload.lib.mjs
  *  - the redaction / embed helpers in interactive-mode.shared.lib.mjs
- *  - createImageUploader: orphan-branch creation (once), Contents-API upload,
- *    ?raw=true URL, content-hash de-duplication, disabled + failure degradation
+ *  - createImageUploader: hidden custom-ref creation (once), Git Data API upload,
+ *    commit-SHA ?raw=true URL, content-hash de-duplication, disabled + failure degradation
  *  - handleToolResult / handleCodexMcpToolCall: embed images, never leak base64,
  *    redact the raw-JSON sections, and still run token sanitization (#1745).
  *
@@ -27,7 +27,7 @@ const sharedLib = await import(join(srcDir, 'interactive-mode.shared.lib.mjs'));
 const interactiveLib = await import(join(srcDir, 'interactive-mode.lib.mjs'));
 const sanitizeLib = await import(join(srcDir, 'token-sanitization.lib.mjs'));
 
-const { extractImagePayload, isImageNode, extensionForMediaType, buildRawBlobUrl, createImageUploader, DEFAULT_MEDIA_BRANCH } = uploadLib;
+const { extractImagePayload, isImageNode, extensionForMediaType, buildRawBlobUrl, createImageUploader, DEFAULT_MEDIA_REF_NAMESPACE, buildMediaRef } = uploadLib;
 const { redactImageData, createRedactedRawJsonSection, formatImageEmbeds, formatBytes } = sharedLib;
 const { createInteractiveHandler } = interactiveLib;
 const { sanitizeCommentBody } = sanitizeLib;
@@ -60,47 +60,100 @@ const assert = (cond, msg) => {
 // ============================================================
 //
 // Simulates the GitHub API sequence createImageUploader drives:
-//   GET  repos/.../git/ref/heads/<branch>   → 404 (throws) unless branchExists
-//   POST repos/.../git/blobs|trees|commits  → { sha }
-//   POST repos/.../git/refs                 → { ref }
-//   PUT  repos/.../contents/<path>          → { content }
-function makeMockGh({ branchExists = false, failPut = false, existsAfterFail = false } = {}) {
+//   GET   repos/.../git/ref/hive-mind-media/pr-<n>  → 404 unless refExists
+//   GET   repos/.../git/commits/<sha>               → { tree: { sha } }
+//   GET   repos/.../git/trees/<sha>?recursive=1     → known file paths
+//   POST  repos/.../git/blobs|trees|commits         → { sha }
+//   POST  repos/.../git/refs                        → creates refs/hive-mind-media/pr-<n>
+//   PATCH repos/.../git/refs/hive-mind-media/pr-<n> → advances the custom ref
+function makeMockGh({ refExists = false, failPatch = false, existsAfterFail = false } = {}) {
   const calls = [];
-  const run = async (cmd, args) => {
+  const sha = n => n.toString(16).padStart(40, '0');
+  let nextSha = 1;
+  let hasRef = refExists;
+  let refSha = refExists ? sha(1000) : null;
+  const commits = new Map();
+  const treePaths = new Map();
+
+  if (refExists) {
+    const existingTree = sha(1001);
+    treePaths.set(existingTree, new Set(['README.md']));
+    commits.set(refSha, { sha: refSha, tree: { sha: existingTree }, parents: [] });
+  }
+
+  const notFound = () => {
+    const err = new Error('gh: Not Found (HTTP 404)');
+    err.code = 1;
+    return err;
+  };
+
+  const run = async (_cmd, args, options = {}) => {
     const apiPath = args[1];
     const xIndex = args.indexOf('-X');
     const method = xIndex >= 0 ? args[xIndex + 1] : 'GET';
-    calls.push({ apiPath, method });
+    const body = options.input ? JSON.parse(options.input) : undefined;
+    calls.push({ apiPath, method, body });
 
-    if (method === 'GET' && apiPath.includes('/git/ref/heads/')) {
-      if (!branchExists) {
-        const err = new Error('gh: Not Found (HTTP 404)');
-        err.code = 1;
-        throw err;
-      }
-      return { stdout: JSON.stringify({ ref: `refs/heads/${DEFAULT_MEDIA_BRANCH}`, object: { sha: 'existingsha' } }) };
+    if (method === 'GET' && apiPath.includes('/git/ref/')) {
+      if (!hasRef) throw notFound();
+      const refPath = apiPath.split('/git/ref/')[1];
+      return { stdout: JSON.stringify({ ref: `refs/${refPath}`, object: { sha: refSha, type: 'commit' } }) };
     }
-    if (method === 'POST' && /\/git\/(blobs|trees|commits)$/.test(apiPath)) {
-      return { stdout: JSON.stringify({ sha: 'fakesha-' + apiPath.split('/').pop() }) };
+
+    if (method === 'GET' && apiPath.includes('/git/commits/')) {
+      const commitSha = apiPath.split('/git/commits/')[1];
+      const commit = commits.get(commitSha);
+      if (!commit) throw notFound();
+      return { stdout: JSON.stringify(commit) };
     }
+
+    if (method === 'GET' && apiPath.includes('/git/trees/')) {
+      const treeSha = apiPath.split('/git/trees/')[1].split('?')[0];
+      const paths = treePaths.get(treeSha);
+      if (!paths) throw notFound();
+      return { stdout: JSON.stringify({ sha: treeSha, tree: [...paths].map(path => ({ path, mode: '100644', type: 'blob' })) }) };
+    }
+
+    if (method === 'POST' && apiPath.endsWith('/git/blobs')) {
+      return { stdout: JSON.stringify({ sha: sha(nextSha++) }) };
+    }
+
+    if (method === 'POST' && apiPath.endsWith('/git/trees')) {
+      const treeSha = sha(nextSha++);
+      const paths = new Set(body.base_tree ? treePaths.get(body.base_tree) || [] : []);
+      for (const entry of body.tree || []) paths.add(entry.path);
+      treePaths.set(treeSha, paths);
+      return { stdout: JSON.stringify({ sha: treeSha }) };
+    }
+
+    if (method === 'POST' && apiPath.endsWith('/git/commits')) {
+      const commitSha = sha(nextSha++);
+      const commit = { sha: commitSha, tree: { sha: body.tree }, parents: body.parents || [] };
+      commits.set(commitSha, commit);
+      return { stdout: JSON.stringify(commit) };
+    }
+
     if (method === 'POST' && apiPath.endsWith('/git/refs')) {
-      return { stdout: JSON.stringify({ ref: `refs/heads/${DEFAULT_MEDIA_BRANCH}` }) };
+      hasRef = true;
+      refSha = body.sha;
+      return { stdout: JSON.stringify({ ref: body.ref, object: { sha: refSha, type: 'commit' } }) };
     }
-    if (method === 'PUT' && apiPath.includes('/contents/')) {
-      if (failPut) {
+
+    if (method === 'PATCH' && apiPath.includes('/git/refs/')) {
+      if (failPatch) {
+        if (existsAfterFail) {
+          hasRef = true;
+          refSha = body.sha;
+        }
         const err = new Error('gh: Unprocessable Entity (HTTP 422)');
         err.code = 1;
         throw err;
       }
-      return { stdout: JSON.stringify({ content: { path: apiPath.split('/contents/')[1] } }) };
+      hasRef = true;
+      refSha = body.sha;
+      return { stdout: JSON.stringify({ ref: `refs/${apiPath.split('/git/refs/')[1]}`, object: { sha: refSha, type: 'commit' } }) };
     }
-    if (method === 'GET' && apiPath.includes('/contents/')) {
-      // existence re-check after a failed PUT
-      if (existsAfterFail) return { stdout: JSON.stringify({ path: 'exists' }) };
-      const err = new Error('gh: Not Found (HTTP 404)');
-      err.code = 1;
-      throw err;
-    }
+
     return { stdout: '' };
   };
   return { run, calls };
@@ -152,27 +205,35 @@ await runTest('extensionForMediaType maps known + unknown', () => {
 });
 
 await runTest('buildRawBlobUrl produces an embeddable ?raw=true URL', () => {
-  const url = buildRawBlobUrl('o', 'r', 'media-branch', 'media/pr-1/abcd.png');
-  assert(url === 'https://github.com/o/r/blob/media-branch/media/pr-1/abcd.png?raw=true', `unexpected URL: ${url}`);
+  const commitSha = '0123456789abcdef0123456789abcdef01234567';
+  const url = buildRawBlobUrl('o', 'r', commitSha, 'media/pr-1/abcd.png');
+  assert(url === `https://github.com/o/r/blob/${commitSha}/media/pr-1/abcd.png?raw=true`, `unexpected URL: ${url}`);
 });
 
-await runTest('embedded image URL (16-char hex filename) survives token sanitizer (#1745)', async () => {
+await runTest('buildMediaRef produces hidden per-PR custom refs', () => {
+  assert(DEFAULT_MEDIA_REF_NAMESPACE === 'refs/hive-mind-media', 'unexpected default media ref namespace');
+  assert(buildMediaRef({ prNumber: 1844 }) === 'refs/hive-mind-media/pr-1844', 'expected default PR media ref');
+  assert(buildMediaRef({ prNumber: 'feature/a b' }) === 'refs/hive-mind-media/pr-feature-a-b', 'expected sanitized PR segment');
+});
+
+await runTest('embedded image URL (commit SHA + hex filename) survives token sanitizer (#1745)', async () => {
   // The real uploader names files `media/pr-<n>/<sha256-prefix-16>.<ext>`. That
-  // 16-char hex segment, embedded in a blob URL, must NOT be mistaken for a
-  // secret/commit hash and masked — otherwise the rendered link would break.
+  // 16-char hex segment, plus the real 40-char commit-SHA URL segment, must NOT
+  // be mistaken for a secret and masked — otherwise the rendered link would break.
   // The handler-integration tests use non-hex fake URLs, so this guards the
   // real filename shape against the LIVE sanitizer explicitly.
   // knownTokens:[] is a truthy empty array → Pass 1 (known-local tokens) is a
   // no-op, while Pass 2 (regex + secretlint — where the hex rule lives) runs.
   const hex16 = createHash('sha256').update(PNG_1x1).digest('hex').slice(0, 16);
-  const url = buildRawBlobUrl('link-assistant', 'hive-mind', DEFAULT_MEDIA_BRANCH, `media/pr-1844/${hex16}.png`);
+  const commitSha = '0123456789abcdef0123456789abcdef01234567';
+  const url = buildRawBlobUrl('link-assistant', 'hive-mind', commitSha, `media/pr-1844/${hex16}.png`);
   const body = `### 🖼️ Images\n\n![shot.png](${url})\n`;
   const out = await sanitizeCommentBody(body, { knownTokens: [] });
   assert(out === body, `image embed must be unchanged by sanitizer; got:\n${out}`);
   assert(out.includes(url), 'blob URL must survive intact');
 
   // Worst case: a filename that is ALL [a-f0-9] for the full 16 chars.
-  const allHex = buildRawBlobUrl('o', 'r', DEFAULT_MEDIA_BRANCH, 'media/pr-9/abcdef0123456789.png');
+  const allHex = buildRawBlobUrl('o', 'r', commitSha, 'media/pr-9/abcdef0123456789.png');
   const out2 = await sanitizeCommentBody(`![](${allHex})`, { knownTokens: [] });
   assert(out2 === `![](${allHex})`, `all-hex segment must survive; got: ${out2}`);
 
@@ -255,42 +316,50 @@ await runTest('formatBytes human-readable', () => {
 
 console.log('\n=== createImageUploader ===\n');
 
-await runTest('uploadImage creates orphan branch once, returns ?raw=true URL', async () => {
-  const { run, calls } = makeMockGh({ branchExists: false });
+await runTest('uploadImage creates custom media ref once, returns commit-SHA ?raw=true URL', async () => {
+  const { run, calls } = makeMockGh({ refExists: false });
   const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 7, execFile: run });
   const url = await uploader.uploadImage({ base64: PNG_1x1, mediaType: 'image/png', name: 'first' });
   assert(typeof url === 'string' && url.includes('?raw=true'), `expected raw URL, got ${url}`);
-  assert(url.includes(`/blob/${DEFAULT_MEDIA_BRANCH}/media/pr-7/`), `expected pr-namespaced path, got ${url}`);
+  assert(/\/blob\/[0-9a-f]{40}\/media\/pr-7\//.test(url), `expected commit-SHA PR path, got ${url}`);
+  assert(!url.includes('/blob/refs/'), `custom ref name must not be embedded directly, got ${url}`);
+  assert(!url.includes('hive-mind-interactive-media'), `old media branch name must not appear, got ${url}`);
 
-  // Upload a SECOND, different image — branch must NOT be recreated.
+  // Upload a SECOND, different image — custom ref must NOT be recreated.
   const url2 = await uploader.uploadImage({ base64: PNG_1x1.replace('iVBOR', 'AAAAA'), mediaType: 'image/png', name: 'second' });
   assert(url2 && url2 !== url, 'second distinct image gets its own URL');
   const refCreations = calls.filter(c => c.method === 'POST' && c.apiPath.endsWith('/git/refs'));
-  assert(refCreations.length === 1, `branch ref should be created exactly once, got ${refCreations.length}`);
-  const puts = calls.filter(c => c.method === 'PUT');
-  assert(puts.length === 2, `expected 2 content PUTs, got ${puts.length}`);
+  assert(refCreations.length === 1, `custom media ref should be created exactly once, got ${refCreations.length}`);
+  assert(refCreations[0].body.ref === 'refs/hive-mind-media/pr-7', `unexpected custom ref: ${refCreations[0].body.ref}`);
+  assert(!refCreations[0].body.ref.startsWith('refs/heads/'), 'media ref must not be a branch');
+  const patches = calls.filter(c => c.method === 'PATCH' && c.apiPath.endsWith('/git/refs/hive-mind-media/pr-7'));
+  assert(patches.length === 2, `expected 2 custom-ref PATCHes, got ${patches.length}`);
+  const contentsCalls = calls.filter(c => c.apiPath.includes('/contents/'));
+  assert(contentsCalls.length === 0, `uploads should use Git Data API, not Contents API; got ${contentsCalls.length} Contents API calls`);
 });
 
 await runTest('uploadImage de-duplicates identical content by hash', async () => {
-  const { run, calls } = makeMockGh({ branchExists: true });
+  const { run, calls } = makeMockGh({ refExists: true });
   const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run });
   const a = await uploader.uploadImage({ base64: PNG_1x1, mediaType: 'image/png' });
   const b = await uploader.uploadImage({ base64: PNG_1x1, mediaType: 'image/png' });
   assert(a === b, 'identical content should map to the same URL');
-  const puts = calls.filter(c => c.method === 'PUT');
-  assert(puts.length === 1, `expected a single PUT for duplicate content, got ${puts.length}`);
+  const patches = calls.filter(c => c.method === 'PATCH');
+  assert(patches.length === 1, `expected a single ref PATCH for duplicate content, got ${patches.length}`);
 });
 
-await runTest('uploadImage skips branch creation when branch already exists', async () => {
-  const { run, calls } = makeMockGh({ branchExists: true });
+await runTest('uploadImage skips custom ref initialization when ref already exists', async () => {
+  const { run, calls } = makeMockGh({ refExists: true });
   const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run });
   await uploader.uploadImage({ base64: PNG_1x1, mediaType: 'image/png' });
-  const blobCreations = calls.filter(c => c.apiPath.endsWith('/git/blobs'));
-  assert(blobCreations.length === 0, 'should not create blobs when branch exists');
+  const refCreations = calls.filter(c => c.method === 'POST' && c.apiPath.endsWith('/git/refs'));
+  assert(refCreations.length === 0, `existing custom ref must not be recreated, got ${refCreations.length}`);
+  const patches = calls.filter(c => c.method === 'PATCH');
+  assert(patches.length === 1, 'existing custom ref should still be advanced for a new image');
 });
 
 await runTest('uploadImage returns null when disabled (no gh calls)', async () => {
-  const { run, calls } = makeMockGh({ branchExists: false });
+  const { run, calls } = makeMockGh({ refExists: false });
   const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run, enabled: false });
   const url = await uploader.uploadImage({ base64: PNG_1x1, mediaType: 'image/png' });
   assert(url === null, 'disabled uploader returns null');
@@ -298,7 +367,7 @@ await runTest('uploadImage returns null when disabled (no gh calls)', async () =
 });
 
 await runTest('uploadImage returns null on hard failure', async () => {
-  const { run } = makeMockGh({ branchExists: true, failPut: true, existsAfterFail: false });
+  const { run } = makeMockGh({ refExists: true, failPatch: true, existsAfterFail: false });
   const logs = [];
   const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run, log: async m => logs.push(m) });
   const url = await uploader.uploadImage({ base64: PNG_1x1, mediaType: 'image/png' });
@@ -309,15 +378,15 @@ await runTest('uploadImage returns null on hard failure', async () => {
   );
 });
 
-await runTest('uploadImage reuses URL when PUT 422 but file already exists', async () => {
-  const { run } = makeMockGh({ branchExists: true, failPut: true, existsAfterFail: true });
+await runTest('uploadImage reuses URL when ref race already contains image', async () => {
+  const { run } = makeMockGh({ refExists: true, failPatch: true, existsAfterFail: true });
   const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run });
   const url = await uploader.uploadImage({ base64: PNG_1x1, mediaType: 'image/png' });
   assert(typeof url === 'string' && url.includes('?raw=true'), 'existing file → reuse URL');
 });
 
 await runTest('uploadImage returns null for empty/invalid input', async () => {
-  const { run } = makeMockGh({ branchExists: true });
+  const { run } = makeMockGh({ refExists: true });
   const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run });
   assert((await uploader.uploadImage({ base64: '' })) === null, 'empty base64 → null');
   assert((await uploader.uploadImage({})) === null, 'missing base64 → null');
@@ -363,12 +432,13 @@ function makeHandler({ imageUploadEnabled = true, imageUploader, execFile } = {}
 /** A fake uploader that records calls and returns deterministic URLs. */
 function makeFakeUploader() {
   const uploads = [];
+  const commitSha = '0123456789abcdef0123456789abcdef01234567';
   return {
     enabled: true,
     uploads,
     uploadImage: async ({ base64, mediaType, name }) => {
       uploads.push({ base64, mediaType, name });
-      return `https://github.com/o/r/blob/${DEFAULT_MEDIA_BRANCH}/media/pr-1/img-${uploads.length}.png?raw=true`;
+      return `https://github.com/o/r/blob/${commitSha}/media/pr-1/img-${uploads.length}.png?raw=true`;
     },
   };
 }

@@ -3,15 +3,16 @@
  * Issue #1843 verification: confirm that the `?raw=true` blob URLs we embed for
  * interactive-mode images survive the token sanitizer (#1745) UNCHANGED.
  *
- * The image path is `media/pr-<n>/<sha256-prefix-16>.<ext>`. A 16-char hex
- * segment embedded in a URL must NOT be mistaken for a secret/commit hash and
- * masked — otherwise the rendered image link would break in real sessions
- * (mocked tests would not catch this because they bypass the real sanitizer).
+ * The image URL is `.../blob/<commit-sha>/media/pr-<n>/<sha256-prefix-16>.<ext>?raw=true`.
+ * The 40-char commit SHA and 16-char hex filename segment must NOT be mistaken
+ * for a secret and masked — otherwise the rendered image link would break in
+ * real sessions (mocked tests would not catch this because they bypass the real
+ * sanitizer).
  *
  * Run: node experiments/verify-image-url-survives-sanitizer.mjs
  */
 import { sanitizeCommentBody } from '../src/token-sanitization.lib.mjs';
-import { buildRawBlobUrl, createImageUploader, DEFAULT_MEDIA_BRANCH } from '../src/interactive-image-upload.lib.mjs';
+import { buildRawBlobUrl, createImageUploader } from '../src/interactive-image-upload.lib.mjs';
 import { createHash } from 'node:crypto';
 
 let failures = 0;
@@ -23,8 +24,9 @@ const check = (name, ok, detail) => {
 // A realistic 16-char SHA-256 prefix (all-hex, worst case for the masker).
 const fakeBase64 = Buffer.from('the quick brown fox jumps over the lazy dog').toString('base64');
 const hash16 = createHash('sha256').update(fakeBase64).digest('hex').slice(0, 16);
+const commitSha = '0123456789abcdef0123456789abcdef01234567';
 const path = `media/pr-1844/${hash16}.png`;
-const url = buildRawBlobUrl('link-assistant', 'hive-mind', DEFAULT_MEDIA_BRANCH, path);
+const url = buildRawBlobUrl('link-assistant', 'hive-mind', commitSha, path);
 
 console.log(`hash16 = ${hash16} (len ${hash16.length})`);
 console.log(`url    = ${url}\n`);
@@ -38,7 +40,7 @@ check('image-embed body is unchanged by sanitizer', out1 === body1, out1 === bod
 check('blob URL still intact in output', out1.includes(url));
 
 // 3. Worst case: force an all-[a-f0-9] 16-char segment explicitly.
-const url2 = buildRawBlobUrl('o', 'r', DEFAULT_MEDIA_BRANCH, 'media/pr-9/abcdef0123456789.png');
+const url2 = buildRawBlobUrl('o', 'r', commitSha, 'media/pr-9/abcdef0123456789.png');
 const body2 = `![](${url2})`;
 const out2 = await sanitizeCommentBody(body2, { skipActiveTokensOutputSanitization: true });
 check('all-hex 16-char segment in URL survives', out2 === body2, out2 === body2 ? 'identical' : `DIFF: ${out2}`);
@@ -57,9 +59,22 @@ const uploader = createImageUploader({
   repo: 'hive-mind',
   prNumber: 1844,
   execFile: async (_cmd, args) => {
-    // ensureBranch: ref lookup → pretend branch exists; contents PUT → ok
-    if (args.includes('git/ref/heads/' + DEFAULT_MEDIA_BRANCH)) return { stdout: JSON.stringify({ ref: 'x' }) };
-    return { stdout: JSON.stringify({ content: { sha: 'deadbeef' } }) };
+    const apiPath = args[1];
+    const method = args.includes('-X') ? args[args.indexOf('-X') + 1] : 'GET';
+    if (method === 'GET' && apiPath.includes('/git/ref/hive-mind-media/pr-1844')) {
+      return { stdout: JSON.stringify({ ref: 'refs/hive-mind-media/pr-1844', object: { sha: commitSha, type: 'commit' } }) };
+    }
+    if (method === 'GET' && apiPath.includes('/git/commits/')) {
+      return { stdout: JSON.stringify({ sha: commitSha, tree: { sha: '1111111111111111111111111111111111111111' } }) };
+    }
+    if (method === 'GET' && apiPath.includes('/git/trees/')) {
+      return { stdout: JSON.stringify({ sha: '1111111111111111111111111111111111111111', tree: [{ path: 'README.md', mode: '100644', type: 'blob' }] }) };
+    }
+    if (method === 'POST' && apiPath.endsWith('/git/blobs')) return { stdout: JSON.stringify({ sha: '2222222222222222222222222222222222222222' }) };
+    if (method === 'POST' && apiPath.endsWith('/git/trees')) return { stdout: JSON.stringify({ sha: '3333333333333333333333333333333333333333' }) };
+    if (method === 'POST' && apiPath.endsWith('/git/commits')) return { stdout: JSON.stringify({ sha: '4444444444444444444444444444444444444444' }) };
+    if (method === 'PATCH' && apiPath.includes('/git/refs/hive-mind-media/pr-1844')) return { stdout: JSON.stringify({ ref: 'refs/hive-mind-media/pr-1844', object: { sha: '4444444444444444444444444444444444444444' } }) };
+    throw new Error(`unexpected gh call: ${method} ${apiPath}`);
   },
 });
 const producedUrl = await uploader.uploadImage({ base64: fakeBase64, mediaType: 'image/png', name: 'shot' });

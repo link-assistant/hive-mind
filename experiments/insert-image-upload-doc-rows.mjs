@@ -12,9 +12,9 @@ import { readFileSync, writeFileSync } from 'fs';
 const NEW_OPTION = '--interactive-image-upload';
 
 const FILES = {
-  'docs/CONFIGURATION.zh.md': '| `--interactive-image-upload` | | boolean | true | [实验性] 当启用 `--interactive-mode` 时，将 AI 读取/写入的图像上传到媒体分支并在 PR 评论中内联嵌入。默认启用；使用 `--no-interactive-image-upload` 禁用。 |',
-  'docs/CONFIGURATION.hi.md': '| `--interactive-image-upload` | | boolean | true | [EXPERIMENTAL] जब `--interactive-mode` चालू हो, तो AI द्वारा पढ़ी/लिखी गई images को media branch पर upload करें और उन्हें PR comments में inline embed करें। डिफ़ॉल्ट रूप से सक्षम; अक्षम करने के लिए `--no-interactive-image-upload` उपयोग करें। |',
-  'docs/CONFIGURATION.ru.md': '| `--interactive-image-upload` | | boolean | true | [ЭКСПЕРИМ.] Когда включён `--interactive-mode`, загружать изображения, которые AI читает/записывает, в медиа-ветку и встраивать их в комментарии к PR. Включено по умолчанию; используйте `--no-interactive-image-upload` для отключения. |',
+  'docs/CONFIGURATION.zh.md': '| `--interactive-image-upload` | | boolean | true | [实验性] 当启用 `--interactive-mode` 时，将 AI 读取/写入的图像上传到隐藏的自定义 Git refs (`refs/hive-mind-media/...`) 并在 PR 评论中内联嵌入。默认启用；使用 `--no-interactive-image-upload` 禁用。 |',
+  'docs/CONFIGURATION.hi.md': '| `--interactive-image-upload` | | boolean | true | [EXPERIMENTAL] जब `--interactive-mode` चालू हो, तो AI द्वारा पढ़ी/लिखी गई images को hidden custom Git refs (`refs/hive-mind-media/...`) में upload करें और उन्हें PR comments में inline embed करें। डिफ़ॉल्ट रूप से सक्षम; अक्षम करने के लिए `--no-interactive-image-upload` उपयोग करें। |',
+  'docs/CONFIGURATION.ru.md': '| `--interactive-image-upload` | | boolean | true | [ЭКСПЕРИМ.] Когда включён `--interactive-mode`, загружать изображения, которые AI читает/записывает, в скрытые пользовательские Git refs (`refs/hive-mind-media/...`) и встраивать их в комментарии к PR. Включено по умолчанию; используйте `--no-interactive-image-upload` для отключения. |',
 };
 
 for (const [file, newRow] of Object.entries(FILES)) {

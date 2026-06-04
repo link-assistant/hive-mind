@@ -18,10 +18,11 @@ image-bearing comment.
 The issue suggested base64 "if there is no other way to upload images." Research
 (see `external/research-notes.md`) shows GitHub **strips `data:` URIs** from
 comments, so inline base64 cannot work. The fix instead uploads each image to a
-dedicated media branch with the Contents API (which accepts base64 directly) and
-embeds the resulting `?raw=true` blob URL, which renders inline for public and
-private repos. When upload is disabled or fails, the comment degrades to a compact
-metadata note (type + size) rather than a base64 dump.
+hidden custom Git ref (`refs/hive-mind-media/pr-<number>`) with the Git Data API
+and embeds the resulting commit-SHA `?raw=true` blob URL, which renders inline for
+public and private repos. The custom ref keeps the media commits reachable without
+creating a branch or tag. When upload is disabled or fails, the comment degrades
+to a compact metadata note (type + size) rather than a base64 dump.
 
 ## Collected Data
 
@@ -29,9 +30,12 @@ metadata note (type + size) rather than a base64 dump.
 - `data/issue-1843-comments.json`: issue discussion (empty — no comments yet).
 - `data/pr-1844.json`: the prepared pull request metadata, body, branch, commits.
 - `data/pr-1844-conversation-comments.json`, `data/pr-1844-review-comments.json`,
-  `data/pr-1844-reviews.json`: PR comment/review payloads (empty during work).
+  `data/pr-1844-reviews.json`: PR comment/review payloads. Conversation comments
+  include the maintainer follow-up selecting `refs/hive-mind-media/...` as the
+  default storage strategy and asking to verify every `--tool` that supports
+  `--interactive-mode`.
 - `external/research-notes.md`: online research into GitHub image-hosting options,
-  the cookie-gated attachments uploader, the chosen Contents-API/branch approach,
+  the cookie-gated attachments uploader, the chosen hidden custom-ref approach,
   prior art (`gh-attach`), and the exact image payload shapes verified against
   real session logs already in this repo.
 
@@ -44,6 +48,9 @@ metadata note (type + size) rather than a base64 dump.
   `issue-1843-8a6facb18142`.
 - 2026-05-30: Data collected, external research completed, root cause identified in
   `handleToolResult`, and the upload-and-embed solution implemented in this PR.
+- 2026-06-04 16:42 UTC: Maintainer follow-up selected the custom-ref option
+  (`refs/hive-mind-media/...`, no branch, no tag) as the default path and asked to
+  verify all `--interactive-mode` supported tools.
 
 ## Requirements
 
@@ -78,9 +85,9 @@ Full detail and sources are in `external/research-notes.md`. Key conclusions:
   so requirements 3 and 4 cannot be satisfied with the user-attachments URL from a
   headless context.
 - **Token-viable hosting** that renders inline for public _and_ private repos:
-  (a) commit to a dedicated branch and reference the `?raw=true` blob URL via the
-  Contents API (which accepts base64 directly — exactly what we already have);
-  (b) Release Assets; (c) external object storage. We chose (a).
+  (a) commit to a repository ref and reference the `?raw=true` blob URL; (b)
+  Release Assets; (c) external object storage. The final PR uses a hidden custom
+  ref, not a branch or tag.
 - **Prior art:** `Addono/gh-attach` documents the same four strategies and confirms
   only Release-Assets and Repository-Branch work headlessly. hive-mind's own
   contributor guidance already recommends the blob `?raw=true` format for
@@ -98,8 +105,9 @@ Full detail and sources are in `external/research-notes.md`. Key conclusions:
   options that need **no branch** are a **git tag** (`…/blob/<tag>/…?raw=true`,
   HTTP 200 verified) or a **custom ref namespace** `refs/hive-mind-media/*`
   embedded via the **commit-SHA** `…/blob/<sha>/…?raw=true` URL (HTTP 200
-  verified) — the latter is invisible in every GitHub UI list. See
-  `external/research-notes.md` Finding 6.
+  verified) — the latter is invisible in every GitHub UI list. The maintainer
+  selected the custom-ref path, so the implementation now uses
+  `refs/hive-mind-media/pr-<number>`. See `external/research-notes.md` Finding 6.
 
 ## Root Causes
 
@@ -123,12 +131,15 @@ Implemented in this PR:
   - `extractImagePayload(node)` / `isImageNode(node)` normalize the three verified
     payload shapes into `{ base64, mediaType }`.
   - `extensionForMediaType(mediaType)` maps MIME → file extension.
-  - `createImageUploader({ owner, repo, prNumber, branch, ... })` returns
-    `{ uploadImage }`. It lazily creates an **orphan media branch** once (Git Data
-    API: blob → tree → parentless commit → ref), then uploads each image via the
-    Contents API `PUT .../contents/{path}` (base64 body), de-duplicates by SHA-256
-    content hash (so repeated identical frames upload once), and returns a
-    `https://github.com/{owner}/{repo}/blob/{branch}/{path}?raw=true` URL. All
+  - `buildMediaRef({ prNumber })` creates the hidden custom ref name
+    `refs/hive-mind-media/pr-<number>`.
+  - `createImageUploader({ owner, repo, prNumber, mediaRef, ... })` returns
+    `{ uploadImage }`. It lazily creates the custom media ref once (Git Data API:
+    blob → tree → parentless commit → ref), then uploads each image by creating an
+    image blob, tree, commit, and non-forced ref update. Images are de-duplicated
+    by SHA-256 content hash (so repeated identical frames upload once), and the
+    returned URL is
+    `https://github.com/{owner}/{repo}/blob/{commitSha}/{path}?raw=true`. All
     failures degrade gracefully to `null`.
 - **`src/interactive-mode.shared.lib.mjs`:** add `redactImageData(data)` (deep-clone
   that replaces base64 image fields with a `<image data: N base64 chars>`
@@ -162,8 +173,9 @@ Automated tests (`tests/test-interactive-mode-images.mjs`) assert, with a mocked
 `gh` runner so no real network/commits happen:
 
 - `extractImagePayload` handles all three shapes and rejects non-image nodes.
-- `createImageUploader` creates the orphan branch exactly once, uploads via the
-  Contents API, returns a `?raw=true` blob URL, and de-duplicates by content hash.
+- `createImageUploader` creates the hidden custom media ref exactly once, uploads
+  via the Git Data API (no branch/tag, no Contents API), returns a commit-SHA
+  `?raw=true` blob URL, and de-duplicates by content hash.
 - `handleToolResult` embeds `![](…?raw=true)` for an image result and **never**
   emits raw base64 (neither in the body nor the Raw JSON section).
 - With `imageUploadEnabled:false` (or on upload failure) the comment shows a compact
@@ -174,7 +186,7 @@ Automated tests (`tests/test-interactive-mode-images.mjs`) assert, with a mocked
 ## Upstream Reporting
 
 No upstream issue is warranted. The external constraints (no token attachments API;
-`data:` URIs stripped) are documented GitHub behavior, and the chosen
-Contents-API/branch approach is established practice (`gh-attach`). The defect was
-hive-mind rendering image tool-results as raw JSON instead of uploading and
-embedding them; it is fixed in this PR.
+`data:` URIs stripped) are documented GitHub behavior, and the chosen custom-ref
+Git Data API approach uses supported GitHub ref/blob/tree/commit endpoints. The
+defect was hive-mind rendering image tool-results as raw JSON instead of uploading
+and embedding them; it is fixed in this PR.

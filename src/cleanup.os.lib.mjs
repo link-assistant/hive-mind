@@ -20,6 +20,7 @@ import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 
 import { extractTaskRefsFromCommand, parseRemoteUrl } from './cleanup.lib.mjs';
+import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
 
 /** Run a command, returning trimmed stdout or null on any failure. */
 function tryExec(cmd, args, options = {}) {
@@ -189,6 +190,346 @@ export function listProcessHeldPaths(tempRoot) {
     }
   }
   return held;
+}
+
+function parseProcStat(raw) {
+  if (!raw) return null;
+  const open = raw.indexOf('(');
+  const close = raw.lastIndexOf(')');
+  if (open < 0 || close < open) return null;
+  const commandName = raw.slice(open + 1, close);
+  const fields = raw
+    .slice(close + 2)
+    .trim()
+    .split(/\s+/);
+  return {
+    commandName,
+    state: fields[0] || null,
+    ppid: Number(fields[1]) || 0,
+    pgid: Number(fields[2]) || null,
+    sid: Number(fields[3]) || null,
+  };
+}
+
+function readProcText(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function readProcLink(filePath) {
+  try {
+    return fs.readlinkSync(filePath);
+  } catch {
+    return null;
+  }
+}
+
+function readProcCmdline(pid, fallbackName) {
+  const raw = readProcText(`/proc/${pid}/cmdline`);
+  const cmdline = raw ? raw.replace(/\0/g, ' ').trim() : '';
+  return cmdline || fallbackName || '';
+}
+
+function readProcScreenSessionName(pid) {
+  const raw = readProcText(`/proc/${pid}/environ`);
+  if (!raw) return null;
+  const sty = raw
+    .split('\0')
+    .find(line => line.startsWith('STY='))
+    ?.slice(4)
+    ?.trim();
+  if (!sty) return null;
+  return sty.replace(/^\d+\./, '') || sty;
+}
+
+/**
+ * Snapshot Linux process records used by process diagnostics and orphan
+ * cleanup. Returns an empty list when procfs is unavailable.
+ *
+ * @returns {Array<{pid: number, ppid: number, pgid: number|null, sid: number|null, state: string|null, commandName: string|null, cmdline: string, cwd: string|null, exe: string|null, screenSessionName: string|null}>}
+ */
+export function listProcessRecords() {
+  let pids;
+  try {
+    pids = fs.readdirSync('/proc').filter(name => /^\d+$/.test(name));
+  } catch {
+    return [];
+  }
+
+  const records = [];
+  for (const pidText of pids) {
+    const pid = Number(pidText);
+    const stat = parseProcStat(readProcText(`/proc/${pid}/stat`));
+    if (!stat) continue;
+    records.push({
+      pid,
+      ppid: stat.ppid,
+      pgid: stat.pgid,
+      sid: stat.sid,
+      state: stat.state,
+      commandName: stat.commandName,
+      cmdline: readProcCmdline(pid, stat.commandName),
+      cwd: readProcLink(`/proc/${pid}/cwd`),
+      exe: readProcLink(`/proc/${pid}/exe`),
+      screenSessionName: readProcScreenSessionName(pid),
+    });
+  }
+  return records;
+}
+
+/**
+ * Discover GNU screen sessions and their backing screen PIDs.
+ *
+ * @returns {Array<{screenPid: number, sessionName: string, displayName: string, attached: boolean, live: boolean}>}
+ */
+export function listScreenSessions() {
+  const out = tryExec('screen', ['-ls']);
+  if (!out) return [];
+  const sessions = [];
+  for (const line of out.split('\n')) {
+    const match = line.match(/^\s*(\d+)\.([^\s]+)\s+\((Attached|Detached)\)/i);
+    if (!match) continue;
+    sessions.push({
+      screenPid: Number(match[1]),
+      sessionName: match[2],
+      displayName: `${match[1]}.${match[2]}`,
+      attached: match[3].toLowerCase() === 'attached',
+      live: true,
+    });
+  }
+  return sessions;
+}
+
+function listStartCommandLogFiles(logRoot, maxFiles) {
+  const files = [];
+  const stack = [logRoot];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let stat;
+    try {
+      stat = fs.statSync(current);
+    } catch {
+      continue;
+    }
+    if (stat.isDirectory()) {
+      let entries;
+      try {
+        entries = fs.readdirSync(current);
+      } catch {
+        continue;
+      }
+      for (const entry of entries) stack.push(path.join(current, entry));
+    } else if (stat.isFile() && current.endsWith('.log')) {
+      files.push({ path: current, mtimeMs: stat.mtimeMs });
+    }
+  }
+  return files
+    .sort((a, b) => b.mtimeMs - a.mtimeMs)
+    .slice(0, maxFiles)
+    .map(file => file.path);
+}
+
+function readFilePrefix(filePath, maxBytes) {
+  let fd;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const buffer = Buffer.alloc(maxBytes);
+    const bytesRead = fs.readSync(fd, buffer, 0, maxBytes, 0);
+    return buffer.subarray(0, bytesRead).toString('utf8');
+  } catch {
+    return '';
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+function mergeSession(map, session) {
+  if (!session) return;
+  const key = session.sessionId || session.uuid || session.sessionName || session.screenSessionName || session.logPath;
+  if (!key) return;
+  const existing = map.get(key) || {};
+  const mergedProcessIds = { ...(existing.processIds || {}), ...(session.processIds || {}) };
+  map.set(key, {
+    ...existing,
+    ...session,
+    processIds: mergedProcessIds,
+    sessionId: session.sessionId || existing.sessionId || session.uuid || existing.uuid || null,
+    uuid: session.uuid || existing.uuid || session.sessionId || existing.sessionId || null,
+    sessionName: session.sessionName || existing.sessionName || session.screenSessionName || existing.screenSessionName || null,
+    screenSessionName: session.screenSessionName || existing.screenSessionName || session.sessionName || existing.sessionName || null,
+    live: session.live === true || existing.live === true,
+    command: session.command || existing.command || null,
+    taskUrl: session.taskUrl || existing.taskUrl || null,
+    workspace: session.workspace || existing.workspace || session.workingDirectory || existing.workingDirectory || null,
+    logPath: session.logPath || existing.logPath || null,
+    tool: session.tool || existing.tool || null,
+    status: session.status || existing.status || null,
+  });
+}
+
+/**
+ * Collect start-command session/task metadata from logs, live screen sessions,
+ * and optional `$ --status` lookups.
+ *
+ * @param {Object} [options]
+ * @param {string} [options.logRoot='/tmp/start-command/logs']
+ * @param {number} [options.maxLogFiles=500]
+ * @param {number} [options.maxLogBytes=262144]
+ * @param {number} [options.maxStatusQueries=200]
+ * @param {boolean} [options.useSessions=true]
+ * @returns {Promise<Array>}
+ */
+export async function collectProcessDebugSessions(options = {}) {
+  const { logRoot = '/tmp/start-command/logs', maxLogFiles = 500, maxLogBytes = 256 * 1024, maxStatusQueries = 200, useSessions = true } = options;
+
+  const sessions = new Map();
+
+  for (const logPath of listStartCommandLogFiles(logRoot, maxLogFiles)) {
+    const metadata = parseStartCommandLogMetadata({
+      logPath,
+      text: readFilePrefix(logPath, maxLogBytes),
+    });
+    mergeSession(sessions, metadata);
+  }
+
+  for (const screenSession of listScreenSessions()) {
+    mergeSession(sessions, {
+      sessionId: screenSession.sessionName,
+      sessionName: screenSession.sessionName,
+      screenSessionName: screenSession.sessionName,
+      processIds: { screenPid: screenSession.screenPid },
+      live: true,
+    });
+  }
+
+  if (!useSessions || sessions.size === 0) return [...sessions.values()];
+
+  let querySessionStatus;
+  try {
+    ({ querySessionStatus } = await import('./isolation-runner.lib.mjs'));
+  } catch {
+    return [...sessions.values()];
+  }
+
+  const queryCandidates = [...sessions.values()].sort((a, b) => (b.live === true) - (a.live === true)).slice(0, maxStatusQueries);
+
+  for (const session of queryCandidates) {
+    const id = session.sessionId || session.uuid || session.sessionName;
+    if (!id) continue;
+    let status;
+    try {
+      status = await querySessionStatus(id);
+    } catch {
+      continue;
+    }
+    if (!status?.exists) continue;
+    mergeSession(sessions, {
+      sessionId: status.uuid || id,
+      uuid: status.uuid || id,
+      status: status.status || session.status || null,
+      command: status.command ? redactProcessText(status.command) : session.command || null,
+      taskUrl: status.command ? extractTaskRefsFromCommand(status.command).map(ref => `https://github.com/${ref.owner}/${ref.repo}/${ref.type === 'pull' ? 'pull' : 'issues'}/${ref.number}`)[0] : session.taskUrl || null,
+      workspace: status.workingDirectory || session.workspace || null,
+      workingDirectory: status.workingDirectory || null,
+      logPath: status.logPath || session.logPath || null,
+      sessionName: status.sessionName || session.sessionName || id,
+      screenSessionName: status.sessionName || session.screenSessionName || session.sessionName || id,
+      processIds: status.processIds || {},
+      live: session.live === true || status.status === 'executing' || status.status === 'running',
+    });
+  }
+
+  return [...sessions.values()];
+}
+
+/**
+ * Build a redacted process debug report from the real OS state.
+ *
+ * @param {Object} [options]
+ * @returns {Promise<{items: Array, orphans: Array, sessions: Array}>}
+ */
+export async function collectProcessDebugReport(options = {}) {
+  const processes = listProcessRecords();
+  const sessions = await collectProcessDebugSessions(options);
+  const report = correlateProcesses({ processes, sessions, currentPid: process.pid, targetPids: options.targetPids || [] });
+  return {
+    ...report,
+    processCount: processes.length,
+    sessionCount: sessions.length,
+  };
+}
+
+function buildChildrenMap(processes) {
+  const children = new Map();
+  for (const record of processes || []) {
+    if (!record?.pid || !record?.ppid) continue;
+    if (!children.has(record.ppid)) children.set(record.ppid, []);
+    children.get(record.ppid).push(record.pid);
+  }
+  return children;
+}
+
+function collectProcessTree(rootPid, children) {
+  const seen = new Set();
+  const ordered = [];
+  const visit = pid => {
+    if (!pid || seen.has(pid)) return;
+    seen.add(pid);
+    for (const child of children.get(pid) || []) visit(child);
+    ordered.push(pid);
+  };
+  visit(rootPid);
+  return ordered;
+}
+
+/**
+ * Send a signal to a process tree, children first.
+ *
+ * @param {number} rootPid
+ * @param {Array} processes
+ * @param {{signal?: string, currentPid?: number}} [options]
+ * @returns {Array<{pid: number, signal: string, ok: boolean, error?: string}>}
+ */
+export function signalProcessTree(rootPid, processes, options = {}) {
+  const signal = options.signal || 'SIGTERM';
+  const currentPid = options.currentPid || process.pid;
+  const children = buildChildrenMap(processes);
+  const targets = collectProcessTree(Number(rootPid), children).filter(pid => pid !== currentPid && pid > 1);
+  const results = [];
+
+  for (const pid of targets) {
+    try {
+      process.kill(pid, signal);
+      results.push({ pid, signal, ok: true });
+    } catch (error) {
+      results.push({ pid, signal, ok: false, error: error.message });
+    }
+  }
+  return results;
+}
+
+/**
+ * Signal every orphaned agent tree from a previously collected report.
+ *
+ * @param {{orphans?: Array}} report
+ * @param {Object} [options]
+ * @returns {Array<{rootPid: number, results: Array}>}
+ */
+export function signalOrphanedAgentTrees(report, options = {}) {
+  const processes = listProcessRecords();
+  return (report.orphans || []).map(orphan => ({
+    rootPid: orphan.pid,
+    results: signalProcessTree(orphan.pid, processes, options),
+  }));
 }
 
 /**

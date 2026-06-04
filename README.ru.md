@@ -749,12 +749,26 @@ cleanup --force-start-command
 # Очистка Ubuntu / системы (кэши apt, логи journald, кэш npm)
 cleanup --system --sudo
 
+# Сопоставить живые/зависшие agent PID с задачами hive/start-command
+cleanup --processes
+
+# Отследить конкретный не-agent PID, например дочерний процесс браузера или shell
+cleanup --pid 94445
+
+# Предпросмотр orphaned agents, которые можно остановить
+cleanup --kill-orphaned-agents --dry-run
+
+# Остановить деревья orphaned agent процессов после просмотра предпросмотра
+cleanup --kill-orphaned-agents --force
+
 # Отключить обнаружение активных задач (сохраняются только защищённые пути)
 cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
 Запустите `cleanup --help`, чтобы увидеть полный список опций. Команда удобна для
 режима dry-run и записывает лог `cleanup-*.log` с меткой времени при каждом запуске.
+Диагностический вывод процессов скрывает распространённые формы token перед печатью
+командных строк.
 
 ## 🔍 Мониторинг и логирование
 
@@ -805,7 +819,24 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ## Диагностика сервера
 
-Определите screen-сессии, являющиеся родительскими для процессов, потребляющих ресурсы
+Чтобы связать загруженный `claude`, `codex`, `gemini`, `qwen` или `opencode` PID с
+запустившей его задачей hive, сначала используйте встроенную диагностику процессов:
+
+```bash
+# Показать agent PID, start-command session ID, GitHub task URL, workspace,
+# причины совпадения и возможные orphaned agents.
+cleanup --processes
+
+# Включить произвольный PID в тот же отчёт.
+cleanup --pid 62220
+
+# Остановить только orphaned agents, чья задача уже завершена.
+cleanup --kill-orphaned-agents --dry-run
+cleanup --kill-orphaned-agents --force
+```
+
+Ручной fallback: определите screen-сессии, являющиеся родительскими для процессов,
+потребляющих ресурсы.
 
 ```bash
 TARGETS="62220 65988 63094 66606 1028071 4127023"

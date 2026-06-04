@@ -207,7 +207,9 @@ await runTest('isInteractiveModeSupported opencode', () => {
 
 await runTest('isInteractiveModeSupported other tools', () => {
   if (!isInteractiveModeSupported('codex')) throw new Error('Expected true for codex');
-  if (isInteractiveModeSupported('unknown')) throw new Error('Expected false for unknown');
+  for (const tool of ['opencode', 'agent', 'qwen', 'gemini', 'unknown', undefined, null]) {
+    if (isInteractiveModeSupported(tool)) throw new Error(`Expected false for ${tool}`);
+  }
 });
 
 // ============================================

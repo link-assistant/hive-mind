@@ -405,6 +405,15 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: '[EXPERIMENTAL] Post tool output as PR comments in real-time. Supported for --tool claude and --tool codex.',
     default: false,
   },
+  // Issue #1843: render images that Claude/Codex read/write inline in the PR
+  // comments interactive mode posts. Images are committed to hidden custom Git
+  // refs and embedded via commit-SHA ?raw=true blob URLs (GitHub strips data: URIs).
+  // Disable with --no-interactive-image-upload to fall back to a metadata note.
+  'interactive-image-upload': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] When --interactive-mode is on, upload images read/written by the AI to hidden custom Git refs (refs/hive-mind-media/...) and embed them inline in PR comments. Enabled by default; use --no-interactive-image-upload to disable.',
+    default: true,
+  },
   // Issue #817: Bidirectional interactive options
   'accept-incomming-comments-as-input': {
     type: 'boolean',

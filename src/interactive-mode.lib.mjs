@@ -32,7 +32,9 @@
  * @experimental
  */
 
-import { CONFIG, createCollapsible, createRawJsonSection, escapeMarkdown, execFileAsync, formatCost, formatDuration, getToolIcon, safeJsonStringify, sanitizeUnicode, truncateMiddle } from './interactive-mode.shared.lib.mjs';
+import { CONFIG, createCollapsible, createRawJsonSection, createRedactedRawJsonSection, escapeMarkdown, execFileAsync, formatCost, formatDuration, getToolIcon, redactImageData, safeJsonStringify, sanitizeUnicode, truncateMiddle } from './interactive-mode.shared.lib.mjs';
+// Issue #1843: turn base64 image tool-results into inline PR-comment images.
+import { createImageRenderer, extractImagePayload, isImageNode } from './interactive-image-render.lib.mjs';
 // Issue #1625: track interactive-mode comment IDs so they're excluded from
 // the "did the AI post anything?" check in checkForAiCreatedComments().
 // Use the session-started marker as the single source of truth for the
@@ -75,6 +77,11 @@ export const createInteractiveHandler = options => {
     // Pre-existing user content carve-out (issue body / non-bot comments /
     // pre-existing code). When provided, sanitizer leaves these tokens untouched.
     excludeTokens = [],
+    // Issue #1843: when true (default), base64 tool-result images are embedded
+    // inline; when false they degrade to a metadata note. See createImageRenderer.
+    imageUploadEnabled = true,
+    mediaRef,
+    imageUploader: injectedImageUploader,
   } = options;
   // Use injected execFile for testability, or the real one by default
   const runGhApi = execFileFn || execFileAsync;
@@ -110,6 +117,8 @@ export const createInteractiveHandler = options => {
     editsSucceeded: 0,
     editsFailed: 0,
   };
+
+  const imageRenderer = createImageRenderer({ owner, repo, prNumber, mediaRef, log, verbose, execFile: execFileFn, enabled: imageUploadEnabled, uploader: injectedImageUploader, state }); // Issue #1843
 
   /**
    * Sanitize a comment body and warn the chat owner when a known-local token
@@ -632,6 +641,8 @@ ${createRawJsonSection(data)}`;
         .map(c => {
           if (typeof c === 'string') return c;
           if (c.type === 'text') return c.text || '';
+          // Issue #1843: image bytes render in the section below, not the fence.
+          if (isImageNode(c)) return `_[image: ${extractImagePayload(c).mediaType}]_`;
           return safeJsonStringify(c);
         })
         .join('\n');
@@ -643,6 +654,10 @@ ${createRawJsonSection(data)}`;
       keepStart: 25,
       keepEnd: 25,
     });
+
+    // Issue #1843: render images this result read/produced (used by both paths).
+    const imagesSection = await imageRenderer.section([toolResult.content, data.tool_use_result], imageRenderer.toolLabel(toolUseId));
+    const imagesBlock = imagesSection ? `${imagesSection}\n\n` : '';
 
     // Check if we have a pending tool call to merge with
     const pendingCall = state.pendingToolCalls.get(toolUseId);
@@ -703,9 +718,9 @@ ${inputDisplay}
 
 ${createCollapsible(`📤 Output (${statusIcon} ${statusText.toLowerCase()})`, '```\n' + escapeMarkdown(truncatedContent) + '\n```', true)}
 
----
+${imagesBlock}---
 
-${createRawJsonSection([toolData, data])}`;
+${createRedactedRawJsonSection([toolData, data])}`;
 
         // Edit the existing comment
         const editSuccess = await editComment(commentId, mergedComment);
@@ -742,9 +757,9 @@ ${createRawJsonSection([toolData, data])}`;
 
 ${createCollapsible(`📤 Output (${statusIcon} ${statusText.toLowerCase()})`, '```\n' + escapeMarkdown(truncatedContent) + '\n```', true)}
 
----
+${imagesBlock}---
 
-${createRawJsonSection(data)}`;
+${createRedactedRawJsonSection(data)}`;
 
     await postComment(comment);
 
@@ -1153,17 +1168,20 @@ ${createRawJsonSection(data)}`;
     const item = data.item || {};
     const summary = [`**Server:** \`${item.server || 'unknown'}\``, `**Tool:** \`${item.tool || 'unknown'}\``, `**Status:** \`${item.status || 'unknown'}\``].join('\n');
     const details = item.arguments != null ? createCollapsible('📥 Arguments', '```json\n' + safeJsonStringify(item.arguments, 2) + '\n```', true) : '';
-    const resultSection = item.result != null ? '\n\n' + createCollapsible('📤 Result', '```json\n' + safeJsonStringify(item.result, 2) + '\n```', false) : '';
+    // Issue #1843: render MCP-result images inline; base64 is redacted from JSON below.
+    const imagesSection = await imageRenderer.section([item.result], `${item.tool || 'mcp'} image`);
+    const imagesBlock = imagesSection ? '\n\n' + imagesSection : '';
+    const resultSection = item.result != null ? '\n\n' + createCollapsible('📤 Result', '```json\n' + safeJsonStringify(redactImageData(item.result), 2) + '\n```', false) : '';
     const errorSection = item.error != null ? '\n\n' + createCollapsible('❌ Error', '```json\n' + safeJsonStringify(item.error, 2) + '\n```', true) : '';
 
     await postComment(`## 🔌 Codex MCP tool call
 
 ${summary}
-${details}${resultSection}${errorSection}
+${details}${resultSection}${imagesBlock}${errorSection}
 
 ---
 
-${createRawJsonSection(data)}`);
+${createRedactedRawJsonSection(data)}`);
   };
 
   const handleCodexWebSearch = async data => {
@@ -1388,6 +1406,7 @@ ${createRawJsonSection(data)}`;
     processEvent,
     flush,
     getState,
+    imageUploader: imageRenderer.uploader, // Issue #1843: exposed for callers/tests.
     // Expose individual handlers for testing
     _handlers: {
       handleSystemInit,

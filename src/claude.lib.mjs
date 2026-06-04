@@ -687,6 +687,8 @@ export const executeClaudeCommand = async params => {
         // so the comment-posting path can honor them; flags default to false.
         skipOutputSanitization: argv['dangerously-skip-output-sanitization'] === true,
         skipActiveTokensOutputSanitization: argv['dangerously-skip-active-tokens-output-sanitization'] === true,
+        // Issue #1843: upload & embed images by default; --no-interactive-image-upload opts out.
+        imageUploadEnabled: argv['interactive-image-upload'] !== false,
       });
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });

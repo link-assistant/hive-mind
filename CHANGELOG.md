@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.74.3
+
+### Patch Changes
+
+- 741752e: Bump the Docker-in-Docker base image to `konard/box-dind:2.1.4` so `docker exec` sessions default to the `box` user with `/home/box` while dockerd still starts correctly.
+
 ## 1.74.2
 
 ### Patch Changes

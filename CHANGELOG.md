@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.74.2
+
+### Patch Changes
+
+- d726744: Add cleanup process diagnostics for mapping agent PIDs to task sessions and stopping orphaned terminal-session agents.
+
 ## 1.74.1
 
 ### Patch Changes

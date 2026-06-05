@@ -585,9 +585,7 @@ jobs:
             ${{ env.DIND_IMAGE_NAME }}:test \
             bash /verify-docker-image.sh
 
-          docker run --rm --privileged \
-            ${{ env.DIND_IMAGE_NAME }}:test \
-            bash -lc 'docker info && docker run hello-world'
+          bash scripts/verify-dind-exec-defaults.sh "${{ env.DIND_IMAGE_NAME }}:test"
 
           echo ""
           echo "All system, development, and nested Docker verification checks passed!"

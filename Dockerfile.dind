@@ -7,10 +7,10 @@
 #   docker run --rm --runtime=sysbox-runc konard/hive-mind-dind:latest docker ps
 #
 # Box image version: pinned to a specific release for stable, reproducible builds.
-# To upgrade: update the version tag below and in Dockerfile/coolify/Dockerfile.
+# To upgrade: update the dind version tag below.
 # Latest Box releases: https://github.com/link-foundation/box/releases
 
-FROM konard/box-dind:2.1.1
+FROM konard/box-dind:2.1.4
 ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---
@@ -118,11 +118,3 @@ RUN mkdir -p /home/box/.claude && \
     else \
       echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline - solve re-applies it at runtime"; \
     fi
-
-# Keep the final image as root so /usr/local/bin/dind-entrypoint.sh can start
-# dockerd, then hand the requested command to the box user through Box's
-# standard entrypoint.
-USER root
-SHELL ["/bin/bash", "-c"]
-ENTRYPOINT ["/usr/local/bin/dind-entrypoint.sh"]
-CMD ["/bin/bash"]

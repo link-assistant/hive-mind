@@ -20,6 +20,10 @@ const assertIncludes = (content, expected, filePath) => {
   assert.ok(content.includes(expected), `${filePath} should include ${expected}`);
 };
 
+const assertExcludes = (content, unexpected, filePath) => {
+  assert.ok(!content.includes(unexpected), `${filePath} should not include ${unexpected}`);
+};
+
 const assertFileExists = async filePath => {
   try {
     const stat = await fs.stat(path.join(repoRoot, filePath));
@@ -33,10 +37,12 @@ const assertFileExists = async filePath => {
 };
 
 await assertFileExists('Dockerfile.dind');
+await assertFileExists('scripts/verify-dind-exec-defaults.sh');
 
 const dindDockerfile = await read('Dockerfile.dind');
+const verifyDindExecDefaults = await read('scripts/verify-dind-exec-defaults.sh');
 
-assertIncludes(dindDockerfile, 'FROM konard/box-dind:2.1.1', 'Dockerfile.dind');
+assertIncludes(dindDockerfile, 'FROM konard/box-dind:2.1.4', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ARG HIVE_MIND_VERSION=latest', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ENV HIVE_MIND_IMAGE_VARIANT=dind', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="vfs"', 'Dockerfile.dind');
@@ -44,9 +50,8 @@ assertIncludes(dindDockerfile, 'bun install -g "@link-assistant/hive-mind@${HIVE
 assertIncludes(dindDockerfile, 'test "$(hive --version)" = "${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'configure-claude --settings-path /home/box/.claude/settings.json', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'configure-claude --settings-path /home/box/.claude/settings.json --verify', 'Dockerfile.dind');
-assertIncludes(dindDockerfile, 'USER root', 'Dockerfile.dind');
-assertIncludes(dindDockerfile, 'ENTRYPOINT ["/usr/local/bin/dind-entrypoint.sh"]', 'Dockerfile.dind');
-assertIncludes(dindDockerfile, 'CMD ["/bin/bash"]', 'Dockerfile.dind');
+assertExcludes(dindDockerfile, 'USER root', 'Dockerfile.dind');
+assertExcludes(dindDockerfile, 'Keep the final image as root', 'Dockerfile.dind');
 
 const detectCodeChanges = await read('scripts/detect-code-changes.mjs');
 assertIncludes(detectCodeChanges, 'Dockerfile.dind', 'scripts/detect-code-changes.mjs');
@@ -68,7 +73,14 @@ assertIncludes(dockerPrSection, 'docker build --progress=plain -f Dockerfile.din
 assertIncludes(dockerPrSection, 'build-dind-output.log', '.github/workflows/release.yml');
 assertIncludes(dockerPrSection, '${{ env.DIND_IMAGE_NAME }}:test', '.github/workflows/release.yml');
 assertIncludes(dockerPrSection, 'docker run --rm --privileged', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, 'docker run hello-world', '.github/workflows/release.yml');
+assertIncludes(dockerPrSection, 'bash scripts/verify-dind-exec-defaults.sh "${{ env.DIND_IMAGE_NAME }}:test"', '.github/workflows/release.yml');
+
+assertIncludes(verifyDindExecDefaults, 'container_name="hive-mind-dind-verify"', 'scripts/verify-dind-exec-defaults.sh');
+assertIncludes(verifyDindExecDefaults, 'docker exec "$container_name" whoami', 'scripts/verify-dind-exec-defaults.sh');
+assertIncludes(verifyDindExecDefaults, 'docker exec "$container_name" bash -lc \'echo $HOME\'', 'scripts/verify-dind-exec-defaults.sh');
+assertIncludes(verifyDindExecDefaults, 'docker exec "$container_name" docker ps', 'scripts/verify-dind-exec-defaults.sh');
+assertIncludes(verifyDindExecDefaults, 'docker exec "$container_name" pgrep -x dockerd', 'scripts/verify-dind-exec-defaults.sh');
+assertIncludes(verifyDindExecDefaults, 'docker run hello-world', 'scripts/verify-dind-exec-defaults.sh');
 
 assertIncludes(releaseYml, 'docker-publish-dind:\n    name: Docker Publish DinD', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'docker-publish-dind-merge:\n    name: Docker Publish DinD (Merge)', '.github/workflows/release.yml');

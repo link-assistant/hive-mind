@@ -1,0 +1,355 @@
+Snapshot	UNKNOWN STEP	﻿2026-06-06T11:37:45.4521228Z Current runner version: '2.334.0'
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4559446Z ##[group]Runner Image Provisioner
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4560768Z Hosted Compute Agent
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4561741Z Version: 20260520.533
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4562686Z Commit: 189110e25284a9812c124fd27b339e2fb4f2f9db
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4564122Z Build Date: 2026-05-20T17:44:04Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4565177Z Worker ID: {92e789b6-ff00-415a-a688-91492a4e0bc4}
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4566332Z Azure Region: eastus
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4567273Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4569424Z ##[group]Operating System
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4570557Z Ubuntu
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4571353Z 24.04.4
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4572195Z LTS
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4573083Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4574207Z ##[group]Runner Image
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4575250Z Image: ubuntu-24.04
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4576117Z Version: 20260525.161.1
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4578240Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260525.161/images/ubuntu/Ubuntu2404-Readme.md
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4580660Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260525.161
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4582204Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4584034Z ##[group]GITHUB_TOKEN Permissions
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4587210Z Contents: read
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4588118Z Metadata: read
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4589105Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4592278Z Secret source: Actions
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.4593693Z Prepare workflow directory
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.5063874Z Prepare all required actions
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.5119448Z Getting action download info
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:45.8349209Z Download action repository 'actions/checkout@v6' (SHA:df4cb1c069e1874edd31b4311f1884172cec0e10)
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.0585028Z Download action repository 'actions/upload-artifact@v7' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.2407972Z Complete job name: Snapshot
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3223909Z ##[group]Run actions/checkout@v6
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3224890Z with:
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3225407Z   repository: ProverCoderAI/docker-git
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3230337Z   token: ***
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3230822Z   ssh-strict: true
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3231310Z   ssh-user: git
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3231802Z   persist-credentials: true
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3232351Z   clean: true
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3232845Z   sparse-checkout-cone-mode: true
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3233571Z   fetch-depth: 1
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3234064Z   fetch-tags: false
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3234565Z   show-progress: true
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3235064Z   lfs: false
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3235520Z   submodules: false
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3236003Z   set-safe-directory: true
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.3236746Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4278596Z Syncing repository: ProverCoderAI/docker-git
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4280674Z ##[group]Getting Git version info
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4281606Z Working directory is '/home/runner/work/docker-git/docker-git'
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4282836Z [command]/usr/bin/git version
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4302783Z git version 2.54.0
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4359979Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4375719Z Temporarily overriding HOME='/home/runner/work/_temp/eaa24d6e-20ee-4bdb-8fc3-ba6f8f252f8b' before making global git config changes
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4378322Z Adding repository directory to the temporary git global config as a safe directory
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4381772Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/docker-git/docker-git
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4432775Z Deleting the contents of '/home/runner/work/docker-git/docker-git'
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4437548Z ##[group]Determining repository object format
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4439919Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4441279Z ##[group]Initializing the repository
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4444922Z [command]/usr/bin/git init /home/runner/work/docker-git/docker-git
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4527423Z hint: Using 'master' as the name for the initial branch. This default branch name
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4529316Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4531498Z hint: to use in all of your new repositories, which will suppress this warning,
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4533783Z hint: call:
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4534622Z hint:
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4535538Z hint: 	git config --global init.defaultBranch <name>
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4536686Z hint:
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4537795Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4539554Z hint: 'development'. The just-created branch can be renamed via this command:
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4540948Z hint:
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4541716Z hint: 	git branch -m <name>
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4542601Z hint:
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4543996Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4545972Z Initialized empty Git repository in /home/runner/work/docker-git/docker-git/.git/
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4549202Z [command]/usr/bin/git remote add origin https://github.com/ProverCoderAI/docker-git
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4592333Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4594193Z ##[group]Disabling automatic garbage collection
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4595750Z [command]/usr/bin/git config --local gc.auto 0
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4630352Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4631868Z ##[group]Setting up auth
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4633084Z Removing SSH command configuration
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4637184Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.4675503Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5028634Z Removing HTTP extra header
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5030153Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5080415Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5330820Z Removing includeIf entries pointing to credentials config files
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5338313Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5378166Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5629162Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5669567Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/docker-git/docker-git/.git.path /home/runner/work/_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5702878Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5737435Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5772399Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5800869Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5801736Z ##[group]Fetching the repository
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:46.5810854Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e670066bbf0e2951229d3ecf3e5060cbbc8f711a:refs/remotes/pull/381/merge
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:58.8996197Z From https://github.com/ProverCoderAI/docker-git
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:58.8997387Z  * [new ref]         e670066bbf0e2951229d3ecf3e5060cbbc8f711a -> pull/381/merge
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:58.9029217Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:58.9029868Z ##[group]Determining the checkout info
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:58.9030870Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:58.9036623Z [command]/usr/bin/git sparse-checkout disable
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:58.9080466Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:58.9110963Z ##[group]Checking out the ref
+Snapshot	UNKNOWN STEP	2026-06-06T11:37:58.9115421Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/381/merge
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:01.0685156Z Updating files:   3% (35/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:01.0694127Z Updating files:   3% (42/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.1396659Z Updating files:   4% (46/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.2782436Z Updating files:   4% (52/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5555128Z Updating files:   5% (58/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5568195Z Updating files:   6% (69/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5596043Z Updating files:   7% (81/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5659926Z Updating files:   8% (92/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5711736Z Updating files:   9% (104/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5753025Z Updating files:  10% (115/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5799055Z Updating files:  11% (127/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5810862Z Updating files:  12% (138/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5818351Z Updating files:  13% (150/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5828658Z Updating files:  14% (161/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5841418Z Updating files:  15% (173/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5852070Z Updating files:  16% (184/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5860684Z Updating files:  17% (196/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5868233Z Updating files:  18% (207/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5875873Z Updating files:  19% (219/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5883185Z Updating files:  20% (230/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5890911Z Updating files:  21% (242/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5897719Z Updating files:  22% (253/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5904250Z Updating files:  23% (265/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5910588Z Updating files:  24% (276/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5918776Z Updating files:  25% (287/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5926621Z Updating files:  26% (299/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5933134Z Updating files:  27% (310/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5938694Z Updating files:  28% (322/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5945572Z Updating files:  29% (333/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5951550Z Updating files:  30% (345/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5958207Z Updating files:  31% (356/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5964399Z Updating files:  32% (368/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5972730Z Updating files:  33% (379/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5978798Z Updating files:  34% (391/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5985035Z Updating files:  35% (402/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.5993660Z Updating files:  36% (414/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6002186Z Updating files:  37% (425/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6009383Z Updating files:  38% (437/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6015656Z Updating files:  39% (448/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6022508Z Updating files:  40% (460/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6031080Z Updating files:  41% (471/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6037640Z Updating files:  42% (483/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6055496Z Updating files:  43% (494/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6056127Z Updating files:  44% (506/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6059668Z Updating files:  45% (517/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6066426Z Updating files:  46% (529/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6073938Z Updating files:  47% (540/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6079344Z Updating files:  48% (552/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6085657Z Updating files:  49% (563/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6091701Z Updating files:  50% (574/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6096900Z Updating files:  51% (586/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6102016Z Updating files:  52% (597/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6108251Z Updating files:  53% (609/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6114843Z Updating files:  54% (620/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6121109Z Updating files:  55% (632/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6128352Z Updating files:  56% (643/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6135104Z Updating files:  57% (655/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6141863Z Updating files:  58% (666/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6160193Z Updating files:  59% (678/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6161046Z Updating files:  60% (689/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6161492Z Updating files:  61% (701/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6168507Z Updating files:  62% (712/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6174148Z Updating files:  63% (724/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6180726Z Updating files:  64% (735/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6187771Z Updating files:  65% (747/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6197242Z Updating files:  66% (758/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6204170Z Updating files:  67% (770/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6210124Z Updating files:  68% (781/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6217477Z Updating files:  69% (793/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6226101Z Updating files:  70% (804/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6232618Z Updating files:  71% (816/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6239321Z Updating files:  72% (827/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6244177Z Updating files:  73% (839/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6253613Z Updating files:  74% (850/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6259645Z Updating files:  75% (861/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6266777Z Updating files:  76% (873/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6272727Z Updating files:  77% (884/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6279170Z Updating files:  78% (896/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6287018Z Updating files:  79% (907/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6291871Z Updating files:  80% (919/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6299356Z Updating files:  81% (930/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6304440Z Updating files:  82% (942/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6311231Z Updating files:  83% (953/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6317381Z Updating files:  84% (965/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6324916Z Updating files:  85% (976/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6332540Z Updating files:  86% (988/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6340666Z Updating files:  87% (999/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6347553Z Updating files:  88% (1011/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6355627Z Updating files:  89% (1022/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6361800Z Updating files:  90% (1034/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6368313Z Updating files:  91% (1045/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6375723Z Updating files:  92% (1057/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6383437Z Updating files:  93% (1068/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6389151Z Updating files:  94% (1080/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6398009Z Updating files:  95% (1091/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6404452Z Updating files:  96% (1103/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6412541Z Updating files:  97% (1114/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6419861Z Updating files:  98% (1126/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6425738Z Updating files:  99% (1137/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6426455Z Updating files: 100% (1148/1148)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6426843Z Updating files: 100% (1148/1148), done.
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6445822Z Note: switching to 'refs/remotes/pull/381/merge'.
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6446428Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6446985Z You are in 'detached HEAD' state. You can look around, make experimental
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6447876Z changes and commit them, and you can discard any commits you make in this
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6544702Z state without impacting any branches by switching back to a branch.
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6559473Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6559920Z If you want to create a new branch to retain commits you create, you may
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6560580Z do so (now or later) by using -c with the switch command. Example:
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6560879Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6560998Z   git switch -c <new-branch-name>
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6561189Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6561311Z Or undo this operation with:
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6561473Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6561571Z   git switch -
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6561698Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6561922Z Turn off this advice by setting config variable advice.detachedHead to false
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6562223Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6562571Z HEAD is now at e670066 Merge b9961886e00e8413cb355b2037c6a4d2cc93e942 into f52a87fdd3add2307c45f4cb609ec08299a720e9
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6571687Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6617713Z [command]/usr/bin/git log -1 --format=%H
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6642877Z e670066bbf0e2951229d3ecf3e5060cbbc8f711a
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6944058Z Prepare all required actions
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.6944528Z Getting action download info
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.8287636Z Download action repository 'oven-sh/setup-bun@v2' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:02.9388698Z Download action repository 'actions/setup-node@v6' (SHA:48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0504454Z ##[group]Run ./.github/actions/setup
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0504763Z with:
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0504995Z   bun-version: 1.3.11
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0505244Z   node-version: 24
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0505490Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0689953Z ##[group]Run oven-sh/setup-bun@v2
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0690241Z with:
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0690457Z   bun-version: 1.3.11
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0690691Z   no-cache: false
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0693791Z   token: ***
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.0694018Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.3015021Z Cache hit for: bun-7/QmryP/e10nHn0ivgSAK3UdqOg=
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.5410404Z Received 35349280 of 35349280 (100.0%), 167.7 MBs/sec
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.5410977Z Cache Size: ~34 MB (35349280 B)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.5445126Z [command]/usr/bin/tar -xf /home/runner/work/_temp/65dcd74a-a953-4c1e-92f4-28b7fc99f53d/cache.tzst -P -C /home/runner/work/docker-git/docker-git --use-compress-program unzstd
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.6999500Z Cache restored successfully
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.7025446Z [command]/home/runner/.bun/bin/bun --revision
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.7074057Z 1.3.11+af24e281e
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.7080306Z Using a cached version of Bun: 1.3.11+af24e281e
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.7269101Z ##[group]Run actions/setup-node@v6
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.7269395Z with:
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.7269618Z   node-version: 24
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.7269871Z   check-latest: false
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.7272628Z   token: ***
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.7272871Z   package-manager-cache: true
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.7273143Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.8922925Z Found in cache @ /opt/hostedtoolcache/node/24.16.0/x64
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:03.8924047Z ##[group]Environment details
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.1875607Z node: v24.16.0
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.1875999Z npm: 11.13.0
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.1876293Z yarn: 1.22.22
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.1877452Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2017111Z ##[group]Run if command -v ssh >/dev/null 2>&1 && command -v ssh-keygen >/dev/null 2>&1; then
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2017854Z ^[[36;1mif command -v ssh >/dev/null 2>&1 && command -v ssh-keygen >/dev/null 2>&1; then^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2018434Z ^[[36;1m  echo "OpenSSH client is already installed; skipping apt install"^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2018824Z ^[[36;1m  exit 0^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2019047Z ^[[36;1mfi^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2019256Z ^[[36;1m^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2019472Z ^[[36;1mfor attempt in 1 2 3; do^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2019767Z ^[[36;1m  sudo rm -rf /var/lib/apt/lists/*^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2020067Z ^[[36;1m  if sudo timeout 120s apt-get \^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2020366Z ^[[36;1m    -o Acquire::Retries=3 \^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2020664Z ^[[36;1m    -o Acquire::By-Hash=force \^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2020983Z ^[[36;1m    -o Acquire::http::Timeout=20 \^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2021314Z ^[[36;1m    -o Acquire::https::Timeout=20 \^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2021615Z ^[[36;1m    update; then^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2021862Z ^[[36;1m    break^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2022090Z ^[[36;1m  fi^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2022331Z ^[[36;1m  if [[ "$attempt" == "3" ]]; then^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2022674Z ^[[36;1m    echo "apt-get update failed after retries" >&2^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2023002Z ^[[36;1m    exit 1^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2023224Z ^[[36;1m  fi^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2023799Z ^[[36;1m  echo "apt-get update attempt ${attempt} failed; retrying..." >&2^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2024226Z ^[[36;1m  sleep $((attempt * 2))^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2024492Z ^[[36;1mdone^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2024718Z ^[[36;1msudo timeout 120s apt-get \^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2025000Z ^[[36;1m  -o Acquire::Retries=3 \^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2025294Z ^[[36;1m  -o Acquire::http::Timeout=20 \^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2025856Z ^[[36;1m  -o Acquire::https::Timeout=20 \^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2026160Z ^[[36;1m  install -y openssh-client^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2101123Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2101511Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2206739Z OpenSSH client is already installed; skipping apt install
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2230598Z ##[group]Run npm install -g node-gyp
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2230932Z ^[[36;1mnpm install -g node-gyp^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2256101Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:06.2256468Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.3613093Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.3613945Z added 20 packages in 2s
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.3614253Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.3618559Z 2 packages are looking for funding
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.3619359Z   run `npm fund` for details
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.4051657Z ##[group]Run bun install --frozen-lockfile
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.4052048Z ^[[36;1mbun install --frozen-lockfile^[[0m
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.4079848Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.4080214Z ##[endgroup]
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.4160814Z bun install v1.3.11 (af24e281)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.4267966Z Resolving dependencies
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8710167Z Resolved, downloaded and extracted [178]
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8711007Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8711418Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8711815Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8712200Z
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8712552Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8735837Z error: @fedify/webfinger@2.2.5 failed to resolve
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8736459Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8736876Z error: @fedify/webfinger@2.2.5 failed to resolve
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.9039863Z ##[error]Process completed with exit code 1.
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.9152912Z Post job cleanup.
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.9222824Z Post job cleanup.
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0066782Z [command]/usr/bin/git version
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0104913Z git version 2.54.0
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0146407Z Temporarily overriding HOME='/home/runner/work/_temp/da9c0f33-7192-4c3d-bc30-2bf6a2ea642c' before making global git config changes
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0147893Z Adding repository directory to the temporary git global config as a safe directory
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0152484Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/docker-git/docker-git
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0184751Z Removing SSH command configuration
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0190825Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0226116Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0466811Z Removing HTTP extra header
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0471899Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0507076Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0741474Z Removing includeIf entries pointing to credentials config files
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0748463Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0775032Z includeif.gitdir:/home/runner/work/docker-git/docker-git/.git.path
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0776013Z includeif.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0776800Z includeif.gitdir:/github/workspace/.git.path
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0777475Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0785123Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/docker-git/docker-git/.git.path
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0807724Z /home/runner/work/_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0819221Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/docker-git/docker-git/.git.path /home/runner/work/_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0853677Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0876103Z /home/runner/work/_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0887627Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0921342Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0943946Z /github/runner_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0951880Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.0983573Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.1005471Z /github/runner_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.1014965Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.1048499Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.1287220Z Removing credentials config '/home/runner/work/_temp/git-credentials-7bc972a4-4bb6-469c-9b82-ac225b748cf5.config'
+Snapshot	UNKNOWN STEP	2026-06-06T11:38:09.1432053Z Cleaning up orphan processes

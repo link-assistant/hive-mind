@@ -1,0 +1,980 @@
+Final build (windows-latest)	UNKNOWN STEP	﻿2026-06-06T11:37:45.8204080Z Current runner version: '2.334.0'
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8233249Z ##[group]Runner Image Provisioner
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8234108Z Hosted Compute Agent
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8234701Z Version: 20260520.533
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8235318Z Commit: 189110e25284a9812c124fd27b339e2fb4f2f9db
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8236287Z Build Date: 2026-05-20T17:44:04Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8236961Z Worker ID: {88cfe588-8be1-4831-81ab-381aadf0c5ec}
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8237612Z Azure Region: eastus2
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8238185Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8239596Z ##[group]Operating System
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8240278Z Microsoft Windows Server 2025
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8240849Z 10.0.26100
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8241307Z Datacenter
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8241796Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8242286Z ##[group]Runner Image
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8242808Z Image: windows-2025
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8243315Z Version: 20260525.149.1
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8244862Z Included Software: https://github.com/actions/runner-images/blob/win25/20260525.149/images/windows/Windows2025-Readme.md
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8246548Z Image Release: https://github.com/actions/runner-images/releases/tag/win25%2F20260525.149
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8247747Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8248920Z ##[group]GITHUB_TOKEN Permissions
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8251000Z Contents: read
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8251818Z Metadata: read
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8252356Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8254665Z Secret source: Actions
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8255407Z Prepare workflow directory
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8679123Z Prepare all required actions
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8736354Z Getting action download info
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.1178272Z Download action repository 'actions/checkout@v6' (SHA:df4cb1c069e1874edd31b4311f1884172cec0e10)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3652171Z Download action repository 'actions/upload-artifact@v7' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5923847Z Complete job name: Final build (windows-latest)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7309882Z ##[group]Run actions/checkout@v6
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7311093Z with:
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7311545Z   repository: ProverCoderAI/docker-git
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7316117Z   token: ***
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7316507Z   ssh-strict: true
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7316904Z   ssh-user: git
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7317309Z   persist-credentials: true
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7317751Z   clean: true
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7318153Z   sparse-checkout-cone-mode: true
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7318635Z   fetch-depth: 1
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7319021Z   fetch-tags: false
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7319416Z   show-progress: true
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7319813Z   lfs: false
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7320178Z   submodules: false
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7320583Z   set-safe-directory: true
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.7321281Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.9005272Z Syncing repository: ProverCoderAI/docker-git
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.9007898Z ##[group]Getting Git version info
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:46.9008953Z Working directory is 'D:\a\docker-git\docker-git'
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.0038302Z [command]"C:\Program Files\Git\bin\git.exe" version
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.4322285Z git version 2.54.0.windows.1
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.4378624Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.4403762Z Temporarily overriding HOME='D:\a\_temp\385ffe89-b24e-4b0e-a167-302a4c147fa2' before making global git config changes
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.4406312Z Adding repository directory to the temporary git global config as a safe directory
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.4415436Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\docker-git\docker-git
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.5109397Z Deleting the contents of 'D:\a\docker-git\docker-git'
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.5116106Z ##[group]Determining repository object format
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.5119193Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.5128417Z ##[group]Initializing the repository
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.5129392Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\docker-git\docker-git
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.6161872Z Initialized empty Git repository in D:/a/docker-git/docker-git/.git/
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.6212356Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/ProverCoderAI/docker-git
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.6766419Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.6767630Z ##[group]Disabling automatic garbage collection
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.6775721Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.7087554Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.7089302Z ##[group]Setting up auth
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.7090273Z Removing SSH command configuration
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.7100935Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:47.7424607Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:49.3084638Z Removing HTTP extra header
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:49.3094055Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:49.3413277Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9102046Z Removing includeIf entries pointing to credentials config files
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9114832Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9454133Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:50.5182042Z [command]"C:\Program Files\Git\bin\git.exe" config --file D:\a\_temp\git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:50.5526073Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:D:/a/docker-git/docker-git/.git.path D:\a\_temp\git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:50.5858225Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:D:/a/docker-git/docker-git/.git/worktrees/*.path D:\a\_temp\git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:50.6254366Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:50.6593108Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:50.6948023Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:50.6948759Z ##[group]Fetching the repository
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:50.6963948Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e670066bbf0e2951229d3ecf3e5060cbbc8f711a:refs/remotes/pull/381/merge
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:57.6898773Z From https://github.com/ProverCoderAI/docker-git
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:57.6899890Z  * [new ref]         e670066bbf0e2951229d3ecf3e5060cbbc8f711a -> pull/381/merge
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:57.7310775Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:57.7313521Z ##[group]Determining the checkout info
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:57.7314249Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:57.7328445Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:57.7821707Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:57.8174177Z ##[group]Checking out the ref
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:37:57.8175110Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force refs/remotes/pull/381/merge
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:00.1769582Z Updating files:   3% (35/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:00.4483341Z Updating files:   3% (41/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:00.9890814Z Updating files:   4% (46/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:01.8407341Z Updating files:   4% (49/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.0972085Z Updating files:   5% (58/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1082169Z Updating files:   5% (60/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1120540Z Updating files:   6% (69/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1205388Z Updating files:   7% (81/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1327847Z Updating files:   8% (92/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1425374Z Updating files:   9% (104/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1510142Z Updating files:  10% (115/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1597371Z Updating files:  11% (127/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1640540Z Updating files:  12% (138/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1674846Z Updating files:  13% (150/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1708656Z Updating files:  14% (161/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1745057Z Updating files:  15% (173/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1780542Z Updating files:  16% (184/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1815173Z Updating files:  17% (196/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1855789Z Updating files:  18% (207/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1884510Z Updating files:  19% (219/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1911762Z Updating files:  20% (230/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1945902Z Updating files:  21% (242/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.1975722Z Updating files:  22% (253/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2003321Z Updating files:  23% (265/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2028334Z Updating files:  24% (276/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2066445Z Updating files:  25% (287/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2098352Z Updating files:  26% (299/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2125663Z Updating files:  27% (310/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2148985Z Updating files:  28% (322/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2180834Z Updating files:  29% (333/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2207377Z Updating files:  30% (345/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2232925Z Updating files:  31% (356/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2261824Z Updating files:  32% (368/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2299634Z Updating files:  33% (379/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2328093Z Updating files:  34% (391/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2354915Z Updating files:  35% (402/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2386375Z Updating files:  36% (414/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2417243Z Updating files:  37% (425/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2444174Z Updating files:  38% (437/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2473162Z Updating files:  39% (448/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2503811Z Updating files:  40% (460/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2535884Z Updating files:  41% (471/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2560456Z Updating files:  42% (483/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2606179Z Updating files:  43% (494/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2630663Z Updating files:  44% (506/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2665297Z Updating files:  45% (517/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2693370Z Updating files:  46% (529/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2725639Z Updating files:  47% (540/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2752059Z Updating files:  48% (552/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2777384Z Updating files:  49% (563/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2805765Z Updating files:  50% (574/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2833339Z Updating files:  51% (586/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2860386Z Updating files:  52% (597/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2887616Z Updating files:  53% (609/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2919315Z Updating files:  54% (620/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2946293Z Updating files:  55% (632/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.2978001Z Updating files:  56% (643/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3007296Z Updating files:  57% (655/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3035944Z Updating files:  58% (666/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3066255Z Updating files:  59% (678/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3091121Z Updating files:  60% (689/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3111309Z Updating files:  61% (701/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3141191Z Updating files:  62% (712/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3168113Z Updating files:  63% (724/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3195125Z Updating files:  64% (735/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3222383Z Updating files:  65% (747/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3257395Z Updating files:  66% (758/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3282856Z Updating files:  67% (770/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3313005Z Updating files:  68% (781/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3342652Z Updating files:  69% (793/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3374323Z Updating files:  70% (804/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3403979Z Updating files:  71% (816/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3437049Z Updating files:  72% (827/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3461349Z Updating files:  73% (839/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3491604Z Updating files:  74% (850/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3524861Z Updating files:  75% (861/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3551415Z Updating files:  76% (873/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3578970Z Updating files:  77% (884/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3607831Z Updating files:  78% (896/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3642106Z Updating files:  79% (907/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3665211Z Updating files:  80% (919/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3739856Z Updating files:  81% (930/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3766256Z Updating files:  82% (942/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3794950Z Updating files:  83% (953/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3820228Z Updating files:  84% (965/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3853073Z Updating files:  85% (976/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3880198Z Updating files:  86% (988/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3917484Z Updating files:  87% (999/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3944983Z Updating files:  88% (1011/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.3974997Z Updating files:  89% (1022/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4002942Z Updating files:  90% (1034/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4033237Z Updating files:  91% (1045/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4063490Z Updating files:  92% (1057/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4095343Z Updating files:  93% (1068/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4119859Z Updating files:  94% (1080/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4158804Z Updating files:  95% (1091/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4186680Z Updating files:  96% (1103/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4218257Z Updating files:  97% (1114/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4249038Z Updating files:  98% (1126/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4275977Z Updating files:  99% (1137/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4276694Z Updating files: 100% (1148/1148)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4276984Z Updating files: 100% (1148/1148), done.
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4388072Z Note: switching to 'refs/remotes/pull/381/merge'.
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4388670Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4389045Z You are in 'detached HEAD' state. You can look around, make experimental
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4389900Z changes and commit them, and you can discard any commits you make in this
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4390693Z state without impacting any branches by switching back to a branch.
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4391179Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4391498Z If you want to create a new branch to retain commits you create, you may
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4392250Z do so (now or later) by using -c with the switch command. Example:
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4392716Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4392878Z   git switch -c <new-branch-name>
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4393172Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4393675Z Or undo this operation with:
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4394003Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4394174Z   git switch -
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4394385Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4394763Z Turn off this advice by setting config variable advice.detachedHead to false
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4395300Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4395946Z HEAD is now at e670066 Merge b9961886e00e8413cb355b2037c6a4d2cc93e942 into f52a87fdd3add2307c45f4cb609ec08299a720e9
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.4815355Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.5181171Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.5482970Z e670066bbf0e2951229d3ecf3e5060cbbc8f711a
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.6056294Z Prepare all required actions
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.6056891Z Getting action download info
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.7588540Z Download action repository 'oven-sh/setup-bun@v2' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:02.9040356Z Download action repository 'actions/setup-node@v6' (SHA:48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.0820254Z ##[group]Run ./.github/actions/setup
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.0820511Z with:
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.0820688Z   bun-version: 1.3.11
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.0821073Z   node-version: 24.14.0
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.0821272Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.1089883Z ##[group]Run oven-sh/setup-bun@v2
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.1090136Z with:
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.1090299Z   bun-version: 1.3.11
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.1090487Z   no-cache: false
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.1093474Z   token: ***
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.1093648Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:03.5883122Z Downloading a new version of Bun: https://github.com/oven-sh/bun/releases/download/bun-v1.3.11/bun-windows-x64.zip
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2083286Z [command]"C:\Program Files\PowerShell\7\pwsh.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$ErrorActionPreference = 'Stop' ; try { Add-Type -AssemblyName System.IO.Compression.ZipFile } catch { } ; try { [System.IO.Compression.ZipFile]::ExtractToDirectory('D:\a\_temp\0f07dc58-3c20-4e09-b568-8eefdeb0a613.zip', 'D:\a\_temp\c879a6f4-ca7c-410a-aeab-f98c06f7694a', $true) } catch { if (($_.Exception.GetType().FullName -eq 'System.Management.Automation.MethodException') -or ($_.Exception.GetType().FullName -eq 'System.Management.Automation.RuntimeException') ){ Expand-Archive -LiteralPath 'D:\a\_temp\0f07dc58-3c20-4e09-b568-8eefdeb0a613.zip' -DestinationPath 'D:\a\_temp\c879a6f4-ca7c-410a-aeab-f98c06f7694a' -Force } else { throw $_ } } ;"
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:10.4699965Z [command]C:\Users\runneradmin\.bun\bin\bun.exe --revision
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:11.1548401Z 1.3.11+af24e281e
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:11.1928201Z ##[group]Run actions/setup-node@v6
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:11.1928455Z with:
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:11.1928620Z   node-version: 24.14.0
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:11.1928831Z   check-latest: false
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:11.1931844Z   token: ***
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:11.1932031Z   package-manager-cache: true
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:11.1932258Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:11.3886433Z Attempting to download 24.14.0...
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:11.7825020Z Acquiring 24.14.0 - x64 from https://github.com/actions/node-versions/releases/download/24.14.0-22380502845/node-24.14.0-win32-x64.7z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:12.1213703Z Extracting ...
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:14.4322751Z Adding to the cache ...
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:17.6297122Z ##[group]Environment details
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:18.9672275Z node: v24.14.0
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:18.9672631Z npm: 11.9.0
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:18.9672895Z yarn: 1.22.22
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:18.9673534Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:19.0045425Z ##[group]Run npm install -g node-gyp
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:19.0046149Z ^[[36;1mnpm install -g node-gyp^[[0m
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:19.0067085Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:19.0067541Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:28.2922744Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:28.2931735Z added 20 packages in 9s
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:28.2932128Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:28.2932436Z 2 packages are looking for funding
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:28.2932927Z   run `npm fund` for details
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:30.8898732Z ##[group]Run bun install --frozen-lockfile
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:30.8899072Z ^[[36;1mbun install --frozen-lockfile^[[0m
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:30.8913547Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:30.8913976Z ##[endgroup]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:30.9854893Z bun install v1.3.11 (af24e281)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:31.0075034Z Resolving dependencies
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5795735Z Resolved, downloaded and extracted [178]
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5796753Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5797507Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5801737Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5802272Z
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5803526Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5832242Z error: @fedify/webfinger@2.2.5 failed to resolve
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5832998Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5834369Z error: @fedify/webfinger@2.2.5 failed to resolve
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.6539164Z ##[error]Process completed with exit code 1.
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.6822632Z Post job cleanup.
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.7033299Z Post job cleanup.
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.9289030Z [command]"C:\Program Files\Git\bin\git.exe" version
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.9608419Z git version 2.54.0.windows.1
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.9684392Z Temporarily overriding HOME='D:\a\_temp\12c5d0d2-4bb3-48be-b70c-0d05e3b28314' before making global git config changes
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.9685800Z Adding repository directory to the temporary git global config as a safe directory
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.9698539Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\docker-git\docker-git
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:38.0055363Z Removing SSH command configuration
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:38.0066565Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:38.0412874Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:38.6866331Z Removing HTTP extra header
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:38.6877583Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:38.7230536Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.3003234Z Removing includeIf entries pointing to credentials config files
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.3027913Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.3317686Z includeif.gitdir:D:/a/docker-git/docker-git/.git.path
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.3318352Z includeif.gitdir:D:/a/docker-git/docker-git/.git/worktrees/*.path
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.3319067Z includeif.gitdir:/github/workspace/.git.path
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.3319607Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.3365602Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:D:/a/docker-git/docker-git/.git.path
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.3650243Z D:\a\_temp\git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.3702547Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:D:/a/docker-git/docker-git/.git.path D:\a\_temp\git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.4043502Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:D:/a/docker-git/docker-git/.git/worktrees/*.path
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.4322697Z D:\a\_temp\git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.4377674Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:D:/a/docker-git/docker-git/.git/worktrees/*.path D:\a\_temp\git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.4699231Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.4980919Z /github/runner_temp/git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.5028697Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.5358455Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.5686575Z /github/runner_temp/git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.5735237Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:39.6068730Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:40.2192770Z Removing credentials config 'D:\a\_temp\git-credentials-fef7945c-ab43-4bc6-ac94-5bf06f36521f.config'
+Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:40.2391064Z Cleaning up orphan processes
+Final build (macos-latest)	UNKNOWN STEP	﻿2026-06-06T11:37:48.0268810Z Current runner version: '2.334.0'
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0293510Z ##[group]Runner Image Provisioner
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0294510Z Hosted Compute Agent
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0294970Z Version: 20260520.533
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0295420Z Commit: 189110e25284a9812c124fd27b339e2fb4f2f9db
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0296000Z Build Date: 2026-05-20T17:44:04Z
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0296490Z Worker ID: {b54f8ffa-b1c1-4afe-aac4-9bce09ab09bd}
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0297070Z Azure Region: westus
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0297580Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0299070Z ##[group]Operating System
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0299610Z macOS
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0300020Z 15.7.7
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0300490Z 24G720
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0300940Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0301360Z ##[group]Runner Image
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0301830Z Image: macos-15-arm64
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0302370Z Version: 20260527.0100.1
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0303350Z Included Software: https://github.com/actions/runner-images/blob/macos-15-arm64/20260527.0100/images/macos/macos-15-arm64-Readme.md
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0304410Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-15-arm64%2F20260527.0100
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0305220Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0306210Z ##[group]GITHUB_TOKEN Permissions
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0308200Z Contents: read
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0308680Z Metadata: read
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0309150Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0311090Z Secret source: Actions
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0311580Z Prepare workflow directory
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0763020Z Prepare all required actions
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.0795950Z Getting action download info
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:48.5920340Z Download action repository 'actions/checkout@v6' (SHA:df4cb1c069e1874edd31b4311f1884172cec0e10)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.5684660Z Download action repository 'actions/upload-artifact@v7' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.8348700Z Complete job name: Final build (macos-latest)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9475380Z ##[group]Run actions/checkout@v6
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9476160Z with:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9476660Z   repository: ProverCoderAI/docker-git
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9480120Z   token: ***
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9480470Z   ssh-strict: true
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9480820Z   ssh-user: git
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9481200Z   persist-credentials: true
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9481590Z   clean: true
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9481960Z   sparse-checkout-cone-mode: true
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9482380Z   fetch-depth: 1
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9482730Z   fetch-tags: false
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9483090Z   show-progress: true
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9483470Z   lfs: false
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9483820Z   submodules: false
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9484190Z   set-safe-directory: true
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:49.9484920Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.6533800Z Syncing repository: ProverCoderAI/docker-git
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.6541180Z ##[group]Getting Git version info
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.6544980Z Working directory is '/Users/runner/work/docker-git/docker-git'
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.6546740Z [command]/opt/homebrew/bin/git version
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7040430Z git version 2.54.0
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7061320Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7071260Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/6f2b5521-4ad1-416d-99f3-35ce42249fe9/.gitconfig'
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7077730Z Temporarily overriding HOME='/Users/runner/work/_temp/6f2b5521-4ad1-416d-99f3-35ce42249fe9' before making global git config changes
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7079060Z Adding repository directory to the temporary git global config as a safe directory
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7082270Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/docker-git/docker-git
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7257460Z Deleting the contents of '/Users/runner/work/docker-git/docker-git'
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7269690Z ##[group]Determining repository object format
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7273810Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7275480Z ##[group]Initializing the repository
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7276470Z [command]/opt/homebrew/bin/git init /Users/runner/work/docker-git/docker-git
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7638460Z hint: Using 'master' as the name for the initial branch. This default branch name
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7647210Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7648340Z hint: to use in all of your new repositories, which will suppress this warning,
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7649120Z hint: call:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7649610Z hint:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7650550Z hint: 	git config --global init.defaultBranch <name>
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7651180Z hint:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7653450Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7655220Z hint: 'development'. The just-created branch can be renamed via this command:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7655960Z hint:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7657190Z hint: 	git branch -m <name>
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7657900Z hint:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7658760Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7672220Z Initialized empty Git repository in /Users/runner/work/docker-git/docker-git/.git/
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7677690Z [command]/opt/homebrew/bin/git remote add origin https://github.com/ProverCoderAI/docker-git
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7740420Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7741250Z ##[group]Disabling automatic garbage collection
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7742100Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7807180Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7807950Z ##[group]Setting up auth
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7810380Z Removing SSH command configuration
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7813300Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.7886770Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.8936760Z Removing HTTP extra header
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.8941400Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:50.9056990Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.0173750Z Removing includeIf entries pointing to credentials config files
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.0185650Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.0271770Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.2111560Z [command]/opt/homebrew/bin/git config --file /Users/runner/work/_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.2116660Z [command]/opt/homebrew/bin/git config --local includeIf.gitdir:/Users/runner/work/docker-git/docker-git/.git.path /Users/runner/work/_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.2122000Z [command]/opt/homebrew/bin/git config --local includeIf.gitdir:/Users/runner/work/docker-git/docker-git/.git/worktrees/*.path /Users/runner/work/_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.2176840Z [command]/opt/homebrew/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.2248630Z [command]/opt/homebrew/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.2344860Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.2349730Z ##[group]Fetching the repository
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:51.2361740Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e670066bbf0e2951229d3ecf3e5060cbbc8f711a:refs/remotes/pull/381/merge
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:59.4692010Z From https://github.com/ProverCoderAI/docker-git
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:59.4699880Z  * [new ref]         e670066bbf0e2951229d3ecf3e5060cbbc8f711a -> pull/381/merge
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:59.4830720Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:59.4862800Z ##[group]Determining the checkout info
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:59.4866260Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:59.4867980Z [command]/opt/homebrew/bin/git sparse-checkout disable
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:59.5093740Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:59.5279400Z ##[group]Checking out the ref
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:37:59.5282880Z [command]/opt/homebrew/bin/git checkout --progress --force refs/remotes/pull/381/merge
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:01.6986280Z Updating files:   3% (35/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:02.6368840Z Updating files:   3% (40/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:02.6545830Z Updating files:   3% (42/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:03.5972010Z Updating files:   4% (46/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:03.9916050Z Updating files:   4% (51/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.1702500Z Updating files:   5% (58/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.1742440Z Updating files:   6% (69/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.1859500Z Updating files:   7% (81/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2061080Z Updating files:   8% (92/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2297250Z Updating files:   9% (104/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2427880Z Updating files:  10% (115/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2555590Z Updating files:  11% (127/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2600120Z Updating files:  12% (138/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2611640Z Updating files:  13% (150/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2645770Z Updating files:  14% (161/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2692040Z Updating files:  15% (173/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2722480Z Updating files:  16% (184/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2762390Z Updating files:  17% (196/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2782090Z Updating files:  18% (207/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2813340Z Updating files:  19% (219/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2824570Z Updating files:  20% (230/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2837150Z Updating files:  21% (242/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2889530Z Updating files:  22% (253/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2894660Z Updating files:  23% (265/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2938430Z Updating files:  24% (276/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.2959430Z Updating files:  25% (287/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3021460Z Updating files:  26% (299/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3047020Z Updating files:  27% (310/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3073580Z Updating files:  28% (322/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3107190Z Updating files:  29% (333/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3138650Z Updating files:  30% (345/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3168240Z Updating files:  31% (356/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3196620Z Updating files:  32% (368/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3240980Z Updating files:  33% (379/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3314210Z Updating files:  34% (391/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3322510Z Updating files:  35% (402/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3425040Z Updating files:  36% (414/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3450510Z Updating files:  37% (425/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3508610Z Updating files:  38% (437/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3521930Z Updating files:  39% (448/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3522450Z Updating files:  40% (460/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3551920Z Updating files:  41% (471/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3553310Z Updating files:  42% (483/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3555730Z Updating files:  43% (494/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3556260Z Updating files:  44% (506/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3662750Z Updating files:  45% (517/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3691720Z Updating files:  46% (529/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3694090Z Updating files:  47% (540/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3700940Z Updating files:  48% (552/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3803270Z Updating files:  49% (563/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.3905780Z Updating files:  50% (574/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4007410Z Updating files:  51% (586/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4420200Z Updating files:  52% (597/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4480110Z Updating files:  53% (609/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4544670Z Updating files:  54% (620/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4554090Z Updating files:  55% (632/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4555390Z Updating files:  56% (643/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4556100Z Updating files:  57% (655/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4556630Z Updating files:  58% (666/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4557300Z Updating files:  59% (678/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4558090Z Updating files:  60% (689/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4558750Z Updating files:  61% (701/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4559520Z Updating files:  62% (712/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4560150Z Updating files:  63% (724/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4560900Z Updating files:  64% (735/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4561660Z Updating files:  65% (747/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4562310Z Updating files:  66% (758/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4563080Z Updating files:  67% (770/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4563720Z Updating files:  68% (781/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4564480Z Updating files:  69% (793/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4565210Z Updating files:  70% (804/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4565970Z Updating files:  71% (816/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4566660Z Updating files:  72% (827/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4567440Z Updating files:  73% (839/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4568100Z Updating files:  74% (850/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4568750Z Updating files:  75% (861/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4569250Z Updating files:  76% (873/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4569750Z Updating files:  77% (884/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4570250Z Updating files:  78% (896/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4570950Z Updating files:  79% (907/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4571460Z Updating files:  80% (919/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4571970Z Updating files:  81% (930/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4572480Z Updating files:  82% (942/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4573370Z Updating files:  83% (953/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4573730Z Updating files:  84% (965/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4574050Z Updating files:  85% (976/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4574700Z Updating files:  86% (988/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4575010Z Updating files:  87% (999/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4575300Z Updating files:  88% (1011/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4575590Z Updating files:  89% (1022/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4575870Z Updating files:  90% (1034/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4576070Z Updating files:  91% (1045/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4576390Z Updating files:  92% (1057/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4608340Z Updating files:  93% (1068/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4668630Z Updating files:  94% (1080/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4669530Z Updating files:  95% (1091/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4670070Z Updating files:  96% (1103/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4686140Z Updating files:  97% (1114/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4760610Z Updating files:  98% (1126/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4789680Z Updating files:  99% (1137/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4790260Z Updating files: 100% (1148/1148)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4790600Z Updating files: 100% (1148/1148), done.
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.4791360Z HEAD is now at e670066 Merge b9961886e00e8413cb355b2037c6a4d2cc93e942 into f52a87fdd3add2307c45f4cb609ec08299a720e9
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.5880420Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.6284130Z [command]/opt/homebrew/bin/git log -1 --format=%H
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.6388380Z e670066bbf0e2951229d3ecf3e5060cbbc8f711a
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.7034410Z Prepare all required actions
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.7035980Z Getting action download info
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:04.9130880Z Download action repository 'oven-sh/setup-bun@v2' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.4159570Z Download action repository 'actions/setup-node@v6' (SHA:48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6459870Z ##[group]Run ./.github/actions/setup
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6460140Z with:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6460310Z   bun-version: 1.3.11
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6460490Z   node-version: 24.14.0
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6460670Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6740610Z ##[group]Run oven-sh/setup-bun@v2
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6740840Z with:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6740990Z   bun-version: 1.3.11
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6741140Z   no-cache: false
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6743410Z   token: ***
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:05.6743980Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:06.3727780Z Downloading a new version of Bun: https://github.com/oven-sh/bun/releases/download/bun-v1.3.11/bun-darwin-aarch64.zip
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:06.7723410Z [command]/usr/bin/unzip -o -q /Users/runner/work/_temp/616e92f3-b490-495c-b10e-118635e56e9a.zip
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:07.3610080Z [command]/Users/runner/.bun/bin/bun --revision
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:07.3931100Z 1.3.11+af24e281e
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:07.4259660Z ##[group]Run actions/setup-node@v6
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:07.4259910Z with:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:07.4260050Z   node-version: 24.14.0
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:07.4260230Z   check-latest: false
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:07.4264410Z   token: ***
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:07.4264760Z   package-manager-cache: true
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:07.4264940Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:07.6926100Z Attempting to download 24.14.0...
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:08.3671730Z Acquiring 24.14.0 - arm64 from https://github.com/actions/node-versions/releases/download/24.14.0-22380502845/node-24.14.0-darwin-arm64.tar.gz
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:09.0716360Z Extracting ...
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:09.0977450Z [command]/usr/bin/tar xz --strip 1 -C /Users/runner/work/_temp/f33eb102-fd93-4fbc-9d65-bee56f6a2bbe -f /Users/runner/work/_temp/8ca40d69-e316-4510-a263-97d8f25a7ae0
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:11.3558630Z Adding to the cache ...
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:17.0368310Z ##[group]Environment details
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:17.9308460Z node: v24.14.0
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:17.9321540Z npm: 11.9.0
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:17.9323300Z yarn: 1.22.22
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:17.9324280Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:17.9729400Z ##[group]Run npm install -g node-gyp
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:17.9730820Z ^[[36;1mnpm install -g node-gyp^[[0m
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:17.9824370Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:17.9825440Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:19.8738460Z
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:19.8746420Z added 20 packages in 2s
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:19.8747820Z
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:19.8749210Z 2 packages are looking for funding
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:19.8750800Z   run `npm fund` for details
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:20.0092330Z ##[group]Run bun install --frozen-lockfile
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:20.0092890Z ^[[36;1mbun install --frozen-lockfile^[[0m
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:20.0144380Z shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:20.0144750Z ##[endgroup]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:20.1072270Z bun install v1.3.11 (af24e281)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:20.1910900Z Resolving dependencies
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5840420Z Resolved, downloaded and extracted [178]
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5842560Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5845780Z
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5846680Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5848510Z
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5849130Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5887900Z error: @fedify/webfinger@2.2.5 failed to resolve
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5915570Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5960990Z error: @fedify/webfinger@2.2.5 failed to resolve
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.6023270Z ##[error]Process completed with exit code 1.
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.6270950Z Post job cleanup.
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.6452590Z Post job cleanup.
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.9359570Z [command]/opt/homebrew/bin/git version
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.9822500Z git version 2.54.0
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.9880330Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/48695381-2e49-4000-a7c4-3e8870bf9ed4/.gitconfig'
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.9921730Z Temporarily overriding HOME='/Users/runner/work/_temp/48695381-2e49-4000-a7c4-3e8870bf9ed4' before making global git config changes
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.9925670Z Adding repository directory to the temporary git global config as a safe directory
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.9928860Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/docker-git/docker-git
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.0144340Z Removing SSH command configuration
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.0150220Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.0275060Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.2422680Z Removing HTTP extra header
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.2427900Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.2507460Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.4892620Z Removing includeIf entries pointing to credentials config files
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5005600Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5110300Z includeif.gitdir:/Users/runner/work/docker-git/docker-git/.git.path
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5215440Z includeif.gitdir:/Users/runner/work/docker-git/docker-git/.git/worktrees/*.path
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5327570Z includeif.gitdir:/github/workspace/.git.path
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5329290Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5634990Z [command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/Users/runner/work/docker-git/docker-git/.git.path
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5736160Z /Users/runner/work/_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5907680Z [command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/Users/runner/work/docker-git/docker-git/.git.path /Users/runner/work/_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5912640Z [command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/Users/runner/work/docker-git/docker-git/.git/worktrees/*.path
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5913810Z /Users/runner/work/_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5915890Z [command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/Users/runner/work/docker-git/docker-git/.git/worktrees/*.path /Users/runner/work/_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5917620Z [command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5918400Z /github/runner_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5920070Z [command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5921920Z [command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5922770Z /github/runner_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.5925320Z [command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.6247220Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.8365570Z Removing credentials config '/Users/runner/work/_temp/git-credentials-e1db4067-b24a-4cdb-a110-0f6481dd2c1d.config'
+Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:22.8545830Z Cleaning up orphan processes
+Final build (ubuntu-latest)	UNKNOWN STEP	﻿2026-06-06T11:37:45.4973757Z Current runner version: '2.334.0'
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.4999040Z ##[group]Runner Image Provisioner
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5000408Z Hosted Compute Agent
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5001271Z Version: 20260520.533
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5002335Z Commit: 189110e25284a9812c124fd27b339e2fb4f2f9db
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5003302Z Build Date: 2026-05-20T17:44:04Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5004066Z Worker ID: {57ea8fa9-b1bc-4624-9b7e-22457601572c}
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5005267Z Azure Region: eastus2
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5005880Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5007549Z ##[group]Operating System
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5008250Z Ubuntu
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5008779Z 24.04.4
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5009405Z LTS
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5009926Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5010516Z ##[group]Runner Image
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5011140Z Image: ubuntu-24.04
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5011722Z Version: 20260525.161.1
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5013098Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260525.161/images/ubuntu/Ubuntu2404-Readme.md
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5015067Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260525.161
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5016140Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5017347Z ##[group]GITHUB_TOKEN Permissions
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5019335Z Contents: read
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5019954Z Metadata: read
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5020637Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5023083Z Secret source: Actions
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5024031Z Prepare workflow directory
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5362488Z Prepare all required actions
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.5400645Z Getting action download info
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:45.8593724Z Download action repository 'actions/checkout@v6' (SHA:df4cb1c069e1874edd31b4311f1884172cec0e10)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.0847065Z Download action repository 'actions/upload-artifact@v7' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.2540495Z Complete job name: Final build (ubuntu-latest)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3329777Z ##[group]Run actions/checkout@v6
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3330650Z with:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3331141Z   repository: ProverCoderAI/docker-git
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3336141Z   token: ***
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3336602Z   ssh-strict: true
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3337048Z   ssh-user: git
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3337497Z   persist-credentials: true
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3337986Z   clean: true
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3338435Z   sparse-checkout-cone-mode: true
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3338970Z   fetch-depth: 1
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3339406Z   fetch-tags: false
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3339848Z   show-progress: true
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3340297Z   lfs: false
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3340709Z   submodules: false
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3341166Z   set-safe-directory: true
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.3341985Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4322078Z Syncing repository: ProverCoderAI/docker-git
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4323885Z ##[group]Getting Git version info
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4324929Z Working directory is '/home/runner/work/docker-git/docker-git'
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4326032Z [command]/usr/bin/git version
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4389374Z git version 2.54.0
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4411509Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4425471Z Temporarily overriding HOME='/home/runner/work/_temp/b42a27f6-db53-4cf0-b155-6308b85e84a2' before making global git config changes
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4426986Z Adding repository directory to the temporary git global config as a safe directory
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4430840Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/docker-git/docker-git
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4473429Z Deleting the contents of '/home/runner/work/docker-git/docker-git'
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4477855Z ##[group]Determining repository object format
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4480090Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4481090Z ##[group]Initializing the repository
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4485049Z [command]/usr/bin/git init /home/runner/work/docker-git/docker-git
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4587475Z hint: Using 'master' as the name for the initial branch. This default branch name
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4588810Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4590355Z hint: to use in all of your new repositories, which will suppress this warning,
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4591806Z hint: call:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4592605Z hint:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4593575Z hint: 	git config --global init.defaultBranch <name>
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4594971Z hint:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4596123Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4597907Z hint: 'development'. The just-created branch can be renamed via this command:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4599299Z hint:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4600059Z hint: 	git branch -m <name>
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4600908Z hint:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4602108Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4604166Z Initialized empty Git repository in /home/runner/work/docker-git/docker-git/.git/
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4607515Z [command]/usr/bin/git remote add origin https://github.com/ProverCoderAI/docker-git
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4645102Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4646541Z ##[group]Disabling automatic garbage collection
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4648994Z [command]/usr/bin/git config --local gc.auto 0
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4682149Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4683665Z ##[group]Setting up auth
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4684890Z Removing SSH command configuration
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4690381Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.4726284Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5062235Z Removing HTTP extra header
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5069193Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5110542Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5343141Z Removing includeIf entries pointing to credentials config files
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5352274Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5389109Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5647805Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5683187Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/docker-git/docker-git/.git.path /home/runner/work/_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5714909Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5764162Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5808284Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5837059Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5838119Z ##[group]Fetching the repository
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:46.5849501Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e670066bbf0e2951229d3ecf3e5060cbbc8f711a:refs/remotes/pull/381/merge
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:56.3213470Z From https://github.com/ProverCoderAI/docker-git
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:56.3215450Z  * [new ref]         e670066bbf0e2951229d3ecf3e5060cbbc8f711a -> pull/381/merge
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:56.3240240Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:56.3241688Z ##[group]Determining the checkout info
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:56.3243046Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:56.3246463Z [command]/usr/bin/git sparse-checkout disable
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:56.3295748Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:56.3339269Z ##[group]Checking out the ref
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:56.3342191Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/381/merge
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:58.3018077Z Updating files:   3% (36/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:58.3993753Z Updating files:   4% (46/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.3857371Z Updating files:   4% (47/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.4066991Z Updating files:   4% (54/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6589043Z Updating files:   5% (58/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6605461Z Updating files:   6% (69/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6640896Z Updating files:   7% (81/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6716328Z Updating files:   8% (92/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6762077Z Updating files:   9% (104/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6800625Z Updating files:  10% (115/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6842660Z Updating files:  11% (127/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6854160Z Updating files:  12% (138/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6861180Z Updating files:  13% (150/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6871807Z Updating files:  14% (161/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6883344Z Updating files:  15% (173/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6892859Z Updating files:  16% (184/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6900770Z Updating files:  17% (196/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6907495Z Updating files:  18% (207/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6914989Z Updating files:  19% (219/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6922319Z Updating files:  20% (230/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6930244Z Updating files:  21% (242/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6937013Z Updating files:  22% (253/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6943158Z Updating files:  23% (265/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6949801Z Updating files:  24% (276/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6957710Z Updating files:  25% (287/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6965007Z Updating files:  26% (299/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6971633Z Updating files:  27% (310/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6977251Z Updating files:  28% (322/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6983940Z Updating files:  29% (333/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6989739Z Updating files:  30% (345/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.6995918Z Updating files:  31% (356/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7003099Z Updating files:  32% (368/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7011357Z Updating files:  33% (379/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7017623Z Updating files:  34% (391/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7023706Z Updating files:  35% (402/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7032058Z Updating files:  36% (414/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7040557Z Updating files:  37% (425/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7047382Z Updating files:  38% (437/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7053419Z Updating files:  39% (448/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7060613Z Updating files:  40% (460/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7069246Z Updating files:  41% (471/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7076306Z Updating files:  42% (483/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7084234Z Updating files:  43% (494/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7090592Z Updating files:  44% (506/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7098547Z Updating files:  45% (517/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7105564Z Updating files:  46% (529/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7112307Z Updating files:  47% (540/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7118209Z Updating files:  48% (552/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7124494Z Updating files:  49% (563/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7130932Z Updating files:  50% (574/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7135947Z Updating files:  51% (586/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7141636Z Updating files:  52% (597/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7147926Z Updating files:  53% (609/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7154118Z Updating files:  54% (620/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7231268Z Updating files:  55% (632/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7245116Z Updating files:  56% (643/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7245415Z Updating files:  57% (655/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7245680Z Updating files:  58% (666/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7245977Z Updating files:  59% (678/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7246230Z Updating files:  60% (689/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7246471Z Updating files:  61% (701/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7246925Z Updating files:  62% (712/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7247180Z Updating files:  63% (724/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7247428Z Updating files:  64% (735/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7247665Z Updating files:  65% (747/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7248079Z Updating files:  66% (758/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7248718Z Updating files:  67% (770/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7254163Z Updating files:  68% (781/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7261255Z Updating files:  69% (793/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7269743Z Updating files:  70% (804/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7275791Z Updating files:  71% (816/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7282364Z Updating files:  72% (827/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7287119Z Updating files:  73% (839/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7293850Z Updating files:  74% (850/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7301773Z Updating files:  75% (861/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7308424Z Updating files:  76% (873/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7314519Z Updating files:  77% (884/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7321176Z Updating files:  78% (896/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7328990Z Updating files:  79% (907/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7333953Z Updating files:  80% (919/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7341206Z Updating files:  81% (930/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7346821Z Updating files:  82% (942/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7353353Z Updating files:  83% (953/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7359471Z Updating files:  84% (965/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7367986Z Updating files:  85% (976/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7375155Z Updating files:  86% (988/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7382798Z Updating files:  87% (999/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7389804Z Updating files:  88% (1011/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7398335Z Updating files:  89% (1022/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7404610Z Updating files:  90% (1034/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7411385Z Updating files:  91% (1045/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7419135Z Updating files:  92% (1057/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7427011Z Updating files:  93% (1068/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7432861Z Updating files:  94% (1080/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7441803Z Updating files:  95% (1091/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7448539Z Updating files:  96% (1103/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7456624Z Updating files:  97% (1114/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7463580Z Updating files:  98% (1126/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7469657Z Updating files:  99% (1137/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7469945Z Updating files: 100% (1148/1148)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7470218Z Updating files: 100% (1148/1148), done.
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7488544Z Note: switching to 'refs/remotes/pull/381/merge'.
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7488983Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7489300Z You are in 'detached HEAD' state. You can look around, make experimental
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7489841Z changes and commit them, and you can discard any commits you make in this
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7490349Z state without impacting any branches by switching back to a branch.
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7490651Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7490876Z If you want to create a new branch to retain commits you create, you may
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7491363Z do so (now or later) by using -c with the switch command. Example:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7491648Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7491762Z   git switch -c <new-branch-name>
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7491945Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7492059Z Or undo this operation with:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7492224Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7492320Z   git switch -
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7492467Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7492700Z Turn off this advice by setting config variable advice.detachedHead to false
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7493033Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7493397Z HEAD is now at e670066 Merge b9961886e00e8413cb355b2037c6a4d2cc93e942 into f52a87fdd3add2307c45f4cb609ec08299a720e9
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7579259Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7620697Z [command]/usr/bin/git log -1 --format=%H
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7643515Z e670066bbf0e2951229d3ecf3e5060cbbc8f711a
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7931836Z Prepare all required actions
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.7932302Z Getting action download info
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:37:59.9743632Z Download action repository 'oven-sh/setup-bun@v2' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.1425515Z Download action repository 'actions/setup-node@v6' (SHA:48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2468949Z ##[group]Run ./.github/actions/setup
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2469234Z with:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2469435Z   bun-version: 1.3.11
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2469661Z   node-version: 24.14.0
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2469880Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2604813Z ##[group]Run oven-sh/setup-bun@v2
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2605094Z with:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2605294Z   bun-version: 1.3.11
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2605516Z   no-cache: false
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2608293Z   token: ***
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.2608501Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.5099387Z Cache hit for: bun-7/QmryP/e10nHn0ivgSAK3UdqOg=
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.8547703Z Received 35349280 of 35349280 (100.0%), 118.7 MBs/sec
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.8548480Z Cache Size: ~34 MB (35349280 B)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:00.8681944Z [command]/usr/bin/tar -xf /home/runner/work/_temp/59236932-d5a8-4ea4-ab35-89818cae3783/cache.tzst -P -C /home/runner/work/docker-git/docker-git --use-compress-program unzstd
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0256555Z Cache restored successfully
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0279323Z [command]/home/runner/.bun/bin/bun --revision
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0321173Z 1.3.11+af24e281e
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0327017Z Using a cached version of Bun: 1.3.11+af24e281e
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0507292Z ##[group]Run actions/setup-node@v6
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0507565Z with:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0507768Z   node-version: 24.14.0
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0507999Z   check-latest: false
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0510807Z   token: ***
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0511036Z   package-manager-cache: true
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.0511300Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.1948959Z Attempting to download 24.14.0...
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:01.5818385Z Acquiring 24.14.0 - x64 from https://github.com/actions/node-versions/releases/download/24.14.0-22380502845/node-24.14.0-linux-x64.tar.gz
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:02.0073823Z Extracting ...
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:02.0197674Z [command]/usr/bin/tar xz --strip 1 --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/159300a6-6c94-409e-9e43-9cdf223e644b -f /home/runner/work/_temp/73cdb429-b642-46be-bb29-869c3a92bd9d
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:03.2069840Z Adding to the cache ...
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.1373497Z ##[group]Environment details
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3654454Z node: v24.14.0
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3655123Z npm: 11.9.0
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3655437Z yarn: 1.22.22
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3656211Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3866195Z ##[group]Run if command -v ssh >/dev/null 2>&1 && command -v ssh-keygen >/dev/null 2>&1; then
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3866937Z ^[[36;1mif command -v ssh >/dev/null 2>&1 && command -v ssh-keygen >/dev/null 2>&1; then^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3867492Z ^[[36;1m  echo "OpenSSH client is already installed; skipping apt install"^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3867885Z ^[[36;1m  exit 0^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3868097Z ^[[36;1mfi^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3868281Z ^[[36;1m^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3868472Z ^[[36;1mfor attempt in 1 2 3; do^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3868757Z ^[[36;1m  sudo rm -rf /var/lib/apt/lists/*^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3869057Z ^[[36;1m  if sudo timeout 120s apt-get \^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3869346Z ^[[36;1m    -o Acquire::Retries=3 \^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3869627Z ^[[36;1m    -o Acquire::By-Hash=force \^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3869910Z ^[[36;1m    -o Acquire::http::Timeout=20 \^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3870203Z ^[[36;1m    -o Acquire::https::Timeout=20 \^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3870492Z ^[[36;1m    update; then^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3870718Z ^[[36;1m    break^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3870915Z ^[[36;1m  fi^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3871125Z ^[[36;1m  if [[ "$attempt" == "3" ]]; then^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3871461Z ^[[36;1m    echo "apt-get update failed after retries" >&2^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3871781Z ^[[36;1m    exit 1^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3872187Z ^[[36;1m  fi^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3872498Z ^[[36;1m  echo "apt-get update attempt ${attempt} failed; retrying..." >&2^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3872889Z ^[[36;1m  sleep $((attempt * 2))^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3873131Z ^[[36;1mdone^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3873460Z ^[[36;1msudo timeout 120s apt-get \^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3873725Z ^[[36;1m  -o Acquire::Retries=3 \^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3873999Z ^[[36;1m  -o Acquire::http::Timeout=20 \^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3874296Z ^[[36;1m  -o Acquire::https::Timeout=20 \^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3874899Z ^[[36;1m  install -y openssh-client^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3906261Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3906627Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.3982822Z OpenSSH client is already installed; skipping apt install
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.4009681Z ##[group]Run npm install -g node-gyp
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.4009987Z ^[[36;1mnpm install -g node-gyp^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.4034948Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:05.4035321Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.4938524Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.4939180Z added 20 packages in 1s
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.4939518Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.4940404Z 2 packages are looking for funding
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.4944229Z   run `npm fund` for details
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.5375818Z ##[group]Run bun install --frozen-lockfile
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.5376169Z ^[[36;1mbun install --frozen-lockfile^[[0m
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.5401810Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.5402174Z ##[endgroup]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.5474084Z bun install v1.3.11 (af24e281)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.5564051Z Resolving dependencies
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0486135Z Resolved, downloaded and extracted [178]
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0487506Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0488229Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0488976Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0489693Z
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0490388Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0511861Z error: @fedify/webfinger@2.2.5 failed to resolve
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0512749Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0513443Z error: @fedify/webfinger@2.2.5 failed to resolve
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0796022Z ##[error]Process completed with exit code 1.
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0926945Z Post job cleanup.
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0997507Z Post job cleanup.
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.1788635Z [command]/usr/bin/git version
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.1823978Z git version 2.54.0
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.1863773Z Temporarily overriding HOME='/home/runner/work/_temp/2b3f374b-f6ac-4111-8be5-a742ea174d8d' before making global git config changes
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.1865630Z Adding repository directory to the temporary git global config as a safe directory
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.1869823Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/docker-git/docker-git
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.1899418Z Removing SSH command configuration
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.1906281Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.1940207Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2157149Z Removing HTTP extra header
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2161349Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2193877Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2407612Z Removing includeIf entries pointing to credentials config files
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2413088Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2437442Z includeif.gitdir:/home/runner/work/docker-git/docker-git/.git.path
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2438687Z includeif.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2440147Z includeif.gitdir:/github/workspace/.git.path
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2441162Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2449079Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/docker-git/docker-git/.git.path
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2469910Z /home/runner/work/_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2480841Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/docker-git/docker-git/.git.path /home/runner/work/_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2514089Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2535565Z /home/runner/work/_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2546108Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2579917Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2600283Z /github/runner_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2608685Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2638109Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2658353Z /github/runner_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2668879Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2723888Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.2942283Z Removing credentials config '/home/runner/work/_temp/git-credentials-8b3ba53b-0ca9-4b9c-a69c-48d85517f4b8.config'
+Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.3098992Z Cleaning up orphan processes

@@ -1376,66 +1376,60 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
 
 // Checkout branch for continue mode (PR branch from remote)
 // prNumber is optional - when provided, enables PR refs fallback (refs/pull/{number}/head)
-export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prForkOwner, prNumber = null) => {
-  await log(`\n${formatAligned('🔄', 'Checking out PR branch:', branchName)}`);
+export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prForkOwner, prNumber = null, options = {}) => {
+  const { $: runCommand = $, log: writeLog = log, formatAligned: align = formatAligned, preferredRemote = null } = options;
 
-  // Determine which remote to use for branch checkout
-  const remoteName = prForkRemote || 'origin';
+  await writeLog(`\n${align('🔄', 'Checking out PR branch:', branchName)}`);
 
-  // First fetch all branches from remote (if not already fetched from pr-fork)
+  const remoteName = prForkRemote || preferredRemote || 'origin';
+
   if (!prForkRemote) {
-    await log(`${formatAligned('📥', 'Fetching branches:', 'From remote...')}`);
-    const fetchResult = await $({ cwd: tempDir })`git fetch origin`;
+    if (preferredRemote) {
+      await writeLog(`${align('ℹ️', 'Preferred PR head remote:', preferredRemote)}`);
+    }
+    await writeLog(`${align('📥', 'Fetching branches:', `From ${remoteName} remote...`)}`);
+    const fetchResult = await runCommand({ cwd: tempDir })`git fetch ${remoteName}`;
 
     if (fetchResult.code !== 0) {
-      await log('Warning: Failed to fetch branches from remote', { level: 'warning' });
+      await writeLog(`Warning: Failed to fetch branches from ${remoteName} remote`, { level: 'warning' });
     }
   } else {
-    await log(`${formatAligned('ℹ️', 'Using pr-fork remote:', `Branch exists in ${prForkOwner}'s fork`)}`);
+    await writeLog(`${align('ℹ️', 'Using pr-fork remote:', `Branch exists in ${prForkOwner}'s fork`)}`);
   }
 
-  // Checkout the PR branch (it might exist locally or remotely)
-  const localBranchResult = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/heads/${branchName}`;
+  const localBranchResult = await runCommand({ cwd: tempDir })`git show-ref --verify --quiet refs/heads/${branchName}`;
 
   let checkoutResult;
   if (localBranchResult.code === 0) {
-    // Branch exists locally
-    checkoutResult = await $({ cwd: tempDir })`git checkout ${branchName}`;
+    checkoutResult = await runCommand({ cwd: tempDir })`git checkout ${branchName}`;
   } else {
-    // Branch doesn't exist locally, try to checkout from remote
-    checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName} ${remoteName}/${branchName}`;
+    checkoutResult = await runCommand({ cwd: tempDir })`git checkout -b ${branchName} ${remoteName}/${branchName}`;
 
-    // If checkout from origin failed, try upstream remote as fallback
-    // This handles the case where we're in fork mode but the PR branch exists in upstream
-    // (e.g., a bot created PR in the upstream repo, not a fork PR)
+    // Keep the legacy origin->upstream fallback when no preferred PR-head remote was selected.
     if (checkoutResult.code !== 0 && remoteName === 'origin') {
-      await log(`${formatAligned('🔄', 'Branch not in origin:', 'Checking upstream remote...')}`);
+      await writeLog(`${align('🔄', 'Branch not in origin:', 'Checking upstream remote...')}`);
 
-      // Check if upstream remote exists
-      const upstreamCheckResult = await $({ cwd: tempDir })`git remote get-url upstream 2>/dev/null`;
+      const upstreamCheckResult = await runCommand({ cwd: tempDir })`git remote get-url upstream 2>/dev/null`;
       if (upstreamCheckResult.code === 0) {
-        // Fetch from upstream to ensure we have the latest branches
-        await log(`${formatAligned('📥', 'Fetching from upstream:', 'Looking for PR branch...')}`);
-        const fetchUpstreamResult = await $({ cwd: tempDir })`git fetch upstream`;
+        await writeLog(`${align('📥', 'Fetching from upstream:', 'Looking for PR branch...')}`);
+        const fetchUpstreamResult = await runCommand({ cwd: tempDir })`git fetch upstream`;
 
         if (fetchUpstreamResult.code === 0) {
-          // Check if branch exists in upstream
-          const upstreamBranchCheckResult = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/remotes/upstream/${branchName}`;
+          const upstreamBranchCheckResult = await runCommand({ cwd: tempDir })`git show-ref --verify --quiet refs/remotes/upstream/${branchName}`;
 
           if (upstreamBranchCheckResult.code === 0) {
-            await log(`${formatAligned('✅', 'Found branch in upstream:', `upstream/${branchName}`)}`);
-            // Try to checkout from upstream instead
-            checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName} upstream/${branchName}`;
+            await writeLog(`${align('✅', 'Found branch in upstream:', `upstream/${branchName}`)}`);
+            checkoutResult = await runCommand({ cwd: tempDir })`git checkout -b ${branchName} upstream/${branchName}`;
 
             if (checkoutResult.code === 0) {
-              await log(`${formatAligned('ℹ️', 'Note:', 'PR branch was in upstream repository, not your fork')}`);
-              await log(`${formatAligned('', '', 'This can happen when a bot creates a PR directly in the main repository')}`);
+              await writeLog(`${align('ℹ️', 'Note:', 'PR branch was in upstream repository, not your fork')}`);
+              await writeLog(`${align('', '', 'This can happen when a bot creates a PR directly in the main repository')}`);
             }
           } else {
-            await log(`${formatAligned('⚠️', 'Branch not found:', `Not in origin or upstream remotes`)}`, { level: 'warning' });
+            await writeLog(`${align('⚠️', 'Branch not found:', `Not in origin or upstream remotes`)}`, { level: 'warning' });
           }
         } else {
-          await log(`${formatAligned('⚠️', 'Warning:', 'Failed to fetch from upstream')}`, { level: 'warning' });
+          await writeLog(`${align('⚠️', 'Warning:', 'Failed to fetch from upstream')}`, { level: 'warning' });
         }
       }
     }
@@ -1445,23 +1439,23 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
     // This works regardless of fork naming conventions and doesn't require fork access
     // See: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/checking-out-pull-requests-locally
     if (checkoutResult.code !== 0 && prNumber) {
-      await log(`${formatAligned('🔄', 'Trying PR refs fallback:', `Fetching refs/pull/${prNumber}/head...`)}`);
+      const prRefRemote = preferredRemote || 'origin';
+      await writeLog(`${align('🔄', 'Trying PR refs fallback:', `Fetching refs/pull/${prNumber}/head from ${prRefRemote}...`)}`);
 
-      // Fetch the PR head using GitHub's special refs
-      const prRefFetchResult = await $({ cwd: tempDir })`git fetch origin pull/${prNumber}/head:${branchName}`;
+      const prRefFetchResult = await runCommand({ cwd: tempDir })`git fetch ${prRefRemote} pull/${prNumber}/head:${branchName}`;
 
       if (prRefFetchResult.code === 0) {
-        await log(`${formatAligned('✅', 'Fetched PR ref:', `refs/pull/${prNumber}/head`)}`);
-        checkoutResult = await $({ cwd: tempDir })`git checkout ${branchName}`;
+        await writeLog(`${align('✅', 'Fetched PR ref:', `refs/pull/${prNumber}/head`)}`);
+        checkoutResult = await runCommand({ cwd: tempDir })`git checkout ${branchName}`;
 
         if (checkoutResult.code === 0) {
-          await log(`${formatAligned('ℹ️', 'Note:', 'Checked out using GitHub PR refs (fork access not required)')}`);
-          await log(`${formatAligned('', '', 'This is a read-only checkout - you may need to push to a different branch')}`);
+          await writeLog(`${align('ℹ️', 'Note:', 'Checked out using GitHub PR refs (fork access not required)')}`);
+          await writeLog(`${align('', '', 'This is a read-only checkout - you may need to push to a different branch')}`);
         }
       } else {
-        await log(`${formatAligned('⚠️', 'PR refs fallback failed:', 'Could not fetch PR head')}`);
+        await writeLog(`${align('⚠️', 'PR refs fallback failed:', 'Could not fetch PR head')}`);
         if (prRefFetchResult.stderr) {
-          await log(`${formatAligned('', 'Details:', prRefFetchResult.stderr.toString().trim())}`);
+          await writeLog(`${align('', 'Details:', prRefFetchResult.stderr.toString().trim())}`);
         }
       }
     }

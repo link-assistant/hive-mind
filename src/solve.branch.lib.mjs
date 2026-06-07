@@ -304,7 +304,7 @@ async function retryBranchCreationFromUpstreamBase({ checkoutResult, branchName,
   return await $({ cwd: tempDir })`git checkout -b ${branchName} ${baseBranch}`;
 }
 
-export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto, owner, repo, prNumber }) {
+export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto, owner, repo, prNumber, prBranchPreferredRemote = null }) {
   // Create a branch for the issue or checkout existing PR branch
   let branchName;
   let checkoutResult;
@@ -315,7 +315,9 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
     const repository = await import('./solve.repository.lib.mjs');
     const { checkoutPrBranch } = repository;
     // Pass prNumber to enable PR refs fallback (refs/pull/{number}/head) when fork checkout fails
-    checkoutResult = await checkoutPrBranch(tempDir, branchName, null, null, prNumber);
+    checkoutResult = await checkoutPrBranch(tempDir, branchName, null, null, prNumber, {
+      preferredRemote: prBranchPreferredRemote,
+    });
   } else {
     // Traditional mode: create new branch for issue
     const randomHex = crypto.randomBytes(6).toString('hex');

@@ -1,0 +1,510 @@
+---
+<!-- https://github.com/ProverCoderAI/docker-git/pull/381#issuecomment-4642847832 2026-06-07T13:43:20Z -->
+## 🚨 Solution Draft Failed
+The automated solution draft encountered an error:
+```
+The solver stopped while continuing pull request #381.
+
+Reason: Repository setup halted - fork divergence requires user decision
+```
+
+### What you can do
+- If the fork's default branch can be overwritten safely, rerun with `--allow-fork-divergence-resolution-using-force-push-with-lease` to allow a guarded force-with-lease sync.
+- If the fork has commits you need to preserve, resolve the divergence manually, then rerun the solver.
+- If this requires elevated Hive Mind access, ask a Hive Mind administrator to handle the affected fork or repository.
+
+Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this GitHub comment.
+
+### 🤖 **Models used:**
+- Tool: OpenAI Codex
+- Requested: `gpt-5.5`
+- **Model: GPT-5.5** (`gpt-5.5`)
+
+<details>
+<summary>Click to expand failure log (37KB)</summary>
+
+```
+# Solve.mjs Log - 2026-06-07T13:42:43.532Z
+
+[2026-06-07T13:42:43.533Z] [INFO] 📁 Log file: /home/box/solve-2026-06-07T13-42-43-532Z.log
+[2026-06-07T13:42:43.535Z] [INFO]    (All output will be logged here)
+[2026-06-07T13:42:44.165Z] [INFO]
+[2026-06-07T13:42:44.166Z] [INFO] 🚀 solve v1.74.3
+[2026-06-07T13:42:44.166Z] [INFO] 🔧 Raw command executed:
+[2026-06-07T13:42:44.167Z] [INFO]    /home/box/.nvm/versions/node/v20.20.2/bin/node /home/box/.bun/bin/solve https://github.com/ProverCoderAI/docker-git/pull/381 --think max --tool codex --attach-logs --verbose --no-tool-check --disable-report-issue --language en
+[2026-06-07T13:42:44.167Z] [INFO]
+[2026-06-07T13:42:44.747Z] [INFO]
+[2026-06-07T13:42:44.748Z] [WARNING] ⚠️  SECURITY WARNING: --attach-logs is ENABLED
+[2026-06-07T13:42:44.748Z] [INFO]
+[2026-06-07T13:42:44.749Z] [INFO]    This option will upload the complete solution draft log file to the Pull Request.
+[2026-06-07T13:42:44.749Z] [INFO]    The log may contain sensitive information such as:
+[2026-06-07T13:42:44.750Z] [INFO]    • API keys, tokens, or secrets
+[2026-06-07T13:42:44.750Z] [INFO]    • File paths and directory structures
+[2026-06-07T13:42:44.751Z] [INFO]    • Command outputs and error messages
+[2026-06-07T13:42:44.751Z] [INFO]    • Internal system information
+[2026-06-07T13:42:44.751Z] [INFO]
+[2026-06-07T13:42:44.751Z] [INFO]    ⚠️  DO NOT use this option with public repositories or if the log
+[2026-06-07T13:42:44.752Z] [INFO]        might contain sensitive data that should not be shared publicly.
+[2026-06-07T13:42:44.752Z] [INFO]
+[2026-06-07T13:42:44.753Z] [INFO]    Continuing in 5 seconds... (Press Ctrl+C to abort)
+[2026-06-07T13:42:44.753Z] [INFO]
+[2026-06-07T13:42:44.753Z] [STDOUT]    Countdown: 5 seconds remaining...
+[2026-06-07T13:42:45.754Z] [STDOUT]    Countdown: 4 seconds remaining...
+[2026-06-07T13:42:46.756Z] [STDOUT]    Countdown: 3 seconds remaining...
+[2026-06-07T13:42:47.757Z] [STDOUT]    Countdown: 2 seconds remaining...
+[2026-06-07T13:42:48.757Z] [STDOUT]    Countdown: 1 seconds remaining...
+[2026-06-07T13:42:49.759Z] [INFO]
+[2026-06-07T13:42:49.758Z] [STDOUT]    Proceeding with log attachment enabled.
+[2026-06-07T13:42:49.799Z] [INFO] 💾 Disk space check: 34452MB available (2048MB required) ✅
+[2026-06-07T13:42:49.800Z] [INFO] 🧠 Memory check: 10496MB available, swap: none, total: 10496MB (256MB required) ✅
+[2026-06-07T13:42:49.817Z] [INFO] ⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)
+[2026-06-07T13:42:49.818Z] [INFO] ⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)
+[2026-06-07T13:42:49.818Z] [INFO] 📋 URL validation:
+[2026-06-07T13:42:49.819Z] [INFO]    Input URL: https://github.com/ProverCoderAI/docker-git/pull/381
+[2026-06-07T13:42:49.819Z] [INFO]    Is Issue URL: false
+[2026-06-07T13:42:49.820Z] [INFO]    Is PR URL: true
+[2026-06-07T13:42:49.821Z] [INFO] 🔍 --auto-accept-invite: Checking for pending invitation to ProverCoderAI/docker-git...
+[2026-06-07T13:42:50.081Z] [INFO]    Found 0 total pending repo invitation(s)
+[2026-06-07T13:42:50.082Z] [INFO]    No pending repository invitation found for ProverCoderAI/docker-git
+[2026-06-07T13:42:50.436Z] [INFO]    Found 0 total pending org invitation(s)
+[2026-06-07T13:42:50.437Z] [INFO]    No pending organization invitation found for ProverCoderAI
+[2026-06-07T13:42:50.438Z] [INFO] ℹ️  --auto-accept-invite: No pending invitation found for ProverCoderAI/docker-git or organization ProverCoderAI
+[2026-06-07T13:42:50.439Z] [INFO] 🔍 Checking repository access for auto-fork...
+[2026-06-07T13:42:50.781Z] [STDOUT] {"admin":false,"maintain":false,"pull":true,"push":false,"triage":false}
+[2026-06-07T13:42:51.115Z] [STDOUT] public
+[2026-06-07T13:42:51.119Z] [INFO]    Repository visibility: public
+[2026-06-07T13:42:51.119Z] [INFO] ✅ Auto-fork: No write access detected, enabling fork mode
+[2026-06-07T13:42:51.120Z] [INFO] ✅ Repository access check: Skipped (fork mode enabled)
+[2026-06-07T13:42:51.368Z] [STDOUT] ProverCoderAI
+[2026-06-07T13:42:51.691Z] [STDOUT] ProverCoderAI/docker-git
+[2026-06-07T13:42:52.016Z] [STDOUT] {"number":381,"state":"OPEN"}
+[2026-06-07T13:42:52.373Z] [STDOUT] public
+[2026-06-07T13:42:52.377Z] [INFO]    Repository visibility: public
+[2026-06-07T13:42:52.378Z] [INFO]    Auto-cleanup default: false (repository is public)
+[2026-06-07T13:42:52.379Z] [INFO] 🔄 Continue mode: Working with PR #381
+[2026-06-07T13:42:52.380Z] [INFO]    Continue mode activated: PR URL provided directly
+[2026-06-07T13:42:52.380Z] [INFO]    PR Number set to: 381
+[2026-06-07T13:42:52.381Z] [INFO]    Will fetch PR details and linked issue
+[2026-06-07T13:42:52.816Z] [STDOUT] {"body":"This PR contains the following updates:\n\n| Package | Change | [Age](https://docs.renovatebot.com/merge-confidence/) | [Confidence](https://docs.renovatebot.com/merge-confidence/) |\n|---|---|---|---|\n| [@fedify/fedify](https://fedify.dev/) ([source](https://redirect.github.com/fedify-dev/fedify/tree/HEAD/packages/fedify)) | [`^2.2.4` → `^2.2.5`](https://renovatebot.com/diffs/npm/@fedify%2ffedify/2.2.4/2.2.5) | ![age](https://developer.mend.io/api/mc/badges/age/npm/@fedify%2ffedify/2.2.5?slim=true) | ![confidence](https://developer.mend.io/api/mc/badges/confidence/npm/@fedify%2ffedify/2.2.4/2.2.5?slim=true) |\n| [@fedify/vocab](https://fedify.dev/) ([source](https://redirect.github.com/fedify-dev/fedify/tree/HEAD/packages/vocab)) | [`^2.2.4` → `^2.2.5`](https://renovatebot.com/diffs/npm/@fedify%2fvocab/2.2.4/2.2.5) | ![age](https://developer.mend.io/api/mc/badges/age/npm/@fedify%2fvocab/2.2.5?slim=true) | ![confidence](https://developer.mend.io/api/mc/badges/confidence/npm/@fedify%2fvocab/2.2.4/2.2.5?slim=true) |\n| [@types/node](https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node) ([source](https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/node)) | [`^25.9.1` → `^25.9.2`](https://renovatebot.com/diffs/npm/@types%2fnode/25.9.1/25.9.2) | ![age](https://developer.mend.io/api/mc/badges/age/npm/@types%2fnode/25.9.2?slim=true) | ![confidence](https://developer.mend.io/api/mc/badges/confidence/npm/@types%2fnode/25.9.1/25.9.2?slim=true) |\n| [@types/react](https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react) ([source](https://redirect.github.com/DefinitelyTyped/DefinitelyTyped/tree/HEAD/types/react)) | [`^19.2.16` → `^19.2.17`](https://renovatebot.com/diffs/npm/@types%2freact/19.2.16/19.2.17) | ![age](https://developer.mend.io/api/mc/badges/age/npm/@types%2freact/19.2.17?slim=true) | ![confidence](https://developer.mend.io/api/mc/badges/confidence/npm/@types%2freact/19.2.16/19.2.17?slim=true) |\n| [effect](https://effect.website) ([source](https://redirect.github.com/Effect-TS/effect/tree/HEAD/packages/effect)) | [`^3.21.2` → `^3.21.3`](https://renovatebot.com/diffs/npm/effect/3.21.2/3.21.3) | ![age](https://developer.mend.io/api/mc/badges/age/npm/effect/3.21.3?slim=true) | ![confidence](https://developer.mend.io/api/mc/badges/confidence/npm/effect/3.21.2/3.21.3?slim=true) |\n\ncc @skulidropek\n\n---\n\n### Release Notes\n\n<details>\n<summary>fedify-dev/fedify (@&#8203;fedify/fedify)</summary>\n\n### [`v2.2.5`](https://redirect.github.com/fedify-dev/fedify/blob/HEAD/CHANGES.md#Version-225)\n\n[Compare Source](https://redirect.github.com/fedify-dev/fedify/compare/2.2.4...2.2.5)\n\nReleased on June 5, 2026.\n\n##### [@&#8203;fedify/cli](https://redirect.github.com/fedify/cli)\n\n- Fixed `fedify` command failing under Deno 2.8+/TypeScript 6.0 where\n  `setTimeout()` returns `Timeout` instead of `number`.  Used\n  `ReturnType<typeof setTimeout>` for the `signalTimers` WeakMap so it\n  is compatible across all TypeScript/Deno versions.  \\[[#&#8203;789] by Rui Chen]\n\n[#&#8203;789]: https://redirect.github.com/fedify-dev/fedify/pull/789\n\n</details>\n\n<details>\n<summary>Effect-TS/effect (effect)</summary>\n\n### [`v3.21.3`](https://redirect.github.com/Effect-TS/effect/blob/HEAD/packages/effect/CHANGELOG.md#3213)\n\n[Compare Source](https://redirect.github.com/Effect-TS/effect/compare/effect@3.21.2...effect@3.21.3)\n\n##### Patch Changes\n\n- [#&#8203;6250](https://redirect.github.com/Effect-TS/effect/pull/6250) [`e2126bc`](https://redirect.github.com/Effect-TS/effect/commit/e2126bc14c4c902ff9f3dbe486e53190c6c87725) Thanks [@&#8203;milkyskies](https://redirect.github.com/milkyskies)! - Fix $match generic type parameter inference inside arms ([#&#8203;6249](https://redirect.github.com/Effect-TS/effect/issues/6249))\n\n- [#&#8203;6257](https://redirect.github.com/Effect-TS/effect/pull/6257) [`f7e836e`](https://redirect.github.com/Effect-TS/effect/commit/f7e836ea9b399784fdb3846d176ebe72bb07bfc7) Thanks [@&#8203;gcanti](https://redirect.github.com/gcanti)! - Emit `additionalProperties: false` for records with string keys and `Schema.Never` values.\n\n</details>\n\n---\n\n### Configuration\n\n📅 **Schedule**: (UTC)\n\n- Branch creation\n  - At any time (no schedule defined)\n- Automerge\n  - At any time (no schedule defined)\n\n🚦 **Automerge**: Disabled by config. Please merge this manually once you are satisfied.\n\n♻ **Rebasing**: Whenever PR becomes conflicted, or you tick the rebase/retry checkbox.\n\n👻 **Immortal**: This PR will be recreated if closed unmerged. Get [config help](https://redirect.github.com/renovatebot/renovate/discussions) if that's undesired.\n\n---\n\n - [ ] <!-- rebase-check -->If you want to rebase/retry this PR, check this box\n\n---\n\nThis PR was generated by [Mend Renovate](https://mend.io/renovate/). View the [repository job log](https://developer.mend.io/github/ProverCoderAI/docker-git).\n<!--renovate-debug:eyJjcmVhdGVkSW5WZXIiOiI0My4yMDkuNCIsInVwZGF0ZWRJblZlciI6IjQzLjIwOS40IiwidGFyZ2V0QnJhbmNoIjoibWFpbiIsImxhYmVscyI6W119-->\n","headRefName":"renovate/all","headRepository":{"id":"R_kgDOQ1Wccw","name":"docker-git","nameWithOwner":"ProverCoderAI/docker-git"},"headRepositoryOwner":{"id":"O_kgDODkpT1Q","login":"ProverCoderAI"},"mergeStateStatus":"UNSTABLE","number":381,"state":"OPEN"}
+[2026-06-07T13:42:52.820Z] [INFO] 📝 PR branch: renovate/all
+[2026-06-07T13:42:52.822Z] [WARNING] ⚠️  Warning: No linked issue found in PR body
+[2026-06-07T13:42:52.823Z] [WARNING]    The PR should contain "Fixes #123" or similar to link an issue
+[2026-06-07T13:42:52.824Z] [INFO]
+[2026-06-07T13:42:52.824Z] [INFO] Creating temporary directory: /tmp/gh-issue-solver-1780839772824
+[2026-06-07T13:42:52.826Z] [INFO]
+[2026-06-07T13:42:52.826Z] [INFO] 🍴 Fork mode:                ENABLED
+[2026-06-07T13:42:52.827Z] [INFO]  Checking fork status...
+[2026-06-07T13:42:52.827Z] [INFO]
+[2026-06-07T13:42:53.335Z] [STDOUT] konard
+[2026-06-07T13:42:53.340Z] [INFO] 🔍 Detecting fork conflicts...
+[2026-06-07T13:42:53.704Z] [STDOUT] {"fork":false,"source":null}
+[2026-06-07T13:42:54.089Z] [STDOUT] konard
+[2026-06-07T13:42:54.517Z] [STDOUT] konard/ProverCoderAI-docker-git
+[2026-06-07T13:42:54.521Z] [INFO] ✅ No fork conflict:         Safe to proceed
+[2026-06-07T13:42:54.845Z] [STDOUT] {"name":"ProverCoderAI-docker-git"}
+[2026-06-07T13:42:54.850Z] [INFO] ✅ Fork exists:              konard/ProverCoderAI-docker-git
+[2026-06-07T13:42:54.851Z] [INFO] 🔍 Validating fork parent...
+[2026-06-07T13:42:55.197Z] [STDOUT] {"fork":true,"parent":"ProverCoderAI/docker-git","source":"ProverCoderAI/docker-git"}
+[2026-06-07T13:42:55.200Z] [INFO] ✅ Fork parent validated:    ProverCoderAI/docker-git
+[2026-06-07T13:42:55.201Z] [INFO]
+[2026-06-07T13:42:55.201Z] [INFO] 📥 Cloning repository:       konard/ProverCoderAI-docker-git
+[2026-06-07T13:42:55.628Z] [STDOUT] Cloning into '/tmp/gh-issue-solver-1780839772824'...
+[2026-06-07T13:43:11.670Z] [STDOUT] Updating files:   3% (29/949)
+[2026-06-07T13:43:12.670Z] [STDOUT] Updating files:   3% (34/949)
+[2026-06-07T13:43:12.985Z] [STDOUT] Updating files:   4% (38/949)
+[2026-06-07T13:43:13.531Z] [STDOUT] Updating files:   4% (42/949)
+[2026-06-07T13:43:14.325Z] [STDOUT] Updating files:   5% (48/949)
+[2026-06-07T13:43:14.599Z] [STDOUT] Updating files:   5% (53/949)
+[2026-06-07T13:43:14.606Z] [STDOUT] Updating files:   6% (57/949)Updating files:   7% (67/949)
+[2026-06-07T13:43:14.609Z] [STDOUT] Updating files:   8% (76/949)
+[2026-06-07T13:43:14.612Z] [STDOUT] Updating files:   9% (86/949)
+[2026-06-07T13:43:14.617Z] [STDOUT] Updating files:  10% (95/949)
+[2026-06-07T13:43:14.622Z] [STDOUT] Updating files:  11% (105/949)
+[2026-06-07T13:43:14.626Z] [STDOUT] Updating files:  12% (114/949)
+[2026-06-07T13:43:14.632Z] [STDOUT] Updating files:  13% (124/949)
+[2026-06-07T13:43:14.636Z] [STDOUT] Updating files:  14% (133/949)Updating files:  15% (143/949)
+[2026-06-07T13:43:14.638Z] [STDOUT] Updating files:  16% (152/949)
+[2026-06-07T13:43:14.640Z] [STDOUT] Updating files:  17% (162/949)
+[2026-06-07T13:43:14.642Z] [STDOUT] Updating files:  18% (171/949)
+[2026-06-07T13:43:14.645Z] [STDOUT] Updating files:  19% (181/949)
+[2026-06-07T13:43:14.645Z] [STDOUT] Updating files:  20% (190/949)
+[2026-06-07T13:43:14.646Z] [STDOUT] Updating files:  21% (200/949)
+[2026-06-07T13:43:14.648Z] [STDOUT] Updating files:  22% (209/949)
+[2026-06-07T13:43:14.650Z] [STDOUT] Updating files:  23% (219/949)
+[2026-06-07T13:43:14.650Z] [STDOUT] Updating files:  24% (228/949)
+[2026-06-07T13:43:14.651Z] [STDOUT] Updating files:  25% (238/949)
+[2026-06-07T13:43:14.654Z] [STDOUT] Updating files:  26% (247/949)Updating files:  27% (257/949)Updating files:  28% (266/949)
+[2026-06-07T13:43:14.655Z] [STDOUT] Updating files:  29% (276/949)
+[2026-06-07T13:43:14.657Z] [STDOUT] Updating files:  30% (285/949)
+[2026-06-07T13:43:14.658Z] [STDOUT] Updating files:  31% (295/949)
+[2026-06-07T13:43:14.660Z] [STDOUT] Updating files:  32% (304/949)
+[2026-06-07T13:43:14.662Z] [STDOUT] Updating files:  33% (314/949)
+[2026-06-07T13:43:14.663Z] [STDOUT] Updating files:  34% (323/949)
+[2026-06-07T13:43:14.664Z] [STDOUT] Updating files:  35% (333/949)
+[2026-06-07T13:43:14.666Z] [STDOUT] Updating files:  36% (342/949)
+[2026-06-07T13:43:14.667Z] [STDOUT] Updating files:  37% (352/949)
+[2026-06-07T13:43:14.668Z] [STDOUT] Updating files:  38% (361/949)
+[2026-06-07T13:43:14.670Z] [STDOUT] Updating files:  39% (371/949)
+[2026-06-07T13:43:14.671Z] [STDOUT] Updating files:  40% (380/949)
+[2026-06-07T13:43:14.673Z] [STDOUT] Updating files:  41% (390/949)
+[2026-06-07T13:43:14.673Z] [STDOUT] Updating files:  42% (399/949)
+[2026-06-07T13:43:14.675Z] [STDOUT] Updating files:  43% (409/949)
+[2026-06-07T13:43:14.677Z] [STDOUT] Updating files:  44% (418/949)
+[2026-06-07T13:43:14.678Z] [STDOUT] Updating files:  45% (428/949)
+[2026-06-07T13:43:14.679Z] [STDOUT] Updating files:  46% (437/949)
+[2026-06-07T13:43:14.680Z] [STDOUT] Updating files:  47% (447/949)
+[2026-06-07T13:43:14.681Z] [STDOUT] Updating files:  48% (456/949)
+[2026-06-07T13:43:14.682Z] [STDOUT] Updating files:  49% (466/949)
+[2026-06-07T13:43:14.683Z] [STDOUT] Updating files:  50% (475/949)
+[2026-06-07T13:43:14.685Z] [STDOUT] Updating files:  51% (484/949)Updating files:  52% (494/949)Updating files:  53% (503/949)
+[2026-06-07T13:43:14.687Z] [STDOUT] Updating files:  54% (513/949)Updating files:  55% (522/949)Updating files:  56% (532/949)
+[2026-06-07T13:43:14.688Z] [STDOUT] Updating files:  57% (541/949)Updating files:  58% (551/949)
+[2026-06-07T13:43:14.689Z] [STDOUT] Updating files:  59% (560/949)
+[2026-06-07T13:43:14.690Z] [STDOUT] Updating files:  60% (570/949)
+[2026-06-07T13:43:14.690Z] [STDOUT] Updating files:  61% (579/949)
+[2026-06-07T13:43:14.691Z] [STDOUT] Updating files:  62% (589/949)
+[2026-06-07T13:43:14.692Z] [STDOUT] Updating files:  63% (598/949)
+[2026-06-07T13:43:14.693Z] [STDOUT] Updating files:  64% (608/949)
+[2026-06-07T13:43:14.694Z] [STDOUT] Updating files:  65% (617/949)
+[2026-06-07T13:43:14.695Z] [STDOUT] Updating files:  66% (627/949)
+[2026-06-07T13:43:14.696Z] [STDOUT] Updating files:  67% (636/949)
+[2026-06-07T13:43:14.697Z] [STDOUT] Updating files:  68% (646/949)
+[2026-06-07T13:43:14.697Z] [STDOUT] Updating files:  69% (655/949)
+[2026-06-07T13:43:14.700Z] [STDOUT] Updating files:  70% (665/949)Updating files:  71% (674/949)
+[2026-06-07T13:43:14.700Z] [STDOUT] Updating files:  72% (684/949)
+[2026-06-07T13:43:14.701Z] [STDOUT] Updating files:  73% (693/949)
+[2026-06-07T13:43:14.702Z] [STDOUT] Updating files:  74% (703/949)
+[2026-06-07T13:43:14.704Z] [STDOUT] Updating files:  75% (712/949)
+[2026-06-07T13:43:14.704Z] [STDOUT] Updating files:  76% (722/949)
+[2026-06-07T13:43:14.705Z] [STDOUT] Updating files:  77% (731/949)
+[2026-06-07T13:43:14.705Z] [STDOUT] Updating files:  78% (741/949)
+[2026-06-07T13:43:14.706Z] [STDOUT] Updating files:  79% (750/949)
+[2026-06-07T13:43:14.708Z] [STDOUT] Updating files:  80% (760/949)
+[2026-06-07T13:43:14.709Z] [STDOUT] Updating files:  81% (769/949)
+[2026-06-07T13:43:14.710Z] [STDOUT] Updating files:  82% (779/949)
+[2026-06-07T13:43:14.711Z] [STDOUT] Updating files:  83% (788/949)
+[2026-06-07T13:43:14.713Z] [STDOUT] Updating files:  84% (798/949)
+[2026-06-07T13:43:14.713Z] [STDOUT] Updating files:  85% (807/949)
+[2026-06-07T13:43:14.714Z] [STDOUT] Updating files:  86% (817/949)
+[2026-06-07T13:43:14.715Z] [STDOUT] Updating files:  87% (826/949)
+[2026-06-07T13:43:14.716Z] [STDOUT] Updating files:  88% (836/949)
+[2026-06-07T13:43:14.717Z] [STDOUT] Updating files:  89% (845/949)
+[2026-06-07T13:43:14.718Z] [STDOUT] Updating files:  90% (855/949)
+[2026-06-07T13:43:14.719Z] [STDOUT] Updating files:  91% (864/949)
+[2026-06-07T13:43:14.720Z] [STDOUT] Updating files:  92% (874/949)
+[2026-06-07T13:43:14.722Z] [STDOUT] Updating files:  93% (883/949)
+[2026-06-07T13:43:14.723Z] [STDOUT] Updating files:  94% (893/949)
+[2026-06-07T13:43:14.723Z] [STDOUT] Updating files:  95% (902/949)
+[2026-06-07T13:43:14.724Z] [STDOUT] Updating files:  96% (912/949)
+[2026-06-07T13:43:14.725Z] [STDOUT] Updating files:  97% (921/949)
+[2026-06-07T13:43:14.726Z] [STDOUT] Updating files:  98% (931/949)
+[2026-06-07T13:43:14.728Z] [STDOUT] Updating files:  99% (940/949)Updating files: 100% (949/949)Updating files: 100% (949/949), done.
+[2026-06-07T13:43:15.981Z] [STDOUT] From https://github.com/ProverCoderAI/docker-git
+ * [new branch]      main       -> upstream/main
+[2026-06-07T13:43:15.981Z] [STDOUT]  * [new tag]         v1.0.31    -> v1.0.31
+ * [new tag]         v1.0.32    -> v1.0.32
+[2026-06-07T13:43:15.981Z] [STDOUT]  * [new tag]         docker-git-session-sync-v1.0.2 -> docker-git-session-sync-v1.0.2
+ * [new tag]         v1.0.27    -> v1.0.27
+ * [new tag]         v1.0.28    -> v1.0.28
+ * [new tag]         v1.0.29    -> v1.0.29
+ * [new tag]         v1.0.30    -> v1.0.30
+[2026-06-07T13:43:15.982Z] [STDOUT]  * [new tag]         v1.0.33    -> v1.0.33
+ * [new tag]         v1.0.34    -> v1.0.34
+ * [new tag]         v1.0.35    -> v1.0.35
+[2026-06-07T13:43:15.982Z] [STDOUT]  * [new tag]         v1.0.36    -> v1.0.36
+[2026-06-07T13:43:15.982Z] [STDOUT]  * [new tag]         v1.0.37    -> v1.0.37
+[2026-06-07T13:43:15.982Z] [STDOUT]  * [new tag]         v1.0.38    -> v1.0.38
+ * [new tag]         v1.0.39    -> v1.0.39
+[2026-06-07T13:43:15.983Z] [STDOUT]  * [new tag]         v1.0.40    -> v1.0.40
+[2026-06-07T13:43:15.983Z] [STDOUT]  * [new tag]         v1.0.41    -> v1.0.41
+ * [new tag]         v1.0.42    -> v1.0.42
+[2026-06-07T13:43:15.984Z] [STDOUT]  * [new tag]         v1.0.43    -> v1.0.43
+ * [new tag]         v1.0.44    -> v1.0.44
+ * [new tag]         v1.0.45    -> v1.0.45
+ * [new tag]         v1.0.46    -> v1.0.46
+ * [new tag]         v1.0.47    -> v1.0.47
+ * [new tag]         v1.0.48    -> v1.0.48
+ * [new tag]         v1.0.49    -> v1.0.49
+ * [new tag]         v1.0.50    -> v1.0.50
+ * [new tag]         v1.0.51    -> v1.0.51
+ * [new tag]         v1.0.52    -> v1.0.52
+ * [new tag]         v1.0.53    -> v1.0.53
+ * [new tag]         v1.0.54    -> v1.0.54
+ * [new tag]         v1.0.55    -> v1.0.55
+[2026-06-07T13:43:15.985Z] [STDOUT]  * [new tag]         v1.0.56    -> v1.0.56
+ * [new tag]         v1.0.57    -> v1.0.57
+ * [new tag]         v1.0.58    -> v1.0.58
+ * [new tag]         v1.0.59    -> v1.0.59
+ * [new tag]         v1.0.60    -> v1.0.60
+ * [new tag]         v1.0.61    -> v1.0.61
+[2026-06-07T13:43:15.985Z] [STDOUT]  * [new tag]         v1.0.62    -> v1.0.62
+ * [new tag]         v1.0.63    -> v1.0.63
+[2026-06-07T13:43:15.985Z] [STDOUT]  * [new tag]         v1.0.64    -> v1.0.64
+[2026-06-07T13:43:15.985Z] [STDOUT]  * [new tag]         v1.0.65    -> v1.0.65
+ * [new tag]         v1.0.66    -> v1.0.66
+ * [new tag]         v1.0.67    -> v1.0.67
+[2026-06-07T13:43:15.986Z] [STDOUT]  * [new tag]         v1.0.68    -> v1.0.68
+ * [new tag]         v1.0.69    -> v1.0.69
+ * [new tag]         v1.0.70    -> v1.0.70
+[2026-06-07T13:43:15.986Z] [STDOUT]  * [new tag]         v1.0.71    -> v1.0.71
+ * [new tag]         v1.0.72    -> v1.0.72
+ * [new tag]         v1.0.73    -> v1.0.73
+ * [new tag]         v1.0.74    -> v1.0.74
+[2026-06-07T13:43:15.986Z] [STDOUT]  * [new tag]         v1.0.75    -> v1.0.75
+ * [new tag]         v1.0.76    -> v1.0.76
+ * [new tag]         v1.0.77    -> v1.0.77
+[2026-06-07T13:43:15.986Z] [STDOUT]  * [new tag]         v1.0.78    -> v1.0.78
+[2026-06-07T13:43:15.987Z] [STDOUT]  * [new tag]         v1.0.79    -> v1.0.79
+ * [new tag]         v1.0.80    -> v1.0.80
+ * [new tag]         v1.0.81    -> v1.0.81
+[2026-06-07T13:43:15.987Z] [STDOUT]  * [new tag]         v1.0.82    -> v1.0.82
+ * [new tag]         v1.0.84    -> v1.0.84
+[2026-06-07T13:43:15.987Z] [STDOUT]  * [new tag]         v1.0.85    -> v1.0.85
+[2026-06-07T13:43:15.987Z] [STDOUT]  * [new tag]         v1.0.86    -> v1.0.86
+ * [new tag]         v1.0.87    -> v1.0.87
+[2026-06-07T13:43:15.987Z] [STDOUT]  * [new tag]         v1.1.0     -> v1.1.0
+ * [new tag]         v1.1.10    -> v1.1.10
+[2026-06-07T13:43:15.990Z] [STDOUT]  * [new tag]         v1.1.11    -> v1.1.11
+ * [new tag]         v1.1.12    -> v1.1.12
+ * [new tag]         v1.1.13    -> v1.1.13
+ * [new tag]         v1.1.15    -> v1.1.15
+ * [new tag]         v1.1.16    -> v1.1.16
+ * [new tag]         v1.1.3     -> v1.1.3
+ * [new tag]         v1.1.4     -> v1.1.4
+ * [new tag]         v1.1.5     -> v1.1.5
+ * [new tag]         v1.1.54    -> v1.1.54
+ * [new tag]         v1.1.6     -> v1.1.6
+ * [new tag]         v1.1.8     -> v1.1.8
+ * [new tag]         v1.1.9     -> v1.1.9
+[2026-06-07T13:43:16.006Z] [STDOUT]  * [new tag]         v1.1.18    -> v1.1.18
+ * [new tag]         v1.1.19    -> v1.1.19
+[2026-06-07T13:43:16.006Z] [STDOUT]  * [new tag]         v1.1.17    -> v1.1.17
+[2026-06-07T13:43:16.007Z] [STDOUT]  * [new tag]         v1.1.20    -> v1.1.20
+[2026-06-07T13:43:16.007Z] [STDOUT]  * [new tag]         v1.1.21    -> v1.1.21
+ * [new tag]         v1.1.22    -> v1.1.22
+ * [new tag]         v1.1.23    -> v1.1.23
+ * [new tag]         v1.1.24    -> v1.1.24
+ * [new tag]         v1.1.25    -> v1.1.25
+[2026-06-07T13:43:16.008Z] [STDOUT]  * [new tag]         v1.1.26    -> v1.1.26
+ * [new tag]         v1.1.27    -> v1.1.27
+ * [new tag]         v1.1.28    -> v1.1.28
+ * [new tag]         v1.1.29    -> v1.1.29
+ * [new tag]         v1.1.30    -> v1.1.30
+ * [new tag]         v1.1.31    -> v1.1.31
+[2026-06-07T13:43:16.009Z] [STDOUT]  * [new tag]         v1.1.32    -> v1.1.32
+ * [new tag]         v1.1.33    -> v1.1.33
+ * [new tag]         v1.1.34    -> v1.1.34
+ * [new tag]         v1.1.35    -> v1.1.35
+[2026-06-07T13:43:16.009Z] [STDOUT]  * [new tag]         v1.1.36    -> v1.1.36
+[2026-06-07T13:43:16.010Z] [STDOUT]  * [new tag]         v1.1.37    -> v1.1.37
+ * [new tag]         v1.1.38    -> v1.1.38
+ * [new tag]         v1.1.39    -> v1.1.39
+ * [new tag]         v1.1.40    -> v1.1.40
+[2026-06-07T13:43:16.010Z] [STDOUT]  * [new tag]         v1.1.41    -> v1.1.41
+ * [new tag]         v1.1.42    -> v1.1.42
+ * [new tag]         v1.1.43    -> v1.1.43
+ * [new tag]         v1.1.44    -> v1.1.44
+[2026-06-07T13:43:16.010Z] [STDOUT]  * [new tag]         v1.1.45    -> v1.1.45
+ * [new tag]         v1.1.46    -> v1.1.46
+ * [new tag]         v1.1.47    -> v1.1.47
+ * [new tag]         v1.1.48    -> v1.1.48
+[2026-06-07T13:43:16.011Z] [STDOUT]  * [new tag]         v1.1.49    -> v1.1.49
+ * [new tag]         v1.1.50    -> v1.1.50
+[2026-06-07T13:43:16.011Z] [STDOUT]  * [new tag]         v1.1.51    -> v1.1.51
+[2026-06-07T13:43:16.011Z] [STDOUT]  * [new tag]         v1.1.52    -> v1.1.52
+ * [new tag]         v1.1.53    -> v1.1.53
+[2026-06-07T13:43:16.032Z] [INFO] ✅ Cloned to:                /tmp/gh-issue-solver-1780839772824
+[2026-06-07T13:43:16.041Z] [STDOUT] origin	https://github.com/konard/ProverCoderAI-docker-git.git (fetch)
+origin	https://github.com/konard/ProverCoderAI-docker-git.git (push)
+upstream	https://github.com/ProverCoderAI/docker-git.git (fetch)
+upstream	https://github.com/ProverCoderAI/docker-git.git (push)
+[2026-06-07T13:43:16.042Z] [INFO] 🔗 Setting upstream:         ProverCoderAI/docker-git
+[2026-06-07T13:43:16.050Z] [STDOUT] https://github.com/ProverCoderAI/docker-git.git
+[2026-06-07T13:43:16.051Z] [INFO] ℹ️ Upstream exists:          Using existing upstream remote
+[2026-06-07T13:43:16.051Z] [INFO] 🔄 Fetching upstream...
+[2026-06-07T13:43:17.185Z] [STDERR] From https://github.com/ProverCoderAI/docker-git
+ * [new branch]        chore/hosted-oss-review-agents -> upstream/chore/hosted-oss-review-agents
+[2026-06-07T13:43:17.187Z] [STDERR]  * [new branch]        chore/issue-7-workflow-sync -> upstream/chore/issue-7-workflow-sync
+ * [new branch]        chore/simplify-coderabbit-spec-prompt -> upstream/chore/simplify-coderabbit-spec-prompt
+ * [new branch]        ci/issue-75-open-command -> upstream/ci/issue-75-open-command
+ * [new branch]        codex-docker-resource-limits-network -> upstream/codex-docker-resource-limits-network
+ * [new branch]        codex/browser-open-start-sidecar -> upstream/codex/browser-open-start-sidecar
+ * [new branch]        codex/browser-popup-handle -> upstream/codex/browser-popup-handle
+ * [new branch]        codex/c7f9577-runtime-identities -> upstream/codex/c7f9577-runtime-identities
+[2026-06-07T13:43:17.188Z] [STDERR]  * [new branch]        codex/ci-e2e-ssh-checks -> upstream/codex/ci-e2e-ssh-checks
+[2026-06-07T13:43:17.188Z] [STDERR]  * [new branch]        codex/controller-host-runtime-skiller -> upstream/codex/controller-host-runtime-skiller
+ * [new branch]        codex/default-local-api-url-bootstrap-pr351 -> upstream/codex/default-local-api-url-bootstrap-pr351
+[2026-06-07T13:43:17.188Z] [STDERR]  * [new branch]        codex/mcp-playwright-cdp-guard -> upstream/codex/mcp-playwright-cdp-guard
+[2026-06-07T13:43:17.189Z] [STDERR]  * [new branch]        codex/shared-browser-agent-isolation -> upstream/codex/shared-browser-agent-isolation
+ * [new branch]        codex/silence-vite-web-build-warnings -> upstream/codex/silence-vite-web-build-warnings
+ * [new branch]        docs-readme-short      -> upstream/docs-readme-short
+[2026-06-07T13:43:17.193Z] [STDERR]  * [new branch]        docs/update-readme-bun-workflow -> upstream/docs/update-readme-bun-workflow
+ * [new branch]        feat-auto-agent-selection -> upstream/feat-auto-agent-selection
+ * [new branch]        feat/browser-connection-module -> upstream/feat/browser-connection-module
+ * [new branch]        feat/bun-gridland-bun-first -> upstream/feat/bun-gridland-bun-first
+ * [new branch]        feat/extract-claude-system-prompt -> upstream/feat/extract-claude-system-prompt
+ * [new branch]        feat/parallel-issue-workspaces -> upstream/feat/parallel-issue-workspaces
+ * [new branch]        feat/rust-browser-connection-module -> upstream/feat/rust-browser-connection-module
+ * [new branch]        fix-auto-agent         -> upstream/fix-auto-agent
+ * [new branch]        fix-federation-status-route -> upstream/fix-federation-status-route
+ * [new branch]        fix/browser-web-restart -> upstream/fix/browser-web-restart
+ * [new branch]        fix/ci-check-github-token-validation -> upstream/fix/ci-check-github-token-validation
+ * [new branch]        fix/ci-checkout-permissions -> upstream/fix/ci-checkout-permissions
+ * [new branch]        fix/ci-controller-gpu-opt-in -> upstream/fix/ci-controller-gpu-opt-in
+ * [new branch]        fix/ci-docker-git-checks -> upstream/fix/ci-docker-git-checks
+ * [new branch]        fix/effect-lint-tests  -> upstream/fix/effect-lint-tests
+ * [new branch]        fix/federation-jsonld-context -> upstream/fix/federation-jsonld-context
+ * [new branch]        fix/force-env-refresh-managed -> upstream/fix/force-env-refresh-managed
+ * [new branch]        fix/isolated-docker-runtime -> upstream/fix/isolated-docker-runtime
+ * [new branch]        fix/issue-11-docker-sock-permission -> upstream/fix/issue-11-docker-sock-permission
+ * [new branch]        fix/issue-21-check-app-lib -> upstream/fix/issue-21-check-app-lib
+ * [new branch]        fix/release-only-app-publish -> upstream/fix/release-only-app-publish
+ * [new branch]        fix/restore-check-workflow -> upstream/fix/restore-check-workflow
+ * [new branch]        issue-10-fix           -> upstream/issue-10-fix
+ * [new branch]        issue-108              -> upstream/issue-108
+[2026-06-07T13:43:17.194Z] [STDERR]  * [new branch]        issue-111              -> upstream/issue-111
+[2026-06-07T13:43:17.194Z] [STDERR]  * [new branch]        issue-12-fix           -> upstream/issue-12-fix
+[2026-06-07T13:43:17.196Z] [STDERR]  * [new branch]        issue-132              -> upstream/issue-132
+ * [new branch]        issue-137              -> upstream/issue-137
+ * [new branch]        issue-14-fix           -> upstream/issue-14-fix
+[2026-06-07T13:43:17.196Z] [STDERR]  * [new branch]        issue-141              -> upstream/issue-141
+ * [new branch]        issue-158              -> upstream/issue-158
+ * [new branch]        issue-163              -> upstream/issue-163
+[2026-06-07T13:43:17.196Z] [STDERR]  * [new branch]        issue-192              -> upstream/issue-192
+[2026-06-07T13:43:17.196Z] [STDERR]  * [new branch]        issue-198              -> upstream/issue-198
+[2026-06-07T13:43:17.197Z] [STDERR]  * [new branch]        issue-230              -> upstream/issue-230
+ * [new branch]        issue-232              -> upstream/issue-232
+[2026-06-07T13:43:17.197Z] [STDERR]  * [new branch]        issue-233              -> upstream/issue-233
+[2026-06-07T13:43:17.198Z] [STDERR]  * [new branch]        issue-237-d4e1e2d53afd -> upstream/issue-237-d4e1e2d53afd
+ * [new branch]        issue-239              -> upstream/issue-239
+[2026-06-07T13:43:17.198Z] [STDERR]  * [new branch]        issue-24-sub-docker-git -> upstream/issue-24-sub-docker-git
+ * [new branch]        issue-250              -> upstream/issue-250
+ * [new branch]        issue-251              -> upstream/issue-251
+[2026-06-07T13:43:17.199Z] [STDERR]  * [new branch]        issue-252              -> upstream/issue-252
+ * [new branch]        issue-27               -> upstream/issue-27
+ * [new branch]        issue-273              -> upstream/issue-273
+[2026-06-07T13:43:17.199Z] [STDERR]  * [new branch]        issue-282              -> upstream/issue-282
+ * [new branch]        issue-306              -> upstream/issue-306
+ * [new branch]        issue-310              -> upstream/issue-310
+ * [new branch]        issue-311              -> upstream/issue-311
+ * [new branch]        issue-317              -> upstream/issue-317
+[2026-06-07T13:43:17.199Z] [STDERR]  * [new branch]        issue-317-copy-selection -> upstream/issue-317-copy-selection
+[2026-06-07T13:43:17.200Z] [STDERR]  * [new branch]        issue-319              -> upstream/issue-319
+[2026-06-07T13:43:17.200Z] [STDERR]  * [new branch]        issue-324              -> upstream/issue-324
+[2026-06-07T13:43:17.201Z] [STDERR]  * [new branch]        issue-327              -> upstream/issue-327
+[2026-06-07T13:43:17.201Z] [STDERR]  * [new branch]        issue-328              -> upstream/issue-328
+[2026-06-07T13:43:17.201Z] [STDERR]  * [new branch]        issue-331              -> upstream/issue-331
+[2026-06-07T13:43:17.202Z] [STDERR]  * [new branch]        issue-334              -> upstream/issue-334
+ * [new branch]        issue-334-fedify       -> upstream/issue-334-fedify
+ * [new branch]        issue-339              -> upstream/issue-339
+[2026-06-07T13:43:17.202Z] [STDERR]  * [new branch]        issue-353              -> upstream/issue-353
+ * [new branch]        issue-361              -> upstream/issue-361
+ * [new branch]        issue-365              -> upstream/issue-365
+ * [new branch]        issue-369              -> upstream/issue-369
+[2026-06-07T13:43:17.203Z] [STDERR]  * [new branch]        issue-372              -> upstream/issue-372
+ * [new branch]        issue-375              -> upstream/issue-375
+ * [new branch]        issue-39               -> upstream/issue-39
+ * [new branch]        issue-61               -> upstream/issue-61
+[2026-06-07T13:43:17.204Z] [STDERR]  * [new branch]        issue-84               -> upstream/issue-84
+ * [new branch]        pr-268                 -> upstream/pr-268
+ * [new branch]        pr-300                 -> upstream/pr-300
+[2026-06-07T13:43:17.206Z] [STDERR]  * [new branch]        renovate/all           -> upstream/renovate/all
+ * [new branch]        smoke-prehook-source-160 -> upstream/smoke-prehook-source-160
+ * [new branch]        vk/2562-github-138     -> upstream/vk/2562-github-138
+ * [new branch]        vk/d6b8-abc-5-github-138 -> upstream/vk/d6b8-abc-5-github-138
+[2026-06-07T13:43:17.227Z] [INFO] ✅ Upstream fetched:         Successfully
+[2026-06-07T13:43:17.228Z] [INFO] 🔄 Syncing default branch...
+[2026-06-07T13:43:17.238Z] [STDOUT] main
+[2026-06-07T13:43:17.622Z] [STDOUT] main
+[2026-06-07T13:43:17.629Z] [INFO] ℹ️ Default branch:           main
+[2026-06-07T13:43:18.023Z] [STDOUT] HEAD is now at 8889c5c6 chore(release): version packages
+[2026-06-07T13:43:18.024Z] [INFO] ✅ Default branch synced:    with upstream/main
+[2026-06-07T13:43:18.025Z] [INFO] 🔄 Pushing to fork:          main branch
+[2026-06-07T13:43:18.529Z] [STDOUT] To https://github.com/konard/ProverCoderAI-docker-git.git
+ ! [rejected]          main -> main (non-fast-forward)
+error: failed to push some refs to 'https://github.com/konard/ProverCoderAI-docker-git.git'
+[2026-06-07T13:43:18.534Z] [STDOUT] hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. If you want to integrate the remote changes,
+hint: use 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+[2026-06-07T13:43:18.535Z] [INFO]
+[2026-06-07T13:43:18.536Z] [WARN] ⚠️ FORK DIVERGENCE DETECTED
+[2026-06-07T13:43:18.536Z] [INFO]
+[2026-06-07T13:43:18.538Z] [INFO]   🔍 What happened:
+[2026-06-07T13:43:18.539Z] [INFO]      Your fork's main branch has different commits than upstream
+[2026-06-07T13:43:18.540Z] [INFO]      This typically occurs when upstream had a force push (e.g., git reset --hard)
+[2026-06-07T13:43:18.540Z] [INFO]
+[2026-06-07T13:43:18.541Z] [INFO]   📦 Current state:
+[2026-06-07T13:43:18.542Z] [INFO]      • Fork: konard/ProverCoderAI-docker-git
+[2026-06-07T13:43:18.542Z] [INFO]      • Upstream: ProverCoderAI/docker-git
+[2026-06-07T13:43:18.543Z] [INFO]      • Branch: main
+[2026-06-07T13:43:18.543Z] [INFO]
+[2026-06-07T13:43:18.544Z] [INFO]   💡 Your options:
+[2026-06-07T13:43:18.545Z] [INFO]
+[2026-06-07T13:43:18.545Z] [INFO]      Option 1: Delete your fork and recreate it (SIMPLEST)
+[2026-06-07T13:43:18.546Z] [INFO]               gh repo delete konard/ProverCoderAI-docker-git
+[2026-06-07T13:43:18.547Z] [INFO]               Then run the solve command again - the fork will be recreated automatically
+[2026-06-07T13:43:18.547Z] [INFO]               ⚠️  Only use this if your fork has no unique commits you need to preserve
+[2026-06-07T13:43:18.548Z] [INFO]
+[2026-06-07T13:43:18.548Z] [INFO]      Option 2: Enable automatic force-push (DANGEROUS)
+[2026-06-07T13:43:18.549Z] [INFO]               Add --allow-fork-divergence-resolution-using-force-push-with-lease flag to your command
+[2026-06-07T13:43:18.549Z] [INFO]               This will automatically sync your fork with upstream using force-with-lease
+[2026-06-07T13:43:18.549Z] [INFO]               ⚠️  Overwrites fork history - any unique commits will be LOST
+[2026-06-07T13:43:18.550Z] [INFO]
+[2026-06-07T13:43:18.550Z] [INFO]      Option 3: Manually resolve the divergence
+[2026-06-07T13:43:18.551Z] [INFO]               1. Decide if you need any commits unique to your fork
+[2026-06-07T13:43:18.551Z] [INFO]               2. If yes, cherry-pick them after syncing
+[2026-06-07T13:43:18.551Z] [INFO]               3. If no, manually force-push:
+[2026-06-07T13:43:18.552Z] [INFO]                  git fetch upstream
+[2026-06-07T13:43:18.552Z] [INFO]                  git reset --hard upstream/main
+[2026-06-07T13:43:18.553Z] [INFO]                  git push --force origin main
+[2026-06-07T13:43:18.554Z] [INFO]
+[2026-06-07T13:43:18.554Z] [INFO]   🔧 To proceed with auto-resolution, restart with:
+[2026-06-07T13:43:18.554Z] [INFO]      solve https://github.com/ProverCoderAI/docker-git/pull/381 --allow-fork-divergence-resolution-using-force-push-with-lease
+[2026-06-07T13:43:18.555Z] [INFO]
+[2026-06-07T13:43:18.556Z] [INFO]
+[2026-06-07T13:43:18.557Z] [ERROR] ❌ Repository setup halted - fork divergence requires user decision
+[2026-06-07T13:43:18.557Z] [INFO] 📁 Full log file: /home/box/solve-2026-06-07T13-42-43-532Z.log
+[2026-06-07T13:43:18.558Z] [INFO]
+[2026-06-07T13:43:18.558Z] [INFO] 📄 Notifying pull request #381 about solver failure with logs...
+[2026-06-07T13:43:18.752Z] [INFO]   🤖 Model info fetched for comment
+
+```
+
+</details>
+
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*
+
+---
+<!-- https://github.com/ProverCoderAI/docker-git/pull/381#issuecomment-4643026810 2026-06-07T14:57:26Z -->
+🤖 **AI Work Session Started**
+
+Starting automated work session at 2026-06-07T14:57:24.153Z
+
+The PR has been converted to draft mode while work is in progress.
+
+_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._
+
+---
+<!-- https://github.com/ProverCoderAI/docker-git/pull/381#issuecomment-4643098368 2026-06-07T15:27:31Z -->
+Dependency-artifact investigation update:
+
+- Root cause: PR head `b9961886` updates manifests, but `bun.lock` is stale, so CI fails during `bun install --frozen-lockfile` before the real check/test jobs run. I reproduced that locally; after regenerating `bun.lock`, frozen install passes.
+- Local fix prepared: `b0e157817fe582a7e146853a573082399ac4a103` (`fix(deps): update bun lockfile artifacts`) after merging current `upstream/main` (`8889c5c6`). The lockfile now resolves the `@fedify/*` `2.2.5` graph plus the current `effect`/types updates.
+- Local verification passed: `npx --yes bun@1.3.11 install --frozen-lockfile`, `bun install --frozen-lockfile`, `bun run check`, `bun run lint`, `bun run lint:effect`, `bun run test`, `bun run typecheck`, `bun run build`, `bun run check:dist-deps-prune`.
+- Local `bun run e2e` was attempted: `local-package-cli` passed, then `browser-command` hit local Docker storage exhaustion (`/var/lib/docker` reached 100%) during controller image build, so this environment cannot complete full e2e without more disk.
+
+Blocker: the available GitHub credentials are `konard`, while this PR head is `ProverCoderAI:renovate/all`; `git push upstream renovate/all:renovate/all` returns 403. I also did not force-push `konard:renovate/all` because that branch is divergent and contains unrelated commits. Please grant write access to the PR branch or confirm the desired branch rewrite/switch, and I can push the prepared fix.
+
+---
+<!-- https://github.com/ProverCoderAI/docker-git/pull/381#issuecomment-4643457387 2026-06-07T17:51:21Z -->
+## ✅ Ready to merge
+
+This pull request is now ready to be merged:
+- All CI checks have passed
+- No merge conflicts
+- No pending changes
+
+---
+*Monitored by hive-mind with --auto-restart-until-mergeable flag*

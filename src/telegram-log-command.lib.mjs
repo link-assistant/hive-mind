@@ -109,8 +109,9 @@ export function resolveLogPath({ statusResult, isolationBackend }) {
   if (statusResult?.logPath) return statusResult.logPath;
   const uuid = statusResult?.uuid;
   if (!uuid) return null;
-  if (isolationBackend && ISOLATION_BACKENDS.has(isolationBackend)) {
-    return path.join('/tmp/start-command/logs/isolation', isolationBackend, `${uuid}.log`);
+  const logBackend = statusResult?.isolation || isolationBackend;
+  if (logBackend && ISOLATION_BACKENDS.has(logBackend)) {
+    return path.join('/tmp/start-command/logs/isolation', logBackend, `${uuid}.log`);
   }
   return path.join('/tmp/start-command/logs/direct', `${uuid}.log`);
 }

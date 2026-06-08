@@ -13,6 +13,10 @@
  */
 
 import crypto from 'crypto';
+import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 if (typeof use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
@@ -24,6 +28,11 @@ const { $ } = await use('command-stream');
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
 const RUNNING_SESSION_STATUSES = new Set(['executing', 'running']);
 const TERMINAL_SESSION_STATUSES = new Set(['executed', 'completed', 'failed', 'cancelled', 'canceled', 'error']);
+const DEFAULT_HIVE_MIND_IMAGE = 'konard/hive-mind:latest';
+const DEFAULT_HIVE_MIND_DIND_IMAGE = 'konard/hive-mind-dind:latest';
+const DOCKER_ISOLATION_TRACKING_BACKEND = 'screen';
+const DOCKER_CONTAINER_HOME = '/home/box';
+const DOCKER_CONTAINER_PREFIX = 'hive-mind-isolation';
 
 function normalizeProcessIds(value) {
   if (!value || typeof value !== 'object') return {};
@@ -33,6 +42,149 @@ function normalizeProcessIds(value) {
     if (Number.isInteger(number) && number > 0) out[key] = number;
   }
   return out;
+}
+
+function normalizeTool(tool) {
+  return String(tool || 'claude')
+    .trim()
+    .toLowerCase();
+}
+
+function shellQuote(value) {
+  const stringValue = String(value);
+  if (stringValue === '') return "''";
+  return `'${stringValue.replaceAll("'", "'\\''")}'`;
+}
+
+function shellDoubleQuote(value) {
+  return `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('$', '\\$').replaceAll('`', '\\`')}"`;
+}
+
+function buildShellCommand(command, args = []) {
+  return [command, ...args].map(shellQuote).join(' ');
+}
+
+function makeDockerContainerName(sessionId) {
+  const normalizedSession = String(sessionId || crypto.randomUUID()).replace(/[^a-zA-Z0-9_.-]/g, '-');
+  return `${DOCKER_CONTAINER_PREFIX}-${normalizedSession}`;
+}
+
+function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
+  return String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' || String(image || '').includes('hive-mind-dind');
+}
+
+function maybeAddMount(mounts, source, target, existsSync) {
+  if (!source) return;
+  if (!existsSync(source)) return;
+  mounts.push({ source, target });
+}
+
+/**
+ * Pick the Docker image used for `--isolation docker`.
+ *
+ * start-command defaults its Docker backend to a base OS image. Hive Mind needs
+ * an image with the same CLI/tooling baseline as the parent process instead.
+ */
+export function getDockerIsolationImage({ env = process.env } = {}) {
+  if (env.HIVE_MIND_DOCKER_ISOLATION_IMAGE) return env.HIVE_MIND_DOCKER_ISOLATION_IMAGE;
+  return String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' ? DEFAULT_HIVE_MIND_DIND_IMAGE : DEFAULT_HIVE_MIND_IMAGE;
+}
+
+/**
+ * Build host auth mounts for a Docker-isolated task.
+ *
+ * GitHub auth is mounted for every task because solve/hive/task need gh. Tool
+ * credentials are deliberately scoped: Codex sessions do not receive Claude
+ * files and Claude sessions do not receive Codex files.
+ */
+export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = {}) {
+  const mounts = [];
+  const normalizedTool = normalizeTool(tool);
+
+  maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
+
+  if (normalizedTool === 'codex') {
+    maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
+  } else if (normalizedTool === 'claude') {
+    maybeAddMount(mounts, path.join(homeDir, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'), existsSync);
+    maybeAddMount(mounts, path.join(homeDir, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'), existsSync);
+  }
+
+  return mounts;
+}
+
+/**
+ * Build the shell command executed inside a start-command wrapper session for
+ * Docker isolation. The wrapper remains a start-command session so Telegram can
+ * keep using the same status/log lifecycle while Hive Mind controls image and
+ * auth mounts directly.
+ */
+export function buildDockerIsolationCommand(command, args = [], options = {}) {
+  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = options;
+  const image = getDockerIsolationImage({ env });
+  const innerCommand = buildShellCommand(command, args);
+  const dockerArgs = ['docker', 'run', '--rm', '--name', makeDockerContainerName(sessionId), '--workdir', DOCKER_CONTAINER_HOME, '-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`];
+
+  if (shouldRunPrivilegedDockerIsolation(image, env)) {
+    dockerArgs.push('--privileged');
+  }
+
+  const imageVariant = image.includes('hive-mind-dind') ? 'dind' : env.HIVE_MIND_IMAGE_VARIANT || 'regular';
+  dockerArgs.push('-e', `HIVE_MIND_IMAGE_VARIANT=${imageVariant}`);
+
+  for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync })) {
+    dockerArgs.push('--volume', `${mount.source}:${mount.target}`);
+  }
+
+  dockerArgs.push(image, 'bash', '-lc');
+
+  return [...dockerArgs.map(shellQuote), shellDoubleQuote(innerCommand)].join(' ');
+}
+
+export function buildStartCommandArgs(command, args = [], options = {}) {
+  const { backend, sessionId } = options;
+  if (backend === 'docker') {
+    return ['--isolated', DOCKER_ISOLATION_TRACKING_BACKEND, '--detached', '--session', sessionId, '--', buildDockerIsolationCommand(command, args, options)];
+  }
+  return ['--isolated', backend, '--detached', '--session', sessionId, '--', buildShellCommand(command, args)];
+}
+
+async function runStartCommand(binPath, startCommandArgs) {
+  return await new Promise(resolve => {
+    const child = spawn(binPath, startCommandArgs, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env,
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', data => {
+      stdout += data.toString();
+    });
+    child.stderr.on('data', data => {
+      stderr += data.toString();
+    });
+    child.on('error', error => {
+      resolve({
+        success: false,
+        output: (stdout + stderr).trim(),
+        error: error.message,
+      });
+    });
+    child.on('close', code => {
+      const output = (stdout + (stderr ? `\n${stderr}` : '')).trim();
+      if (code === 0) {
+        resolve({ success: true, output, error: null });
+      } else {
+        resolve({
+          success: false,
+          output,
+          error: stderr.trim() || `start-command exited with code ${code}`,
+        });
+      }
+    });
+  });
 }
 
 /**
@@ -169,6 +321,7 @@ async function findStartCommandBinary() {
  * @param {Object} options - Isolation options
  * @param {string} options.backend - Isolation backend: 'screen', 'tmux', or 'docker'
  * @param {string} [options.sessionId] - UUID for session tracking (auto-generated if not provided)
+ * @param {string} [options.tool] - AI tool selected for the task; used to scope Docker auth mounts
  * @param {boolean} [options.verbose] - Enable verbose logging
  * @returns {Promise<{success: boolean, sessionId: string, output: string, error?: string, warning?: string}>}
  */
@@ -201,47 +354,40 @@ export async function executeWithIsolation(command, args, options = {}) {
     console.log(`[VERBOSE] isolation-runner: Backend: ${backend}, Session ID: ${sessionId}`);
   }
 
-  // Build arguments as array for the $ CLI:
-  // $ --isolated <backend> --detached --session <sessionId> -- <command> <args...>
-  const argsStr = args.join(' ');
+  const startCommandArgs = buildStartCommandArgs(command, args, { ...options, sessionId });
 
   if (verbose) {
-    console.log(`[VERBOSE] isolation-runner: $ --isolated ${backend} --detached --session ${sessionId} -- ${command} ${argsStr}`);
+    console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
+    if (backend === 'docker') {
+      const image = getDockerIsolationImage({ env: options.env || process.env });
+      const mounts = getDockerIsolationAuthMounts({ tool: options.tool, env: options.env || process.env, homeDir: options.homeDir || os.homedir(), existsSync: options.existsSync || fs.existsSync });
+      console.log(`[VERBOSE] isolation-runner: Docker isolation image: ${image}`);
+      console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => m.target).join(', ') || '(none)'}`);
+    }
   }
 
-  try {
-    const result = await $({ mirror: false })`${binPath} --isolated ${backend} --detached --session ${sessionId} -- ${command} ${argsStr}`;
+  const result = await runStartCommand(binPath, startCommandArgs);
 
-    const stdout = result.stdout?.toString() || '';
-    const stderr = result.stderr?.toString() || '';
-    const output = stdout + (stderr ? '\n' + stderr : '');
+  if (verbose) {
+    const stream = result.success ? console.log : console.error;
+    stream(`[VERBOSE] isolation-runner: Output: ${result.output.substring(0, 500)}`);
+    if (result.error) stream(`[VERBOSE] isolation-runner: Error: ${result.error}`);
+  }
 
-    if (verbose) {
-      console.log(`[VERBOSE] isolation-runner: Output: ${output.substring(0, 500)}`);
-    }
-
+  if (result.success) {
     return {
       success: true,
       sessionId,
-      output: output.trim(),
-    };
-  } catch (error) {
-    const stdout = error.stdout?.toString() || '';
-    const stderr = error.stderr?.toString() || '';
-    const output = stdout + stderr;
-
-    if (verbose) {
-      console.error(`[VERBOSE] isolation-runner: Error: ${error.message}`);
-      console.error(`[VERBOSE] isolation-runner: Output: ${output.substring(0, 500)}`);
-    }
-
-    return {
-      success: false,
-      sessionId,
-      output: output.trim(),
-      error: error.message,
+      output: result.output,
     };
   }
+
+  return {
+    success: false,
+    sessionId,
+    output: result.output,
+    error: result.error,
+  };
 }
 
 /**
@@ -378,12 +524,14 @@ export async function isSessionRunning(sessionId, options = {}) {
     }
   }
 
-  // Fallback: for screen backend, check screen -ls directly.
+  // Fallback: for screen-backed sessions, check screen -ls directly.
+  // Docker isolation is also tracked through a screen wrapper so Hive Mind can
+  // control image selection and credential mounts while preserving logs/status.
   // Only use this when $ --status has no usable record. This works around
   // older start-command bugs where:
   // 1. $ --status can't find session by --session name (only by internal UUID)
   // See: https://github.com/link-assistant/hive-mind/issues/1545
-  if (backend === 'screen' && shouldFallbackToScreenStatus(result)) {
+  if ((backend === 'screen' || backend === 'docker') && shouldFallbackToScreenStatus(result)) {
     const screenRunning = await checkScreenSessionRunning(sessionId, verbose);
     if (screenRunning && verbose) {
       console.log(`[VERBOSE] isolation-runner: $ --status says not running, but screen -ls confirms session '${sessionId}' is still active`);

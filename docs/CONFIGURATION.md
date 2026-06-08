@@ -202,6 +202,8 @@ These settings control the merge queue behavior for automated PR merging.
 | `TELEGRAM_HIVE_OVERRIDES`                  | (none)     | Override options for /hive (Links Notation)                                  |
 | `TELEGRAM_SOLVE`                           | true       | Enable /solve command                                                        |
 | `TELEGRAM_HIVE`                            | true       | Enable /hive command                                                         |
+| `TELEGRAM_TASK`                            | true       | Enable /task and /split commands                                             |
+| `TELEGRAM_AUTH`                            | true       | Enable experimental private /auth command for allowlisted chat owners        |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | Auto-start a separate live terminal watch message for public /solve sessions |
 | `TELEGRAM_BOT_VERBOSE`                     | false      | Enable verbose logging                                                       |
 | `TELEGRAM_CONFIGURATION`                   | (none)     | LINO configuration string                                                    |
@@ -522,6 +524,8 @@ hive-telegram-bot [options]
 | `--hive-overrides`                  |       | string  | (none)     | Override options for /hive                                                                                                                                                                                |
 | `--solve`                           |       | boolean | true       | Enable /solve command (--no-solve to disable)                                                                                                                                                             |
 | `--hive`                            |       | boolean | true       | Enable /hive command (--no-hive to disable)                                                                                                                                                               |
+| `--task`                            |       | boolean | true       | Enable /task and /split commands (--no-task to disable)                                                                                                                                                   |
+| `--auth`                            |       | boolean | true       | Enable experimental private /auth command for allowlisted chat owners (--no-auth to disable)                                                                                                              |
 | `--configuration`                   | `-c`  | string  |            | LINO configuration string                                                                                                                                                                                 |
 | `--verbose`                         | `-v`  | boolean | false      | Enable verbose logging                                                                                                                                                                                    |
 | `--dry-run`                         |       | boolean | false      | Validate without starting bot                                                                                                                                                                             |

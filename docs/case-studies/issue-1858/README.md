@@ -43,9 +43,11 @@ hive auth use codex work
 hive solve ... --tool codex --auth-profile work
 ```
 
-Telegram should expose the same capability as `/auth`, but only for already
-authorized chats/topics and with stricter output redaction than normal solve
-sessions.
+Telegram should expose the same capability as `/auth`, but only for tightly
+restricted operators and with stricter output redaction than normal solve
+sessions. The first experimental implementation uses private messages only and
+accepts `/auth --status <gh|claude|codex>` and
+`/auth --login <gh|claude|codex>`.
 
 ## Evidence Captured
 
@@ -73,7 +75,7 @@ sessions.
 | --- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | R1  | Define what `hive auth <tool> login` should mean.                                   | Treat it as a first-class operator workflow for checking, creating, selecting, and validating external tool credentials used by Hive Mind.                               |
 | R2  | Support at least Codex and Claude login commands.                                   | Add per-tool auth adapters for `codex` and `claude` first; design the registry so OpenCode, Qwen, Gemini, GitHub CLI, and future agents can use the same metadata shape. |
-| R3  | Make the commands callable from Telegram.                                           | Add `/auth` handlers after CLI behavior exists; reuse Telegram chat/topic allowlisting and avoid exposing raw terminal output from credential flows.                     |
+| R3  | Make the commands callable from Telegram.                                           | Start with a private-message `/auth --status/--login <gh\|claude\|codex>` command for allowlisted chat owners; avoid exposing raw terminal output from credential flows. |
 | R4  | Support multiple auth identities, not a single global auth.                         | Introduce named auth profiles and make solve/hive execution accept `--auth-profile`; profiles inject tool-specific env overlays such as `CODEX_HOME` or `GH_CONFIG_DIR`. |
 | R5  | Compile issue data under `docs/case-studies/issue-1858`.                            | This folder contains raw issue/PR exports, related PR search output, external project evidence, and this analysis.                                                       |
 | R6  | Search online for additional facts and data.                                        | Official docs for GitHub CLI, Claude Code, OpenAI Codex, OpenCode, Qwen Code, Gemini CLI, plus the referenced docker-git project were checked.                           |
@@ -317,15 +319,19 @@ Telegram should mirror the safe subset:
 
 ```text
 /auth
-/auth status
-/auth codex status
-/auth codex login work device
-/auth use codex work
+/auth --status gh
+/auth --status claude
+/auth --status codex
+/auth --login gh
+/auth --login claude
+/auth --login codex
 ```
 
 Recommended restrictions:
 
-- Only allow `/auth` from already authorized chats/topics.
+- Only allow `/auth` from private messages sent by owners of chats listed in
+  `TELEGRAM_ALLOWED_CHATS`.
+- Disable `/auth` entirely when no allowed chats are configured.
 - Consider requiring a bot-owner/admin allowlist for `login`, `remove`, and
   future `logout`.
 - Prefer sending one-time auth links/codes by direct message when possible.

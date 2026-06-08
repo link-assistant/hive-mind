@@ -29,14 +29,19 @@ Hive Mind is a **generalist AI** (mini-AGI) capable of working on a wide range o
 | **Pre-installed Toolchain**  | 25GB+ ready: 10 language runtimes, 2 theorem provers, build tools. Can install more.                                                                                       |
 | **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.                                                                                           |
 | **Time Freedom**             | What takes humans 2-8 hours, AI completes each working session in 10-25 minutes. Mass execution of tasks in repository is possible. "The code is written while you sleep." |
-| **Scale with Orchestration** | Parallel workers feel like a team of developers, all for ~$200/month.                                                                                                      |
+| **Scale with Orchestration** | Parallel workers feel like a team of developers. Pair Claude MAX and ChatGPT Pro ($200 each) for two independent unlimited budgets.                                        |
 | **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.                                                                                            |
 | **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive` via Telegram bot. No PC, IDE, or laptop required.                                                                      |
 | **100% Open Source**         | Unlicense (public domain). Full transparency, no vendor lock-in.                                                                                                           |
 
-> _"Compared to Codex for $200, this solution is fire."_ - User feedback
+**Cost**: Hive Mind supports two $200/month subscriptions as full-featured "unlimited" options:
 
-**Cost**: Claude MAX subscription (~$200/month, currently 50% off = $400 value) provides almost unlimited usage for Hive Mind - the best value/quality balance on the market.
+| Subscription                                                       | Pairs with `--tool` | Default model | Best for                                                |
+| ------------------------------------------------------------------ | ------------------- | ------------- | ------------------------------------------------------- |
+| **Anthropic Claude MAX** (~$200/month, often 50% off = $400 value) | `claude` (default)  | Sonnet/Haiku  | Highest creativity, strongest general code reasoning    |
+| **OpenAI ChatGPT Pro** ($200/month, includes Codex)                | `codex`             | `gpt-5.5`     | Strong deterministic refactors and fast iteration loops |
+
+Both tools can be combined in the same hive. Workers can run different tools in parallel, and `/codex` or `/solve --tool codex` routes tasks to ChatGPT Pro while the default routes to Claude MAX. There is no requirement to pick one: either single subscription is enough to operate, and using both unlocks per-tool/model concurrency mode (#1474).
 
 Hive Mind has high creativity indistinguishable from average programmers. It asks questions if requirements are unclear, and you can clarify on the go via PR comments.
 
@@ -48,7 +53,7 @@ It is UNSAFE to run this software on your developer machine.
 
 It is recommended to use Docker for installation (both locally and on servers). See the [Docker installation](#using-docker) section below.
 
-This software uses full autonomous mode of Claude Code, that means it is free to execute any commands it sees fit.
+This software runs supported AI tools such as Claude Code and Codex in full autonomous mode, which means they are free to execute any commands they see fit.
 
 That means it can lead to unexpected side effects.
 
@@ -60,7 +65,7 @@ There is also a known issue of space leakage. So you need to make sure you are a
 
 There are infinite ways to extract tokens from a virtual machine connected to the internet. This includes but is not limited to:
 
-- **Claude MAX tokens** - Required for AI operations
+- **Claude MAX tokens** and/or **ChatGPT Pro (Codex) tokens** - Required for AI operations; you can run with either or both
 - **GitHub tokens** - Required for repository access
 - **API keys and credentials** - Any sensitive data on the system
 
@@ -161,7 +166,7 @@ docker exec -it hive-mind /bin/bash
 # Inside the container, authenticate with GitHub
 gh-setup-git-identity
 
-# Authenticate with Claude
+# Authenticate with Claude (if you have Claude MAX)
 claude
 
 # Optionally set configuration like this:
@@ -173,6 +178,14 @@ claude
 
 # Optionally test Claude connection
 claude -p hi --model haiku
+
+# Authenticate with Codex (if you have ChatGPT Pro)
+codex login --device-auth
+
+# Optionally test Codex connection. codex exec refuses to run unless
+# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
+# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
+codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
 
 # Verify Playwright MCP is registered for both CLIs in this container image
 claude mcp list | grep playwright

@@ -1,0 +1,12 @@
+[
+  { "headRefName": "issue-1813-ab79cdd78da8", "mergedAt": "2026-05-17T08:34:58Z", "number": 1815, "title": "Fix Codex working session summary dedup", "url": "https://github.com/link-assistant/hive-mind/pull/1815" },
+  { "headRefName": "codex-support-update", "mergedAt": "2026-04-15T03:08:34Z", "number": 1602, "title": "Better codex support", "url": "https://github.com/link-assistant/hive-mind/pull/1602" },
+  { "headRefName": "issue-1673-682855bd26ae", "mergedAt": "2026-04-25T08:38:22Z", "number": 1674, "title": "fix: resume Codex stream disconnects", "url": "https://github.com/link-assistant/hive-mind/pull/1674" },
+  { "headRefName": "issue-1793-b8b0656b942f", "mergedAt": "2026-05-12T21:44:34Z", "number": 1794, "title": "Display subscription end date in /limits for Claude and Codex", "url": "https://github.com/link-assistant/hive-mind/pull/1794" },
+  { "headRefName": "issue-1843-8a6facb18142", "mergedAt": "2026-06-04T22:36:13Z", "number": 1844, "title": "feat(interactive-mode): embed AI images from hidden custom refs", "url": "https://github.com/link-assistant/hive-mind/pull/1844" },
+  { "headRefName": "issue-1660-1d053f2ad668", "mergedAt": "2026-04-24T07:57:26Z", "number": 1661, "title": "Treat Codex error events as failed runs", "url": "https://github.com/link-assistant/hive-mind/pull/1661" },
+  { "headRefName": "issue-1634-78cd9834ed33", "mergedAt": "2026-04-18T15:12:49Z", "number": 1636, "title": "Fix Codex pricing estimates in solution logs", "url": "https://github.com/link-assistant/hive-mind/pull/1636" },
+  { "headRefName": "issue-1696-670c11ac2914", "mergedAt": "2026-04-26T18:10:34Z", "number": 1697, "title": "Fix Codex false failure on app-server stream lag (#1696)", "url": "https://github.com/link-assistant/hive-mind/pull/1697" },
+  { "headRefName": "issue-1616-9522ec532cc9", "mergedAt": "2026-04-16T06:48:45Z", "number": 1617, "title": "Preserve PR issue links after Codex auto-restart", "url": "https://github.com/link-assistant/hive-mind/pull/1617" },
+  { "headRefName": "issue-1606-0a744d933054", "mergedAt": "2026-04-15T17:15:59Z", "number": 1607, "title": "Fix Codex Playwright MCP setup guidance and verification", "url": "https://github.com/link-assistant/hive-mind/pull/1607" }
+]

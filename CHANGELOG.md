@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.74.6
+
+### Patch Changes
+
+- e07b243: Split oversized Telegram text messages in the safe reply/edit helper so localized `/help` output cannot exceed Telegram's 4096-character limit.
+
 ## 1.74.5
 
 ### Patch Changes

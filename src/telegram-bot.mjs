@@ -40,7 +40,7 @@ const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFro
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
-const { installTelegramFormattingFallback, safeEditMessageText, safeReply } = await import('./telegram-safe-reply.lib.mjs');
+const { installTelegramFormattingFallback, isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync } = await import('./session-monitor.lib.mjs');
@@ -1214,15 +1214,17 @@ bot.catch((error, ctx) => {
 
   // Try to notify the user about the error with more details
   if (ctx?.reply) {
-    const isTelegramParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('400')));
+    const isTelegramParsingError = isTelegramFormattingError(error);
+    const isTelegramTextLimitError = isTelegramMessageTooLongError(error);
 
     let errorMessage;
 
-    if (isTelegramParsingError) {
+    if (isTelegramParsingError || isTelegramTextLimitError) {
       // Issue #1460: Log detailed context for root cause analysis (always logged, not just in verbose mode)
       const userInfo = ctx.from ? { id: ctx.from.id, username: ctx.from.username, first_name: ctx.from.first_name, last_name: ctx.from.last_name } : 'unknown';
-      console.error(`[telegram-bot] Parsing error: ${error.message}`);
-      console.error(`[telegram-bot] Parsing error context - user: ${JSON.stringify(userInfo)}, command: ${ctx.message?.text?.split(' ')[0] || 'unknown'}`);
+      const errorKind = isTelegramTextLimitError ? 'Message length error' : 'Parsing error';
+      console.error(`[telegram-bot] ${errorKind}: ${error.message}`);
+      console.error(`[telegram-bot] ${errorKind} context - user: ${JSON.stringify(userInfo)}, command: ${ctx.message?.text?.split(' ')[0] || 'unknown'}`);
       console.error(`[telegram-bot] User input text: ${ctx.message?.text || 'none'}`);
       if (ctx.message?.text) {
         const visibleInput = makeSpecialCharsVisible(ctx.message.text, { maxLength: 500 });
@@ -1233,8 +1235,11 @@ bot.catch((error, ctx) => {
         }
       }
 
-      // Issue #1460: Show user a simple, non-confusing message — all details are in the logs
-      errorMessage = `❌ Failed to send formatted message. Please try your command again.\n\nIf the issue persists, contact support with Update ID: ${ctx.update.update_id}`;
+      if (isTelegramTextLimitError) {
+        errorMessage = `❌ Telegram rejected an oversized bot message.\n\nThe bot splits messages above ${TELEGRAM_TEXT_LIMIT} characters automatically. Please try your command again.\n\nIf the issue persists, contact support with Update ID: ${ctx.update.update_id}`;
+      } else {
+        errorMessage = `❌ Telegram rejected a formatted bot message, and the fallback handler could not recover automatically.\n\nPlease try your command again.\n\nIf the issue persists, contact support with Update ID: ${ctx.update.update_id}`;
+      }
     } else {
       errorMessage = '❌ An error occurred while processing your request.\n\n';
       if (error.message) {
@@ -1251,20 +1256,13 @@ bot.catch((error, ctx) => {
       if (VERBOSE) errorMessage += `\n\n🔍 Debug info: Update ID: ${ctx.update.update_id}`;
     }
 
-    // Issue #1460: For parsing errors send plain text; otherwise try Markdown first
-    if (isTelegramParsingError) {
-      ctx.reply(errorMessage).catch(fallbackError => {
-        console.error('Failed to send plain text error message:', fallbackError);
+    safeReply(ctx, errorMessage, { fallbackLocale: resolveLocaleFromTelegramCtx(ctx), verbose: VERBOSE }).catch(replyError => {
+      console.error('Failed to send error message to user:', replyError);
+      const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${error.message || 'Unknown error'}`;
+      ctx.reply(plainMessage).catch(fallbackError => {
+        console.error('Failed to send fallback error message:', fallbackError);
       });
-    } else {
-      ctx.reply(errorMessage, { parse_mode: 'Markdown' }).catch(replyError => {
-        console.error('Failed to send error message to user:', replyError);
-        const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${error.message || 'Unknown error'}`;
-        ctx.reply(plainMessage).catch(fallbackError => {
-          console.error('Failed to send fallback error message:', fallbackError);
-        });
-      });
-    }
+    });
   }
 });
 

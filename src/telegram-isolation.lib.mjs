@@ -79,7 +79,8 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
     const iso = await resolveIsolation(item.perCommandIsolation, botIsolationBackend, botIsolationRunner, verbose);
     if (iso) {
       const sid = iso.runner.generateSessionId();
-      const r = await iso.runner.executeWithIsolation(item.command || 'solve', item.args, { backend: iso.backend, sessionId: sid, verbose });
+      const tool = item.tool || 'claude';
+      const r = await iso.runner.executeWithIsolation(item.command || 'solve', item.args, { backend: iso.backend, sessionId: sid, tool, verbose });
       if (r.success)
         trackSession(
           sid,
@@ -91,7 +92,7 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
             command: item.command || 'solve',
             isolationBackend: iso.backend,
             sessionId: sid,
-            tool: item.tool || 'claude',
+            tool,
             infoBlock: item.infoBlock,
             // Issue #1688: propagate URL context + requester through the queue so the
             //   completion notification can append a 'Pull request:' line and skip

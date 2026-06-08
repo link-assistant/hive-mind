@@ -12,7 +12,13 @@
 
 import { escapeMarkdown, cleanNonPrintableChars, makeSpecialCharsVisible } from '../src/telegram-markdown.lib.mjs';
 import { buildUserMention } from '../src/buildUserMention.lib.mjs';
-import { installTelegramFormattingFallback, safeReply } from '../src/telegram-safe-reply.lib.mjs';
+import { buildModelOptionDescription } from '../src/models/index.mjs';
+import { initI18n, preloadAllLocales } from '../src/i18n.lib.mjs';
+import { buildTelegramHelpMessage } from '../src/telegram-ui-messages.lib.mjs';
+import { installTelegramFormattingFallback, isTelegramFormattingError, safeReply } from '../src/telegram-safe-reply.lib.mjs';
+
+await initI18n();
+await preloadAllLocales();
 
 let passed = 0;
 let failed = 0;
@@ -306,6 +312,58 @@ function stripMarkdown(text) {
   assertEqual(calls[1].options.parse_mode, undefined, 'Fallback removes parse mode');
   assert(calls[1].text.includes('Обнаружена ошибка форматирования'), 'Fallback warns in user locale');
   assert(calls[1].text.includes('Broken help message'), 'Fallback includes original message content as plain text');
+}
+
+// Test: message length errors are handled as Telegram length-limit errors, not formatting errors
+{
+  const error = new Error('400: Bad Request: message is too long');
+  assert(!isTelegramFormattingError(error), 'Telegram message length errors are not classified as formatting errors');
+}
+
+// Test: Russian /help exceeds Telegram's 4096-character sendMessage limit and is split safely
+{
+  const message = buildTelegramHelpMessage({
+    locale: 'ru',
+    chatId: -1002975819706,
+    chatType: 'supergroup',
+    chatTitle: 'Pull Request from Hive Mind',
+    topicId: 32470,
+    solveEnabled: true,
+    taskEnabled: true,
+    hiveEnabled: true,
+    solveOverrides: ['--attach-logs', '--verbose', '--no-tool-check', '--disable-report-issue'],
+    hiveOverrides: ['--all-issues', '--once', '--skip-issues-with-prs', '--attach-logs', '--verbose', '--no-tool-check', '--disable-report-issue'],
+    showLimitsEnabled: true,
+    isolationBackend: 'screen',
+    modelDescription: buildModelOptionDescription(),
+    restrictedMode: true,
+    authorized: true,
+  });
+  assert(message.length > 4096, 'Russian /help reproduces the Telegram message length limit');
+
+  const calls = [];
+  const ctx = {
+    reply: async (text, options = {}) => {
+      calls.push({ text, options });
+      if (text.length > 4096) throw new Error('400: Bad Request: message is too long');
+      return { message_id: calls.length };
+    },
+  };
+
+  await safeReply(ctx, message, { fallbackLocale: 'ru' });
+  assert(calls.length > 1, 'safeReply splits oversized localized help into multiple messages');
+  assert(
+    calls.every(call => call.text.length <= 4096),
+    'Every split help chunk stays within Telegram sendMessage limit'
+  );
+  assert(
+    calls.every(call => call.options.parse_mode === 'Markdown'),
+    'Split help chunks keep Markdown formatting'
+  );
+  assert(
+    calls.every(call => checkTelegramMarkdown(call.text) === null),
+    'Every split help chunk is valid Telegram Markdown'
+  );
 }
 
 // Test: automatic Telegram client wrapper retries sendMessage/editMessageText

@@ -9,16 +9,10 @@
  */
 
 import { getWorkflowRunsForSha } from './github-merge.lib.mjs';
-import { promisify } from 'util';
-import { exec as execCallback } from 'child_process';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 
-const execRaw = promisify(execCallback);
 // Issue #1726: every gh call must be rate-limit safe.
-const exec = (cmd, opts) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, opts), {
-    label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
-  });
+const exec = (cmd, opts) => execGhWithRetry(cmd, { execOptions: opts });
 
 /**
  * Wait for all workflow runs triggered by a specific commit to complete

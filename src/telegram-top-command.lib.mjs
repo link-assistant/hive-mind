@@ -14,10 +14,9 @@
  * @experimental This feature is marked as experimental
  */
 
-import { promisify } from 'util';
-import { exec as execCallback } from 'child_process';
+import { commandStreamExec } from './command-stream-exec.lib.mjs';
 
-const exec = promisify(execCallback);
+const exec = commandStreamExec;
 
 // Store active top sessions: Map<chatId, { messageId, screenName, intervalId }>
 const activeTopSessions = new Map();

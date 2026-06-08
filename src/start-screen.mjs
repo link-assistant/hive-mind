@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 // start-screen.mjs - Launch solve or hive commands in GNU screen sessions
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
+import { commandStreamExec } from './command-stream-exec.lib.mjs';
 
-const execAsync = promisify(exec);
+const execAsync = commandStreamExec;
 
 // Import the shared parseGitHubUrl function from github.lib.mjs
 // This ensures consistent URL validation across all commands (hive, solve, start-screen)

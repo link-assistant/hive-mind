@@ -9,18 +9,15 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1503
  */
 
-import { promisify } from 'util';
-import { exec as execCallback } from 'child_process';
 import { githubLimits } from './config.lib.mjs';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
-const execRaw = promisify(execCallback);
+import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 // Issue #1722: raise exec maxBuffer above Node's 1 MB default for paginated gh
 // API responses (workflow runs can easily exceed that on busy repos).
 // Issue #1726: wrap with rate-limit retry so a 5,000/hr quota hit waits for
 // reset instead of bubbling up as a generic fetch failure.
 const exec = (cmd, opts = {}) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts }), {
-    label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+  execGhWithRetry(cmd, {
+    execOptions: { maxBuffer: githubLimits.bufferMaxSize, ...opts },
   });
 
 // Statuses we treat as "not yet finished".

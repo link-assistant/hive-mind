@@ -17,12 +17,10 @@
  * (added in #1236 for Claude limit waits) so we re-use them rather than
  * duplicate constants.
  */
-import { promisify } from 'node:util';
-import { exec as execCb } from 'node:child_process';
-
 import { limitReset, retryLimits } from './config.lib.mjs';
+import { commandStreamExec } from './command-stream-exec.lib.mjs';
 
-const exec = promisify(execCb);
+const exec = commandStreamExec;
 
 const GITHUB_RATE_LIMIT_USAGE_RESOURCES = ['core', 'graphql', 'search'];
 const RATE_LIMIT_PATTERNS = ['api rate limit exceeded', 'rate limit exceeded', 'you have exceeded a secondary rate limit', 'secondary rate limit', 'abuse detection', 'was submitted too quickly'];
@@ -423,9 +421,9 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
 };
 
 /**
- * Convenience wrapper around child_process.exec that retries on rate-limit
- * errors. Use it for callers that build a `gh` command string and want the
- * existing exec-based ergonomics.
+ * Convenience wrapper around command-stream execution that retries on
+ * rate-limit errors. Use it for callers that build a `gh` command string and
+ * want the existing exec-based ergonomics.
  *
  * @param {string} command
  * @param {object} [options] - forwarded to ghWithRateLimitRetry, plus `execOptions`.
@@ -434,8 +432,8 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
 export const execGhWithRetry = async (command, options = {}) => {
   const { execOptions, ...retryOptions } = options;
   return ghWithRateLimitRetry(() => exec(command, execOptions), {
-    label: retryOptions.label || `gh exec (${command.split(/\s+/).slice(0, 3).join(' ')})`,
     ...retryOptions,
+    label: retryOptions.label || `gh exec (${command.split(/\s+/).slice(0, 3).join(' ')})`,
   });
 };
 

@@ -4,14 +4,13 @@
  * Provides functions to fetch and parse Claude usage limits via OAuth API
  */
 
-import { exec } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 
+import { commandStreamExec } from './command-stream-exec.lib.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 import { formatLimitResetsAt, formatLimitResetsIn, formatLocalizedCurrentTime, formatLocalizedRelativeTime, formatLocalizedResetTime, localizeCompactDuration, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 import { formatSubscriptionLines, getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo } from './limits-subscription.lib.mjs';
@@ -28,7 +27,7 @@ import { cacheTtl } from './config.lib.mjs';
 export { DISPLAY_THRESHOLDS } from './queue-config.lib.mjs';
 import { DISPLAY_THRESHOLDS } from './queue-config.lib.mjs';
 
-const execAsync = promisify(exec);
+const execAsync = commandStreamExec;
 
 /**
  * Default path to Claude credentials file

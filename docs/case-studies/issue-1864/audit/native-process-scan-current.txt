@@ -1,0 +1,167 @@
+create-test-repo.mjs:181:    // Use execSync to avoid command-stream issues with git push
+create-test-repo.mjs:183:    const { execSync } = await import('child_process');
+create-test-repo.mjs:186:      const pushOutput = execSync(pushCommand, { encoding: 'utf8' });
+create-test-repo.mjs:349:    // WORKAROUND: Use Node.js native child_process.execSync instead of command-stream
+create-test-repo.mjs:352:    // Using execSync to avoid command-stream's automatic quote addition
+create-test-repo.mjs:353:    const { execSync } = await import('child_process');
+create-test-repo.mjs:355:    const output = execSync(command, { encoding: 'utf8', cwd: '/tmp' });
+cleanup-test-repos.mjs:53:  const { execSync, spawnSync } = await import('child_process');
+cleanup-test-repos.mjs:58:    const authStatus = execSync('gh auth status', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+cleanup-test-repos.mjs:72:          const answer = execSync('read answer && echo $answer', {
+cleanup-test-repos.mjs:98:  const githubUser = execSync('gh api user --jq .login', { encoding: 'utf8' }).trim();
+cleanup-test-repos.mjs:112:    const result = spawnSync('gh', ghArgs, {
+cleanup-test-repos.mjs:211:    // Use execSync to read input, which handles Ctrl+C properly
+cleanup-test-repos.mjs:214:      const answer = execSync('read answer && echo $answer', {
+cleanup-test-repos.mjs:225:      // Ctrl+C was pressed (execSync throws on SIGINT)
+claude-runtime.mjs:58:    const { execSync } = await import('child_process');
+claude-runtime.mjs:95:        execSync('which bun', { stdio: 'ignore' });
+claude-runtime.mjs:102:        execSync('which node', { stdio: 'ignore' });
+src/hive-screens.lib.mjs:13:import { exec as execCallback } from 'node:child_process';
+src/hive-screens.lib.mjs:20:const execAsync = promisify(execCallback);
+src/hive-screens.lib.mjs:140:    ({ stdout } = await exec('screen -ls'));
+src/hive-screens.lib.mjs:175:    await exec(`screen -S '${shellSession}' -X scrollback ${scrollback}`).catch(() => {});
+src/hive-screens.lib.mjs:177:    await exec(`screen -S '${shellSession}' -X hardcopy -h '${shellTmp}'`).catch(() => {});
+src/hive-screens.lib.mjs:351:    const child = spawn('screen', ['-r', session], { stdio: 'inherit' });
+src/telegram-markdown.lib.mjs:46:  while ((match = codeBlockRegex.exec(text)) !== null) {
+src/telegram-top-command.lib.mjs:20:const exec = promisify(execCallback);
+src/telegram-top-command.lib.mjs:150:      const { stdout } = await exec('screen -ls');
+src/telegram-top-command.lib.mjs:166:        await exec(`screen -dmS ${screenName} bash -c 'while true; do top -b -n 1 > ${outputFile}; sleep 2; done'`);
+src/telegram-top-command.lib.mjs:266:      await exec(`screen -S ${session.screenName} -X quit`);
+src/cleanup.lib.mjs:109:  while ((m = re.exec(command)) !== null) {
+src/version-info.lib.mjs:7:// Uses Promise.all for parallel command execution instead of sequential execSync.
+src/version-info.lib.mjs:15:const execAsync = promisify(exec);
+src/telegram-solve-queue.helpers.lib.mjs:3:import { exec } from 'node:child_process';
+src/telegram-solve-queue.helpers.lib.mjs:7:const execAsync = promisify(exec);
+src/task.split.lib.mjs:69:  while ((match = regex.exec(text)) !== null) {
+scripts/preinstall-use-m-packages.mjs:12:import { exec, execSync } from 'node:child_process';
+scripts/preinstall-use-m-packages.mjs:17:const execAsync = promisify(exec);
+scripts/preinstall-use-m-packages.mjs:79:    return execSync('npm root -g', { encoding: 'utf8' }).trim();
+scripts/detect-code-changes.mjs:49:import { execSync } from 'child_process';
+scripts/detect-code-changes.mjs:57:function exec(command) {
+scripts/detect-code-changes.mjs:59:    return execSync(command, { encoding: 'utf-8' }).trim();
+scripts/detect-code-changes.mjs:92:    execSync(`git cat-file -e ${ref}^{commit}`, { stdio: 'ignore' });
+scripts/detect-code-changes.mjs:116:    execSync(`git fetch origin ${sha}`, { stdio: 'inherit' });
+scripts/detect-code-changes.mjs:130:  const commit = exec(`git cat-file -p ${ref}`);
+scripts/detect-code-changes.mjs:153:    const output = execSync(`git diff --name-only ${fromRef} ${toRef}`, { encoding: 'utf-8' }).trim();
+scripts/detect-code-changes.mjs:247:    const output = exec('git diff --name-only HEAD^ HEAD');
+scripts/detect-code-changes.mjs:252:    const output = exec('git ls-tree --name-only -r HEAD');
+scripts/validate-changeset.mjs:12:import { execSync } from 'child_process';
+scripts/validate-changeset.mjs:35:        execSync(`git cat-file -e ${baseSha}`, { stdio: 'ignore' });
+scripts/validate-changeset.mjs:40:          execSync(`git fetch origin ${baseSha}`, { stdio: 'inherit' });
+scripts/validate-changeset.mjs:43:          execSync(`git fetch origin`, { stdio: 'inherit' });
+scripts/validate-changeset.mjs:47:      const diffOutput = execSync(`git diff --name-status ${baseSha} ${headSha}`, {
+scripts/validate-changeset.mjs:74:        execSync(`git fetch origin ${prBase}`, { stdio: 'inherit' });
+scripts/validate-changeset.mjs:79:      const diffOutput = execSync(`git diff --name-status origin/${prBase}...HEAD`, {
+scripts/check-version.mjs:26:import { execSync } from 'child_process';
+scripts/check-version.mjs:33:function exec(command) {
+scripts/check-version.mjs:35:    return execSync(command, { encoding: 'utf-8' }).trim();
+scripts/check-version.mjs:71:  const diff = exec(diffCommand);
+src/telegram-command-execution.lib.mjs:6:const exec = promisify(execCallback);
+src/telegram-command-execution.lib.mjs:18:    const { stdout } = await exec('which start-screen');
+src/telegram-command-execution.lib.mjs:35:    const child = spawn(startScreenCmd, allArgs, {
+src/cleanup.os.lib.mjs:20:import { execFileSync } from 'node:child_process';
+src/cleanup.os.lib.mjs:28:    return execFileSync(cmd, args, {
+scripts/upload-sourcemaps.mjs:11:import { execSync } from 'child_process';
+scripts/upload-sourcemaps.mjs:47:    execSync('npx @sentry/cli --version', { stdio: 'ignore' });
+scripts/upload-sourcemaps.mjs:50:    execSync('npm install -g @sentry/cli', { stdio: 'inherit' });
+scripts/upload-sourcemaps.mjs:55:  execSync(`npx @sentry/cli releases new ${version} --org ${orgName} --project ${projectName}`, {
+scripts/upload-sourcemaps.mjs:67:    execSync(`npx @sentry/cli sourcemaps upload ./src --release ${version} --org ${orgName} --project ${projectName} --url-prefix '~/src'`, {
+scripts/upload-sourcemaps.mjs:76:    execSync(`npx @sentry/cli sourcemaps upload ./tests --release ${version} --org ${orgName} --project ${projectName} --url-prefix '~/tests'`, {
+scripts/upload-sourcemaps.mjs:85:  execSync(`npx @sentry/cli releases finalize ${version} --org ${orgName} --project ${projectName}`, {
+scripts/upload-sourcemaps.mjs:92:    execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+scripts/upload-sourcemaps.mjs:93:    execSync(`npx @sentry/cli releases set-commits ${version} --auto --org ${orgName} --project ${projectName}`, {
+src/hive.mjs:816:              const child = spawn(solveCommand, args, {
+src/hive.mjs:1044:          // execSync is used within fetchAllIssuesWithPagination
+scripts/free-disk-space.mjs:15:import { execSync } from 'child_process';
+scripts/free-disk-space.mjs:22:function exec(command) {
+scripts/free-disk-space.mjs:24:    return execSync(command, { encoding: 'utf-8', stdio: 'inherit' });
+scripts/free-disk-space.mjs:37:  exec('df -h /');
+scripts/free-disk-space.mjs:55:      exec(`sudo rm -rf ${packagePath}`);
+scripts/free-disk-space.mjs:64:    exec('sudo docker image prune --all --force');
+scripts/run-tests.mjs:26:import { spawn } from 'node:child_process';
+scripts/run-tests.mjs:130:  while ((match = SUITE_MARKER_PATTERN.exec(content)) !== null) {
+scripts/run-tests.mjs:204:    const child = spawn(nodeBin, [file], {
+src/session-monitor.lib.mjs:25:const exec = promisify(execCallback);
+src/session-monitor.lib.mjs:62:    const { stdout } = await exec('screen -ls');
+src/solve.auto-continue.lib.mjs:198:    const child = childProcess.spawn('node', resumeArgs, {
+src/hive.recheck.lib.mjs:32:      const { execSync } = await import('child_process');
+src/hive.recheck.lib.mjs:33:      const issueState = execSync(`gh api repos/${owner}/${repo}/issues/${issueNum} --jq .state`, {
+src/solve.accept-invite.lib.mjs:21:const execRaw = promisify(execCallback);
+src/solve.accept-invite.lib.mjs:52:    const { stdout: repoInvJson } = await ghRetry(() => exec('gh api /user/repository_invitations --paginate 2>/dev/null || echo "[]"'), { label: 'fetch repo invitations' });
+src/solve.accept-invite.lib.mjs:60:        await ghRetry(() => exec(`gh api -X PATCH /user/repository_invitations/${matchingInv.id}`), { label: `accept repo invitation for ${fullName}` });
+src/solve.accept-invite.lib.mjs:75:    const { stdout: orgMemJson } = await ghRetry(() => exec('gh api /user/memberships/orgs --paginate 2>/dev/null || echo "[]"'), { label: 'fetch org memberships' });
+src/solve.accept-invite.lib.mjs:85:        await ghRetry(() => exec(`gh api -X PATCH /user/memberships/orgs/${orgName} -f state=active`), { label: `accept org invitation for ${orgName}` });
+src/start-screen.mjs:8:const execAsync = promisify(exec);
+src/task.mjs:90:    const child = spawn(command, args, {
+src/github-rate-limit.lib.mjs:21:import { exec as execCb } from 'node:child_process';
+src/github-rate-limit.lib.mjs:25:const exec = promisify(execCb);
+src/github-rate-limit.lib.mjs:113:    const { stdout } = await exec('gh api rate_limit');
+src/github-rate-limit.lib.mjs:163:    const { stdout } = await exec('gh api rate_limit');
+src/github-rate-limit.lib.mjs:436:  return ghWithRateLimitRetry(() => exec(command, execOptions), {
+src/telegram-safe-reply.lib.mjs:61:    const offsetMatch = /byte offset (\d+)/i.exec(message);
+src/models/index.mjs:15:import { execFile } from 'node:child_process';
+src/models/index.mjs:26:const execFileAsync = promisify(execFile);
+src/cleanup.mjs:36:import { execSync } from 'node:child_process';
+src/cleanup.mjs:315:        answer = execSync('read answer && echo $answer', { encoding: 'utf8', stdio: ['inherit', 'pipe', 'pipe'], shell: '/bin/bash' }).trim();
+src/task.issue-creation.lib.mjs:147:    const child = spawn(command, args, {
+src/github-merge-repo-actions.lib.mjs:16:const execRaw = promisify(execCallback);
+src/github-merge-repo-actions.lib.mjs:44:    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?status=${status}&per_page=100" --paginate --slurp`);
+src/github-merge-repo-actions.lib.mjs:127:    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits" --paginate --jq '[.[].sha]'`);
+src/github-merge-ci.lib.mjs:16:const execRaw = promisify(execCallback);
+src/github-merge-ci.lib.mjs:171:      const { stdout: refOut } = await exec(`gh api "repos/${owner}/${repo}/git/ref/heads/${branch}" --jq '.object.sha'`);
+src/github-merge-ci.lib.mjs:194:    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${headSha}&per_page=100" --paginate --slurp`);
+src/github-merge-ci.lib.mjs:269:    const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json mergeCommit --jq '.mergeCommit.oid'`);
+src/github-merge-ci.lib.mjs:306:    const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json state,mergeStateStatus,mergeable`);
+src/interactive-mode.shared.lib.mjs:3:import { spawn } from 'node:child_process';
+src/interactive-mode.shared.lib.mjs:19:    const child = spawn(command, args, { ...spawnOpts, stdio: ['pipe', 'pipe', 'pipe'] });
+src/git.lib.mjs:6:const execAsync = promisify(exec);
+src/telegram-accept-invitations.lib.mjs:23:const execRaw = promisify(execCallback);
+src/telegram-accept-invitations.lib.mjs:183:      const { stdout: repoInvJson } = await exec('gh api /user/repository_invitations --paginate 2>/dev/null || echo "[]"');
+src/telegram-accept-invitations.lib.mjs:189:      const { stdout: orgMemJson } = await exec('gh api /user/memberships/orgs --paginate 2>/dev/null || echo "[]"');
+src/telegram-accept-invitations.lib.mjs:209:          await exec(`gh api -X PATCH /user/repository_invitations/${inv.id}`);
+src/telegram-accept-invitations.lib.mjs:224:          await exec(`gh api -X PATCH /user/memberships/orgs/${orgName} -f state=active`);
+src/limits.lib.mjs:7:import { exec } from 'node:child_process';
+src/limits.lib.mjs:31:const execAsync = promisify(exec);
+src/github-merge-ready-sync.lib.mjs:16:const execRaw = promisify(execCallback);
+src/github-merge-ready-sync.lib.mjs:45:    await exec(`gh ${cmd} edit ${number} --repo ${owner}/${repo} --add-label "${labelName}"`);
+src/github-merge-ready-sync.lib.mjs:75:    const { stdout: timelineJson } = await exec(`gh api repos/${owner}/${repo}/issues/${issueNumber}/timeline --paginate`);
+src/github-merge-ready-sync.lib.mjs:139:    const { stdout: prsJson } = await exec(`gh pr list --repo ${owner}/${repo} --label "${READY_LABEL.name}" --state open --json number,title,body,labels --limit 100`);
+src/github-merge-ready-sync.lib.mjs:147:    const { stdout: issuesJson } = await exec(`gh issue list --repo ${owner}/${repo} --label "${READY_LABEL.name}" --state open --json number,title --limit 100`);
+src/github-merge.lib.mjs:17:const execRaw = promisify(execCallback);
+src/github-merge.lib.mjs:54:    const { stdout } = await exec(`gh api repos/${owner}/${repo}/labels/${READY_LABEL.name} 2>/dev/null || echo ""`);
+src/github-merge.lib.mjs:99:    const { stdout } = await exec(`gh api repos/${owner}/${repo}/labels -X POST -H "Accept: application/vnd.github+json" -f name="${READY_LABEL.name}" -f description="${READY_LABEL.description}" -f color="${READY_LABEL.color}"`);
+src/github-merge.lib.mjs:124:    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq .permissions`);
+src/github-merge.lib.mjs:188:    const { stdout } = await exec(`gh pr list --repo ${owner}/${repo} --label "${READY_LABEL.name}" --state open --json number,title,url,createdAt,headRefName,author,mergeable,mergeStateStatus --limit 100`);
+src/github-merge.lib.mjs:218:    const { stdout: issuesJson } = await exec(`gh issue list --repo ${owner}/${repo} --label "${READY_LABEL.name}" --state open --json number,title,url,createdAt --limit 100`);
+src/github-merge.lib.mjs:231:        const { stdout: searchJson } = await exec(`gh pr list --repo ${owner}/${repo} --search "in:body closes #${issue.number} OR fixes #${issue.number} OR resolves #${issue.number}" --state open --json number,title,url,createdAt,headRefName,author,mergeable,mergeStateStatus --limit 5`);
+src/github-merge.lib.mjs:331:    const { stdout: prJson } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid`);
+src/github-merge.lib.mjs:335:    const { stdout: checksJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/check-runs --paginate --slurp`);
+src/github-merge.lib.mjs:339:    const { stdout: statusJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/status --jq '.statuses'`);
+src/github-merge.lib.mjs:439:      const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json mergeable,mergeStateStatus`);
+src/github-merge.lib.mjs:510:    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '.permissions'`);
+src/github-merge.lib.mjs:565:    const { stdout } = await exec(`gh pr merge ${prNumber} ${mergeArgs}`);
+src/github-merge.lib.mjs:720:    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?branch=${branch}&status=${status}&per_page=100" --paginate --slurp`);
+src/github-merge.lib.mjs:863:    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '.default_branch'`);
+src/github-merge.lib.mjs:890:    const { stdout } = await exec(`gh api repos/${owner}/${repo}/check-runs/${checkRunId}/annotations --paginate 2>/dev/null || echo "[]"`);
+src/github-merge.lib.mjs:916:    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '{isPrivate: .private, visibility: .visibility}'`);
+src/github-merge.lib.mjs:954:    const { stdout: prJson } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid`);
+src/github-merge.lib.mjs:958:    const { stdout: runsJson } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
+src/github-merge.lib.mjs:972:        const { stdout: jobsJson } = await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/jobs --paginate --slurp`);
+src/github-merge.lib.mjs:1044:    await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/rerun -X POST`);
+src/github-merge.lib.mjs:1071:    await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/rerun-failed-jobs -X POST`);
+src/github-merge.lib.mjs:1108:    const { stdout: prJson } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid`);
+src/github-merge.lib.mjs:1112:    const { stdout: checksJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/check-runs --paginate --slurp`);
+src/github-merge.lib.mjs:1116:    const { stdout: statusJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/status --jq '.statuses'`);
+src/github-merge.lib.mjs:1267:    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
+src/github-merge.lib.mjs:1317:    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs/${runId}/jobs?per_page=1" --jq '.total_count'`);
+src/github-merge.lib.mjs:1360:  // Rate-limit errors are now retried inside the local exec() wrapper. After
+src/github-merge.lib.mjs:1363:  const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/workflows" --paginate --slurp`);
+src/github-merge-ci-signals.lib.mjs:18:const execRaw = promisify(execCallback);
+src/github-merge-ci-signals.lib.mjs:37:    const { stdout } = await exec(`gh api repos/${owner}/${repo}/commits/${sha} --jq '.commit.committer.date'`);
+src/github-merge-ci-signals.lib.mjs:71:    const { stdout: commitsJson } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits" --paginate --jq '[.[].sha]'`);
+src/github-merge-ci-signals.lib.mjs:90:        const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=100" --paginate --slurp`);
+src/github-merge-ci-signals.lib.mjs:129:    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows${refParam}" --paginate --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]' 2>/dev/null`);
+src/github-merge-ci-signals.lib.mjs:147:        const { stdout: contentJson } = await exec(`gh api "repos/${owner}/${repo}/contents/${file.path}${refParam}" --jq '.content'`);
+src/token-sanitization.lib.mjs:403:    while ((match = pattern.exec(content)) !== null) {
+src/token-sanitization.lib.mjs:588:    while ((hexMatch = hexPattern.exec(tempContent)) !== null) {
+src/token-sanitization.lib.mjs:874:  while ((m = hexPattern.exec(text)) !== null) {

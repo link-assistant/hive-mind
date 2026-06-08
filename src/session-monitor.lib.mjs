@@ -15,14 +15,13 @@
  * @see https://github.com/link-assistant/hive-mind/issues/380
  */
 
-import { promisify } from 'util';
-import { exec as execCallback } from 'child_process';
+import { commandStreamExec } from './command-stream-exec.lib.mjs';
 import { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
 
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 
-const exec = promisify(execCallback);
+const exec = commandStreamExec;
 
 // Lazy import for isolation runner (only when needed)
 let _isolationRunner = null;

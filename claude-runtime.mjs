@@ -55,8 +55,8 @@ async function main() {
 
   if (argv.status) {
     // Check current status
-    const { execSync } = await import('child_process');
     const { $ } = await use('command-stream');
+    const $silent = $({ mirror: false, capture: true });
 
     try {
       // Find Claude CLI location
@@ -91,17 +91,17 @@ async function main() {
       }
 
       // Check if runtimes are available
-      try {
-        execSync('which bun', { stdio: 'ignore' });
+      const bunCheck = await $silent('which bun');
+      if (bunCheck.code === 0) {
         console.log('✅ Bun is available');
-      } catch {
+      } else {
         console.log('❌ Bun is not installed');
       }
 
-      try {
-        execSync('which node', { stdio: 'ignore' });
+      const nodeCheck = await $silent('which node');
+      if (nodeCheck.code === 0) {
         console.log('✅ Node.js is available');
-      } catch {
+      } else {
         console.log('❌ Node.js is not installed');
       }
     } catch (error) {

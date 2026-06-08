@@ -1,0 +1,2 @@
+@link-assistant/hive-mind@1.74.3 /tmp/gh-issue-solver-1780917252584
+└── (empty)

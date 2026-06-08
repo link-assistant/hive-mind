@@ -1,0 +1,27 @@
+src/hive-screens.lib.mjs:17:import { commandStreamExec } from './command-stream-exec.lib.mjs';
+src/hive-screens.lib.mjs:19:const execAsync = commandStreamExec;
+src/telegram-top-command.lib.mjs:17:import { commandStreamExec } from './command-stream-exec.lib.mjs';
+src/telegram-top-command.lib.mjs:19:const exec = commandStreamExec;
+src/telegram-command-execution.lib.mjs:2:import { commandStreamExec } from './command-stream-exec.lib.mjs';
+src/telegram-command-execution.lib.mjs:5:const exec = commandStreamExec;
+tests/test-command-stream-exec-wrapper-1864.mjs:11:import { commandStreamExec } from '../src/command-stream-exec.lib.mjs';
+tests/test-command-stream-exec-wrapper-1864.mjs:22:  const result = await commandStreamExec('printf issue-1864');
+tests/test-command-stream-exec-wrapper-1864.mjs:28:assert.equal(mirroredStdout, '', 'commandStreamExec should capture stdout without mirroring it to process stdout');
+tests/test-command-stream-exec-wrapper-1864.mjs:31:  () => commandStreamExec('printf out; printf err >&2; exit 7'),
+tests/test-command-stream-exec-wrapper-1864.mjs:41:console.log('✅ commandStreamExec wrapper preserves exec-like behavior');
+src/telegram-solve-queue.helpers.lib.mjs:3:import { commandStreamExec } from './command-stream-exec.lib.mjs';
+src/telegram-solve-queue.helpers.lib.mjs:6:const execAsync = commandStreamExec;
+src/session-monitor.lib.mjs:18:import { commandStreamExec } from './command-stream-exec.lib.mjs';
+src/session-monitor.lib.mjs:24:const exec = commandStreamExec;
+src/github-rate-limit.lib.mjs:21:import { commandStreamExec } from './command-stream-exec.lib.mjs';
+src/github-rate-limit.lib.mjs:23:const exec = commandStreamExec;
+src/git.lib.mjs:3:import { commandStreamExec } from './command-stream-exec.lib.mjs';
+src/git.lib.mjs:5:const execAsync = commandStreamExec;
+src/start-screen.mjs:5:import { commandStreamExec } from './command-stream-exec.lib.mjs';
+src/start-screen.mjs:7:const execAsync = commandStreamExec;
+src/limits.lib.mjs:13:import { commandStreamExec } from './command-stream-exec.lib.mjs';
+src/limits.lib.mjs:30:const execAsync = commandStreamExec;
+src/command-stream-exec.lib.mjs:17:export async function loadCommandStreamDollar() {
+src/command-stream-exec.lib.mjs:56:export async function commandStreamExec(command, execOptions = {}) {
+src/command-stream-exec.lib.mjs:57:  const $ = await loadCommandStreamDollar();
+tests/test-issue-1864-command-stream-audit.mjs:100:assert.match(githubRateLimitSource, /commandStreamExec/, 'central gh exec retry wrapper should execute through command-stream');

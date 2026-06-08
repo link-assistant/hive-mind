@@ -1,9 +1,8 @@
 import { spawn } from 'child_process';
-import { promisify } from 'util';
-import { exec as execCallback } from 'child_process';
+import { commandStreamExec } from './command-stream-exec.lib.mjs';
 import { t } from './i18n.lib.mjs';
 
-const exec = promisify(execCallback);
+const exec = commandStreamExec;
 
 let deprecationWarned = false;
 function warnStartScreenDeprecated() {

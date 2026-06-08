@@ -78,6 +78,9 @@ const formatRunLine = run => {
 const toolComments = await import('./tool-comments.lib.mjs');
 const { SESSION_ENDING_MARKERS, isToolGeneratedComment, isToolTrackedCommentId, trackToolCommentId } = toolComments;
 
+const externalReviewLimitLib = await import('./external-review-limit.lib.mjs');
+const { formatExternalReviewLimitCheck, splitExternalReviewLimitChecks } = externalReviewLimitLib;
+
 /**
  * Issue #1323: Check if a comment with specific content already exists on the PR
  * This prevents duplicate status comments when multiple processes or restarts occur
@@ -798,11 +801,22 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
           sha: ciStatus.sha,
         });
       }
-      blockers.push({
-        type: 'ci_failure',
-        message: 'CI/CD checks are failing',
-        details: ciStatus.failedChecks.map(c => c.name),
-      });
+      const { limitedChecks, actionableFailedChecks } = splitExternalReviewLimitChecks(ciStatus.failedChecks);
+      if (limitedChecks.length > 0) {
+        blockers.push({
+          type: 'external_review_limit',
+          message: 'External review check was not executed because credits/rate limits are exhausted',
+          details: limitedChecks.map(formatExternalReviewLimitCheck),
+          checks: limitedChecks,
+        });
+      }
+      if (actionableFailedChecks.length > 0) {
+        blockers.push({
+          type: 'ci_failure',
+          message: 'CI/CD checks are failing',
+          details: actionableFailedChecks.map(c => c.name),
+        });
+      }
     }
   } else if (ciStatus.status === 'unknown') {
     // Unable to determine CI status - treat as pending to be safe

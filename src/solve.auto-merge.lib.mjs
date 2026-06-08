@@ -61,7 +61,10 @@ const { buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopF
 
 // Issue #1625: Shared marker constants + posting/tracking helpers
 const toolComments = await import('./tool-comments.lib.mjs');
-const { READY_TO_MERGE_MARKER, AUTO_RESTART_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESTART_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+
+const externalReviewLimitLib = await import('./external-review-limit.lib.mjs');
+const { buildReadyForReviewComment } = externalReviewLimitLib;
 
 // Issue #1728: Per-iteration working session summary attachment helper
 // Issue #1763: Per-iteration PR ↔ issue link verification (so a clobbered
@@ -517,7 +520,44 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
 
       // Reason 2: CI failures (only if NOT a billing limit issue and NOT just cancelled)
       // Only restart AI when we have genuine code failures (real feedback to act on)
+      const externalReviewLimitBlocker = blockers.find(b => b.type === 'external_review_limit');
       const ciBlocker = blockers.find(b => b.type === 'ci_failure');
+      const hasMergeConflictBlocker = blockers.some(b => b.type === 'not_mergeable' && b.message?.includes('conflicts'));
+      if (externalReviewLimitBlocker && !ciBlocker && !billingBlocker && !cancelledBlocker && !hasNewComments && !hasUncommittedChanges && !hasMergeConflictBlocker) {
+        await log('');
+        await log(formatAligned('🟡', 'READY FOR REVIEW', 'External review quota/credit limit requires human decision'));
+        for (const detail of externalReviewLimitBlocker.details || []) {
+          await log(formatAligned('', 'Check not executed:', detail, 2));
+        }
+        await log(formatAligned('', 'Action:', 'Stopping auto-restart without starting another AI session', 2));
+
+        try {
+          const commentSignature = `## 🟡 ${READY_FOR_REVIEW_MARKER}`;
+          const hasExistingReadyForReviewComment = await checkForExistingComment(owner, repo, prNumber, commentSignature, argv.verbose);
+          if (hasExistingReadyForReviewComment) {
+            await log(formatAligned('', `Skipping duplicate "${READY_FOR_REVIEW_MARKER}" comment (already posted by another process)`, '', 2));
+          } else {
+            const commentBody = buildReadyForReviewComment({
+              blocker: externalReviewLimitBlocker,
+              ciStatus,
+            });
+            await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
+            await log(formatAligned('', '💬 Posted ready-for-review notification to PR', '', 2));
+          }
+        } catch (commentError) {
+          reportError(commentError, {
+            context: 'post_external_review_limit_comment',
+            owner,
+            repo,
+            prNumber,
+            operation: 'comment_on_pr',
+          });
+          await log(formatAligned('', '⚠️  Could not post ready-for-review comment to PR', '', 2));
+        }
+
+        return { success: false, reason: 'external_review_limit', latestSessionId, latestAnthropicCost };
+      }
+
       if (ciBlocker && !billingBlocker) {
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; CI failures` : 'CI failures detected';

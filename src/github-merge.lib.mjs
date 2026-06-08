@@ -346,12 +346,14 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
         status: check.status,
         conclusion: check.conclusion,
         type: 'check_run',
+        description: check.output?.title || check.output?.summary || null,
       })),
       ...statuses.map(status => ({
         name: status.context,
         status: status.state === 'pending' ? 'in_progress' : 'completed',
         conclusion: status.state === 'pending' ? null : status.state === 'success' ? 'success' : status.state === 'failure' ? 'failure' : status.state,
         type: 'status',
+        description: status.description || null,
       })),
     ];
 
@@ -375,7 +377,7 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
 
     const hasPending = allChecks.some(c => c.status !== 'completed' || c.conclusion === null);
     const allPassed = !hasPending && allChecks.every(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
-    const hasFailed = allChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
+    const hasFailed = allChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'error' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
 
     let status;
     if (hasPending) {
@@ -1126,6 +1128,7 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
         conclusion: check.conclusion, // success, failure, cancelled, timed_out, skipped, neutral, action_required, stale, null
         type: 'check_run',
         id: check.id,
+        description: check.output?.title || check.output?.summary || null,
         html_url: check.html_url || check.details_url || null,
       })),
       ...statuses.map(status => ({
@@ -1134,6 +1137,7 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
         conclusion: status.state === 'pending' ? null : status.state === 'success' ? 'success' : status.state === 'failure' ? 'failure' : status.state,
         type: 'status',
         id: null,
+        description: status.description || null,
         html_url: status.target_url || null,
       })),
     ];
@@ -1173,7 +1177,7 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
     // neutral, action_required, stale, null (not yet completed)
     // GitHub check run statuses include: queued, in_progress, completed, waiting, requested, pending
     const passedChecks = allChecks.filter(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
-    const failedChecks = allChecks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out' || c.conclusion === 'action_required');
+    const failedChecks = allChecks.filter(c => c.conclusion === 'failure' || c.conclusion === 'error' || c.conclusion === 'timed_out' || c.conclusion === 'action_required');
     const cancelledChecks = allChecks.filter(c => c.conclusion === 'cancelled');
     const staleChecks = allChecks.filter(c => c.conclusion === 'stale');
     const pendingChecks = allChecks.filter(c => (c.status === 'in_progress' || c.status === 'waiting' || c.status === 'requested' || c.status === 'pending') && c.conclusion === null);

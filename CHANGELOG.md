@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.74.4
+
+### Patch Changes
+
+- 9b88700: Fix Telegram Docker isolation to use Hive Mind images with scoped GitHub, Claude, and Codex auth mounts.
+
 ## 1.74.3
 
 ### Patch Changes

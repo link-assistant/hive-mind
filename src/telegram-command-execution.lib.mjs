@@ -115,7 +115,7 @@ export function buildExecuteAndUpdateMessage(deps) {
     if (iso) {
       session = iso.runner.generateSessionId();
       VERBOSE && console.log(`[VERBOSE] Using isolation (${iso.backend}), session: ${session}`);
-      result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, verbose: VERBOSE });
+      result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE });
       if (result.success) {
         sessionInfo = { ...baseSessionInfo, isolationBackend: iso.backend, sessionId: session };
         trackSession(session, sessionInfo, VERBOSE);

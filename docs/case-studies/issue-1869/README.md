@@ -2,9 +2,25 @@
 
 - **Issue**: https://github.com/link-assistant/hive-mind/issues/1869
 - **Type**: bug
-- **Pull Request**: https://github.com/link-assistant/hive-mind/pull/1873
+- **Pull Requests**: #1873 (Phase 1 — display parser) → **#1874 (Phase 2 — auto-resume parser, this PR)**
 - **Affected tool**: OpenAI Codex (`--tool codex`)
 - **Symptom surfaced on**: https://github.com/link-foundation/command-stream/pull/137#issuecomment-4653599446
+
+---
+
+## 0. Two phases (read this first)
+
+This issue had **two** distinct defects, fixed in two PRs, because hive-mind has
+**two independent reset-time parsers** that drifted out of sync:
+
+| Phase | Parser            | File                           | Symptom                                                                                                     | Fixed in               |
+| ----- | ----------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------- | ---------------------- |
+| **1** | Display / comment | `src/usage-limit.lib.mjs`      | Weekly reset shown as `in 3h 14m` (truncated to time-only)                                                  | PR #1873 (`c4070e1f`)  |
+| **2** | Auto-resume wait  | `src/solve.validation.lib.mjs` | `❌ Auto-continue failed: Invalid time format: Jun 11, 2026, 12:27 AM` (crash) + would resume far too early | **PR #1874 (this PR)** |
+
+Sections 1–8 below were written for Phase 1. **Section 9 documents Phase 2**, the
+regression that surfaced _after_ Phase 1 shipped (see the issue's follow-up
+comment and `data/solution-draft-log-pr-1781024271855.txt`).
 
 ---
 
@@ -182,5 +198,80 @@ Manual reproduction of the exact message now yields
   (the original gist) where the mis-parse occurred.
 - `data/upstream-comment-4653599446.json` — the GitHub comment showing the
   incorrect `Reset Time: in 3h 14m (Jun 9, …)`.
-  </content>
-  </invoke>
+- `data/solution-draft-log-pr-1781024271855.txt` — the **Phase 2** run: display
+  is now correct (`in 1d 7h 29m (Jun 11, 12:27 AM UTC)`) but the auto-resume flow
+  crashes with `Invalid time format`.
+
+---
+
+## 9. Phase 2 — auto-resume parser (PR #1874)
+
+### 9.1 What surfaced
+
+After Phase 1 shipped, the issue was reopened with a follow-up comment: _"Now it
+broke like this"_. The Phase‑2 log
+(`data/solution-draft-log-pr-1781024271855.txt`) shows the **display is now
+correct**, but the auto-resume flow crashes:
+
+```
+:701  🔍 Parsed reset time: "Jun 11, 2026, 12:27 AM", timezone: null
+:706  The limit will reset at: Jun 11, 2026, 12:27 AM             ← display OK
+:754  Reset Time: in 1d 7h 29m (Jun 11, 12:27 AM UTC)             ← comment OK
+:774  🔄 AUTO-RESUME ON LIMIT RESET ENABLED - Will resume at Jun 11, 2026, 12:27 AM
+:776  ❌ Auto-continue failed: Invalid time format: Jun 11, 2026, 12:27 AM   ← CRASH
+```
+
+### 9.2 Root cause
+
+Phase 1 only fixed the **display** parser (`usage-limit.lib.mjs`). The
+**auto-resume** path computes its sleep duration with a _separate_ parser in
+`src/solve.validation.lib.mjs` (`parseResetTime` → `calculateWaitTime`), which
+was never updated:
+
+```js
+// before — strips only "Month Day, ", not the year
+const timePortion = normalized.replace(/^(?:Jan|...)\s+\d{1,2},\s+/i, '');
+const match = timePortion.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
+if (!match) throw new Error(`Invalid time format: ${timeStr}`);
+```
+
+Two defects:
+
+- **Crash (R3):** `Jun 11, 2026, 12:27 AM` → after stripping `Jun 11, ` →
+  `2026, 12:27 AM` → fails the time regex → `Invalid time format` → the whole
+  auto-resume aborts.
+- **Premature resume (R2):** `calculateWaitTime` used only `{hour, minute}` and
+  scheduled for **today/tomorrow**, discarding the date. A weekly reset 2 days
+  out would resume after at most ~1 day. Reproduced:
+  `calculateWaitTime('Jun 12, 10:00 AM')` returned **16.8 h** instead of ~72 h.
+
+### 9.3 The fix
+
+`calculateWaitTime` now delegates to the **robust** `parseResetTime` from
+`usage-limit.lib.mjs` (the Phase‑1 parser), which returns a full dayjs date
+honoring year, weekly date, time-only, and optional timezone. The wait is the
+real diff `resetDate − now` (clamped ≥ 0), with the legacy time-only logic kept
+only as a fallback. The local `parseResetTime` helper was also hardened to strip
+an optional ordinal + `Year,` so it no longer throws.
+
+**Every call site updated (R7)** to forward the timezone:
+
+- `src/solve.auto-continue.lib.mjs:95`
+- `src/solve.auto-merge.lib.mjs:738`
+- `src/solve.mjs:1032`
+
+This **consolidates onto a single reset-time parser**, removing the two-parser
+drift that caused the issue to span two PRs.
+
+### 9.4 Verification
+
+`tests/test-solve-validation-reset-time.mjs` gains four Phase‑2 regression tests:
+year-bearing parse (no throw), `calculateWaitTime` no-throw, multi-day-out wait
+(~3 days, not < 24h), and explicit-future-year wait (≥ 365 days). Related suites
+(`test-usage-limit`, `test-auto-resume-limit-reset`, `test-limit-reset-config`,
+`limits-display`, `test-auto-restart-*`) remain green.
+
+|        | Auto-resume on weekly Codex limit            |
+| ------ | -------------------------------------------- |
+| Before | crash `Invalid time format` / resume in ~16h |
+| After  | resumes at the real reset (`Jun 11`, ~31h)   |

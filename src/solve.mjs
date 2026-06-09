@@ -1029,7 +1029,7 @@ try {
             // Calculate wait time in d:h:m:s format
             const validation = await import('./solve.validation.lib.mjs');
             const { calculateWaitTime } = validation;
-            const waitMs = calculateWaitTime(global.limitResetTime);
+            const waitMs = calculateWaitTime(global.limitResetTime, global.limitTimezone || null);
 
             const formatWaitTime = ms => {
               const seconds = Math.floor(ms / 1000);

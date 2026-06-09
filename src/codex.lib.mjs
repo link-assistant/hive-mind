@@ -1009,9 +1009,15 @@ export const executeCodexCommand = async params => {
         await log(`⚠️ Ignoring non-fatal Codex item error event(s): ${ignoredMessages}`, { level: 'warning', verbose: true });
       }
       if (codexErrorSummary.hasError) {
-        const limitInfo = detectUsageLimit(codexErrorSummary.message || lastMessage);
-        const retryableError = classifyRetryableError(codexErrorSummary.message || lastMessage);
+        const limitSource = codexErrorSummary.message || lastMessage;
+        const limitInfo = detectUsageLimit(limitSource);
+        const retryableError = classifyRetryableError(limitSource);
         if (limitInfo.isUsageLimit) {
+          // Issue #1869: Trace the raw limit text and what we parsed out of it so
+          // a mis-parsed reset (e.g. a weekly reset read as a 5-hour reset) can be
+          // diagnosed from the log without guessing at the original message.
+          await log(`🔍 Codex usage limit detected. Raw message: ${JSON.stringify(limitSource)}`, { verbose: true });
+          await log(`🔍 Parsed reset time: ${JSON.stringify(limitInfo.resetTime)}, timezone: ${JSON.stringify(limitInfo.timezone)}`, { verbose: true });
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
 
@@ -1098,6 +1104,9 @@ export const executeCodexCommand = async params => {
         // Check for usage limit errors first (more specific)
         const limitInfo = detectUsageLimit(lastMessage);
         if (limitInfo.isUsageLimit) {
+          // Issue #1869: Trace raw limit text + parsed reset for diagnosability.
+          await log(`🔍 Codex usage limit detected (exit ${exitCode}). Raw message: ${JSON.stringify(lastMessage)}`, { verbose: true });
+          await log(`🔍 Parsed reset time: ${JSON.stringify(limitInfo.resetTime)}, timezone: ${JSON.stringify(limitInfo.timezone)}`, { verbose: true });
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
 

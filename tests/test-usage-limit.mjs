@@ -168,6 +168,35 @@ runTest('extractResetTime: prioritizes date+time over time-only patterns', () =>
   assertEqual(time, 'Jan 15, 8:00 AM', 'Should prioritize date+time pattern');
 });
 
+// === extractResetTime tests for Codex weekly limit with ordinal day + year (Issue #1869) ===
+
+runTest('extractResetTime: parses Codex weekly format "try again at Jun 11th, 2026 12:27 AM"', () => {
+  // Issue #1869: Codex reports the weekly limit reset as a full calendar date.
+  // Previously only "12:27 AM" was extracted, making a 2-days-out weekly reset
+  // look like a same-day 5-hour reset (false info + premature auto-resume).
+  const time = extractResetTime("You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Jun 11th, 2026 12:27 AM.");
+  assertEqual(time, 'Jun 11, 2026, 12:27 AM', 'Should keep month, day and year, not just the time');
+});
+
+runTest('extractResetTime: parses date+year with PM and various ordinals (Issue #1869)', () => {
+  assertEqual(extractResetTime('try again at Dec 3rd, 2026 9:05 PM'), 'Dec 3, 2026, 9:05 PM', 'Should handle 3rd ordinal + year');
+  assertEqual(extractResetTime('try again at Jan 1st, 2027 6am'), 'Jan 1, 2027, 6:00 AM', 'Should handle 1st ordinal + year, no minutes');
+  assertEqual(extractResetTime('try again at August 22nd, 2026 2:30pm'), 'August 22, 2026, 2:30 PM', 'Should handle full month + 22nd ordinal + year');
+});
+
+runTest('extractResetTime: ignores year so day-only weekly format still works (Issue #1869)', () => {
+  // Backward-compatibility: the no-year Claude weekly format must be unchanged.
+  assertEqual(extractResetTime('resets Jan 15, 8am'), 'Jan 15, 8:00 AM', 'No-year format must be unaffected');
+});
+
+runTest('extractResetTime to parseResetTime: Codex weekly date is anchored to its real day (Issue #1869)', () => {
+  // The parsed reset must land on Jun 11 (the weekly window), not roll to a
+  // nearby same-day time. We assert the formatted UTC output contains the date.
+  const time = extractResetTime('try again at Jun 11th, 2026 12:27 AM');
+  const formatted = formatResetTimeWithRelative(time);
+  assertTrue(formatted.includes('Jun 11'), `Formatted reset "${formatted}" should reference Jun 11`);
+});
+
 // === detectUsageLimit tests ===
 
 runTest('detectUsageLimit: returns combined info', () => {

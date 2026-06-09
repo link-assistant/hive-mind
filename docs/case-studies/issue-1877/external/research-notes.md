@@ -74,6 +74,24 @@ ground while staying short enough to keep updated every session.
 | **HandoffKit / jdhodges handoff template**           | Copy-paste handoff prompt/template                                                                                                       | Cross-checked section naming                                                                      |
 | In-repo: `agents-md-claude-support.lib.mjs`          | Deploys tool config (AGENTS.md→CLAUDE.md) around execution, then restores                                                                | Direct pattern we reused for deploying the `SKILL.md` per session                                 |
 
+**Can both CLIs share one skills folder?** Researched the discovery rules for each
+tool (sources below):
+
+- **Claude Code** loads project skills only from `.claude/skills/<name>/SKILL.md`
+  (plus `~/.claude/skills/`, plugins, and `.claude/skills/` inside an `--add-dir`
+  directory). There is no setting or environment variable to redirect or add an
+  arbitrary project skills directory.
+- **Codex** loads project skills only from `.agents/skills/` (scanning up to the
+  repo root), `~/.agents/skills`, `/etc/codex/skills`, and bundled skills. Its
+  only config knob, `[[skills.config]]` in `~/.codex/config.toml`, enables/disables
+  individual skills by path — it cannot point the scanner at a different folder.
+
+So **there is no native shared location**. We make one with a filesystem
+**symlink**: the `SKILL.md` is written once into the real `.claude/skills/handoff/`
+folder and `.agents/skills/handoff` is a relative symlink to it. Both tools read
+the same folder (verified by a `realpath` assertion in the test), with a copy
+fallback when symlinks are unavailable.
+
 **Decision on libraries:** the right primitive is the **Agent Skills open
 standard** itself — both Claude Code and Codex discover and load a `SKILL.md`
 natively (Claude from `.claude/skills/<name>/`, Codex from `.agents/skills/<name>/`),

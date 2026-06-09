@@ -8,7 +8,7 @@
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readFileSync, mkdtempSync, existsSync, rmSync } from 'fs';
+import { readFileSync, mkdtempSync, existsSync, rmSync, lstatSync, readlinkSync, realpathSync } from 'fs';
 import { tmpdir } from 'os';
 import { execSync } from 'child_process';
 
@@ -99,10 +99,13 @@ try {
   assert(claudeOn.includes(buildHandoffSubPrompt()), 'Claude prompt embeds the canonical nudge verbatim');
   assert(codexOn.includes(buildHandoffSubPrompt()), 'Codex prompt embeds the canonical nudge verbatim');
 
-  // 6. Deployment module writes the SKILL.md into both native skill directories
-  log('\n6️⃣  Testing handoff-skill.lib.mjs deployment...', 'yellow');
-  const { deployHandoffSkill, HANDOFF_SKILL_DIRS } = await import('../src/handoff-skill.lib.mjs');
+  // 6. Deployment module writes ONE real SKILL.md and shares it via symlink so
+  //    both tools read the same folder (single source of truth).
+  log('\n6️⃣  Testing handoff-skill.lib.mjs deployment (shared folder)...', 'yellow');
+  const { deployHandoffSkill, HANDOFF_SKILL_DIRS, HANDOFF_PRIMARY_SKILL_DIR, HANDOFF_LINKED_SKILL_DIRS } = await import('../src/handoff-skill.lib.mjs');
   assert(HANDOFF_SKILL_DIRS.length === 2, 'two native skill directories are targeted (Claude + Codex)');
+  assert(HANDOFF_PRIMARY_SKILL_DIR.includes('.claude'), 'primary (real) skill dir is the Claude path');
+  assert(HANDOFF_LINKED_SKILL_DIRS.length === 1 && HANDOFF_LINKED_SKILL_DIRS[0].includes('.agents'), 'linked (symlinked) skill dir is the Codex path');
 
   const repoDir = mkdtempSync(join(tmpdir(), 'handoff-skill-'));
   try {
@@ -115,25 +118,34 @@ try {
 
     // Enabled: SKILL.md deployed for both tools and git-excluded.
     const on = await deployHandoffSkill({ tempDir: repoDir, argv: { useHandoff: true } });
-    assert(on.deployed === true && on.paths.length === 2, 'deployHandoffSkill writes both SKILL.md files when enabled');
+    assert(on.deployed === true && on.paths.length === 2, 'deployHandoffSkill exposes the skill at both tool paths when enabled');
+    assert(on.shared === true, 'deployment reports shared=true (single folder via symlink)');
     const claudeSkill = join(repoDir, '.claude', 'skills', 'handoff', 'SKILL.md');
     const codexSkill = join(repoDir, '.agents', 'skills', 'handoff', 'SKILL.md');
     assert(existsSync(claudeSkill), '.claude/skills/handoff/SKILL.md exists');
-    assert(existsSync(codexSkill), '.agents/skills/handoff/SKILL.md exists');
-    assert(readFileSync(claudeSkill, 'utf8') === readFileSync(codexSkill, 'utf8'), 'both deployed SKILL.md files are byte-identical');
+    assert(existsSync(codexSkill), '.agents/skills/handoff/SKILL.md exists (via symlink)');
+    assert(readFileSync(claudeSkill, 'utf8') === readFileSync(codexSkill, 'utf8'), 'both tool paths read byte-identical SKILL.md');
     assert(readFileSync(claudeSkill, 'utf8') === buildHandoffSkillFile(), 'deployed SKILL.md matches the canonical builder output');
 
+    // The Codex path is a symlink into the single real Claude folder — one
+    // source of truth on disk, not two copies.
+    const codexDir = join(repoDir, '.agents', 'skills', 'handoff');
+    assert(lstatSync(codexDir).isSymbolicLink(), 'Codex skill dir is a symlink (not a second copy)');
+    assert(readlinkSync(codexDir) === join('..', '..', '.claude', 'skills', 'handoff'), 'symlink is a relative pointer to the Claude skill dir');
+    assert(realpathSync(codexDir) === realpathSync(join(repoDir, '.claude', 'skills', 'handoff')), 'both tool paths resolve to the same real folder');
+
     const exclude = readFileSync(join(repoDir, '.git', 'info', 'exclude'), 'utf8');
-    assert(exclude.includes('/.claude/skills/handoff/') && exclude.includes('/.agents/skills/handoff/'), 'git exclude lists both skill dirs');
+    assert(exclude.includes('/.claude/skills/handoff') && exclude.includes('/.agents/skills/handoff'), 'git exclude lists both skill dirs');
 
-    // git must not see the deployed skill files (kept out of the PR).
+    // git must not see the deployed skill files OR the symlink (kept out of PR).
     const status = execSync('git status --porcelain', { cwd: repoDir }).toString();
-    assert(!status.includes('.claude/skills') && !status.includes('.agents/skills'), 'deployed skill files are invisible to git status');
+    assert(!status.includes('.claude/skills') && !status.includes('.agents/skills'), 'deployed skill files and symlink are invisible to git status');
 
-    // Idempotent: re-running does not duplicate exclude entries.
+    // Idempotent: re-running keeps a single correct symlink and no duplicate excludes.
     await deployHandoffSkill({ tempDir: repoDir, argv: { useHandoff: true } });
+    assert(lstatSync(codexDir).isSymbolicLink(), 'Codex skill dir is still a symlink after re-deploy');
     const exclude2 = readFileSync(join(repoDir, '.git', 'info', 'exclude'), 'utf8');
-    const occurrences = exclude2.split('/.claude/skills/handoff/').length - 1;
+    const occurrences = exclude2.split('/.claude/skills/handoff').length - 1;
     assert(occurrences === 1, 'git exclude entry is not duplicated on re-deploy');
   } finally {
     rmSync(repoDir, { recursive: true, force: true });

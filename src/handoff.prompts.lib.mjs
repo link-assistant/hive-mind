@@ -10,6 +10,9 @@
  *   - Codex discovers project skills from `.agents/skills/<name>/SKILL.md`.
  * The exact same `SKILL.md` works for both, so "same skill, same way" is
  * satisfied by a single canonical file rather than a tool-specific prompt.
+ * Because neither tool lets you redirect its skills folder, the deployment
+ * writes that file ONCE and symlinks the second tool's path to it, so both
+ * tools literally read the same folder (see handoff-skill.lib.mjs).
  *
  * The skill is deployed into the session working directory by
  * `handoff-skill.lib.mjs` (gated behind the experimental --use-handoff flag).

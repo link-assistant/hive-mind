@@ -68,15 +68,24 @@ split mirrors the repo's existing deploy-around-execution precedent
 
 ```
 src/handoff.prompts.lib.mjs   # builds the canonical SKILL.md + a minimal nudge
-  └─ src/handoff-skill.lib.mjs deploys that SKILL.md into:
-       ├─ .claude/skills/handoff/SKILL.md   (Claude Code reads it natively)
-       └─ .agents/skills/handoff/SKILL.md   (Codex reads it natively)
+  └─ src/handoff-skill.lib.mjs deploys that one SKILL.md as a single shared folder:
+       ├─ .claude/skills/handoff/SKILL.md   (Claude Code reads the REAL file)
+       └─ .agents/skills/handoff ─symlink─▶ ../../.claude/skills/handoff  (Codex)
 ```
 
-Both tools receive a **byte-identical** `SKILL.md` — a unit test pins it (the two
-deployed files must equal each other and the canonical builder output).
-Centralizing the source means future edits to the protocol can never drift between
-tools.
+**Can both CLIs use the same folder? (maintainer question)** Neither tool exposes
+a setting or environment variable to redirect or share its skills directory: Claude
+Code's project skills are hardcoded to `.claude/skills/` and Codex's to
+`.agents/skills/` (it only offers `[[skills.config]]` per-skill enable/disable in
+`~/.codex/config.toml`, not a directory override). There is no native shared
+location. So rather than write two byte-identical copies, the deployment writes the
+`SKILL.md` **once** into the real Claude folder and makes the Codex path a relative
+**symlink** to it. Both tools then read the _same folder_ — a single source of
+truth on disk that cannot drift. A unit test pins this: `.agents/skills/handoff` is
+a symlink, both paths `realpath`-resolve to the one directory, and the bytes the
+two tools read are identical. If the filesystem cannot create a symlink (e.g.
+Windows without privilege), `deployHandoffSkill` falls back to a real copy and
+reports `shared: false`, so the feature still works everywhere.
 
 **Why also keep a minimal nudge?** Skill auto-activation is triggered by the task
 description matching the skill's `description`. The most important handoff behavior
@@ -88,8 +97,10 @@ behavior; the full procedure still lives in the deployed `SKILL.md`.
 **Why git-exclude the deployed skill?** The `SKILL.md` is tooling that hive-mind
 re-deploys every session, not project state. Committing it would pollute the PR
 and the "uncommitted changes" checks. `handoff-skill.lib.mjs` appends
-`/.claude/skills/handoff/` and `/.agents/skills/handoff/` to `.git/info/exclude`
-(idempotently) so git never sees the files. The continuity document itself
+`/.claude/skills/handoff` and `/.agents/skills/handoff` to `.git/info/exclude`
+(idempotently, without a trailing slash so the pattern also matches the directory
+_symlink_ — git would not match a symlink against a `dir/` pattern) so git never
+sees the real folder or the link. The continuity document itself
 (`HANDOFF.md`) is still committed to the branch — that is the cross-tool memory.
 
 ## 4. Option design (R5)

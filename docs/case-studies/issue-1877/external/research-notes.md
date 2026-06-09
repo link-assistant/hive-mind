@@ -64,24 +64,33 @@ ground while staying short enough to keep updated every session.
 
 ## 4. Prior art & reusable components (R10)
 
-| Component                                            | What it offers                                                                                                           | How it informed us                                                                              |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| **softaworks/agent-toolkit `session-handoff`** skill | 10-section template, create/resume modes, validation score, `YYYY-MM-DD-HHMMSS-slug.md` naming under `.claude/handoffs/` | Source of the canonical section list; we simplified to 6 sections and a single root file        |
-| **aihero "handoff" skill**                           | Lean handoff: purpose, context, suggested skills, pointers; cross-agent portability                                      | Reinforced tool-agnostic, pointer-over-duplication, security                                    |
-| **ZenChAIne "handover" skill**                       | Standardized context handoff, `.handover/` local notes, predecessor chaining                                             | Handoff-chain idea (future work)                                                                |
-| **OpenAI Agents SDK — Handoffs**                     | Programmatic agent-to-agent handoff primitive (different layer: runtime delegation, not a file)                          | Confirms "handoff" terminology; out of scope here (we need a portable file, not an SDK runtime) |
-| **HandoffKit / jdhodges handoff template**           | Copy-paste handoff prompt/template                                                                                       | Cross-checked section naming                                                                    |
-| In-repo: `architecture-care.prompts.lib.mjs`         | Shared sub-prompt imported by both Claude & Codex builders                                                               | Direct pattern we reused for a single shared "skill"                                            |
+| Component                                            | What it offers                                                                                                                           | How it informed us                                                                                |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Agent Skills open standard** (agentskills.io)      | `SKILL.md` = YAML frontmatter (`name`, `description`) + markdown body; loaded natively by Claude Code and Codex (progressive disclosure) | **The primitive we ship.** One canonical `SKILL.md` works for both tools — "same skill, same way" |
+| **softaworks/agent-toolkit `session-handoff`** skill | 10-section template, create/resume modes, validation score, `YYYY-MM-DD-HHMMSS-slug.md` naming under `.claude/handoffs/`                 | Source of the canonical section list; we simplified to 6 sections and a single root file          |
+| **aihero "handoff" skill**                           | Lean handoff: purpose, context, suggested skills, pointers; cross-agent portability                                                      | Reinforced tool-agnostic, pointer-over-duplication, security                                      |
+| **ZenChAIne "handover" skill**                       | Standardized context handoff, `.handover/` local notes, predecessor chaining                                                             | Handoff-chain idea (future work)                                                                  |
+| **OpenAI Agents SDK — Handoffs**                     | Programmatic agent-to-agent handoff primitive (different layer: runtime delegation, not a file)                                          | Confirms "handoff" terminology; out of scope here (we need a portable file, not an SDK runtime)   |
+| **HandoffKit / jdhodges handoff template**           | Copy-paste handoff prompt/template                                                                                                       | Cross-checked section naming                                                                      |
+| In-repo: `agents-md-claude-support.lib.mjs`          | Deploys tool config (AGENTS.md→CLAUDE.md) around execution, then restores                                                                | Direct pattern we reused for deploying the `SKILL.md` per session                                 |
 
-**Decision on libraries:** none of the external skills are a drop-in fit — they
-target CLAUDE-specific skill loaders, `.claude/handoffs/` temp storage, or an SDK
-runtime, none of which match Hive Mind's ephemeral-temp-dir + branch-as-memory
-model or its existing sub-prompt architecture. Reusing the in-repo
-`architecture-care` sub-prompt pattern (rather than adding a dependency) keeps the
-feature consistent, dependency-free, and identical across tools.
+**Decision on libraries:** the right primitive is the **Agent Skills open
+standard** itself — both Claude Code and Codex discover and load a `SKILL.md`
+natively (Claude from `.claude/skills/<name>/`, Codex from `.agents/skills/<name>/`),
+so a single canonical file satisfies "same skill, same way" without a bespoke
+prompt. The external _handoff_ skills above are not drop-in (they target
+Claude-specific loaders, `.claude/handoffs/` temp storage, or an SDK runtime, none
+matching Hive Mind's ephemeral-temp-dir + branch-as-memory model), so we author our
+own `SKILL.md` rather than depend on them, and reuse the in-repo
+`agents-md-claude-support` deploy-around-execution pattern to install it. This
+keeps the feature standards-based, dependency-free, and byte-identical across tools.
 
 ## 5. Sources
 
+- Agent Skills — open standard (SKILL.md) — https://agentskills.io
+- Agent Skills — Anthropic engineering announcement — https://www.anthropic.com/news/skills
+- Claude Code — Skills documentation — https://docs.claude.com/en/docs/claude-code/skills
+- Codex — Skills documentation (OpenAI) — https://developers.openai.com/codex/skills
 - handoff: Move Context Between Agent Sessions — https://www.aihero.dev/skills-handoff
 - softaworks/agent-toolkit — session-handoff skill — https://github.com/softaworks/agent-toolkit/tree/main/skills/session-handoff
 - Managing Handoffs in Multi-Agent Coding Sessions (Mervin Praison) — https://mer.vin/2026/04/managing-handoffs-in-multi-agent-coding-sessions-fresh-context-without-losing-continuity/

@@ -26,14 +26,21 @@ This case study:
 - proposes solutions/plans per requirement and records future work
   ([improvements.md](./improvements.md)).
 
-The shipped solution is a small, tool-agnostic **"handoff skill"** sub-prompt
-(`src/handoff.prompts.lib.mjs`) that both the Claude and Codex prompt builders
-include verbatim when `--use-handoff` is set. The AI is taught to read
-`HANDOFF.md` first when present and to keep it updated with task, current state,
-decisions, next steps, gotchas, and critical files. Because every Hive Mind
-working session runs in an **ephemeral working directory cloned fresh from the PR
-branch**, the handoff file is **committed to the branch** — that is the only
-channel that survives between sessions and between tools.
+The shipped solution is a real, tool-agnostic **Agent Skill** — a `SKILL.md`
+document following the [Agent Skills open standard](https://agentskills.io)
+created by Anthropic — built by `src/handoff.prompts.lib.mjs` and deployed by
+`src/handoff-skill.lib.mjs` into the session working directory for **both** tools
+natively when `--use-handoff` is set: `.claude/skills/handoff/SKILL.md` for Claude
+Code and `.agents/skills/handoff/SKILL.md` for Codex. The skill teaches the AI to
+read `HANDOFF.md` first when present and to keep it updated with task, current
+state, decisions, next steps, gotchas, and critical files. A minimal activation
+nudge in the system prompt ensures the read-at-session-start behavior fires
+reliably. Because every Hive Mind working session runs in an **ephemeral working
+directory cloned fresh from the PR branch**, the handoff file is **committed to
+the branch** — that is the only channel that survives between sessions and between
+tools. The deployed `SKILL.md` itself is tooling (re-deployed each session) and is
+kept out of the target repository via `.git/info/exclude`, so it never pollutes
+the PR.
 
 ## 2. Problem statement
 
@@ -66,8 +73,8 @@ The full, itemized list with acceptance status is in
 | #   | Requirement                                                      | Status                                                                         |
 | --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | R1  | Research best practices/standards for a handoff file             | ✅ [external/research-notes.md](./external/research-notes.md)                  |
-| R2  | Support HANDOFF.md for **both** Claude and Codex                 | ✅ wired into both prompt builders                                             |
-| R3  | Use the **same skill / same way** for both tools                 | ✅ shared `handoff.prompts.lib.mjs`, identical text                            |
+| R2  | Support HANDOFF.md for **both** Claude and Codex                 | ✅ native `SKILL.md` deployed for both tools + nudge in both prompt builders   |
+| R3  | Use the **same skill / same way** for both tools                 | ✅ one canonical `SKILL.md` (Agent Skills standard), byte-identical per tool   |
 | R4  | Enable tools to **continue each other's work in a single PR**    | ✅ file committed to branch = cross-tool memory                                |
 | R5  | Expose as `--use-handoff`, **experimental, disabled by default** | ✅ `solve.config.lib.mjs`, `default: false`                                    |
 | R6  | Compile issue data into `./docs/case-studies/issue-1877/`        | ✅ this folder                                                                 |
@@ -87,15 +94,16 @@ The full, itemized list with acceptance status is in
 
 ## 5. Solution overview
 
-| Piece                  | File                             | Role                                                                         |
-| ---------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
-| Handoff skill (shared) | `src/handoff.prompts.lib.mjs`    | Builds the tool-agnostic HANDOFF.md instructions; returns `''` when disabled |
-| Claude wiring          | `src/claude.prompts.lib.mjs`     | Appends `getHandoffSubPrompt(argv)` to the system prompt                     |
-| Codex wiring           | `src/codex.prompts.lib.mjs`      | Appends the same `getHandoffSubPrompt(argv)`                                 |
-| Option                 | `src/solve.config.lib.mjs`       | `--use-handoff` boolean, `default: false`, `[EXPERIMENTAL]`                  |
-| Suggestion list        | `src/option-suggestions.lib.mjs` | Typo suggestions include `use-handoff`                                       |
-| Hive forwarding        | _automatic_                      | `SOLVE_OPTION_DEFINITIONS` is auto-forwarded by `hive.mjs`                   |
-| Tests                  | `tests/handoff-prompt.test.mjs`  | 24 assertions: module behavior, gating, identical-text, registration         |
+| Piece                  | File                             | Role                                                                                          |
+| ---------------------- | -------------------------------- | --------------------------------------------------------------------------------------------- |
+| Skill builder (shared) | `src/handoff.prompts.lib.mjs`    | Builds the canonical `SKILL.md` (frontmatter + body) and the minimal activation nudge         |
+| Skill deployment       | `src/handoff-skill.lib.mjs`      | Writes `SKILL.md` to `.claude/skills/handoff/` and `.agents/skills/handoff/`; git-excludes it |
+| Claude wiring          | `src/claude.lib.mjs`             | Calls `deployHandoffSkill(...)` before running; nudge via `getHandoffSubPrompt(argv)`         |
+| Codex wiring           | `src/codex.lib.mjs`              | Calls the same `deployHandoffSkill(...)`; nudge via the same `getHandoffSubPrompt(argv)`      |
+| Option                 | `src/solve.config.lib.mjs`       | `--use-handoff` boolean, `default: false`, `[EXPERIMENTAL]`                                   |
+| Suggestion list        | `src/option-suggestions.lib.mjs` | Typo suggestions include `use-handoff`                                                        |
+| Hive forwarding        | _automatic_                      | `SOLVE_OPTION_DEFINITIONS` is auto-forwarded by `hive.mjs`                                    |
+| Tests                  | `tests/handoff-prompt.test.mjs`  | 43 assertions: SKILL.md shape, deployment + git-exclude, gating, identical-text, registration |
 
 See [ANALYSIS.md](./ANALYSIS.md) for the detailed design rationale (why commit to
 the branch, why one file per branch, why tool-agnostic, security).

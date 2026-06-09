@@ -44,23 +44,53 @@ the handoff must be a **tracked file on the branch**: `HANDOFF.md` in the repo
 root. This is the deliberate, Hive-Mind-specific divergence from the generic
 "keep it in /tmp" convention, and it is documented in the skill itself.
 
-## 3. Why one shared "skill" (R3) instead of two prompts
+## 3. Why a real Agent Skill (R3) instead of a bespoke prompt
 
-The repo already has a clean precedent: `architecture-care.prompts.lib.mjs` is a
-single sub-prompt module imported by both `claude.prompts.lib.mjs` and
-`codex.prompts.lib.mjs` and appended to each system prompt
-(`...${getArchitectureCareSubPrompt(argv)}...`). We mirror that pattern exactly:
+The first draft of this feature injected the full HANDOFF.md procedure as a custom
+sub-prompt into each tool's system prompt. The maintainer correctly challenged
+that: _"Why do we add our own prompt, and don't use [a] skill? Is there no public
+skill for that? Is it not supported by Codex and Claude?"_ The answer is that the
+**Agent Skills open standard** (https://agentskills.io, created by Anthropic) is
+now supported natively by **both** tools, so we should use it instead of inventing
+a private prompt.
+
+An Agent Skill is a folder containing a `SKILL.md` — YAML frontmatter (`name`,
+`description`) plus a markdown instructions body — that the tool discovers and
+loads on demand (progressive disclosure: discovery → activation → execution):
+
+- **Claude Code** discovers project skills from `.claude/skills/<name>/SKILL.md`.
+- **Codex** discovers project skills from `.agents/skills/<name>/SKILL.md`.
+
+The exact same `SKILL.md` works for both, so "same skill, same way" is satisfied
+by a single canonical file rather than two tool-specific prompts. The build/deploy
+split mirrors the repo's existing deploy-around-execution precedent
+(`agents-md-claude-support.lib.mjs`):
 
 ```
-src/handoff.prompts.lib.mjs        # buildHandoffSubPrompt / getHandoffSubPrompt
-  ├─ imported by claude.prompts.lib.mjs → appended to Claude system prompt
-  └─ imported by codex.prompts.lib.mjs  → appended to Codex system prompt
+src/handoff.prompts.lib.mjs   # builds the canonical SKILL.md + a minimal nudge
+  └─ src/handoff-skill.lib.mjs deploys that SKILL.md into:
+       ├─ .claude/skills/handoff/SKILL.md   (Claude Code reads it natively)
+       └─ .agents/skills/handoff/SKILL.md   (Codex reads it natively)
 ```
 
-Both tools receive **byte-identical** text — that is what "same skill, same way"
-means operationally, and a unit test pins it (`buildHandoffSubPrompt()` substring
-must appear in both system prompts). Centralizing also means future edits to the
-protocol can never drift between tools.
+Both tools receive a **byte-identical** `SKILL.md` — a unit test pins it (the two
+deployed files must equal each other and the canonical builder output).
+Centralizing the source means future edits to the protocol can never drift between
+tools.
+
+**Why also keep a minimal nudge?** Skill auto-activation is triggered by the task
+description matching the skill's `description`. The most important handoff behavior
+— "read `HANDOFF.md` first at the very start of the session" — is a session-
+lifecycle event, not something the task description mentions. A short pointer in
+the system prompt (gated by `--use-handoff`) reliably fires that read-first
+behavior; the full procedure still lives in the deployed `SKILL.md`.
+
+**Why git-exclude the deployed skill?** The `SKILL.md` is tooling that hive-mind
+re-deploys every session, not project state. Committing it would pollute the PR
+and the "uncommitted changes" checks. `handoff-skill.lib.mjs` appends
+`/.claude/skills/handoff/` and `/.agents/skills/handoff/` to `.git/info/exclude`
+(idempotently) so git never sees the files. The continuity document itself
+(`HANDOFF.md`) is still committed to the branch — that is the cross-tool memory.
 
 ## 4. Option design (R5)
 
@@ -75,9 +105,12 @@ free from existing infrastructure:
 - **Strict parsing + suggestions.** Because the option is registered, yargs strict
   mode accepts it and `option-suggestions.lib.mjs` can suggest it on typos.
 
-The flag is gated purely in the prompt builders (`getHandoffSubPrompt` returns
-`''` when `argv.useHandoff` is falsy), so when disabled there is **zero** change
-to generated prompts or runtime behavior — important for an experimental feature.
+The flag is gated in two places that both no-op when it is off: the activation
+nudge (`getHandoffSubPrompt` returns `''` when `argv.useHandoff` is falsy) and the
+deployment (`deployHandoffSkill` writes nothing and creates no directories unless
+`argv.useHandoff` is truthy). So when disabled there is **zero** change to
+generated prompts, to the working directory, or to runtime behavior — important
+for an experimental feature.
 
 ## 5. Tool-agnostic content (R2/R4)
 
@@ -107,8 +140,11 @@ handoff documents.
 
 ## 8. Verification
 
-`tests/handoff-prompt.test.mjs` (24 assertions) covers: module return values and
-custom file name; default-off and on gating for both Claude and Codex; identical
-canonical text in both; option registration in `solve.config` and
+`tests/handoff-prompt.test.mjs` (43 assertions) covers: the canonical `SKILL.md`
+shape (valid Agent Skills frontmatter, body sections, custom file name); the
+minimal nudge and its default-off / on gating for both Claude and Codex; identical
+canonical text in both prompts; the deployment module writing byte-identical
+`SKILL.md` into both native skill directories, git-excluding them (invisible to
+`git status`) and being idempotent; option registration in `solve.config` and
 `option-suggestions`; and membership in `SOLVE_OPTION_DEFINITIONS` (hive
 forwarding). `npm run lint` and prettier are clean.

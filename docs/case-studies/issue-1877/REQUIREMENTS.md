@@ -30,18 +30,24 @@ and its resolution in PR #1878.
 
 ### R2 — Integrate support for **both** Codex and Claude
 
-- **Solution plan:** Add the handoff instructions to both the Claude and Codex
-  system-prompt builders.
-- **Resolution:** ✅ `getHandoffSubPrompt(argv)` appended in
+- **Solution plan:** Deploy a native Agent Skill (`SKILL.md`) into each tool's
+  skill directory so both tools load the same skill, and add a minimal activation
+  nudge to both system-prompt builders.
+- **Resolution:** ✅ `deployHandoffSkill(...)` (in `src/handoff-skill.lib.mjs`)
+  writes `SKILL.md` to `.claude/skills/handoff/` (Claude) and
+  `.agents/skills/handoff/` (Codex); it is invoked from both `src/claude.lib.mjs`
+  and `src/codex.lib.mjs`. The nudge `getHandoffSubPrompt(argv)` is appended in
   `src/claude.prompts.lib.mjs` and `src/codex.prompts.lib.mjs`.
 
 ### R3 — Do it **in the same way, using the same skill**
 
-- **Solution plan:** Factor the instructions into one shared module so both tools
-  receive byte-identical text (a single "skill"), instead of duplicating prose.
-- **Resolution:** ✅ `src/handoff.prompts.lib.mjs` is the single source. The test
-  `tests/handoff-prompt.test.mjs` asserts both prompts embed the canonical text
-  verbatim.
+- **Solution plan:** Use a real **Agent Skill** (the open `SKILL.md` standard both
+  tools support natively) built from one shared source, so both tools load a
+  byte-identical skill — rather than each tool getting its own bespoke prompt.
+- **Resolution:** ✅ `src/handoff.prompts.lib.mjs` is the single source for the
+  canonical `SKILL.md`. The test `tests/handoff-prompt.test.mjs` asserts the two
+  deployed `SKILL.md` files are byte-identical and equal the canonical builder
+  output, and that both prompts embed the canonical nudge verbatim.
 
 ### R4 — So they can **continue each other's work in a single pull request**
 
@@ -85,9 +91,9 @@ and its resolution in PR #1878.
 ### R10 — Check known existing components/libraries that solve a similar problem
 
 - **Resolution:** ✅ [external/research-notes.md](./external/research-notes.md)
-  §"Prior art & reusable components" (session-handoff skills, handoff templates,
-  OpenAI Agents SDK handoffs) and the in-repo reuse of the architecture-care
-  sub-prompt pattern.
+  §"Prior art & reusable components" (the Agent Skills open standard adopted here,
+  session-handoff skills, handoff templates, OpenAI Agents SDK handoffs) and the
+  in-repo reuse of the `agents-md-claude-support` deploy-around-execution pattern.
 
 ### R11 — Plan and execute everything in **this single pull request**
 
@@ -99,10 +105,14 @@ and its resolution in PR #1878.
 
 - [x] `--use-handoff` parses for `solve` and is forwarded by `hive`.
 - [x] Default is `false`; no behavior change unless explicitly enabled.
-- [x] Claude and Codex prompts include identical handoff skill text when enabled.
+- [x] A byte-identical native `SKILL.md` is deployed for Claude
+      (`.claude/skills/handoff/`) and Codex (`.agents/skills/handoff/`); both
+      prompts include the identical activation nudge when enabled.
+- [x] The deployed `SKILL.md` is git-excluded (never appears in the PR), while
+      `HANDOFF.md` itself is committed to the branch.
 - [x] Skill teaches: read-first, single active file per branch, commit to branch,
       tool-agnostic pointers, required sections, no secrets, completion marker.
-- [x] Automated test (`tests/handoff-prompt.test.mjs`) passes (24 assertions).
+- [x] Automated test (`tests/handoff-prompt.test.mjs`) passes (43 assertions).
 - [x] `npm run lint` and prettier pass.
 - [x] Case study compiled in `docs/case-studies/issue-1877/`.
 - [x] Changeset added for the next release.

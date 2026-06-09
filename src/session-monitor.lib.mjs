@@ -150,7 +150,11 @@ function isMessageAlreadyUpdatedError(error) {
 }
 
 function normalizeSessionUrl(url) {
-  return url.replace(/\/+$/, '').replace(/#.*$/, '').toLowerCase();
+  // Strip the fragment first, then any trailing slashes, so URLs that carry a
+  // fragment after a trailing slash (e.g. `.../issues/18/#comment`) normalize to
+  // the same value as the bare `.../issues/18`. Doing it in the other order
+  // would leave a dangling trailing slash. (Issue #1871.)
+  return url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase();
 }
 
 function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) {
@@ -486,6 +490,73 @@ export function hasActiveSessionForUrl(url, verbose = false) {
     console.log(`[VERBOSE] No active session found for URL ${url}`);
   }
   return { isActive: false, sessionName: null };
+}
+
+const SESSION_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Issue #1871: Find a tracked, still-running session for a GitHub issue/PR URL
+ * and report whether it can be stopped by forwarding CTRL+C to the
+ * start-command session UUID.
+ *
+ * The `/stop <url>` Telegram flow originally consulted only the in-memory solve
+ * queue. But a `/solve` or `/codex` that starts immediately (queue empty)
+ * dispatches straight to a detached isolation session and is removed from the
+ * queue's `processing` Map the moment it is launched. From that point on the
+ * session-monitor's in-memory registry is the only place that still knows the
+ * URL → start-command-UUID mapping, so `/stop <url>` reported "no task found"
+ * even though the task was clearly running. This helper exposes that registry
+ * so the stop flow can recover the UUID and interrupt the session.
+ *
+ * A session is stoppable when it was launched with an isolation backend and its
+ * start-command UUID is UUID-shaped (the value `$ --stop <uuid>` expects). Plain
+ * non-isolation screen sessions are reported but marked `stoppable: false`
+ * because `$ --stop` cannot interrupt them.
+ *
+ * @param {string} url - GitHub issue or PR URL (any normalization)
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {{ sessionName: string, sessionId: string|null, sessionInfo: Object,
+ *   isolationBackend: string|null, stoppable: boolean }|null} Match or null
+ */
+export function findStoppableSessionByUrl(url, verbose = false) {
+  if (!url) return null;
+
+  const normalizedUrl = normalizeSessionUrl(url);
+
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
+      continue;
+    }
+    // Issue #1586: skip expired non-isolation sessions — they are no longer running.
+    if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
+      continue;
+    }
+
+    // The UUID `$ --stop` expects is the start-command session id. For
+    // isolation sessions it is tracked either as sessionInfo.sessionId or as
+    // the (UUID-shaped) session key itself.
+    const candidateId = sessionInfo.sessionId || sessionName;
+    const sessionId = SESSION_UUID_RE.test(candidateId) ? candidateId : null;
+    const stoppable = Boolean(sessionInfo.isolationBackend && sessionId);
+
+    if (verbose) {
+      const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'non-isolation';
+      console.log(`[VERBOSE] findStoppableSessionByUrl: matched ${sessionName} for ${url} (${mode}, stoppable=${stoppable})`);
+    }
+
+    return {
+      sessionName,
+      sessionId,
+      sessionInfo,
+      isolationBackend: sessionInfo.isolationBackend || null,
+      stoppable,
+    };
+  }
+
+  if (verbose) {
+    console.log(`[VERBOSE] findStoppableSessionByUrl: no tracked session for ${url}`);
+  }
+  return null;
 }
 
 /**

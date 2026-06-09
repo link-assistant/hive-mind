@@ -43,7 +43,7 @@ const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized
 const { installTelegramFormattingFallback, isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync } = await import('./session-monitor.lib.mjs');
+const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl } = await import('./session-monitor.lib.mjs');
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
 const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
 
@@ -1068,7 +1068,7 @@ const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
 const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
 const { registerLogCommand } = await import('./telegram-log-command.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
-registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue });
+registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue, findRunningSessionByUrl: (url, verbose) => findStoppableSessionByUrl(url, verbose) });
 await registerLogCommand(bot, sharedCommandOpts);
 await registerTerminalWatchCommand(bot, sharedCommandOpts);
 

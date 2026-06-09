@@ -16,10 +16,15 @@
  * - `/stop <issue-or-pr-url>` (or reply to a message that contains one) looks
  *   the URL up in the in-memory solve queue and either cancels the queued
  *   item or forwards CTRL+C to the running isolated session (issue #1780).
+ * - `/stop <issue-or-pr-url>` also consults the session-monitor registry of
+ *   running detached sessions, so it can interrupt a task that started
+ *   immediately (queue empty) and was therefore never left in the queue's
+ *   `processing` Map — the case shown in issue #1871's screenshots.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1081
  * @see https://github.com/link-assistant/hive-mind/issues/524
  * @see https://github.com/link-assistant/hive-mind/issues/1780
+ * @see https://github.com/link-assistant/hive-mind/issues/1871
  * @see https://github.com/link-foundation/start/issues/112
  */
 
@@ -257,6 +262,12 @@ export function isStopTargetRequester({ userId, queueItem = null, sessionInfo = 
  *   When omitted, the URL flow degrades gracefully to a "no queue available"
  *   message so unit tests for non-URL paths don't need to construct a queue.
  *   See https://github.com/link-assistant/hive-mind/issues/1780.
+ * @param {Function} [options.findRunningSessionByUrl] - Override for tests; looks
+ *   the URL up in the session-monitor registry of running detached sessions so
+ *   `/stop <url>` can interrupt tasks that started immediately (queue empty) and
+ *   were therefore never left in the queue's `processing` Map. When omitted, the
+ *   real `findStoppableSessionByUrl` from session-monitor is lazy-imported.
+ *   See https://github.com/link-assistant/hive-mind/issues/1871.
  */
 export function registerStartStopCommands(bot, options) {
   const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, getSolveQueue } = options;
@@ -272,6 +283,26 @@ export function registerStartStopCommands(bot, options) {
     }
     const mod = await import('./session-monitor.lib.mjs');
     return mod.getTrackedSessionInfo(sessionId);
+  }
+
+  // Issue #1871: look a URL up in the session-monitor registry of running
+  // detached sessions. A /solve or /codex that started immediately (queue
+  // empty) is dispatched straight to an isolation session and removed from the
+  // queue's `processing` Map, so the queue lookup alone reports "no task found"
+  // for a task that is clearly running. The session monitor still knows the
+  // URL → start-command-UUID mapping, which lets /stop <url> recover and
+  // interrupt the session. Test stubs can inject findRunningSessionByUrl.
+  async function lookupRunningSessionByUrl(url) {
+    try {
+      if (typeof options.findRunningSessionByUrl === 'function') {
+        return await options.findRunningSessionByUrl(url, VERBOSE);
+      }
+      const mod = await import('./session-monitor.lib.mjs');
+      return mod.findStoppableSessionByUrl(url, VERBOSE);
+    } catch (error) {
+      console.error('[ERROR] /stop: findStoppableSessionByUrl failed:', error);
+      return null;
+    }
   }
 
   /**
@@ -529,18 +560,42 @@ export function registerStartStopCommands(bot, options) {
       const url = target.value;
       VERBOSE && console.log(`[VERBOSE] /stop: detected URL ${url} (source=${target.source})`);
 
-      // Look up the queue item BEFORE auth so we can allow the original task
-      // requester to cancel their own task in a group (#1783). The lookup
-      // here does NOT mutate the queue — actual cancel happens below in
-      // resolveQueueLookupForUrl after auth has passed.
+      // Look up the queue item AND any running detached session BEFORE auth so
+      // we can allow the original task requester to cancel their own task in a
+      // group (#1783), regardless of whether the task is still queued or already
+      // dispatched to an isolation session (#1871). Neither lookup mutates
+      // state — actual cancel/stop happens below after auth has passed.
       const candidate = findQueueCandidateForUrl(url);
-      const ok = await authorizeTargetedStop(ctx, 'URL', { queueItem: candidate.item || null });
+      const runningSession = await lookupRunningSessionByUrl(url);
+      const ok = await authorizeTargetedStop(ctx, 'URL', { queueItem: candidate.item || null, sessionInfo: runningSession?.sessionInfo || null });
       if (!ok) return;
 
       const lookup = resolveQueueLookupForUrl(url);
       VERBOSE && console.log(`[VERBOSE] /stop: queue lookup for ${url} → ${lookup.action}`);
 
+      // Issue #1871: when the queue has no record of the task (it started
+      // immediately and was dispatched to a detached session) but the session
+      // monitor still tracks a running isolated session for this URL, forward
+      // CTRL+C to its start-command UUID. This is the common case for tasks
+      // that begin executing right away with `--isolation screen`.
+      const queueHasTask = lookup.action === 'cancel-queued' || lookup.action === 'stop-running';
+      if (!queueHasTask && runningSession?.stoppable && runningSession.sessionId) {
+        VERBOSE && console.log(`[VERBOSE] /stop: forwarding CTRL+C to tracked session ${runningSession.sessionId} for ${url} (queue action=${lookup.action})`);
+        await runStopIsolatedSessionFlow(ctx, runningSession.sessionId);
+        return;
+      }
+
       if (lookup.action === 'no-queue') {
+        // No solve queue in this context. If the session monitor found a
+        // running-but-non-stoppable (non-isolation) session, say so; otherwise
+        // fall back to the UUID hint.
+        if (runningSession) {
+          await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time you can run the command with \`--isolation screen\` to make this task interruptible via \`/stop\`.`, {
+            parse_mode: 'Markdown',
+            reply_to_message_id: message.message_id,
+          });
+          return;
+        }
         await ctx.reply(`ℹ️ Cannot look up tasks by URL right now (the bot has no solve queue available in this context).\n\nIf you have the session UUID, you can use \`/stop <UUID>\` instead.`, {
           parse_mode: 'Markdown',
           reply_to_message_id: message.message_id,
@@ -549,6 +604,16 @@ export function registerStartStopCommands(bot, options) {
       }
 
       if (lookup.action === 'not-found') {
+        // The session monitor also had no stoppable session (otherwise we would
+        // have forwarded CTRL+C above). If it tracked a non-isolation session,
+        // explain why it can't be stopped; otherwise report not found.
+        if (runningSession) {
+          await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time you can run the command with \`--isolation screen\` to make this task interruptible via \`/stop\`.`, {
+            parse_mode: 'Markdown',
+            reply_to_message_id: message.message_id,
+          });
+          return;
+        }
         await ctx.reply(`ℹ️ No queued or running task found for ${url}.\n\nIf the task is running with \`--isolation screen\`, try \`/stop <UUID>\` (the UUID is shown in the bot's session-id message).`, {
           parse_mode: 'Markdown',
           reply_to_message_id: message.message_id,

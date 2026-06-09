@@ -1,0 +1,5 @@
+---
+"@link-assistant/hive-mind": patch
+---
+
+Add support for Claude Fable 5 (`claude-fable-5`) and its un-classified sibling Claude Mythos 5 (`claude-mythos-5`) as selectable models for `--tool claude` (Issue #1875). New aliases `fable`, `fable-5`, `claude-fable-5`, `mythos-5`, and `claude-mythos-5` resolve in the centralized model registry, support the `[1m]` 1M-context suffix, the full effort ladder including `xhigh` and `max` (default `high`), and 128K max output tokens. Both models are adaptive-thinking-only, so `getClaudeEnv` removes `MAX_THINKING_TOKENS` for them (the API rejects disabled thinking), mirroring Opus 4.7/4.8. Documented default fallbacks are registered (`claude-fable-5 -> opus` reflecting Fable 5's safety-classifier hand-off to Opus 4.8; `claude-mythos-5 -> fable`). Existing defaults (`opus`, `sonnet`, `haiku`, `opusplan`) are unchanged — this adds Fable 5 as an option without altering current behavior. `fable` is surfaced in `--model` help. Includes `tests/test-fable-5-model-support.mjs` (127 tests) and a full case study under `docs/case-studies/issue-1875/`.

@@ -193,8 +193,8 @@ is requested upstream (see below).
 ## Upstream Report
 
 The nested-daemon-starts-empty behavior originates in the DinD base image
-(`konard/box-dind`, from `link-foundation/box`). An issue is filed there requesting that the
-nested daemon be pre-seeded (or a documented startup hook be provided) so the inner daemon
-reuses host images instead of re-downloading them. It includes a reproducible example, the
-`docker save | docker load` workaround, and the suggested fix. Link added to this case study
-and the PR once filed.
+(`konard/box-dind`, from `link-foundation/box`). Issue filed:
+**https://github.com/link-foundation/box/issues/94** — requesting that the nested daemon be
+pre-seeded (or a documented startup pre-load hook be provided) so the inner daemon reuses host
+images instead of re-downloading them. It includes a reproducible example, the
+`docker save | docker load` workaround, and the suggested fix (an entrypoint pre-load hook).

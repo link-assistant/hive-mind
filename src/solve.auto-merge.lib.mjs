@@ -735,7 +735,7 @@ No further AI sessions will be started automatically for this run. Please review
             limitResumeCount++;
             const resumeSessionId = toolResult.sessionId;
             const resetTime = toolResult.limitResetTime;
-            const baseWaitMs = resetTime ? calculateWaitTime(resetTime) : 0;
+            const baseWaitMs = resetTime ? calculateWaitTime(resetTime, toolResult.limitTimezone || null) : 0;
             const bufferMs = limitReset.bufferMs;
             const jitterMs = Math.floor(Math.random() * limitReset.jitterMs);
             const waitMs = baseWaitMs + bufferMs + jitterMs;

@@ -100,6 +100,11 @@ const config = yargs(hideBin(process.argv))
     description: 'Enable /task and /split commands (use --no-task to disable)',
     default: getenv('TELEGRAM_TASK', 'true') !== 'false',
   })
+  .option('auth', {
+    type: 'boolean',
+    description: 'Enable experimental private /auth command for allowlisted chat owners (use --no-auth to disable)',
+    default: getenv('TELEGRAM_AUTH', 'true') !== 'false',
+  })
   .option('dryRun', {
     type: 'boolean',
     description: 'Validate configuration and options without starting the bot',
@@ -163,6 +168,7 @@ const hiveOverrides = resolvedHiveOverrides
 const solveEnabled = config.solve;
 const hiveEnabled = config.hive;
 const taskEnabled = config.task;
+const authEnabled = config.auth;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
 const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
 let isolationRunner = null;
@@ -283,7 +289,7 @@ if (config.dryRun) {
   if (allowedTopics && allowedTopics.length > 0) {
     console.log('  Allowed topics:', lino.formatLinks(allowedTopics));
   }
-  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled });
+  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, auth: authEnabled });
   if (solveOverrides.length > 0) {
     console.log('  Solve overrides:', lino.format(solveOverrides));
   }
@@ -606,6 +612,8 @@ const { registerSubscribeCommands } = await import('./telegram-subscribers.lib.m
 registerSubscribeCommands(bot, sharedCommandOpts);
 const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs');
 const { handleTaskCommand, TASK_COMMAND_NAMES } = registerTaskCommands(bot, { ...sharedCommandOpts, taskEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx });
+const { registerAuthCommand } = await import('./telegram-auth-command.lib.mjs');
+const { handleAuthCommand } = registerAuthCommand(bot, { ...sharedCommandOpts, allowedChats, authEnabled, safeReply });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
 async function handleSolveCommand(ctx) {
@@ -1170,7 +1178,7 @@ bot.on('message', async (ctx, next) => {
   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
   // /queue is the short alias for /solve_queue (issue #1837)
-  const handlers = { ...solveHandlers, ...taskHandlers, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand, queue: handleSolveQueueCommand };
+  const handlers = { ...solveHandlers, ...taskHandlers, auth: handleAuthCommand, hive: handleHiveCommand, solve_queue: handleSolveQueueCommand, solvequeue: handleSolveQueueCommand, queue: handleSolveQueueCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();
@@ -1279,7 +1287,7 @@ if (allowedChats && allowedChats.length > 0) {
 if (allowedTopics && allowedTopics.length > 0) {
   console.log('Allowed topics (lino):', lino.formatLinks(allowedTopics));
 }
-console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled });
+console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, auth: authEnabled });
 if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));
 if (hiveOverrides.length > 0) console.log('Hive overrides (lino):', lino.format(hiveOverrides));
 if (VERBOSE) {

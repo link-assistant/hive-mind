@@ -555,6 +555,7 @@ Shows:
 - ✅ **Screen 会话**：命令在后台 Screen 会话中运行
 - ✅ **Live Terminal Watch**：`/terminal_watch` 和 opt-in auto-start 显示 live session logs
 - ✅ **聊天限制**：可选配置允许的聊天 ID 白名单
+- ✅ **私聊 Auth 检查**：为白名单聊天所有者提供实验性的 `/auth --status <gh|claude|codex>` 和 `/auth --login <gh|claude|codex>`
 - ✅ **诊断工具**：获取聊天 ID 和配置信息
 
 #### Live Terminal Watch
@@ -573,6 +574,7 @@ Shows:
 
 - 仅在机器人为管理员的群聊中有效
 - 可通过 `TELEGRAM_ALLOWED_CHATS` 配置可选的聊天 ID 限制
+- 如果未设置 `TELEGRAM_ALLOWED_CHATS`，私聊 `/auth` 会被禁用，且只有所列聊天的所有者可以使用
 - 命令以运行机器人的系统用户身份执行
 - 请确保已完成正确的身份验证（`gh auth login`、`claude-profiles`）
 

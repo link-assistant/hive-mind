@@ -559,6 +559,7 @@ Shows:
 - ✅ **Screen सत्र**: कमांड डिटैच्ड screen सत्रों में चलते हैं
 - ✅ **Live Terminal Watch**: `/terminal_watch` और opt-in auto-start live session logs दिखाते हैं
 - ✅ **चैट प्रतिबंध**: अनुमत चैट ID की वैकल्पिक सफेद सूची
+- ✅ **Private Auth Check**: allowlisted chat owners के लिए experimental `/auth --status <gh|claude|codex>` और `/auth --login <gh|claude|codex>`
 - ✅ **डायग्नोस्टिक टूल**: चैट ID और कॉन्फ़िगरेशन जानकारी प्राप्त करें
 
 #### Live Terminal Watch
@@ -577,6 +578,8 @@ sessions के लिए अपने आप एक अलग live terminal wat
 
 - केवल उन ग्रुप चैट में काम करता है जहाँ बॉट एडमिन है
 - `TELEGRAM_ALLOWED_CHATS` के माध्यम से वैकल्पिक चैट ID प्रतिबंध
+- private `/auth` तब disabled रहता है जब `TELEGRAM_ALLOWED_CHATS` set नहीं है,
+  और इसे केवल listed chats के owners इस्तेमाल कर सकते हैं
 - बॉट चलाने वाले सिस्टम उपयोगकर्ता के रूप में कमांड चलते हैं
 - उचित प्रमाणीकरण सुनिश्चित करें (`gh auth login`, `claude-profiles`)
 

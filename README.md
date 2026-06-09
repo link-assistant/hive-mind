@@ -580,6 +580,7 @@ Shows:
 - ✅ **Screen Sessions**: Commands run in detached screen sessions
 - ✅ **Live Terminal Watch**: `/terminal_watch` and opt-in auto-start show live session logs
 - ✅ **Chat Restrictions**: Optional whitelist of allowed chat IDs
+- ✅ **Private Auth Check**: Experimental `/auth --status <gh|claude|codex>` and `/auth --login <gh|claude|codex>` for owners of allowlisted chats
 - ✅ **Diagnostic Tools**: Get chat ID and configuration info
 
 #### Live Terminal Watch
@@ -597,6 +598,8 @@ When enabled with `--auto-start-screen-watch-message`, the bot automatically sta
 
 - Only works in group chats where the bot is admin
 - Optional chat ID restrictions via `TELEGRAM_ALLOWED_CHATS`
+- Private `/auth` is disabled unless `TELEGRAM_ALLOWED_CHATS` is set and only
+  owners of listed chats can use it
 - Commands run as the system user running the bot
 - Ensure proper authentication (`gh auth login`, `claude-profiles`)
 

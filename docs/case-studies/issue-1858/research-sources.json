@@ -1,0 +1,79 @@
+[
+  {
+    "title": "Issue #1858: agent authorization commands",
+    "type": "github_issue",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1858",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["The requested command shape is `hive auth codex login` and `hive auth claude login`.", "The author wants those commands to be callable through Telegram for convenience.", "The follow-up requirement explicitly asks for multi-auth support rather than a single global auth."]
+  },
+  {
+    "title": "Prepared PR #1859",
+    "type": "github_pr",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1859",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["The prepared PR started as a draft with only a `.gitkeep` scaffold.", "No review comments, conversation comments, or reviews were present when the case study was written."]
+  },
+  {
+    "title": "docker-git authorization precedent",
+    "type": "external_project",
+    "url": "https://github.com/ProverCoderAI/docker-git#%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["The referenced project exposes `docker-git auth github login --web`, `docker-git auth codex login --web`, `docker-git auth claude login --web`, and `docker-git auth grok login --web`.", "The README describes isolated Docker environments per repository, issue, or pull request.", "The project can auto-select an agent based on available authorization."]
+  },
+  {
+    "title": "GitHub CLI auth manual",
+    "type": "official_docs",
+    "url": "https://cli.github.com/manual/gh_auth",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["`gh auth` includes login, logout, refresh, setup-git, status, switch, and token commands.", "`gh auth switch` selects the active account for a hostname.", "`gh auth status` can show active account and authentication state."]
+  },
+  {
+    "title": "GitHub CLI environment variables",
+    "type": "official_docs",
+    "url": "https://cli.github.com/manual/gh_help_environment",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["`GH_TOKEN` and `GITHUB_TOKEN` take precedence for github.com and ghe.com commands.", "`GH_CONFIG_DIR` controls where `gh` stores configuration files.", "`GH_PROMPT_DISABLED` disables interactive prompting."]
+  },
+  {
+    "title": "Claude Code authentication",
+    "type": "official_docs",
+    "url": "https://code.claude.com/docs/en/authentication",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["Claude Code supports Claude.ai subscription credentials, Claude Console/API credentials, cloud provider credentials, and helper-based credentials.", "On Linux, subscription credentials live in `~/.claude/.credentials.json` with mode `0600`; `CLAUDE_CONFIG_DIR` relocates this file on Linux and Windows.", "Claude Code chooses credentials by precedence, with cloud provider env vars and `ANTHROPIC_*` env vars ahead of subscription OAuth."]
+  },
+  {
+    "title": "Codex authentication",
+    "type": "official_openai_docs",
+    "url": "https://developers.openai.com/codex/auth",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["Codex CLI supports ChatGPT sign-in and API key sign-in.", "Codex caches credentials in `~/.codex/auth.json` or an OS credential store, controlled by `cli_auth_credentials_store`.", "Headless login supports `codex login --device-auth`; copying `auth.json` is documented as a fallback for trusted hosts."]
+  },
+  {
+    "title": "Codex environment variables",
+    "type": "official_openai_docs",
+    "url": "https://developers.openai.com/codex/environment-variables",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["`CODEX_HOME` sets the root for Codex config, auth, logs, sessions, skills, and package metadata.", "`CODEX_API_KEY` supports one non-interactive `codex exec` run.", "`CODEX_ACCESS_TOKEN` supports trusted automation and can be piped to `codex login --with-access-token` for persisted login."]
+  },
+  {
+    "title": "OpenCode provider authentication",
+    "type": "official_docs",
+    "url": "https://dev.opencode.ai/docs/providers",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["OpenCode uses `/connect` to add provider API keys.", "Provider keys added through `/connect` are stored in `~/.local/share/opencode/auth.json`.", "OpenCode supports many providers through AI SDK and Models.dev, so auth is provider-specific rather than one global account."]
+  },
+  {
+    "title": "Qwen Code authentication",
+    "type": "official_docs",
+    "url": "https://qwenlm.github.io/qwen-code-docs/en/users/configuration/auth/",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["Qwen Code has a standalone `qwen auth` command and an in-session `/auth` command.", "`qwen auth status` reports current authentication status.", "The docs warn not to commit API keys and to treat terminal output as sensitive if credentials are printed."]
+  },
+  {
+    "title": "Gemini CLI authentication",
+    "type": "official_docs",
+    "url": "https://google-gemini.github.io/gemini-cli/docs/get-started/authentication.html",
+    "capturedAt": "2026-06-08T00:00:00Z",
+    "keyFindings": ["Gemini CLI supports Google login, Gemini API key, and Vertex AI authentication.", "Google login caches credentials locally and requires a browser that can communicate with the CLI localhost callback.", "Headless mode uses existing cached credentials or environment variables such as `GEMINI_API_KEY`, `GOOGLE_API_KEY`, or `GOOGLE_APPLICATION_CREDENTIALS`."]
+  }
+]

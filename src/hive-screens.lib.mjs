@@ -10,14 +10,13 @@
  * See issue #1649.
  */
 
-import { exec as execCallback } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
+import { commandStreamExec } from './command-stream-exec.lib.mjs';
 
-const execAsync = promisify(execCallback);
+const execAsync = commandStreamExec;
 
 export const HIVE_SCREENS_HELP = `Usage: hive-screens (--list | --enter | --close) [--oldest|--newest|--all] [--verbose]
 

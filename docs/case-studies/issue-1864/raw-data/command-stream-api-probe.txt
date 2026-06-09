@@ -1,0 +1,43 @@
+dollar type function
+command keys before await [
+  'listeners',         'spec',
+  'options',           'outChunks',
+  'errChunks',         'inChunks',
+  'result',            'child',
+  'started',           'finished',
+  'promise',           '_mode',
+  '_cancelled',        '_cancellationSignal',
+  '_virtualGenerator', '_abortController'
+]
+has run function has raw undefined has trim undefined has text undefined has stream function
+helloawaited type object
+awaited keys [ 'code', 'stdout', 'stderr', 'stdin', 'child', 'text' ]
+awaited code 0
+awaited stdout type string String hello
+awaited stderr type string String
+awaited text Promise { 'hello' }
+hicaptured keys [ 'code', 'stdout', 'stderr', 'stdin', 'child', 'text' ] code 0 stdout hi stderr
+failed awaited resolved 7
+badfailed capture resolved 7  bad
+abcstdin capture 0 abc
+
+--- raw string/function probe ---
+raw-stringfunction string ok {"code":0,"stdout":"raw-string","stderr":""}
+interpolated-fulltemplate interpolated full command ok {"code":0,"stdout":"interpolated-full","stderr":""}
+manual-arraymanual raw template array ok {"code":0,"stdout":"manual-array","stderr":""}
+literaltemplate command literal ok {"code":0,"stdout":"literal","stderr":""}
+/tmp
+options object cwd literal ok {"code":0,"stdout":"/tmp\n","stderr":""}
+/tmp
+options object cwd function-string ok {"code":0,"stdout":"/tmp\n","stderr":""}
+
+--- capture without implicit streaming probe ---
+quiet-rawfunction string run capture ok {"code":0,"stdout":"quiet-raw","stderr":""}
+quiet-literalliteral run capture ok {"code":0,"stdout":"quiet-literal","stderr":""}
+outerrnonzero capture ok {"code":9,"stdout":"out","stderr":"err"}
+
+--- silent function-string probe ---
+silent literal ok {"code":0,"stdout":"truly-quiet-literal","stderr":""}
+silent function string ok {"code":0,"stdout":"truly-quiet-raw","stderr":""}
+silent cwd function string ok {"code":0,"stdout":"/tmp\n","stderr":""}
+silent nonzero function string ok {"code":9,"stdout":"out","stderr":"err"}

@@ -1,0 +1,1023 @@
+docs/dependencies-research/command-stream-issues/issue-07-stream-output.mjs:23:  const command = $`sh -c 'echo "Line 1"; sleep 1; echo "Line 2" >&2; sleep 1; echo "Line 3"'`;
+docs/dependencies-research/command-stream-issues/issue-07-stream-output.mjs:55:await $`chmod +x ${testScript}`;
+docs/dependencies-research/command-stream-issues/issue-07-stream-output.mjs:59:  const command = $`${testScript}`;
+docs/dependencies-research/command-stream-issues/issue-07-stream-output.mjs:94:  const command = $`sh -c 'for i in 1 2 3 4 5; do echo "Processing item $i"; sleep 0.5; done'`;
+docs/dependencies-research/command-stream-issues/issue-14-cwd-with-cd-pattern.mjs:27: * - $`cd ${tempDir} && git add file`
+docs/dependencies-research/command-stream-issues/issue-14-cwd-with-cd-pattern.mjs:28: * - $`cd ${tempDir} && git commit -m "message"`
+docs/dependencies-research/command-stream-issues/issue-14-cwd-with-cd-pattern.mjs:46:const { execSync } = await import('child_process');
+docs/dependencies-research/command-stream-issues/issue-14-cwd-with-cd-pattern.mjs:76:    const addResult = await $`cd ${tempDir} && git add test.txt`;
+docs/dependencies-research/command-stream-issues/issue-14-cwd-with-cd-pattern.mjs:91:    const commitResult = await $`cd ${tempDir} && git commit -m "Test commit"`;
+docs/dependencies-research/command-stream-issues/issue-14-cwd-with-cd-pattern.mjs:189:  const cdAddResult = await $`cd ${tempDir} && git add file1.txt 2>&1`;
+docs/dependencies-research/command-stream-issues/issue-14-cwd-with-cd-pattern.mjs:226:    console.log("   PROBLEM:  $`cd ${dir} && command` doesn't work");
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:25:import { execSync } from 'child_process';
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:37:  await $`cd ${testDir} && git init`;
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:38:  await $`cd ${testDir} && git config user.name "Test User"`;
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:39:  await $`cd ${testDir} && git config user.email "test@example.com"`;
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:43:  await $`cd ${testDir} && git add test.txt`;
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:88:    const result = await $`cd ${testDir} && git commit -m "${commitMessage}"`;
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:91:    const logResult = await $`cd ${testDir} && git log -1 --format=%B`;
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:122:    await $`cd ${testDir} && git reset HEAD~1 2>/dev/null || true`;
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:123:    await $`cd ${testDir} && git add test.txt`;
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:135:    // Use execSync with HEREDOC to preserve complex content
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:142:    execSync(command, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:145:    const verifyResult = execSync(`cd "${testDir}" && git log -1 --format=%B`, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:158:      execSync(`cd "${testDir}" && git reset HEAD~1 2>/dev/null || true`, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:159:      execSync(`cd "${testDir}" && git add test.txt`, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:164:      execSync(`cd "${testDir}" && git commit -F "${messageFile}"`, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:181:  console.log('   1. Use HEREDOC syntax with execSync for multi-line content');
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:187:  console.log('  execSync(`git commit -m "$(cat <<\'EOF\'\\n${message}\\nEOF\\n)"`);');
+docs/dependencies-research/command-stream-issues/issue-13-complex-shell-escaping.mjs:190:  console.log('  execSync(`git commit -F msg.txt`);');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:22:import { spawn } from 'child_process';
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:51:    const child = spawn(startScreenCmd, allArgs, {
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:108:    const commandResult = await $`${fullCommand}`;
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:140:    console.log('2️⃣  Using child_process.spawn() workaround:');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:146:      console.log('   spawn() executed command without auto-quoting issues');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:154:      console.log('⚠️  spawn() completed with exit code:', result.exitCode);
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:157:    // WORKAROUND 2: Alternative using execSync
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:158:    console.log('\n3️⃣  Alternative workaround with execSync:');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:159:    console.log('   import { execSync } from "child_process";');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:161:    console.log('   execSync(command, { encoding: "utf8" });');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:175:  console.log('   1. Use child_process.spawn() for direct argument control');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:176:  console.log('   2. Use child_process.execSync() when blocking is acceptable');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:182:  console.log('  // await $`${fullCommand}`;');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:185:  console.log('  import { spawn } from "child_process";');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:189:  console.log('      const child = spawn(cmd, args, {');
+docs/dependencies-research/command-stream-issues/issue-18-auto-quoting-control.mjs:201:  console.log('   const result = await $`${cmd}`.noAutoQuote();');
+docs/dependencies-research/command-stream-issues/README.md:3:This directory contains reproducible test cases for issues encountered with the command-stream library when using the `$` template literal syntax.
+docs/dependencies-research/command-stream-issues/README.md:29:⚠️ **Issue #10 - Git Push Silent Failure**: Git push commands appear to succeed (exit code 0) but don't actually push any data to the remote repository. This causes silent failures in CI/CD pipelines and repository creation scripts. Always use `execSync` for git push operations.
+docs/dependencies-research/command-stream-issues/README.md:31:⚠️ **Issue #11 - GitHub PR Create Output Lost**: The `gh pr create` command successfully creates pull requests but command-stream fails to capture the output (PR URL). The stdout is empty even though the command succeeds. This breaks workflows that need to capture and process the created PR URL. Always use `execSync` for gh pr create operations.
+docs/dependencies-research/command-stream-issues/README.md:33:⚠️ **Issue #12 - GitHub Search Query Escaping**: GitHub search queries with labels containing spaces fail due to multiple layers of escaping. The query `label:"help wanted"` becomes `label:\\\"help wanted\\\"` causing API errors. Use `execSync` or carefully construct array arguments.
+docs/dependencies-research/command-stream-issues/README.md:35:⚠️ **Issue #13 - Complex Shell Command Escaping**: Commands with multi-line strings, nested quotes, or special characters fail unpredictably. This affects git commits with detailed messages, GitHub PR descriptions, and any complex shell operations. Use temp files or `execSync` for complex content.
+docs/dependencies-research/command-stream-issues/README.md:37:⚠️ **Issue #14 - CWD with CD Pattern Failure**: The pattern `$`cd ${dir} && command`` doesn't work as expected. Commands appear to succeed but don't actually execute in the specified directory. This causes critical failures with git operations where files aren't staged or committed despite success codes. Always use `$({ cwd: dir })`command`` instead.
+docs/dependencies-research/command-stream-issues/README.md:41:⚠️ **Issue #18 - Auto-Quoting Control**: command-stream lacks the ability to turn off auto-quoting, which causes full command strings to be misinterpreted as quoted commands. This breaks telegram bot command execution and similar use cases where pre-constructed command strings need to be executed. Always use `child_process.spawn()` or `execSync()` for commands requiring precise argument control.
+docs/dependencies-research/command-stream-issues/README.md:43:⚠️ **Issue #19 - stderr: 'ignore' Option Doesn't Work**: The `$({ stderr: 'ignore' })` and `$({ silent: true, stderr: 'ignore' })` options don't actually suppress stderr output. This causes non-blocking error messages to pollute logs in worker processes and background tasks, making successful execution look broken. In hive-mind issue #583, this caused "fatal: not a git repository" and "YError: Not enough arguments" to appear with ERROR labels even though execution was proceeding normally. Workarounds: (1) Use shell-level redirection `2>/dev/null`, or (2) Use `execSync` with `stdio: [..., 'ignore']` for precise control.
+docs/dependencies-research/command-stream-issues/README.md:87:   - Never use `$`cd ${dir} && command`` pattern
+docs/dependencies-research/command-stream-issues/README.md:99:1. **Clean syntax** - The `$` template literal provides an elegant, bash-like syntax
+docs/dependencies-research/command-stream-issues/README.md:126:- **Workaround**: Must use `child_process.execSync()` instead for precise string handling
+docs/dependencies-research/command-stream-issues/README.md:181:   await $`gh issue create --title "${title}"`;
+docs/dependencies-research/command-stream-issues/README.md:184:   // WORKAROUND: Use child_process for precise string handling
+docs/dependencies-research/command-stream-issues/README.md:185:   const { execSync } = await import('child_process');
+docs/dependencies-research/command-stream-issues/README.md:187:   execSync(command, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/README.md:194:   await $`echo "${userContent}" > file.txt`;
+docs/dependencies-research/command-stream-issues/README.md:204:     const result = await $`command`;
+docs/dependencies-research/command-stream-issues/README.md:227:   - **Git push/pull**: Use execSync instead of command-stream (critical issue #10)
+docs/dependencies-research/command-stream-issues/README.md:228:   - **GitHub PR creation**: Use execSync for `gh pr create` to capture PR URL (critical issue #11)
+docs/dependencies-research/command-stream-issues/README.md:229:   - Authentication operations: Fall back to child_process when command-stream fails silently
+docs/dependencies-research/command-stream-issues/README.md:231:   - **Full command strings**: Use spawn() or execSync() for pre-constructed commands (critical issue #18)
+docs/dependencies-research/command-stream-issues/README.md:232:   - **Suppressing stderr**: Use `2>/dev/null` or execSync with `stdio` options; don't rely on `$({ stderr: 'ignore' })` (critical issue #19)
+docs/dependencies-research/command-stream-issues/README.md:238:1. **execa** - More mature, better escaping, extensive documentation
+docs/dependencies-research/command-stream-issues/README.md:240:3. **Node.js child_process** - Direct control, no abstraction layer
+docs/dependencies-research/command-stream-issues/README.md:251:const result = await $`echo '{"status":"ok"}'`;
+docs/dependencies-research/command-stream-issues/README.md:255:const result = await $`echo '{"status":"ok"}' 2>/dev/null`;
+docs/dependencies-research/command-stream-issues/issue-03-json-escaping.mjs:76:    await $`echo '${jsonString}' > ${testFile}`;
+docs/dependencies-research/command-stream-issues/issue-08-getcwd-error.mjs:32:  const result1 = await $`pwd`;
+docs/dependencies-research/command-stream-issues/issue-08-getcwd-error.mjs:50:    const result2 = await $`echo "test"`;
+docs/dependencies-research/command-stream-issues/issue-08-getcwd-error.mjs:81:  await $`echo "Working in temp directory" > work.txt`;
+docs/dependencies-research/command-stream-issues/issue-08-getcwd-error.mjs:92:  const result = await $`echo "Back in safe directory"`;
+docs/dependencies-research/command-stream-issues/issue-15-timeout-claude-cli.mjs:27:  const result = await $`timeout 30 claude -p hi`;
+docs/dependencies-research/command-stream-issues/issue-15-timeout-claude-cli.mjs:40:  const result = await $`timeout 60 claude -p hi`;
+docs/dependencies-research/command-stream-issues/issue-15-timeout-claude-cli.mjs:53:  const result = await $`which claude`;
+docs/dependencies-research/command-stream-issues/issue-15-timeout-claude-cli.mjs:64:  const result = await $`timeout 10 claude --version`;
+docs/dependencies-research/command-stream-issues/issue-15-timeout-claude-cli.mjs:77:  const result = await $`timeout 10 claude --help`;
+docs/dependencies-research/command-stream-issues/issue-01-multiline-strings.mjs:81:    await $`echo "${complexContent}" > ${testFile}`;
+docs/dependencies-research/command-stream-issues/issue-01-multiline-strings.mjs:128:    const heredocResult = await $`cat << 'EOF' > ${testFile}.backup
+docs/dependencies-research/command-stream-issues/issue-01-multiline-strings.mjs:163:  console.log("  await $`cat << 'EOF' > ${file}\\n${content}\\nEOF`;");
+docs/dependencies-research/command-stream-issues/issue-02-error-handling.mjs:52:    await $`${failingCommand}`;
+docs/dependencies-research/command-stream-issues/issue-02-error-handling.mjs:106:  console.log('    await $`some-command`;');
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:31: * Use Node.js child_process.execSync instead of command-stream for git push operations.
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:40:// Import fs and child_process for testing
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:42:const { execSync } = await import('child_process');
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:61:  const initResult = await $`cd ${tempDir} && git init`;
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:72:  await $`cd ${tempDir} && git config user.email "test@example.com"`;
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:73:  await $`cd ${tempDir} && git config user.name "Test User"`;
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:77:  const addResult = await $`cd ${tempDir} && git add test.txt`;
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:82:  const commitResult = await $`cd ${tempDir} && git commit -m "Test commit"`;
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:104:  console.log('await $`cd ${tempDir} && git remote add origin https://github.com/user/repo.git`;');
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:107:  console.log('const pushResult = await $`cd ${tempDir} && git push -u origin main 2>&1`;');
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:115:  const dryRunResult = await $`cd ${tempDir} && git push --dry-run origin main 2>&1 || echo "Expected to fail without remote"`;
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:122:  const logResult = await $`cd ${tempDir} && git log --oneline -n 1`;
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:132:  console.log('Using Node.js execSync instead:');
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:134:  console.log('const { execSync } = await import("child_process");');
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:136:  console.log('  const pushOutput = execSync("git push -u origin main 2>&1", {');
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:147:  // Demonstrate execSync with dry-run
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:148:  console.log('\nDemonstrating execSync with --dry-run:');
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:150:    const output = execSync('git push --dry-run origin main 2>&1', {
+docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs:210:  console.log('RECOMMENDATION: Always use execSync for git push operations');
+docs/dependencies-research/command-stream-issues/issue-05-paths-with-spaces.mjs:66:    const result = await $`cat ${testFile}`;
+docs/dependencies-research/command-stream-issues/issue-05-paths-with-spaces.mjs:85:    const result = await $`cat "${testFile}"`;
+docs/dependencies-research/command-stream-issues/issue-05-paths-with-spaces.mjs:115:  console.log('  await $`cat "${filePath}"`;');
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:13: * Solution: Use Node.js child_process.execSync() for commands requiring precise string formatting
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:36:  await $`echo "${testTitle}" > ${testFile}`;
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:52:  await $`echo '${testTitle}' > ${testFile}`;
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:67:  await $`echo ${testTitle} > ${testFile}`;
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:87:console.log('Template: await $`gh issue create --title "${issueTitle}"`');
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:126:    const result = await $`${cmd}`;
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:138:console.log('When using: await $`gh issue create --title "${issueTitle}"`');
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:148:console.log('WORKAROUND - Use Node.js child_process:');
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:151:console.log('// await $`gh issue create --title "${title}"`');
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:153:console.log('// Use execSync:');
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:154:console.log('const { execSync } = await import("child_process");');
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:156:console.log('const output = execSync(command, { encoding: "utf8" });');
+docs/dependencies-research/command-stream-issues/issue-09-auto-quoting.mjs:161:console.log('2. Use different shell tool: execa, zx, or native child_process');
+docs/dependencies-research/command-stream-issues/issue-17-summary.md:110:4. Consider using execSync for critical JSON operations
+docs/dependencies-research/command-stream-issues/issue-12-github-search-escaping.mjs:21:import { execSync } from 'child_process';
+docs/dependencies-research/command-stream-issues/issue-12-github-search-escaping.mjs:57:    const result = await $`gh search issues "${searchQuery}" --limit 1 --json url,title 2>&1`;
+docs/dependencies-research/command-stream-issues/issue-12-github-search-escaping.mjs:88:    // WORKAROUND: Use execSync with proper quoting
+docs/dependencies-research/command-stream-issues/issue-12-github-search-escaping.mjs:89:    console.log('2️⃣  Using execSync workaround:');
+docs/dependencies-research/command-stream-issues/issue-12-github-search-escaping.mjs:94:    const output = execSync(command, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/issue-12-github-search-escaping.mjs:114:  console.log('   Use execSync with single quotes around entire query:');
+docs/dependencies-research/command-stream-issues/issue-12-github-search-escaping.mjs:115:  console.log('   execSync(`gh search issues \'${query}\' --json url`, {encoding: "utf8"})');
+docs/dependencies-research/command-stream-issues/issue-04-github-cli-body.mjs:96:    // const result = await $`gh issue create --repo ${repoUrl} --title "${title}" --body-file ${bodyFile}`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:7: * the PR URL output from `gh pr create`, while execSync works correctly.
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:24:import { execSync } from 'child_process';
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:43:  const userResult = await $`gh api user --jq .login`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:47:  await $`gh repo create ${githubUser}/${testRepo} --public --clone=false 2>&1`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:50:  await $`cd ${testDir} && git clone https://github.com/${githubUser}/${testRepo}.git 2>&1`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:55:  await $`cd ${repoDir} && git add README.md`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:56:  await $`cd ${repoDir} && git commit -m "Initial commit"`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:58:  // Use execSync for git push (known issue #10)
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:59:  execSync(`cd ${repoDir} && git push origin main`, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:62:  await $`cd ${repoDir} && git checkout -b test-branch`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:64:  await $`cd ${repoDir} && git add test.txt`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:65:  await $`cd ${repoDir} && git commit -m "Add test file"`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:67:  // Use execSync for git push (known issue #10)
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:68:  execSync(`cd ${repoDir} && git push -u origin test-branch`, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:81:      await $`gh repo delete ${githubUser}/${testRepo} --yes 2>/dev/null || true`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:123:      const prResult = await $`cd ${repoDir} && gh pr create --draft --title "${prTitle}" --body "${prBody}" --base main --head test-branch 2>&1`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:134:        const prListResult = await $`cd ${repoDir} && gh pr list --head test-branch --json url --jq '.[0].url'`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:158:        await $`cd ${repoDir} && git checkout main`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:159:        await $`cd ${repoDir} && git checkout -b workaround-branch`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:161:        await $`cd ${repoDir} && git add workaround.txt`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:162:        await $`cd ${repoDir} && git commit -m "Workaround test"`;
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:164:        // Use execSync for git push (known issue #10)
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:165:        execSync(`cd ${repoDir} && git push -u origin workaround-branch`, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:167:        // WORKAROUND: Use execSync to properly capture output
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:168:        console.log('2️⃣  Using execSync workaround:');
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:176:        const output = execSync(command, { encoding: 'utf8' });
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:184:          console.log('   execSync correctly captured the PR URL');
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:195:    console.log('✅ WORKAROUND: Use execSync with --body-file flag');
+docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs:197:    console.log('  execSync(`gh pr create --body-file /tmp/pr.md ...`, {encoding: "utf8"})');
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:106:    const result = await $`git rev-parse --git-dir 2>/dev/null || true`;
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:116:  // WORKAROUND 2: Using execSync with stdio options
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:117:  console.log('\n4️⃣  Alternative: Using child_process.execSync with stdio control:\n');
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:120:    const { execSync } = await import('child_process');
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:123:    const result = execSync('git rev-parse --git-dir', {
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:154:  console.log('    const result = await $`git rev-parse --git-dir 2>/dev/null || true`;');
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:175:  console.log('\n   2. Use child_process.execSync with stdio: [..., "ignore"]');
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:177:  console.log('      - Requires switching from $ syntax to execSync');
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:202:  console.log('   await $`git rev-parse --git-dir 2>/dev/null || true`;');
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:205:  console.log('   import { execSync } from "child_process";');
+docs/dependencies-research/command-stream-issues/issue-19-stderr-ignore-not-working.mjs:206:  console.log('   execSync("git rev-parse --git-dir", {');
+docs/dependencies-research/command-stream-issues/issue-16-unwanted-stdout.mjs:13:  const result1 = await $`echo "This appears on stdout even when captured"`;
+docs/dependencies-research/command-stream-issues/issue-16-unwanted-stdout.mjs:21:  const result2 = await $`echo "Still visible" 2>/dev/null`;
+docs/dependencies-research/command-stream-issues/issue-16-unwanted-stdout.mjs:43:  const result4 = await $`vm_stat | head -3`;
+docs/dependencies-research/command-stream-issues/issue-06-bun-shell-path.mjs:27:  const binShResult = await $`ls -la /bin/sh`;
+docs/dependencies-research/command-stream-issues/issue-06-bun-shell-path.mjs:35:  const usrBinShResult = await $`ls -la /usr/bin/sh`;
+docs/dependencies-research/command-stream-issues/issue-06-bun-shell-path.mjs:64:    const result = await $`${cmd}`;
+docs/dependencies-research/command-stream-issues/issue-17-trace-logs-in-ci.mjs:223:console.log('  5. Use execSync from child_process instead of command-stream');
+experiments/test-comment-id-extraction.mjs:6:import { execSync, exec } from 'child_process';
+experiments/test-comment-id-extraction.mjs:19:    // Test with execSync
+experiments/test-comment-id-extraction.mjs:20:    console.log('=== Using execSync ===');
+experiments/test-comment-id-extraction.mjs:21:    const resultSync = execSync(`gh pr comment 852 --repo link-assistant/hive-mind --body "${testComment.replace(/"/g, '\\"')}"`, { encoding: 'utf8' });
+experiments/test-comment-id-extraction.mjs:33:      execSync(`gh api repos/link-assistant/hive-mind/issues/comments/${matchSync[1]} -X DELETE`);
+experiments/test-comment-id-extraction.mjs:52:      execSync(`gh api repos/link-assistant/hive-mind/issues/comments/${matchAsync[1]} -X DELETE`);
+docs/dependencies-research/claude-logs/test-streaming-logs.mjs:20:  for await (const chunk of $`${claude} -p "Hello, can you tell me a joke and then count from 1 to 5? Remember my name is Bob." --output-format stream-json --verbose --model sonnet`.stream()) {
+docs/dependencies-research/claude-logs/test-streaming-logs.mjs:73:    const logContents = await $`head -n 5 ${currentLogFile}`;
+docs/dependencies-research/claude-sessions/test-session.mjs:50:  const result1 = await $`${claude} -p "Hello, remember this: my favorite color is blue" --output-format stream-json --verbose --model sonnet`;
+docs/dependencies-research/claude-sessions/test-session.mjs:58:  const result2 = await $`${claude} --session-id ${customId} -p "My favorite number is 42" --output-format stream-json --verbose --model sonnet`;
+docs/dependencies-research/claude-sessions/test-session.mjs:65:  const result3 = await $`${claude} --resume ${sessionId} -p "What is my favorite color?" --output-format stream-json --verbose --model sonnet`;
+docs/dependencies-research/claude-sessions/test-session.mjs:79:  const result4 = await $`${claude} --session-id ${anotherCustomId} -p "Testing unique session" --output-format stream-json --verbose --model sonnet`;
+experiments/test-issue-468-preserve-claude-md.mjs:11:import { execSync } from 'child_process';
+experiments/test-issue-468-preserve-claude-md.mjs:22:    execSync('git init', { cwd: testDir });
+experiments/test-issue-468-preserve-claude-md.mjs:23:    execSync('git config user.email "test@example.com"', { cwd: testDir });
+experiments/test-issue-468-preserve-claude-md.mjs:24:    execSync('git config user.name "Test User"', { cwd: testDir });
+experiments/test-issue-468-preserve-claude-md.mjs:42:    execSync('git add CLAUDE.md', { cwd: testDir });
+experiments/test-issue-468-preserve-claude-md.mjs:43:    execSync('git commit -m "Add project CLAUDE.md"', { cwd: testDir });
+experiments/test-issue-468-preserve-claude-md.mjs:85:    execSync('git add CLAUDE.md', { cwd: testDir });
+experiments/test-issue-468-preserve-claude-md.mjs:86:    execSync('git commit -m "Add task info to CLAUDE.md"', { cwd: testDir });
+experiments/test-issue-468-preserve-claude-md.mjs:93:    const commits = execSync('git log --format=%H --reverse', { cwd: testDir }).toString().trim().split('\n');
+experiments/test-issue-468-preserve-claude-md.mjs:102:    execSync(`git revert ${secondCommit} --no-edit`, { cwd: testDir });
+experiments/test-task.mjs:8:import { execSync } from 'child_process';
+experiments/test-task.mjs:33:    return execSync(command, { encoding: 'utf8', stdio: 'pipe' });
+tests/test-issue-1209-overrides.mjs:6:import { spawn } from 'child_process';
+tests/test-issue-1209-overrides.mjs:20:    const proc = spawn('node', [join(projectRoot, 'src/telegram-bot.mjs'), ...args], {
+experiments/test-changeset-scripts.mjs:8:import { execSync } from 'child_process';
+experiments/test-changeset-scripts.mjs:37:      output: execSync(command, { encoding: 'utf8', stdio: 'pipe', cwd: projectRoot, ...options }),
+experiments/test-changeset-scripts.mjs:142:    execSync('sleep 0.1');
+experiments/memory-check.mjs:11:    const { stdout } = await $`grep -E "MemAvailable|MemFree|SwapFree" /proc/meminfo`;
+experiments/memory-check.mjs:33:      const { stdout: swapInfo } = await $`grep -E "SwapTotal" /proc/meminfo`;
+experiments/memory-check.mjs:64:    const memInfo = await $`cat /proc/meminfo | grep -E "MemTotal|MemAvailable|MemFree|SwapTotal|SwapFree"`;
+experiments/memory-check.mjs:65:    const loadAvg = await $`cat /proc/loadavg`;
+experiments/memory-check.mjs:66:    const uptime = await $`uptime`;
+experiments/test-fork-sync.mjs:16:    const repoInfoResult = await $`gh api repos/link-assistant/hive-mind --jq .default_branch`;
+experiments/test-telegram-bot-hero-configuration.mjs:13:import { spawn } from 'child_process';
+experiments/test-telegram-bot-hero-configuration.mjs:51:const child = spawn('node', ['src/telegram-bot.mjs', '--configuration', heroConfiguration, '--dry-run'], {
+docs/dependencies-research/claude-pipe/test-echo-pipe.mjs:14:  const result1 = await $`echo '{"message": "hi", "number": 42}' | jq .`;
+docs/dependencies-research/claude-pipe/test-echo-pipe.mjs:20:  const result2 = await $`echo '{"message": "hi", "number": 42}' | jq -r .message`;
+docs/dependencies-research/claude-pipe/test-pipe.mjs:17:  // await $`${claude} -p "hi" --output-format stream-json --verbose --model sonnet | jq`;
+docs/dependencies-research/claude-pipe/test-pipe.mjs:18:  // await $`claude -p "hi" --output-format stream-json --verbose --model sonnet | jq`;
+docs/dependencies-research/claude-pipe/test-pipe.mjs:20:  // $`claude -p "hi" --output-format stream-json --verbose --model sonnet | jq`.sync();
+docs/dependencies-research/claude-pipe/test-pipe.mjs:22:  // $`${claude} -p "hi" --output-format stream-json --verbose --model sonnet | jq`.sync();
+docs/dependencies-research/claude-pipe/test-pipe.mjs:24:  // await $`claude -p "hi" --output-format stream-json --verbose --model sonnet | jq`.async();
+docs/dependencies-research/claude-pipe/test-pipe.mjs:26:  // await $`${claude} -p "hi" --output-format stream-json --verbose --model sonnet | jq`.async();
+docs/dependencies-research/claude-pipe/test-pipe.mjs:28:  // $`claude -p "hi" --output-format stream-json --verbose --model sonnet`.sync();
+docs/dependencies-research/claude-pipe/test-pipe.mjs:30:  // $`${claude} -p "hi" --output-format stream-json --verbose --model sonnet`.sync();
+docs/dependencies-research/claude-pipe/test-pipe.mjs:32:  // const command = $`${claude} -p "hi" --output-format stream-json --verbose --model sonnet`;
+docs/dependencies-research/claude-pipe/test-pipe.mjs:33:  // const command = $`${claude} -p "hi" --output-format stream-json --verbose --model sonnet | jq`;
+docs/dependencies-research/claude-pipe/test-pipe.mjs:34:  // const command = $`ping 8.8.8.8`;
+docs/dependencies-research/claude-pipe/test-pipe.mjs:46:  // await $`${claude} -p "hi" --output-format stream-json --verbose --model sonnet`;
+tests/test-working-session-shutdown-1823.mjs:30:import { spawn } from 'node:child_process';
+tests/test-working-session-shutdown-1823.mjs:203:    const child = spawn(process.execPath, [harnessPath], {
+experiments/test-all-commands-strict.mjs:6:import { exec } from 'child_process';
+tests/test-issue-1718-hive-passthrough-false.mjs:67://    via a regex so we don't have to reimplement spawn() to test it.
+tests/test-telegram-bot-hero-links-notation.mjs:5:import { spawn } from 'child_process';
+tests/test-telegram-bot-hero-links-notation.mjs:20:    const proc = spawn('node', [join(projectRoot, 'src/telegram-bot.mjs'), ...args], {
+experiments/verify-image-url-survives-sanitizer.mjs:61:  execFile: async (_cmd, args) => {
+experiments/test-command-stream.mjs:55:const jqVersion = await $`which jq && jq --version`;
+experiments/detailed-options-check.mjs:24:  while ((match = optionRegex.exec(content)) !== null) {
+experiments/analyze-child-process-calls.mjs:2:// Script to analyze all child_process calls and identify which need env parameter
+experiments/analyze-child-process-calls.mjs:5:import { execSync } from 'child_process';
+experiments/analyze-child-process-calls.mjs:7:const srcFiles = execSync('find ./src -name "*.mjs" -o -name "*.js"', { encoding: 'utf8' }).trim().split('\n');
+experiments/analyze-child-process-calls.mjs:8:const testFiles = execSync('find ./tests -name "*.mjs" -o -name "*.js" 2>/dev/null || true', { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+experiments/analyze-child-process-calls.mjs:15:  execSync: [],
+experiments/analyze-child-process-calls.mjs:16:  execFile: [],
+experiments/analyze-child-process-calls.mjs:17:  execFileSync: [],
+experiments/analyze-child-process-calls.mjs:36:      if (/\bexec\s*\(/.test(line) && !/execSync/.test(line) && !/execFile/.test(line)) {
+experiments/analyze-child-process-calls.mjs:40:      // Check for execSync calls
+experiments/analyze-child-process-calls.mjs:41:      if (/\bexecSync\s*\(/.test(line)) {
+experiments/analyze-child-process-calls.mjs:42:        results.execSync.push({ file, line: lineNum, content: line.trim() });
+experiments/analyze-child-process-calls.mjs:45:      // Check for execFile calls
+experiments/analyze-child-process-calls.mjs:46:      if (/\bexecFile\s*\(/.test(line) && !/execFileSync/.test(line)) {
+experiments/analyze-child-process-calls.mjs:47:        results.execFile.push({ file, line: lineNum, content: line.trim() });
+experiments/analyze-child-process-calls.mjs:50:      // Check for execFileSync calls
+experiments/analyze-child-process-calls.mjs:51:      if (/\bexecFileSync\s*\(/.test(line)) {
+experiments/analyze-child-process-calls.mjs:52:        results.execFileSync.push({ file, line: lineNum, content: line.trim() });
+experiments/analyze-child-process-calls.mjs:60:console.log('=== Analysis of child_process calls ===\n');
+tests/test-no-direct-gh-exec-rule.mjs:25:      code: ["import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';", 'const exec = (cmd) => ghWithRateLimitRetry(() => execRaw(cmd));', 'const r = await exec(`gh api repos/o/r/pulls`);'].join('\n'),
+tests/test-no-direct-gh-exec-rule.mjs:31:      code: ["import { ghCmdRetry } from './lib.mjs';", 'await ghCmdRetry(() => $`gh api repos/o/r/issues`);'].join('\n'),
+tests/test-no-direct-gh-exec-rule.mjs:35:      code: "import { exec } from 'child_process'; exec('ls -la');",
+tests/test-no-direct-gh-exec-rule.mjs:39:      code: "exec('git status');",
+tests/test-no-direct-gh-exec-rule.mjs:44:      code: ["import { exec } from 'child_process';", "const r = await exec('gh api rate_limit');"].join('\n'),
+tests/test-no-direct-gh-exec-rule.mjs:48:      code: ["import { promisify } from 'util';", "import { exec as execCallback } from 'child_process';", 'const exec = promisify(execCallback);', 'const r = await exec(`gh api repos/${owner}/${repo}/pulls --paginate`);'].join('\n'),
+tests/test-no-direct-gh-exec-rule.mjs:56:      // Tagged template `$`gh ...` ` is also flagged.
+tests/test-no-direct-gh-exec-rule.mjs:57:      code: 'await $`gh api repos/o/r/pulls`;',
+tests/test-require-sanitized-output-rule.mjs:18:      code: String.raw`await $` + '`gh pr comment 1 --body ${await sanitizeOutput(body)}`' + ';',
+tests/test-require-sanitized-output-rule.mjs:21:      code: String.raw`await $` + '`gh pr edit 1 --body-file ${bodyFile}`' + ';',
+tests/test-require-sanitized-output-rule.mjs:27:      code: String.raw`await exec(` + '`gh api repos/${owner}/${repo}/issues/${n}/comments -X POST --input -`' + `, { input: JSON.stringify({ body: await sanitizeOutput(body) }) });`,
+tests/test-require-sanitized-output-rule.mjs:32:      code: String.raw`await $` + '`gh pr comment 1 --body ${body}`' + ';',
+tests/test-require-sanitized-output-rule.mjs:36:      code: String.raw`await $` + '`gh issue comment 1 --body ${body}`' + ';',
+tests/test-require-sanitized-output-rule.mjs:40:      code: String.raw`await $` + '`gh pr edit 1 --body ${summary}`' + ';',
+experiments/test-auto-cleanup.mjs:14:import { execSync } from 'child_process';
+experiments/test-auto-cleanup.mjs:31:  const helpOutput = execSync('./src/solve.mjs --help', { encoding: 'utf8' });
+tests/test-start-screen.mjs:5:import { execSync, spawnSync } from 'child_process';
+tests/test-start-screen.mjs:16:const npmPath = execSync('command -v npm', { encoding: 'utf8' }).trim();
+tests/test-start-screen.mjs:23:  const result = spawnSync(process.execPath, [startScreenPath, ...args], {
+tests/test-start-screen.mjs:103:  const helpOutput = execSync('./src/start-screen.mjs 2>&1', { encoding: 'utf8' });
+tests/test-start-screen.mjs:128:  execSync('./src/start-screen.mjs invalid-command https://github.com/test/repo 2>&1', { encoding: 'utf8' });
+tests/test-start-screen.mjs:144:  execSync('./src/start-screen.mjs 2>&1', { encoding: 'utf8' });
+tests/test-start-screen.mjs:160:  const helpOutput = execSync('./src/start-screen.mjs --help 2>&1', { encoding: 'utf8' });
+experiments/test-fork-naming.mjs:30:  const userResult = await $`gh api user --jq .login`;
+experiments/test-fork-naming.mjs:42:  const checkResult = await $`gh repo view ${expectedForkName} --json name 2>&1`.catch(e => e);
+experiments/test-fork-naming.mjs:53:  const forkResult = await $`gh repo fork ${fullRepo} --clone=false 2>&1`.catch(e => e);
+experiments/test-fork-naming.mjs:77:  const forksResult = await $`gh api repos/${fullRepo}/forks --jq '.[] | .full_name'`.catch(e => e);
+experiments/test-command-not-found.mjs:12:  const result = await $`nonexistent_command_xyz`;
+experiments/test-command-not-found.mjs:26:  const execCommand = $`nonexistent_command_xyz`;
+experiments/test-command-not-found.mjs:54:  const execCommand = $`ls /nonexistent_directory_xyz`;
+experiments/test-opencode-correct.mjs:5:import { execSync } from 'child_process';
+experiments/test-opencode-correct.mjs:13:  const result = execSync('opencode run -m opencode/grok-code "What is 2+2? Just answer with the number."', {
+experiments/test-opencode-correct.mjs:28:  const result = execSync('echo "What is the capital of France? Answer in one word." | opencode run -m opencode/grok-code', {
+experiments/simulate-workflow-failure.mjs:7:import { execSync } from 'child_process';
+experiments/test-gh-api-body.mjs:2:import { execSync } from 'child_process';
+experiments/test-error-handling.mjs:3:import { execSync } from 'child_process';
+experiments/test-error-handling.mjs:23:  const output = execSync(`${solveCmd} --version 2>&1`, { encoding: 'utf8' });
+experiments/test-error-handling.mjs:43:execSync('git init test-repo 2>/dev/null', { encoding: 'utf8' });
+experiments/test-error-handling.mjs:46:  const output = execSync(`${solveCmd} --version 2>&1`, { encoding: 'utf8' });
+experiments/test-error-handling.mjs:70:  const output = execSync(`${solveCmd} --help 2>&1 | head -5`, { encoding: 'utf8' });
+tests/test-post-finish-sweep-1745.mjs:39: * Build a minimal fake `$` that supports both
+tests/test-post-finish-sweep-1745.mjs:40: *   $`...`                                  → tagged template
+experiments/test-agent-cli.mjs:7:import { execSync } from 'child_process';
+experiments/test-agent-cli.mjs:16:    const output = execSync(`echo "hello" | timeout 5s agent --model ${model} --json-standard opencode`, {
+experiments/test-feedback-lines.mjs:47:      const deleteResult = await $`gh repo delete ${githubUser}/${repoName} --yes 2>/dev/null`;
+experiments/test-feedback-lines.mjs:69:  const userResult = await $`gh api user --jq .login`;
+experiments/test-feedback-lines.mjs:76:  const createResult = await $`gh repo create ${repoName} --public --description "Test repository for feedback lines feature"`;
+experiments/test-feedback-lines.mjs:84:  await $`mkdir -p ${tempDir}`;
+experiments/test-feedback-lines.mjs:85:  await $`cd ${tempDir} && git init`;
+experiments/test-feedback-lines.mjs:86:  await $`cd ${tempDir} && git remote add origin ${testRepoUrl}`;
+experiments/test-feedback-lines.mjs:97:  await $`cd ${tempDir} && git add README.md`;
+experiments/test-feedback-lines.mjs:98:  await $`cd ${tempDir} && git commit -m "Initial commit"`;
+experiments/test-feedback-lines.mjs:99:  await $`cd ${tempDir} && git branch -M main`;
+experiments/test-feedback-lines.mjs:100:  await $`cd ${tempDir} && git push -u origin main`;
+experiments/test-feedback-lines.mjs:101:  await $`rm -rf ${tempDir}`;
+experiments/test-feedback-lines.mjs:122:  const { execSync } = await import('child_process');
+experiments/test-feedback-lines.mjs:124:  const issueOutput = execSync(createIssueCommand, { encoding: 'utf8' });
+experiments/test-feedback-lines.mjs:137:    const solveOutput = execSync(solveCommand, {
+experiments/test-feedback-lines.mjs:171:  const testBugResult = await $`node experiments/test-feedback-lines-bug.mjs`;
+experiments/test-feedback-lines.mjs:172:  const testFixResult = await $`node experiments/test-feedback-lines-fix.mjs`;
+experiments/test-graphql-batch-pr-query.mjs:5:import { execSync } from 'child_process';
+experiments/test-graphql-batch-pr-query.mjs:54:    const result = execSync(`gh api graphql -f query='${query}'`, {
+experiments/test-graphql-batch-pr-query.mjs:114:    const searchResult = execSync(`gh api "search/issues?q=repo:${owner}/${repo}+type:pr+state:open" --jq '.items[] | {number, title, state, body}'`, { encoding: 'utf8' });
+experiments/test-command-stream-array.mjs:9:const result1 = await $`echo ${args} hello`;
+experiments/test-command-stream-array.mjs:14:const result2 = await $`echo ${emptyArgs} hello`;
+experiments/test-command-stream-array.mjs:19:const result3 = await $`echo ${multiArgs} hello`;
+experiments/test-log-paths.mjs:4:import { execSync, spawn } from 'child_process';
+experiments/test-log-paths.mjs:11:const hiveProcess = spawn('node', ['src/hive.mjs', 'https://github.com/test/test', '--once'], {
+experiments/test-log-paths.mjs:56:  const solveProcess = spawn('node', ['src/solve.mjs', 'https://github.com/test/test/issues/1'], {
+experiments/test-attach-logs-feature.mjs:7:import { execSync } from 'child_process';
+experiments/test-attach-logs-feature.mjs:12:  const helpOutput = execSync('node solve.mjs --help 2>&1', { encoding: 'utf8', cwd: '..' });
+experiments/test-pagination.mjs:6:import { execSync } from 'child_process';
+experiments/test-pagination.mjs:13:  const helpOutput = execSync('gh issue list --help 2>&1', { encoding: 'utf8' });
+experiments/test-pagination.mjs:20:    const apiHelp = execSync('gh api --help 2>&1', { encoding: 'utf8' });
+experiments/test-pagination.mjs:38:  const output = execSync(testCmd, { encoding: 'utf8' });
+experiments/test-stderr-errors.mjs:11:import { execSync } from 'child_process';
+experiments/test-stderr-errors.mjs:18:  const result = execSync('git rev-parse --git-dir', {
+experiments/test-stderr-errors.mjs:30:  const result = execSync('git rev-parse --git-dir', {
+tests/test-execgh-transient-retry-1756.mjs:270:  // We can't intercept the underlying child_process.exec without monkey-patching,
+experiments/test-top-command.mjs:5:import { exec } from 'child_process';
+experiments/test-issue-453-final.mjs:4:import { exec } from 'child_process';
+experiments/test-hive-silent-failure.mjs:10:import { spawn } from 'child_process';
+experiments/test-hive-silent-failure.mjs:29:    const child = spawn(command, args, {
+experiments/command-stream-signals.mjs:6: *   (A) command-stream forwards SIGINT to its child (kills it) when a `$` child is active.
+experiments/command-stream-signals.mjs:10: *       but command-stream re-installs it on the next `$` invocation.
+experiments/command-stream-signals.mjs:41:const runner = $`sh -c 'trap "echo CHILD_GOT_SIGTERM; exit 143" TERM; trap "echo CHILD_GOT_SIGINT; exit 130" INT; for i in $(seq 1 20); do echo tick-$i; sleep 0.3; done; echo CHILD_DONE_NATURALLY'`;
+experiments/test-full-fix.mjs:4:// This will test both the argument parsing and the execSync command construction
+experiments/test-full-fix.mjs:96:console.log('  2. ✅ Fork flag passing (using execSync instead of command-stream)');
+experiments/test-telegram-bot-validation.mjs:5:import { spawn } from 'child_process';
+experiments/test-telegram-bot-validation.mjs:20:    const proc = spawn('node', [join(projectRoot, 'src/telegram-bot.mjs'), ...args], {
+tests/test-solution-summary.mjs:415:    // Support both $`...` and $({ input })`...` usage. We don't need to
+tests/test-solution-summary.mjs:420:    // function it returns. When called as $`...` directly, tagged is the
+experiments/test-branch-pagination.mjs:14:const noPaginationResult = await $`gh api repos/${owner}/${repo}/branches --jq '.[].name'`;
+experiments/test-branch-pagination.mjs:28:const withPaginationResult = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
+experiments/test-branch-pagination.mjs:42:const issue357Result = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
+experiments/test-branch-pagination.mjs:58:const issue408Result = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
+experiments/check-exec-env.mjs:2:// Script to check which execSync/exec calls are missing env parameter
+experiments/check-exec-env.mjs:5:import { execSync } from 'child_process';
+experiments/check-exec-env.mjs:8:const srcFiles = execSync('find ./src -name "*.mjs" -o -name "*.js"', { encoding: 'utf8' }).trim().split('\n');
+experiments/check-exec-env.mjs:19:    // Find execSync calls
+experiments/check-exec-env.mjs:24:      if (/\bexecSync\s*\(/.test(line)) {
+experiments/check-exec-env.mjs:52:console.log('=== execSync calls missing env parameter ===\n');
+experiments/test-commit-hash-save.mjs:11:import { execSync } from 'child_process';
+experiments/test-commit-hash-save.mjs:22:    execSync('git init', { cwd: testDir });
+experiments/test-commit-hash-save.mjs:23:    execSync('git config user.email "test@example.com"', { cwd: testDir });
+experiments/test-commit-hash-save.mjs:24:    execSync('git config user.name "Test User"', { cwd: testDir });
+experiments/test-commit-hash-save.mjs:30:      execSync(`git add file${i}.txt`, { cwd: testDir });
+experiments/test-commit-hash-save.mjs:31:      execSync(`git commit -m "Initial commit ${i}"`, { cwd: testDir });
+experiments/test-commit-hash-save.mjs:42:    execSync('git add CLAUDE.md', { cwd: testDir });
+experiments/test-commit-hash-save.mjs:43:    execSync('git commit -m "Add user CLAUDE.md"', { cwd: testDir });
+experiments/test-commit-hash-save.mjs:57:    execSync('git add CLAUDE.md', { cwd: testDir });
+experiments/test-commit-hash-save.mjs:58:    execSync('git commit -m "Initial commit with task details for issue #468"', { cwd: testDir });
+experiments/test-commit-hash-save.mjs:61:    const claudeCommitHash = execSync('git log --format=%H -1', { cwd: testDir }).toString().trim();
+experiments/test-commit-hash-save.mjs:69:      execSync(`git add work${i}.txt`, { cwd: testDir });
+experiments/test-commit-hash-save.mjs:70:      execSync(`git commit -m "Work commit ${i}"`, { cwd: testDir });
+experiments/test-commit-hash-save.mjs:76:    const firstCommitOld = execSync('git log --format=%H --reverse', { cwd: testDir }).toString().trim().split('\n')[0];
+experiments/test-commit-hash-save.mjs:97:    execSync(`git revert ${claudeCommitHash} --no-edit`, { cwd: testDir });
+experiments/integration-test-fork-fix.mjs:36:  const userResult = await $`gh api user --jq .login`;
+experiments/integration-test-fork-fix.mjs:53:  const forkCheckResult = await $`gh repo view ${currentUser}/${repo} --json name 2>/dev/null`;
+experiments/integration-test-fork-fix.mjs:64:    const forkResult = await $`gh repo fork ${owner}/${repo} --clone=false`;
+experiments/integration-test-fork-fix.mjs:81:      const reCheckResult = await $`gh repo view ${currentUser}/${repo} --json name 2>/dev/null`;
+experiments/test-user-fallback-integration.mjs:7:import { execSync } from 'child_process';
+experiments/test-user-fallback-integration.mjs:17:      const typeResult = execSync('gh api users/konard --jq .type', { encoding: 'utf8' }).trim();
+experiments/test-user-fallback-integration.mjs:27:      const repoOutput = execSync(repoListCmd, { encoding: 'utf8' });
+experiments/test-hive-changes.mjs:5:import { execSync } from 'child_process';
+experiments/test-hive-changes.mjs:19:    const output = execSync(testCmd, { encoding: 'utf8', timeout: 10000 });
+experiments/test-command-stream-exit.mjs:12:  const execCommand = $`echo "hello world"`;
+experiments/test-command-stream-exit.mjs:37:  const execCommand = $`bash -c "exit 42"`;
+experiments/test-command-stream-exit.mjs:60:  const execCommand = $`nonexistent_cmd_xyz_123`;
+tests/test-issue-1694-stabilized-defaults.mjs:16:import { spawn } from 'child_process';
+tests/test-issue-1694-stabilized-defaults.mjs:116:  const proc = spawn(process.execPath, [join(projectRoot, 'src/telegram-bot.mjs'), '--dry-run'], {
+tests/test-issue-1694-stabilized-defaults.mjs:151:  const proc = spawn(process.execPath, [join(projectRoot, 'src/telegram-bot.mjs'), '--dry-run', '--isolation', ''], {
+tests/test-sentry.mjs:9:import { execSync } from 'child_process';
+tests/test-sentry.mjs:74:    const output = execSync(`node ${join(projectRoot, 'src', 'hive.mjs')} --help 2>&1`, {
+tests/test-sentry.mjs:93:    const output = execSync(`node ${join(projectRoot, 'src', 'solve.mjs')} --help 2>&1`, {
+experiments/analyze-rate-limit-findings.mjs:81:  const output = execSync(searchCommand, { encoding: 'utf8' });
+experiments/test-start-screen.mjs:5:import { execSync } from 'child_process';
+experiments/test-start-screen.mjs:75:  const helpOutput = execSync('./src/start-screen.mjs 2>&1', { encoding: 'utf8' });
+experiments/test-start-screen.mjs:100:  execSync('./src/start-screen.mjs invalid-command https://github.com/test/repo 2>&1', { encoding: 'utf8' });
+experiments/test-start-screen.mjs:116:  execSync('./src/start-screen.mjs 2>&1', { encoding: 'utf8' });
+experiments/test-start-screen.mjs:132:  const helpOutput = execSync('./src/start-screen.mjs --help 2>&1', { encoding: 'utf8' });
+experiments/test-start-screen.mjs:152:  const output = execSync('./src/start-screen.mjs solve https://github.com/link-assistant/hive-mind/issues/539 --dry-run 2>&1', {
+experiments/test-start-screen.mjs:187:  const output = execSync('./src/start-screen.mjs hive https://github.com/konard --dry-run --once --verbose 2>&1', {
+experiments/test-start-screen.mjs:222:  const output = execSync('./src/start-screen.mjs hive https://github.com/link-assistant/hive-mind --dry-run --once 2>&1', {
+experiments/test-gh-pr-merge-interactive.mjs:14:import { exec as execCallback, spawn } from 'child_process';
+experiments/test-gh-pr-merge-interactive.mjs:25:    const { stdout } = await exec('gh --version');
+experiments/test-gh-pr-merge-interactive.mjs:48:    const { stdout, stderr } = await exec(command, { timeout: 10000 });
+experiments/test-gh-pr-merge-interactive.mjs:76:    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '{allow_squash_merge, allow_merge_commit, allow_rebase_merge, allow_auto_merge, delete_branch_on_merge, merge_commit_title, merge_commit_message, squash_merge_commit_title, squash_merge_commit_message}'`);
+experiments/test-gh-pr-merge-interactive.mjs:110:    const child = spawn('gh', ['pr', 'merge', prNumber, '--repo', `${owner}/${repo}`], {
+experiments/test-gh-pr-merge-interactive.mjs:161:    const { stdout } = await exec(`gh pr list --repo ${owner}/${repo} --label "ready" --state open --json number,title,mergeable,mergeStateStatus`);
+experiments/test-continue-only-on-feedback.mjs:4:import { exec } from 'child_process';
+experiments/test-version-output.mjs:8:import { execSync } from 'child_process';
+experiments/test-version-output.mjs:22:  const versionOutput = execSync(`${solvePath} --version`, { encoding: 'utf8' }).trim();
+experiments/test-version-output.mjs:51:  const output = execSync(`${solvePath} invalid-url 2>&1`, { encoding: 'utf8' });
+experiments/test-version-output.mjs:93:  const currentTag = execSync('git describe --exact-match --tags HEAD 2>/dev/null', { encoding: 'utf8' }).trim();
+experiments/test-version-output.mjs:101:    const latestTag = execSync('git describe --tags --abbrev=0', { encoding: 'utf8' }).trim().replace(/^v/, '');
+experiments/test-version-output.mjs:102:    const commitSha = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+experiments/test-version-output.mjs:106:    const versionOutput = execSync(`${solvePath} --version`, { encoding: 'utf8' }).trim();
+experiments/test-exit-log-path.mjs:13:import { spawn } from 'child_process';
+experiments/test-exit-log-path.mjs:41:const test1 = spawn('node', [solveScript, 'invalid-url'], {
+experiments/test-exit-log-path.mjs:72:  const test2 = spawn('node', [solveScript, '--help'], {
+experiments/test-exit-log-path.mjs:109:    const test3 = spawn('node', [hiveScript], {
+experiments/repro-gist-epipe.mjs:8:await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`;
+experiments/test-pr-checking-comparison.mjs:5:import { execSync } from 'child_process';
+experiments/test-pr-checking-comparison.mjs:20:      const output = execSync(cmd, { encoding: 'utf8' }).trim();
+experiments/test-auto-continue-only-on-new-comments.mjs:23:  const helpResult = await $`node ${solvePath} --help`;
+experiments/test-auto-continue-only-on-new-comments.mjs:43:  const parseResult = await $`node ${solvePath} "${testUrl}" --auto-continue-only-on-new-comments --dry-run`;
+experiments/test-gitkeep-fallback.mjs:7:import { execSync } from 'child_process';
+experiments/test-gitkeep-fallback.mjs:24:    execSync('git init', { cwd: testDir, stdio: 'pipe' });
+experiments/test-gitkeep-fallback.mjs:25:    execSync('git config user.email "test@test.com"', { cwd: testDir, stdio: 'pipe' });
+experiments/test-gitkeep-fallback.mjs:26:    execSync('git config user.name "Test User"', { cwd: testDir, stdio: 'pipe' });
+experiments/test-gitkeep-fallback.mjs:31:    execSync('git add .gitignore && git commit -m "Add .gitignore"', { cwd: testDir, stdio: 'pipe' });
+experiments/test-gitkeep-fallback.mjs:36:    const addResult = execSync('git add CLAUDE.md 2>&1 || true', { cwd: testDir, encoding: 'utf8' });
+experiments/test-gitkeep-fallback.mjs:39:    const statusAfterClaudeAdd = execSync('git status --short', { cwd: testDir, encoding: 'utf8' });
+experiments/test-gitkeep-fallback.mjs:50:    const checkIgnoreResult = execSync('git check-ignore CLAUDE.md', { cwd: testDir, encoding: 'utf8' });
+experiments/test-gitkeep-fallback.mjs:66:    execSync('git add .gitkeep', { cwd: testDir, stdio: 'pipe' });
+experiments/test-gitkeep-fallback.mjs:67:    const statusAfterGitkeepAdd = execSync('git status --short', { cwd: testDir, encoding: 'utf8' });
+experiments/test-gitkeep-fallback.mjs:79:    execSync('git commit -m "Add .gitkeep for PR creation"', { cwd: testDir, stdio: 'pipe' });
+experiments/test-gitkeep-fallback.mjs:80:    const commitLog = execSync('git log --oneline -1', { cwd: testDir, encoding: 'utf8' });
+experiments/test-feedback-filtering.mjs:12:import { execSync } from 'child_process';
+experiments/test-feedback-filtering.mjs:16:    const result = execSync('gh api user --jq .login', { encoding: 'utf8' });
+experiments/test-feedback-filtering.mjs:29:    const isDraftResult = execSync(`gh pr view ${prNumber} --repo ${owner}/${repo} --json isDraft --jq .isDraft`, {
+experiments/test-feedback-filtering.mjs:39:        execSync(`gh pr ready ${prNumber} --repo ${owner}/${repo} --undo`, { encoding: 'utf8' });
+experiments/test-feedback-filtering.mjs:50:        execSync(`gh pr ready ${prNumber} --repo ${owner}/${repo}`, { encoding: 'utf8' });
+experiments/test-feedback-filtering.mjs:64:    const workflowsResult = execSync(`gh api repos/${forkOwner}/${forkRepo}/contents/.github/workflows --jq '.[].name' 2>/dev/null`, { encoding: 'utf8' });
+experiments/test-feedback-filtering.mjs:89:    const prCommentsResult = execSync(`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments`, { encoding: 'utf8' });
+tests/test-log-upload.mjs:25:const { execSync, spawn } = await use('child_process');
+tests/test-log-upload.mjs:206:      const result = execSync('which gh-upload-log || command -v gh-upload-log', {
+tests/test-log-upload.mjs:229:      const result = execSync('gh-upload-log "" 2>&1 || true', {
+tests/test-log-upload.mjs:324:  // await $`gh-upload-log ${commandArgs.join(' ')}`
+tests/test-log-upload.mjs:328:  // await $`gh-upload-log ${logFile} ${publicFlag} ${verboseFlag}`
+experiments/debug-missing-conditions.mjs:6:import { execSync } from 'child_process';
+experiments/debug-missing-conditions.mjs:16:    const currentBranch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+experiments/debug-missing-conditions.mjs:43:    const branchName = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+experiments/debug-missing-conditions.mjs:46:      const prListResult = execSync(`gh pr list --head ${branchName} --json number,url --limit 1`, {
+tests/test-issue-1758-start-screen-deprecation.mjs:17:import { spawnSync } from 'node:child_process';
+tests/test-issue-1758-start-screen-deprecation.mjs:40:  return spawnSync(process.execPath, [startScreenPath, ...args], {
+tests/test-issue-1758-start-screen-deprecation.mjs:82:  const result = spawnSync(process.execPath, ['--input-type=module', '-e', probe], {
+tests/test-issue-1758-start-screen-deprecation.mjs:88:  const suppressed = spawnSync(process.execPath, ['--input-type=module', '-e', probe], {
+experiments/test-rate-limit-errors.mjs:6:const { execSync } = await import('child_process');
+experiments/test-rate-limit-errors.mjs:26:      const output = execSync(command + ' --json url,title,number', {
+experiments/test-rate-limit-errors.mjs:38:          const rateLimitCheck = execSync('gh api rate_limit', { encoding: 'utf8' });
+experiments/test-rate-limit-errors.mjs:79:          const rateLimitInfo = execSync('gh api rate_limit', { encoding: 'utf8' });
+experiments/test-rate-limit-errors.mjs:106:    const searchResult = execSync('gh search issues "repo:microsoft/vscode is:open" --limit 10 --json url,title,number', {
+experiments/test-rate-limit-errors.mjs:119:      const repoResult = execSync('gh issue list --repo microsoft/vscode --state open --limit 10 --json url,title,number', {
+experiments/test-rate-limit-errors.mjs:163:        const result = execSync(command, {
+experiments/test-rate-limit-errors.mjs:195:    const rateLimitStatus = execSync('gh api rate_limit', { encoding: 'utf8' });
+experiments/test-large-body.mjs:11:const result = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${'Test large body edit'}`;
+experiments/test-large-body.mjs:139:  await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} -X PATCH -f body=${bodyToEdit}`;
+experiments/test-large-body.mjs:146:const resp = await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} --jq .body`;
+experiments/test-large-body.mjs:162:await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} -X DELETE`;
+experiments/debug-real-execution.mjs:6:import { execSync } from 'child_process';
+experiments/debug-real-execution.mjs:15:    const branch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+experiments/debug-real-execution.mjs:41:        lastCommitResult = execSync(`git log -1 --format="%aI" origin/${branchName}`, {
+experiments/debug-real-execution.mjs:50:          lastCommitResult = execSync(`git log -1 --format="%aI" ${branchName}`, { encoding: 'utf8', stdio: 'pipe' });
+experiments/test-comment-counting.mjs:18:  const lastCommitResult = await $`git log -1 --format="%aI" HEAD`;
+experiments/test-comment-counting.mjs:34:  const prReviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments`;
+experiments/test-comment-counting.mjs:44:  const prConversationCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments`;
+experiments/test-comment-counting.mjs:66:  const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+experiments/test-comment-counting.mjs:85:  const sortedPrConversationResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq 'sort_by(.created_at) | reverse | .[0] | .created_at'`;
+experiments/test-comment-counting.mjs:91:  const sortedPrReviewResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --jq 'sort_by(.created_at) | reverse | .[0] | .created_at'`;
+experiments/issue-314-real-root-cause.md:70:await $`git checkout ${prBranch}`;
+experiments/issue-314-real-root-cause.md:90:     await $`git remote add pr-fork https://github.com/${forkOwner}/${repo}.git`;
+experiments/issue-314-real-root-cause.md:92:     await $`git fetch pr-fork`;
+experiments/issue-314-real-root-cause.md:100:     await $`git checkout -b ${prBranch} pr-fork/${prBranch}`;
+experiments/issue-314-real-root-cause.md:103:     await $`git checkout ${prBranch}`;
+experiments/test-graphql-batch-pr-query-v2.mjs:5:import { execSync } from 'child_process';
+experiments/test-graphql-batch-pr-query-v2.mjs:53:    const result = execSync(`gh api graphql -f query='${query}'`, {
+experiments/test-sonnet-4-5-model.mjs:51:  const result = await $`printf "hi" | timeout 5 claude --model claude-sonnet-4-5-20250929 -p 2>&1 || true`;
+tests/test-configure-claude-bin.mjs:15:import { spawn } from 'node:child_process';
+tests/test-configure-claude-bin.mjs:26:    const child = spawn(process.execPath, ['src/configure-claude.mjs', ...args], {
+experiments/prove-log-upload-epipe-fix.mjs:3:import { spawn } from 'child_process';
+experiments/prove-log-upload-epipe-fix.mjs:13:    const child = spawn(process.execPath, ['--input-type=module', '--eval', childCode], {
+experiments/test-quote-issue.mjs:10:const result = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${'Test quote issue'}`;
+experiments/test-quote-issue.mjs:47:  await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} -X PATCH -f body=${body}`;
+experiments/test-quote-issue.mjs:54:const resp = await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} --jq .body`;
+experiments/test-quote-issue.mjs:68:await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} -X DELETE`;
+tests/test-issue-1716-private-repo-skip-fork.mjs:18:import { execSync } from 'child_process';
+tests/test-issue-1716-private-repo-skip-fork.mjs:41:const solveContent = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+experiments/test-identical-content.mjs:10:import { execSync } from 'child_process';
+experiments/test-identical-content.mjs:26:    execSync('git init', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:27:    execSync('git config user.email "test@test.com"', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:28:    execSync('git config user.name "Test User"', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:40:    execSync('git add CLAUDE.md', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:41:    execSync('git commit -m "Initial commit"', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:51:    execSync('git add CLAUDE.md', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:52:    const status1 = execSync('git status --short', { cwd: testDir, encoding: 'utf8' });
+experiments/test-identical-content.mjs:56:      execSync('git commit -m "Second commit"', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:65:    execSync('git add CLAUDE.md', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:66:    const status2 = execSync('git status --short', { cwd: testDir, encoding: 'utf8' });
+experiments/test-identical-content.mjs:70:      execSync('git commit -m "Third commit"', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:84:    execSync('git add CLAUDE.md', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:85:    const status3 = execSync('git status --short', { cwd: testDir, encoding: 'utf8' });
+experiments/test-identical-content.mjs:89:      execSync('git commit -m "Fourth commit with timestamp"', { cwd: testDir, stdio: 'pipe' });
+experiments/test-identical-content.mjs:97:    const log = execSync('git log --oneline', { cwd: testDir, encoding: 'utf8' });
+experiments/test-attach-logs.mjs:4:import { spawn } from 'child_process';
+experiments/test-attach-logs.mjs:11:const child = spawn('./hive.mjs', ['https://github.com/link-assistant/hive-mind', '--dry-run', '--once', '--attach-logs', '--max-issues', '1'], {
+tests/test-active-branch-runs-buffer-1722.mjs:17: * Strategy: the modules under test invoke `gh` via child_process.exec. We can't
+experiments/test-exit-handler-integration.mjs:12:import { execSync } from 'child_process';
+experiments/test-exit-handler-integration.mjs:93:    const output = execSync(`node ${testScript}`, { encoding: 'utf8' });
+experiments/test-exit-handler-integration.mjs:131:      const exitOutput = execSync(`node ${exitTestScript} 2>&1`, { encoding: 'utf8' });
+experiments/add-sentry-to-libs.mjs:30:  while ((match = importRegex.exec(content)) !== null) {
+experiments/test-command-stream-output.mjs:9:import { execSync } from 'child_process';
+experiments/test-command-stream-output.mjs:15:  const rawResult = execSync(`gh pr comment 852 --repo link-assistant/hive-mind --body "${testComment}"`, {
+experiments/test-command-stream-output.mjs:26:    execSync(`gh api repos/link-assistant/hive-mind/issues/comments/${match[1]} -X DELETE`);
+experiments/test-command-stream-output.mjs:43:  const result = await $`gh pr comment 852 --repo link-assistant/hive-mind --body ${testComment2}`;
+experiments/test-command-stream-output.mjs:74:    await $`gh api repos/link-assistant/hive-mind/issues/comments/${match2[1]} -X DELETE`;
+tests/test-feedback-lines-integration.mjs:13:import { execSync } from 'child_process';
+tests/test-feedback-lines-integration.mjs:49:    const result = execSync(command, {
+experiments/test-fork-conflict-detection.mjs:20:    const result = await $`gh api repos/${owner}/${repo} --jq '{fork: .fork, source: .source.full_name}'`;
+experiments/test-fork-conflict-detection.mjs:52:    const userResult = await $`gh api user --jq .login`;
+experiments/test-fork-conflict-detection.mjs:65:    const forksResult = await $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`;
+tests/test-merge-changesets-1452.mjs:18:import { execSync } from 'child_process';
+tests/test-merge-changesets-1452.mjs:67:  execSync(`node scripts/merge-changesets.mjs`, { cwd: '/tmp/gh-issue-solver-1774047970479', env: { ...process.env, CHANGESET_DIR: CHANGESET_DIR } });
+tests/test-merge-changesets-1452.mjs:110:  execSync(`node ${tempScript}`, { cwd: TEST_DIR });
+tests/test-merge-changesets-1452.mjs:137:  execSync(`node ${tempScript}`, { cwd: TEST_DIR });
+tests/test-merge-changesets-1452.mjs:157:  execSync(`node ${tempScript}`, { cwd: TEST_DIR });
+experiments/test-fork-with-custom-name.mjs:32:const userResult = await $`gh api user --jq .login`;
+experiments/test-fork-with-custom-name.mjs:57:const standardCheck = await $`gh repo view ${standardForkName} --json name 2>/dev/null`;
+experiments/test-fork-with-custom-name.mjs:62:const customCheck = await $`gh repo view ${customForkName} --json name 2>/dev/null`;
+experiments/test-fork-with-custom-name.mjs:76:  const forkInfoResult = await $`gh api repos/${existingForkName} --jq '{name: .name, fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+experiments/test-fork-with-custom-name.mjs:112:  const forkResult = await $`gh repo fork ${testRepoFull} --fork-name ${testOwner}-${testRepo} --clone=false 2>&1`;
+experiments/test-fork-with-custom-name.mjs:125:    const forkInfoResult = await $`gh api repos/${customForkName} --jq '{name: .name, fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+experiments/test-fork-with-custom-name.mjs:154:      const deleteResult = await $`gh repo delete ${customForkName} --yes 2>&1`;
+experiments/test-hive-error.mjs:5:import { spawn } from 'child_process';
+experiments/test-hive-error.mjs:13:    const child = spawn('node', ['src/hive.mjs', 'https://github.com/test/repo'], {
+experiments/test-log-file-content.mjs:5:import { spawn } from 'child_process';
+experiments/test-log-file-content.mjs:15:  const testProcess = spawn('node', [solvePath, testUrl, '--dry-run', '--skip-tool-check', '--verbose'], {
+experiments/test-solve-log-rename.mjs:11:import { execSync } from 'child_process';
+experiments/test-solve-log-rename.mjs:61:  const output = execSync('node test-solve-simulation.mjs 2>&1', { encoding: 'utf8' });
+tests/test-owner-fork-detection.mjs:12:import { execSync } from 'child_process';
+tests/test-owner-fork-detection.mjs:37:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-owner-fork-detection.mjs:46:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-owner-fork-detection.mjs:55:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-owner-fork-detection.mjs:73:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-owner-fork-detection.mjs:89:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-owner-fork-detection.mjs:101:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-owner-fork-detection.mjs:113:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-owner-fork-detection.mjs:128:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-owner-fork-detection.mjs:139:  const content = execSync(`cat ${solvePath}`, { encoding: 'utf8' });
+tests/test-owner-fork-detection.mjs:154:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+experiments/test-review.mjs:8:import { execSync } from 'child_process';
+experiments/test-review.mjs:33:    return execSync(command, { encoding: 'utf8', stdio: 'pipe' });
+experiments/test-output-improvements.mjs:6:import { spawn } from 'child_process';
+experiments/test-output-improvements.mjs:15:const hiveProcess = spawn('node', ['./hive.mjs', 'https://github.com/nonexistent/repo', '--once', '--dry-run'], {
+experiments/test-hive-worker-output.mjs:7:import { spawn } from 'child_process';
+experiments/test-hive-worker-output.mjs:18:const child = spawn(testCommand, testArgs, {
+experiments/test-claude-md-duplicate.mjs:10:import { execSync } from 'child_process';
+experiments/test-claude-md-duplicate.mjs:24:    execSync('git init', { cwd: testDir });
+experiments/test-claude-md-duplicate.mjs:25:    execSync('git config user.email "test@example.com"', { cwd: testDir });
+experiments/test-claude-md-duplicate.mjs:26:    execSync('git config user.name "Test User"', { cwd: testDir });
+experiments/test-claude-md-duplicate.mjs:38:    execSync('git add CLAUDE.md', { cwd: testDir });
+experiments/test-claude-md-duplicate.mjs:39:    execSync('git commit -m "Initial CLAUDE.md"', { cwd: testDir });
+experiments/test-claude-md-duplicate.mjs:59:    const gitStatus = execSync('git status --short', { cwd: testDir, encoding: 'utf8' });
+experiments/test-claude-md-duplicate.mjs:68:    execSync('git add CLAUDE.md', { cwd: testDir });
+experiments/test-claude-md-duplicate.mjs:69:    const statusAfterAdd = execSync('git status --short', { cwd: testDir, encoding: 'utf8' });
+experiments/test-claude-md-duplicate.mjs:77:    execSync('git commit -m "Update CLAUDE.md with timestamp"', { cwd: testDir });
+experiments/test-claude-md-duplicate.mjs:81:    const commitLog = execSync('git log --oneline', { cwd: testDir, encoding: 'utf8' });
+experiments/test-renamed-fork-relationship.mjs:29:const userResult = await $`gh api user --jq .login`;
+experiments/test-renamed-fork-relationship.mjs:54:const standardForkCheckResult = await $`gh repo view ${standardForkName} --json name,fork,parent,source 2>/dev/null`;
+experiments/test-renamed-fork-relationship.mjs:67:  const standardForkResult = await $`gh repo fork ${testRepoFull} --clone=false 2>&1`;
+experiments/test-renamed-fork-relationship.mjs:77:    const standardForkInfoResult = await $`gh api repos/${standardForkName} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+experiments/test-renamed-fork-relationship.mjs:108:const renamedForkCheckResult = await $`gh repo view ${renamedForkName} --json name,fork,parent,source 2>/dev/null`;
+tests/test-interactive-mode-images.mjs:321:  const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 7, execFile: run });
+tests/test-interactive-mode-images.mjs:343:  const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run });
+tests/test-interactive-mode-images.mjs:353:  const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run });
+tests/test-interactive-mode-images.mjs:363:  const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run, enabled: false });
+tests/test-interactive-mode-images.mjs:372:  const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run, log: async m => logs.push(m) });
+tests/test-interactive-mode-images.mjs:383:  const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run });
+tests/test-interactive-mode-images.mjs:390:  const uploader = createImageUploader({ owner: 'o', repo: 'r', prNumber: 1, execFile: run });
+tests/test-interactive-mode-images.mjs:402:function makeHandler({ imageUploadEnabled = true, imageUploader, execFile } = {}) {
+tests/test-interactive-mode-images.mjs:407:    execFile ||
+tests/test-interactive-mode-images.mjs:425:    execFile: mockExecFile,
+experiments/test-issue-322-fix.mjs:28:  const prResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefName,body,number,mergeStateStatus,headRepositoryOwner`;
+experiments/test-issue-322-fix.mjs:39:        const issueCheckResult = await $`gh issue view ${prNumber} --repo ${owner}/${repo} --json number,title`;
+tests/test-memory-check.mjs:12:import { execSync } from 'child_process';
+tests/test-memory-check.mjs:37:    return execSync(command, { encoding: 'utf8', stdio: 'pipe' });
+tests/test-memory-check.mjs:238:    execSync(`${memoryCheckPath} --min-memory 1 --min-disk-space 1 --quiet`, { stdio: 'ignore' });
+experiments/test-improved-error-messages.mjs:67:      const prDataResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner --jq .headRepositoryOwner.login`;
+experiments/test-improved-error-messages.mjs:77:      const userResult = await $`gh api user --jq .login`;
+experiments/test-improved-error-messages.mjs:80:        const forkCheckResult = await $`gh repo view ${currentUser}/${repo} --json parent 2>/dev/null`;
+experiments/test-404-no-retry.mjs:39:const rootRepoResult = await $`gh api repos/${owner}/${repo} --jq '{fork: .fork, source: .source.full_name}' 2>&1`;
+experiments/test-404-no-retry.mjs:56:const forkResult = await $`gh repo fork ${owner}/${repo} --clone=false 2>&1`;
+tests/test-detect-code-changes-1528.mjs:13:import { execFileSync } from 'child_process';
+tests/test-detect-code-changes-1528.mjs:56:  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+tests/test-detect-code-changes-1528.mjs:68:  return execFileSync(process.execPath, [detectCodeChangesScript], {
+experiments/test-issue-894-fix.mjs:15:  const grepResult = await $`grep -A 5 "Show final log file reference" src/solve.mjs`.quiet();
+experiments/test-issue-894-fix.mjs:31:  const grepResult = await $`grep -A 3 "Complete log file:" src/solve.mjs`.quiet();
+tests/test-require-gh-paginate-rule.mjs:20:      code: String.raw`const result = await $` + '`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq .title`' + ';',
+tests/test-require-gh-paginate-rule.mjs:23:      code: String.raw`const result = await $` + '`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq .state`' + ';',
+tests/test-require-gh-paginate-rule.mjs:26:      code: String.raw`const result = await $` + '`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`' + ';',
+tests/test-require-gh-paginate-rule.mjs:29:      code: String.raw`const result = await $` + "`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`" + ';',
+tests/test-require-gh-paginate-rule.mjs:32:      code: String.raw`const result = await $` + '`gh api repos/${owner}/${repo}/issues/comments/${commentId} --method PATCH --field body=@${tempFile}`' + ';',
+tests/test-require-gh-paginate-rule.mjs:35:      code: String.raw`const result = await $` + "`gh api graphql -f query='query { viewer { login } }'`" + ';',
+tests/test-require-gh-paginate-rule.mjs:40:      code: String.raw`const result = await $` + "`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq '[.[].body]'`" + ';',
+tests/test-require-gh-paginate-rule.mjs:44:      code: String.raw`const result = await $` + '`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews`' + ';',
+tests/test-require-gh-paginate-rule.mjs:48:      code: String.raw`const result = await exec(` + '`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=20" --jq \'.workflow_runs[].id\'`' + ');',
+tests/test-require-gh-paginate-rule.mjs:52:      code: String.raw`const result = await exec(` + "`gh api repos/${owner}/${repo}/actions/runs/${runId}/jobs --jq '.jobs'`" + ');',
+tests/test-require-gh-paginate-rule.mjs:56:      code: String.raw`const result = await $` + "`gh api repos/${repoPath}/contents --jq '.[].name'`" + ';',
+tests/test-require-gh-paginate-rule.mjs:60:      code: String.raw`const result = await $` + "`gh api /user/repository_invitations 2>/dev/null || echo '[]'`" + ';',
+experiments/test-issue-400-fix.mjs:33:  const branchListResult = await $`gh api repos/${testOwner}/${testRepo}/branches --jq '.[].name'`;
+experiments/test-issue-400-fix.mjs:68:  const branchListResult = await $`gh api repos/${testOwner}/${testRepo}/branches --jq '.[].name'`;
+experiments/test-issue-400-fix.mjs:82:      const prForBranchResult = await $`gh pr list --repo ${testOwner}/${testRepo} --head ${branch} --json number,state,isDraft --limit 1`;
+experiments/test-issue-400-fix.mjs:111:  const prListResult = await $`gh pr list --repo ${testOwner}/${testRepo} --search "linked:issue-${testIssueNumber}" --json number,headRefName --limit 10`;
+experiments/test-issue-400-fix.mjs:127:  const branchListResult = await $`gh api repos/${testOwner}/${testRepo}/branches --jq '.[].name'`;
+experiments/test-empty-repo-fork-fix.mjs:5:import { spawn } from 'child_process';
+experiments/test-version-bump-verification.mjs:8:import { execSync } from 'child_process';
+experiments/test-version-bump-verification.mjs:13:    const result = execSync(command, {
+experiments/test-disk-space-check.mjs:14:  const { stdout } = await $`df -BM . | tail -1 | awk '{print $4}'`;
+experiments/test-disk-space-check.mjs:23:const testResult1 = await $`./solve.mjs --help | grep -q "min-disk-space"`;
+experiments/test-disk-space-check.mjs:30:const testResult2 = await $`./hive.mjs --help | grep -q "min-disk-space"`;
+experiments/test-telegram-bot-with-configuration.mjs:14:import { spawn } from 'child_process';
+experiments/test-telegram-bot-with-configuration.mjs:44:const child = spawn('node', ['src/telegram-bot.mjs', '--configuration', testConfiguration, '--dry-run'], {
+experiments/issue-1722-buffer-overflow.mjs:20:import { exec as execCb } from 'child_process';
+experiments/issue-1722-buffer-overflow.mjs:33:  const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?branch=${branch}&per_page=100" --paginate --slurp`);
+experiments/issue-1722-buffer-overflow.mjs:42:  const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?branch=${branch}&per_page=100" --paginate --slurp`, { maxBuffer: 50 * 1024 * 1024 });
+experiments/issue-1722-buffer-overflow.mjs:54:    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?branch=${branch}&status=${status}&per_page=100" --paginate --slurp`);
+experiments/test-archived-filter.mjs:8:import { execSync } from 'child_process';
+experiments/test-archived-filter.mjs:18:  const repoInfo = execSync(`gh api repos/${testRepoOwner}/${testRepoName} --jq '{name: .name, archived: .archived, has_issues: .has_issues}'`, { encoding: 'utf8' });
+experiments/test-archived-filter.mjs:32:  const searchResult = execSync(`gh search issues repo:${testRepoOwner}/${testRepoName} is:open --json url,title,number,repository --limit 5`, { encoding: 'utf8' });
+experiments/test-archived-filter.mjs:59:  const fieldsResult = execSync(`gh search issues --help | grep -A 100 "available for '--json'"`, { encoding: 'utf8' });
+experiments/test-archived-filter.mjs:65:    const searchResult = execSync(`gh search issues repo:${testRepoOwner}/${testRepoName} is:open --limit 1 --json url,title,number,repository`, { encoding: 'utf8' });
+experiments/test-archived-filter.mjs:97:  const result = execSync(`gh api graphql -f query='${graphqlQuery}'`, { encoding: 'utf8' });
+experiments/test-codex-integration.mjs:31:  const versionResult = await $`codex --version`;
+experiments/test-solve-stderr.mjs:8:import { spawn } from 'child_process';
+experiments/test-solve-stderr.mjs:22:const child = spawn('node', [join(projectRoot, 'src', 'solve.mjs'), 'https://github.com/link-assistant/hive-mind/issues/1', '--dry-run', '--skip-tool-check'], {
+experiments/test-graphql-issues.mjs:16:import { execSync } from 'child_process';
+experiments/test-graphql-issues.mjs:65:    const result = execSync(`gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f queryString='${searchQuery}' -F limit=${limit}`, { encoding: 'utf8' });
+experiments/test-graphql-issues.mjs:130:    const result = execSync(`gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f queryString='${searchQuery}' -F limit=${limit}`, { encoding: 'utf8' });
+experiments/test-graphql-issues.mjs:218:    const result = execSync(`gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f owner='${owner}' -F repoLimit=${limit}`, { encoding: 'utf8' });
+experiments/test-auto-cleanup-0.mjs:6:import { execSync } from 'child_process';
+experiments/test-auto-cleanup-0.mjs:12:execSync('mkdir -p /tmp/test-hive-cleanup');
+experiments/test-auto-cleanup-0.mjs:13:execSync('echo "test content" > /tmp/test-hive-cleanup/test-file.txt');
+experiments/test-auto-cleanup-0.mjs:14:execSync('ls -la /tmp/test-hive-cleanup/');
+experiments/test-auto-cleanup-0.mjs:23:  const output = execSync(`./hive.mjs "${testUrl}" --dry-run --once --auto-cleanup --verbose`, {
+experiments/test-auto-cleanup-0.mjs:32:    execSync('ls /tmp/test-hive-cleanup/', { encoding: 'utf8' });
+experiments/test-comment-counting-fix.mjs:29:  const userResult = await $`gh api user --jq .login`;
+experiments/test-comment-counting-fix.mjs:38:  await $`gh repo create ${repoName} --public --description "Test for comment counting fix" --clone=false`;
+experiments/test-comment-counting-fix.mjs:42:  await $`mkdir -p ${tempDir}`;
+experiments/test-comment-counting-fix.mjs:43:  await $`cd ${tempDir} && git init`;
+experiments/test-comment-counting-fix.mjs:44:  await $`cd ${tempDir} && git remote add origin ${repoUrl}`;
+experiments/test-comment-counting-fix.mjs:50:  await $`cd ${tempDir} && git add .`;
+experiments/test-comment-counting-fix.mjs:51:  await $`cd ${tempDir} && git commit -m "Initial commit"`;
+experiments/test-comment-counting-fix.mjs:52:  await $`cd ${tempDir} && git branch -M main`;
+experiments/test-comment-counting-fix.mjs:53:  await $`cd ${tempDir} && git push -u origin main`;
+experiments/test-comment-counting-fix.mjs:57:  const issueResult = await $`gh issue create --repo ${githubUser}/${repoName} --title "Test: Add greeting function" --body "Please add a greeting function that takes a name parameter."`;
+experiments/test-comment-counting-fix.mjs:68:  const initialSolveResult = await $`timeout 120 ${solveCmd} || true`;
+experiments/test-comment-counting-fix.mjs:93:  const continueResult = await $`timeout 30 bash -c "${continueCmd}" || true`;
+experiments/test-comment-counting-fix.mjs:126:  await $`gh pr comment ${prNumber} --repo ${githubUser}/${repoName} --body "Test comment for verification"`;
+experiments/test-comment-counting-fix.mjs:138:  const continueWithCommentResult = await $`timeout 30 bash -c "${continueWithCommentCmd}" || true`;
+experiments/test-comment-counting-fix.mjs:171:  await $`gh repo delete ${githubUser}/${repoName} --yes`;
+experiments/test-comment-counting-fix.mjs:172:  await $`rm -rf ${tempDir}`;
+experiments/test-fork-error-recovery.mjs:20:  const currentUser = await $`gh api user --jq .login`;
+experiments/test-fork-error-recovery.mjs:25:  const forkCheck = await $`gh repo view ${username}/Hello-World --json name 2>/dev/null`;
+experiments/test-fork-error-recovery.mjs:32:      const forkResult = await $`gh repo fork ${testRepo} --clone=false`;
+experiments/test-fork-error-recovery.mjs:45:      const forkResult = await $`gh repo fork ${testRepo} --clone=false`;
+experiments/test-fork-error-recovery.mjs:52:        const dupeForkResult = await $`gh repo fork ${testRepo} --clone=false`;
+experiments/test-spawn-fix.mjs:7:import { spawn } from 'child_process';
+experiments/test-spawn-fix.mjs:17:    const child = spawn('sh', ['-c', 'echo "Hello from spawn"'], {
+experiments/test-spawn-fix.mjs:55:    const child = spawn('sh', ['-c', command], {
+experiments/test-spawn-fix.mjs:115:    const child = spawn('sh', ['-c', 'pwd'], {
+experiments/test-spawn-fix.mjs:153:    const child = spawn('sh', ['-c', command], {
+experiments/test-spawn-fix.mjs:196:  console.log('This tests the replacement of command-stream with child_process.spawn\n');
+experiments/test-command-stream-pr-view.mjs:16:  const result = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json ${jsonFields}`;
+experiments/test-hive-streaming-fix.mjs:10:import { spawn } from 'child_process';
+experiments/test-hive-streaming-fix.mjs:51:    const child = spawn('node', [mockSolvePath], {
+tests/test-interactive-mode.mjs:41:  // Mock execFile to intercept gh api calls (used by postComment and editComment)
+tests/test-interactive-mode.mjs:66:  const handler = createInteractiveHandler({ owner, repo, prNumber, $: mock$, log: mockLog, verbose, execFile: mockExecFile });
+tests/test-interactive-mode.mjs:1141:console.log('\n=== Testing execFileAsync stdin piping (Issue #1532) ===\n');
+tests/test-interactive-mode.mjs:1143:await runTest('execFileAsync passes input to child stdin (Issue #1532)', async () => {
+tests/test-interactive-mode.mjs:1145:  // The old promisify(execFile) silently ignored the `input` option,
+tests/test-interactive-mode.mjs:1147:  // The new spawn-based execFileAsync must correctly pipe input to stdin.
+tests/test-interactive-mode.mjs:1148:  const { stdout } = await utils.execFileAsync('cat', [], { input: 'hello from stdin' });
+tests/test-interactive-mode.mjs:1154:await runTest('execFileAsync works without input option', async () => {
+tests/test-interactive-mode.mjs:1155:  const { stdout } = await utils.execFileAsync('echo', ['test output']);
+tests/test-interactive-mode.mjs:1161:await runTest('execFileAsync rejects on non-zero exit code', async () => {
+tests/test-interactive-mode.mjs:1163:    await utils.execFileAsync('sh', ['-c', 'exit 1']);
+tests/test-interactive-mode.mjs:1171:await runTest('execFileAsync handles large stdin input', async () => {
+tests/test-interactive-mode.mjs:1173:  const { stdout } = await utils.execFileAsync('cat', [], { input: largeInput });
+tests/test-interactive-mode.mjs:1179:await runTest('execFileAsync handles JSON payload for gh api simulation (Issue #1532)', async () => {
+tests/test-interactive-mode.mjs:1182:  const { stdout } = await utils.execFileAsync('cat', [], { input: jsonPayload });
+experiments/test-raw-command-log.mjs:6:import { spawn } from 'child_process';
+experiments/test-raw-command-log.mjs:17:  const helpProcess = spawn('node', [solvePath, '--help'], {
+experiments/test-raw-command-log.mjs:42:  const testProcess = spawn('node', [solvePath, testUrl, '--dry-run', '--skip-tool-check'], {
+experiments/test-gh-pr-merge-with-dry-run.mjs:14:import { exec as execCallback, spawn } from 'child_process';
+experiments/test-gh-pr-merge-with-dry-run.mjs:27:  const { stdout: prsJson } = await exec(`gh pr list --repo ${owner}/${repo} --label "ready" --state open --json number,title,mergeable,mergeStateStatus`);
+experiments/test-gh-pr-merge-with-dry-run.mjs:59:    const child = spawn('gh', args, {
+experiments/test-memory-check.mjs:17:    const { stdout } = await $`grep -E "MemAvailable|MemFree|SwapFree|SwapTotal" /proc/meminfo`;
+tests/test-pr-creation-existing-branch.mjs:12:import { execSync } from 'child_process';
+tests/test-pr-creation-existing-branch.mjs:25:function exec(command, options = {}) {
+tests/test-pr-creation-existing-branch.mjs:27:    return execSync(command, { encoding: 'utf8', ...options });
+tests/test-pr-creation-existing-branch.mjs:38:  exec('git init', { cwd: tempDir });
+tests/test-pr-creation-existing-branch.mjs:39:  exec('git config user.email "test@example.com"', { cwd: tempDir });
+tests/test-pr-creation-existing-branch.mjs:40:  exec('git config user.name "Test User"', { cwd: tempDir });
+tests/test-pr-creation-existing-branch.mjs:44:  exec('git add .', { cwd: tempDir });
+tests/test-pr-creation-existing-branch.mjs:45:  exec('git commit -m "Initial commit"', { cwd: tempDir });
+tests/test-pr-creation-existing-branch.mjs:48:  exec('git branch -M master', { cwd: tempDir });
+tests/test-pr-creation-existing-branch.mjs:62:    exec(`git checkout -b ${branchName}`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:66:    exec('git add .', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:67:    exec('git commit -m "Test commit"', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:73:    const gitLog = exec('git log --oneline -1', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:94:    exec(`git checkout -b ${branchName}`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:98:    exec('git add .', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:99:    exec('git commit -m "First commit"', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:103:    exec('git add .', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:104:    exec('git commit -m "Second commit"', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:107:    exec('git checkout master', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:108:    exec(`git checkout ${branchName}`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:112:    exec('git add .', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:113:    exec('git commit -m "Add CLAUDE.md"', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:116:    const gitLog = exec('git log --oneline', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:122:    const commitCount = exec('git rev-list --count master..HEAD', { cwd: testDir }).trim();
+tests/test-pr-creation-existing-branch.mjs:144:    exec(`git checkout -b ${branchName}`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:148:    exec('git add .', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:149:    exec('git commit -m "Implement feature"', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:152:    exec('git checkout master', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:153:    exec(`git merge ${branchName} --no-ff -m "Merge branch"`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:156:    exec(`git checkout ${branchName}`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:159:    const mergedBranches = exec('git branch --merged master', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:163:    const commitCount = exec('git rev-list --count master..HEAD', { cwd: testDir }).trim();
+tests/test-pr-creation-existing-branch.mjs:186:    exec('git init --bare', { cwd: remoteDir });
+tests/test-pr-creation-existing-branch.mjs:187:    exec(`git remote add origin ${remoteDir}`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:190:    exec('git push -u origin master', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:193:    exec(`git checkout -b ${branchName}`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:195:    exec('git add .', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:196:    exec('git commit -m "Initial branch commit"', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:197:    exec(`git push -u origin ${branchName}`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:201:    exec(`git clone ${remoteDir} .`, { cwd: anotherClone });
+tests/test-pr-creation-existing-branch.mjs:202:    exec(`git checkout ${branchName}`, { cwd: anotherClone });
+tests/test-pr-creation-existing-branch.mjs:204:    exec('git add .', { cwd: anotherClone });
+tests/test-pr-creation-existing-branch.mjs:205:    exec('git commit -m "Remote commit"', { cwd: anotherClone });
+tests/test-pr-creation-existing-branch.mjs:206:    exec(`git push origin ${branchName}`, { cwd: anotherClone });
+tests/test-pr-creation-existing-branch.mjs:210:    exec('git add .', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:211:    exec('git commit -m "Local commit"', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:214:    exec('git fetch origin', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:217:    const ahead = exec(`git rev-list --count origin/${branchName}..HEAD`, { cwd: testDir }).trim();
+tests/test-pr-creation-existing-branch.mjs:218:    const behind = exec(`git rev-list --count HEAD..origin/${branchName}`, { cwd: testDir }).trim();
+tests/test-pr-creation-existing-branch.mjs:225:    const pushResult = exec(`git push origin ${branchName}`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:234:    const gitLog = exec('git log --oneline', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:261:    exec(`git checkout -b ${branchName}`, { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:265:    exec('git add .', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:266:    exec('git commit -m "Add temp file"', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:267:    exec('git rm temp.txt', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:268:    exec('git commit -m "Remove temp file"', { cwd: testDir });
+tests/test-pr-creation-existing-branch.mjs:271:    const commitCount = exec('git rev-list --count master..HEAD', { cwd: testDir }).trim();
+tests/test-pr-creation-existing-branch.mjs:275:    const gitLog = exec('git log --oneline', { cwd: testDir });
+experiments/debug-pr-url-parsing.mjs:13:const { execSync } = await import('child_process');
+experiments/debug-pr-url-parsing.mjs:18:    const stdout = execSync(command, { encoding: 'utf8' });
+experiments/test-issue-1008-merged-pr-detection.mjs:38:const withoutStateAll = await $`gh pr list --repo ${testRepo} --head ${testBranch} --json number,state`;
+experiments/test-issue-1008-merged-pr-detection.mjs:51:const withStateAll = await $`gh pr list --repo ${testRepo} --head ${testBranch} --state all --json number,state`;
+experiments/test-issue-1008-merged-pr-detection.mjs:76:const workingTest = await $`gh pr list --repo ${workingRepo} --head ${workingBranch} --state all --json number,state`;
+experiments/test-auto-continue-with-skip-issues.mjs:12:import { execSync } from 'child_process';
+experiments/test-auto-continue-with-skip-issues.mjs:35:    const output = execSync(`${hivePath} https://github.com/test/test -vas --dry-run --no-sentry --skip-tool-check --once 2>&1`, {
+experiments/test-auto-continue-with-skip-issues.mjs:60:    const output = execSync(`${hivePath} https://github.com/test/test -s --auto-continue --dry-run --no-sentry --skip-tool-check --once 2>&1`, {
+experiments/test-auto-continue-with-skip-issues.mjs:102:    const output = execSync(`${hivePath} https://github.com/test/test -s --no-auto-continue --dry-run --no-sentry --skip-tool-check --once 2>&1`, {
+experiments/test-auto-continue-with-skip-issues.mjs:127:    const output = execSync(`${hivePath} https://github.com/test/test --dry-run --no-sentry --skip-tool-check --once --verbose 2>&1`, {
+experiments/test-free-models.mjs:8:import { execSync } from 'child_process';
+experiments/test-free-models.mjs:35:    const output = execSync(`node src/solve.mjs --tool agent --model ${model} --dry-run --skip-tool-connection-check https://github.com/test/test/issues/1 2>&1`, {
+tests/test-hive-no-silent-failure.mjs:17:import { spawn } from 'child_process';
+tests/test-hive-no-silent-failure.mjs:34:    const child = spawn(hivePath, args, {
+experiments/dash-vs-bash-ansi-c-quoting.mjs:11: *   Node's `child_process.exec` runs commands via `/bin/sh -c "<command>"`.
+experiments/dash-vs-bash-ansi-c-quoting.mjs:29:import { execFile } from 'node:child_process';
+experiments/dash-vs-bash-ansi-c-quoting.mjs:32:const exec = promisify(execFile);
+experiments/dash-vs-bash-ansi-c-quoting.mjs:38:  const { stdout } = await exec(shellBin, ['-c', "printf '%s' $'exit\\n' | od -c | head -1"]).catch(err => ({ stdout: err.stdout || '' }));
+experiments/dash-vs-bash-ansi-c-quoting.mjs:48:console.log('A dash payload starting with `$` means the ANSI-C quoting was not');
+experiments/test-edit-body.mjs:14:const result = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${testInitial}`;
+experiments/test-edit-body.mjs:63:  await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} -X PATCH -f body=${testBody}`;
+experiments/test-edit-body.mjs:70:const response = await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} --jq .body`;
+experiments/test-edit-body.mjs:84:await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} -X DELETE`;
+tests/test-bidirectional-interactive.mjs:667:  // The `$` invocation shape in the lib is `await $\`gh api ...\`` — i.e. a tagged template
+experiments/test-quote-escaping.mjs:9:import { execSync } from 'child_process';
+experiments/test-quote-escaping.mjs:58:    const output = execSync(command, { encoding: 'utf8' });
+experiments/issue-814-streaming-input/08-true-bidirectional-test.mjs:11:import { spawn } from 'child_process';
+experiments/issue-814-streaming-input/08-true-bidirectional-test.mjs:17:const claude = spawn('claude', ['-p', '--output-format=stream-json', '--input-format=stream-json', '--include-partial-messages', '--replay-user-messages', '--verbose', '--dangerously-skip-permissions'], {
+experiments/test-issue-346-fix.mjs:10:import { exec } from 'child_process';
+tests/test-isolation-screen-integration-1545.mjs:20:import { execSync } from 'child_process';
+tests/test-isolation-screen-integration-1545.mjs:32:    execSync(`which ${name}`, { stdio: 'pipe' });
+tests/test-isolation-screen-integration-1545.mjs:63:    const version = execSync('$ --version 2>&1', { encoding: 'utf-8' }).split('\n')[0];
+tests/test-issue-1700-isolation-parsing.mjs:4: * /log and /terminal_watch wrongly rejected real `$` isolation sessions with:
+tests/test-issue-1700-isolation-parsing.mjs:5: *   "This command currently supports only sessions launched with `$` isolation
+experiments/test-uncommitted-changes.mjs:29:    await $`rm -rf ${testDir}`.catch(() => {});
+experiments/test-uncommitted-changes.mjs:32:    await $`mkdir -p ${testDir}`;
+experiments/test-uncommitted-changes.mjs:33:    await $`cd ${testDir} && git init`;
+experiments/test-uncommitted-changes.mjs:34:    await $`cd ${testDir} && git config user.name "Test User"`;
+experiments/test-uncommitted-changes.mjs:35:    await $`cd ${testDir} && git config user.email "test@example.com"`;
+experiments/test-uncommitted-changes.mjs:39:    await $`cd ${testDir} && git add README.md`;
+experiments/test-uncommitted-changes.mjs:40:    await $`cd ${testDir} && git commit -m "Initial commit"`;
+experiments/test-uncommitted-changes.mjs:117:    await $`rm -rf ${testDir}`.catch(() => {});
+experiments/issue-814-streaming-input/05-concurrent-io-test.mjs:10:import { spawn } from 'child_process';
+experiments/issue-814-streaming-input/05-concurrent-io-test.mjs:16:const claude = spawn('claude', ['-p', '--output-format=stream-json', '--input-format=stream-json', '--replay-user-messages'], {
+experiments/debug-full-comment-flow.mjs:12:const { execSync } = await import('child_process');
+experiments/debug-full-comment-flow.mjs:17:    const stdout = execSync(command, { encoding: 'utf8' });
+experiments/issue-814-streaming-input/03-bidirectional-test.mjs:9:import { spawn } from 'child_process';
+experiments/issue-814-streaming-input/03-bidirectional-test.mjs:16:const claude = spawn('claude', ['-p', '--output-format=stream-json', '--input-format=stream-json', '--verbose', '--dangerously-skip-permissions'], {
+experiments/test-disk-space-failure.mjs:14:  const result = await $`echo "https://github.com/owner/repo/issues/1" | timeout 15s ./solve.mjs https://github.com/owner/repo/issues/1 --min-disk-space 999999`.catch(e => e);
+experiments/test-issue-377-spawn-implementation.mjs:3:import { spawn } from 'child_process';
+experiments/test-issue-377-spawn-implementation.mjs:5:import { exec as execCallback } from 'child_process';
+experiments/test-issue-377-spawn-implementation.mjs:11:    const { stdout } = await exec('which start-screen');
+experiments/test-issue-377-spawn-implementation.mjs:24:    const child = spawn(startScreenCmd, allArgs, {
+tests/test-issue-1758-runner-discovery.mjs:17:import { execFileSync, spawnSync } from 'node:child_process';
+tests/test-issue-1758-runner-discovery.mjs:50:    const out = execFileSync(process.execPath, [runnerPath, ...args], {
+tests/test-issue-1758-runner-discovery.mjs:118:  const integrationRun = spawnSync(process.execPath, [runnerPath, '--suite', 'integration'], {
+experiments/test-spawn-env-passing.mjs:8:import { spawn } from 'child_process';
+experiments/test-spawn-env-passing.mjs:23:const child = spawn('node', ['-e', 'console.log("GITHUB_TOKEN present:", !!process.env.GITHUB_TOKEN)'], {
+experiments/test-spawn-env-passing.mjs:52:  const childNoEnv = spawn('node', ['-e', 'console.log("GITHUB_TOKEN present:", !!process.env.GITHUB_TOKEN)'], {
+experiments/test-spawn-env-passing.mjs:82:    console.log('- The fix adds env: process.env to all spawn() calls');
+experiments/test-fix.mjs:23:const branchListResult = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
+experiments/test-fix.mjs:54:const branchListResult408 = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
+experiments/test-hive-model.mjs:4:import { spawn } from 'child_process';
+experiments/test-hive-model.mjs:18:  const child = spawn(
+tests/test-docs-options-sync.mjs:44:while ((match = docOptionPattern.exec(solveSection)) !== null) {
+tests/test-solve.mjs:8:import { execSync } from 'child_process';
+tests/test-solve.mjs:33:    return execSync(command, { encoding: 'utf8', stdio: 'pipe' });
+experiments/test-feedback-detection.mjs:7:import { execSync } from 'child_process';
+experiments/test-feedback-detection.mjs:17:    const result = execSync(command, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:11:import { execSync } from 'child_process';
+tests/test-fork-parent-validation.mjs:48:  const output = execSync(`grep -l "export const validateForkParent" ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:56:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:80:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:95:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:104:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:144:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:159:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:178:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:189:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:204:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:213:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:233:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:248:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:268:  const libContent = execSync(`cat ${srcDir}/lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:286:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:310:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:330:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:345:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:365:  const configContent = execSync(`cat ${srcDir}/solve.config.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:379:  const suggestionsContent = execSync(`cat ${srcDir}/option-suggestions.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:388:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:398:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-fork-parent-validation.mjs:408:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+experiments/test-visibility-based-cleanup.mjs:41:    const userResult = await $`gh api user --jq .login`;
+experiments/test-visibility-based-cleanup.mjs:45:    const reposResult = await $`gh repo list ${username} --json name,visibility --jq '.[] | select(.visibility == "private") | .name' --limit 1`;
+experiments/test-gh-comment-output.mjs:25:    const result1 = await $`gh pr comment ${PR_NUMBER} --repo ${OWNER}/${REPO} --body ${testBody}`;
+experiments/test-gh-comment-output.mjs:42:    const result2 = await $`gh api repos/${OWNER}/${REPO}/issues/${PR_NUMBER}/comments -X POST -f body=${testBody + ' (API)'}`;
+experiments/test-gh-comment-output.mjs:57:    const result3 = await $`gh api repos/${OWNER}/${REPO}/issues/${PR_NUMBER}/comments --jq '.[-1] | {id, body}'`;
+tests/test-issue-1834-thinking-block-recovery.mjs:59:// A noop async logger and a scriptable command-stream `$` double for the behavioral tests.
+experiments/test-timestamps.mjs:23:    const result = await $`gh ${command.split(' ').slice(1)}`;
+experiments/test-timestamps.mjs:55:  const issueResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq .updated_at`;
+experiments/test-timestamps.mjs:64:  const commentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+experiments/test-timestamps.mjs:78:  const prsResult = await $`gh pr list --repo ${owner}/${repo} --limit 1 --json createdAt`;
+experiments/test-issue-159-fix.mjs:17:await $`rm -rf ${testDir}`;
+experiments/test-issue-159-fix.mjs:18:await $`mkdir -p ${testDir}`;
+experiments/test-issue-159-fix.mjs:28:  await $`git init`;
+experiments/test-issue-159-fix.mjs:32:  await $`git add README.md`;
+experiments/test-issue-159-fix.mjs:33:  await $`git commit -m "Initial commit"`;
+experiments/test-issue-159-fix.mjs:36:  await $`git remote add origin https://github.com/konard/tinkoff-invest-etf-balancer-bot.git`;
+experiments/test-issue-159-fix.mjs:39:  await $`git remote add upstream https://github.com/suenot/tinkoff-invest-etf-balancer-bot.git`;
+experiments/test-issue-159-fix.mjs:42:  const remotesResult = await $`git remote -v`;
+experiments/test-issue-159-fix.mjs:53:  const checkUpstreamResult = await $`git remote get-url upstream 2>/dev/null`;
+experiments/test-issue-159-fix.mjs:64:  const addUpstreamResult = await $`git remote add upstream https://github.com/suenot/tinkoff-invest-etf-balancer-bot.git`.nothrow();
+experiments/test-issue-159-fix.mjs:75:  const checkResult = await $`git remote get-url upstream 2>/dev/null`.nothrow();
+experiments/test-issue-159-fix.mjs:93:    const fetchResult = await $`timeout 10s git fetch upstream 2>&1`.nothrow();
+experiments/test-issue-159-fix.mjs:121:  await $`rm -rf ${testDir}`;
+tests/test-tool-specific-defaults.mjs:9:import { execSync } from 'child_process';
+tests/test-tool-specific-defaults.mjs:34:    return execSync(command, { encoding: 'utf8', stdio: 'pipe' });
+experiments/test-error-log-path.mjs:5:import { spawn } from 'child_process';
+experiments/test-error-log-path.mjs:29:    const child = spawn(scenario.command, scenario.args, {
+tests/test-telegram-bot-configuration-isolation-links-notation.mjs:9:import { spawn } from 'child_process';
+tests/test-telegram-bot-configuration-isolation-links-notation.mjs:51:const proc = spawn(process.execPath, [join(projectRoot, 'src/telegram-bot.mjs'), '--configuration', configuration, '--dry-run'], {
+experiments/test-claude-gitkeep-flags.mjs:14:    const { spawn } = await import('child_process');
+experiments/test-claude-gitkeep-flags.mjs:16:    const execFile = promisify((await import('child_process')).execFile);
+experiments/test-claude-gitkeep-flags.mjs:22:      const { stdout, stderr } = await execFile('node', ['src/solve.mjs', ...testArgs], {
+experiments/debug-comment-detection.mjs:12:const { execSync } = await import('child_process');
+experiments/debug-comment-detection.mjs:17:    const stdout = execSync(command, { encoding: 'utf8' });
+experiments/test-fork-fix.mjs:23:  const forkCheckResult = await $`gh repo view ${currentUser}/${repo} --json name 2>/dev/null`;
+experiments/test-fork-fix.mjs:37:    const forkResult = await $`gh repo fork ${owner}/${repo} --clone=false`;
+experiments/test-fork-fix.mjs:54:      const reCheckResult = await $`gh repo view ${currentUser}/${repo} --json name 2>/dev/null`;
+experiments/test-fork-fix.mjs:79:  const currentUser = await $`gh api user --jq .login`;
+experiments/test-gist-visibility.mjs:15:    const visibilityResult = await $`gh api repos/link-assistant/hive-mind --jq .visibility`;
+experiments/test-gist-visibility.mjs:32:    const userResult = await $`gh api user --jq .login`;
+experiments/test-gist-visibility.mjs:37:    const reposResult = await $`gh repo list ${username} --json name,visibility --jq '.[] | select(.visibility == "private") | .name' --limit 1`;
+experiments/test-gist-visibility.mjs:44:      const visibilityResult = await $`gh api repos/${fullRepoName} --jq .visibility`;
+tests/test-issue-1758-integration-guard.mjs:13:import { spawnSync } from 'node:child_process';
+tests/test-issue-1758-integration-guard.mjs:55:    const result = spawnSync(process.execPath, [fakeTest], { encoding: 'utf-8', env });
+tests/test-issue-1758-integration-guard.mjs:63:    const result = spawnSync(process.execPath, [fakeTest], {
+tests/test-interactive-mode-signal-1472.mjs:316:  // Mock execFile that fails (simulates GitHub API failure)
+tests/test-interactive-mode-signal-1472.mjs:327:    execFile: failingExecFile,
+tests/test-interactive-mode-signal-1472.mjs:364:  // Mock execFile that succeeds
+tests/test-interactive-mode-signal-1472.mjs:375:    execFile: successExecFile,
+experiments/test-paths-filter-1582.mjs:30:  return new RegExp(`^${regex}$`).test(filePath);
+experiments/test-git-error.mjs:3:import { execSync } from 'child_process';
+experiments/test-git-error.mjs:11:  const result = execSync('git describe --exact-match --tags HEAD', { encoding: 'utf8' });
+experiments/test-git-error.mjs:23:  const result = execSync('git describe --exact-match --tags HEAD 2>/dev/null', { encoding: 'utf8' });
+experiments/test-git-error.mjs:35:  const result = execSync('git describe --exact-match --tags HEAD', {
+experiments/test-git-error.mjs:49:  execSync('git rev-parse --git-dir', {
+experiments/test-claude-sonnet.mjs:11:  const result = await $`printf hi | claude --model sonnet -p`;
+experiments/test-token-masking.mjs:47:  const { execSync } = await import('child_process');
+experiments/test-token-masking.mjs:48:  const helpOutput = execSync('node solve.mjs --help 2>&1', { encoding: 'utf8', cwd: '..' });
+experiments/test-rate-limits.mjs:9:const { execSync } = await import('child_process');
+experiments/test-rate-limits.mjs:21:    const output = execSync(command, {
+experiments/test-rate-limits.mjs:98:    const apiResult = execSync('gh api "/search/issues?q=is:issue+is:open&per_page=10" --include', {
+experiments/debug-integration-test.mjs:7:import { execSync } from 'child_process';
+experiments/debug-integration-test.mjs:18:    const result = execSync(command, { encoding: 'utf8', ...options });
+tests/test-issue-1795-private-readonly-auto-fork.mjs:18:import { execSync } from 'child_process';
+tests/test-issue-1795-private-readonly-auto-fork.mjs:41:const forkDetectionContent = execSync(`cat ${srcDir}/solve.fork-detection.lib.mjs`, { encoding: 'utf8' });
+experiments/test-concurrent-fork.mjs:16:  const currentUser = await $`gh api user --jq .login`;
+experiments/test-concurrent-fork.mjs:28:  const forkCheck = await $`gh repo view ${username}/${repo} --json name 2>/dev/null`;
+experiments/test-concurrent-fork.mjs:39:    const forkResult = await $`gh repo fork ${owner}/${repo} --clone=false`;
+experiments/test-concurrent-fork.mjs:59:      const reCheckResult = await $`gh repo view ${username}/${repo} --json name 2>/dev/null`;
+tests/test-issue-1332-fork-name-from-pr-data.mjs:15:import { execSync } from 'child_process';
+tests/test-issue-1332-fork-name-from-pr-data.mjs:40:  const content = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:49:  const content = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:63:  const content = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:74:  const content = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:89:  const content = execSync(`cat ${srcDir}/solve.repo-setup.lib.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:102:  const content = execSync(`cat ${srcDir}/solve.repo-setup.lib.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:112:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:121:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:130:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:144:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:153:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+tests/test-issue-1332-fork-name-from-pr-data.mjs:162:  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+experiments/test-opencode-grok.mjs:5:import { execSync } from 'child_process';
+experiments/test-opencode-grok.mjs:13:  const result = execSync('echo "What is 2+2?" | opencode run -m opencode/grok-code', {
+experiments/test-opencode-grok.mjs:28:  const result = execSync('opencode run -m opencode/grok-code "What is the capital of France?"', {
+experiments/test-rate-limit-fallback.mjs:24:    // Note: In a real test environment, we'd mock execSync to simulate the rate limit
+experiments/test-telegram-bot-init.mjs:26:  const { spawn } = await import('child_process');
+experiments/test-base-branch-option.mjs:7:import { execSync } from 'child_process';
+experiments/test-base-branch-option.mjs:15:  const helpOutput = execSync('./src/solve.mjs --help', { encoding: 'utf8' });
+experiments/test-base-branch-option.mjs:28:  const helpOutput = execSync('./solve-with-opencode.mjs --help', { encoding: 'utf8' });
+experiments/test-base-branch-option.mjs:41:  execSync('node --check ./src/solve.mjs', { encoding: 'utf8' });
+experiments/test-base-branch-option.mjs:50:  execSync('node --check ./solve-with-opencode.mjs', { encoding: 'utf8' });
+experiments/test-pr-vs-issue-detection.mjs:16:const prResult = await $`gh pr view ${number} --repo ${owner}/${repo} --json number,title`;
+experiments/test-pr-vs-issue-detection.mjs:31:  const issueResult = await $`gh issue view ${number} --repo ${owner}/${repo} --json number,title`;
+experiments/test-comment-id-capture.mjs:23:    const result = await $`gh pr comment ${PR_NUMBER} --repo ${OWNER}/${REPO} --body ${body}`;
+experiments/test-comment-id-capture.mjs:52:    await $`gh api repos/${OWNER}/${REPO}/issues/comments/${commentId} -X PATCH -f body=${body}`;
+experiments/test-screen-integration.mjs:4:import { execSync } from 'child_process';
+experiments/test-screen-integration.mjs:12:  const screenVersion = execSync('screen --version', { encoding: 'utf8' });
+experiments/test-solve-dry-run.mjs:16:import { spawn } from 'child_process';
+experiments/test-solve-dry-run.mjs:33:    const child = spawn('node', [solvePath, ...args], {
+tests/test-hive.mjs:9:import { execSync } from 'child_process';
+tests/test-hive.mjs:34:    return execSync(command, {
+tests/test-hive.mjs:273:    execSync(`timeout 15 ${hivePath} https://github.com/test/test --dry-run --no-sentry --skip-tool-connection-check --once 2>&1 > /dev/null`, {
+tests/test-issue-1774-auto-pr-fork-repo-flag.mjs:27:import { execSync } from 'child_process';
+tests/test-issue-1774-auto-pr-fork-repo-flag.mjs:50:const autoPrContent = execSync(`cat ${srcDir}/solve.auto-pr.lib.mjs`, { encoding: 'utf8' });
+tests/test-issue-1774-auto-pr-fork-repo-flag.mjs:51:const diagnosticContent = execSync(`cat ${srcDir}/solve.auto-pr-fork-diagnostic.lib.mjs`, { encoding: 'utf8' });
+experiments/test-command-stream-types.mjs:21:    const result1 = await $`echo "Hello World"`;
+experiments/test-command-stream-types.mjs:34:    const result2 = await $`gh pr comment 846 --repo link-assistant/hive-mind --body ${testBody}`;
+experiments/test-memory-lowthreshold.mjs:11:    const { stdout } = await $`grep -E "MemAvailable|MemFree|SwapFree|SwapTotal" /proc/meminfo`;
+experiments/test-command-stream-buffer.mjs:23:    const result = await $`gh pr comment ${PR_NUMBER} --repo ${OWNER}/${REPO} --body ${testBody}`;
+experiments/test-session-reuse.mjs:3:import { exec } from 'child_process';
+experiments/test-streaming-fix.mjs:6:import { spawn } from 'child_process';
+experiments/test-streaming-fix.mjs:43:    const child = spawn('node', [testScriptPath], {
+experiments/test-streaming-fix.mjs:119:  console.log('OLD (execSync with stdio: "pipe"):');
+experiments/test-fork-retry-fix.mjs:9:import { execSync } from 'child_process';
+experiments/test-fork-retry-fix.mjs:19:        const output = execSync(command, { encoding: 'utf8', stdio: 'pipe' });
+experiments/solve-with-opencode.mjs:80:  const cloneResult = await $`gh repo clone ${owner}/${repo} ${tempDir}`;
+experiments/solve-with-opencode.mjs:92:  const authSetupResult = await $`cd ${tempDir} && gh auth setup-git 2>&1`;
+experiments/solve-with-opencode.mjs:98:  const defaultBranchResult = await $`cd ${tempDir} && git branch --show-current`;
+experiments/solve-with-opencode.mjs:123:  const statusResult = await $`cd ${tempDir} && git status --porcelain`;
+experiments/solve-with-opencode.mjs:145:  const checkoutResult = await $`cd ${tempDir} && git checkout -b ${branchName}`;
+experiments/solve-with-opencode.mjs:156:  const currentBranchResult = await $`cd ${tempDir} && git branch --show-current`;
+experiments/solve-with-opencode.mjs:235:  const issueInfoResult = await $`gh issue view ${issueUrl} --json updatedAt --jq .updatedAt`;
+experiments/solve-with-opencode.mjs:245:  const commentsResult = await $`gh issue view ${issueUrl} --json comments --jq '.comments[] | .url'`;
+experiments/solve-with-opencode.mjs:250:  const prsResult = await $`gh pr list --repo ${owner}/${repo} --json url --jq '.[].url'`;
+experiments/solve-with-opencode.mjs:288:  // Using execSync to avoid command-stream issues with complex commands
+experiments/solve-with-opencode.mjs:289:  const { execSync } = await import('child_process');
+experiments/solve-with-opencode.mjs:296:    const output = execSync(`cd "${tempDir}" && ${opencodeCommand}`, {
+experiments/solve-with-opencode.mjs:351:  const userResult = await $`gh api user --jq .login`;
+experiments/solve-with-opencode.mjs:357:  const newPrsResult = await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --json number,url,createdAt,headRefName --jq '.'`;
+experiments/solve-with-opencode.mjs:378:      const newCommentsResult = await $`gh issue view ${issueUrl} --json comments --jq '.comments[-1].url // empty'`;
+tests/test-stdio-interceptor-epipe.mjs:3:import { spawnSync } from 'child_process';
+tests/test-stdio-interceptor-epipe.mjs:42:  return spawnSync(process.execPath, ['--input-type=module', '--eval', childScript], {
+tests/test-telegram-bot-version.mjs:12:import { execSync } from 'child_process';
+tests/test-telegram-bot-version.mjs:55:    const result = execSync(cmd, {
+tests/test-telegram-bot-version.mjs:64:    // execSync throws on non-zero exit code, but we still want stdout/stderr
+tests/test-telegram-bot-version.mjs:134:    execSync(`node ${join(projectRoot, 'src', 'telegram-bot.mjs')} --version`, {
+tests/test-issue-1772-proactive-base-sync.mjs:14:import { spawnSync } from 'child_process';
+tests/test-issue-1772-proactive-base-sync.mjs:25:  const result = spawnSync('bash', ['-lc', command], { cwd, encoding: 'utf8' });
+tests/test-issue-1772-proactive-base-sync.mjs:39:      const result = spawnSync('bash', ['-lc', command], { cwd: options?.cwd, encoding: 'utf8' });
+tests/test-hive-screens.mjs:13:import { spawn } from 'node:child_process';
+tests/test-hive-screens.mjs:245://   exec(`screen -S '<s>' -X stuff $'exit\\n'`)
+tests/test-hive-screens.mjs:359:    const child = spawn(process.execPath, ['src/hive-screens.mjs', ...args], { stdio: 'pipe' });
+tests/test-issue-1791-gitkeep-cleanup.mjs:10:import { execFileSync } from 'node:child_process';
+tests/test-issue-1791-gitkeep-cleanup.mjs:21:  return execFileSync('git', args, {
+tests/test-docs-language-sync.mjs:6:import { execFileSync } from 'child_process';
+tests/test-docs-language-sync.mjs:35:    return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+tests/test-issue-1845-failure-auto-commit.mjs:12:// These tests drive handleFailure() with a scriptable command-stream `$` double (no real git
+tests/test-issue-1845-failure-auto-commit.mjs:42:// Scriptable command-stream `$` double: records every command and returns a dirty/clean
+tests/test-telegram-bot-dry-run.mjs:5:import { spawn } from 'child_process';
+tests/test-telegram-bot-dry-run.mjs:20:    const proc = spawn('node', [join(projectRoot, 'src/telegram-bot.mjs'), ...args], {
+tests/test-issue-1829-compare-api-transient.mjs:32:import { execSync } from 'node:child_process';
+tests/test-issue-1829-compare-api-transient.mjs:139:const autoPrContent = execSync(`cat ${srcDir}/solve.auto-pr.lib.mjs`, { encoding: 'utf8' });
+tests/test-issue-1829-compare-api-transient.mjs:140:const readinessContent = execSync(`cat ${srcDir}/solve.auto-pr-compare-readiness.lib.mjs`, { encoding: 'utf8' });
+tests/test-graceful-shutdown-waits-1823.mjs:33:import { spawn } from 'node:child_process';
+tests/test-graceful-shutdown-waits-1823.mjs:61:    const child = spawn(process.execPath, [scriptPath, ...args], {
+tests/test-graceful-shutdown-waits-1823.mjs:205:      const child = spawn(process.execPath, [harnessPath], {
+tests/test-graceful-shutdown-waits-1823.mjs:262:import { spawn } from 'node:child_process';
+tests/test-graceful-shutdown-waits-1823.mjs:265:const child = spawn(process.execPath, [${JSON.stringify(childPath)}, marker], {
+tests/test-graceful-shutdown-waits-1823.mjs:282:      const harness = spawn(process.execPath, [harnessPath], {
+tests/test-prompt-file-location.mjs:8:import { execSync } from 'child_process';
+tests/test-prompt-file-location.mjs:109:    execSync(`echo "test" > "${testFilePath}"`);
+tests/test-prompt-file-location.mjs:115:      execSync(`rm "${testFilePath}"`);
+tests/test-issue-1772-fork-custom-base-branch.mjs:13:import { spawnSync } from 'child_process';
+tests/test-issue-1772-fork-custom-base-branch.mjs:27:  const result = spawnSync('bash', ['-lc', command], {
+tests/test-issue-1772-fork-custom-base-branch.mjs:47:      const result = spawnSync('bash', ['-lc', command], {
+tests/test-agents-md-claude-support.mjs:4:import { execFileSync } from 'child_process';
+tests/test-agents-md-claude-support.mjs:19:      const stdout = execFileSync('bash', ['-lc', command], {
+tests/test-agents-md-claude-support.mjs:46:  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();

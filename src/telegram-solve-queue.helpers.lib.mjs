@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
+import { commandStreamExec } from './command-stream-exec.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
 
-const execAsync = promisify(exec);
+const execAsync = commandStreamExec;
 
 /**
  * Build a clickable, human-readable link to a queued issue/PR for the

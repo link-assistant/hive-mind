@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { commandStreamExec } from './command-stream-exec.lib.mjs';
 
-const execAsync = promisify(exec);
+const execAsync = commandStreamExec;
 
 // Git-related library functions for hive-mind project
 

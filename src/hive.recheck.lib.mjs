@@ -5,7 +5,7 @@ import { log, cleanErrorMessage } from './lib.mjs';
 import { batchCheckPullRequestsForIssues, batchCheckArchivedRepositories } from './github.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { execGhWithRetry, wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 /**
  * Recheck conditions for an issue right before processing
  * This ensures the issue should still be processed even if conditions changed since queuing
@@ -29,10 +29,8 @@ export async function recheckIssueConditions(issueUrl, argv) {
 
     // Check 1: Verify issue is still open
     try {
-      const { execSync } = await import('child_process');
-      const issueState = execSync(`gh api repos/${owner}/${repo}/issues/${issueNum} --jq .state`, {
-        encoding: 'utf8',
-      }).trim();
+      const { stdout } = await execGhWithRetry(`gh api repos/${owner}/${repo}/issues/${issueNum} --jq .state`, { label: `recheck issue #${issueNum}` });
+      const issueState = stdout.trim();
 
       if (issueState === 'closed') {
         return {

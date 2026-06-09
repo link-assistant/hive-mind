@@ -11,14 +11,9 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
 
-import { promisify } from 'util';
-import { exec as execCallback } from 'child_process';
-
-const execRaw = promisify(execCallback);
-
 import { parseGitHubUrl } from './github.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -33,8 +28,8 @@ import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 // caller — they MUST NOT be swallowed as in the original /merge bug where a
 // rate-limit error was silently treated as "no workflows".
 const exec = (cmd, opts = {}) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, { maxBuffer: githubLimits.bufferMaxSize, ...opts }), {
-    label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
+  execGhWithRetry(cmd, {
+    execOptions: { maxBuffer: githubLimits.bufferMaxSize, ...opts },
   });
 
 // Issue #1413: Import ready tag sync, timeline, and label constant from separate module

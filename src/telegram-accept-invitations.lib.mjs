@@ -16,16 +16,10 @@
  * @see https://docs.github.com/en/rest/orgs/members
  */
 
-import { promisify } from 'util';
-import { exec as execCallback } from 'child_process';
-import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 
-const execRaw = promisify(execCallback);
 // Issue #1726: rate-limit safe gh wrapper.
-const exec = (cmd, opts) =>
-  ghWithRateLimitRetry(() => execRaw(cmd, opts), {
-    label: `gh exec (${cmd.split(/\s+/).slice(0, 3).join(' ')})`,
-  });
+const exec = (cmd, opts) => execGhWithRetry(cmd, { execOptions: opts });
 
 /**
  * Escapes special characters in text for Telegram Markdown formatting

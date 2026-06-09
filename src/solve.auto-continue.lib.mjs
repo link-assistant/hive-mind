@@ -92,7 +92,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const nextAutoResumeIteration = currentAutoResumeIteration + 1;
     const resetTime = global.limitResetTime;
     const timezone = global.limitTimezone || null;
-    const baseWaitMs = calculateWaitTime(resetTime);
+    const baseWaitMs = calculateWaitTime(resetTime, timezone);
 
     // Add buffer time after limit reset to account for server time differences
     // Default: 10 minutes (configurable via HIVE_MIND_LIMIT_RESET_BUFFER_MS)

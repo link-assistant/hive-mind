@@ -271,6 +271,48 @@ const isMythosPreview = model => {
 };
 
 /**
+ * Check if a model is Claude Fable 5 (Issue #1875)
+ * Fable 5 (`claude-fable-5`) is Anthropic's most capable widely released model
+ * (generally available June 9, 2026). It is a Mythos-class model wrapped in safety
+ * classifiers that can refuse high-risk requests (returning stop_reason "refusal")
+ * and fall back to Claude Opus 4.8.
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model is Claude Fable 5
+ */
+export const isFable5 = model => {
+  if (!model) return false;
+  const m = model.toLowerCase();
+  return m === 'fable' || m === 'fable-5' || m.includes('fable-5') || m.includes('fable5');
+};
+
+/**
+ * Check if a model is Claude Mythos 5 (Issue #1875)
+ * Mythos 5 (`claude-mythos-5`) shares Fable 5's capabilities without the safety
+ * classifiers and is offered in limited availability via Project Glasswing.
+ * Distinct from Claude Mythos Preview (see isMythosPreview): Mythos 5 additionally
+ * supports the `xhigh` effort level.
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model is Claude Mythos 5
+ */
+export const isMythos5 = model => {
+  if (!model) return false;
+  const m = model.toLowerCase();
+  return m === 'mythos-5' || m.includes('mythos-5') || m.includes('mythos5');
+};
+
+/**
+ * Check if a model is Claude Fable 5 or Claude Mythos 5 (Issue #1875)
+ * Both share the same Messages API constraints: the effort parameter is supported
+ * across low/medium/high/xhigh/max (default high), adaptive thinking is always on
+ * (extended/manual thinking is unavailable and `thinking: {type: "disabled"}` is
+ * rejected), the context window is 1M tokens, and max output is 128k tokens.
+ * See: https://platform.claude.com/docs/en/about-claude/models/introducing-claude-fable-5-and-claude-mythos-5
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model is Claude Fable 5 or Claude Mythos 5
+ */
+export const isFable5OrMythos5 = model => isFable5(model) || isMythos5(model);
+
+/**
  * Check if a model supports CLAUDE_CODE_EFFORT_LEVEL (Issue #1238, Issue #1620)
  * Official effort support: Claude Mythos Preview, Opus 4.7, Opus 4.6, Sonnet 4.6, and Opus 4.5.
  * Haiku 4.5 and older models use MAX_THINKING_TOKENS only.
@@ -279,32 +321,36 @@ const isMythosPreview = model => {
  */
 export const supportsEffortLevel = model => {
   if (!model) return false;
-  return isMythosPreview(model) || isOpus47OrLater(model) || isOpus46(model) || isSonnet46OrLater(model) || isOpus45(model);
+  return isFable5OrMythos5(model) || isMythosPreview(model) || isOpus47OrLater(model) || isOpus46(model) || isSonnet46OrLater(model) || isOpus45(model);
 };
 
 /**
  * Check if a model supports the xhigh effort level.
- * Official docs list xhigh for Claude Opus 4.7 and Opus 4.8 (Issue #1832).
+ * Official docs list xhigh for Claude Fable 5, Claude Mythos 5, Claude Opus 4.7,
+ * and Opus 4.8 (Issue #1832, Issue #1875).
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model supports xhigh effort
  */
-export const supportsXHighEffortLevel = model => isOpus47(model);
+export const supportsXHighEffortLevel = model => isFable5OrMythos5(model) || isOpus47(model);
 
 /**
  * Check if a model supports the max effort level.
- * Official docs list max for Claude Mythos Preview, Opus 4.7, Opus 4.6, and Sonnet 4.6.
+ * Official docs list max for Claude Fable 5, Claude Mythos 5, Claude Mythos Preview,
+ * Opus 4.7, Opus 4.6, and Sonnet 4.6 (Issue #1875).
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model supports max effort
  */
-export const supportsMaxEffortLevel = model => isMythosPreview(model) || isOpus47OrLater(model) || isOpus46(model) || isSonnet46OrLater(model);
+export const supportsMaxEffortLevel = model => isFable5OrMythos5(model) || isMythosPreview(model) || isOpus47OrLater(model) || isOpus46(model) || isSonnet46OrLater(model);
 
 /**
- * Get the max output tokens for a specific model (Issue #1221)
+ * Get the max output tokens for a specific model (Issue #1221, Issue #1875)
+ * Claude Fable 5 and Claude Mythos 5 support up to 128k output tokens, matching
+ * the Opus 4.6+ ceiling.
  * @param {string} model - The model name or ID
  * @returns {number} The max output tokens for the model
  */
 export const getMaxOutputTokensForModel = model => {
-  if (isOpus46OrLater(model)) {
+  if (isOpus46OrLater(model) || isFable5OrMythos5(model)) {
     return claudeCode.maxOutputTokensOpus46;
   }
   return claudeCode.maxOutputTokens;
@@ -479,11 +525,14 @@ export const getClaudeEnv = (options = {}) => {
 
   // Opus 4.7+ always uses adaptive thinking — MAX_THINKING_TOKENS has no effect (Issue #1620, Issue #1832)
   // Opus 4.8 inherits this constraint: adaptive thinking is the only thinking mode.
+  // Claude Fable 5 and Claude Mythos 5 are adaptive-thinking-only too: extended/manual
+  // thinking is unavailable and `thinking: {type: "disabled"}` is rejected, so a
+  // MAX_THINKING_TOKENS=0 would be invalid for them (Issue #1875).
   // For Opus 4.6 and earlier, MAX_THINKING_TOKENS controls extended thinking (Claude Code >= 2.1.12)
   // Default is 0 (thinking disabled) per Issue #1238.
-  const opus47 = options.model && isOpus47OrLater(options.model);
-  if (opus47) {
-    // Remove any inherited MAX_THINKING_TOKENS from process.env — Opus 4.7+ ignores it
+  const adaptiveThinkingOnly = options.model && (isOpus47OrLater(options.model) || isFable5OrMythos5(options.model));
+  if (adaptiveThinkingOnly) {
+    // Remove any inherited MAX_THINKING_TOKENS from process.env — these models ignore it
     delete env.MAX_THINKING_TOKENS;
   } else {
     env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);

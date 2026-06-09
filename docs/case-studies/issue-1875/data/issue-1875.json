@@ -1,0 +1,13 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "https://platform.claude.com/docs/en/about-claude/models/overview\n\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "createdAt": "2026-06-09T17:46:41Z",
+  "labels": [
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6jw", "name": "documentation", "description": "Improvements or additions to documentation", "color": "0075ca" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6mA", "name": "enhancement", "description": "New feature or request", "color": "a2eeef" }
+  ],
+  "number": 1875,
+  "state": "OPEN",
+  "title": "Add support for Claude Fable 5",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1875"
+}

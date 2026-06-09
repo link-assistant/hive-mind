@@ -28,7 +28,8 @@ const execFileAsync = promisify(execFile);
 // ─── MODEL DATA ──────────────────────────────────────────────────────────────
 
 // Claude models (Anthropic API)
-// Updated for Opus 4.5/4.6/4.7/4.8 and Sonnet 4.6 support (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832)
+// Updated for Opus 4.5/4.6/4.7/4.8, Sonnet 4.6, and Fable 5 / Mythos 5 support
+// (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875)
 export const claudeModels = {
   sonnet: 'claude-sonnet-4-6', // Sonnet 4.6 (default, Issue #1329)
   opus: 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
@@ -36,6 +37,13 @@ export const claudeModels = {
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
   opusplan: 'opusplan', // Special mode: Opus for planning, Sonnet for execution (Issue #1223)
+  // Claude Fable 5 — Anthropic's most capable widely released (Mythos-class) model, GA 2026-06-09 (Issue #1875)
+  fable: 'claude-fable-5', // Fable 5 alias
+  'fable-5': 'claude-fable-5', // Fable 5 short alias
+  'claude-fable-5': 'claude-fable-5', // Fable 5 full ID
+  // Claude Mythos 5 — shares Fable 5's capabilities without safety classifiers; limited availability (Project Glasswing) (Issue #1875)
+  'mythos-5': 'claude-mythos-5', // Mythos 5 short alias
+  'claude-mythos-5': 'claude-mythos-5', // Mythos 5 full ID
   // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
   'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
   'opus-4-8': 'claude-opus-4-8', // Opus 4.8 short alias (Issue #1832)
@@ -180,6 +188,11 @@ export const defaultModels = {
 // Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329, Issue #1832)
 // See: https://code.claude.com/docs/en/model-config
 export const MODELS_SUPPORTING_1M_CONTEXT = [
+  'claude-fable-5', // Fable 5 — 1M context by default (Issue #1875)
+  'claude-mythos-5', // Mythos 5 — 1M context by default (Issue #1875)
+  'fable', // Fable 5 alias (Issue #1875)
+  'fable-5', // Fable 5 short alias (Issue #1875)
+  'mythos-5', // Mythos 5 short alias (Issue #1875)
   'claude-opus-4-8', // Opus 4.8 (Issue #1832)
   'claude-opus-4-7', // Opus 4.7 (Issue #1620)
   'claude-opus-4-6',
@@ -220,6 +233,8 @@ export const freeToBaseModelMap = {
 
 export const CLAUDE_MODELS = {
   ...claudeModels,
+  'claude-fable-5': 'claude-fable-5', // Fable 5 full ID (Issue #1875)
+  'claude-mythos-5': 'claude-mythos-5', // Mythos 5 full ID (Issue #1875)
   'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 full ID (Issue #1832)
   'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 full ID (Issue #1620)
   'claude-sonnet-4-5-20250929': 'claude-sonnet-4-5-20250929',
@@ -450,7 +465,7 @@ export const getValidModelsForTool = tool => {
 // Primary (non-alias, non-deprecated) short names shown in CLI help descriptions
 // These are the recommended model names users should see in --model help text
 export const primaryModelNames = {
-  claude: ['opus', 'sonnet', 'haiku', 'opusplan'],
+  claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable'],
   opencode: ['grok', 'gpt4o'],
   codex: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark'],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
@@ -994,6 +1009,13 @@ export const resolveModelId = (requestedModel, tool) => {
 
 export const defaultFallbackModels = {
   claude: {
+    // Claude Fable 5's safety classifiers can refuse high-risk requests and hand them
+    // off to Claude Opus 4.8; mirror that documented fallback here (Issue #1875).
+    // See: https://platform.claude.com/docs/en/about-claude/models/introducing-claude-fable-5-and-claude-mythos-5
+    'claude-fable-5': 'opus',
+    // Claude Mythos 5 (limited availability) falls back to the generally available
+    // Mythos-class model, Claude Fable 5 (Issue #1875).
+    'claude-mythos-5': 'fable',
     'claude-opus-4-8': 'opus-4-7',
     'claude-opus-4-7': 'opus-4-6',
   },

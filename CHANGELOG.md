@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 1.74.7
+
+### Patch Changes
+
+- 8ea7110: Document the issue #1858 case study and add an experimental private Telegram
+  `/auth` command for allowlisted chat owners to check or start GitHub, Claude,
+  and Codex auth flows.
+
 ## 1.74.6
 
 ### Patch Changes

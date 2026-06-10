@@ -1,0 +1,140 @@
+[2026-06-09T22:58:27.493Z] [INFO]     "stop_reason": "stop_sequence",
+[2026-06-09T22:58:27.493Z] [INFO]     "stop_sequence": "",
+[2026-06-09T22:58:27.493Z] [INFO]     "type": "message",
+[2026-06-09T22:58:27.493Z] [INFO]     "usage": {
+[2026-06-09T22:58:27.493Z] [INFO]       "input_tokens": 0,
+[2026-06-09T22:58:27.493Z] [INFO]       "output_tokens": 0,
+[2026-06-09T22:58:27.493Z] [INFO]       "cache_creation_input_tokens": 0,
+[2026-06-09T22:58:27.493Z] [INFO]       "cache_read_input_tokens": 0,
+[2026-06-09T22:58:27.493Z] [INFO]       "server_tool_use": {
+[2026-06-09T22:58:27.493Z] [INFO]         "web_search_requests": 0,
+[2026-06-09T22:58:27.493Z] [INFO]         "web_fetch_requests": 0
+[2026-06-09T22:58:27.493Z] [INFO]       },
+[2026-06-09T22:58:27.493Z] [INFO]       "service_tier": null,
+[2026-06-09T22:58:27.493Z] [INFO]       "cache_creation": {
+[2026-06-09T22:58:27.493Z] [INFO]         "ephemeral_1h_input_tokens": 0,
+[2026-06-09T22:58:27.493Z] [INFO]         "ephemeral_5m_input_tokens": 0
+[2026-06-09T22:58:27.493Z] [INFO]       },
+[2026-06-09T22:58:27.493Z] [INFO]       "inference_geo": null,
+[2026-06-09T22:58:27.493Z] [INFO]       "iterations": null,
+[2026-06-09T22:58:27.493Z] [INFO]       "speed": null
+[2026-06-09T22:58:27.493Z] [INFO]     },
+[2026-06-09T22:58:27.493Z] [INFO]     "content": [
+[2026-06-09T22:58:27.493Z] [INFO]       {
+[2026-06-09T22:58:27.493Z] [INFO]         "type": "text",
+[2026-06-09T22:58:27.493Z] [INFO]         "text": "API Error: The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()"
+[2026-06-09T22:58:27.493Z] [INFO]       }
+[2026-06-09T22:58:27.493Z] [INFO]     ],
+[2026-06-09T22:58:27.493Z] [INFO]     "context_management": null
+[2026-06-09T22:58:27.493Z] [INFO]   },
+[2026-06-09T22:58:27.493Z] [INFO]   "parent_tool_use_id": null,
+[2026-06-09T22:58:27.493Z] [INFO]   "session_id": "4ce7b9de-6fcd-4925-94c8-b49db36dbbe8",
+[2026-06-09T22:58:27.493Z] [INFO]   "uuid": "00d79e43-9c9b-4c59-a2f0-a91e58af9b83",
+[2026-06-09T22:58:27.493Z] [INFO]   "error": "unknown",
+[2026-06-09T22:58:27.493Z] [INFO]   "request_id": "req_011CbtWcSC6zFrUKcqDMHaoP"
+[2026-06-09T22:58:27.493Z] [INFO] }
+[2026-06-09T22:58:27.494Z] [INFO] {
+[2026-06-09T22:58:27.494Z] [INFO]   "type": "result",
+[2026-06-09T22:58:27.494Z] [INFO]   "subtype": "success",
+[2026-06-09T22:58:27.494Z] [INFO]   "is_error": true,
+[2026-06-09T22:58:27.494Z] [INFO]   "api_error_status": null,
+[2026-06-09T22:58:27.494Z] [INFO]   "duration_ms": 634348,
+[2026-06-09T22:58:27.494Z] [INFO]   "duration_api_ms": 1170596,
+[2026-06-09T22:58:27.494Z] [INFO]   "num_turns": 35,
+[2026-06-09T22:58:27.494Z] [INFO]   "result": "API Error: The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()",
+[2026-06-09T22:58:27.494Z] [INFO]   "stop_reason": "stop_sequence",
+[2026-06-09T22:58:27.494Z] [INFO]   "session_id": "4ce7b9de-6fcd-4925-94c8-b49db36dbbe8",
+[2026-06-09T22:58:27.494Z] [INFO]   "total_cost_usd": 5.2768862500000004,
+[2026-06-09T22:58:27.494Z] [INFO]   "usage": {
+[2026-06-09T22:58:27.494Z] [INFO]     "input_tokens": 11940,
+[2026-06-09T22:58:27.494Z] [INFO]     "cache_creation_input_tokens": 86984,
+[2026-06-09T22:58:27.494Z] [INFO]     "cache_read_input_tokens": 363675,
+[2026-06-09T22:58:27.494Z] [INFO]     "output_tokens": 10529,
+[2026-06-09T22:58:27.494Z] [INFO]     "server_tool_use": {
+[2026-06-09T22:58:27.494Z] [INFO]       "web_search_requests": 0,
+[2026-06-09T22:58:27.494Z] [INFO]       "web_fetch_requests": 0
+[2026-06-09T22:58:27.494Z] [INFO]     },
+[2026-06-09T22:58:27.494Z] [INFO]     "service_tier": "standard",
+[2026-06-09T22:58:27.494Z] [INFO]     "cache_creation": {
+[2026-06-09T22:58:27.494Z] [INFO]       "ephemeral_1h_input_tokens": 86984,
+[2026-06-09T22:58:27.494Z] [INFO]       "ephemeral_5m_input_tokens": 0
+[2026-06-09T22:58:27.494Z] [INFO]     },
+[2026-06-09T22:58:27.494Z] [INFO]     "inference_geo": "not_available",
+[2026-06-09T22:58:27.494Z] [INFO]     "iterations": [
+[2026-06-09T22:58:27.494Z] [INFO]       {
+[2026-06-09T22:58:27.494Z] [INFO]         "input_tokens": 296,
+[2026-06-09T22:58:27.494Z] [INFO]         "output_tokens": 1376,
+[2026-06-09T22:58:27.494Z] [INFO]         "cache_read_input_tokens": 73366,
+[2026-06-09T22:58:27.494Z] [INFO]         "cache_creation_input_tokens": 6892,
+[2026-06-09T22:58:27.494Z] [INFO]         "cache_creation": {
+[2026-06-09T22:58:27.494Z] [INFO]           "ephemeral_5m_input_tokens": 0,
+[2026-06-09T22:58:27.494Z] [INFO]           "ephemeral_1h_input_tokens": 6892
+[2026-06-09T22:58:27.494Z] [INFO]         },
+[2026-06-09T22:58:27.494Z] [INFO]         "type": "message"
+[2026-06-09T22:58:27.494Z] [INFO]       }
+[2026-06-09T22:58:27.494Z] [INFO]     ],
+[2026-06-09T22:58:27.494Z] [INFO]     "speed": "standard"
+[2026-06-09T22:58:27.494Z] [INFO]   },
+[2026-06-09T22:58:27.494Z] [INFO]   "modelUsage": {
+[2026-06-09T22:58:27.494Z] [INFO]     "claude-opus-4-8": {
+[2026-06-09T22:58:27.494Z] [INFO]       "inputTokens": 33208,
+[2026-06-09T22:58:27.494Z] [INFO]       "outputTokens": 64997,
+[2026-06-09T22:58:27.494Z] [INFO]       "cacheReadInputTokens": 1588767,
+[2026-06-09T22:58:27.494Z] [INFO]       "cacheCreationInputTokens": 253063,
+[2026-06-09T22:58:27.494Z] [INFO]       "webSearchRequests": 0,
+[2026-06-09T22:58:27.494Z] [INFO]       "costUSD": 4.16699225,
+[2026-06-09T22:58:27.494Z] [INFO]       "contextWindow": 200000,
+[2026-06-09T22:58:27.494Z] [INFO]       "maxOutputTokens": 64000
+[2026-06-09T22:58:27.494Z] [INFO]     },
+[2026-06-09T22:58:27.494Z] [INFO]     "claude-haiku-4-5-20251001": {
+[2026-06-09T22:58:27.494Z] [INFO]       "inputTokens": 786749,
+[2026-06-09T22:58:27.494Z] [INFO]       "outputTokens": 22629,
+[2026-06-09T22:58:27.494Z] [INFO]       "cacheReadInputTokens": 0,
+[2026-06-09T22:58:27.494Z] [INFO]       "cacheCreationInputTokens": 0,
+[2026-06-09T22:58:27.494Z] [INFO]       "webSearchRequests": 21,
+[2026-06-09T22:58:27.494Z] [INFO]       "costUSD": 1.1098940000000004,
+[2026-06-09T22:58:27.494Z] [INFO]       "contextWindow": 200000,
+[2026-06-09T22:58:27.494Z] [INFO]       "maxOutputTokens": 32000
+[2026-06-09T22:58:27.494Z] [INFO]     }
+[2026-06-09T22:58:27.494Z] [INFO]   },
+[2026-06-09T22:58:27.494Z] [INFO]   "permission_denials": [],
+[2026-06-09T22:58:27.494Z] [INFO]   "terminal_reason": "completed",
+[2026-06-09T22:58:27.494Z] [INFO]   "fast_mode_state": "off",
+[2026-06-09T22:58:27.494Z] [INFO]   "uuid": "800302fb-c1c4-4036-ada7-cc1bb6d8b8bd"
+[2026-06-09T22:58:27.494Z] [INFO] }
+[2026-06-09T22:58:27.495Z] [INFO] 📌 Result event received, starting 30s stream close timeout (Issue #1280)
+[2026-06-09T22:58:27.495Z] [INFO] 💰 Anthropic official cost captured from success result: $5.276886
+[2026-06-09T22:58:27.495Z] [INFO] 📝 Captured result summary from Claude output
+[2026-06-09T22:58:27.495Z] [INFO] 📊 Session num_turns: 35
+[2026-06-09T22:58:27.495Z] [INFO] ⚠️ Detected error from Claude CLI (subtype: success)
+[2026-06-09T22:58:27.884Z] [INFO] ✅ Stream closed normally after result event
+[2026-06-09T22:58:27.884Z] [INFO] ⚠️ Updated exit code from command result: 1
+[2026-06-09T22:58:27.885Z] [ERROR] 
+[2026-06-09T22:58:27.885Z] [ERROR] 
+[2026-06-09T22:58:27.885Z] [ERROR] ❌ Claude command failed with exit code 1
+[2026-06-09T22:58:27.885Z] [INFO] 📌 Session ID: 4ce7b9de-6fcd-4925-94c8-b49db36dbbe8
+[2026-06-09T22:58:27.885Z] [INFO] 
+[2026-06-09T22:58:27.885Z] [INFO] 💡 To continue this session:
+[2026-06-09T22:58:27.885Z] [INFO] 
+[2026-06-09T22:58:27.885Z] [INFO]    Interactive mode:    (cd "/tmp/gh-issue-solver-1781045252755" && claude --resume 4ce7b9de-6fcd-4925-94c8-b49db36dbbe8 --model opus)
+[2026-06-09T22:58:27.885Z] [INFO] 
+[2026-06-09T22:58:27.885Z] [INFO]    Autonomous mode:     (cd "/tmp/gh-issue-solver-1781045252755" && claude --resume 4ce7b9de-6fcd-4925-94c8-b49db36dbbe8 --output-format stream-json --dangerously-skip-permissions --model opus -p "Continue.")
+[2026-06-09T22:58:27.885Z] [INFO] 
+[2026-06-09T22:58:27.898Z] [INFO] 
+[2026-06-09T22:58:27.898Z] [INFO] 📈 System resources after execution:
+[2026-06-09T22:58:27.899Z] [INFO]    Memory: MemFree:         1244916 kB
+[2026-06-09T22:58:27.899Z] [INFO]    Load: 2.14 2.05 1.46 2/425 520264
+[2026-06-09T22:58:27.899Z] [INFO] 
+[2026-06-09T22:58:27.899Z] [INFO] 💡 To continue this session:
+[2026-06-09T22:58:27.899Z] [INFO] 
+[2026-06-09T22:58:27.899Z] [INFO]    Interactive mode:    (cd "/tmp/gh-issue-solver-1781045252755" && claude --resume 4ce7b9de-6fcd-4925-94c8-b49db36dbbe8 --model opus)
+[2026-06-09T22:58:27.899Z] [INFO] 
+[2026-06-09T22:58:27.899Z] [INFO]    Autonomous mode:     (cd "/tmp/gh-issue-solver-1781045252755" && claude --resume 4ce7b9de-6fcd-4925-94c8-b49db36dbbe8 --output-format stream-json --dangerously-skip-permissions --model opus -p "Continue.")
+[2026-06-09T22:58:27.899Z] [INFO] 
+[2026-06-09T22:58:27.900Z] [INFO] 
+[2026-06-09T22:58:27.900Z] [INFO] 💡 To continue this session:
+[2026-06-09T22:58:27.900Z] [INFO]    Interactive mode:    (cd "/tmp/gh-issue-solver-1781045252755" && claude --resume 4ce7b9de-6fcd-4925-94c8-b49db36dbbe8 --model opus)
+[2026-06-09T22:58:27.900Z] [INFO]    Autonomous mode:     (cd "/tmp/gh-issue-solver-1781045252755" && claude --resume 4ce7b9de-6fcd-4925-94c8-b49db36dbbe8 --output-format stream-json --dangerously-skip-permissions --model opus -p "Continue.")
+[2026-06-09T22:58:27.900Z] [INFO] 
+[2026-06-09T22:58:27.900Z] [INFO] 
+[2026-06-09T22:58:27.900Z] [INFO] 📄 Attaching failure logs to Pull Request...

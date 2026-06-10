@@ -17,6 +17,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { createEmptySubSessionUsage, accumulateModelUsage, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage, getRawRequestInputTokens, displaySessionTokenUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
+import { seedCumulativeAnthropicCost, addAnthropicRunCost } from './anthropic-cost-accumulator.lib.mjs'; // Issue #1886
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
@@ -657,6 +658,9 @@ export const executeClaudeCommand = async params => {
     let stderrErrors = [];
     let resultSuccessReceived = false;
     let anthropicTotalCostUSD = null;
+    // Issue #1886: a usage-limit hit ends as is_error (no success result). Keep
+    // the latest cost from ANY result event as a fallback for the failure path.
+    let anthropicCostFromAnyResult = null;
     let errorDuringExecution = false;
     let resultSummary = null;
     let resultModelUsage = null;
@@ -937,7 +941,10 @@ export const executeClaudeCommand = async params => {
                   anthropicTotalCostUSD = data.total_cost_usd;
                   await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
                 } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
-                  await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result ignored: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
+                  // Issue #1886: non-success terminal (e.g. usage-limit hit) still
+                  // reports this process's cost — keep as accumulation fallback.
+                  anthropicCostFromAnyResult = data.total_cost_usd;
+                  await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result kept as fallback for accumulation: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
                 }
                 // Issue #1263: Extract result summary (AI's summary of work done) for --attach-solution-summary
                 if (data.subtype === 'success' && data.result && typeof data.result === 'string') {
@@ -1101,6 +1108,10 @@ export const executeClaudeCommand = async params => {
           await log(JSON.stringify(data, null, 2));
           if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
             anthropicTotalCostUSD = data.total_cost_usd;
+          } else if (data.type === 'result' && data.total_cost_usd != null) {
+            // Issue #1886: keep a non-success terminal result's cost as a fallback
+            // for accumulation (see the streaming branch above).
+            anthropicCostFromAnyResult = data.total_cost_usd;
           }
           // Issue #1472: Forward remaining buffer event to interactive handler (was previously missed)
           if (interactiveHandler) {
@@ -1182,6 +1193,10 @@ export const executeClaudeCommand = async params => {
           await log(`\n\n❌ API explicitly marked error as not retryable (x-should-retry: false) and session made no progress (num_turns=${resultNumTurns}) after ${retryCount} attempt(s)`, { level: 'error' });
           await log(`   This error is not recoverable. Failing fast to avoid a stuck retry loop (Issue #1437).`, { level: 'error' });
           await log(`   Check https://status.anthropic.com/ for API status.`, { level: 'error' });
+          // Issue #1886: fold captured cost so a cross-process resume's carried-
+          // forward cost is not dropped on this terminal failure path.
+          seedCumulativeAnthropicCost(argv.previousAnthropicCost);
+          const cumulativeAnthropicCostUSDOnStuckRetry = addAnthropicRunCost(anthropicTotalCostUSD ?? anthropicCostFromAnyResult);
           return {
             success: false,
             sessionId,
@@ -1191,7 +1206,7 @@ export const executeClaudeCommand = async params => {
             messageCount,
             toolUseCount,
             is503Error,
-            anthropicTotalCostUSD,
+            anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnStuckRetry, // Issue #1104/#1886
             resultSummary,
             // Issue #1845: surface the actual error so callers can show it to users
             errorInfo: { message: lastMessage || 'API explicitly marked error as not retryable', exitCode },
@@ -1228,6 +1243,10 @@ export const executeClaudeCommand = async params => {
           return await executeWithRetry();
         } else {
           await log(`\n\n❌ Transient API error persisted after ${maxRetries} retries\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
+          // Issue #1886: fold captured cost so the carried-forward cost survives
+          // this terminal retries-exhausted failure path.
+          seedCumulativeAnthropicCost(argv.previousAnthropicCost);
+          const cumulativeAnthropicCostUSDOnRetriesExhausted = addAnthropicRunCost(anthropicTotalCostUSD ?? anthropicCostFromAnyResult);
           return {
             success: false,
             sessionId,
@@ -1237,7 +1256,7 @@ export const executeClaudeCommand = async params => {
             messageCount,
             toolUseCount,
             is503Error, // preserve for callers that check this
-            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+            anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnRetriesExhausted, // Issue #1104/#1886: Include cumulative cost even on failure
             resultSummary, // Issue #1263: Include result summary
             // Issue #1845: surface the actual error so callers can show it to users
             errorInfo: { message: lastMessage || `Transient API error persisted after ${maxRetries} retries`, exitCode },
@@ -1289,6 +1308,12 @@ export const executeClaudeCommand = async params => {
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
         await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
+        // Issue #1886: on failure (typically a usage-limit hit that triggers an
+        // auto-resume) fold the captured cost into the cumulative total so
+        // autoContinueWhenLimitResets carries the full running total forward. A
+        // limit hit ends as is_error, so fall back to the non-success result cost.
+        seedCumulativeAnthropicCost(argv.previousAnthropicCost);
+        const cumulativeAnthropicCostUSDOnFailure = addAnthropicRunCost(anthropicTotalCostUSD ?? anthropicCostFromAnyResult);
         return {
           success: false,
           sessionId,
@@ -1298,7 +1323,7 @@ export const executeClaudeCommand = async params => {
           messageCount,
           toolUseCount,
           errorDuringExecution,
-          anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+          anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnFailure, // Issue #1104/#1886: cumulative cost even on failure
           resultSummary, // Issue #1263: Include result summary
           // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content
           // filtering policy") so users see what actually went wrong, not just a generic message.
@@ -1317,7 +1342,14 @@ export const executeClaudeCommand = async params => {
       await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
       // Calculate and display total token usage from session JSONL file.
       // Extracted to claude.budget-stats.lib.mjs to keep this file under the line limit (Issue #1834).
-      await displaySessionTokenUsage({ sessionId, tempDir, resultModelUsage, anthropicTotalCostUSD, argv, log });
+      // Issue #1886: the session JSONL spans every resume iteration but each
+      // result event's total_cost_usd covers only the current process. Seed from
+      // the carried-forward cost, add this process's cost; the cumulative total
+      // shares the JSONL's scope and is carried into the next resumed process.
+      seedCumulativeAnthropicCost(argv.previousAnthropicCost);
+      const cumulativeAnthropicCostUSD = addAnthropicRunCost(anthropicTotalCostUSD);
+      const previousAnthropicCostUSD = cumulativeAnthropicCostUSD - (anthropicTotalCostUSD || 0);
+      await displaySessionTokenUsage({ sessionId, tempDir, resultModelUsage, anthropicTotalCostUSD: cumulativeAnthropicCostUSD, previousAnthropicCostUSD, argv, log });
       await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
       return {
         success: true,
@@ -1327,7 +1359,7 @@ export const executeClaudeCommand = async params => {
         limitTimezone,
         messageCount,
         toolUseCount,
-        anthropicTotalCostUSD, // Pass Anthropic's official total cost
+        anthropicTotalCostUSD: cumulativeAnthropicCostUSD, // Issue #1104/#1886: cumulative Anthropic cost across resume iterations
         errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
         resultSummary, // Issue #1263: Include result summary for --attach-solution-summary
         resultModelUsage, // Issue #1454
@@ -1373,6 +1405,10 @@ export const executeClaudeCommand = async params => {
         }
       }
       await log(`\n\n❌ Error executing Claude command: ${error.message}`, { level: 'error' });
+      // Issue #1886: fold captured cost so the carried-forward cost survives this
+      // terminal exception path too.
+      seedCumulativeAnthropicCost(argv.previousAnthropicCost);
+      const cumulativeAnthropicCostUSDOnException = addAnthropicRunCost(anthropicTotalCostUSD ?? anthropicCostFromAnyResult);
       return {
         success: false,
         sessionId,
@@ -1381,7 +1417,7 @@ export const executeClaudeCommand = async params => {
         limitTimezone: null,
         messageCount,
         toolUseCount,
-        anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+        anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnException, // Issue #1104/#1886: Include cumulative cost even on failure
         resultSummary, // Issue #1263: Include result summary
         // Issue #1845: surface the actual exception message so callers can show it to users
         errorInfo: { message: error.message || error.toString() },

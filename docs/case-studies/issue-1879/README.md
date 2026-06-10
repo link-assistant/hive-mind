@@ -126,7 +126,7 @@ empty-store pull, but it is a precondition for reliable reuse and reproducibilit
 - **box native host-image passthrough** (box v2.2.0, `DIND_HOST_PASSTHROUGH`) — copies host
   images into the nested daemon at entrypoint startup; `public` mode is secret-safe. This is the
   durable, zero-manual-step fix and is now the **primary** recommendation (see runbook). It
-  became available *after* the initial preload-helper solution was written, by way of box#94.
+  became available _after_ the initial preload-helper solution was written, by way of box#94.
 - **`docker save | docker load`** (built-in) — the simplest, dependency-free way to copy an
   image from the host daemon into the nested daemon. Chosen for the preload helper, retained as
   the exact per-image fallback when mounting the host socket is undesirable.
@@ -212,7 +212,7 @@ Hub during provisioning) land in the nested daemon, while private images and reg
 stay on the host. The subsequent `docker run … konard/hive-mind-dind:<tag>` inside the container
 then finds the image locally and does **not** re-download it.
 
-> **Scope note:** `public` mode passes through *all* public host images, not just hive-mind's.
+> **Scope note:** `public` mode passes through _all_ public host images, not just hive-mind's.
 > That is harmless (and secret-safe) but broader than strictly necessary. A per-repository
 > allowlist that would restrict passthrough to only `konard/hive-mind*` is requested upstream as
 > box#97; until it ships, `public` is the recommended default. For an exact, image-by-image seed
@@ -228,7 +228,7 @@ export HIVE_MIND_DOCKER_ISOLATION_PULL=never
 
 ### Fallback: explicit per-image preload (no host socket, exact scope)
 
-When mounting the host socket is undesirable, or you want to copy *only* a specific image, use
+When mounting the host socket is undesirable, or you want to copy _only_ a specific image, use
 the preload helper, which does `docker save <image> | docker exec -i <container> docker load`:
 
 1. Pin the tag to the deployed version:
@@ -278,7 +278,7 @@ a coverage gap in box's own test suite. Issue filed:
 `tests/dind/example-preload-images.sh` exercises `DIND_HOST_PASSTHROUGH=public` but only asserts
 (a) that the **local fixture** (no RepoDigest) is **not** copied and (b) that the
 "host-image passthrough (mode=public)" log line appears. The throwaway host daemon in that
-scenario contains **only** that fixture, so there is no image that *should* be passed through —
+scenario contains **only** that fixture, so there is no image that _should_ be passed through —
 the positive path ("a genuinely public image with a RepoDigest IS copied into the inner daemon")
 is never asserted. A regression that makes `public` mode copy **nothing** would still pass CI,
 even though that is exactly the behavior Hive Mind depends on. The report includes a suggested
@@ -288,7 +288,7 @@ the inner daemon).
 ### box#97 — per-repository passthrough allowlist (open feature request)
 
 box's passthrough can be narrowed by **registry** (`DIND_HOST_PASSTHROUGH_REGISTRIES`) but not by
-**repository / image name**. Hive Mind wants to seed the nested daemon with *only* its own
+**repository / image name**. Hive Mind wants to seed the nested daemon with _only_ its own
 official Docker Hub images (`konard/hive-mind`, `konard/hive-mind-dind`) and nothing else. The
 closest current fit, `DIND_HOST_PASSTHROUGH=public`, copies **every** host image with a public
 RepoDigest. Issue filed: **https://github.com/link-foundation/box/issues/97** — requesting a

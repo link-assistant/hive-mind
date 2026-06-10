@@ -43,6 +43,20 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: true, isCapacity: false, label: 'Stream disconnected before completion' };
   }
 
+  // Issue #1881: Transient socket / network disconnects from the SDK's underlying fetch.
+  // When the HTTP(S)/streaming socket drops mid-request, the Claude/Codex CLI surfaces a
+  // synthetic assistant message such as:
+  //   "API Error: The socket connection was closed unexpectedly. For more information,
+  //    pass `verbose: true` in the second argument to fetch()"
+  // These are network-level failures (QUIC/TCP resets, idle-socket teardown, proxy/VPN
+  // interruptions, undici socket hang-ups), not request-content errors, so they are safe
+  // to retry with the session preserved (--resume). Without this branch the whole solve
+  // session aborts on a single dropped socket.
+  // Upstream: anthropics/claude-code#48837, #51107, #54287, #60133.
+  if (lower.includes('socket connection was closed unexpectedly') || lower.includes('socket hang up') || lower.includes('econnreset') || lower.includes('connection reset') || lower.includes('network connection lost') || lower.includes('connection error') || lower.includes('fetch failed')) {
+    return { message, isRetryable: true, isCapacity: false, label: 'Socket/connection closed unexpectedly' };
+  }
+
   // Issue #1834: Corrupted extended-thinking blocks. When extended thinking is combined with tool
   // use, Claude Code can persist a thinking block to the session transcript with the `thinking`
   // text emptied to "" while retaining the original `signature`. On resume/continue the block is

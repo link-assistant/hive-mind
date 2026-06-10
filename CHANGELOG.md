@@ -1,5 +1,53 @@
 # @link-assistant/hive-mind
 
+## 1.75.0
+
+### Minor Changes
+
+- d2adf6b: feat(solve): experimental `--keep-working-until-all-requirements-are-fully-done` (#1883)
+
+  Add an experimental `solve` option that, after the main run (and any `--finalize`
+  pass), scans three cheap sources — the pull request description, the AI solution
+  summary, and the added lines of changed markdown documents — for strong
+  indicators of deferred work ("out of scope", "future work", "follow-up PR",
+  "deferred", "delayed", "TODO"/"TBD", etc.) using ~14 regular expressions. When
+  indicators are found it auto-restarts the AI tool with the concrete detected
+  reasons plus a verbatim reinforcement prompt, and repeats until the scan is clean
+  or the restart limit is reached.
+
+  Limit semantics:
+  - `--keep-working-until-all-requirements-are-fully-done` (bare) → 5 restarts
+  - `... 3` → an explicit count
+  - `... forever` / `unlimited` / `infinite` / `0` → no limit (with a hard cap of 3
+    consecutive errors as a safety net)
+
+  Aliases: `--keep-going-until-all-requirements-are-fully-done`, `--keep-working`,
+  `--keep-going`.
+
+  Detection lives in a pure, network-free module
+  (`src/solve.keep-working.detect.lib.mjs`) for full unit-test coverage;
+  orchestration lives in `src/solve.keep-working.lib.mjs`. A deep case study is
+  compiled under `docs/case-studies/issue-1883/`.
+
+## 1.74.12
+
+### Patch Changes
+
+- e921b34: fix(retry): treat "socket connection was closed unexpectedly" as a transient, retryable error (#1881)
+
+  The Claude/Codex CLI surfaces transient network disconnects (the Anthropic SDK's
+  underlying `fetch()` socket dropping mid-stream) as a synthetic error:
+  `API Error: The socket connection was closed unexpectedly.` Previously
+  `classifyRetryableError()` did not recognise this family of errors, so a single
+  dropped socket aborted the entire solve session (exit code 1, zero retries) and
+  discarded all in-progress work. These socket/connection drops
+  (`socket connection was closed unexpectedly`, `socket hang up`, `ECONNRESET`,
+  `connection reset`, `Connection error`, `fetch failed`, `network connection lost`)
+  are now classified as retryable, so the session is retried with `--resume`
+  (context preserved) via the existing exponential-backoff path. Because
+  `classifyRetryableError` is the shared classifier, the fix covers the Claude,
+  Codex and Agent execution loops at once.
+
 ## 1.74.11
 
 ### Patch Changes

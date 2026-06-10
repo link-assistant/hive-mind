@@ -45,6 +45,7 @@ const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
 const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
 const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
+const { runKeepWorkingUntilDone } = await import('./solve.keep-working.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
@@ -852,6 +853,14 @@ try {
   let resultModelUsage = toolResult.resultModelUsage || null;
   let streamTokenUsage = toolResult.streamTokenUsage || null;
   let subAgentCalls = toolResult.subAgentCalls || null; // Issue #1590
+
+  const applyRestartResult = result => {
+    if (!result) return;
+    sessionId = result.sessionId || sessionId;
+    anthropicTotalCostUSD = result.anthropicTotalCostUSD || anthropicTotalCostUSD;
+    publicPricingEstimate = result.publicPricingEstimate || publicPricingEstimate;
+    pricingInfo = result.pricingInfo || pricingInfo;
+  };
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -1249,12 +1258,7 @@ try {
     });
 
     // Update session data from restart
-    if (restartResult) {
-      if (restartResult.sessionId) sessionId = restartResult.sessionId;
-      if (restartResult.anthropicTotalCostUSD) anthropicTotalCostUSD = restartResult.anthropicTotalCostUSD;
-      if (restartResult.publicPricingEstimate) publicPricingEstimate = restartResult.publicPricingEstimate;
-      if (restartResult.pricingInfo) pricingInfo = restartResult.pricingInfo;
-    }
+    applyRestartResult(restartResult);
 
     // Clean up CLAUDE.md/.gitkeep again after restart
     await cleanupClaudeFile(tempDir, branchName, null, argv);
@@ -1268,13 +1272,9 @@ try {
   }
 
   // Issue #1383: --finalize
-  const autoEnsureResult = await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile });
-  if (autoEnsureResult) {
-    if (autoEnsureResult.sessionId) sessionId = autoEnsureResult.sessionId;
-    if (autoEnsureResult.anthropicTotalCostUSD) anthropicTotalCostUSD = autoEnsureResult.anthropicTotalCostUSD;
-    if (autoEnsureResult.publicPricingEstimate) publicPricingEstimate = autoEnsureResult.publicPricingEstimate;
-    if (autoEnsureResult.pricingInfo) pricingInfo = autoEnsureResult.pricingInfo;
-  }
+  applyRestartResult(await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile }));
+  // Issue #1883: --keep-working-until-all-requirements-are-fully-done (detect deferred work and auto-restart until done)
+  applyRestartResult(await runKeepWorkingUntilDone({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {

@@ -29,6 +29,7 @@ import { defaultModels } from './models/index.mjs';
 import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
+import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import Decimal from 'decimal.js-light';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
@@ -660,6 +661,10 @@ export const executeCodex = async params => {
       await log('---END SYSTEM PROMPT---', { verbose: true });
     }
   }
+
+  // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Codex loads
+  // it natively from .agents/skills/handoff/SKILL.md (no-op unless --use-handoff).
+  await deployHandoffSkill({ tempDir, argv, log, $ });
 
   // Execute the Codex command
   return await executeCodexCommand({

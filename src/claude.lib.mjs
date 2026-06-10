@@ -28,6 +28,7 @@ import { fetchModelInfo } from './model-info.lib.mjs';
 import { classifyRetryableError, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
+import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log, argv = null) => {
@@ -352,6 +353,10 @@ export const executeClaude = async params => {
   }
   const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
   const escapedSystemPrompt = systemPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
+
+  // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Claude loads
+  // it natively from .claude/skills/handoff/SKILL.md (no-op unless --use-handoff).
+  await deployHandoffSkill({ tempDir, argv, log, $ });
 
   return await withAgentsMdAsClaudeMd({ tempDir, branchName, argv, prompt, fs, path, $, log, formatAligned }, () =>
     executeClaudeCommand({

@@ -946,8 +946,7 @@ export const executeClaudeCommand = async params => {
                   anthropicTotalCostUSD = data.total_cost_usd;
                   await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
                 } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
-                  // Issue #1886: non-success terminal (e.g. usage-limit hit) still
-                  // reports this process's cost — keep as accumulation fallback.
+                  // Issue #1886: non-success terminal (e.g. usage-limit hit) still reports this process's cost — keep as accumulation fallback.
                   anthropicCostFromAnyResult = data.total_cost_usd;
                   await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result kept as fallback for accumulation: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
                 }
@@ -1198,8 +1197,7 @@ export const executeClaudeCommand = async params => {
           await log(`\n\n❌ API explicitly marked error as not retryable (x-should-retry: false) and session made no progress (num_turns=${resultNumTurns}) after ${retryCount} attempt(s)`, { level: 'error' });
           await log(`   This error is not recoverable. Failing fast to avoid a stuck retry loop (Issue #1437).`, { level: 'error' });
           await log(`   Check https://status.anthropic.com/ for API status.`, { level: 'error' });
-          // Issue #1886: fold captured cost so a cross-process resume's carried-
-          // forward cost is not dropped on this terminal failure path.
+          // Issue #1886: fold captured cost so a cross-process resume's carried-forward cost is not dropped here.
           seedCumulativeAnthropicCost(argv.previousAnthropicCost);
           const cumulativeAnthropicCostUSDOnStuckRetry = addAnthropicRunCost(anthropicTotalCostUSD ?? anthropicCostFromAnyResult);
           return {
@@ -1248,8 +1246,7 @@ export const executeClaudeCommand = async params => {
           return await executeWithRetry();
         } else {
           await log(`\n\n❌ Transient API error persisted after ${maxRetries} retries\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
-          // Issue #1886: fold captured cost so the carried-forward cost survives
-          // this terminal retries-exhausted failure path.
+          // Issue #1886: fold captured cost so the carried-forward cost survives this retries-exhausted path.
           seedCumulativeAnthropicCost(argv.previousAnthropicCost);
           const cumulativeAnthropicCostUSDOnRetriesExhausted = addAnthropicRunCost(anthropicTotalCostUSD ?? anthropicCostFromAnyResult);
           return {
@@ -1313,10 +1310,10 @@ export const executeClaudeCommand = async params => {
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
         await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log, argv);
-        // Issue #1886: on failure (typically a usage-limit hit that triggers an
-        // auto-resume) fold the captured cost into the cumulative total so
-        // autoContinueWhenLimitResets carries the full running total forward. A
-        // limit hit ends as is_error, so fall back to the non-success result cost.
+        // Issue #1886: on failure (usually a usage-limit hit → auto-resume) fold
+        // the captured cost into the cumulative total so autoContinueWhenLimitResets
+        // carries it forward. A limit hit ends as is_error → fall back to the
+        // non-success result cost.
         seedCumulativeAnthropicCost(argv.previousAnthropicCost);
         const cumulativeAnthropicCostUSDOnFailure = addAnthropicRunCost(anthropicTotalCostUSD ?? anthropicCostFromAnyResult);
         return {
@@ -1347,10 +1344,9 @@ export const executeClaudeCommand = async params => {
       await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
       // Calculate and display total token usage from session JSONL file.
       // Extracted to claude.budget-stats.lib.mjs to keep this file under the line limit (Issue #1834).
-      // Issue #1886: the session JSONL spans every resume iteration but each
-      // result event's total_cost_usd covers only the current process. Seed from
-      // the carried-forward cost, add this process's cost; the cumulative total
-      // shares the JSONL's scope and is carried into the next resumed process.
+      // Issue #1886: the JSONL spans every resume iteration but each result
+      // event's total_cost_usd covers only this process; seed the carried-forward
+      // cost + add this process's so the cumulative total shares the JSONL scope.
       seedCumulativeAnthropicCost(argv.previousAnthropicCost);
       const cumulativeAnthropicCostUSD = addAnthropicRunCost(anthropicTotalCostUSD);
       const previousAnthropicCostUSD = cumulativeAnthropicCostUSD - (anthropicTotalCostUSD || 0);
@@ -1410,8 +1406,7 @@ export const executeClaudeCommand = async params => {
         }
       }
       await log(`\n\n❌ Error executing Claude command: ${error.message}`, { level: 'error' });
-      // Issue #1886: fold captured cost so the carried-forward cost survives this
-      // terminal exception path too.
+      // Issue #1886: fold captured cost so the carried-forward cost survives this exception path too.
       seedCumulativeAnthropicCost(argv.previousAnthropicCost);
       const cumulativeAnthropicCostUSDOnException = addAnthropicRunCost(anthropicTotalCostUSD ?? anthropicCostFromAnyResult);
       return {

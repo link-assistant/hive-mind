@@ -221,6 +221,10 @@ const KNOWN_OPTION_NAMES = [
   'prompt-ensure-all-requirements-are-met',
   'finalize',
   'finalize-model',
+  'keep-working-until-all-requirements-are-fully-done',
+  'keep-going-until-all-requirements-are-fully-done',
+  'keep-working',
+  'keep-going',
 ];
 
 /**

@@ -586,6 +586,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: '[EXPERIMENTAL] Model to use for --finalize iterations. Defaults to the same model as --model.',
     default: undefined,
   },
+  'keep-working-until-all-requirements-are-fully-done': {
+    type: 'string',
+    description: '[EXPERIMENTAL] After the main solve completes, scan the pull request description, the AI solution summary and changed markdown documents for strong indicators of deferred/delayed/out-of-scope work (e.g. "future work", "out of scope", "deferred", "follow-up PR", "TODO") and automatically restart the AI tool to finish everything in this single pull request. Accepts a number of restarts (default: 5), or "forever"/"unlimited" to remove the limit. Bare flag means the default of 5.',
+    alias: ['keep-going-until-all-requirements-are-fully-done', 'keep-working', 'keep-going'],
+    default: undefined,
+  },
   'working-session-live-progress': {
     type: 'string',
     description: '[EXPERIMENTAL] Enable live progress monitoring. Accepts "comment" (default, updates a per-session PR comment) or "pr" (updates PR description). Plain --working-session-live-progress means "comment". Works with or without --interactive-mode.',
@@ -833,6 +839,29 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     // Normalize: if passed as boolean true (flag without value), treat as 1 iteration
     if (argv.finalize === true) {
       argv.finalize = 1;
+    }
+  }
+
+  // --keep-working-until-all-requirements-are-fully-done normalization
+  // Issue #1883: the flag accepts a number of restarts, the keywords
+  // "forever"/"unlimited"/"infinite", or no value (bare flag => default of 5).
+  // We canonicalize the bare-flag / empty-string case here so downstream
+  // detection (normalizeKeepWorkingLimit) sees a meaningful value. Final
+  // numeric normalization happens at runtime in solve.keep-working.lib.mjs.
+  {
+    const keepWorkingAliases = ['--keep-working-until-all-requirements-are-fully-done', '--keep-going-until-all-requirements-are-fully-done', '--keep-working', '--keep-going'];
+    const keepWorkingProvided = keepWorkingAliases.some(alias => hasRawOption(rawArgs, alias));
+    if (keepWorkingProvided) {
+      const current = argv.keepWorkingUntilAllRequirementsAreFullyDone;
+      // Bare flag (no value) -> yargs may yield true or an empty string; treat as default count.
+      if (current === true || current === '' || current === undefined || current === null) {
+        argv.keepWorkingUntilAllRequirementsAreFullyDone = 5;
+      } else if (typeof current === 'string') {
+        argv.keepWorkingUntilAllRequirementsAreFullyDone = current.trim();
+      }
+    } else if (argv.keepWorkingUntilAllRequirementsAreFullyDone === undefined) {
+      // Not provided: keep it disabled (do not coerce the string-type default).
+      argv.keepWorkingUntilAllRequirementsAreFullyDone = undefined;
     }
   }
 

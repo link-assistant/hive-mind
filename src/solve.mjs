@@ -46,6 +46,7 @@ const { startWatchMode } = watchLib;
 const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
 const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const { runKeepWorkingUntilDone } = await import('./solve.keep-working.lib.mjs');
+const { runEscalation } = await import('./solve.escalate.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
@@ -1271,6 +1272,10 @@ try {
     }
   }
 
+  // Issue #1885: --escalate / --escalate-from (start cheap, escalate to a more
+  // capable model while unfinished work remains). Runs before finalize/keep-working
+  // so those post-processing steps operate on the escalated (top-tier) result.
+  applyRestartResult(await runEscalation({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
   // Issue #1383: --finalize
   applyRestartResult(await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile }));
   // Issue #1883: --keep-working-until-all-requirements-are-fully-done (detect deferred work and auto-restart until done)

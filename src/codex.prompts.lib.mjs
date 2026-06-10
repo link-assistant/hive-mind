@@ -139,6 +139,8 @@ ${
    - When a code or log file has more than 1500 lines, read it in chunks of 1500 lines.
    - When facing a complex problem, do as much tracing as possible and turn on all verbose modes.
 ${getExperimentsExamplesSubPrompt(argv)}
+   - When CI or CD checks are failing on the pull request, work to make them pass even if the failure looks pre-existing, inherited from another branch, or caused by a change unrelated to your task. Do not assume a failing check is out of scope; treat green CI/CD as part of finishing the work, and only ask for human help after you have attempted a fix and are still blocked.
+   - When you find errors, broken tests, or failing checks anywhere in the codebase, keep the default branch in a clean and working state by fixing them. Unless the user explicitly restricts the scope, assume the scope of all fixes is the entire repository, not only the files directly tied to the issue.
    - When you face something extremely hard, use divide and conquer.
 
 Initial research.

@@ -468,7 +468,26 @@ export const executeToolIteration = async params => {
  * @returns {string[]} Array of instruction lines
  */
 export const buildAutoRestartInstructions = () => {
-  return ['', '='.repeat(60), '🎯 AUTO-RESTART MODE INSTRUCTIONS:', '='.repeat(60), '', 'Ensure to get latest version of default branch to make all conflicts resolved if present.', 'Ensure you comply with all CI/CD check requirements, and they pass.', 'Ensure all changes are correct, consistent and fully meet all discussed requirements', '(check issue description and all comments in issue and in pull request).', ''];
+  return [
+    '',
+    '='.repeat(60),
+    '🎯 AUTO-RESTART MODE INSTRUCTIONS:',
+    '='.repeat(60),
+    '',
+    'Ensure to get latest version of default branch to make all conflicts resolved if present.',
+    'Ensure you comply with all CI/CD check requirements, and they pass.',
+    // Issue #1887: When a CI/CD check is failing — even if the failure looks pre-existing,
+    // inherited from another branch, or caused by a change unrelated to your task — attempt
+    // to fix it so every check passes instead of only reporting it or asking for a human
+    // decision. This session auto-restarts until the pull request is mergeable, so leaving a
+    // failing check unaddressed will loop indefinitely. Asking for human help is still fine,
+    // but do it in addition to attempting a fix, not instead of it.
+    'When any CI/CD check is failing — even if the failure looks pre-existing, inherited from another branch, or caused by a change unrelated to your task — fix it so all checks pass instead of only reporting it. This session auto-restarts until the pull request is mergeable, so leaving a failing check unaddressed will loop indefinitely.',
+    'Unless the scope is explicitly restricted, treat fixing repository-wide breakage as in scope and keep the default branch in a clean, working state. If a fix truly requires a human decision, attempt your best fix first, then leave a clear comment explaining what remains and why.',
+    'Ensure all changes are correct, consistent and fully meet all discussed requirements',
+    '(check issue description and all comments in issue and in pull request).',
+    '',
+  ];
 };
 
 /**

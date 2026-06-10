@@ -1271,14 +1271,9 @@ try {
       await log('⚠️  PR title/description still not updated after restart');
     }
   }
-
-  // Issue #1885: --escalate / --escalate-from (start cheap, escalate to a more
-  // capable model while unfinished work remains). Runs before finalize/keep-working
-  // so those post-processing steps operate on the escalated (top-tier) result.
+  // Post-solve restart loops (escalate #1885 first, then finalize #1383, then keep-working #1883):
   applyRestartResult(await runEscalation({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
-  // Issue #1383: --finalize
   applyRestartResult(await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile }));
-  // Issue #1883: --keep-working-until-all-requirements-are-fully-done (detect deferred work and auto-restart until done)
   applyRestartResult(await runKeepWorkingUntilDone({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes

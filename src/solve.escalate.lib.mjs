@@ -357,6 +357,9 @@ export const runEscalation = async ({ issueUrl, owner, repo, issueNumber, prNumb
   // Get PR merge state status for the iterations
   let currentMergeStateStatus = null;
   try {
+    // `$` is wrapped via wrapDollarWithGhRetry above; the lazy import keeps this module
+    // network-free for tests, so the lint rule (which only detects top-level rebinds) can't see it.
+    // eslint-disable-next-line gh-rate-limit/no-direct-gh-exec -- $ is rate-limit-safe (wrapDollarWithGhRetry), rebound lazily on line 334.
     const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
     if (prStateResult.code === 0) {
       currentMergeStateStatus = prStateResult.stdout.toString().trim();

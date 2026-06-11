@@ -2,7 +2,7 @@ const PLAYWRIGHT_TOOL_PREFIX = 'mcp__playwright__';
 
 export const isUnavailableMcpStatus = status => {
   const normalized = String(status || '').toLowerCase();
-  return /\b(pending|disabled|failed|error|disconnected|not[-_\s]+connected|unavailable|timeout|timed[-_\s]+out)\b/.test(normalized);
+  return /\b(pending|disabled|failed|error|disconnected|not[-_\s]+connected|unavailable|timed[-_\s]+out)\b|(?:^|[^a-z0-9_-])timeout(?:$|[^a-z0-9_-])/.test(normalized);
 };
 
 export const hasPlaywrightMcpTools = tools => (Array.isArray(tools) ? tools : []).some(tool => String(tool || '').startsWith(PLAYWRIGHT_TOOL_PREFIX));

@@ -151,13 +151,13 @@ RUN if command -v claude >/dev/null 2>&1; then \
       CLAUDE_MCP_OUTPUT="$(claude mcp list 2>&1)" && \
       echo "$CLAUDE_MCP_OUTPUT" && \
       echo "$CLAUDE_MCP_OUTPUT" | grep -Eiq 'playwright.*(connected|enabled)' && \
-      ! echo "$CLAUDE_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timeout|timed[-_[:space:]]+out)'; \
+      ! echo "$CLAUDE_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-]))'; \
     fi && \
     if command -v codex >/dev/null 2>&1; then \
       CODEX_MCP_OUTPUT="$(codex mcp list 2>&1)" && \
       echo "$CODEX_MCP_OUTPUT" && \
       echo "$CODEX_MCP_OUTPUT" | grep -Eiq 'playwright.*(connected|enabled)' && \
-      ! echo "$CODEX_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timeout|timed[-_[:space:]]+out)'; \
+      ! echo "$CODEX_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-]))'; \
     fi
 
 # --- Disable noisy/unused Claude Code features and tools (issue #1627, issue #1642) ---

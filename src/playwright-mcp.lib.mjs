@@ -14,7 +14,7 @@ export const getCommandResultOutput = result => `${result?.stdout?.toString() ||
 
 export const isCommandResultSuccess = result => getCommandResultCode(result) === 0;
 
-export const PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN = /\b(pending|disabled|failed|error|disconnected|not[-_\s]+connected|unavailable|timeout|timed[-_\s]+out)\b|\benabled\s*[:=]?\s*false\b/i;
+export const PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN = /\b(pending|disabled|failed|error|disconnected|not[-_\s]+connected|unavailable|timed[-_\s]+out)\b|(?:^|[^A-Za-z0-9_-])timeout(?:$|[^A-Za-z0-9_-])|\benabled\s*[:=]?\s*false\b/i;
 export const PLAYWRIGHT_MCP_CONNECTED_PATTERN = /\b(connected|enabled)\b|[✓✔]/i;
 
 export const getPlaywrightMcpListRows = output =>

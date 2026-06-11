@@ -345,7 +345,7 @@ fi
 echo ""
 echo "Checking Playwright MCP registration in Claude and Codex..."
 
-PLAYWRIGHT_MCP_UNAVAILABLE_RE='pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timeout|timed[-_[:space:]]+out|enabled[[:space:]]*[:=]?[[:space:]]*false'
+PLAYWRIGHT_MCP_UNAVAILABLE_RE='pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-])|enabled[[:space:]]*[:=]?[[:space:]]*false'
 PLAYWRIGHT_MCP_CONNECTED_RE='connected|enabled'
 
 verify_playwright_mcp_rows() {

@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createInteractiveHandler } from '../src/interactive-mode.lib.mjs';
+import { isUnavailableMcpStatus } from '../src/interactive-mcp-status.lib.mjs';
 import { ensureConnectedPlaywrightMcpServer, hasConnectedPlaywrightMcpServer } from '../src/playwright-mcp.lib.mjs';
 import { formatVersionMessage } from '../src/version-info.lib.mjs';
 import { asyncTest, getFailCount, printSummary, test } from './test-helpers.mjs';
@@ -26,6 +27,16 @@ test('Issue #1901: Playwright MCP availability rejects pending list rows', () =>
 test('Issue #1901: Playwright MCP availability accepts connected list rows', () => {
   const output = 'playwright: npx @playwright/mcp@latest - Connected';
   assert.equal(hasConnectedPlaywrightMcpServer(output), true);
+});
+
+test('Issue #1901: Playwright MCP availability ignores timeout-action command arguments', () => {
+  const output = 'playwright: npx -y @playwright/mcp@latest --isolated --headless --timeout-action=600000 - ✔ Connected';
+  assert.equal(hasConnectedPlaywrightMcpServer(output), true);
+});
+
+test('Issue #1901: interactive status detection ignores timeout-action command arguments', () => {
+  assert.equal(isUnavailableMcpStatus('npx @playwright/mcp --timeout-action=600000 - Connected'), false);
+  assert.equal(isUnavailableMcpStatus('timeout'), true);
 });
 
 test('Issue #1901: Codex-style enabled rows still count as available', () => {

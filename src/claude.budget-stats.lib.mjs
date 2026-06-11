@@ -138,19 +138,38 @@ export const displayModelUsage = async (usage, log) => {
 /**
  * Display cost comparison between public pricing and Anthropic's official cost
  * Issue #1557: Show simplified format when costs match, remove USD suffix
- * @param {number|null} publicCost - Public pricing estimate
- * @param {number|null} anthropicCost - Anthropic's official cost
+ * Issue #1886: `anthropicCost` is the cumulative Anthropic cost across every
+ *   resume iteration (the session JSONL — and therefore `publicCost` — spans
+ *   the full session, so the Anthropic figure must too). The optional
+ *   `previousAnthropicCost` is the portion carried in from earlier runs; when
+ *   non-zero we show a verbose breakdown so the accumulation is auditable.
+ * @param {number|null} publicCost - Public pricing estimate (full session)
+ * @param {number|null} anthropicCost - Anthropic's cumulative official cost (full session)
  * @param {Function} log - Logging function
+ * @param {Object} [options]
+ * @param {number} [options.previousAnthropicCost=0] - cost carried in from earlier resume iterations
  */
-export const displayCostComparison = async (publicCost, anthropicCost, log) => {
+export const displayCostComparison = async (publicCost, anthropicCost, log, options = {}) => {
+  const previousAnthropicCost = options.previousAnthropicCost || 0;
   const hasPublic = publicCost !== null && publicCost !== undefined;
   const hasAnthropic = anthropicCost !== null && anthropicCost !== undefined;
   const publicDec = hasPublic ? new Decimal(publicCost) : null;
   const anthropicDec = hasAnthropic ? new Decimal(anthropicCost) : null;
+  // Issue #1886: when the Anthropic figure was accumulated across resumes,
+  // expose the breakdown in verbose mode so "this run + carried forward = total"
+  // is auditable from the saved log.
+  const logAccumulationBreakdown = async () => {
+    if (previousAnthropicCost > 0 && anthropicDec) {
+      const thisRun = anthropicDec.minus(new Decimal(previousAnthropicCost));
+      await log(`      ↳ Anthropic cost is cumulative across resume iterations (issue #1886):`, { verbose: true });
+      await log(`         this run: $${thisRun.toFixed(6)} + carried forward: $${new Decimal(previousAnthropicCost).toFixed(6)} = $${anthropicDec.toFixed(6)}`, { verbose: true });
+    }
+  };
   // Issue #1703: also collapse to the short form when the rounded difference is below display precision,
   // so reports like "Difference: $-0.000000 (-0.00%)" no longer waste two extra lines.
   if (publicDec && anthropicDec && anthropicDec.minus(publicDec).abs().toFixed(6) === '0.000000') {
     await log(`\n   💰 Cost: $${anthropicDec.toFixed(6)}`);
+    await logAccumulationBreakdown();
     return;
   }
   await log('\n   💰 Cost estimation:');
@@ -163,6 +182,7 @@ export const displayCostComparison = async (publicCost, anthropicCost, log) => {
   } else {
     await log('      Difference:              unknown');
   }
+  await logAccumulationBreakdown();
 };
 
 /**
@@ -316,11 +336,12 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
  * @param {string} params.sessionId - Claude session id (skips when falsy)
  * @param {string} params.tempDir - Working directory containing the session JSONL (skips when falsy)
  * @param {Object|null} params.resultModelUsage - Authoritative per-model usage from the result JSON event
- * @param {number} params.anthropicTotalCostUSD - Anthropic's official total cost (for the comparison line)
+ * @param {number} params.anthropicTotalCostUSD - Anthropic's cumulative official cost across resume iterations (issue #1886)
+ * @param {number} [params.previousAnthropicCostUSD=0] - portion of anthropicTotalCostUSD carried in from earlier resume iterations (issue #1886)
  * @param {Object} params.argv - Parsed CLI args (reads argv.tokensBudgetStats)
  * @param {Function} params.log - Logger
  */
-export const displaySessionTokenUsage = async ({ sessionId, tempDir, resultModelUsage, anthropicTotalCostUSD, argv, log }) => {
+export const displaySessionTokenUsage = async ({ sessionId, tempDir, resultModelUsage, anthropicTotalCostUSD, previousAnthropicCostUSD = 0, argv, log }) => {
   if (!sessionId || !tempDir) return;
   try {
     const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
@@ -355,7 +376,9 @@ export const displaySessionTokenUsage = async ({ sessionId, tempDir, resultModel
         await log('\n   📈 Total across all models:');
       }
       // Show cost comparison (for both single and multiple models)
-      await displayCostComparison(tokenUsage.totalCostUSD, anthropicTotalCostUSD, log);
+      // Issue #1886: anthropicTotalCostUSD is cumulative across resume iterations
+      // so it shares the full-session scope of the JSONL-based public estimate.
+      await displayCostComparison(tokenUsage.totalCostUSD, anthropicTotalCostUSD, log, { previousAnthropicCost: previousAnthropicCostUSD });
       // Show total tokens for single model only
       if (modelIds.length === 1) {
         await log(`      Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);

@@ -1,0 +1,80 @@
+[2026-06-10T17:47:12.892Z] [INFO] 
+[2026-06-10T17:47:12.892Z] [INFO] ⚠️  JSONL deduplication: skipped 256 duplicate entries (upstream: anthropics/claude-code#6805)
+[2026-06-10T17:47:12.902Z] [INFO] 📊 Peak restored-context input: 117 651 tokens
+[2026-06-10T17:47:12.908Z] [INFO] 
+[2026-06-10T17:47:12.908Z] [INFO] 💰 Token Usage Summary:
+[2026-06-10T17:47:12.908Z] [INFO] 
+[2026-06-10T17:47:12.908Z] [INFO]    📊 Claude Fable 5:
+[2026-06-10T17:47:12.909Z] [INFO]       Model ID: claude-fable-5
+[2026-06-10T17:47:12.913Z] [INFO]       Provider: Anthropic
+[2026-06-10T17:47:12.914Z] [INFO]       Context window: 1 000 000 tokens
+[2026-06-10T17:47:12.914Z] [INFO]       Max output: 128 000 tokens
+[2026-06-10T17:47:12.914Z] [INFO]       Input modalities: text, image, pdf
+[2026-06-10T17:47:12.914Z] [INFO]       Output modalities: text
+[2026-06-10T17:47:12.915Z] [INFO]       Released: 2026-06-09
+[2026-06-10T17:47:12.915Z] [INFO]       Capabilities: Attachments, Reasoning, Tool calls
+[2026-06-10T17:47:12.916Z] [INFO]       Open weights: No
+[2026-06-10T17:47:12.919Z] [INFO] 
+[2026-06-10T17:47:12.920Z] [INFO]       Usage:
+[2026-06-10T17:47:12.920Z] [INFO]         Input tokens: 45 265
+[2026-06-10T17:47:12.920Z] [INFO]         Cache creation tokens: 791 087
+[2026-06-10T17:47:12.921Z] [INFO]         Cache read tokens: 16 444 028
+[2026-06-10T17:47:12.921Z] [INFO]         Output tokens: 185 995
+[2026-06-10T17:47:12.921Z] [INFO] 
+[2026-06-10T17:47:12.921Z] [INFO]       Cost Calculation (USD):
+[2026-06-10T17:47:12.922Z] [INFO]         Input: 45 265 tokens × $10/M = $0.452650
+[2026-06-10T17:47:12.922Z] [INFO]         Cache write: 791 087 tokens × $12.5/M = $9.888588
+[2026-06-10T17:47:12.922Z] [INFO]         Cache read: 16 444 028 tokens × $1/M = $16.444028
+[2026-06-10T17:47:12.922Z] [INFO]         Output: 185 995 tokens × $50/M = $9.299750
+[2026-06-10T17:47:12.922Z] [INFO]         ─────────────────────────────────
+[2026-06-10T17:47:12.923Z] [INFO]         Total: $36.085016
+[2026-06-10T17:47:12.924Z] [INFO] 
+[2026-06-10T17:47:12.924Z] [INFO]       📊 Context and tokens usage:
+[2026-06-10T17:47:12.924Z] [INFO]         1. 117 217 / 1 000 000 (12%) input tokens, 13 170 / 128 000 (10%) output tokens
+[2026-06-10T17:47:12.924Z] [INFO]         2. 116 703 / 1 000 000 (12%) input tokens, 26 046 / 128 000 (20%) output tokens
+[2026-06-10T17:47:12.925Z] [INFO]         3. 103 026 / 1 000 000 (10%) input tokens, 16 444 / 128 000 (13%) output tokens
+[2026-06-10T17:47:12.925Z] [INFO]         4. 117 651 / 1 000 000 (12%) input tokens, 28 155 / 128 000 (22%) output tokens
+[2026-06-10T17:47:12.925Z] [INFO]         5. 111 583 / 1 000 000 (11%) input tokens, 32 227 / 128 000 (25%) output tokens
+[2026-06-10T17:47:12.925Z] [INFO]         6. 116 353 / 1 000 000 (12%) input tokens, 31 296 / 128 000 (24%) output tokens
+[2026-06-10T17:47:12.925Z] [INFO]         7. 116 979 / 1 000 000 (12%) input tokens, 36 623 / 128 000 (29%) output tokens
+[2026-06-10T17:47:12.925Z] [INFO]         8. 40 530 / 1 000 000 (4%) input tokens, 2 034 / 128 000 (2%) output tokens
+[2026-06-10T17:47:12.925Z] [INFO]         Total: (45 265 new + 791 087 cache writes + 16 444 028 cache reads) input tokens, 185 995 output tokens
+[2026-06-10T17:47:12.926Z] [INFO] 
+[2026-06-10T17:47:12.926Z] [INFO]       📊 [budget-trace] Claude Fable 5
+[2026-06-10T17:47:12.926Z] [INFO]          peak input:      117 651 / 1 000 000 context (largest request input + cache_creation + cache_read)
+[2026-06-10T17:47:12.926Z] [INFO]          cumulative:      input 45 265, cache_write 791 087 (5m 0 / 1h 791 087), cache_read 16 444 028, output 185 995
+[2026-06-10T17:47:12.926Z] [INFO]          server tools:    web_search 0
+[2026-06-10T17:47:12.926Z] [INFO]          cost (public):   $36.085016
+[2026-06-10T17:47:12.926Z] [INFO]          cost (anthropic result-event): $24.662220
+[2026-06-10T17:47:12.926Z] [INFO]          sub-session count: 8
+[2026-06-10T17:47:12.927Z] [INFO]          data source:     jsonl
+[2026-06-10T17:47:12.928Z] [INFO] 
+[2026-06-10T17:47:12.928Z] [INFO]    💰 Cost estimation:
+[2026-06-10T17:47:12.928Z] [INFO]       Public pricing estimate: $36.085016
+[2026-06-10T17:47:12.928Z] [INFO]       Calculated by Anthropic: $24.662220
+[2026-06-10T17:47:12.928Z] [INFO]       Difference:              $-11.422796 (-31.66%)
+[2026-06-10T17:47:12.929Z] [INFO]       Total tokens: 1 022 347
+[2026-06-10T17:47:12.929Z] [INFO] 
+[2026-06-10T17:47:12.929Z] [INFO] 💡 To continue this session:
+[2026-06-10T17:47:12.929Z] [INFO] 
+[2026-06-10T17:47:12.929Z] [INFO]    Interactive mode:    (cd "/tmp/gh-issue-solver-1781100491248" && claude --resume 160da4c5-d2f8-4488-873e-5936eacfac37 --model fable)
+[2026-06-10T17:47:12.929Z] [INFO] 
+[2026-06-10T17:47:12.929Z] [INFO]    Autonomous mode:     (cd "/tmp/gh-issue-solver-1781100491248" && claude --resume 160da4c5-d2f8-4488-873e-5936eacfac37 --output-format stream-json --dangerously-skip-permissions --model fable -p "Continue.")
+[2026-06-10T17:47:12.929Z] [INFO] 
+[2026-06-10T17:47:12.930Z] [INFO] 
+[2026-06-10T17:47:12.930Z] [INFO] 🔍 Checking for uncommitted changes...
+[2026-06-10T17:47:12.982Z] [INFO] ✅ No uncommitted changes found
+[2026-06-10T17:47:12.983Z] [INFO] 
+[2026-06-10T17:47:12.983Z] [INFO] === Session Summary ===
+[2026-06-10T17:47:12.984Z] [INFO] ✅ Session ID: 160da4c5-d2f8-4488-873e-5936eacfac37
+[2026-06-10T17:47:12.984Z] [INFO] ✅ Complete log file: /home/box/160da4c5-d2f8-4488-873e-5936eacfac37.log
+[2026-06-10T17:47:12.984Z] [INFO] 
+[2026-06-10T17:47:12.984Z] [INFO] 💡 To continue this session:
+[2026-06-10T17:47:12.984Z] [INFO]    Interactive mode:    (cd "/tmp/gh-issue-solver-1781100491248" && claude --resume 160da4c5-d2f8-4488-873e-5936eacfac37 --model fable)
+[2026-06-10T17:47:12.985Z] [INFO]    Autonomous mode:     (cd "/tmp/gh-issue-solver-1781100491248" && claude --resume 160da4c5-d2f8-4488-873e-5936eacfac37 --output-format stream-json --dangerously-skip-permissions --model fable -p "Continue.")
+[2026-06-10T17:47:12.985Z] [INFO]    Solve resume mode:   "/home/box/.nvm/versions/node/v20.20.2/bin/node" "/home/box/.bun/bin/solve" "https://github.com/link-assistant/formal-ai/pull/396" --resume "160da4c5-d2f8-4488-873e-5936eacfac37" --model "fable" --fallback-model "opus" --working-directory "/tmp/gh-issue-solver-1781100491248"
+[2026-06-10T17:47:12.985Z] [INFO] 
+[2026-06-10T17:47:12.986Z] [INFO] 🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...
+[2026-06-10T17:47:13.348Z] [INFO] 🔎 Checking comments by 'konard' after session start 2026-06-10T17:03:10.181Z (PR #396, issue #395)
+[2026-06-10T17:47:13.732Z] [INFO]    ⏭️  Skipped pr tool-tracked comment IDs: 1
+[2026-06-10T17:47:13.733Z] [INFO]    📨 PR conversation comments after session start by 'konard' (excluding tool-generated): 0

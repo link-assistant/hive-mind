@@ -218,6 +218,19 @@ export const SOLVE_OPTION_DEFINITIONS = {
     default: 0,
     hidden: true,
   },
+  // Issue #1886: carried-forward Anthropic cost from previous resume iterations.
+  // The session JSONL accumulates the full session across limit-reset resumes,
+  // but Anthropic's result-event total_cost_usd is scoped to a single process.
+  // Threading the previous total here lets the resumed run display the
+  // full-session Anthropic cost alongside the full-session public estimate,
+  // instead of a misleading per-run figure. Internal/hidden: set automatically
+  // by autoContinueWhenLimitResets when spawning the resumed solve process.
+  'previous-anthropic-cost': {
+    type: 'number',
+    description: 'Internal: cumulative Anthropic total_cost_usd carried forward from previous resume iterations (issue #1886)',
+    default: 0,
+    hidden: true,
+  },
   'auto-merge': {
     type: 'boolean',
     description: 'Automatically merge the pull request when the working session is finished and all CI/CD statuses pass and PR is mergeable. Implies --auto-restart-until-mergeable.',

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Log upload module for hive-mind
 // Uses gh-upload-log for uploading log files to GitHub
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 

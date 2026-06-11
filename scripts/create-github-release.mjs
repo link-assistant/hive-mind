@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 
 /**
  * Create GitHub Release from CHANGELOG.md
@@ -16,7 +17,7 @@ import { readFileSync } from 'fs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 // Load use-m dynamically
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+const use = await ensureUseM();
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');

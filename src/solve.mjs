@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 const earlyArgs = process.argv.slice(2);
 const { handleSolveEarlyExit } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
 
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
-globalThis.use = use;
+const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
 const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);

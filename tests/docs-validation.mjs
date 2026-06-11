@@ -3,8 +3,10 @@
 // Documentation validation test - rewritten from shell script to .mjs format
 // Tests file size limits and README structure as required by CI
 
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
+
 // Use use-m to dynamically import modules for cross-runtime compatibility
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+const use = await ensureUseM();
 
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;

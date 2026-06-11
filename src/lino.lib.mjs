@@ -1,5 +1,6 @@
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 if (typeof use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 // Issue #1710: hosted CI npm-install flake — retry once on a corrupt install.

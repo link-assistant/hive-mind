@@ -1,9 +1,10 @@
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 /**
  * GitHub entity existence validation for /solve command.
  * Extracted from github.lib.mjs to keep files under 1500 line limit.
  * @see https://github.com/link-assistant/hive-mind/issues/1552
  */
-if (typeof globalThis.use === 'undefined') globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+if (typeof globalThis.use === 'undefined') await ensureUseM();
 const { $ } = await use('command-stream');
 import { ghCmdRetry } from './lib.mjs';
 import { ghPrView, ghIssueView } from './github.lib.mjs';

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * Contributing Guidelines Detection and Fetching
@@ -6,7 +7,7 @@
  */
 
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 const { $: __rawDollar$ } = await use('command-stream');

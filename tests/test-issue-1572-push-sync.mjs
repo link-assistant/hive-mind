@@ -16,11 +16,10 @@
  *   with remote before launching new sessions, causing push failures
  */
 
-// Use use-m to dynamically import modules
-if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
-const use = globalThis.use;
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
+
+// Use use-m to dynamically import modules.
+const use = await ensureUseM();
 
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;

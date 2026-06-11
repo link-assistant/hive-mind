@@ -15,8 +15,9 @@
  * @see https://github.com/link-assistant/hive-mind/issues/380
  */
 
-import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
+import fs from 'fs/promises';
+import { promisify } from 'util';
 import { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
 
@@ -157,6 +158,45 @@ function normalizeSessionUrl(url) {
   return url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase();
 }
 
+const GITHUB_PULL_REQUEST_URL_RE = /https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/([0-9]+)/g;
+
+export function extractPullRequestUrlFromText(text, { owner = null, repo = null } = {}) {
+  if (!text) return null;
+
+  const expectedOwner = owner ? String(owner).toLowerCase() : null;
+  const expectedRepo = repo ? String(repo).toLowerCase() : null;
+  const value = String(text);
+  GITHUB_PULL_REQUEST_URL_RE.lastIndex = 0;
+
+  let match;
+  while ((match = GITHUB_PULL_REQUEST_URL_RE.exec(value)) !== null) {
+    const [, matchOwner, matchRepo, pullNumber] = match;
+    if (expectedOwner && matchOwner.toLowerCase() !== expectedOwner) continue;
+    if (expectedRepo && matchRepo.toLowerCase() !== expectedRepo) continue;
+    return `https://github.com/${matchOwner}/${matchRepo}/pull/${pullNumber}`;
+  }
+
+  return null;
+}
+
+async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile } = {}) {
+  if (!logPath) return null;
+
+  try {
+    const logText = await readFile(logPath, 'utf8');
+    const pullRequestUrl = extractPullRequestUrlFromText(logText, { owner: ctx.owner, repo: ctx.repo });
+    if (pullRequestUrl && verbose) {
+      console.log(`[VERBOSE] Found PR ${pullRequestUrl} in completed session log ${logPath}`);
+    }
+    return pullRequestUrl;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] Could not inspect session log ${logPath} for PR URL: ${error?.message || error}`);
+    }
+    return null;
+  }
+}
+
 function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) {
   const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
   const elapsed = Date.now() - startTime.getTime();
@@ -272,13 +312,19 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
       try {
         const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
 
-        // Issue #1688: When the original /solve URL was an issue, look up the
-        //   linked PR so the completion message can include both an `Issue:` and
-        //   a `Pull request:` line. Failures are logged and ignored — the
-        //   notification still goes out without the PR line.
+        // Issue #1688/#1905: When the original /solve URL was an issue, look up
+        //   the created PR so the completion message can include both an
+        //   `Issue:` and a `Pull request:` line. The linked-issue API can lag
+        //   behind the solver's own verification log, so we also inspect the
+        //   completed session log before giving up.
         let pullRequestUrl = null;
         try {
-          pullRequestUrl = await resolvePullRequestUrlForSession(sessionInfo, { verbose, lookupLinkedPullRequest: options.lookupLinkedPullRequest });
+          pullRequestUrl = await resolvePullRequestUrlForSession(sessionInfo, {
+            verbose,
+            lookupLinkedPullRequest: options.lookupLinkedPullRequest,
+            statusResult,
+            readFile: options.readFile,
+          });
         } catch (lookupError) {
           if (verbose) {
             console.log(`[VERBOSE] Pull request lookup failed for ${sessionName}: ${lookupError?.message || lookupError}`);
@@ -395,36 +441,50 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
  * @param {Object} [options]
  * @param {boolean} [options.verbose]
  * @param {Function} [options.lookupLinkedPullRequest] - Optional override `(ctx) => Promise<string|null>`
+ * @param {Object} [options.statusResult] - Completed start-command status payload, including logPath
+ * @param {Function} [options.readFile] - Optional test override for reading session logs
  * @returns {Promise<string|null>} PR URL or null
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1688
+ * @see https://github.com/link-assistant/hive-mind/issues/1905
  */
-async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, lookupLinkedPullRequest = null } = {}) {
+async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, lookupLinkedPullRequest = null, statusResult = null, readFile = fs.readFile } = {}) {
   const ctx = sessionInfo?.urlContext;
   if (!ctx || ctx.type !== 'issue' || !ctx.owner || !ctx.repo || !ctx.number) {
     return null;
   }
 
   if (typeof lookupLinkedPullRequest === 'function') {
-    return await lookupLinkedPullRequest(ctx);
+    const linkedPullRequestUrl = await lookupLinkedPullRequest(ctx);
+    if (linkedPullRequestUrl) return linkedPullRequestUrl;
+  } else {
+    try {
+      const { batchCheckPullRequestsForIssues } = await import('./github.lib.mjs');
+      const result = await batchCheckPullRequestsForIssues(ctx.owner, ctx.repo, [ctx.number]);
+      const linkedPRs = result?.[ctx.number]?.linkedPRs || [];
+      if (linkedPRs.length > 0 && linkedPRs[0].url) {
+        if (verbose) {
+          console.log(`[VERBOSE] Found linked PR ${linkedPRs[0].url} for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
+        }
+        return linkedPRs[0].url;
+      }
+    } catch (error) {
+      if (verbose) {
+        console.log(`[VERBOSE] batchCheckPullRequestsForIssues failed for ${ctx.owner}/${ctx.repo}#${ctx.number}: ${error?.message || error}`);
+      }
+    }
   }
 
-  try {
-    const { batchCheckPullRequestsForIssues } = await import('./github.lib.mjs');
-    const result = await batchCheckPullRequestsForIssues(ctx.owner, ctx.repo, [ctx.number]);
-    const linkedPRs = result?.[ctx.number]?.linkedPRs || [];
-    if (linkedPRs.length > 0 && linkedPRs[0].url) {
-      if (verbose) {
-        console.log(`[VERBOSE] Found linked PR ${linkedPRs[0].url} for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
-      }
-      return linkedPRs[0].url;
-    }
-  } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] batchCheckPullRequestsForIssues failed for ${ctx.owner}/${ctx.repo}#${ctx.number}: ${error?.message || error}`);
-    }
-    throw error;
+  const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+  const pullRequestUrlFromLog = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile });
+  if (pullRequestUrlFromLog) return pullRequestUrlFromLog;
+
+  if (verbose && logPath) {
+    console.log(`[VERBOSE] No PR URL found for issue ${ctx.owner}/${ctx.repo}#${ctx.number} in session log ${logPath}`);
+  } else if (verbose) {
+    console.log(`[VERBOSE] No session log path available for PR URL fallback for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
   }
+
   return null;
 }
 

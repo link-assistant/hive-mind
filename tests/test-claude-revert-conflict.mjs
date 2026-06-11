@@ -17,11 +17,10 @@
  *   causing a merge conflict when git revert tries to revert the initial commit
  */
 
-// Use use-m to dynamically import modules
-if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
-const use = globalThis.use;
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
+
+// Use use-m to dynamically import modules.
+const use = await ensureUseM();
 
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;

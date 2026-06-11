@@ -22,14 +22,12 @@
  * @hive-mind-test-suite default
  */
 
-// Use use-m to dynamically import command-stream (matches the rest of the suite).
-if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
-const use = globalThis.use;
-
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
+
+// Use use-m to dynamically import command-stream (matches the rest of the suite).
+const use = await ensureUseM();
 
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;

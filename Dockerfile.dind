@@ -10,7 +10,7 @@
 # To upgrade: update the dind version tag below.
 # Latest Box releases: https://github.com/link-foundation/box/releases
 
-FROM konard/box-dind:2.2.0
+FROM konard/box-dind:2.3.1
 ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---

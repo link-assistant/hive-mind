@@ -8,9 +8,10 @@
 #
 # Box image version: pinned to a specific release for stable, reproducible builds.
 # To upgrade: update the dind version tag below.
+# Box 2.3.1 includes the host-image passthrough allowlist used by the issue #1879 runbook.
 # Latest Box releases: https://github.com/link-foundation/box/releases
 
-FROM konard/box-dind:2.2.0
+FROM konard/box-dind:2.3.1
 ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---

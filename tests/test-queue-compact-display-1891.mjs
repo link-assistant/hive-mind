@@ -143,5 +143,99 @@ await (async () => {
   queue.stop();
 })();
 
+// ---------------------------------------------------------------------------
+// Separate labeled lists per queue (issue #1891 PR follow-up):
+// each tool queue splits into its own Processing / Pending / Completed / Failed
+// lists instead of one merged bullet list.
+// ---------------------------------------------------------------------------
+
+console.log('\n📋 separate labeled lists per queue\n');
+
+{
+  // The item helpers render a `*Label* (count):` header when given a label.
+  const exec = formatQueueExecutingItems({
+    items: [{ url: 'https://github.com/octo/repo/issues/7', waitMs: 8056000 }],
+    locale: null,
+    label: 'Processing',
+  });
+  assert(exec.includes('*Processing* (1):'), 'executing list renders a labeled header with its count');
+  assert(/\*Processing\* \(1\):\n\s+•/.test(exec), 'executing items are nested under their label');
+
+  const pend = formatQueuePendingItems({
+    items: [{ url: 'https://github.com/octo/repo/issues/8', waitMs: 302000 }],
+    locale: null,
+    label: 'Pending',
+  });
+  assert(pend.includes('*Pending* (1):'), 'pending list renders a labeled header with its count');
+}
+
+await (async () => {
+  resetSolveQueue();
+  const queue = new SolveQueue({
+    verbose: false,
+    autoStart: false,
+    getRunningProcesses: async () => ({ count: 0, processes: [] }),
+    getRunningIsolatedSessions: async () => ({ count: 0, byTool: {} }),
+    getRunningSessionItems: async () => [],
+  });
+
+  // One executing, one pending, plus completed/failed history for the same tool.
+  queue.processing.set('p1', { id: 'p1', tool: 'claude', url: 'https://github.com/test/repo/issues/10', status: 'started', getWaitTime: () => 8056000 });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/11', args: '', requester: 'u', infoBlock: 'i', tool: 'claude' });
+  queue.getToolQueue('claude')[0].setWaiting('RAM usage is 80% (threshold: 50%)');
+  queue.completed.push({ tool: 'claude', url: 'https://github.com/test/repo/issues/12' });
+  queue.failed.push({ tool: 'claude', url: 'https://github.com/test/repo/issues/13', error: 'boom' });
+
+  const status = await queue.formatDetailedStatus();
+
+  // All four lists appear as separately-labeled headers.
+  assert(status.includes('*Processing* (1):'), 'Processing list is labeled');
+  assert(status.includes('*Pending* (1):'), 'Pending list is labeled');
+  assert(status.includes('*Completed* (1):'), 'Completed list is labeled per tool');
+  assert(status.includes('*Failed* (1):'), 'Failed list is labeled per tool');
+
+  // Lists appear in a sensible order: Processing before Pending before Completed before Failed.
+  const iProc = status.indexOf('*Processing*');
+  const iPend = status.indexOf('*Pending*');
+  const iComp = status.indexOf('*Completed* (');
+  const iFail = status.indexOf('*Failed* (');
+  assert(iProc < iPend && iPend < iComp && iComp < iFail, 'lists render in Processing→Pending→Completed→Failed order');
+
+  // Items are present and clickable, the failed item keeps its error.
+  assert(status.includes('test/repo#10'), 'executing item listed');
+  assert(status.includes('test/repo#11'), 'pending item listed');
+  assert(status.includes('test/repo#12'), 'completed item listed');
+  assert(status.includes('test/repo#13'), 'failed item listed');
+  assert(/test\/repo#13[^\n]*— boom/.test(status), 'failed item keeps its error message');
+
+  // The merged single list of the previous iteration is gone: pending and
+  // executing items live under different labeled headers, not interleaved.
+  assert(status.indexOf('test/repo#10') < status.indexOf('*Pending*'), 'executing item is under Processing, before the Pending label');
+  assert(status.indexOf('test/repo#11') > status.indexOf('*Pending*'), 'pending item is under the Pending label');
+
+  queue.stop();
+})();
+
+await (async () => {
+  // A tool whose live queue has fully drained but still has history should show
+  // its Completed/Failed lists (per-queue history) rather than disappearing.
+  resetSolveQueue();
+  const queue = new SolveQueue({
+    verbose: false,
+    autoStart: false,
+    getRunningProcesses: async () => ({ count: 0, processes: [] }),
+    getRunningIsolatedSessions: async () => ({ count: 0, byTool: {} }),
+    getRunningSessionItems: async () => [],
+  });
+  queue.completed.push({ tool: 'codex', url: 'https://github.com/test/repo/issues/20' });
+
+  const status = await queue.formatDetailedStatus();
+  assert(status.includes('*codex*'), 'tool with only history is still shown');
+  assert(status.includes('*Completed* (1):'), 'its Completed list is shown');
+  assert(!status.includes('*agent*'), 'a tool with no activity at all stays hidden');
+
+  queue.stop();
+})();
+
 printSummary();
 process.exit(getFailCount() > 0 ? 1 : 0);

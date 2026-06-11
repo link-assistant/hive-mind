@@ -17,7 +17,7 @@
 
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
-import { collectExecutingItems, formatDuration, formatQueueExecutingItems, formatQueueHistorySection, formatQueuePendingItems, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems } from './telegram-solve-queue.helpers.lib.mjs';
+import { collectExecutingItems, formatDuration, formatQueueToolSection, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems, groupQueueItemsByTool } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
@@ -1320,16 +1320,18 @@ export class SolveQueue {
 
   /**
    * Format detailed queue status for Telegram message.
-   * Groups output by tool queue (clickable links per item), then lists the
-   * Completed and Failed history as clickable links, capped per section.
    *
-   * Processing count = max(actual AI CLI processes via pgrep, tracked
-   * `$ --status` executing screen-isolated sessions), not queue state.
+   * Each tool queue renders as a set of *separate, individually-labeled lists* —
+   * Processing, Pending, Completed, Failed — instead of one merged bullet list
+   * (issue #1891). Empty lists (and fully-empty tool queues) are skipped, items
+   * render as compact `• link (emoji dur)` rows, and the shared waiting reason
+   * is shown once per tool. Processing count = max(AI CLI processes via pgrep,
+   * tracked `$ --status` executing screen-isolated sessions), not queue state.
    *
    * @returns {Promise<string>}
-   * @see https://github.com/link-assistant/hive-mind/issues/1159
    * @see https://github.com/link-assistant/hive-mind/issues/1267
    * @see https://github.com/link-assistant/hive-mind/issues/1837
+   * @see https://github.com/link-assistant/hive-mind/issues/1891
    */
   async formatDetailedStatus(options = {}) {
     const locale = getLocale(options);
@@ -1340,15 +1342,34 @@ export class SolveQueue {
     // is dispatched, so without this the executing items are never listed (#1837).
     const runningSessionItems = await this.getRunningSessionItemsFn(this.verbose);
 
-    // Get actual processing counts for each tool queue.
-    // This combines pgrep with tracked isolation status so users see detached
-    // screen-isolated work even when the direct AI CLI process count is lower.
-    let message = `📋 *${lt('solve_queue_status', {}, { locale })}*\n\n`;
+    // Section labels: the header keeps the lower-case summary words; each
+    // per-tool sub-list uses a capitalized heading (issue #1891 follow-up).
+    const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+    const pendingLower = lt('queue_pending', {}, { locale });
+    const processingLower = lt('queue_processing', {}, { locale });
+    const labels = {
+      pendingLower,
+      processingLower,
+      pending: cap(pendingLower),
+      processing: cap(processingLower),
+      completed: cap(lt('queue_completed', {}, { locale })),
+      failed: cap(lt('queue_failed', {}, { locale })),
+    };
 
-    // Per-tool breakdown. Empty queues are skipped to keep it compact, items
-    // render as compact `• link (emoji dur)` rows, and the shared waiting
-    // reason is shown once instead of per line (issue #1891).
-    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+    // Group the (globally-capped) completed/failed history by tool so each tool
+    // queue shows its own Completed/Failed list (issue #1891 follow-up).
+    const completedByTool = groupQueueItemsByTool(this.completed);
+    const failedByTool = groupQueueItemsByTool(this.failed);
+
+    let message = `📋 *${lt('solve_queue_status', {}, { locale })}*\n\n`;
+    const max = QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE;
+
+    // Every tool with *any* activity (queued, processing, or in history) so
+    // per-tool history shows even after a tool's live queue has drained.
+    const tools = [...new Set([...Object.keys(this.queues), ...Object.keys(completedByTool), ...Object.keys(failedByTool)])];
+
+    for (const tool of tools) {
+      const toolQueue = this.queues[tool] || [];
       const pending = toolQueue.length;
       // Executing tasks: merge the in-memory processing Map with tracked
       // detached sessions, deduped by URL, so they list even after dispatch
@@ -1356,28 +1377,15 @@ export class SolveQueue {
       // reads "processing: 0" while ▶️ tasks are shown below it (issue #1891).
       const executing = collectExecutingItems({ processingItems: this.processing.values(), sessionItems: runningSessionItems, tool });
       const processing = Math.max(externalProcessing.byTool[tool] || 0, executing.length);
-      if (pending === 0 && executing.length === 0 && processing === 0) continue;
+      const completed = completedByTool[tool] || [];
+      const failed = failedByTool[tool] || [];
 
-      message += `*${tool}* (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
-      message += formatQueueExecutingItems({ items: executing, locale });
+      // Skip tools with nothing to show in any list.
+      if (pending === 0 && executing.length === 0 && processing === 0 && completed.length === 0 && failed.length === 0) continue;
 
       const pendingItems = toolQueue.map(item => ({ url: item.url, waitMs: item.getWaitTime(), waitingReason: item.waitingReason }));
-      message += formatQueuePendingItems({ items: pendingItems, locale });
-
-      // Show the waiting reason once when every pending item shares it.
-      const distinctReasons = [...new Set(pendingItems.map(item => item.waitingReason).filter(Boolean))];
-      if (distinctReasons.length === 1) {
-        message += `  ⏳ ${distinctReasons[0].replace(/\n+/g, '; ')}\n`;
-      }
-
-      message += '\n';
+      message += formatQueueToolSection({ tool, pending, processing, executing, pendingItems, completed, failed, labels, max, locale });
     }
-
-    // Completed / Failed lists - clickable links to the executed issues/PRs,
-    // most-recent-first so the newest results are easy to find (issue #1837).
-    const max = QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE;
-    message += formatQueueHistorySection({ items: this.completed, emoji: '✅', label: lt('queue_completed', {}, { locale }), max, locale });
-    message += formatQueueHistorySection({ items: this.failed, emoji: '❌', label: lt('queue_failed', {}, { locale }), max, locale, withError: true });
 
     // Summary stats
     message += `${lt('queue_completed', {}, { locale })}: ${stats.completed}, ${lt('queue_failed', {}, { locale })}: ${stats.failed}\n`;

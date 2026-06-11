@@ -50,18 +50,18 @@ export function formatQueueItemLink(url) {
  * @param {boolean} [opts.withError] - Append `— error` when the item failed.
  * @returns {string} The formatted section (empty string when no items).
  */
-export function formatQueueHistorySection({ items, emoji, label, max, locale, withError = false }) {
+export function formatQueueHistorySection({ items, emoji, label, max, locale, withError = false, indent = '' }) {
   if (!items || items.length === 0) return '';
-  let section = `*${label}* (${items.length}):\n`;
+  let section = `${indent}*${label}* (${items.length}):\n`;
   for (const item of [...items].reverse().slice(0, max)) {
-    section += `  ${emoji} ${formatQueueItemLink(item.url)}`;
+    section += `${indent}  ${emoji} ${formatQueueItemLink(item.url)}`;
     if (withError && item.error) section += ` — ${item.error}`;
     section += '\n';
   }
   if (items.length > max) {
-    section += `    ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
+    section += `${indent}    ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
   }
-  return `${section}\n`;
+  return section;
 }
 
 /**
@@ -142,16 +142,21 @@ export function collectExecutingItems({ processingItems = [], sessionItems = [],
  * @param {Array} opts.items - Output of {@link collectExecutingItems}.
  * @param {number} [opts.max=Infinity] - Maximum items before collapsing.
  * @param {string|null} opts.locale - Locale for labels/durations.
+ * @param {string} [opts.label] - Optional sub-list heading (e.g. "Processing").
+ *   When set, a `  *Label* (count):` header is rendered above the items so each
+ *   status gets its own clearly-labeled list (issue #1891 follow-up).
  * @returns {string} The formatted lines (empty string when no items).
  */
-export function formatQueueExecutingItems({ items, max = Infinity, locale }) {
+export function formatQueueExecutingItems({ items, max = Infinity, locale, label }) {
   if (!items || items.length === 0) return '';
-  let out = '';
+  // Items nest one level under their section label when labeled (issue #1891).
+  const itemIndent = label ? '    ' : '  ';
+  let out = label ? `  *${label}* (${items.length}):\n` : '';
   for (const item of items.slice(0, max)) {
-    out += `  • ${formatQueueItemLink(item.url)} (▶️ ${formatDuration(item.waitMs, { locale })})\n`;
+    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (▶️ ${formatDuration(item.waitMs, { locale })})\n`;
   }
   if (items.length > max) {
-    out += `    ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
+    out += `${itemIndent}  ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
   }
   return out;
 }
@@ -161,6 +166,62 @@ export function formatQueueExecutingItems({ items, max = Infinity, locale }) {
  * @deprecated Use {@link formatQueueExecutingItems}.
  */
 export const formatQueueProcessingItems = formatQueueExecutingItems;
+
+/**
+ * Group queue history items (completed/failed) by their `tool` key so each tool
+ * queue can render its own Completed/Failed list (issue #1891 follow-up).
+ *
+ * @param {Array<{tool?: string}>} items
+ * @returns {Object<string, Array>} Map of tool key → items.
+ */
+export function groupQueueItemsByTool(items) {
+  const byTool = {};
+  for (const item of items || []) {
+    const tool = item.tool || 'claude';
+    (byTool[tool] ||= []).push(item);
+  }
+  return byTool;
+}
+
+/**
+ * Render one tool queue's block for the detailed status as a set of *separate,
+ * individually-labeled lists* — Processing, Pending, Completed, Failed — instead
+ * of one merged bullet list (issue #1891 follow-up). Empty lists are omitted.
+ *
+ * @param {object} opts
+ * @param {string} opts.tool - Tool key (header label).
+ * @param {number} opts.pending - Pending count (for the header).
+ * @param {number} opts.processing - Processing count (for the header).
+ * @param {Array} opts.executing - Output of {@link collectExecutingItems}.
+ * @param {Array} opts.pendingItems - `{url, waitMs, waitingReason}` per pending item.
+ * @param {Array} opts.completed - Completed history items for this tool.
+ * @param {Array} opts.failed - Failed history items for this tool.
+ * @param {object} opts.labels - Localized labels (`pendingLower`, `processingLower`,
+ *   `pending`, `processing`, `completed`, `failed`).
+ * @param {number} opts.max - Max history items before the "… and N more" collapse.
+ * @param {string|null} opts.locale - Locale for labels/durations.
+ * @returns {string} The formatted block (with a trailing blank line).
+ */
+export function formatQueueToolSection({ tool, pending, processing, executing, pendingItems, completed, failed, labels, max, locale }) {
+  let block = `*${tool}* (${labels.pendingLower}: ${pending}, ${labels.processingLower}: ${processing})\n`;
+
+  // Processing list.
+  block += formatQueueExecutingItems({ items: executing, locale, label: labels.processing });
+
+  // Pending list + the shared waiting reason once (when all items agree on it).
+  block += formatQueuePendingItems({ items: pendingItems, locale, label: labels.pending });
+  const distinctReasons = [...new Set(pendingItems.map(item => item.waitingReason).filter(Boolean))];
+  if (distinctReasons.length === 1) {
+    block += `    ⏳ ${distinctReasons[0].replace(/\n+/g, '; ')}\n`;
+  }
+
+  // Completed / Failed lists for this tool (most-recent-first, capped), indented
+  // so the label sits under the tool header and items under it.
+  block += formatQueueHistorySection({ items: completed, emoji: '✅', label: labels.completed, max, locale, indent: '  ' });
+  block += formatQueueHistorySection({ items: failed, emoji: '❌', label: labels.failed, max, locale, withError: true, indent: '  ' });
+
+  return `${block}\n`;
+}
 
 /**
  * Render the per-tool "pending/waiting" lines for the detailed queue status as a
@@ -176,16 +237,21 @@ export const formatQueueProcessingItems = formatQueueExecutingItems;
  * @param {Array<{url: string, waitMs: number}>} opts.items - Pending items.
  * @param {number} [opts.max=Infinity] - Maximum items before collapsing.
  * @param {string|null} opts.locale - Locale for labels/durations.
+ * @param {string} [opts.label] - Optional sub-list heading (e.g. "Pending").
+ *   When set, a `  *Label* (count):` header is rendered above the items so each
+ *   status gets its own clearly-labeled list (issue #1891 follow-up).
  * @returns {string} The formatted lines (empty string when no items).
  */
-export function formatQueuePendingItems({ items, max = Infinity, locale }) {
+export function formatQueuePendingItems({ items, max = Infinity, locale, label }) {
   if (!items || items.length === 0) return '';
-  let out = '';
+  // Items nest one level under their section label when labeled (issue #1891).
+  const itemIndent = label ? '    ' : '  ';
+  let out = label ? `  *${label}* (${items.length}):\n` : '';
   for (const item of items.slice(0, max)) {
-    out += `  • ${formatQueueItemLink(item.url)} (⏳ ${formatDuration(item.waitMs, { locale })})\n`;
+    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (⏳ ${formatDuration(item.waitMs, { locale })})\n`;
   }
   if (items.length > max) {
-    out += `    ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
+    out += `${itemIndent}  ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
   }
   return out;
 }

@@ -74,12 +74,14 @@ hitting Telegram's 4096-character limit without a markdown-safe way to split.
 **After** (compact; split lists; shared reason once; empty queues hidden):
 
 ```
-*claude* (pending: 2, processing: 4)
-  • uselessgoddess/ryzr#3 (▶️ 2h 14m 16s)
-  • link-foundation/box#99 (▶️ 53m 52s)
-  • link-assistant/hive-mind#1900 (⏳ 5m 2s)
-  • link-assistant/hive-mind#1901 (⏳ 4m 1s)
-  ⏳ Claude 5 hour session limit is 95% (threshold: 90%)
+*claude*
+  *Processing* (2):
+    • uselessgoddess/ryzr#3 (▶️ 2h 14m 16s)
+    • link-foundation/box#99 (▶️ 53m 52s)
+  *Pending* (2):
+    • link-assistant/hive-mind#1900 (⏳ 5m 2s)
+    • link-assistant/hive-mind#1901 (⏳ 4m 1s)
+    ⏳ Claude 5 hour session limit is 95% (threshold: 90%)
 ```
 
 ## The shipped solution at a glance
@@ -89,6 +91,9 @@ Two independent changes, both required by the issue:
 1. **Compact, de-duplicated `/queue` display** (`formatDetailedStatus`):
    - executing rows render as `• owner/repo#number (▶️ <dur>)`,
    - pending rows render as `• owner/repo#number (⏳ <dur>)`,
+   - each tool renders as separate labeled lists (`*Processing* (n):`,
+     `*Pending* (n):`, `*Completed* (n):`, `*Failed* (n):`) with no duplicated
+     `(pending: n, processing: n)` tool-header summary,
    - the shared waiting reason is printed **once per tool** (only when all pending
      items agree on it) instead of once per item,
    - **empty queues are skipped entirely**,

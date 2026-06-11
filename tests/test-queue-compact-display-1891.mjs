@@ -85,6 +85,8 @@ await (async () => {
   assert(status.includes('claude'), 'non-empty claude queue is shown');
   assert(!status.includes('*agent*'), 'empty agent queue is hidden');
   assert(!status.includes('*gemini*'), 'empty gemini queue is hidden');
+  assert(status.includes('*Pending* (2):'), 'pending count is shown on the Pending list label');
+  assert(!status.includes('*claude* ('), 'tool header does not repeat pending/processing counts');
 
   // Compact pending lines with the ⏳ marker, one per item.
   assert(status.includes('test/repo#1'), 'first pending item is listed');
@@ -193,6 +195,7 @@ await (async () => {
   assert(status.includes('*Pending* (1):'), 'Pending list is labeled');
   assert(status.includes('*Completed* (1):'), 'Completed list is labeled per tool');
   assert(status.includes('*Failed* (1):'), 'Failed list is labeled per tool');
+  assert(!status.includes('*claude* ('), 'tool header does not duplicate the per-list counts');
 
   // Lists appear in a sensible order: Processing before Pending before Completed before Failed.
   const iProc = status.indexOf('*Processing*');

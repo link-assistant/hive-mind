@@ -1325,8 +1325,7 @@ export class SolveQueue {
    * Processing, Pending, Completed, Failed — instead of one merged bullet list
    * (issue #1891). Empty lists (and fully-empty tool queues) are skipped, items
    * render as compact `• link (emoji dur)` rows, and the shared waiting reason
-   * is shown once per tool. Processing count = max(AI CLI processes via pgrep,
-   * tracked `$ --status` executing screen-isolated sessions), not queue state.
+   * is shown once per tool.
    *
    * @returns {Promise<string>}
    * @see https://github.com/link-assistant/hive-mind/issues/1267
@@ -1336,22 +1335,16 @@ export class SolveQueue {
   async formatDetailedStatus(options = {}) {
     const locale = getLocale(options);
     const stats = this.getStats();
-    const externalProcessing = await this.getExternalProcessingSnapshot(Object.keys(this.queues));
     // Currently-executing detached sessions (with issue/PR URLs). These are the
     // real running tasks; the queue's own `processing` Map is emptied once a task
     // is dispatched, so without this the executing items are never listed (#1837).
     const runningSessionItems = await this.getRunningSessionItemsFn(this.verbose);
 
-    // Section labels: the header keeps the lower-case summary words; each
-    // per-tool sub-list uses a capitalized heading (issue #1891 follow-up).
+    // Section labels: each per-tool sub-list uses a capitalized heading.
     const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-    const pendingLower = lt('queue_pending', {}, { locale });
-    const processingLower = lt('queue_processing', {}, { locale });
     const labels = {
-      pendingLower,
-      processingLower,
-      pending: cap(pendingLower),
-      processing: cap(processingLower),
+      pending: cap(lt('queue_pending', {}, { locale })),
+      processing: cap(lt('queue_processing', {}, { locale })),
       completed: cap(lt('queue_completed', {}, { locale })),
       failed: cap(lt('queue_failed', {}, { locale })),
     };
@@ -1373,18 +1366,16 @@ export class SolveQueue {
       const pending = toolQueue.length;
       // Executing tasks: merge the in-memory processing Map with tracked
       // detached sessions, deduped by URL, so they list even after dispatch
-      // (issue #1837). The header count is max(external, listed) so it never
-      // reads "processing: 0" while ▶️ tasks are shown below it (issue #1891).
+      // (issue #1837).
       const executing = collectExecutingItems({ processingItems: this.processing.values(), sessionItems: runningSessionItems, tool });
-      const processing = Math.max(externalProcessing.byTool[tool] || 0, executing.length);
       const completed = completedByTool[tool] || [];
       const failed = failedByTool[tool] || [];
 
       // Skip tools with nothing to show in any list.
-      if (pending === 0 && executing.length === 0 && processing === 0 && completed.length === 0 && failed.length === 0) continue;
+      if (pending === 0 && executing.length === 0 && completed.length === 0 && failed.length === 0) continue;
 
       const pendingItems = toolQueue.map(item => ({ url: item.url, waitMs: item.getWaitTime(), waitingReason: item.waitingReason }));
-      message += formatQueueToolSection({ tool, pending, processing, executing, pendingItems, completed, failed, labels, max, locale });
+      message += formatQueueToolSection({ tool, executing, pendingItems, completed, failed, labels, max, locale });
     }
 
     // Summary stats

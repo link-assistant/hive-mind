@@ -15,7 +15,9 @@ Display changes (`formatDetailedStatus` + queue helpers):
 - Executing rows now render compactly as `• owner/repo#number (▶️ <dur>)` and pending
   rows as `• owner/repo#number (⏳ <dur>)` — the status word is replaced by the emoji
   marker inside the duration parenthesis.
-- Processing and pending are split into two distinct compact lists per tool.
+- Processing, pending, completed, and failed entries are split into distinct
+  compact lists per tool, with counts only on those list labels instead of a
+  duplicated `(pending: n, processing: n)` tool-header summary.
 - The shared waiting reason is shown **once per tool** (only when all pending items
   agree on it) instead of once per item.
 - Empty queues are skipped entirely.

@@ -46,15 +46,15 @@ Three sources of duplication:
 - Move the status signal **into the duration parenthesis as an emoji**:
   `(▶️ <dur>)` for executing, `(⏳ <dur>)` for pending. The emoji is the marker, so
   the word "processing"/"waiting" disappears.
-- Split the two lists explicitly (executing first, then pending) so the reader
-  groups them visually without a per-line label.
+- Split the queue into explicit labeled lists (Processing, Pending, Completed,
+  Failed) so the reader groups items visually without a per-line status word.
+- Render the tool name as a plain header; counts live only on the individual list
+  labels, e.g. `*Pending* (2):`, so `(pending: N, processing: N)` is not repeated
+  above the same lists.
 - Print the **shared waiting reason once per tool**, and only when all pending items
   agree on it (`distinctReasons.length === 1`). Divergent reasons suppress the
   shared line rather than print a misleading one.
 - **Skip empty queues** with an early `continue`.
-- Reconcile the header processing count as `max(externalProcessing, executing.length)`
-  so it never reads `processing: 0` while ▶️ rows are shown (a pre-existing latent
-  inconsistency surfaced once the rows became prominent).
 
 ## Problem 2 — Splitting long messages without breaking markdown
 

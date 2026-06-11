@@ -165,13 +165,15 @@ await asyncTest('formatDetailedStatus groups items by tool queue', async () => {
 
   const status = await queue.formatDetailedStatus();
 
-  // Should show both queues with correct counts
+  // Should show both queues with their counts on the list labels, not duplicated
+  // in the tool header.
   assert.ok(status.includes('claude'), 'Should include claude queue');
   assert.ok(status.includes('agent'), 'Should include agent queue');
-  assert.ok(status.includes('pending: 2'), 'Should show 2 pending for claude');
-  assert.ok(status.includes('pending: 1'), 'Should show 1 pending for agent');
-  // Processing count should come from pgrep (actual running processes)
-  assert.ok(status.includes('processing:'), 'Should show processing count');
+  assert.ok(status.includes('*Pending* (2):'), 'Should show 2 pending for claude');
+  assert.ok(status.includes('*Pending* (1):'), 'Should show 1 pending for agent');
+  assert.ok(!status.includes('pending: 2'), 'Should not duplicate claude pending count in the tool header');
+  assert.ok(!status.includes('pending: 1'), 'Should not duplicate agent pending count in the tool header');
+  assert.ok(!status.includes('processing:'), 'Should not duplicate processing count in the tool header');
   // Items should show human-readable time, not raw seconds
   assert.ok(!status.includes('s)') || status.includes('0s)'), 'Should use human-readable time format');
 

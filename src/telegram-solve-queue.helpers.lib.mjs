@@ -190,8 +190,6 @@ export function groupQueueItemsByTool(items) {
  *
  * @param {object} opts
  * @param {string} opts.tool - Tool key (header label).
- * @param {number} opts.pending - Pending count (for the header).
- * @param {number} opts.processing - Processing count (for the header).
  * @param {Array} opts.executing - Output of {@link collectExecutingItems}.
  * @param {Array} opts.pendingItems - `{url, waitMs, waitingReason}` per pending item.
  * @param {Array} opts.completed - Completed history items for this tool.
@@ -202,8 +200,8 @@ export function groupQueueItemsByTool(items) {
  * @param {string|null} opts.locale - Locale for labels/durations.
  * @returns {string} The formatted block (with a trailing blank line).
  */
-export function formatQueueToolSection({ tool, pending, processing, executing, pendingItems, completed, failed, labels, max, locale }) {
-  let block = `*${tool}* (${labels.pendingLower}: ${pending}, ${labels.processingLower}: ${processing})\n`;
+export function formatQueueToolSection({ tool, executing, pendingItems, completed, failed, labels, max, locale }) {
+  let block = `*${tool}*\n`;
 
   // Processing list.
   block += formatQueueExecutingItems({ items: executing, locale, label: labels.processing });

@@ -457,14 +457,14 @@ await asyncTest('formatDetailedStatus includes all sections', async () => {
   const status = await queue.formatDetailedStatus();
 
   // Updated format (issue #1891): per-queue grouping with items, empty queues
-  // hidden, shared waiting reason shown once.
-  // Processing counts are actual running system processes (via pgrep)
-  // See: https://github.com/link-assistant/hive-mind/issues/1267
+  // hidden, shared waiting reason shown once, and counts shown only on the
+  // individual list labels.
   assert.ok(status.includes('Solve Queue Status'), 'Should include title');
   assert.ok(status.includes('claude'), 'Should include claude queue (has a pending item)');
   assert.ok(!status.includes('agent'), 'Should hide the empty agent queue (issue #1891)');
-  assert.ok(status.includes('pending:'), 'Should include pending count');
-  assert.ok(status.includes('processing:'), 'Should include processing count');
+  assert.ok(status.includes('*Pending* (1):'), 'Should include pending count on the Pending list label');
+  assert.ok(!status.includes('pending: 1'), 'Should not duplicate pending count in the tool header');
+  assert.ok(!status.includes('processing:'), 'Should not duplicate processing count in the tool header');
   assert.ok(status.includes('Completed:'), 'Should include completed count');
   assert.ok(status.includes('Failed:'), 'Should include failed count');
   assert.ok(status.includes('test/repo/issues/1'), 'Should include queued item URL');

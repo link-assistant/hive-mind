@@ -1,5 +1,36 @@
 # @link-assistant/hive-mind
 
+## 1.78.1
+
+### Patch Changes
+
+- dc8bb99: Group interactive `system.thinking_tokens` events into one editable PR comment and handle observed system lifecycle events without unrecognized-event noise.
+- d704dfc: fix(install): redirect npm global prefix when root-owned to avoid EACCES at startup (#1897)
+
+  `use-m` loads runtime dependencies (command-stream, getenv, yargs, …) by shelling
+  out to `npm install -g <alias>@npm:<pkg>@latest`, which installs into the global
+  prefix reported by `npm root -g`. When the CLI was launched under a system-wide
+  Node.js whose global `node_modules` is owned by root (e.g.
+  `/opt/node-v24.16.0-linux-x64/lib/node_modules`), that install failed with
+  `npm error code EACCES … rename … command-stream-v-latest` and the whole process
+  crashed at the very first `use()` call (`Error: Failed to install
+command-stream@latest globally.`). This commonly happens when hive-mind was
+  installed with `bun add -g` (user-owned `~/.bun/...`) but invoked under a system
+  Node whose global prefix needs root.
+
+  The new `src/npm-global-prefix.lib.mjs` preflight mirrors npm's own documented
+  EACCES remedy: before any real `use-m` bootstrap runs, it detects a non-writable
+  npm global prefix and redirects `npm_config_prefix` (honoured by both
+  `npm install -g` and `npm root -g`) to a user-writable `~/.npm-global`,
+  prepending its `bin` to `PATH`. The common case where the prefix is already
+  writable stays a no-op with no extra `npm` spawn.
+
+  Hive Mind now routes direct repository `use-m` bootstraps through
+  `src/use-m-bootstrap.lib.mjs`, including CLI entry points, shared source modules,
+  scripts, and executable tests. The workaround skips Windows' different global
+  layout, skips Bun/Deno runtimes, and respects explicitly preset
+  `npm_config_prefix` or `NPM_CONFIG_PREFIX` values.
+
 ## 1.78.0
 
 ### Minor Changes

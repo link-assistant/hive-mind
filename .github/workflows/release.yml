@@ -115,7 +115,7 @@ jobs:
           node-version: '24.x'
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Check for changesets
         env:
@@ -198,7 +198,7 @@ jobs:
           node-version: 24.x
 
       - name: Install dependencies
-        run: npm ci
+        run: node scripts/npm-install-with-retry.mjs ci
 
       - name: Run Prettier format check
         run: |
@@ -269,7 +269,7 @@ jobs:
           node-version: 24.x
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
@@ -307,7 +307,7 @@ jobs:
           node-version: 24.x
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
@@ -395,7 +395,7 @@ jobs:
           node-version: 24.x
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: System info
         run: |
@@ -650,7 +650,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Update npm for OIDC trusted publishing
         run: node scripts/setup-npm.mjs
@@ -1066,7 +1066,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Update npm for OIDC trusted publishing
         run: node scripts/setup-npm.mjs
@@ -1446,7 +1446,7 @@ jobs:
           node-version: '24.x'
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Create changeset file
         run: node scripts/create-manual-changeset.mjs --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"

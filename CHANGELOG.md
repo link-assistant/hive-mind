@@ -1,5 +1,145 @@
 # @link-assistant/hive-mind
 
+## 1.77.1
+
+### Patch Changes
+
+- 3f9dd61: fix(ci): retry `npm install`/`npm ci` on transient registry network errors (#1903)
+
+  CI run 27332260596 failed in the `test-execution` job when `npm install` aborted
+  mid-download with `npm error code ECONNRESET` / `npm error network aborted` — a
+  transient GitHub-runner ↔ npm-registry network drop, not a code defect. The bare
+  install step had no retry, so a single dropped socket failed the whole job (a
+  false positive).
+  - Add `scripts/npm-install-with-retry.mjs`: a Node-builtin-only wrapper that runs
+    `npm install`/`npm ci` and retries the whole command with exponential backoff on
+    transient failures only, reusing the `isRetryableNpmError`/`computeBackoffMs`
+    helpers introduced for issue #1724 (no code duplication). Verbose mode via
+    `NPM_INSTALL_RETRY_VERBOSE=1`; tunable via `NPM_INSTALL_MAX_ATTEMPTS` /
+    `NPM_INSTALL_BASE_DELAY_MS`.
+  - Route all 8 dependency-install steps in `.github/workflows/release.yml` through
+    the wrapper (fixing the bug in every place it existed).
+  - Add `.npmrc` raising npm's built-in `fetch-retries` budget, hardening local,
+    CI, and Docker installs as defense in depth.
+  - Unit test `tests/test-npm-install-with-retry-1903.mjs` (mocked npm runner) and a
+    deep case study under `docs/case-studies/issue-1903/`.
+
+## 1.77.0
+
+### Minor Changes
+
+- a50d201: feat(solve): experimental `--escalate` mode (#1885)
+
+  Add an experimental `solve` option family that solves a task cheaply first and
+  escalates to a more capable (more expensive) model only while unfinished work
+  remains. The model ladder, cheapest → most capable, is `haiku < sonnet < opus <
+fable`.
+  - `--escalate` (bare) → the default range `sonnet-fable`.
+  - `--escalate sonnet-opus` → an explicit `<lower>-<upper>` range (`-` delimits the
+    bounds; only the short ladder names are allowed inside a range).
+  - `--escalate-from haiku` → shortcut for `--escalate haiku-fable` (aliases such as
+    `opus-4-8` accepted here, since a single value is unambiguous).
+  - `--escalate-steps N` (default 1) → keep each tier for N working sessions before
+    escalating (e.g. `2` → two sonnet sessions, then two opus, then two fable).
+
+  The first regular solve session runs on the range's lower bound (unless `--model`
+  is explicitly pinned). After it finishes, the escalate loop re-scans the pull
+  request for deferred/unfinished-work indicators — reusing the detector from issue
+  #1883 — and escalates to the next tier only if work remains; otherwise it stops
+  early so the expensive tiers are never invoked. Restarts are capped at 3
+  consecutive errors and stop on a usage limit. Escalate is Claude-only and runs
+  before `--finalize` / `--keep-working`.
+
+  Pure parsing/planning helpers live in a network-free module
+  (`src/solve.escalate.lib.mjs`) with full unit-test coverage
+  (`tests/test-escalate-1885.mjs`); a deep case study is compiled under
+  `docs/case-studies/issue-1885/`.
+
+- 53a0544: Update Hive Mind Docker images to `konard/box` and `konard/box-dind` 2.3.1 so Docker-in-Docker deployments can use the upstream host-image passthrough allowlist.
+
+## 1.76.2
+
+### Patch Changes
+
+- 5d8d6c1: fix(cost): accumulate Anthropic cost across limit-reset resumes (#1886)
+
+  The session cost summary could report a large negative "Difference" (e.g.
+  `$-11.422796 (-31.66%)`) between the public pricing estimate and the Anthropic
+  figure. Root cause: the public estimate is computed from the session JSONL,
+  which accumulates the **entire** session across every limit-reset resume, while
+  the Anthropic `total_cost_usd` from the stream-json `result` event is scoped to a
+  **single** Claude process (only the resumed run). Comparing a full-session
+  estimate against a single-process figure produced a misleading gap even though
+  both numbers were individually correct.
+
+  The per-token math (`calculateModelCost`) was audited and is correct; this is a
+  scope mismatch, not a pricing error.
+
+  Fix:
+  - New `src/anthropic-cost-accumulator.lib.mjs` keeps a model-agnostic running
+    total of Anthropic's per-process `total_cost_usd` (it sums dollars, never
+    inspecting per-token prices, so it is correct for all models).
+  - `runClaude` seeds from and returns the cumulative total on every terminal path;
+    the cross-process limit-reset resume threads it via a new hidden
+    `--previous-anthropic-cost` option (`autoContinueWhenLimitResets`).
+  - A usage-limit hit ends as `is_error` with no `success` result event, so its
+    cost was previously discarded. The cost from a non-success terminal `result`
+    event is now kept as a fallback and folded into the accumulator, closing the
+    gap in the reported scenario.
+  - `displayCostComparison` / `displaySessionTokenUsage` print a verbose
+    accumulation breakdown ("cumulative across resume iterations: this run … +
+    carried forward … = …") so the figure is never mysterious again.
+
+  A deep case study (timeline, proven root causes, exact reproduced numbers, online
+  prior art incl. `anthropics/claude-code#13088`) is compiled under
+  `docs/case-studies/issue-1886/`.
+
+## 1.76.1
+
+### Patch Changes
+
+- 13e7e6a: Docker isolation: reuse the host image instead of re-downloading a copy inside the (nested) Docker daemon (#1879).
+  - src/isolation-runner.lib.mjs: add `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG` to pin the
+    isolation image tag, and `HIVE_MIND_DOCKER_ISOLATION_PULL` (always|missing|never) to emit a
+    `docker run --pull` policy. Verbose mode now logs the resolved image and pull policy.
+  - scripts/preload-dind-isolation-image.mjs: seed a DinD container's nested daemon from the
+    host (`docker save | docker exec -i … docker load`) so isolated tasks reuse the host image.
+  - .env.example: document the Docker isolation image/pull controls.
+  - Dockerfile / Dockerfile.dind / coolify/Dockerfile: bump the box base images to
+    `konard/box:2.2.0` / `konard/box-dind:2.2.0` (and the `docs/UBUNTU-SERVER*.md` examples).
+    v2.2.0 ships box's native host-image passthrough (box#94/#95), so the DinD deployment can seed
+    the nested daemon from the host automatically with
+    `-v /var/run/docker.sock:/var/run/host-docker.sock:ro -e DIND_HOST_PASSTHROUGH=public`.
+  - tests/test-issue-1879-docker-image-reuse.mjs: regression coverage.
+  - docs/case-studies/issue-1879: deep case study with logs, timeline, root causes, and runbook;
+    records that box#94 shipped in v2.2.0 and reports two upstream follow-ups — box#96
+    (public-mode passthrough test false positive) and box#97 (per-repository passthrough allowlist).
+
+- 7335a73: Continue fork PRs with "Allow edits by maintainers" instead of halting on a misclassified fork divergence (#1893).
+
+  When the solver continues a cross-repository PR opened from another contributor's fork, it
+  synced the upstream default branch and then tried to push it back to `origin` — the
+  contributor's fork, which the operating maintainer does not own. GitHub rejected the push
+  with `! [remote rejected] main -> main (permission denied)`, and the solver misclassified
+  that permission error as a fork divergence (the heuristic matched the substring `rejected`),
+  halting with `Repository setup halted - fork divergence requires user decision` and advising
+  `--allow-fork-divergence-resolution-using-force-push-with-lease` — a flag that cannot help,
+  since force-push also requires fork write access.
+  - src/solve.branch-divergence.lib.mjs: add two pure helpers —
+    `shouldPushDefaultBranchToFork({currentUser, forkedRepo})` (skip the push when the user does
+    not own the fork; fail-open when owner/user is unknown) and `isPermissionDeniedPushError()`
+    (recognize a permission-denied rejection so it is never treated as divergence).
+  - src/solve.fork-sync.lib.mjs: new module holding `setupUpstreamAndSync` (extracted from
+    solve.repository.lib.mjs to stay under the 1500-line limit, re-exported unchanged). It now
+    resolves the current user, skips the fork's default-branch push when the user is not the fork
+    owner, and on a permission-denied push warns and continues on the PR branch instead of
+    halting. Genuine non-fast-forward divergence still triggers the original guidance. Adds
+    verbose diagnostics explaining each skip/continue decision.
+  - tests/test-issue-1893-fork-pr-permission-denied.mjs: regression coverage (9 cases) using the
+    exact failure output from the run log.
+  - docs/case-studies/issue-1893: deep case study with downloaded logs/data, timeline, root
+    causes, fix, codebase-wide audit, and existing-components review.
+
 ## 1.76.0
 
 ### Minor Changes

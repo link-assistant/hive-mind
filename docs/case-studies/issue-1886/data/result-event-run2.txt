@@ -1,0 +1,61 @@
+[2026-06-10T17:47:07.029Z] [INFO]   "duration_ms": 2625749,
+[2026-06-10T17:47:07.029Z] [INFO]   "duration_api_ms": 2177499,
+[2026-06-10T17:47:07.029Z] [INFO]   "ttft_ms": 19818,
+[2026-06-10T17:47:07.029Z] [INFO]   "ttft_stream_ms": 4686,
+[2026-06-10T17:47:07.029Z] [INFO]   "time_to_request_ms": 61,
+[2026-06-10T17:47:07.029Z] [INFO]   "num_turns": 193,
+[2026-06-10T17:47:07.029Z] [INFO]   "result": "CI run 27294514700 is still executing. Two background tasks will re-invoke me: the `gh run watch` (b9c9c25ux) when the run completes, and a 7-minute idle timer as backup. I'll proceed with `gh pr ready 396` and the final report as soon as the run concludes.",
+[2026-06-10T17:47:07.029Z] [INFO]   "stop_reason": "end_turn",
+[2026-06-10T17:47:07.029Z] [INFO]   "session_id": "160da4c5-d2f8-4488-873e-5936eacfac37",
+[2026-06-10T17:47:07.029Z] [INFO]   "total_cost_usd": 24.662219999999994,
+[2026-06-10T17:47:07.029Z] [INFO]   "usage": {
+[2026-06-10T17:47:07.029Z] [INFO]     "input_tokens": 31484,
+[2026-06-10T17:47:07.029Z] [INFO]     "cache_creation_input_tokens": 333581,
+[2026-06-10T17:47:07.029Z] [INFO]     "cache_read_input_tokens": 12868811,
+[2026-06-10T17:47:07.029Z] [INFO]     "output_tokens": 102180,
+[2026-06-10T17:47:07.029Z] [INFO]     "server_tool_use": {
+[2026-06-10T17:47:07.029Z] [INFO]       "web_search_requests": 0,
+[2026-06-10T17:47:07.029Z] [INFO]       "web_fetch_requests": 0
+[2026-06-10T17:47:07.029Z] [INFO]     },
+[2026-06-10T17:47:07.029Z] [INFO]     "service_tier": "standard",
+[2026-06-10T17:47:07.029Z] [INFO]     "cache_creation": {
+[2026-06-10T17:47:07.029Z] [INFO]       "ephemeral_1h_input_tokens": 333581,
+[2026-06-10T17:47:07.029Z] [INFO]       "ephemeral_5m_input_tokens": 0
+[2026-06-10T17:47:07.029Z] [INFO]     },
+[2026-06-10T17:47:07.029Z] [INFO]     "inference_geo": "not_available",
+[2026-06-10T17:47:07.029Z] [INFO]     "iterations": [
+[2026-06-10T17:47:07.029Z] [INFO]       {
+[2026-06-10T17:47:07.029Z] [INFO]         "input_tokens": 2,
+[2026-06-10T17:47:07.029Z] [INFO]         "output_tokens": 307,
+[2026-06-10T17:47:07.029Z] [INFO]         "cache_read_input_tokens": 40334,
+[2026-06-10T17:47:07.029Z] [INFO]         "cache_creation_input_tokens": 194,
+[2026-06-10T17:47:07.029Z] [INFO]         "cache_creation": {
+[2026-06-10T17:47:07.029Z] [INFO]           "ephemeral_5m_input_tokens": 0,
+[2026-06-10T17:47:07.029Z] [INFO]           "ephemeral_1h_input_tokens": 194
+[2026-06-10T17:47:07.029Z] [INFO]         },
+[2026-06-10T17:47:07.029Z] [INFO]         "type": "message"
+[2026-06-10T17:47:07.029Z] [INFO]       }
+[2026-06-10T17:47:07.029Z] [INFO]     ],
+[2026-06-10T17:47:07.029Z] [INFO]     "speed": "standard"
+[2026-06-10T17:47:07.029Z] [INFO]   },
+[2026-06-10T17:47:07.029Z] [INFO]   "modelUsage": {
+[2026-06-10T17:47:07.029Z] [INFO]     "claude-fable-5": {
+[2026-06-10T17:47:07.029Z] [INFO]       "inputTokens": 31490,
+[2026-06-10T17:47:07.029Z] [INFO]       "outputTokens": 137297,
+[2026-06-10T17:47:07.029Z] [INFO]       "cacheReadInputTokens": 13211220,
+[2026-06-10T17:47:07.029Z] [INFO]       "cacheCreationInputTokens": 341700,
+[2026-06-10T17:47:07.029Z] [INFO]       "webSearchRequests": 0,
+[2026-06-10T17:47:07.029Z] [INFO]       "costUSD": 24.662219999999994,
+[2026-06-10T17:47:07.029Z] [INFO]       "contextWindow": 200000,
+[2026-06-10T17:47:07.029Z] [INFO]       "maxOutputTokens": 64000
+[2026-06-10T17:47:07.029Z] [INFO]     }
+[2026-06-10T17:47:07.029Z] [INFO]   },
+[2026-06-10T17:47:07.029Z] [INFO]   "permission_denials": [],
+[2026-06-10T17:47:07.029Z] [INFO]   "terminal_reason": "completed",
+[2026-06-10T17:47:07.029Z] [INFO]   "fast_mode_state": "off",
+[2026-06-10T17:47:07.029Z] [INFO]   "uuid": "4833cf14-d8b6-4dff-90fd-4d17344e04b8"
+[2026-06-10T17:47:07.029Z] [INFO] }
+[2026-06-10T17:47:07.034Z] [INFO] 📌 Result event received, starting 30s stream close timeout (Issue #1280)
+[2026-06-10T17:47:07.036Z] [INFO] 💰 Anthropic official cost captured from success result: $24.662220
+[2026-06-10T17:47:07.038Z] [INFO] 📝 Captured result summary from Claude output
+[2026-06-10T17:47:07.039Z] [INFO] 📊 Session num_turns: 193

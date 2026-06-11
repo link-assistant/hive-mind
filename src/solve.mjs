@@ -46,6 +46,7 @@ const { startWatchMode } = watchLib;
 const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
 const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const { runKeepWorkingUntilDone } = await import('./solve.keep-working.lib.mjs');
+const { runEscalation } = await import('./solve.escalate.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
@@ -1270,10 +1271,9 @@ try {
       await log('⚠️  PR title/description still not updated after restart');
     }
   }
-
-  // Issue #1383: --finalize
+  // Post-solve restart loops (escalate #1885 first, then finalize #1383, then keep-working #1883):
+  applyRestartResult(await runEscalation({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
   applyRestartResult(await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile }));
-  // Issue #1883: --keep-working-until-all-requirements-are-fully-done (detect deferred work and auto-restart until done)
   applyRestartResult(await runKeepWorkingUntilDone({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes

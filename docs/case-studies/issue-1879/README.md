@@ -6,6 +6,8 @@ Issue: https://github.com/link-assistant/hive-mind/issues/1879
 
 Pull request: https://github.com/link-assistant/hive-mind/pull/1880
 
+Follow-up pull request: https://github.com/link-assistant/hive-mind/pull/1899
+
 Related issue: https://github.com/link-assistant/hive-mind/issues/1860 (the predecessor that
 made Hive Mind own Docker isolation command construction).
 
@@ -40,6 +42,11 @@ store starts empty.
 - `raw/start-isolation-backend-excerpt.js` — `link-foundation/start`'s Docker isolation
   backend (`js/src/lib/isolation.js`), showing it only pulls when `dockerImageExists()` is
   false (it does **not** force-pull).
+- `raw/box-release-v2.3.1.json` — latest `link-foundation/box` release metadata verified on
+  2026-06-11. It publishes `konard/box:2.3.1` and `konard/box-dind:2.3.1`.
+- `raw/box-issue-94.json` / `raw/box-pr-95.json` — upstream host-image passthrough work.
+- `raw/box-issue-96.json` / `raw/box-pr-98.json` — upstream public-mode positive coverage.
+- `raw/box-issue-97.json` / `raw/box-pr-99.json` — upstream per-image passthrough allowlist.
 
 ## Timeline / Sequence of Events
 
@@ -123,10 +130,12 @@ empty-store pull, but it is a precondition for reliable reuse and reproducibilit
 
 ## Existing Components / Libraries Considered
 
-- **box native host-image passthrough** (box v2.2.0, `DIND_HOST_PASSTHROUGH`) — copies host
-  images into the nested daemon at entrypoint startup; `public` mode is secret-safe. This is the
-  durable, zero-manual-step fix and is now the **primary** recommendation (see runbook). It
-  became available _after_ the initial preload-helper solution was written, by way of box#94.
+- **box native host-image passthrough** (box v2.3.1, `DIND_HOST_PASSTHROUGH` +
+  `DIND_HOST_PASSTHROUGH_IMAGES`) — copies selected host images into the nested daemon at
+  entrypoint startup; `public` mode is secret-safe and the image allowlist scopes the copy to
+  Hive Mind's own repositories. This is the durable, zero-manual-step fix and is now the
+  **primary** recommendation (see runbook). The core passthrough shipped in box#94; the
+  positive public-mode test and per-image allowlist shipped in box#96 and box#97.
 - **`docker save | docker load`** (built-in) — the simplest, dependency-free way to copy an
   image from the host daemon into the nested daemon. Chosen for the preload helper, retained as
   the exact per-image fallback when mounting the host socket is undesirable.
@@ -139,11 +148,11 @@ empty-store pull, but it is a precondition for reliable reuse and reproducibilit
 - **`docker run --pull`** (built-in) — the lever to force reuse (`never`) or refresh
   (`always`). Wired up so operators can opt in.
 
-## Solution Applied (this PR)
+## Solution Applied (PR #1880 + follow-up PR #1899)
 
-The fix gives operators the levers to reuse the host image and makes the behavior observable.
-All changes are in code Hive Mind controls; the cross-daemon seeding itself is a deploy-time
-action (a helper script is provided) plus an upstream request.
+PR #1880 gives operators the levers to reuse the host image and makes the behavior observable.
+Follow-up PR #1899 consumes the upstream box release that performs scoped host-image passthrough
+at container startup.
 
 ### 1. Image tag pinning — `src/isolation-runner.lib.mjs`
 
@@ -183,40 +192,38 @@ docker load`, skipping the copy if the nested daemon already has the image. Run 
   (flag presence/ordering, pinned-tag + `never` combination). The issue #1860 suite still
   passes unchanged.
 
-### 7. Box base-image bump to v2.2.0 (enables native passthrough)
+### 7. Box base-image bump to v2.3.1 (latest passthrough release)
 
-- `Dockerfile.dind` → `FROM konard/box-dind:2.2.0`, `Dockerfile` and `coolify/Dockerfile` →
-  `FROM konard/box:2.2.0`, and the `docs/UBUNTU-SERVER*.md` pull/run examples → `konard/box:2.2.0`.
-  v2.2.0 is the first release carrying box's native host-image passthrough (box#94 / box PR#95),
-  so the DinD deployment can now seed the nested daemon automatically (see runbook). `release.yml`
+- `Dockerfile.dind` → `FROM konard/box-dind:2.3.1`, `Dockerfile` and `coolify/Dockerfile` →
+  `FROM konard/box:2.3.1`, and the `docs/UBUNTU-SERVER*.md` pull/run examples → `konard/box:2.3.1`.
+  v2.3.1 includes the original native host-image passthrough (box#94), the public-mode positive
+  integration coverage (box#96), and the per-repository image allowlist (box#97), so the DinD
+  deployment can seed only the Hive Mind images automatically (see runbook). `release.yml`
   extracts these `FROM` tags automatically, so the bump flows through to published images.
 
 ## Recommended Operator Runbook (full reuse, no re-download)
 
-### Primary: native box host-image passthrough (box v2.2.0+)
+### Primary: native box host-image passthrough (box v2.3.1+)
 
-Now that `Dockerfile.dind` is based on `konard/box-dind:2.2.0`, the nested daemon can be seeded
+Now that `Dockerfile.dind` is based on `konard/box-dind:2.3.1`, the nested daemon can be seeded
 automatically from the host at container startup — no manual step. Run the `hive-mind` container
-with the host Docker socket mounted read-only and passthrough enabled in `public` mode:
+with the host Docker socket mounted read-only, passthrough enabled in `public` mode, and the
+image allowlist scoped to Hive Mind's own images:
 
 ```bash
 docker run -d --name hive-mind --privileged \
   -v /var/run/docker.sock:/var/run/host-docker.sock:ro \
   -e DIND_HOST_PASSTHROUGH=public \
+  -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind" \
   konard/hive-mind-dind:<tag>
 ```
 
 `public` mode copies only images that carry a RepoDigest from an allowlisted public registry, so
-the host's already-downloaded `konard/hive-mind` and `konard/hive-mind-dind` (pulled from Docker
-Hub during provisioning) land in the nested daemon, while private images and registry credentials
-stay on the host. The subsequent `docker run … konard/hive-mind-dind:<tag>` inside the container
-then finds the image locally and does **not** re-download it.
-
-> **Scope note:** `public` mode passes through _all_ public host images, not just hive-mind's.
-> That is harmless (and secret-safe) but broader than strictly necessary. A per-repository
-> allowlist that would restrict passthrough to only `konard/hive-mind*` is requested upstream as
-> box#97; until it ships, `public` is the recommended default. For an exact, image-by-image seed
-> use the fallback below.
+private images and registry credentials stay on the host. `DIND_HOST_PASSTHROUGH_IMAGES` narrows
+that public set to the host's already-downloaded `konard/hive-mind` and
+`konard/hive-mind-dind` images. The subsequent
+`docker run … konard/hive-mind-dind:<tag>` inside the container then finds the image locally and
+does **not** re-download it.
 
 Then, to make isolated tasks reuse the seeded image and fail fast instead of silently
 re-downloading, pin the tag and forbid pulls:
@@ -239,8 +246,8 @@ the preload helper, which does `docker save <image> | docker exec -i <container>
    `export HIVE_MIND_DOCKER_ISOLATION_PULL=never`.
 
 The durable fix — baking the seeding into the DinD image/entrypoint so the manual preload step is
-unnecessary — is now available upstream as box's native passthrough (box#94, shipped in v2.2.0;
-see below).
+unnecessary — is now available upstream as box's native passthrough plus per-image allowlisting
+(box#94 and box#97, included in v2.3.1; see below).
 
 ## Upstream Report
 
@@ -267,9 +274,9 @@ now copies host images into the nested daemon at startup, controlled by:
 - `DIND_HOST_PASSTHROUGH_REGISTRIES` — registry-host allowlist.
 - `DIND_PRELOAD_TARBALL` / `DIND_PRELOAD_IMAGES` — explicit tarball / image preloads.
 
-This is the durable fix the runbook below now recommends as the primary approach.
+This is the durable fix the runbook above now recommends as the primary approach.
 
-### box#96 — public-mode passthrough test is a false positive (open)
+### box#96 — public-mode passthrough test is a false positive (RESOLVED, shipped in box v2.3.1)
 
 While verifying the v2.2.0 release run for false positives (per the PR review request) we found
 a coverage gap in box's own test suite. Issue filed:
@@ -285,13 +292,24 @@ even though that is exactly the behavior Hive Mind depends on. The report includ
 fix (seed the host daemon with a small public image carrying a RepoDigest and assert it lands in
 the inner daemon).
 
-### box#97 — per-repository passthrough allowlist (open feature request)
+**Status: implemented.** box PR **https://github.com/link-foundation/box/pull/98** now seeds the
+integration host daemon with a real public image (`alpine:3.20`) and asserts that public mode
+copies it into the inner daemon and logs the load. This makes a "public copies nothing" regression
+fail box CI instead of shipping green.
 
-box's passthrough can be narrowed by **registry** (`DIND_HOST_PASSTHROUGH_REGISTRIES`) but not by
-**repository / image name**. Hive Mind wants to seed the nested daemon with _only_ its own
-official Docker Hub images (`konard/hive-mind`, `konard/hive-mind-dind`) and nothing else. The
-closest current fit, `DIND_HOST_PASSTHROUGH=public`, copies **every** host image with a public
-RepoDigest. Issue filed: **https://github.com/link-foundation/box/issues/97** — requesting a
+### box#97 — per-repository passthrough allowlist (RESOLVED, shipped in box v2.3.1)
+
+Before box v2.3.1, passthrough could be narrowed by **registry**
+(`DIND_HOST_PASSTHROUGH_REGISTRIES`) but not by **repository / image name**. Hive Mind wants to
+seed the nested daemon with _only_ its own official Docker Hub images (`konard/hive-mind`,
+`konard/hive-mind-dind`) and nothing else. The closest current fit,
+`DIND_HOST_PASSTHROUGH=public`, copies **every** host image with a public RepoDigest. Issue
+filed: **https://github.com/link-foundation/box/issues/97** — requesting a
 `DIND_HOST_PASSTHROUGH_IMAGES` space-separated image-name/glob allowlist that composes with the
-existing mode filter. Until that ships, `public` mode is the working, secret-safe default and the
-preload helper (below) is the precise per-image alternative.
+existing mode filter.
+
+**Status: implemented.** box PR **https://github.com/link-foundation/box/pull/99** added
+`DIND_HOST_PASSTHROUGH_IMAGES`. Empty keeps the previous behavior; when set, host images must
+match both the mode filter and at least one allowlist pattern. For Hive Mind the recommended value
+is `konard/hive-mind konard/hive-mind-dind`, which gives the exact image scope the original issue
+asked for.

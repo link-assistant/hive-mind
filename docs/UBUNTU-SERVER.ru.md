@@ -28,8 +28,8 @@
 
    ```bash
    # Option 1: Use Docker (recommended)
-   docker pull konard/box:2.2.0
-   docker run -it konard/box:2.2.0
+   docker pull konard/box:2.3.1
+   docker run -it konard/box:2.3.1
 
    # Option 2: Use the legacy Hive Mind bare-metal install script (pinned to the last commit that carried it: 4f027b32)
    curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash

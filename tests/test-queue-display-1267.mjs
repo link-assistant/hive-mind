@@ -165,20 +165,22 @@ await asyncTest('formatDetailedStatus groups items by tool queue', async () => {
 
   const status = await queue.formatDetailedStatus();
 
-  // Should show both queues with correct counts
+  // Should show both queues with their counts on the list labels, not duplicated
+  // in the tool header.
   assert.ok(status.includes('claude'), 'Should include claude queue');
   assert.ok(status.includes('agent'), 'Should include agent queue');
-  assert.ok(status.includes('pending: 2'), 'Should show 2 pending for claude');
-  assert.ok(status.includes('pending: 1'), 'Should show 1 pending for agent');
-  // Processing count should come from pgrep (actual running processes)
-  assert.ok(status.includes('processing:'), 'Should show processing count');
+  assert.ok(status.includes('*Pending* (2):'), 'Should show 2 pending for claude');
+  assert.ok(status.includes('*Pending* (1):'), 'Should show 1 pending for agent');
+  assert.ok(!status.includes('pending: 2'), 'Should not duplicate claude pending count in the tool header');
+  assert.ok(!status.includes('pending: 1'), 'Should not duplicate agent pending count in the tool header');
+  assert.ok(!status.includes('processing:'), 'Should not duplicate processing count in the tool header');
   // Items should show human-readable time, not raw seconds
   assert.ok(!status.includes('s)') || status.includes('0s)'), 'Should use human-readable time format');
 
   queue.stop();
 });
 
-await asyncTest('formatDetailedStatus shows max 5 items per queue', async () => {
+await asyncTest('formatDetailedStatus lists all pending items per queue (issue #1891)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false, autoStart: false });
 
@@ -195,11 +197,13 @@ await asyncTest('formatDetailedStatus shows max 5 items per queue', async () => 
 
   const status = await queue.formatDetailedStatus();
 
-  // Should show first 5 items and "... and 2 more"
-  assert.ok(status.includes('issues/1'), 'Should show first item');
-  assert.ok(status.includes('issues/5'), 'Should show fifth item');
-  assert.ok(!status.includes('issues/6'), 'Should not show sixth item');
-  assert.ok(status.includes('and 2 more'), 'Should show count of remaining items');
+  // Issue #1891: all queued items are listed (no per-queue truncation); the
+  // universal sender splits the message into multiple parts if it grows past
+  // Telegram's character limit.
+  for (let i = 1; i <= 7; i++) {
+    assert.ok(status.includes(`issues/${i}`), `Should show item ${i}`);
+  }
+  assert.ok(!status.includes('more'), 'Should not collapse pending items with "... and N more"');
 
   queue.stop();
 });

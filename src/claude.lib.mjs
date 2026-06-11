@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Claude CLI-related utility functions. Fetch use-m if not available.
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;

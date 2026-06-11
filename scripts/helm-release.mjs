@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 
 /**
  * Helm chart release script
@@ -17,7 +18,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 
 // Load use-m dynamically
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+const use = await ensureUseM();
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Early exit paths - handle these before loading all modules to speed up testing
 const earlyArgs = process.argv.slice(2);
@@ -32,7 +33,7 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
 }
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+const use = await ensureUseM();
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');

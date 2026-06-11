@@ -2,9 +2,9 @@
 /**
  * Tests for issue #1837: list executing tasks in /solve_queue (/queue) status.
  *
- * The detailed status previously showed only a `processing: N` count but never
- * listed the tasks themselves, because the count is derived from external
- * sources (pgrep + tracked detached sessions) while the LIST iterated the
+ * The detailed status previously showed only a processing count but never
+ * listed the tasks themselves, because the count was derived from external
+ * sources (pgrep + tracked detached sessions) while the list iterated the
  * queue's own in-memory `processing` Map — which is emptied once a task is
  * dispatched to a detached screen/isolation session.
  *
@@ -139,7 +139,7 @@ console.log('\n  collectExecutingItems — merge + dedupe:');
 console.log('\n  formatDetailedStatus — lists executing detached sessions:');
 // Once a task is dispatched to a detached screen/isolation session the queue's
 // in-memory `processing` Map is emptied, so the executing task was counted
-// (processing: 1) but never listed. The detailed status must list executing
+// in the header but never listed. The detailed status must list executing
 // tasks from the tracked running sessions.
 {
   resetSolveQueue();
@@ -154,7 +154,8 @@ console.log('\n  formatDetailedStatus — lists executing detached sessions:');
   assert(queue.processing.size === 0, 'precondition: queue has no in-memory processing items');
 
   const status = await queue.formatDetailedStatus();
-  assert(status.includes('processing: 1'), 'claude should report one processing task');
+  assert(status.includes('*Processing* (1):'), 'claude should report one processing task on the Processing list label');
+  assert(!status.includes('processing: 1'), 'claude should not duplicate processing count in the tool header');
   assert(status.includes('▶️'), 'executing task should be rendered with the executing marker');
   assert(status.includes('[test/repo#146](https://github.com/test/repo/issues/146)'), 'executing task should be a clickable link even though it is a detached session');
 

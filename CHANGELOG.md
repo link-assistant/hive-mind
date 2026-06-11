@@ -1,5 +1,78 @@
 # @link-assistant/hive-mind
 
+## 1.78.2
+
+### Patch Changes
+
+- 70db26f: Ensure Telegram work-session completion messages recover pull request links from completed solve logs when linked-issue lookup does not return a PR.
+
+## 1.78.1
+
+### Patch Changes
+
+- dc8bb99: Group interactive `system.thinking_tokens` events into one editable PR comment and handle observed system lifecycle events without unrecognized-event noise.
+- d704dfc: fix(install): redirect npm global prefix when root-owned to avoid EACCES at startup (#1897)
+
+  `use-m` loads runtime dependencies (command-stream, getenv, yargs, …) by shelling
+  out to `npm install -g <alias>@npm:<pkg>@latest`, which installs into the global
+  prefix reported by `npm root -g`. When the CLI was launched under a system-wide
+  Node.js whose global `node_modules` is owned by root (e.g.
+  `/opt/node-v24.16.0-linux-x64/lib/node_modules`), that install failed with
+  `npm error code EACCES … rename … command-stream-v-latest` and the whole process
+  crashed at the very first `use()` call (`Error: Failed to install
+command-stream@latest globally.`). This commonly happens when hive-mind was
+  installed with `bun add -g` (user-owned `~/.bun/...`) but invoked under a system
+  Node whose global prefix needs root.
+
+  The new `src/npm-global-prefix.lib.mjs` preflight mirrors npm's own documented
+  EACCES remedy: before any real `use-m` bootstrap runs, it detects a non-writable
+  npm global prefix and redirects `npm_config_prefix` (honoured by both
+  `npm install -g` and `npm root -g`) to a user-writable `~/.npm-global`,
+  prepending its `bin` to `PATH`. The common case where the prefix is already
+  writable stays a no-op with no extra `npm` spawn.
+
+  Hive Mind now routes direct repository `use-m` bootstraps through
+  `src/use-m-bootstrap.lib.mjs`, including CLI entry points, shared source modules,
+  scripts, and executable tests. The workaround skips Windows' different global
+  layout, skips Bun/Deno runtimes, and respects explicitly preset
+  `npm_config_prefix` or `NPM_CONFIG_PREFIX` values.
+
+## 1.78.0
+
+### Minor Changes
+
+- 9506f03: fix(telegram): de-duplicate `/queue` display and split long messages without breaking markdown (#1891)
+
+  The `/queue` (alias `/solve_queue`) detailed display repeated the same words on every
+  line — every executing row said `(processing, …)`, every waiting row said
+  `(waiting, …)`, and the (almost always identical) per-item waiting reason was printed
+  once per item. Empty queues were also still printed. This wasted vertical space and
+  pushed real data off screen.
+
+  Display changes (`formatDetailedStatus` + queue helpers):
+  - Executing rows now render compactly as `• owner/repo#number (▶️ <dur>)` and pending
+    rows as `• owner/repo#number (⏳ <dur>)` — the status word is replaced by the emoji
+    marker inside the duration parenthesis.
+  - Processing, pending, completed, and failed entries are split into distinct
+    compact lists per tool, with counts only on those list labels instead of a
+    duplicated `(pending: n, processing: n)` tool-header summary.
+  - The shared waiting reason is shown **once per tool** (only when all pending items
+    agree on it) instead of once per item.
+  - Empty queues are skipped entirely.
+  - All queued items are listed (no per-queue truncation on the active lists).
+
+  Message-splitting changes (`splitTelegramMessageText` in `telegram-safe-reply.lib.mjs`,
+  the single universal splitter every Telegram send path funnels through):
+  - Splitting now happens only on line boundaries, so inline Markdown entities
+    (bold/italic/links) are never cut in half.
+  - Fenced code blocks stay balanced per chunk: a split inside a code block closes the
+    fence at the end of one chunk and reopens it — repeating the language — at the start
+    of the next. The original fence marker (```vs`~~~`) and indentation are preserved.
+  - Pathologically long single lines are hard-split as a fallback.
+
+  Both behaviours are covered by extensive new tests
+  (`tests/test-telegram-message-split-1891.mjs`, `tests/test-queue-compact-display-1891.mjs`).
+
 ## 1.77.1
 
 ### Patch Changes

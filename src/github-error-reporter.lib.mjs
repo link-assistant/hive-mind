@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * GitHub error reporter - handles error reporting via GitHub issues and comments
@@ -9,7 +10,7 @@ import { log, cleanErrorMessage, getAbsoluteLogPath } from './lib.mjs';
 import { reportError, isSentryEnabled } from './sentry.lib.mjs';
 
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 const fs = (await use('fs')).promises;

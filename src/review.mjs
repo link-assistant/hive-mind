@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Early exit paths - handle these before loading all modules to speed up testing
 const earlyArgs = process.argv.slice(2);
@@ -31,14 +32,8 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   process.exit(0);
 }
 
-// Issue #1897: redirect global installs to a user-writable prefix when the npm
-// global node_modules is not writable, so use-m's `npm install -g` below does
-// not crash with EACCES under a root-owned system Node.
-const { ensureWritableNpmGlobalPrefix } = await import('./npm-global-prefix.lib.mjs');
-await ensureWritableNpmGlobalPrefix({ log: message => console.log(message) });
-
 // Use use-m to dynamically import modules for cross-runtime compatibility
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+const use = await ensureUseM();
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');

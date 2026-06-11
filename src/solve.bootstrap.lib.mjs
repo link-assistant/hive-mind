@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * Handle lightweight early-exit paths before solve loads its full dependency graph.
@@ -7,13 +8,6 @@
  * @returns {Promise<void>}
  */
 export async function handleSolveEarlyExit(earlyArgs) {
-  // Issue #1897: before any use-m `npm install -g` runs (both in the --help
-  // branch below and in solve.mjs's main bootstrap), redirect the npm global
-  // prefix to a user-writable directory when the system Node's global
-  // node_modules is root-owned — otherwise use-m crashes with EACCES.
-  const { ensureWritableNpmGlobalPrefix } = await import('./npm-global-prefix.lib.mjs');
-  await ensureWritableNpmGlobalPrefix({ log: message => console.log(message) });
-
   if (earlyArgs.includes('--version')) {
     const { getVersion } = await import('./version.lib.mjs');
     try {
@@ -27,7 +21,7 @@ export async function handleSolveEarlyExit(earlyArgs) {
 
   if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
     // Load minimal modules needed for help output.
-    const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+    const use = await ensureUseM();
     globalThis.use = use;
     const { initializeConfig, createYargsConfig } = await import('./solve.config.lib.mjs');
     const { yargs, hideBin } = await initializeConfig(use);

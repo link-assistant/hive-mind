@@ -1,3 +1,4 @@
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 /**
  * HANDOFF.md Agent Skill deployment (issue #1877)
  *
@@ -29,7 +30,7 @@
 
 // Fetch use-m if not available (matches the rest of src/*.lib.mjs).
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;

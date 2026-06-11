@@ -103,16 +103,21 @@ const queryNpmRoot = async runner => {
  * @returns {Promise<{changed: boolean, reason: string, prefix?: string, previousRoot?: string, error?: Error}>}
  */
 export const ensureWritableNpmGlobalPrefix = async (options = {}) => {
-  const { env = process.env, execPath = process.execPath, platform = process.platform, home = homedir(), accessFn = access, mkdirFn = mkdir, runner = execAsync, log = () => {} } = options;
+  const { env = process.env, execPath = process.execPath, platform = process.platform, home = homedir(), accessFn = access, mkdirFn = mkdir, runner = execAsync, log = () => {}, isBunRuntime = typeof Bun !== 'undefined', isDenoRuntime = typeof Deno !== 'undefined' } = options;
 
   // Windows' global layout differs (`<prefix>/node_modules`, AppData), and the
   // EACCES scenario this guards against is POSIX-specific. Skip to avoid false
   // positives that would needlessly relocate the prefix.
   if (platform === 'win32') return { changed: false, reason: 'win32' };
 
+  // This workaround only protects use-m's Node/npm resolver. Bun and Deno use
+  // different install paths and should not have npm configuration changed.
+  if (isBunRuntime) return { changed: false, reason: 'bun-runtime' };
+  if (isDenoRuntime) return { changed: false, reason: 'deno-runtime' };
+
   // Respect an explicitly configured prefix — the user (or a parent process)
   // already chose where global installs go.
-  if (env.npm_config_prefix) return { changed: false, reason: 'preset' };
+  if (env.npm_config_prefix || env.NPM_CONFIG_PREFIX) return { changed: false, reason: 'preset' };
 
   // Fast path: derive the likely global node_modules from the node binary and
   // check writability without spawning npm. Most installs land here.

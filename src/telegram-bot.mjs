@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Early exit for --version (issue #1318: avoid dotenvx MISSING_ENV_FILE warnings)
 if (process.argv.includes('--version')) {
   const v = await import('./version.lib.mjs').then(m => m.getVersion()).catch(() => 'unknown');
@@ -6,12 +7,8 @@ if (process.argv.includes('--version')) {
   process.exit(v === 'unknown' ? 1 : 0);
 }
 
-// Issue #1897: redirect npm's global prefix to a user-writable dir (when
-// root-owned) before use-m's `npm install -g` runs, else it crashes with EACCES.
-await (await import('./npm-global-prefix.lib.mjs')).ensureWritableNpmGlobalPrefix({ log: message => console.log(message) });
-
 if (typeof use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 const { lino } = await import('./lino.lib.mjs');

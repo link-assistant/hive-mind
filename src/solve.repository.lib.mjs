@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Repository management module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
@@ -7,7 +8,7 @@
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 

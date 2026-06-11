@@ -13,6 +13,8 @@
 
 import assert from 'node:assert/strict';
 import { constants as fsConstants } from 'node:fs';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ensureWritableNpmGlobalPrefix, deriveGlobalNodeModules, isPathWritable } from '../src/npm-global-prefix.lib.mjs';
 
 let passed = 0;
@@ -40,6 +42,19 @@ const makeAccess = writablePaths => async (path, mode) => {
 };
 
 const noopLog = () => {};
+
+const collectFiles = async paths => {
+  const files = [];
+  for (const path of paths) {
+    const entries = await readdir(path, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      const fullPath = join(path, entry.name);
+      if (entry.isDirectory()) files.push(...(await collectFiles([fullPath])));
+      else if (entry.isFile() && (entry.name.endsWith('.mjs') || entry.name.endsWith('.js'))) files.push(fullPath);
+    }
+  }
+  return files;
+};
 
 console.log('\n📋 deriveGlobalNodeModules\n');
 
@@ -154,6 +169,23 @@ await test('respects an already-set npm_config_prefix', async () => {
   assert.equal(env.npm_config_prefix, '/custom/prefix');
 });
 
+await test('respects an already-set uppercase NPM_CONFIG_PREFIX', async () => {
+  const env = { NPM_CONFIG_PREFIX: '/uppercase/prefix' };
+  const result = await ensureWritableNpmGlobalPrefix({
+    env,
+    platform: 'linux',
+    home: '/home/user',
+    execPath: '/opt/node/bin/node',
+    accessFn: makeAccess([]),
+    runner: async () => ({ stdout: '' }),
+    log: noopLog,
+  });
+  assert.equal(result.changed, false);
+  assert.equal(result.reason, 'preset');
+  assert.equal(env.NPM_CONFIG_PREFIX, '/uppercase/prefix');
+  assert.equal(env.npm_config_prefix, undefined);
+});
+
 await test('skips on win32 to avoid relocating a different global layout', async () => {
   const env = {};
   const result = await ensureWritableNpmGlobalPrefix({
@@ -167,6 +199,38 @@ await test('skips on win32 to avoid relocating a different global layout', async
   });
   assert.equal(result.changed, false);
   assert.equal(result.reason, 'win32');
+});
+
+await test('skips when running under Bun because this workaround targets Node/npm', async () => {
+  const env = {};
+  const result = await ensureWritableNpmGlobalPrefix({
+    env,
+    platform: 'linux',
+    home: '/home/user',
+    execPath: '/usr/bin/bun',
+    accessFn: makeAccess([]),
+    runner: async () => ({ stdout: '' }),
+    log: noopLog,
+    isBunRuntime: true,
+  });
+  assert.equal(result.changed, false);
+  assert.equal(result.reason, 'bun-runtime');
+});
+
+await test('skips when running under Deno because this workaround targets Node/npm', async () => {
+  const env = {};
+  const result = await ensureWritableNpmGlobalPrefix({
+    env,
+    platform: 'linux',
+    home: '/home/user',
+    execPath: '/usr/bin/deno',
+    accessFn: makeAccess([]),
+    runner: async () => ({ stdout: '' }),
+    log: noopLog,
+    isDenoRuntime: true,
+  });
+  assert.equal(result.changed, false);
+  assert.equal(result.reason, 'deno-runtime');
 });
 
 await test('does nothing (no crash) when HOME is unavailable', async () => {
@@ -222,6 +286,18 @@ await test('uses derived path when npm root -g fails', async () => {
   assert.equal(result.previousRoot, '/opt/node/lib/node_modules');
   assert.equal(env.npm_config_prefix, '/home/user/.npm-global');
   assert.equal(env.PATH, '/home/user/.npm-global/bin');
+});
+
+await test('routes direct use-m eval bootstraps through the shared helper', async () => {
+  const files = [...(await collectFiles(['src', 'scripts', 'tests'])), 'do.mjs'];
+  const directUseMEvalPattern = ['eval(await (await fetch(', "'https://unpkg.com/use-m/use.js'", ')).text())'].join('');
+  const offenders = [];
+  for (const file of files) {
+    if (file === join('src', 'use-m-bootstrap.lib.mjs')) continue;
+    const source = await readFile(file, 'utf8');
+    if (source.includes(directUseMEvalPattern)) offenders.push(file);
+  }
+  assert.deepEqual(offenders, []);
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

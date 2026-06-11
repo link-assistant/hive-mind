@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
@@ -42,17 +43,17 @@ if (isRunningDirectly) {
   console.log('   Initializing...');
   try {
     console.log('   Loading dependencies (this may take a moment)...');
-    await (await import('./npm-global-prefix.lib.mjs')).ensureWritableNpmGlobalPrefix({ log: message => console.log(message) }); // #1897: redirect npm global prefix to a user-writable dir before use-m's `npm install -g`, else EACCES.
-    // Use use-m to dynamically import modules for cross-runtime compatibility
-    if (typeof use === 'undefined') {
+    if (typeof globalThis.use === 'undefined') {
       try {
-        // Wrap fetch in timeout to prevent hanging
-        const useMCode = await withTimeout(
-          fetch('https://unpkg.com/use-m/use.js').then(r => r.text()),
-          10000,
-          'fetching use-m library'
-        );
-        globalThis.use = (await eval(useMCode)).use;
+        await ensureUseM({
+          fetchUseMCode: () =>
+            withTimeout(
+              fetch('https://unpkg.com/use-m/use.js').then(r => r.text()),
+              10000,
+              'fetching use-m library'
+            ),
+          log: message => console.log(message),
+        });
       } catch (error) {
         console.error('❌ Fatal error: Failed to load dependencies');
         console.error(`   ${error.message}`);
@@ -61,7 +62,6 @@ if (isRunningDirectly) {
         process.exit(1);
       }
     }
-    // Use command-stream for consistent $ behavior across runtimes
     const { $ } = await withTimeout(
       use('command-stream'),
       30000, // 30 second timeout

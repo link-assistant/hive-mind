@@ -16,10 +16,14 @@ installed with `bun add -g` (user-owned `~/.bun/...`) but invoked under a system
 Node whose global prefix needs root.
 
 The new `src/npm-global-prefix.lib.mjs` preflight mirrors npm's own documented
-EACCES remedy: before any `use-m` bootstrap runs, it detects a non-writable npm
-global prefix and redirects `npm_config_prefix` (honoured by both `npm install -g`
-and `npm root -g`) to a user-writable `~/.npm-global`, prepending its `bin` to
-`PATH`. The common case where the prefix is already writable stays a no-op with
-no extra `npm` spawn. It is wired into the `solve`, `hive` and `review` entry
-points ahead of their use-m calls, skips Windows' different global layout, and
-respects an explicitly preset `npm_config_prefix`.
+EACCES remedy: before any real `use-m` bootstrap runs, it detects a non-writable
+npm global prefix and redirects `npm_config_prefix` (honoured by both
+`npm install -g` and `npm root -g`) to a user-writable `~/.npm-global`,
+prepending its `bin` to `PATH`. The common case where the prefix is already
+writable stays a no-op with no extra `npm` spawn.
+
+Hive Mind now routes direct repository `use-m` bootstraps through
+`src/use-m-bootstrap.lib.mjs`, including CLI entry points, shared source modules,
+scripts, and executable tests. The workaround skips Windows' different global
+layout, skips Bun/Deno runtimes, and respects explicitly preset
+`npm_config_prefix` or `NPM_CONFIG_PREFIX` values.

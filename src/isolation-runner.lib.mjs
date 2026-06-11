@@ -28,8 +28,13 @@ const { $ } = await use('command-stream');
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
 const RUNNING_SESSION_STATUSES = new Set(['executing', 'running']);
 const TERMINAL_SESSION_STATUSES = new Set(['executed', 'completed', 'failed', 'cancelled', 'canceled', 'error']);
-const DEFAULT_HIVE_MIND_IMAGE = 'konard/hive-mind:latest';
-const DEFAULT_HIVE_MIND_DIND_IMAGE = 'konard/hive-mind-dind:latest';
+const HIVE_MIND_IMAGE_REPO = 'konard/hive-mind';
+const HIVE_MIND_DIND_IMAGE_REPO = 'konard/hive-mind-dind';
+const DEFAULT_HIVE_MIND_IMAGE_TAG = 'latest';
+// Docker's `--pull` accepts these policies. We only emit the flag when an
+// operator explicitly opts in; otherwise Docker's own default ("missing")
+// applies and `docker run` reuses any locally present image. See issue #1879.
+const VALID_DOCKER_PULL_POLICIES = new Set(['always', 'missing', 'never']);
 const DOCKER_ISOLATION_TRACKING_BACKEND = 'screen';
 const DOCKER_CONTAINER_HOME = '/home/box';
 const DOCKER_CONTAINER_PREFIX = 'hive-mind-isolation';
@@ -80,14 +85,51 @@ function maybeAddMount(mounts, source, target, existsSync) {
 }
 
 /**
+ * Resolve the tag used for the Docker isolation image.
+ *
+ * Defaults to `latest`, but operators can pin it (e.g. to the exact version
+ * already present on the host) via `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`.
+ * Pinning matters for Docker-in-Docker deployments: the nested daemon starts
+ * with an empty image store, so an unpinned `:latest` whose registry digest has
+ * drifted from the host copy forces a fresh multi-gigabyte pull on every task.
+ * A pinned tag lets a pre-seeded image be reused instead. See issue #1879.
+ */
+export function resolveDockerIsolationImageTag({ env = process.env } = {}) {
+  const explicit = String(env.HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || '').trim();
+  return explicit || DEFAULT_HIVE_MIND_IMAGE_TAG;
+}
+
+/**
  * Pick the Docker image used for `--isolation docker`.
  *
  * start-command defaults its Docker backend to a base OS image. Hive Mind needs
  * an image with the same CLI/tooling baseline as the parent process instead.
+ *
+ * `HIVE_MIND_DOCKER_ISOLATION_IMAGE` is a full override (repo:tag). Otherwise
+ * the repo is chosen by image variant and the tag by
+ * `resolveDockerIsolationImageTag()`.
  */
 export function getDockerIsolationImage({ env = process.env } = {}) {
   if (env.HIVE_MIND_DOCKER_ISOLATION_IMAGE) return env.HIVE_MIND_DOCKER_ISOLATION_IMAGE;
-  return String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' ? DEFAULT_HIVE_MIND_DIND_IMAGE : DEFAULT_HIVE_MIND_IMAGE;
+  const repo = String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' ? HIVE_MIND_DIND_IMAGE_REPO : HIVE_MIND_IMAGE_REPO;
+  return `${repo}:${resolveDockerIsolationImageTag({ env })}`;
+}
+
+/**
+ * Resolve the Docker `--pull` policy for isolated tasks.
+ *
+ * Returns one of `always` | `missing` | `never`, or `null` when unset (in which
+ * case the `--pull` flag is omitted and Docker's default applies). Operators set
+ * `HIVE_MIND_DOCKER_ISOLATION_PULL=never` to force reuse of an image already
+ * present in the (possibly nested) daemon and fail fast instead of silently
+ * re-downloading it. Invalid values are ignored. See issue #1879.
+ */
+export function getDockerIsolationPullPolicy({ env = process.env } = {}) {
+  const raw = String(env.HIVE_MIND_DOCKER_ISOLATION_PULL || '')
+    .trim()
+    .toLowerCase();
+  if (!raw) return null;
+  return VALID_DOCKER_PULL_POLICIES.has(raw) ? raw : null;
 }
 
 /**
@@ -123,7 +165,16 @@ export function buildDockerIsolationCommand(command, args = [], options = {}) {
   const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = options;
   const image = getDockerIsolationImage({ env });
   const innerCommand = buildShellCommand(command, args);
-  const dockerArgs = ['docker', 'run', '--rm', '--name', makeDockerContainerName(sessionId), '--workdir', DOCKER_CONTAINER_HOME, '-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`];
+  const dockerArgs = ['docker', 'run', '--rm'];
+
+  // Reuse a locally present image instead of re-downloading it when the
+  // operator opts in. Omitted by default so Docker's "missing" policy applies.
+  const pullPolicy = getDockerIsolationPullPolicy({ env });
+  if (pullPolicy) {
+    dockerArgs.push('--pull', pullPolicy);
+  }
+
+  dockerArgs.push('--name', makeDockerContainerName(sessionId), '--workdir', DOCKER_CONTAINER_HOME, '-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`);
 
   if (shouldRunPrivilegedDockerIsolation(image, env)) {
     dockerArgs.push('--privileged');
@@ -359,9 +410,12 @@ export async function executeWithIsolation(command, args, options = {}) {
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
     if (backend === 'docker') {
-      const image = getDockerIsolationImage({ env: options.env || process.env });
-      const mounts = getDockerIsolationAuthMounts({ tool: options.tool, env: options.env || process.env, homeDir: options.homeDir || os.homedir(), existsSync: options.existsSync || fs.existsSync });
+      const env = options.env || process.env;
+      const image = getDockerIsolationImage({ env });
+      const pullPolicy = getDockerIsolationPullPolicy({ env });
+      const mounts = getDockerIsolationAuthMounts({ tool: options.tool, env, homeDir: options.homeDir || os.homedir(), existsSync: options.existsSync || fs.existsSync });
       console.log(`[VERBOSE] isolation-runner: Docker isolation image: ${image}`);
+      console.log(`[VERBOSE] isolation-runner: Docker isolation pull policy: ${pullPolicy || '(docker default: missing — reuse local image if present)'}`);
       console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => m.target).join(', ') || '(none)'}`);
     }
   }

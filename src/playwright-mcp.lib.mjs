@@ -14,6 +14,20 @@ export const getCommandResultOutput = result => `${result?.stdout?.toString() ||
 
 export const isCommandResultSuccess = result => getCommandResultCode(result) === 0;
 
+const PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN = /\b(pending|disabled|failed|error|disconnected|not[-_\s]+connected|unavailable|timeout|timed[-_\s]+out)\b/i;
+
+export const getPlaywrightMcpListRows = output =>
+  String(output || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line.toLowerCase().includes('playwright'));
+
+export const hasConnectedPlaywrightMcpServer = output => {
+  const rows = getPlaywrightMcpListRows(output);
+  if (rows.length === 0) return false;
+  return rows.some(row => !PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN.test(row));
+};
+
 export const checkPlaywrightMcpPackageAvailability = async () => {
   try {
     const result = await $`timeout 5 npx --no-install @playwright/mcp --help 2>&1`.catch(() => null);

@@ -178,7 +178,7 @@ await asyncTest('formatDetailedStatus groups items by tool queue', async () => {
   queue.stop();
 });
 
-await asyncTest('formatDetailedStatus shows max 5 items per queue', async () => {
+await asyncTest('formatDetailedStatus lists all pending items per queue (issue #1891)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false, autoStart: false });
 
@@ -195,11 +195,13 @@ await asyncTest('formatDetailedStatus shows max 5 items per queue', async () => 
 
   const status = await queue.formatDetailedStatus();
 
-  // Should show first 5 items and "... and 2 more"
-  assert.ok(status.includes('issues/1'), 'Should show first item');
-  assert.ok(status.includes('issues/5'), 'Should show fifth item');
-  assert.ok(!status.includes('issues/6'), 'Should not show sixth item');
-  assert.ok(status.includes('and 2 more'), 'Should show count of remaining items');
+  // Issue #1891: all queued items are listed (no per-queue truncation); the
+  // universal sender splits the message into multiple parts if it grows past
+  // Telegram's character limit.
+  for (let i = 1; i <= 7; i++) {
+    assert.ok(status.includes(`issues/${i}`), `Should show item ${i}`);
+  }
+  assert.ok(!status.includes('more'), 'Should not collapse pending items with "... and N more"');
 
   queue.stop();
 });

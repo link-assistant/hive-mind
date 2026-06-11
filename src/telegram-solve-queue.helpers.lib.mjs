@@ -128,22 +128,61 @@ export function collectExecutingItems({ processingItems = [], sessionItems = [],
 }
 
 /**
- * Render the per-tool "executing" lines (`▶️ link (status, elapsed)`) for the
- * detailed queue status, capped at `max` items with a localized "... and N more"
- * line (issue #1837).
+ * Render the per-tool "executing" lines for the detailed queue status as a
+ * compact, de-duplicated list (issue #1891):
+ *
+ *   `• owner/repo#number (▶️ 2h 14m 16s)`
+ *
+ * The ▶️ emoji replaces the repeated literal "processing" status word that
+ * appeared on every line in the old format. Items are listed in full by
+ * default; pass a finite `max` to cap them with a localized "... and N more"
+ * line.
  *
  * @param {object} opts
  * @param {Array} opts.items - Output of {@link collectExecutingItems}.
- * @param {number} opts.max - Maximum items to list before collapsing.
+ * @param {number} [opts.max=Infinity] - Maximum items before collapsing.
  * @param {string|null} opts.locale - Locale for labels/durations.
  * @returns {string} The formatted lines (empty string when no items).
  */
-export function formatQueueProcessingItems({ items, max, locale }) {
+export function formatQueueExecutingItems({ items, max = Infinity, locale }) {
   if (!items || items.length === 0) return '';
   let out = '';
   for (const item of items.slice(0, max)) {
-    const label = item.queueStatus ? lt(`queue_status_${item.queueStatus}`, {}, { locale }) : lt('queue_processing', {}, { locale });
-    out += `  ▶️ ${formatQueueItemLink(item.url)} (${label}, ${formatDuration(item.waitMs, { locale })})\n`;
+    out += `  • ${formatQueueItemLink(item.url)} (▶️ ${formatDuration(item.waitMs, { locale })})\n`;
+  }
+  if (items.length > max) {
+    out += `    ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
+  }
+  return out;
+}
+
+/**
+ * Backwards-compatible alias for {@link formatQueueExecutingItems}.
+ * @deprecated Use {@link formatQueueExecutingItems}.
+ */
+export const formatQueueProcessingItems = formatQueueExecutingItems;
+
+/**
+ * Render the per-tool "pending/waiting" lines for the detailed queue status as a
+ * compact list (issue #1891):
+ *
+ *   `• owner/repo#number (⏳ 5m 2s)`
+ *
+ * The per-item waiting *reason* is deliberately omitted here — it is almost
+ * always identical across pending items, so the caller shows it once for the
+ * whole tool instead of repeating it on every line.
+ *
+ * @param {object} opts
+ * @param {Array<{url: string, waitMs: number}>} opts.items - Pending items.
+ * @param {number} [opts.max=Infinity] - Maximum items before collapsing.
+ * @param {string|null} opts.locale - Locale for labels/durations.
+ * @returns {string} The formatted lines (empty string when no items).
+ */
+export function formatQueuePendingItems({ items, max = Infinity, locale }) {
+  if (!items || items.length === 0) return '';
+  let out = '';
+  for (const item of items.slice(0, max)) {
+    out += `  • ${formatQueueItemLink(item.url)} (⏳ ${formatDuration(item.waitMs, { locale })})\n`;
   }
   if (items.length > max) {
     out += `    ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;

@@ -17,7 +17,7 @@
 
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
-import { collectExecutingItems, formatDuration, formatQueueHistorySection, formatQueueItemLink, formatQueueProcessingItems, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems } from './telegram-solve-queue.helpers.lib.mjs';
+import { collectExecutingItems, formatDuration, formatQueueExecutingItems, formatQueueHistorySection, formatQueuePendingItems, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
@@ -44,10 +44,6 @@ function appendWaitingForCurrentCommand(reason, locale) {
 
 function appendRemainingDuration(reason, ms, locale) {
   return `${reason} (${lt('remaining', { duration: formatDuration(ms, { locale }) }, { locale })})`;
-}
-
-function queueStatusLabel(status, locale) {
-  return lt(`queue_status_${status}`, {}, { locale });
 }
 
 /**
@@ -1349,30 +1345,29 @@ export class SolveQueue {
     // screen-isolated work even when the direct AI CLI process count is lower.
     let message = `📋 *${lt('solve_queue_status', {}, { locale })}*\n\n`;
 
-    // Show per-tool queue breakdown with items grouped by queue
+    // Per-tool breakdown. Empty queues are skipped to keep it compact, items
+    // render as compact `• link (emoji dur)` rows, and the shared waiting
+    // reason is shown once instead of per line (issue #1891).
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
-      const processing = externalProcessing.byTool[tool] || 0;
-      message += `*${tool}* (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
-
-      // List the tasks this tool is actively executing as clickable links. We
-      // merge the queue's in-memory processing Map with the externally-tracked
-      // running sessions (detached screen/isolation work), deduped by URL, so
-      // executing tasks are listed even after dispatch (issue #1837).
+      // Executing tasks: merge the in-memory processing Map with tracked
+      // detached sessions, deduped by URL, so they list even after dispatch
+      // (issue #1837). The header count is max(external, listed) so it never
+      // reads "processing: 0" while ▶️ tasks are shown below it (issue #1891).
       const executing = collectExecutingItems({ processingItems: this.processing.values(), sessionItems: runningSessionItems, tool });
-      message += formatQueueProcessingItems({ items: executing, max: QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE, locale });
+      const processing = Math.max(externalProcessing.byTool[tool] || 0, executing.length);
+      if (pending === 0 && executing.length === 0 && processing === 0) continue;
 
-      // Show first queued items for this tool with clickable links
-      const displayItems = toolQueue.slice(0, QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE);
-      for (const item of displayItems) {
-        const waitTime = formatDuration(item.getWaitTime(), { locale });
-        message += `  • ${formatQueueItemLink(item.url)} (${queueStatusLabel(item.status, locale)}, ${waitTime})\n`;
-        if (item.waitingReason) {
-          message += `    └ ${item.waitingReason}\n`;
-        }
-      }
-      if (toolQueue.length > QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE) {
-        message += `    ... ${lt('queue_and_more', { count: toolQueue.length - QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE }, { locale })}\n`;
+      message += `*${tool}* (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
+      message += formatQueueExecutingItems({ items: executing, locale });
+
+      const pendingItems = toolQueue.map(item => ({ url: item.url, waitMs: item.getWaitTime(), waitingReason: item.waitingReason }));
+      message += formatQueuePendingItems({ items: pendingItems, locale });
+
+      // Show the waiting reason once when every pending item shares it.
+      const distinctReasons = [...new Set(pendingItems.map(item => item.waitingReason).filter(Boolean))];
+      if (distinctReasons.length === 1) {
+        message += `  ⏳ ${distinctReasons[0].replace(/\n+/g, '; ')}\n`;
       }
 
       message += '\n';

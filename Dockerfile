@@ -13,6 +13,7 @@
 #
 # Box image version: pinned to a specific release for stable, reproducible builds.
 # To upgrade: update the version tag below and in coolify/Dockerfile.
+# Keep this in lockstep with the DinD base-image release.
 # Latest Box releases: https://github.com/link-foundation/box/releases
 #
 # Build: docker build -t konard/hive-mind .

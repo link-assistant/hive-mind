@@ -456,14 +456,15 @@ await asyncTest('formatDetailedStatus includes all sections', async () => {
 
   const status = await queue.formatDetailedStatus();
 
-  // Updated format: per-queue grouping with items
-  // Processing counts are actual running system processes (via pgrep)
-  // See: https://github.com/link-assistant/hive-mind/issues/1267
+  // Updated format (issue #1891): per-queue grouping with items, empty queues
+  // hidden, shared waiting reason shown once, and counts shown only on the
+  // individual list labels.
   assert.ok(status.includes('Solve Queue Status'), 'Should include title');
-  assert.ok(status.includes('claude'), 'Should include claude queue');
-  assert.ok(status.includes('agent'), 'Should include agent queue');
-  assert.ok(status.includes('pending:'), 'Should include pending count');
-  assert.ok(status.includes('processing:'), 'Should include processing count');
+  assert.ok(status.includes('claude'), 'Should include claude queue (has a pending item)');
+  assert.ok(!status.includes('agent'), 'Should hide the empty agent queue (issue #1891)');
+  assert.ok(status.includes('*Pending* (1):'), 'Should include pending count on the Pending list label');
+  assert.ok(!status.includes('pending: 1'), 'Should not duplicate pending count in the tool header');
+  assert.ok(!status.includes('processing:'), 'Should not duplicate processing count in the tool header');
   assert.ok(status.includes('Completed:'), 'Should include completed count');
   assert.ok(status.includes('Failed:'), 'Should include failed count');
   assert.ok(status.includes('test/repo/issues/1'), 'Should include queued item URL');
@@ -1167,28 +1168,27 @@ test('processing map correctly tracks items', () => {
 
 console.log('\n📋 Format Waiting Reason Tests\n');
 
-await asyncTest('formatDetailedStatus shows waiting items with reasons', async () => {
+await asyncTest('formatDetailedStatus shows the shared waiting reason once (issue #1891)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
-  queue.enqueue({
-    url: 'https://github.com/test/repo/issues/1',
-    args: '--model opus',
-    requester: 'testuser',
-    infoBlock: 'Test info',
-  });
+  // Two pending items sharing the same waiting reason.
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '--model opus', requester: 'testuser', infoBlock: 'Test info' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '--model opus', requester: 'testuser', infoBlock: 'Test info' });
 
-  // Set waiting with a reason that includes Claude processes (use tool queue)
-  queue.getToolQueue('claude')[0].setWaiting('Claude 5 hour session limit is 95% (threshold: 90%)\nClaude process is already running (2 processes)');
+  const reason = 'Claude 5 hour session limit is 95% (threshold: 90%)\nClaude process is already running (2 processes)';
+  for (const item of queue.getToolQueue('claude')) item.setWaiting(reason);
 
   const status = await queue.formatDetailedStatus();
 
-  // Updated format: per-queue grouping with items
-  // Processing counts are actual running system processes (via pgrep)
-  // See: https://github.com/link-assistant/hive-mind/issues/1267
+  // New compact format (issue #1891): pending items use the ⏳ emoji, the
+  // waiting reason is shown once (not per item), and multi-line reasons are
+  // collapsed onto a single line.
   assert.ok(status.includes('claude'), 'Should include claude queue section');
-  assert.ok(status.includes('waiting'), 'Should show waiting status');
-  assert.ok(status.includes('Claude 5 hour session limit'), 'Should show waiting reason');
+  assert.ok(status.includes('⏳'), 'Should mark pending items with the ⏳ emoji');
+  assert.ok(status.includes('Claude 5 hour session limit'), 'Should show the shared waiting reason');
+  // The reason must appear exactly once even though two items are waiting.
+  assert.equal(status.split('Claude 5 hour session limit').length - 1, 1, 'Shared waiting reason should appear only once');
 
   queue.stop();
 });

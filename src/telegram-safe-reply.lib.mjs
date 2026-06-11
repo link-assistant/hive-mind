@@ -61,27 +61,129 @@ function findTelegramSplitIndex(text, limit) {
   return limit;
 }
 
+// A Markdown fenced code block opens/closes with ``` or ~~~ (optionally indented
+// and, on the opening fence, followed by a language/info string). We track these
+// so a split that lands inside a code block can close the fence on the current
+// chunk and reopen it — repeating the language — on the next one (issue #1891).
+const CODE_FENCE_RE = /^(\s*)(```+|~~~+)(.*)$/;
+
+/**
+ * Parse a single line as a Markdown code-fence delimiter.
+ *
+ * @param {string} line
+ * @returns {{indent: string, marker: string, info: string}|null}
+ *   The fence parts, or `null` when the line is not a fence.
+ */
+export function parseCodeFence(line) {
+  const match = CODE_FENCE_RE.exec(line);
+  if (!match) return null;
+  return { indent: match[1], marker: match[2], info: match[3].trim() };
+}
+
+/**
+ * Hard-split a single physical line that is itself longer than `limit` into
+ * pieces that each fit, preferring a break at a natural separator near the end
+ * and falling back to a hard character cut. Used only for pathologically long
+ * lines (normal queue/help lines are short).
+ *
+ * @param {string} line
+ * @param {number} limit
+ * @returns {string[]}
+ */
+function splitLongLine(line, limit) {
+  const pieces = [];
+  let remaining = line;
+  while (remaining.length > limit) {
+    let splitAt = findTelegramSplitIndex(remaining, limit);
+    if (splitAt <= 0 || splitAt > limit) splitAt = limit;
+    let piece = remaining.slice(0, splitAt);
+    if (!piece.trim()) {
+      splitAt = limit;
+      piece = remaining.slice(0, splitAt);
+    }
+    pieces.push(piece);
+    remaining = remaining.slice(splitAt);
+  }
+  if (remaining) pieces.push(remaining);
+  return pieces;
+}
+
+/**
+ * Split a (possibly oversized) Telegram message into chunks that each stay
+ * within `limit` characters.
+ *
+ * Splitting happens on line boundaries so inline Markdown entities (bold,
+ * italic, links — none of which may span a newline in Telegram's legacy
+ * Markdown) are never cut in half. Fenced code blocks, which *do* span lines,
+ * are kept valid across the split: when a break lands inside a code block the
+ * current chunk gets a closing fence appended and the next chunk re-opens the
+ * fence with the same marker and language (issue #1891).
+ *
+ * @param {string} text
+ * @param {number} [limit=TELEGRAM_TEXT_LIMIT]
+ * @returns {string[]} One or more chunks; always at least one element.
+ */
 export function splitTelegramMessageText(text, limit = TELEGRAM_TEXT_LIMIT) {
   const source = String(text ?? '');
   if (source.length <= limit) return [source];
 
-  const chunks = [];
-  let remaining = source;
+  // Reserve headroom on each physical line for a possible fence reopen/close
+  // pair so re-wrapping a code block never pushes a chunk past the limit.
+  const FENCE_HEADROOM = 16;
+  const lineLimit = Math.max(1, limit - FENCE_HEADROOM);
 
-  while (remaining.length > limit) {
-    let splitAt = findTelegramSplitIndex(remaining, limit);
-    let chunk = remaining.slice(0, splitAt).trimEnd();
-
-    if (!chunk) {
-      splitAt = limit;
-      chunk = remaining.slice(0, splitAt);
-    }
-
-    chunks.push(chunk);
-    remaining = remaining.slice(splitAt).trimStart();
+  // Expand into physical lines, pre-splitting any line that alone exceeds the
+  // budget so the chunker below only ever deals with lines that fit.
+  const lines = [];
+  for (const raw of source.split('\n')) {
+    if (raw.length <= lineLimit) lines.push(raw);
+    else lines.push(...splitLongLine(raw, lineLimit));
   }
 
-  if (remaining) chunks.push(remaining);
+  const chunks = [];
+  let current = '';
+  let openFence = null; // { indent, marker, info } while inside a code block
+
+  const closeFenceLine = () => `${openFence.indent}${openFence.marker}`;
+  const reopenFenceLine = () => `${openFence.indent}${openFence.marker}${openFence.info}`;
+
+  const flush = () => {
+    let chunk = current;
+    if (openFence) {
+      // Close the still-open code block at the end of this chunk.
+      chunk = chunk.length ? `${chunk}\n${closeFenceLine()}` : closeFenceLine();
+    }
+    chunks.push(chunk);
+    // Re-open the fence at the start of the next chunk so the code block (and
+    // its language) continues seamlessly.
+    current = openFence ? reopenFenceLine() : '';
+  };
+
+  for (const line of lines) {
+    const separatorLength = current.length ? 1 : 0;
+    const closeReserve = openFence ? closeFenceLine().length + 1 : 0;
+    const projected = current.length + separatorLength + line.length + closeReserve;
+
+    if (current.length > 0 && projected > limit) {
+      flush();
+    }
+
+    current = current.length ? `${current}\n${line}` : line;
+
+    const fence = parseCodeFence(line);
+    if (fence) {
+      // A fence line toggles code-block state: open when outside, close when
+      // already inside.
+      openFence = openFence ? null : fence;
+    }
+  }
+
+  // Defensive: close any fence left open by unbalanced input.
+  if (openFence && current.length) {
+    current = `${current}\n${closeFenceLine()}`;
+  }
+  if (current.length || chunks.length === 0) chunks.push(current);
+
   return chunks;
 }
 

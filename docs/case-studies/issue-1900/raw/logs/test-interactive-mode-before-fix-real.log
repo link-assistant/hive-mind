@@ -1,0 +1,434 @@
+
+=== Testing Utility Functions ===
+
+Testing truncateMiddle with short content... ✅ PASSED
+Testing truncateMiddle with long content... ✅ PASSED
+Testing truncateMiddle with null/undefined... ✅ PASSED
+Testing safeJsonStringify basic object... ✅ PASSED
+Testing safeJsonStringify circular reference... ✅ PASSED
+Testing createCollapsible basic... ✅ PASSED
+Testing createCollapsible open by default... ✅ PASSED
+Testing formatDuration seconds only... ✅ PASSED
+Testing formatDuration minutes and seconds... ✅ PASSED
+Testing formatDuration hours, minutes, seconds... ✅ PASSED
+Testing formatDuration invalid values... ✅ PASSED
+Testing formatCost basic... ✅ PASSED
+Testing formatCost small value... ✅ PASSED
+Testing formatCost invalid values... ✅ PASSED
+Testing escapeMarkdown basic... ✅ PASSED
+Testing escapeMarkdown empty/null... ✅ PASSED
+Testing getToolIcon known tools... ✅ PASSED
+Testing getToolIcon unknown tool... ✅ PASSED
+Testing createRawJsonSection basic... ✅ PASSED
+Testing createRawJsonSection wraps single object in array... ✅ PASSED
+Testing createRawJsonSection preserves existing arrays... ✅ PASSED
+
+=== Testing Function Exports ===
+
+Testing isInteractiveModeSupported claude... ✅ PASSED
+Testing isInteractiveModeSupported opencode... ✅ PASSED
+Testing isInteractiveModeSupported other tools... ✅ PASSED
+
+=== Testing Async Functions ===
+
+Testing validateInteractiveModeConfig disabled... ✅ PASSED
+Testing validateInteractiveModeConfig enabled with claude... ✅ PASSED
+Testing validateInteractiveModeConfig enabled with opencode... ✅ PASSED
+Testing validateInteractiveModeConfig enabled with codex... ✅ PASSED
+
+=== Testing Interactive Handler ===
+
+Testing createInteractiveHandler returns expected interface... ✅ PASSED
+Testing handler initial state... ✅ PASSED
+Testing processEvent handles system.init... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent handles assistant text... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent handles tool_use... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent handles result... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent handles codex thread.started and agent_message... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent handles unrecognized events... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent handles null/invalid input... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing handler does not post without PR info... ✅ PASSED
+
+=== Testing Comment ID Extraction ===
+
+Testing comment ID extraction from gh output URL... ✅ PASSED
+Testing comment ID extraction handles empty/invalid output... ✅ PASSED
+Testing comment ID extraction with Buffer-like objects... ✅ PASSED
+
+=== Testing Unicode Sanitization (Issue #1324) ===
+
+Testing sanitizeUnicode: clean string passes through unchanged... ✅ PASSED
+Testing sanitizeUnicode: full emoji surrogate pair is preserved... ✅ PASSED
+Testing sanitizeUnicode: orphaned high surrogate is replaced with U+FFFD... ✅ PASSED
+Testing sanitizeUnicode: orphaned low surrogate is replaced with U+FFFD... ✅ PASSED
+Testing sanitizeUnicode: reproduces and fixes exact bug from issue #1324... ✅ PASSED
+Testing sanitizeUnicode: multiple orphaned surrogates in one string... ✅ PASSED
+Testing sanitizeUnicode: null/undefined/empty returns empty string... ✅ PASSED
+Testing truncateMiddle: sanitizes content even when no truncation needed... ✅ PASSED
+Testing truncateMiddle: sanitizes content after truncation... ✅ PASSED
+Testing safeJsonStringify: sanitizes string values before serialization... ✅ PASSED
+Testing safeJsonStringify: normal strings are not corrupted... ✅ PASSED
+
+=== Testing Real-World Log Data Patterns (Issue #1324) ===
+
+Testing sanitizeUnicode: preserves emoji-rich GitHub PR comment (real log pattern)... ✅ PASSED
+Testing sanitizeUnicode: preserves real hive-mind status messages with emojis... ✅ PASSED
+Testing sanitizeUnicode: preserves Cyrillic and mixed scripts (real log pattern)... ✅ PASSED
+Testing sanitizeUnicode: fixes the exact persisted-output truncation from issue #1324... ✅ PASSED
+Testing sanitizeUnicode: handles multiple emoji at end of truncation boundary... ✅ PASSED
+Testing sanitizeUnicode: handles orphaned low surrogate at start of string... ✅ PASSED
+Testing sanitizeUnicode: handles orphaned high surrogate at end of string... ✅ PASSED
+Testing sanitizeUnicode: preserves all BMP characters including CJK and Arabic... ✅ PASSED
+Testing sanitizeUnicode: preserves multiple valid surrogate pairs in sequence... ✅ PASSED
+Testing sanitizeUnicode: handles reversed surrogate pair (low before high)... ✅ PASSED
+Testing sanitizeUnicode: stress test with 1000 emojis... ✅ PASSED
+Testing truncateMiddle: preserves short emoji-rich content (real log format)... ✅ PASSED
+Testing truncateMiddle: truncates large output with emoji safely... ✅ PASSED
+Testing truncateMiddle: handles truncation point exactly at emoji boundary... ✅ PASSED
+Testing safeJsonStringify: handles real Claude assistant event with emojis... ✅ PASSED
+Testing safeJsonStringify: handles real tool_result event with persisted-output... ✅ PASSED
+Testing safeJsonStringify: handles real result event structure... ✅ PASSED
+Testing safeJsonStringify: handles deeply nested objects with emojis... ✅ PASSED
+Testing safeJsonStringify: handles arrays with mixed content types... ✅ PASSED
+
+=== Testing Handler Pipeline with Real Events (Issue #1324) ===
+
+Testing handler processes assistant text with emojis without error... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing handler processes tool_use with emoji-containing command... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing handler processes tool_result with orphaned surrogate (exact issue #1324 scenario)... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing handler processes result event with error message... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing handler processes system.init with real structure... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+=== Testing JSON Round-Trip Safety ===
+
+Testing JSON round-trip: all surrogate ranges are handled... ✅ PASSED
+Testing JSON round-trip: sanitizeUnicode + JSON.stringify + JSON.parse is idempotent for clean strings... ✅ PASSED
+Testing JSON round-trip: sanitizeUnicode + JSON.stringify + JSON.parse preserves all valid emoji... ✅ PASSED
+Testing JSON round-trip: safeJsonStringify output is always parseable... ✅ PASSED
+
+=== Testing Agent Task Events (Issue #1450) ===
+
+Testing processEvent handles system.task_started... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent handles system.task_progress with pending task... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent handles system.task_progress without pending task (graceful fallback)... ✅ PASSED
+Testing processEvent handles system.task_notification (completed)... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent handles system.task_notification without pending task (standalone)... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent handles rate_limit_event silently... ✅ PASSED
+Testing processEvent groups system.thinking_tokens into one editable comment... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+❌ FAILED: Expected initial Thinking comment
+Testing processEvent handles observed low-volume system subtypes without unrecognized comments... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+❌ FAILED: Expected no unrecognized comments/edits, got 3
+Testing processEvent no longer marks known system subtypes as unrecognized... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing processEvent still marks truly unknown system subtypes as unrecognized... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing full agent task lifecycle: started -> progress -> progress -> notification... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing getToolIcon returns Agent icon... ✅ PASSED
+Testing handler exposes new task handlers... ✅ PASSED
+
+=== Testing Configuration Constants ===
+
+Testing CONFIG constants are defined... ✅ PASSED
+Testing CONFIG constants have reasonable values... ✅ PASSED
+
+=== Testing execFileAsync stdin piping (Issue #1532) ===
+
+Testing execFileAsync passes input to child stdin (Issue #1532)... ✅ PASSED
+Testing execFileAsync works without input option... ✅ PASSED
+Testing execFileAsync rejects on non-zero exit code... ✅ PASSED
+Testing execFileAsync handles large stdin input... ✅ PASSED
+Testing execFileAsync handles JSON payload for gh api simulation (Issue #1532)... ✅ PASSED
+
+=== Testing Issue #1576 Fixes ===
+
+Testing truncateMiddle shows line range instead of count... ✅ PASSED
+Testing Session Complete renamed to Interactive session completed... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Session Failed renamed to Interactive session failed... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing TodoWrite shows checked/total count... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Write tool displays as Change (expanded by default)... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Write tool diff contains line numbers... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Task prompt is expanded by default... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Agent task comments show agent ID and sub-agent emoji... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing ToolSearch has specific icon and formatting... ✅ PASSED
+Testing ToolSearch tool gets specific display (not generic JSON)... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Result event prefers modelUsage for token display... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Result event falls back to usage when modelUsage is absent... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+Testing Task comment queue tracking: taskId propagated through queue... github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+✅ PASSED
+
+==================================================
+Test Results for interactive-mode.lib.mjs:
+  ✅ Passed: 111
+  ❌ Failed: 2
+==================================================

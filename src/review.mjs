@@ -31,6 +31,12 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   process.exit(0);
 }
 
+// Issue #1897: redirect global installs to a user-writable prefix when the npm
+// global node_modules is not writable, so use-m's `npm install -g` below does
+// not crash with EACCES under a root-owned system Node.
+const { ensureWritableNpmGlobalPrefix } = await import('./npm-global-prefix.lib.mjs');
+await ensureWritableNpmGlobalPrefix({ log: message => console.log(message) });
+
 // Use use-m to dynamically import modules for cross-runtime compatibility
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 

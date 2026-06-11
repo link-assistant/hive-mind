@@ -7,6 +7,13 @@
  * @returns {Promise<void>}
  */
 export async function handleSolveEarlyExit(earlyArgs) {
+  // Issue #1897: before any use-m `npm install -g` runs (both in the --help
+  // branch below and in solve.mjs's main bootstrap), redirect the npm global
+  // prefix to a user-writable directory when the system Node's global
+  // node_modules is root-owned — otherwise use-m crashes with EACCES.
+  const { ensureWritableNpmGlobalPrefix } = await import('./npm-global-prefix.lib.mjs');
+  await ensureWritableNpmGlobalPrefix({ log: message => console.log(message) });
+
   if (earlyArgs.includes('--version')) {
     const { getVersion } = await import('./version.lib.mjs');
     try {

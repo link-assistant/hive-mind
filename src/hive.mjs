@@ -42,6 +42,7 @@ if (isRunningDirectly) {
   console.log('   Initializing...');
   try {
     console.log('   Loading dependencies (this may take a moment)...');
+    await (await import('./npm-global-prefix.lib.mjs')).ensureWritableNpmGlobalPrefix({ log: message => console.log(message) }); // #1897: redirect npm global prefix to a user-writable dir before use-m's `npm install -g`, else EACCES.
     // Use use-m to dynamically import modules for cross-runtime compatibility
     if (typeof use === 'undefined') {
       try {

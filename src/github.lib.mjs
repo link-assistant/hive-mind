@@ -8,7 +8,7 @@ import { githubLimits, timeouts } from './config.lib.mjs';
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent }; // Re-export for backward compatibility
-import { selectGhUploadLogMode, uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
 import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 // Import model info helpers (Issue #1225)
 import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
@@ -629,26 +629,20 @@ ${logContent}
         const tempLogFile = `/tmp/solution-draft-log-${targetType}-${Date.now()}.txt`;
         // Use the original sanitized content for upload since it's a plain text file
         await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
-        const uploadLogStats = await fs.stat(tempLogFile);
 
-        // Use gh-upload-log to upload the log file. Keep the mode explicit so
-        // small logs cannot fall back from gist mode into one-off repositories.
+        // Keep gh-upload-log in auto mode while making the repository fallback
+        // policy explicit: shared public-logs/private-logs repositories are the
+        // default; one-off repositories require an explicit no-shared option.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
-        const uploadMode = selectGhUploadLogMode({
-          logSize: uploadLogStats.size,
-          fileMaxSize: githubLimits.fileMaxSize,
-        });
         if (verbose) {
-          const uploadModeLabel = uploadMode === 'repository' ? 'repository (shared)' : 'gist';
-          await log(`  🔀 gh-upload-log mode: ${uploadModeLabel}`, { verbose: true });
+          await log('  🔀 gh-upload-log mode: auto (shared repository fallback)', { verbose: true });
         }
         const uploadResult = await uploadLogWithGhUploadLog({
           logFile: tempLogFile,
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
-          mode: uploadMode,
-          fileMaxSize: githubLimits.fileMaxSize,
+          mode: 'auto',
           useSharedRepository: true,
         });
         await fs.unlink(tempLogFile).catch(() => {});

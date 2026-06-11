@@ -30,6 +30,18 @@
     "used_for": "Related migration to shared private-logs and public-logs repositories"
   },
   {
+    "title": "gh-upload-log Issue #31",
+    "url": "https://github.com/link-foundation/gh-upload-log/issues/31",
+    "type": "upstream_issue",
+    "used_for": "Reported auto-mode fallback bug with reproduction, workarounds, and suggested fix"
+  },
+  {
+    "title": "npm package metadata for gh-upload-log",
+    "url": "https://www.npmjs.com/package/gh-upload-log",
+    "type": "package_registry",
+    "used_for": "Confirmed current published package version and repository URL"
+  },
+  {
     "title": "GitHub Docs - Rate limits for the REST API",
     "url": "https://docs.github.com/rest/using-the-rest-api/rate-limits-for-the-rest-api",
     "type": "official_documentation",

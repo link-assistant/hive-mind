@@ -12,7 +12,6 @@ const use = globalThis.use;
 // Use command-stream for consistent $ behavior across runtimes
 const { $ } = await use('command-stream');
 const $silent = $({ mirror: false, capture: true });
-const fs = await use('fs');
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
@@ -28,21 +27,9 @@ const summarizeCommandOutput = value => {
   return text.length > 500 ? `${text.slice(0, 500)}... [truncated ${text.length - 500} chars]` : text;
 };
 
-const DEFAULT_GITHUB_FILE_MAX_SIZE = 25 * 1024 * 1024;
-const GH_UPLOAD_LOG_MODES = new Set(['gist', 'repository']);
+const GH_UPLOAD_LOG_MODES = new Set(['auto', 'gist', 'repository']);
 
-export const selectGhUploadLogMode = ({ logSize, fileMaxSize = DEFAULT_GITHUB_FILE_MAX_SIZE }) => {
-  if (!Number.isFinite(logSize) || logSize < 0) {
-    throw new Error(`Invalid log size for gh-upload-log mode selection: ${logSize}`);
-  }
-  if (!Number.isFinite(fileMaxSize) || fileMaxSize < 0) {
-    throw new Error(`Invalid GitHub file max size for gh-upload-log mode selection: ${fileMaxSize}`);
-  }
-
-  return logSize > fileMaxSize ? 'repository' : 'gist';
-};
-
-export const buildGhUploadLogArgs = ({ logFile, isPublic, description, verbose = false, mode, useSharedRepository = true }) => {
+export const buildGhUploadLogArgs = ({ logFile, isPublic, description, verbose = false, mode = 'auto', useSharedRepository = true }) => {
   if (!logFile) {
     throw new Error('logFile is required for gh-upload-log');
   }
@@ -52,7 +39,10 @@ export const buildGhUploadLogArgs = ({ logFile, isPublic, description, verbose =
 
   const args = [logFile, isPublic ? '--public' : '--private'];
 
-  if (mode === 'gist') {
+  if (mode === 'auto') {
+    args.push('--auto');
+    args.push(useSharedRepository ? '--shared-repository' : '--no-shared-repository');
+  } else if (mode === 'gist') {
     args.push('--only-gist');
   } else {
     args.push('--only-repository');
@@ -164,27 +154,20 @@ export const parseGhUploadLogOutput = outputValue => {
  * @param {boolean} options.isPublic - Whether to make the upload public
  * @param {string} options.description - Description for the upload
  * @param {boolean} [options.verbose=false] - Enable verbose logging
- * @param {'gist'|'repository'} [options.mode] - Concrete upload mode. Defaults from file size.
- * @param {number} [options.fileMaxSize=26214400] - Maximum size that still fits gist mode.
+ * @param {'auto'|'gist'|'repository'} [options.mode='auto'] - gh-upload-log upload mode.
  * @param {boolean} [options.useSharedRepository=true] - Use public-logs/private-logs for repository mode.
  * @returns {Promise<{success: boolean, url: string|null, rawUrl: string|null, type: 'gist'|'repository'|null, chunks: number, repositoryName?: string|null, repositoryPath?: string|null}>}
  */
-export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, mode = null, fileMaxSize = DEFAULT_GITHUB_FILE_MAX_SIZE, useSharedRepository = true }) => {
+export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, mode = 'auto', useSharedRepository = true }) => {
   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
 
   try {
-    const resolvedMode =
-      mode ??
-      selectGhUploadLogMode({
-        logSize: fs.statSync(logFile).size,
-        fileMaxSize,
-      });
     const commandArgs = buildGhUploadLogArgs({
       logFile,
       isPublic,
       description,
       verbose,
-      mode: resolvedMode,
+      mode,
       useSharedRepository,
     });
 
@@ -333,7 +316,6 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
 // Export all functions as default object too
 export default {
   parseGhUploadLogOutput,
-  selectGhUploadLogMode,
   buildGhUploadLogArgs,
   uploadLogWithGhUploadLog,
 };

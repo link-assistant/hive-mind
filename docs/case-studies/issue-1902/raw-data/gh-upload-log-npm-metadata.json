@@ -1,0 +1,8 @@
+{
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/link-foundation/gh-upload-log.git"
+  },
+  "version": "0.8.0",
+  "description": "A tool to upload log files to GitHub as Gists or repositories"
+}

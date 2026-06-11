@@ -8,16 +8,17 @@ Issue #1902 reported that two log uploads created dedicated public repositories:
 - `konard/log-tmp-solution-draft-log-pr-1781180537724.txt`
 
 Both uploaded files were under Hive Mind's 25 MB file limit, so they should have
-used gist uploads. If a log is larger than that limit, it should use the shared
-visibility repositories provided by `gh-upload-log`: `public-logs` for public
-targets and `private-logs` for private targets.
+used gist uploads first through `gh-upload-log` auto mode. If gist upload fails
+and `gh-upload-log` falls back to repository mode, or if a log is larger than the
+gist limit, repository storage should use the shared visibility repositories:
+`public-logs` for public targets and `private-logs` for private targets.
 
-The root cause was that Hive Mind invoked `gh-upload-log` in automatic mode. In
-the captured run, automatic mode first tried to create a gist. GitHub returned a
-secondary content-creation rate limit for the gist API. `gh-upload-log` then fell
-back to repository mode. Because the file still fit within the gist limit, upstream
+The root cause is in `gh-upload-log` auto fallback routing. In the captured run,
+automatic mode first tried to create a gist. GitHub returned a secondary
+content-creation rate limit for the gist API. `gh-upload-log` then fell back to
+repository mode. Because the file still fit within the gist limit, upstream
 shared-repository routing did not apply, so the fallback created a dedicated
-`log-tmp-*` repository.
+`log-tmp-*` repository even though shared repository mode was enabled.
 
 ## Captured Evidence
 
@@ -41,6 +42,9 @@ shared-repository routing did not apply, so the fallback created a dedicated
 | `raw-data/gh-upload-log-repository-upload.js`           | Upstream shared-vs-dedicated repository logic snapshot    |
 | `raw-data/gh-upload-log-pr-28.json`                     | Related upstream collision-handling PR metadata           |
 | `raw-data/gh-upload-log-pr-30.json`                     | Related upstream shared-repository PR metadata            |
+| `raw-data/gh-upload-log-issue-31.json`                  | Filed upstream fallback-routing issue metadata            |
+| `raw-data/gh-upload-log-issue-31-comments.json`         | Filed upstream fallback-routing issue comments            |
+| `raw-data/gh-upload-log-npm-metadata.json`              | Current npm package metadata for `gh-upload-log`          |
 | `logs/tmp-solution-draft-log-pr-1781180521736.txt.gz`   | Full 20,632,466 byte linked log, compressed               |
 | `logs/tmp-solution-draft-log-pr-1781180537724.txt.gz`   | Full 20,653,037 byte linked log, compressed               |
 | `logs/gist-upload-evidence-1781180008338.txt`           | Earlier successful gist upload from the same run          |
@@ -49,6 +53,7 @@ shared-repository routing did not apply, so the fallback created a dedicated
 | `logs/linked-repo-summary-1781180537724.json`           | Concise second linked repository summary                  |
 | `logs/run-version-evidence.txt`                         | Focused run/version/upload command evidence               |
 | `research-sources.json`                                 | Online and repository source list                         |
+| `upstream-gh-upload-log-issue.md`                       | Body used to file the upstream fallback-routing issue     |
 
 The full downloaded logs were verified before compression:
 
@@ -72,25 +77,31 @@ The full downloaded logs were verified before compression:
 ## Requirements
 
 1. Default Hive Mind log uploads must not create a separate repository per log.
-2. Logs that fit the GitHub file limit should use gist uploads.
-3. Logs that exceed the GitHub file limit should use shared `public-logs` or
-   `private-logs` repositories.
-4. The fix needs a regression test that would have failed for the captured path.
-5. Preserve logs, metadata, timeline, root-cause analysis, and solution notes in
+2. Hive Mind should keep using `gh-upload-log` auto mode.
+3. Logs that fit the GitHub file limit should attempt gist uploads first.
+4. If gist upload fails and repository fallback is used, the fallback should use
+   shared `public-logs` or `private-logs` repositories.
+5. Repository-per-log behavior should only happen when explicitly requested with
+   `gh-upload-log` options such as `--no-shared-repository`.
+6. Report the fallback-routing bug upstream with a reproduction, workarounds, and
+   a suggested code fix.
+7. The fix needs a regression test that would have failed for the captured path.
+8. Preserve logs, metadata, timeline, root-cause analysis, and solution notes in
    `docs/case-studies/issue-1902/`.
 
 ## Root Cause
 
-Hive Mind called `gh-upload-log` without a concrete upload mode:
+Hive Mind called `gh-upload-log` in automatic mode:
 
 ```text
 gh-upload-log "/tmp/solution-draft-log-pr-1781180521736.txt" --public --description "..." --verbose
 ```
 
-That selected upstream automatic mode. In automatic mode, `gh-upload-log` chose
-gist mode for the 19.68 MB file because it was under the 25 MB gist limit. When
-GitHub rejected gist creation with a secondary rate limit, upstream automatic mode
-fell back to repository mode.
+That is the correct high-level integration point: auto mode should select gist
+when possible and repository storage when needed. In the captured run,
+`gh-upload-log` chose gist mode for the 19.68 MB file because it was under the
+25 MB gist limit. When GitHub rejected gist creation with a secondary rate limit,
+upstream automatic mode fell back to repository mode.
 
 The fallback still had `useSharedRepository: true`, but upstream shared-repository
 routing only applies when the file is larger than the gist limit:
@@ -104,28 +115,33 @@ dedicated repository path and created `log-tmp-solution-draft-log-pr-17811805217
 The second linked repository has the same shape: a single public repository with one
 20.65 MB log file and an initial `Add log file` commit.
 
-The bug was therefore not that shared repositories were unavailable. The bug was
-that Hive Mind delegated the mode decision and fallback policy to `gh-upload-log`
-instead of making the Hive Mind contract explicit.
+The bug was therefore not that auto mode exists, and not that shared repositories
+were unavailable. The bug is that `gh-upload-log` repository fallback only uses
+shared repositories when the original file is larger than the gist limit. Once
+auto mode has already fallen back into repository upload, repository routing
+should depend on `useSharedRepository`, not on the original gist-size decision.
 
 ## Solution
 
 Implemented changes:
 
-1. Added `selectGhUploadLogMode()` in `src/log-upload.lib.mjs`.
+1. Filed upstream issue
+   [link-foundation/gh-upload-log#31](https://github.com/link-foundation/gh-upload-log/issues/31)
+   with the reproduction, workarounds, and suggested routing fix.
 2. Added `buildGhUploadLogArgs()` so tests can assert the exact CLI arguments used
    by the wrapper.
-3. Changed `uploadLogWithGhUploadLog()` to default from the actual file size:
-   - `--only-gist` when the log size is at or below the configured file limit.
-   - `--only-repository --shared-repository` when the log size exceeds that limit.
-4. Changed `attachLogToGitHub()` to pass the same explicit mode based on
-   `githubLimits.fileMaxSize`.
-5. Kept repository mode pointed at shared repositories by passing
+3. Changed `uploadLogWithGhUploadLog()` to default to `--auto --shared-repository`
+   instead of forcing `--only-gist` or `--only-repository`.
+4. Changed `attachLogToGitHub()` to pass `mode: 'auto'` and
    `useSharedRepository: true`.
+5. Kept the legacy dedicated repository path available only when a caller
+   explicitly passes `useSharedRepository: false`, which builds
+   `--no-shared-repository`.
 
-With this fix, a small log that hits a gist secondary rate limit fails the external
-upload cleanly instead of falling back into a dedicated repository. Large logs still
-use repository storage, but only with the shared visibility repository flag.
+With this fix, Hive Mind preserves `gh-upload-log` auto behavior and explicitly
+requests shared repository fallback. The remaining fallback bug for sub-25 MB
+gist failures is tracked upstream in
+[link-foundation/gh-upload-log#31](https://github.com/link-foundation/gh-upload-log/issues/31).
 
 ## Regression Coverage
 
@@ -133,12 +149,12 @@ Added `tests/test-issue-1902-log-upload-routing.mjs`.
 
 The test covers:
 
-- The exact captured size range: 20,632,466 bytes selects gist mode.
-- Gist-mode arguments include `--only-gist`.
-- Gist-mode arguments do not include repository flags.
-- Files over 25 MB select repository mode.
-- Repository-mode arguments include `--only-repository --shared-repository`.
-- Repository-mode arguments do not include `--no-shared-repository`.
+- Default wrapper arguments keep auto mode enabled.
+- Default wrapper arguments include `--shared-repository`.
+- Default wrapper arguments do not include `--only-gist`,
+  `--only-repository`, or `--no-shared-repository`.
+- Dedicated repository behavior requires explicit `useSharedRepository: false`,
+  which builds `--no-shared-repository`.
 
 Focused verification:
 
@@ -162,7 +178,9 @@ Sources are listed in `research-sources.json`.
 
 ## External Issues
 
-No upstream issue was filed. The upstream behavior is internally consistent: auto
-mode may fall back from gist to repository, and shared repository mode is only used
-for files above the upstream gist limit. Hive Mind needed to stop using auto mode
-for its stricter log-upload contract.
+Filed upstream issue
+[link-foundation/gh-upload-log#31](https://github.com/link-foundation/gh-upload-log/issues/31).
+The issue includes the captured reproduction, the `shouldUseSharedRepositoryMode()`
+root cause, caller workarounds, and a suggested code-level fix: repository routing
+should use shared repositories whenever `useSharedRepository` is true, including
+auto-mode fallback after a gist failure below the gist limit.

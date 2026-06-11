@@ -76,6 +76,10 @@ const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = results
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit, shouldSyncBeforeRestart } = await import('./auto-iteration-limits.lib.mjs');
 
+// Issue #1895: explicitly close linked issues after merging a PR into a
+// non-default branch, where GitHub does not auto-close them.
+const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
+
 const shouldDeleteBranchAfterMerge = argv => argv.autoDeleteBranchOnMerge || argv.deleteBranchAfterMerge || false;
 
 /**
@@ -306,6 +310,22 @@ export const watchUntilMergeable = async params => {
               await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
             } catch {
               // Don't fail if comment posting fails
+            }
+
+            // Issue #1895: when the PR targeted a non-default branch GitHub does
+            // not auto-close the linked issue. Close it explicitly so the issue
+            // is not left open after its PR merges.
+            if (issueNumber) {
+              try {
+                const closeResult = await ensureLinkedIssueClosedAfterMerge({ $, log, owner, repo, prNumber, issueNumber, verbose: argv.verbose });
+                if (closeResult.skipped && argv.verbose) {
+                  await log(formatAligned('', 'Issue auto-close:', `skipped (${closeResult.reason})`, 2), { verbose: true });
+                } else if (!closeResult.closed && !closeResult.skipped) {
+                  await log(formatAligned('⚠️', 'Issue auto-close:', `could not close issue #${issueNumber} (${closeResult.reason})`, 2), { level: 'warning' });
+                }
+              } catch (closeError) {
+                await log(formatAligned('⚠️', 'Issue auto-close:', `error closing issue #${issueNumber}: ${closeError.message}`, 2), { level: 'warning' });
+              }
             }
 
             return { success: true, reason: 'auto-merged', latestSessionId, latestAnthropicCost };
@@ -1170,7 +1190,7 @@ No further AI sessions will be started automatically for this run. Please review
  * This implements the --auto-merge functionality for one-shot merge attempts
  */
 export const attemptAutoMerge = async params => {
-  const { owner, repo, prNumber, argv } = params;
+  const { owner, repo, prNumber, issueNumber = null, argv } = params;
 
   await log('');
   await log(formatAligned('🔀', 'AUTO-MERGE:', 'Checking if PR can be merged...'));
@@ -1231,6 +1251,16 @@ export const attemptAutoMerge = async params => {
       await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
     } catch {
       // Don't fail if comment posting fails
+    }
+
+    // Issue #1895: close linked issue explicitly when GitHub will not (non-default base branch).
+    try {
+      const closeResult = await ensureLinkedIssueClosedAfterMerge({ $, log, owner, repo, prNumber, issueNumber, verbose: argv.verbose });
+      if (!closeResult.closed && !closeResult.skipped) {
+        await log(formatAligned('⚠️', 'Issue auto-close:', `could not close linked issue (${closeResult.reason})`, 2), { level: 'warning' });
+      }
+    } catch (closeError) {
+      await log(formatAligned('⚠️', 'Issue auto-close:', `error: ${closeError.message}`, 2), { level: 'warning' });
     }
 
     return { success: true, reason: 'merged' };

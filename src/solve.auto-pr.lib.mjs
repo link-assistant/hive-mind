@@ -4,6 +4,7 @@
  */
 
 import { closingIssueNumbersContain, parseClosingIssueNumbers } from './pr-issue-linking.lib.mjs';
+import { classifyIssueLinkStatus, buildNonDefaultBranchExplanation } from './github-issue-auto-close.lib.mjs'; // Issue #1895: explain non-default-base-branch linking failures instead of the misleading "add Fixes #N" advice.
 import { handleRejectedPushForAutoPr, synchronizeExistingIssueBranchBeforeAutoPrCreation } from './solve.branch-divergence.lib.mjs';
 import { emitForkAwareDiagnostic } from './solve.auto-pr-fork-diagnostic.lib.mjs';
 import { handleCompareApiNotReady } from './solve.auto-pr-compare-readiness.lib.mjs'; // Issue #1829: decides whether a failed compare-API readiness poll is fatal (fork mismatch / 0 commits) or a transient diff-render failure to degrade past.
@@ -1171,31 +1172,58 @@ ${prBody}`,
                   if (closingIssueNumbersContain(linkedIssues, issueNumber)) {
                     await log(formatAligned('✅', 'Link verified:', `Issue #${issueNumber} → PR #${localPrNumber}`));
                   } else {
-                    // This is a problem - the link wasn't created
-                    await log('');
-                    await log(formatAligned('⚠️', 'ISSUE LINK MISSING:', 'PR not linked to issue'), {
-                      level: 'warning',
+                    // The link wasn't registered by GitHub. Issue #1895: this is
+                    // expected (not a body problem) when the PR targets a
+                    // non-default branch, because GitHub only registers closing
+                    // references for PRs into the default branch. Diagnose the
+                    // real root cause instead of telling the user to add a
+                    // "Fixes #N" line that is already present.
+                    const targetBranch = argv.baseBranch || defaultBranch;
+                    const linkStatus = classifyIssueLinkStatus({
+                      prBody,
+                      issueNumber,
+                      owner,
+                      repo,
+                      baseBranch: targetBranch,
+                      defaultBranch,
+                      githubLinked: false,
                     });
-                    await log('');
 
-                    if (argv.fork) {
-                      await log("   The PR was created from a fork but wasn't linked to the issue.", {
-                        level: 'warning',
-                      });
-                      await log(`   Expected: "Fixes ${owner}/${repo}#${issueNumber}" in PR body`, {
-                        level: 'warning',
-                      });
+                    await log('');
+                    if (linkStatus.reason === 'non-default-base-branch') {
+                      // Keyword present + non-default base: GitHub will not
+                      // auto-close. This is handled later by the explicit
+                      // post-merge close fallback, so surface it as info.
+                      await log(formatAligned('ℹ️', 'ISSUE LINK DEFERRED:', `PR targets non-default branch '${targetBranch}'`));
                       await log('');
-                      await log('   To fix manually:', { level: 'warning' });
-                      await log(`   1. Edit the PR description at: ${prUrl}`, { level: 'warning' });
-                      await log(`   2. Add this line: Fixes ${owner}/${repo}#${issueNumber}`, { level: 'warning' });
+                      for (const line of buildNonDefaultBranchExplanation({ issueNumber, baseBranch: targetBranch, defaultBranch, issueRef })) {
+                        await log(`   ${line}`);
+                      }
                     } else {
-                      await log(`   The PR wasn't linked to issue #${issueNumber}`, { level: 'warning' });
-                      await log(`   Expected: "Fixes #${issueNumber}" in PR body`, { level: 'warning' });
+                      await log(formatAligned('⚠️', 'ISSUE LINK MISSING:', 'PR not linked to issue'), {
+                        level: 'warning',
+                      });
                       await log('');
-                      await log('   To fix manually:', { level: 'warning' });
-                      await log(`   1. Edit the PR description at: ${prUrl}`, { level: 'warning' });
-                      await log(`   2. Ensure it contains: Fixes #${issueNumber}`, { level: 'warning' });
+
+                      if (argv.fork) {
+                        await log("   The PR was created from a fork but wasn't linked to the issue.", {
+                          level: 'warning',
+                        });
+                        await log(`   Expected: "Fixes ${owner}/${repo}#${issueNumber}" in PR body`, {
+                          level: 'warning',
+                        });
+                        await log('');
+                        await log('   To fix manually:', { level: 'warning' });
+                        await log(`   1. Edit the PR description at: ${prUrl}`, { level: 'warning' });
+                        await log(`   2. Add this line: Fixes ${owner}/${repo}#${issueNumber}`, { level: 'warning' });
+                      } else {
+                        await log(`   The PR wasn't linked to issue #${issueNumber}`, { level: 'warning' });
+                        await log(`   Expected: "Fixes #${issueNumber}" in PR body`, { level: 'warning' });
+                        await log('');
+                        await log('   To fix manually:', { level: 'warning' });
+                        await log(`   1. Edit the PR description at: ${prUrl}`, { level: 'warning' });
+                        await log(`   2. Ensure it contains: Fixes #${issueNumber}`, { level: 'warning' });
+                      }
                     }
                     await log('');
                   }

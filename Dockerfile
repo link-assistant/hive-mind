@@ -17,7 +17,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-FROM konard/box:2.1.1
+FROM konard/box:2.2.0
 ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---

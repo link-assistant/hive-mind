@@ -10,6 +10,7 @@
 import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
 import { defaultModels, buildModelOptionDescription, resolveDefaultFallbackModel, resolveRuntimeDefaultModel } from './models/index.mjs';
 import { validateBranchName } from './solve.branch.lib.mjs';
+import { resolveEscalationConfig, isEscalateEnabled, DEFAULT_ESCALATE_RANGE } from './solve.escalate.lib.mjs';
 import { getLinoYargsFactory, hideBin, parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
@@ -610,6 +611,21 @@ export const SOLVE_OPTION_DEFINITIONS = {
     alias: ['keep-going-until-all-requirements-are-fully-done', 'keep-working', 'keep-going'],
     default: undefined,
   },
+  escalate: {
+    type: 'string',
+    description: '[EXPERIMENTAL] Start solving with a cheaper/lower-tier model and automatically escalate to a more capable (more expensive) model while unfinished work remains. Accepts a model range "<lower>-<upper>" using short Claude tier names (ladder: haiku < sonnet < opus < fable), e.g. "sonnet-opus". A single name (e.g. "opus") means just that tier. Bare flag means "sonnet-fable". The idea: iterate cheaply first so expensive models do more reading and less writing.',
+    default: undefined,
+  },
+  'escalate-from': {
+    type: 'string',
+    description: '[EXPERIMENTAL] Shortcut for --escalate <model>-fable: start solving from the given model (haiku/sonnet/opus/fable, aliases accepted) and escalate up to the top of the ladder while unfinished work remains. Takes precedence over --escalate when both are given.',
+    default: undefined,
+  },
+  'escalate-steps': {
+    type: 'number',
+    description: '[EXPERIMENTAL] How many working sessions to keep each model tier before escalating to the next one (default: 1). For example 2 keeps the lower tier for two working sessions, then the next tier for two, and so on. Only used with --escalate / --escalate-from.',
+    default: 1,
+  },
   'working-session-live-progress': {
     type: 'string',
     description: '[EXPERIMENTAL] Enable live progress monitoring. Accepts "comment" (default, updates a per-session PR comment) or "pr" (updates PR description). Plain --working-session-live-progress means "comment". Works with or without --interactive-mode.',
@@ -883,6 +899,34 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     }
   }
 
+  // --escalate / --escalate-from / --escalate-steps normalization (issue #1885)
+  // The bare `--escalate` flag is a string-typed option, so yargs yields `true`
+  // (or an empty string) for a value-less flag. Canonicalize that to the default
+  // range so downstream parsing in solve.escalate.lib.mjs sees a meaningful
+  // value. We also validate the range/steps eagerly here so misuse fails fast at
+  // config time rather than mid-solve.
+  {
+    const escalateProvided = hasRawOption(rawArgs, '--escalate');
+    if (escalateProvided) {
+      const current = argv.escalate;
+      if (current === true || current === '' || current === undefined || current === null) {
+        argv.escalate = DEFAULT_ESCALATE_RANGE;
+      } else if (typeof current === 'string') {
+        argv.escalate = current.trim().toLowerCase();
+      }
+    } else if (argv.escalate === undefined) {
+      argv.escalate = undefined;
+    }
+    if (typeof argv.escalateFrom === 'string') {
+      argv.escalateFrom = argv.escalateFrom.trim().toLowerCase();
+    }
+    // Validate eagerly (throws on invalid range / from / steps). resolveEscalationConfig
+    // is a no-op (returns null) when the feature is disabled.
+    if (isEscalateEnabled(argv)) {
+      resolveEscalationConfig(argv);
+    }
+  }
+
   // --working-session-live-progress normalization
   // When passed as --working-session-live-progress (no value), yargs gives true for string type
   // Normalize: true → "comment", validate known values
@@ -909,6 +953,19 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     // User did not explicitly provide --model, so use the correct default for the tool
     // (Issue #1473: centralized in models/index.mjs)
     argv.model = await resolveRuntimeDefaultModel(argv.tool);
+  }
+
+  // Escalate mode (issue #1885): when enabled and the user did not explicitly
+  // pin a model, the very first regular solve session should run on the cheapest
+  // tier in the plan (the range's lower bound). The restart loop in
+  // solve.escalate.lib.mjs then escalates upward while unfinished work remains.
+  // An explicit --model always wins (the user pinned the worker model on
+  // purpose), so only override the resolved default.
+  if (isEscalateEnabled(argv) && !modelExplicitlyProvided && (argv.tool || 'claude') === 'claude') {
+    const escalationConfig = resolveEscalationConfig(argv);
+    if (escalationConfig && escalationConfig.plan.length > 0) {
+      argv.model = escalationConfig.plan[0];
+    }
   }
 
   if (argv.tool && !fallbackModelExplicitlyProvided) {

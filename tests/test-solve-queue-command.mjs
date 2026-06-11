@@ -83,7 +83,23 @@ function createOptions(overrides = {}) {
     isChatAuthorized: () => (overrides.isAuthorized !== undefined ? overrides.isAuthorized : true),
     addBreadcrumb: async () => {},
     getSolveQueue: opts => {
-      const queue = new SolveQueue(opts);
+      // Inject deterministic process/session stubs so the rendered status does
+      // not depend on what happens to be running on the test host (a real
+      // `claude` process would otherwise make a queue section appear). Tests
+      // that need running sessions pass `runningSessionItems`.
+      const runningSessionItems = overrides.runningSessionItems || [];
+      const queue = new SolveQueue({
+        getRunningProcesses: async tool => ({ count: overrides.runningByTool?.[tool] ?? overrides.runningProcesses ?? 0, processes: [] }),
+        getRunningIsolatedSessions: async () => ({
+          count: runningSessionItems.length,
+          byTool: runningSessionItems.reduce((byTool, item) => {
+            byTool[item.tool || 'claude'] = (byTool[item.tool || 'claude'] || 0) + 1;
+            return byTool;
+          }, {}),
+        }),
+        getRunningSessionItems: async () => runningSessionItems,
+        ...opts,
+      });
       return queue;
     },
     ...overrides,
@@ -220,34 +236,40 @@ await asyncTest('Ignores forwarded messages', async () => {
 
 console.log('\n📋 Queue Status Output Tests\n');
 
-await asyncTest('Shows queue status for empty queue', async () => {
+await asyncTest('Shows queue status for empty queue (hides empty queues, issue #1891)', async () => {
   resetSolveQueue();
   const bot = createMockBot();
+  // No queued items and no running processes => no per-tool sections at all.
   const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, createOptions());
   const ctx = createMockCtx();
   await handleSolveQueueCommand(ctx);
   assert.equal(ctx.replies.length, 1, 'Should reply once');
   assert.ok(ctx.replies[0].text.includes('Solve Queue Status'), 'Should include queue status header');
-  // Updated format: per-queue breakdown with processing counts from pgrep (see issue #1267)
-  // Processing counts are actual running system processes, not queue internal state
-  assert.ok(ctx.replies[0].text.includes('pending: 0'), 'Should show zero pending');
-  assert.ok(ctx.replies[0].text.includes('claude'), 'Should include claude queue');
-  assert.ok(ctx.replies[0].text.includes('agent'), 'Should include agent queue');
-  assert.ok(ctx.replies[0].text.includes('processing:'), 'Should include processing count');
+  // Issue #1891: empty queues are no longer printed, so neither the per-tool
+  // sections nor their old summary-count lines should appear when the queue is
+  // completely empty.
+  assert.ok(!ctx.replies[0].text.includes('pending: 0'), 'Should not show empty "pending: 0" sections');
+  assert.ok(!ctx.replies[0].text.includes('*agent*'), 'Should hide the empty agent queue');
   assert.equal(ctx.replies[0].opts.parse_mode, 'Markdown', 'Should use Markdown parse mode');
 });
 
-await asyncTest('Shows processing count in per-queue breakdown', async () => {
+await asyncTest('Shows processing list only for queues with running work (issue #1891)', async () => {
   resetSolveQueue();
   const bot = createMockBot();
-  const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, createOptions());
+  // One running claude process, nothing for agent => claude section shows, agent hidden.
+  const { handleSolveQueueCommand } = registerSolveQueueCommand(
+    bot,
+    createOptions({
+      runningByTool: { claude: 1 },
+      runningSessionItems: [{ sessionName: 's1', url: 'https://github.com/test/repo/issues/2', tool: 'claude', startTime: new Date(Date.now() - 5000).toISOString() }],
+    })
+  );
   const ctx = createMockCtx();
   await handleSolveQueueCommand(ctx);
   assert.equal(ctx.replies.length, 1, 'Should reply once');
-  // Processing count should be shown for each queue (claude, agent)
-  // The actual count comes from pgrep detecting running processes
-  assert.ok(ctx.replies[0].text.includes('claude') && ctx.replies[0].text.includes('processing:'), 'Should show processing count for claude queue');
-  assert.ok(ctx.replies[0].text.includes('agent') && ctx.replies[0].text.includes('processing:'), 'Should show processing count for agent queue');
+  assert.ok(ctx.replies[0].text.includes('claude') && ctx.replies[0].text.includes('*Processing* (1):'), 'Should show a processing list for the busy claude queue');
+  assert.ok(!ctx.replies[0].text.includes('processing: 1'), 'Should not duplicate processing count in the tool header');
+  assert.ok(!ctx.replies[0].text.includes('*agent*'), 'Should hide the idle agent queue (issue #1891)');
 });
 
 await asyncTest('Shows queue with pending items', async () => {
@@ -273,7 +295,8 @@ await asyncTest('Shows queue with pending items', async () => {
   await handleSolveQueueCommand(ctx);
   assert.equal(ctx.replies.length, 1, 'Should reply once');
   // Updated format: per-queue breakdown (see issue #1267)
-  assert.ok(ctx.replies[0].text.includes('pending: 1'), 'Should show one pending item');
+  assert.ok(ctx.replies[0].text.includes('*Pending* (1):'), 'Should show one pending item');
+  assert.ok(!ctx.replies[0].text.includes('pending: 1'), 'Should not duplicate pending count in the tool header');
   assert.ok(ctx.replies[0].text.includes('test/repo/issues/1'), 'Should show the queued URL');
   queue.stop();
 });

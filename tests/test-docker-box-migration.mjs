@@ -21,7 +21,7 @@ const dockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
 for (const filePath of dockerfiles) {
   const content = await read(filePath);
 
-  assertIncludes(content, 'FROM konard/box:2.1.1', filePath);
+  assertIncludes(content, 'FROM konard/box:2.2.0', filePath);
   assertIncludes(content, 'USER box', filePath);
   assertIncludes(content, 'WORKDIR /home/box', filePath);
   assertIncludes(content, '/home/box/.local/bin', filePath);

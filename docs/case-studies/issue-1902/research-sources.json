@@ -1,0 +1,56 @@
+[
+  {
+    "title": "Issue #1902 - Something is not yet switched to private and public logs via gh upload tool",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1902",
+    "type": "issue",
+    "used_for": "Primary problem statement and linked one-off log repositories"
+  },
+  {
+    "title": "Pull Request #1909 - prepared branch for issue #1902",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1909",
+    "type": "pull_request",
+    "used_for": "Prepared PR metadata, comments, reviews, and CI context"
+  },
+  {
+    "title": "gh-upload-log README",
+    "url": "https://github.com/link-foundation/gh-upload-log",
+    "type": "upstream_repository",
+    "used_for": "Current documented gist/repository strategy and shared repository options"
+  },
+  {
+    "title": "gh-upload-log PR #28",
+    "url": "https://github.com/link-foundation/gh-upload-log/pull/28",
+    "type": "upstream_pull_request",
+    "used_for": "Related dedicated-repository collision-handling history"
+  },
+  {
+    "title": "gh-upload-log PR #30",
+    "url": "https://github.com/link-foundation/gh-upload-log/pull/30",
+    "type": "upstream_pull_request",
+    "used_for": "Related migration to shared private-logs and public-logs repositories"
+  },
+  {
+    "title": "GitHub Docs - Rate limits for the REST API",
+    "url": "https://docs.github.com/rest/using-the-rest-api/rate-limits-for-the-rest-api",
+    "type": "official_documentation",
+    "used_for": "Secondary rate-limit behavior observed in the captured logs"
+  },
+  {
+    "title": "GitHub Docs - Attaching files",
+    "url": "https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files",
+    "type": "official_documentation",
+    "used_for": "25 MB file attachment boundary used in the log upload policy"
+  },
+  {
+    "title": "GitHub Docs - About large files on GitHub",
+    "url": "https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github",
+    "type": "official_documentation",
+    "used_for": "Repository file-size limits and large-file behavior"
+  },
+  {
+    "title": "GitHub Docs - REST API endpoints for issue comments",
+    "url": "https://docs.github.com/rest/issues/comments",
+    "type": "official_documentation",
+    "used_for": "Content creation endpoint rate-limit behavior for PR/issue comments"
+  }
+]

@@ -12,6 +12,7 @@ const use = globalThis.use;
 // Use command-stream for consistent $ behavior across runtimes
 const { $ } = await use('command-stream');
 const $silent = $({ mirror: false, capture: true });
+const fs = await use('fs');
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
@@ -25,6 +26,87 @@ const summarizeCommandOutput = value => {
   const text = value?.toString()?.trim() || '';
   if (!text) return '';
   return text.length > 500 ? `${text.slice(0, 500)}... [truncated ${text.length - 500} chars]` : text;
+};
+
+const DEFAULT_GITHUB_FILE_MAX_SIZE = 25 * 1024 * 1024;
+const GH_UPLOAD_LOG_MODES = new Set(['gist', 'repository']);
+
+export const selectGhUploadLogMode = ({ logSize, fileMaxSize = DEFAULT_GITHUB_FILE_MAX_SIZE }) => {
+  if (!Number.isFinite(logSize) || logSize < 0) {
+    throw new Error(`Invalid log size for gh-upload-log mode selection: ${logSize}`);
+  }
+  if (!Number.isFinite(fileMaxSize) || fileMaxSize < 0) {
+    throw new Error(`Invalid GitHub file max size for gh-upload-log mode selection: ${fileMaxSize}`);
+  }
+
+  return logSize > fileMaxSize ? 'repository' : 'gist';
+};
+
+export const buildGhUploadLogArgs = ({ logFile, isPublic, description, verbose = false, mode, useSharedRepository = true }) => {
+  if (!logFile) {
+    throw new Error('logFile is required for gh-upload-log');
+  }
+  if (!GH_UPLOAD_LOG_MODES.has(mode)) {
+    throw new Error(`gh-upload-log mode must be one of: ${Array.from(GH_UPLOAD_LOG_MODES).join(', ')}`);
+  }
+
+  const args = [logFile, isPublic ? '--public' : '--private'];
+
+  if (mode === 'gist') {
+    args.push('--only-gist');
+  } else {
+    args.push('--only-repository');
+    args.push(useSharedRepository ? '--shared-repository' : '--no-shared-repository');
+  }
+
+  if (description) {
+    args.push('--description', description);
+  }
+  if (verbose) {
+    args.push('--verbose');
+  }
+
+  return args;
+};
+
+const quoteShellArg = value => {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=@+-]+$/u.test(text)) return text;
+  return `"${text.replace(/(["\\$`])/gu, '\\$1')}"`;
+};
+
+const formatGhUploadLogCommand = args => `gh-upload-log ${args.map(quoteShellArg).join(' ')}`;
+
+const runGhUploadLogCommand = async args => {
+  const { spawn } = await use('child_process');
+
+  return new Promise(resolve => {
+    const child = spawn('gh-upload-log', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const settle = value => {
+      if (!settled) {
+        settled = true;
+        resolve(value);
+      }
+    };
+
+    child.stdout?.on('data', chunk => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on('data', chunk => {
+      stderr += chunk.toString();
+    });
+    child.on('error', error => {
+      const errorText = stderr ? `${stderr}\n${error.message}` : error.message;
+      settle({ code: error.code === 'ENOENT' ? 127 : 1, stdout, stderr: errorText });
+    });
+    child.on('close', code => {
+      settle({ code: code ?? 1, stdout, stderr });
+    });
+  });
 };
 
 export const parseGhUploadLogOutput = outputValue => {
@@ -82,36 +164,35 @@ export const parseGhUploadLogOutput = outputValue => {
  * @param {boolean} options.isPublic - Whether to make the upload public
  * @param {string} options.description - Description for the upload
  * @param {boolean} [options.verbose=false] - Enable verbose logging
+ * @param {'gist'|'repository'} [options.mode] - Concrete upload mode. Defaults from file size.
+ * @param {number} [options.fileMaxSize=26214400] - Maximum size that still fits gist mode.
+ * @param {boolean} [options.useSharedRepository=true] - Use public-logs/private-logs for repository mode.
  * @returns {Promise<{success: boolean, url: string|null, rawUrl: string|null, type: 'gist'|'repository'|null, chunks: number, repositoryName?: string|null, repositoryPath?: string|null}>}
  */
-export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false }) => {
+export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, mode = null, fileMaxSize = DEFAULT_GITHUB_FILE_MAX_SIZE, useSharedRepository = true }) => {
   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
 
   try {
-    // Build command flags
-    // IMPORTANT: When using command-stream's $ template tag, each ${} interpolation is treated
-    // as a single argument. DO NOT use commandArgs.join(' ') as it will make all flags part
-    // of the first positional argument, causing "File does not exist" errors.
-    // See case study: docs/case-studies/issue-1096/README.md
-    const publicFlag = isPublic ? '--public' : '--private';
+    const resolvedMode =
+      mode ??
+      selectGhUploadLogMode({
+        logSize: fs.statSync(logFile).size,
+        fileMaxSize,
+      });
+    const commandArgs = buildGhUploadLogArgs({
+      logFile,
+      isPublic,
+      description,
+      verbose,
+      mode: resolvedMode,
+      useSharedRepository,
+    });
 
     if (verbose) {
-      const descDisplay = description ? ` --description "${description}"` : '';
-      await log(`  📤 Running: gh-upload-log "${logFile}" ${publicFlag}${descDisplay} --verbose`, { verbose: true });
+      await log(`  📤 Running: ${formatGhUploadLogCommand(commandArgs)}`, { verbose: true });
     }
 
-    // Execute command with separate interpolations for each argument
-    // Each ${} is properly passed as a separate argument to the shell
-    let uploadResult;
-    if (description && verbose) {
-      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag} --description ${description} --verbose`;
-    } else if (description) {
-      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag} --description ${description}`;
-    } else if (verbose) {
-      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag} --verbose`;
-    } else {
-      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag}`;
-    }
+    const uploadResult = await runGhUploadLogCommand(commandArgs);
     const output = (uploadResult.stdout?.toString() || '') + (uploadResult.stderr?.toString() || '');
 
     if (uploadResult.code !== 0) {
@@ -241,6 +322,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     reportError(error, {
       context: 'upload_log_with_gh_upload_log',
       logFile,
+      mode,
       operation: 'gh_upload_log_command',
     });
     await log(`  ❌ Error running gh-upload-log: ${error.message}`);
@@ -251,5 +333,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
 // Export all functions as default object too
 export default {
   parseGhUploadLogOutput,
+  selectGhUploadLogMode,
+  buildGhUploadLogArgs,
   uploadLogWithGhUploadLog,
 };

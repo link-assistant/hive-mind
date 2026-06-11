@@ -6,6 +6,10 @@ if (process.argv.includes('--version')) {
   process.exit(v === 'unknown' ? 1 : 0);
 }
 
+// Issue #1897: redirect npm's global prefix to a user-writable dir (when
+// root-owned) before use-m's `npm install -g` runs, else it crashes with EACCES.
+await (await import('./npm-global-prefix.lib.mjs')).ensureWritableNpmGlobalPrefix({ log: message => console.log(message) });
+
 if (typeof use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }

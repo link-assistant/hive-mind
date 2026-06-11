@@ -38,6 +38,61 @@ export function classifyPushRejection(errorOutput = '') {
   return 'unknown';
 }
 
+/**
+ * Detect whether a push failure was caused by missing permissions rather than
+ * by branch divergence. Git surfaces this as `! [remote rejected] ...
+ * (permission denied)` (HTTP 403). This is fundamentally different from a
+ * non-fast-forward / divergence rejection: force-pushing or force-with-lease
+ * will NOT help because the user simply cannot write to the remote.
+ *
+ * Issue #1893: when continuing another contributor's fork PR, the maintainer
+ * does not own the fork, so pushing the fork's default branch is rejected with
+ * "permission denied". The old heuristic matched the substring "rejected" and
+ * misclassified this as fork divergence, halting the run and recommending a
+ * useless `--allow-fork-divergence-resolution-using-force-push-with-lease`.
+ */
+export function isPermissionDeniedPushError(errorOutput = '') {
+  const normalized = String(errorOutput || '').toLowerCase();
+  return normalized.includes('permission denied') || normalized.includes('permission to') || normalized.includes('error: 403') || normalized.includes('the requested url returned error: 403') || (normalized.includes('denied') && normalized.includes('to https://'));
+}
+
+/**
+ * Decide whether the solver should push the freshly-synced default branch to
+ * the fork's `origin` remote.
+ *
+ * We only push the default branch to keep a fork we OWN in sync with upstream.
+ * When continuing someone else's fork PR (the fork belongs to the contributor,
+ * not the current user), the maintainer has push rights only to the PR branch
+ * (via "Allow edits by maintainers"), never to the fork's default branch.
+ * Attempting the push is both impossible (permission denied) and unnecessary,
+ * so we skip it. Issue #1893.
+ *
+ * @param {object} params
+ * @param {string|null} params.currentUser - authenticated GitHub login
+ * @param {string|null} params.forkedRepo - "owner/name" of the fork (origin)
+ * @returns {{ shouldPush: boolean, reason: string, forkOwner: string|null }}
+ */
+export function shouldPushDefaultBranchToFork({ currentUser, forkedRepo } = {}) {
+  const forkOwner = forkedRepo && forkedRepo.includes('/') ? forkedRepo.split('/')[0] : null;
+
+  if (!forkOwner) {
+    // Without a parseable fork owner we cannot prove ownership; fall back to the
+    // historical behaviour of attempting the push so nothing regresses.
+    return { shouldPush: true, reason: 'fork-owner-unknown', forkOwner: null };
+  }
+
+  if (!currentUser) {
+    // Could not resolve the current user; attempt the push and let git report.
+    return { shouldPush: true, reason: 'current-user-unknown', forkOwner };
+  }
+
+  if (currentUser.toLowerCase() === forkOwner.toLowerCase()) {
+    return { shouldPush: true, reason: 'owns-fork', forkOwner };
+  }
+
+  return { shouldPush: false, reason: 'not-fork-owner', forkOwner };
+}
+
 export function shouldTreatPushRejectionAsRemoteSynchronized(divergence = null) {
   if (!divergence?.remoteExists || divergence.ahead !== 0 || divergence.behind !== 0) {
     return false;

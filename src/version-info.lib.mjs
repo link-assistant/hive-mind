@@ -9,6 +9,7 @@
 
 import { getVersion } from './version.lib.mjs';
 import { t } from './i18n.lib.mjs';
+import { hasConnectedPlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -1221,8 +1222,8 @@ export function formatVersionMessage(versions, options = {}) {
   // Playwright MCP: show version with Claude Code and Codex connection status inline
   if (versions.playwrightMcp) {
     const mcpVersion = parseVersion('playwrightMcp', versions.playwrightMcp);
-    const claudeStatus = versions.playwrightMcpClaudeStatus ? vt('connected', {}, vOptions) : vt('not_connected', {}, vOptions);
-    const codexStatus = versions.playwrightMcpCodexStatus ? vt('connected', {}, vOptions) : vt('not_connected', {}, vOptions);
+    const claudeStatus = hasConnectedPlaywrightMcpServer(versions.playwrightMcpClaudeStatus) ? vt('connected', {}, vOptions) : vt('not_connected', {}, vOptions);
+    const codexStatus = hasConnectedPlaywrightMcpServer(versions.playwrightMcpCodexStatus) ? vt('connected', {}, vOptions) : vt('not_connected', {}, vOptions);
     browserAutoLines.push(`• Playwright MCP: \`${mcpVersion} | Claude Code: ${claudeStatus} | Codex: ${codexStatus}\``);
   }
   addVersionLine(browserAutoLines, 'Puppeteer Browsers', versions.puppeteerBrowsers, 'puppeteerBrowsers');

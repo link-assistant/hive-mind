@@ -14,7 +14,8 @@ export const getCommandResultOutput = result => `${result?.stdout?.toString() ||
 
 export const isCommandResultSuccess = result => getCommandResultCode(result) === 0;
 
-const PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN = /\b(pending|disabled|failed|error|disconnected|not[-_\s]+connected|unavailable|timeout|timed[-_\s]+out)\b/i;
+export const PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN = /\b(pending|disabled|failed|error|disconnected|not[-_\s]+connected|unavailable|timeout|timed[-_\s]+out)\b|\benabled\s*[:=]?\s*false\b/i;
+export const PLAYWRIGHT_MCP_CONNECTED_PATTERN = /\b(connected|enabled)\b|[✓✔]/i;
 
 export const getPlaywrightMcpListRows = output =>
   String(output || '')
@@ -25,7 +26,7 @@ export const getPlaywrightMcpListRows = output =>
 export const hasConnectedPlaywrightMcpServer = output => {
   const rows = getPlaywrightMcpListRows(output);
   if (rows.length === 0) return false;
-  return rows.some(row => !PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN.test(row));
+  return rows.some(row => PLAYWRIGHT_MCP_CONNECTED_PATTERN.test(row) && !PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN.test(row));
 };
 
 export const checkPlaywrightMcpPackageAvailability = async () => {
@@ -34,6 +35,23 @@ export const checkPlaywrightMcpPackageAvailability = async () => {
     if (isCommandResultSuccess(result)) return true;
     const npmResult = await $`timeout 5 npm ls -g @playwright/mcp 2>&1`.catch(() => null);
     return getCommandResultOutput(npmResult).includes('@playwright/mcp');
+  } catch {
+    return false;
+  }
+};
+
+export const ensureConnectedPlaywrightMcpServer = async ({ list, add, hasPackage = checkPlaywrightMcpPackageAvailability }) => {
+  try {
+    const result = await list().catch(() => null);
+    if (!isCommandResultSuccess(result)) return false;
+    const output = getCommandResultOutput(result);
+    if (hasConnectedPlaywrightMcpServer(output)) return true;
+    if (getPlaywrightMcpListRows(output).length > 0) return false;
+    if (!(await hasPackage())) return false;
+
+    await add().catch(() => null);
+    const retryResult = await list().catch(() => null);
+    return isCommandResultSuccess(retryResult) && hasConnectedPlaywrightMcpServer(getCommandResultOutput(retryResult));
   } catch {
     return false;
   }

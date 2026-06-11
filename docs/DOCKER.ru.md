@@ -115,6 +115,43 @@ claude
 - ✅ Каждый контейнер имеет собственную изолированную аутентификацию
 - ✅ Успешные сборки Docker без интерактивной аутентификации
 
+## Состояние Playwright MCP в Docker
+
+Сборка образа теперь регистрирует Playwright MCP и для Claude, и для Codex:
+
+- `claude mcp add playwright -s user -- ...`
+- `codex mcp add playwright -- ...`
+
+CI workflow также собирает Docker-образ и проверяет, что:
+
+- `playwright --version` работает как CLI fallback;
+- `npx --no-install @playwright/mcp --help` работает без повторной установки MCP package;
+- `claude mcp list` сообщает Playwright server как connected/enabled, а не pending или unavailable;
+- `codex mcp list` сообщает Playwright server как connected/enabled, а не pending или unavailable.
+
+Если в запущенном контейнере `codex mcp list` всё ещё показывает `No MCP servers configured yet`, наиболее вероятная причина — смонтированная с хоста директория `/home/box/.codex`. В этом образе `HOME=/home/box`, поэтому mount `/home/box/.codex` заменяет встроенную в образ Codex config, включая заранее настроенные MCP entries.
+
+Это означает:
+
+- опубликованный образ может быть корректным;
+- runtime container всё равно может показывать Codex как unconfigured;
+- отличие вызвано persisted host state, который переопределяет defaults контейнера.
+
+Чтобы быстро проверить это, сравните два случая:
+
+```bash
+# Fresh container without host-mounted Codex state
+docker run --rm -it konard/hive-mind:latest bash -lc 'codex mcp list'
+
+# Container with persisted Codex state from host
+docker run --rm -it \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  konard/hive-mind:latest \
+  bash -lc 'codex mcp list'
+```
+
+Если первая команда показывает `playwright`, а вторая нет, источник расхождения — смонтированная с хоста директория Codex.
+
 ## Предварительные требования
 
 1. **Docker:** Установите Docker Desktop или Docker Engine (версия 20.10 или выше)
@@ -147,6 +184,14 @@ docker volume create box-home
 # Run with the volume mounted
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
+
+Если persisted `/home/box/.codex/config.toml` пришёл из старого образа, в нём может не быть Playwright MCP registration, добавленной в новых образах. После запуска контейнера выполните заново:
+
+```bash
+codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
+```
+
+Hive Mind также пытается выполнить этот default registration repair во время runtime, когда `codex mcp list` не содержит Playwright row и `@playwright/mcp` установлен. Он не перезаписывает существующую Playwright row в состоянии pending, disabled или с custom settings; такие состояния требуют прямой отладки MCP startup path.
 
 ### Запуск в фоновом режиме
 

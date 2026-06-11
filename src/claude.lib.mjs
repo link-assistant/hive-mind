@@ -22,7 +22,7 @@ import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Iss
 import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
-import { buildMcpConfigWithoutPlaywright, hasConnectedPlaywrightMcpServer } from './playwright-mcp.lib.mjs';
+import { buildMcpConfigWithoutPlaywright, ensureConnectedPlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
@@ -269,14 +269,10 @@ export const resolveThinkingSettings = async (argv, log) => {
 };
 /** Check if Playwright MCP is available and connected to Claude @returns {Promise<boolean>} */
 export const checkPlaywrightMcpAvailability = async () => {
-  try {
-    const result = await $`timeout 5 claude mcp list 2>&1`.catch(() => null);
-    if (!result || result.code !== 0) return false;
-    const output = `${result.stdout?.toString() || ''}${result.stderr?.toString() || ''}`;
-    return hasConnectedPlaywrightMcpServer(output);
-  } catch {
-    return false;
-  }
+  return ensureConnectedPlaywrightMcpServer({
+    list: () => $`timeout 5 claude mcp list 2>&1`,
+    add: () => $`claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080`,
+  });
 };
 /** Execute Claude with all prompts and settings - main entry point */
 export const executeClaude = async params => {

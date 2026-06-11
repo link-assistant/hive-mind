@@ -1,0 +1,41 @@
+Issue: https://github.com/link-assistant/hive-mind/issues/1897
+Attachment: https://github.com/user-attachments/files/28828561/d8b3067e-6d6c-4907-b4a6-78f42b41ea3b.log
+Execution ID: d8b3067e-6d6c-4907-b4a6-78f42b41ea3b
+Start timestamp: 2026-06-11 07:31:37.693
+
+Command:
+'solve' 'https://github.com/ezocomp118/LeadForgeAI/issues/716' '--model' 'opus' '--tool' 'claude' '--skip-tool-connection-check' '--work-language' 'ru' '--ui-language' 'ru'
+
+Environment details from the log:
+- Platform: linux
+- Node header: v24.3.0
+- Node failure footer: v24.16.0
+- Hive Mind entry point: /home/ezocomp/.bun/install/global/node_modules/@link-assistant/hive-mind/src/solve.mjs
+
+Failure excerpt:
+
+Error: Failed to install command-stream@latest globally.
+    at ensurePackageInstalled ...
+    at async use ...
+    at async /home/ezocomp/.bun/install/global/node_modules/@link-assistant/hive-mind/src/solve.mjs:10:27 {
+  cause: Error: Command failed: npm install -g command-stream-v-latest@npm:command-stream@latest
+  npm error code EACCES
+  npm error syscall rename
+  npm error path /opt/node-v24.16.0-linux-x64/lib/node_modules/command-stream-v-latest
+  npm error dest /opt/node-v24.16.0-linux-x64/lib/node_modules/.command-stream-v-latest-zpBoMDat
+  npm error errno -13
+  npm error Error: EACCES: permission denied, rename '/opt/node-v24.16.0-linux-x64/lib/node_modules/command-stream-v-latest' -> '/opt/node-v24.16.0-linux-x64/lib/node_modules/.command-stream-v-latest-zpBoMDat'
+  npm error The operation was rejected by your operating system.
+  npm error It is likely you do not have the permissions to access this file as the current user
+  npm error
+  npm error If you believe this might be a permissions issue, please double-check the
+  npm error permissions of the file and its containing directories, or try running
+  npm error the command again as root/Administrator.
+}
+
+Observed root cause:
+use-m tried to install its runtime dependency alias with `npm install -g`.
+npm resolved the global root to the system Node prefix under
+/opt/node-v24.16.0-linux-x64/lib/node_modules. The user process could not write
+there, so the first use-m dependency (`command-stream`) failed before solve could
+load its normal dependency graph.

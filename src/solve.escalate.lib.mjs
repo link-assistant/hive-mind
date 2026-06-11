@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * Escalate-mode module for solve.mjs
@@ -326,7 +327,7 @@ export const runEscalation = async ({ issueUrl, owner, repo, issueNumber, prNumb
   }
 
   if (typeof globalThis.use === 'undefined') {
-    globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+    await ensureUseM();
   }
   const use = globalThis.use;
   const { $: __rawDollar$ } = await use('command-stream');

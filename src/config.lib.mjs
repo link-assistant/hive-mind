@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * Central configuration module for all configurable values
@@ -8,7 +9,7 @@
 // Use use-m to dynamically import modules
 if (typeof globalThis.use === 'undefined') {
   try {
-    globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+    await ensureUseM();
   } catch (error) {
     console.error('❌ Fatal error: Failed to load dependencies for configuration');
     console.error(`   ${error.message}`);

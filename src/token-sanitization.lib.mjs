@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 /**
  * Token sanitization utilities for log content
  * Dual approach: Uses both secretlint AND custom patterns for comprehensive coverage
@@ -240,7 +241,7 @@ export const getGitHubTokensFromFiles = async () => {
  */
 export const getGitHubTokensFromCommand = async () => {
   if (typeof globalThis.use === 'undefined') {
-    globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+    await ensureUseM();
   }
   const { $ } = await globalThis.use('command-stream');
   const tokens = [];

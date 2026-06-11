@@ -1,6 +1,7 @@
 #!/usr/bin/env node
+import { ensureUseM } from './src/use-m-bootstrap.lib.mjs';
 // Use use-m to dynamically import modules for cross-runtime compatibility
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+const use = await ensureUseM();
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $ } = await use('command-stream');

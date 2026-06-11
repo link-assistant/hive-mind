@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * Centralized definitions for GitHub comments posted by solve.mjs itself
@@ -290,7 +291,7 @@ export const postTrackedCommentFromFile = async ({ $, owner, repo, targetNumber,
     throw new Error('postTrackedCommentFromFile requires a command-stream $ helper');
   }
   if (typeof globalThis.use === 'undefined') {
-    globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+    await ensureUseM();
   }
   const fs = (await globalThis.use('fs')).promises;
   let body;

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Claude runtime switching module
 // Extracted from claude.lib.mjs to maintain file line limits
 // See: docs/case-studies/issue-1141
 
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.78.2
+
+### Patch Changes
+
+- 70db26f: Ensure Telegram work-session completion messages recover pull request links from completed solve logs when linked-issue lookup does not return a PR.
+
 ## 1.78.1
 
 ### Patch Changes

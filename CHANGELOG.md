@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.78.3
+
+### Patch Changes
+
+- b346808: Use the latest gh-upload-log package for attached log uploads and rely on its default auto mode/shared repository fallback instead of passing explicit strategy flags.
+
 ## 1.78.2
 
 ### Patch Changes

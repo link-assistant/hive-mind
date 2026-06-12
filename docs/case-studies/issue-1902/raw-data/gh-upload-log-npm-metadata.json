@@ -1,0 +1,12 @@
+{
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/link-foundation/gh-upload-log.git"
+  },
+  "dist-tags": {
+    "latest": "0.8.1"
+  },
+  "version": "0.8.1",
+  "description": "A tool to upload log files to GitHub as Gists or repositories",
+  "publishedAt": "2026-06-12T08:06:44.696Z"
+}

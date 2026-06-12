@@ -124,7 +124,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \
     bun install -g gh-load-pull-request && \
-    bun install -g gh-upload-log
+    bun install -g gh-upload-log@latest
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.

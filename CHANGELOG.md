@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.78.4
+
+### Patch Changes
+
+- 798c352: Fix Playwright MCP availability detection so pending or unavailable server status no longer enables browser automation hints, surface pending status in interactive session comments, and harden Docker verification so Playwright MCP/CLI availability is checked instead of only grepping for a registration.
+
 ## 1.78.3
 
 ### Patch Changes

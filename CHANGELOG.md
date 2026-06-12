@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.78.5
+
+### Patch Changes
+
+- b3d6588: Remove Hive Mind's npm global prefix workaround now that use-m handles non-writable npm global roots upstream.
+
 ## 1.78.4
 
 ### Patch Changes

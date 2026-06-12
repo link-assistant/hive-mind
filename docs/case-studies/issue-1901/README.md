@@ -216,6 +216,27 @@ The test also feeds an interactive `system.init` event with:
 The expected comment now states that Playwright MCP tools are unavailable and
 warns that no `mcp__playwright__*` tools were exposed.
 
+## Follow-up Review Notes
+
+The PR #1907 follow-up review asked whether `--skip-tool-connection-check` and
+the deployment gist's `--no-tool-check` overrides should affect Playwright MCP.
+They should not. Those flags only skip paid AI-tool connection probes; the
+`solve` Playwright MCP preflight is local/free and still runs when Playwright
+support is enabled. Dry-run mode remains the only broad solve path that skips
+that preflight.
+
+Telegram `/version` uses the same `formatVersionMessage()` path as CLI version
+reporting, so pending or otherwise unavailable Playwright MCP rows render as
+`not connected` there as well.
+
+The checked deployment gist already re-applies Claude and Codex Playwright MCP
+registration after host-mounted `/home/box/.claude*` and `/home/box/.codex`
+configuration can shadow image-baked defaults. No required gist change is
+needed to remove `--no-tool-check` after this fix. A useful future hardening is
+to align the gist's status parsing with Hive Mind's shared unavailable-row
+patterns and keep explicit `playwright --version` plus
+`npx --no-install @playwright/mcp --help` probes.
+
 ## Limitations
 
 This Hive Mind fix does not force a running Claude Code process to reconnect a

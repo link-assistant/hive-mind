@@ -249,13 +249,14 @@ await cascadePlaywrightMcpDisable(argv, log);
 if (!(await performSystemChecks(argv.minDiskSpace || 2048, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
 }
-if (!skipToolConnectionCheck) {
+// Playwright MCP preflight is local/free and stays independent from paid tool connection checks.
+if (!argv.dryRun && argv.playwrightMcp !== false) {
   const playwrightMcpPreflight = await ensureSolvePlaywrightMcpReady({ argv, log });
   if (!playwrightMcpPreflight.ok) {
     await safeExit(1, 'Playwright MCP preflight failed');
   }
-} else if (argv.playwrightMcp !== false) {
-  await log('⏩ Skipping Playwright MCP preflight (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
+} else if (argv.dryRun && argv.playwrightMcp !== false) {
+  await log('⏩ Skipping Playwright MCP preflight (dry-run mode)', { verbose: true });
 }
 // URL validation debug logging
 if (argv.verbose) {

@@ -189,6 +189,14 @@ await asyncTest('Issue #1901: solve runs Playwright MCP preflight before startin
   assert.ok(solveSource.includes("await safeExit(1, 'Playwright MCP preflight failed')"), 'solve.mjs should fail immediately when Playwright MCP preflight fails');
 });
 
+await asyncTest('Issue #1901: skip-tool-connection-check does not skip local Playwright MCP preflight', async () => {
+  const solveSource = await read('src/solve.mjs');
+
+  assert.doesNotMatch(solveSource, /if\s*\(!skipToolConnectionCheck\)\s*{\s*const playwrightMcpPreflight = await ensureSolvePlaywrightMcpReady/s);
+  assert.match(solveSource, /if\s*\(!argv\.dryRun && argv\.playwrightMcp !== false\)\s*{\s*const playwrightMcpPreflight = await ensureSolvePlaywrightMcpReady/s);
+  assert.ok(!solveSource.includes('skip-tool-connection-check enabled'), 'Playwright MCP preflight skip message should not mention skip-tool-connection-check');
+});
+
 await asyncTest('Issue #1901: Docker image verification rejects unavailable Playwright MCP rows', async () => {
   const verifyScript = await read('scripts/verify-docker-image.sh');
   assert.match(verifyScript, /PLAYWRIGHT_MCP_UNAVAILABLE_RE=/);

@@ -2,6 +2,7 @@
 
 - Issue: [link-assistant/hive-mind#1897](https://github.com/link-assistant/hive-mind/issues/1897)
 - Pull request: [link-assistant/hive-mind#1898](https://github.com/link-assistant/hive-mind/pull/1898)
+- Cleanup pull request: [link-assistant/hive-mind#1911](https://github.com/link-assistant/hive-mind/pull/1911)
 - Upstream package: [link-foundation/use-m](https://github.com/link-foundation/use-m)
 - Upstream issue: https://github.com/link-foundation/use-m/issues/54
 - Follow-up cleanup issue: https://github.com/link-assistant/hive-mind/issues/1910
@@ -24,11 +25,12 @@ the process ran under a system Node whose npm global root was
 `/opt/node-v24.16.0-linux-x64/lib/node_modules`. The first `use()` call therefore
 crashed with `Error: Failed to install command-stream@latest globally.`
 
-PR #1898 keeps users unblocked by routing all real Hive Mind `use-m` bootstraps
-through `src/use-m-bootstrap.lib.mjs`, which runs the temporary npm-prefix
-workaround before `use-m` can run its npm resolver. The upstream issue tracks the
-proper fix in `link-foundation/use-m`, and the Hive Mind follow-up issue tracks
-removing this workaround once upstream handles non-writable global roots.
+PR #1898 kept users unblocked by routing all real Hive Mind `use-m` bootstraps
+through `src/use-m-bootstrap.lib.mjs`, which ran a temporary npm-prefix
+workaround before `use-m` could run its npm resolver. After upstream
+`use-m@8.13.8` added its own non-writable npm global-root fallback, PR #1911
+removed the downstream preflight so Hive Mind no longer duplicates resolver
+policy.
 
 ## Requirements inventory
 
@@ -43,7 +45,7 @@ From the PR discussion:
 1. Treat `link-foundation/use-m` as the likely long-term owner.
 2. Report the issue upstream with evidence, a workaround, and a proposed
    use-m-side solution.
-3. Keep the downstream workaround for now.
+3. Keep the downstream workaround until upstream `use-m` owns the behavior.
 4. Create a Hive Mind follow-up issue to remove the workaround after upstream is
    resolved.
 5. Double-check that the workaround does not break previously working startup
@@ -75,17 +77,17 @@ controls global folder placement.
 
 ## Solution options
 
-| Option                                                               | Owner              | Plan                                                                                                                    | Pros                                                                       | Cons                                                                             | Decision                             |
-| -------------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------ |
-| Downstream preflight in Hive Mind                                    | Hive Mind          | Detect non-writable npm global root before `use-m`, set `npm_config_prefix=~/.npm-global`, prepend `~/.npm-global/bin`. | Fixes users immediately; can be tested locally with injected fs/npm mocks. | Duplicates policy that belongs in use-m.                                         | Implemented as temporary workaround. |
-| Writable cache/prefix in use-m                                       | use-m              | Before `npm install -g`, test `npm root -g`; if unwritable, use a use-m-owned user prefix/cache for alias installs.     | Fixes all downstream packages and keeps resolver logic in one place.       | Requires upstream release and migration decision.                                | Recommended upstream solution.       |
-| Clear upstream error only                                            | use-m              | Detect unwritable global root and throw an actionable error before raw npm EACCES.                                      | Smallest upstream change.                                                  | Users still need manual remediation; downstream CLIs still fail.                 | Acceptable fallback, not preferred.  |
-| Replace use-m global npm installs with project-local dynamic imports | use-m or Hive Mind | Avoid `npm install -g`; install/cache packages under an app/user cache and import from there.                           | Avoids global npm prefix entirely.                                         | Larger resolver redesign; more cache invalidation and security review.           | Long-term alternative.               |
-| Vendor all dynamic dependencies                                      | Hive Mind          | Replace `use-m` bootstraps with package dependencies/imports.                                                           | Removes this class of startup failure for Hive Mind.                       | Large architectural change; loses current cross-runtime dynamic-loading pattern. | Out of scope for this bug.           |
+| Option                                                               | Owner              | Plan                                                                                                                    | Pros                                                                       | Cons                                                                             | Decision                                      |
+| -------------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------- |
+| Downstream preflight in Hive Mind                                    | Hive Mind          | Detect non-writable npm global root before `use-m`, set `npm_config_prefix=~/.npm-global`, prepend `~/.npm-global/bin`. | Fixes users immediately; can be tested locally with injected fs/npm mocks. | Duplicates policy that belongs in use-m.                                         | Implemented temporarily, removed by PR #1911. |
+| Writable cache/prefix in use-m                                       | use-m              | Before `npm install -g`, test `npm root -g`; if unwritable, use a use-m-owned user prefix/cache for alias installs.     | Fixes all downstream packages and keeps resolver logic in one place.       | Requires upstream release and migration decision.                                | Recommended upstream solution.                |
+| Clear upstream error only                                            | use-m              | Detect unwritable global root and throw an actionable error before raw npm EACCES.                                      | Smallest upstream change.                                                  | Users still need manual remediation; downstream CLIs still fail.                 | Acceptable fallback, not preferred.           |
+| Replace use-m global npm installs with project-local dynamic imports | use-m or Hive Mind | Avoid `npm install -g`; install/cache packages under an app/user cache and import from there.                           | Avoids global npm prefix entirely.                                         | Larger resolver redesign; more cache invalidation and security review.           | Long-term alternative.                        |
+| Vendor all dynamic dependencies                                      | Hive Mind          | Replace `use-m` bootstraps with package dependencies/imports.                                                           | Removes this class of startup failure for Hive Mind.                       | Large architectural change; loses current cross-runtime dynamic-loading pattern. | Out of scope for this bug.                    |
 
-## Implemented coverage
+## Temporary downstream coverage
 
-The workaround is now centralized:
+PR #1898 centralized the workaround while upstream support was pending:
 
 - `src/npm-global-prefix.lib.mjs` detects writable/non-writable global npm roots
   and redirects only when needed.
@@ -102,6 +104,18 @@ The workaround is now centralized:
 The source-level regression test prevents reintroducing direct
 `eval(await fetch('https://unpkg.com/use-m/use.js'))` bootstraps outside the
 shared helper.
+
+## Cleanup coverage
+
+PR #1911 removed Hive Mind's local npm-prefix preflight after verifying
+`use-m@8.13.8` includes equivalent upstream handling:
+
+- `src/npm-global-prefix.lib.mjs` was deleted.
+- `src/use-m-bootstrap.lib.mjs` now only loads the shared upstream `use-m`
+  bootstrap.
+- `tests/test-npm-global-prefix.mjs` was replaced with
+  `tests/test-use-m-bootstrap-no-npm-prefix-workaround.mjs`, which guards
+  against reintroducing project-local npm prefix policy.
 
 ## Existing components and libraries considered
 
@@ -129,6 +143,14 @@ Implemented and run locally for PR #1898:
 Still required after push:
 
 - fresh PR CI after push
+
+Implemented and run locally for PR #1911:
+
+- `node tests/test-use-m-bootstrap-no-npm-prefix-workaround.mjs`
+- `npm run lint`
+- `npm run format:check`
+- `npm test`
+- `git diff --check`
 
 ## Source data
 

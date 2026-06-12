@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.78.6
+
+### Patch Changes
+
+- cf85feb: Fix Codex sub-session budget display by parsing compact diagnostics and preserving compact-derived sub-session rows.
+
 ## 1.78.5
 
 ### Patch Changes

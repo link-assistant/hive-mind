@@ -2,7 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { createDefaultLogger, createENOSPCError, DEFAULT_PRIVATE_LOGS_REPOSITORY, DEFAULT_PUBLIC_LOGS_REPOSITORY, ensureCommandSucceeded, extractGitHubRepoUrl, generateCollisionRepoName, generateRepoName, getCommandExitCode, getCommandStream, getFileSize, GITHUB_GIST_FILE_LIMIT, GITHUB_REPO_CHUNK_SIZE, isENOSPC, isRepositoryNameConflict, normalizeFileName, splitFileIntoChunks } from './common.js';
+import { createDefaultLogger, createENOSPCError, DEFAULT_PRIVATE_LOGS_REPOSITORY, DEFAULT_PUBLIC_LOGS_REPOSITORY, ensureCommandSucceeded, extractGitHubRepoUrl, generateCollisionRepoName, generateRepoName, getCommandExitCode, getCommandStream, getFileSize, GITHUB_REPO_CHUNK_SIZE, isENOSPC, isRepositoryNameConflict, normalizeFileName, splitFileIntoChunks } from './common.js';
 
 const REPOSITORY_METADATA_QUERY = '{"defaultBranch": .default_branch, "visibility": .visibility}';
 const REPOSITORY_FOLDER_CONTENTS_QUERY = 'map({name: .name, download_url: .download_url})';
@@ -17,8 +17,8 @@ function isMissingRemoteRefError(errorText = '') {
   return normalized.includes("couldn't find remote ref") || normalized.includes('could not find remote branch');
 }
 
-export function shouldUseSharedRepositoryMode(filePath, useSharedRepository = true) {
-  return useSharedRepository && getFileSize(filePath) > GITHUB_GIST_FILE_LIMIT;
+export function shouldUseSharedRepositoryMode(_filePath, useSharedRepository = true) {
+  return useSharedRepository;
 }
 
 export function getSharedRepositoryName(isPublic = false) {
@@ -347,13 +347,13 @@ async function uploadAsSharedRepo(options = {}) {
 /**
  * Upload a file as a GitHub repository (with splitting if needed)
  *
- * Large files use the shared visibility repositories (`private-logs` or
+ * Repository-mode uploads use the shared visibility repositories (`private-logs` or
  * `public-logs`) by default. The legacy dedicated-repository mode remains
  * available through the `useSharedRepository` option.
  *
  * @param {Object} options - Upload options
  * @param {string} options.filePath - Path to the file to upload
- * @param {boolean} options.useSharedRepository - Use shared log repositories for large files (default: true)
+ * @param {boolean} options.useSharedRepository - Use shared log repositories for repository-mode uploads (default: true)
  * @returns {Promise<Object>} Repository information including URL
  */
 export function uploadAsRepo(options = {}) {

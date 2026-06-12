@@ -130,7 +130,7 @@ export async function uploadAsGist(options = {}) {
  * @param {boolean} options.auto - Automatically choose strategy (default: true)
  * @param {boolean} options.onlyGist - Upload only as gist (disables auto mode)
  * @param {boolean} options.onlyRepository - Upload only as repository (disables auto mode)
- * @param {boolean} options.useSharedRepository - Use shared log repositories for large files (default: true)
+ * @param {boolean} options.useSharedRepository - Use shared log repositories for repository-mode uploads (default: true)
  * @param {boolean} options.dryMode - Dry run mode - don't actually upload
  * @param {string} options.description - Description for the upload
  * @param {boolean} options.verbose - Enable verbose logging (default: false)

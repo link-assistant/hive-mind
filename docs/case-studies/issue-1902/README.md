@@ -13,12 +13,17 @@ and `gh-upload-log` falls back to repository mode, or if a log is larger than th
 gist limit, repository storage should use the shared visibility repositories:
 `public-logs` for public targets and `private-logs` for private targets.
 
-The root cause is in `gh-upload-log` auto fallback routing. In the captured run,
-automatic mode first tried to create a gist. GitHub returned a secondary
-content-creation rate limit for the gist API. `gh-upload-log` then fell back to
-repository mode. Because the file still fit within the gist limit, upstream
-shared-repository routing did not apply, so the fallback created a dedicated
-`log-tmp-*` repository even though shared repository mode was enabled.
+The root cause was in `gh-upload-log` 0.8.0 auto fallback routing. In the
+captured run, automatic mode first tried to create a gist. GitHub returned a
+secondary content-creation rate limit for the gist API. `gh-upload-log` then
+fell back to repository mode. Because the file still fit within the gist limit,
+upstream shared-repository routing did not apply, so the fallback created a
+dedicated `log-tmp-*` repository even though shared repository mode was enabled.
+
+The upstream bug was fixed in `gh-upload-log` 0.8.1 by
+[link-foundation/gh-upload-log#32](https://github.com/link-foundation/gh-upload-log/pull/32).
+Hive Mind now installs `gh-upload-log@latest` in its Docker images and relies on
+the package defaults for auto mode and shared repository fallback.
 
 ## Captured Evidence
 
@@ -44,6 +49,7 @@ shared-repository routing did not apply, so the fallback created a dedicated
 | `raw-data/gh-upload-log-pr-30.json`                     | Related upstream shared-repository PR metadata            |
 | `raw-data/gh-upload-log-issue-31.json`                  | Filed upstream fallback-routing issue metadata            |
 | `raw-data/gh-upload-log-issue-31-comments.json`         | Filed upstream fallback-routing issue comments            |
+| `raw-data/gh-upload-log-pr-32.json`                     | Upstream fallback-routing fix PR metadata                 |
 | `raw-data/gh-upload-log-npm-metadata.json`              | Current npm package metadata for `gh-upload-log`          |
 | `logs/tmp-solution-draft-log-pr-1781180521736.txt.gz`   | Full 20,632,466 byte linked log, compressed               |
 | `logs/tmp-solution-draft-log-pr-1781180537724.txt.gz`   | Full 20,653,037 byte linked log, compressed               |
@@ -73,6 +79,9 @@ The full downloaded logs were verified before compression:
 | 2026-06-11 12:22:21             | The second linked repository initial commit was created.                                                              |
 | 2026-06-11 12:22:22             | The second one-off public repository was created: `log-tmp-solution-draft-log-pr-1781180537724.txt`.                  |
 | 2026-06-11 14:16:43             | Issue #1902 was opened to report the unexpected one-off repositories.                                                 |
+| 2026-06-11 22:32:15             | Upstream issue `link-foundation/gh-upload-log#31` was filed with reproduction details and a suggested fix.            |
+| 2026-06-12 08:05:39             | Upstream PR `link-foundation/gh-upload-log#32` was merged and issue #31 was closed.                                   |
+| 2026-06-12 08:06:44             | `gh-upload-log` 0.8.1 was published to npm as the latest version.                                                     |
 
 ## Requirements
 
@@ -88,6 +97,9 @@ The full downloaded logs were verified before compression:
 7. The fix needs a regression test that would have failed for the captured path.
 8. Preserve logs, metadata, timeline, root-cause analysis, and solution notes in
    `docs/case-studies/issue-1902/`.
+9. After the upstream fix is available, apply the latest `gh-upload-log` package
+   and avoid explicit strategy flags unless Hive Mind needs to override the
+   package defaults.
 
 ## Root Cause
 
@@ -128,20 +140,20 @@ Implemented changes:
 1. Filed upstream issue
    [link-foundation/gh-upload-log#31](https://github.com/link-foundation/gh-upload-log/issues/31)
    with the reproduction, workarounds, and suggested routing fix.
-2. Added `buildGhUploadLogArgs()` so tests can assert the exact CLI arguments used
-   by the wrapper.
-3. Changed `uploadLogWithGhUploadLog()` to default to `--auto --shared-repository`
-   instead of forcing `--only-gist` or `--only-repository`.
-4. Changed `attachLogToGitHub()` to pass `mode: 'auto'` and
-   `useSharedRepository: true`.
-5. Kept the legacy dedicated repository path available only when a caller
-   explicitly passes `useSharedRepository: false`, which builds
-   `--no-shared-repository`.
+2. Confirmed upstream PR
+   [link-foundation/gh-upload-log#32](https://github.com/link-foundation/gh-upload-log/pull/32)
+   fixed fallback routing by using shared repositories whenever
+   `useSharedRepository` is enabled.
+3. Updated Hive Mind Docker images to install `gh-upload-log@latest`, which
+   resolves to 0.8.1 at the time of this case study.
+4. Kept Hive Mind uploads in the package's default auto mode by passing only the
+   log file, visibility, description, and optional verbose flag.
+5. Added `buildGhUploadLogArgs()` so tests can assert the exact wrapper CLI
+   arguments without invoking GitHub.
 
-With this fix, Hive Mind preserves `gh-upload-log` auto behavior and explicitly
-requests shared repository fallback. The remaining fallback bug for sub-25 MB
-gist failures is tracked upstream in
-[link-foundation/gh-upload-log#31](https://github.com/link-foundation/gh-upload-log/issues/31).
+With this fix, Hive Mind preserves `gh-upload-log` auto behavior without
+duplicating upstream strategy policy. Dedicated one-off repositories remain an
+upstream opt-in via `--no-shared-repository` or `useSharedRepository: false`.
 
 ## Regression Coverage
 
@@ -149,12 +161,11 @@ Added `tests/test-issue-1902-log-upload-routing.mjs`.
 
 The test covers:
 
-- Default wrapper arguments keep auto mode enabled.
-- Default wrapper arguments include `--shared-repository`.
-- Default wrapper arguments do not include `--only-gist`,
-  `--only-repository`, or `--no-shared-repository`.
-- Dedicated repository behavior requires explicit `useSharedRepository: false`,
-  which builds `--no-shared-repository`.
+- Default wrapper arguments rely on `gh-upload-log` defaults for auto mode.
+- Default wrapper arguments do not include `--auto`, `--shared-repository`,
+  `--only-gist`, `--only-repository`, or `--no-shared-repository`.
+- Public and private wrapper arguments still set visibility and preserve the log
+  description.
 
 Focused verification:
 
@@ -172,7 +183,9 @@ same time as the gist upload failed.
 GitHub's file attachment and repository large-file documentation confirm the 25 MB
 boundary used by Hive Mind's `githubLimits.fileMaxSize`. The upstream `gh-upload-log`
 README and implementation confirm that gist is the intended path under that limit,
-and shared repositories are the intended path for repository-mode large logs.
+and shared repositories are the intended path for repository-mode logs. The 0.8.1
+package metadata confirms the fallback-routing fix was published after upstream
+PR #32 merged.
 
 Sources are listed in `research-sources.json`.
 
@@ -184,3 +197,7 @@ The issue includes the captured reproduction, the `shouldUseSharedRepositoryMode
 root cause, caller workarounds, and a suggested code-level fix: repository routing
 should use shared repositories whenever `useSharedRepository` is true, including
 auto-mode fallback after a gist failure below the gist limit.
+
+The issue is now closed by
+[link-foundation/gh-upload-log#32](https://github.com/link-foundation/gh-upload-log/pull/32),
+and the fix is published in `gh-upload-log` 0.8.1.

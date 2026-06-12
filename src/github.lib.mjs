@@ -631,20 +631,13 @@ ${logContent}
         // Use the original sanitized content for upload since it's a plain text file
         await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
 
-        // Keep gh-upload-log in auto mode while making the repository fallback
-        // policy explicit: shared public-logs/private-logs repositories are the
-        // default; one-off repositories require an explicit no-shared option.
+        // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
-        if (verbose) {
-          await log('  🔀 gh-upload-log mode: auto (shared repository fallback)', { verbose: true });
-        }
         const uploadResult = await uploadLogWithGhUploadLog({
           logFile: tempLogFile,
           isPublic: isPublicRepo,
           description: uploadDescription,
           verbose,
-          mode: 'auto',
-          useSharedRepository: true,
         });
         await fs.unlink(tempLogFile).catch(() => {});
 

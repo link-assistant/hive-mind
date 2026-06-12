@@ -2,4 +2,4 @@
 '@link-assistant/hive-mind': patch
 ---
 
-Keep attached log uploads in gh-upload-log auto mode while explicitly requesting shared public-logs/private-logs repository fallback instead of legacy one-off repositories.
+Use the latest gh-upload-log package for attached log uploads and rely on its default auto mode/shared repository fallback instead of passing explicit strategy flags.

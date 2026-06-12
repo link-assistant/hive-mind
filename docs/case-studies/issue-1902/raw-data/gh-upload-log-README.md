@@ -17,8 +17,8 @@ A smart tool to upload log files to GitHub as Gists or Repositories
 ## Features
 
 - **Automatic strategy selection**: Chooses between Gist and Repository based on file size
-- **Shared large-log repositories by default**: Large files go into `private-logs` or `public-logs`
-- **Duplicate protection**: Re-uploading the same large log path reuses the existing shared repository folder
+- **Shared repository uploads by default**: Repository-mode files go into `private-logs` or `public-logs`
+- **Duplicate protection**: Re-uploading the same repository-mode log path reuses the existing shared repository folder
 - **Smart file splitting**: Automatically splits large files into manageable chunks
 - **Public/Private control**: Upload as public or private (default: private)
 - **Flexible configuration**: CLI arguments, environment variables, or `.lenv` files using [Links Notation](https://github.com/link-foundation/links-notation)
@@ -108,7 +108,7 @@ gh-upload-log /var/log/app.log
 - `GH_UPLOAD_LOG_AUTO` - Enable automatic strategy selection (default: true)
 - `GH_UPLOAD_LOG_ONLY_GIST` - Force gist uploads only (default: false)
 - `GH_UPLOAD_LOG_ONLY_REPOSITORY` - Force repository uploads only (default: false)
-- `GH_UPLOAD_LOG_SHARED_REPOSITORY` - Use shared `private-logs` / `public-logs` repositories for large files (default: true)
+- `GH_UPLOAD_LOG_SHARED_REPOSITORY` - Use shared `private-logs` / `public-logs` repositories for repository-mode uploads (default: true)
 - `GH_UPLOAD_LOG_DRY_MODE` - Enable dry run mode (default: false)
 - `GH_UPLOAD_LOG_DESCRIPTION` - Default description for uploads
 - `GH_UPLOAD_LOG_VERBOSE` - Enable verbose output (default: false)
@@ -141,7 +141,7 @@ Options:
   --auto               Automatically choose upload strategy (default: true)
   --only-gist          Upload only as GitHub Gist (disables auto mode)
   --only-repository    Upload only as GitHub Repository (disables auto mode)
-  --shared-repository  Upload large repository-mode logs into shared
+  --shared-repository  Upload repository-mode logs into shared
                        private-logs/public-logs repositories (default: true)
   --dry-mode, --dry    Dry run - show what would be done without uploading
   --description, -d    Description for the upload
@@ -165,7 +165,7 @@ gh-upload-log ./error.log --only-gist
 # Upload only as repository
 gh-upload-log ./large.log --only-repository --public
 
-# Use the legacy dedicated repository mode for a large file
+# Use the legacy dedicated repository mode
 gh-upload-log ./large.log --only-repository --no-shared-repository
 
 # Dry run mode - see what would happen
@@ -226,7 +226,7 @@ Main function to upload a log file. Automatically determines the best strategy.
   - `auto` (boolean): Automatically choose strategy (default: true)
   - `onlyGist` (boolean): Upload only as gist (disables auto mode)
   - `onlyRepository` (boolean): Upload only as repository (disables auto mode)
-  - `useSharedRepository` (boolean): Use shared `private-logs` / `public-logs` repositories for files larger than 25MB (default: true)
+  - `useSharedRepository` (boolean): Use shared `private-logs` / `public-logs` repositories for repository-mode uploads (default: true)
   - `dryMode` (boolean): Dry run mode - don't actually upload
   - `description` (string): Description for the upload
   - `verbose` (boolean): Enable verbose logging (default: false)
@@ -243,7 +243,7 @@ Main function to upload a log file. Automatically determines the best strategy.
   fileCount?: number,
   fileName?: string,           // For gists
   repositoryName?: string,     // For repos
-  repositoryPath?: string,     // Shared repository folder for large files
+  repositoryPath?: string,     // Shared repository folder for repository-mode uploads
   deduplicated?: boolean,      // True when an existing shared-repo upload was reused
   dryMode?: boolean            // Set to true in dry mode
 }
@@ -266,7 +266,7 @@ Upload a file as a GitHub Gist.
 
 #### `uploadAsRepo(options)`
 
-Upload a file as a GitHub Repository. Files larger than 25MB use the shared
+Upload a file as a GitHub Repository. Repository-mode uploads use the shared
 `private-logs` / `public-logs` repositories by default. Set
 `useSharedRepository: false` to keep the legacy dedicated-repository behavior.
 
@@ -275,7 +275,7 @@ Upload a file as a GitHub Repository. Files larger than 25MB use the shared
 - `options` (object):
   - `filePath` (string, **required**): Path to the file
   - `isPublic` (boolean): Make repo public (default: false)
-  - `useSharedRepository` (boolean): Use shared repositories for large files (default: true)
+  - `useSharedRepository` (boolean): Use shared repositories for repository-mode uploads (default: true)
   - `description` (string): Repository description
   - `verbose` (boolean): Enable verbose logging (default: false)
   - `logger` (object): Custom logging target (default: console)
@@ -341,11 +341,12 @@ Examples:
    - Single file upload
    - Fast and efficient
    - Viewable directly in browser
+   - If gist creation fails in auto mode, repository fallback uses the shared `private-logs` or `public-logs` repository by default
 
 2. **Files >25MB**: Uploaded as GitHub Repository
    - By default, uploads go into the shared `private-logs` or `public-logs` repository
    - The old dedicated-repository flow is still available with `--no-shared-repository` or `useSharedRepository: false`
-   - Re-uploading the same large-file path reuses the existing shared repository folder instead of pushing a duplicate
+   - Re-uploading the same repository path reuses the existing shared repository folder instead of pushing a duplicate
 
 3. **Files >100MB**: Uploaded as a chunked GitHub Repository folder
    - File is split into 100MB chunks

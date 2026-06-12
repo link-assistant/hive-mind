@@ -36,6 +36,12 @@
     "used_for": "Reported auto-mode fallback bug with reproduction, workarounds, and suggested fix"
   },
   {
+    "title": "gh-upload-log PR #32",
+    "url": "https://github.com/link-foundation/gh-upload-log/pull/32",
+    "type": "upstream_pull_request",
+    "used_for": "Confirmed merged fallback-routing fix and 0.8.1 package publication context"
+  },
+  {
     "title": "npm package metadata for gh-upload-log",
     "url": "https://www.npmjs.com/package/gh-upload-log",
     "type": "package_registry",

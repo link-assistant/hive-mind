@@ -28,27 +28,12 @@ const summarizeCommandOutput = value => {
   return text.length > 500 ? `${text.slice(0, 500)}... [truncated ${text.length - 500} chars]` : text;
 };
 
-const GH_UPLOAD_LOG_MODES = new Set(['auto', 'gist', 'repository']);
-
-export const buildGhUploadLogArgs = ({ logFile, isPublic, description, verbose = false, mode = 'auto', useSharedRepository = true }) => {
+export const buildGhUploadLogArgs = ({ logFile, isPublic, description, verbose = false }) => {
   if (!logFile) {
     throw new Error('logFile is required for gh-upload-log');
   }
-  if (!GH_UPLOAD_LOG_MODES.has(mode)) {
-    throw new Error(`gh-upload-log mode must be one of: ${Array.from(GH_UPLOAD_LOG_MODES).join(', ')}`);
-  }
 
   const args = [logFile, isPublic ? '--public' : '--private'];
-
-  if (mode === 'auto') {
-    args.push('--auto');
-    args.push(useSharedRepository ? '--shared-repository' : '--no-shared-repository');
-  } else if (mode === 'gist') {
-    args.push('--only-gist');
-  } else {
-    args.push('--only-repository');
-    args.push(useSharedRepository ? '--shared-repository' : '--no-shared-repository');
-  }
 
   if (description) {
     args.push('--description', description);
@@ -155,11 +140,9 @@ export const parseGhUploadLogOutput = outputValue => {
  * @param {boolean} options.isPublic - Whether to make the upload public
  * @param {string} options.description - Description for the upload
  * @param {boolean} [options.verbose=false] - Enable verbose logging
- * @param {'auto'|'gist'|'repository'} [options.mode='auto'] - gh-upload-log upload mode.
- * @param {boolean} [options.useSharedRepository=true] - Use public-logs/private-logs for repository mode.
  * @returns {Promise<{success: boolean, url: string|null, rawUrl: string|null, type: 'gist'|'repository'|null, chunks: number, repositoryName?: string|null, repositoryPath?: string|null}>}
  */
-export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, mode = 'auto', useSharedRepository = true }) => {
+export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false }) => {
   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
 
   try {
@@ -168,8 +151,6 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
       isPublic,
       description,
       verbose,
-      mode,
-      useSharedRepository,
     });
 
     if (verbose) {
@@ -306,7 +287,6 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     reportError(error, {
       context: 'upload_log_with_gh_upload_log',
       logFile,
-      mode,
       operation: 'gh_upload_log_command',
     });
     await log(`  ❌ Error running gh-upload-log: ${error.message}`);

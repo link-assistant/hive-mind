@@ -44,7 +44,7 @@ const config = makeConfig({
       })
       .option('shared-repository', {
         type: 'boolean',
-        description: 'Upload large repository-mode logs into shared private-logs/public-logs repositories (default: true)',
+        description: 'Upload repository-mode logs into shared private-logs/public-logs repositories (default: true)',
         default: getenv('GH_UPLOAD_LOG_SHARED_REPOSITORY', true),
       })
       .option('dry-mode', {

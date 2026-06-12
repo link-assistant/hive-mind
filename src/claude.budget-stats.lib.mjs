@@ -548,10 +548,16 @@ export const buildCumulativeInputPhrase = ({ input, cacheWrites, cacheReads, for
  */
 const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
   let result = '';
+  let hasEstimatedRows = false;
   for (let i = 0; i < subSessions.length; i++) {
     const sub = subSessions[i];
+    if (sub.estimated) hasEstimatedRows = true;
     const subPeakContext = sub.peakContextUsage || 0;
-    result += formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `);
+    const line = formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `);
+    result += sub.estimated ? line.replace(`\n${i + 1}. `, `\n${i + 1}. ~`) : line;
+  }
+  if (hasEstimatedRows) {
+    result += '\n\n_Sub-session values are estimates from observed compact events; the Total line remains exact._';
   }
   return result;
 };
@@ -847,6 +853,7 @@ export const buildAgentBudgetStats = (tokenUsage, pricingInfo) => {
   const contextLimit = tokenUsage.contextLimit || pricingInfo?.modelInfo?.limit?.context || null;
   const outputLimit = tokenUsage.outputLimit || pricingInfo?.modelInfo?.limit?.output || null;
   const contextFillInputTokens = getExplicitContextFillInputTokens(tokenUsage) ?? getCumulativeContextInputTokens({ inputTokens, cacheWriteTokens });
+  const subSessions = Array.isArray(tokenUsage.subSessions) ? tokenUsage.subSessions : [];
 
   const modelUsageEntry = {
     inputTokens,
@@ -862,7 +869,8 @@ export const buildAgentBudgetStats = (tokenUsage, pricingInfo) => {
 
   return {
     modelUsage: { [modelId]: modelUsageEntry },
-    subSessions: [],
+    subSessions,
+    compactifications: Array.isArray(tokenUsage.compactifications) ? tokenUsage.compactifications : tokenUsage.compactifications || null,
     inputTokens,
     cacheCreationTokens: cacheWriteTokens,
     cacheReadTokens,

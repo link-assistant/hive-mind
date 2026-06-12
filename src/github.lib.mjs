@@ -631,7 +631,7 @@ ${logContent}
         // Use the original sanitized content for upload since it's a plain text file
         await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
 
-        // Use gh-upload-log to upload the log file
+        // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
         const uploadResult = await uploadLogWithGhUploadLog({
           logFile: tempLogFile,

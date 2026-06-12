@@ -33,7 +33,7 @@ const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
 const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildSolveResumeCommand, maybeAttachWorkingSessionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
 const claudeLib = await import('./claude.lib.mjs');
-const { executeClaude, checkPlaywrightMcpAvailability } = claudeLib;
+const { executeClaude } = claudeLib;
 const githubLinking = await import('./github-linking.lib.mjs');
 const { extractLinkedIssueNumber } = githubLinking;
 const usageLimitLib = await import('./usage-limit.lib.mjs');
@@ -244,8 +244,18 @@ if (argv.planModel) {
 
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+const { cascadePlaywrightMcpDisable, ensureSolvePlaywrightMcpReady } = await import('./playwright-mcp.lib.mjs');
+await cascadePlaywrightMcpDisable(argv, log);
 if (!(await performSystemChecks(argv.minDiskSpace || 2048, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
+}
+if (!skipToolConnectionCheck) {
+  const playwrightMcpPreflight = await ensureSolvePlaywrightMcpReady({ argv, log });
+  if (!playwrightMcpPreflight.ok) {
+    await safeExit(1, 'Playwright MCP preflight failed');
+  }
+} else if (argv.playwrightMcp !== false) {
+  await log('⏩ Skipping Playwright MCP preflight (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
 }
 // URL validation debug logging
 if (argv.verbose) {
@@ -692,24 +702,6 @@ try {
     $,
   });
 
-  const { cascadePlaywrightMcpDisable } = await import('./playwright-mcp.lib.mjs');
-  await cascadePlaywrightMcpDisable(argv, log);
-
-  async function resolvePlaywrightMcp(checkFn) {
-    if (argv.playwrightMcp === false) return;
-    if (argv.promptPlaywrightMcp) {
-      const available = await checkFn();
-      if (available) {
-        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
-      } else {
-        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
-        argv.promptPlaywrightMcp = false;
-      }
-    } else {
-      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
-    }
-  }
-
   // Execute tool command with all prompts and settings
   let toolResult;
 
@@ -734,7 +726,6 @@ try {
     }
 
     await log(`\n[agent-commander] Using agent-commander for ${argv.tool || 'claude'} execution`);
-    await agentCommanderLib.resolvePlaywrightMcpForAgentCommander({ argv, log, tool: argv.tool || 'claude' });
 
     toolResult = await agentCommanderLib.executeWithAgentCommander({
       issueUrl,
@@ -768,7 +759,6 @@ try {
       qwen: { lib: './qwen.lib.mjs', execFn: 'executeQwen', envVar: 'QWEN_PATH', defaultBin: 'qwen', pathKey: 'qwenPath' },
     }[argv.tool];
     const toolLib = await import(toolDispatch.lib);
-    await resolvePlaywrightMcp(toolLib.checkPlaywrightMcpAvailability);
 
     toolResult = await toolLib[toolDispatch.execFn]({
       issueUrl,
@@ -796,9 +786,6 @@ try {
     });
   } else {
     // Default to Claude
-    if (argv.tool === 'claude' || !argv.tool) {
-      await resolvePlaywrightMcp(checkPlaywrightMcpAvailability);
-    }
     const claudeResult = await executeClaude({
       issueUrl,
       issueNumber,

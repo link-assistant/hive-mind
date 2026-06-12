@@ -12,7 +12,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createInteractiveHandler } from '../src/interactive-mode.lib.mjs';
 import { isUnavailableMcpStatus } from '../src/interactive-mcp-status.lib.mjs';
-import { ensureConnectedPlaywrightMcpServer, hasConnectedPlaywrightMcpServer } from '../src/playwright-mcp.lib.mjs';
+import { ensureConnectedPlaywrightMcpServer, ensureSolvePlaywrightMcpReady, hasConnectedPlaywrightMcpServer } from '../src/playwright-mcp.lib.mjs';
 import { formatVersionMessage } from '../src/version-info.lib.mjs';
 import { asyncTest, getFailCount, printSummary, test } from './test-helpers.mjs';
 
@@ -125,6 +125,68 @@ await asyncTest('Issue #1901: pending MCP registration is not overwritten by rep
   assert.equal(connected, false);
   assert.equal(addCalls, 0);
   assert.equal(packageChecks, 0);
+});
+
+await asyncTest('Issue #1901: solve preflight repairs missing Claude Playwright MCP before work starts', async () => {
+  const logs = [];
+  let checkCalls = 0;
+  const result = await ensureSolvePlaywrightMcpReady({
+    argv: { tool: 'claude', playwrightMcp: true, promptPlaywrightMcp: true },
+    checks: {
+      claude: async () => {
+        checkCalls++;
+        return true;
+      },
+    },
+    log: async message => logs.push(message),
+  });
+
+  assert.deepEqual(result, { ok: true, checkedTools: ['claude'], skipped: false });
+  assert.equal(checkCalls, 1);
+  assert.ok(logs.some(message => message.includes('Playwright MCP ready')));
+});
+
+await asyncTest('Issue #1901: solve preflight fails immediately when enabled Playwright MCP is unavailable', async () => {
+  const logs = [];
+  const result = await ensureSolvePlaywrightMcpReady({
+    argv: { tool: 'codex', playwrightMcp: true, promptPlaywrightMcp: false },
+    checks: {
+      codex: async () => false,
+    },
+    log: async message => logs.push(message),
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.checkedTools, ['codex']);
+  assert.ok(logs.some(message => message.includes('Playwright MCP preflight failed for Codex')));
+});
+
+await asyncTest('Issue #1901: solve preflight honors --no-playwright-mcp', async () => {
+  let checkCalls = 0;
+  const result = await ensureSolvePlaywrightMcpReady({
+    argv: { tool: 'claude', playwrightMcp: false, promptPlaywrightMcp: false },
+    checks: {
+      claude: async () => {
+        checkCalls++;
+        return false;
+      },
+    },
+    log: async () => {},
+  });
+
+  assert.deepEqual(result, { ok: true, checkedTools: [], skipped: true });
+  assert.equal(checkCalls, 0);
+});
+
+await asyncTest('Issue #1901: solve runs Playwright MCP preflight before starting a working session', async () => {
+  const solveSource = await read('src/solve.mjs');
+  const preflightIndex = solveSource.indexOf('ensureSolvePlaywrightMcpReady');
+  const beginSessionIndex = solveSource.indexOf('beginWorkingSession()');
+
+  assert.ok(preflightIndex > -1, 'solve.mjs should call ensureSolvePlaywrightMcpReady');
+  assert.ok(beginSessionIndex > -1, 'solve.mjs should mark AI working session start');
+  assert.ok(preflightIndex < beginSessionIndex, 'Playwright MCP preflight should run before the AI working session starts');
+  assert.ok(solveSource.includes("await safeExit(1, 'Playwright MCP preflight failed')"), 'solve.mjs should fail immediately when Playwright MCP preflight fails');
 });
 
 await asyncTest('Issue #1901: Docker image verification rejects unavailable Playwright MCP rows', async () => {

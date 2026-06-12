@@ -39,6 +39,7 @@ import { createCodexEventHandlers } from './interactive-codex-events.lib.mjs';
 import { createSystemLifecycleHandlers } from './interactive-system-events.lib.mjs';
 // Issue #1843: turn base64 image tool-results into inline PR-comment images.
 import { createImageRenderer, extractImagePayload, isImageNode } from './interactive-image-render.lib.mjs';
+import { formatInteractiveMcpServersList, getInteractiveMcpDiagnostics } from './interactive-mcp-status.lib.mjs';
 // Issue #1625: track interactive-mode comment IDs so they're excluded from
 // the "did the AI post anything?" check in checkForAiCreatedComments().
 // Use the session-started marker as the single source of truth for the
@@ -411,7 +412,9 @@ export const createInteractiveHandler = options => {
 
     // Format MCP servers
     const mcpServers = data.mcp_servers || [];
-    const mcpServersList = mcpServers.length > 0 ? mcpServers.map(s => `\`${s.name}\` (${s.status || 'unknown'})`).join(', ') : '_None_';
+    const mcpServersList = formatInteractiveMcpServersList(mcpServers);
+    const mcpDiagnostics = getInteractiveMcpDiagnostics(mcpServers, tools);
+    const mcpDiagnosticsBlock = mcpDiagnostics.length > 0 ? `\n${mcpDiagnostics.map(message => `> ${message}`).join('\n')}\n` : '';
 
     // Format slash commands
     const slashCommands = data.slash_commands || [];
@@ -434,6 +437,7 @@ export const createInteractiveHandler = options => {
 | **MCP Servers** | ${mcpServersList} |
 | **Slash Commands** | ${slashCommandsList} |
 | **Agents** | ${agentsList} |
+${mcpDiagnosticsBlock}
 
 ---
 
@@ -1373,10 +1377,6 @@ export const validateInteractiveModeConfig = async (argv, log) => {
     await log('   Interactive mode will be disabled for this session.', { level: 'warning' });
     return false;
   }
-
-  // Check PR requirement
-  // Note: This should be called after PR is created/determined
-  // The actual PR number check happens during execution
 
   await log('🔌 Interactive mode: ENABLED (experimental)', { level: 'info' });
   await log(`   ${argv.tool || 'claude'} output will be posted as PR comments in real-time.`, { level: 'info' });

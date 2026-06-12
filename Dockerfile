@@ -132,6 +132,10 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
 # --force handles the shared 'playwright' binary conflict between packages.
 RUN npm install -g @playwright/mcp@latest --no-fund --force
 
+# Verify both the Playwright CLI fallback and the locally installed MCP package.
+RUN playwright --version && \
+    npx --no-install @playwright/mcp --help | grep -q -- '--headless'
+
 # Configure Playwright MCP for Claude CLI — fail the build if registration fails (issue #1514)
 RUN if command -v claude &>/dev/null; then \
       claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
@@ -140,6 +144,20 @@ RUN if command -v claude &>/dev/null; then \
 # Configure Playwright MCP for Codex CLI with the same server settings
 RUN if command -v codex &>/dev/null; then \
       codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
+    fi
+
+# Fail the image build if MCP registration is merely present but unavailable.
+RUN if command -v claude >/dev/null 2>&1; then \
+      CLAUDE_MCP_OUTPUT="$(claude mcp list 2>&1)" && \
+      echo "$CLAUDE_MCP_OUTPUT" && \
+      echo "$CLAUDE_MCP_OUTPUT" | grep -Eiq 'playwright.*(connected|enabled)' && \
+      ! echo "$CLAUDE_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-]))'; \
+    fi && \
+    if command -v codex >/dev/null 2>&1; then \
+      CODEX_MCP_OUTPUT="$(codex mcp list 2>&1)" && \
+      echo "$CODEX_MCP_OUTPUT" && \
+      echo "$CODEX_MCP_OUTPUT" | grep -Eiq 'playwright.*(connected|enabled)' && \
+      ! echo "$CODEX_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-]))'; \
     fi
 
 # --- Disable noisy/unused Claude Code features and tools (issue #1627, issue #1642) ---

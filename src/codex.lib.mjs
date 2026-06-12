@@ -24,7 +24,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
-import { getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
+import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels } from './models/index.mjs';
 import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
@@ -573,16 +573,7 @@ export const handleCodexRuntimeSwitch = async () => {
 };
 
 /** Check if Playwright MCP is available and connected to Codex @returns {Promise<boolean>} */
-export const checkPlaywrightMcpAvailability = async () => {
-  try {
-    const result = await $`timeout 5 codex mcp list 2>&1`.catch(() => null);
-    if (!result || result.code !== 0) return false;
-    const output = `${result.stdout?.toString() || ''}${result.stderr?.toString() || ''}`;
-    return output.toLowerCase().includes('playwright');
-  } catch {
-    return false;
-  }
-};
+export const checkPlaywrightMcpAvailability = ensureCodexPlaywrightMcpServer;
 
 // Main function to execute Codex with prompts and settings
 export const executeCodex = async params => {

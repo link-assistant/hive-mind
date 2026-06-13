@@ -345,16 +345,62 @@ fi
 echo ""
 echo "Checking Playwright MCP registration in Claude and Codex..."
 
-if command -v claude &>/dev/null; then
-  CLAUDE_MCP_OUTPUT=$(claude mcp list 2>&1 || true)
-  if grep -qi 'playwright' <<< "$CLAUDE_MCP_OUTPUT"; then
-    echo "Claude Playwright MCP registration: OK"
+PLAYWRIGHT_MCP_UNAVAILABLE_RE='pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-])|enabled[[:space:]]*[:=]?[[:space:]]*false'
+PLAYWRIGHT_MCP_CONNECTED_RE='connected|enabled'
+
+verify_playwright_mcp_rows() {
+  local tool_name="$1"
+  local output="$2"
+  local rows
+  rows=$(grep -i 'playwright' <<< "$output" || true)
+
+  if [ -z "$rows" ]; then
+    echo "ERROR: ${tool_name} Playwright MCP registration missing"
+    echo "$output"
+    echo "This image is expected to preconfigure Playwright MCP for ${tool_name} during build."
+    return 1
+  fi
+
+  if grep -Eiq "$PLAYWRIGHT_MCP_UNAVAILABLE_RE" <<< "$rows"; then
+    echo "ERROR: ${tool_name} Playwright MCP registration is present but unavailable"
+    echo "$rows"
+    return 1
+  fi
+
+  if ! grep -Eiq "$PLAYWRIGHT_MCP_CONNECTED_RE" <<< "$rows"; then
+    echo "ERROR: ${tool_name} Playwright MCP registration did not report a connected/enabled state"
+    echo "$rows"
+    return 1
+  fi
+
+  echo "${tool_name} Playwright MCP registration: OK"
+}
+
+echo ""
+echo "Checking Playwright CLI fallback..."
+playwright --version
+echo "Playwright CLI fallback: OK"
+
+echo ""
+echo "Checking Playwright MCP package fallback..."
+if npx --no-install @playwright/mcp --help >/tmp/playwright-mcp-help.txt 2>&1; then
+  if grep -q -- '--headless' /tmp/playwright-mcp-help.txt; then
+    echo "Playwright MCP package fallback: OK"
   else
-    echo "ERROR: Claude Playwright MCP registration missing"
-    echo "$CLAUDE_MCP_OUTPUT"
-    echo "This image is expected to preconfigure Playwright MCP for Claude during build."
+    echo "ERROR: @playwright/mcp --help did not expose expected server options"
+    cat /tmp/playwright-mcp-help.txt
     exit 1
   fi
+else
+  echo "ERROR: @playwright/mcp package is not available via npx --no-install"
+  cat /tmp/playwright-mcp-help.txt 2>/dev/null || true
+  exit 1
+fi
+rm -f /tmp/playwright-mcp-help.txt
+
+if command -v claude &>/dev/null; then
+  CLAUDE_MCP_OUTPUT=$(claude mcp list 2>&1 || true)
+  verify_playwright_mcp_rows "Claude" "$CLAUDE_MCP_OUTPUT" || exit 1
 else
   echo "ERROR: Claude CLI command not found while verifying Playwright MCP registration"
   exit 1
@@ -362,12 +408,8 @@ fi
 
 if command -v codex &>/dev/null; then
   CODEX_MCP_OUTPUT=$(codex mcp list 2>&1 || true)
-  if grep -qi 'playwright' <<< "$CODEX_MCP_OUTPUT"; then
-    echo "Codex Playwright MCP registration: OK"
-  else
-    echo "ERROR: Codex Playwright MCP registration missing"
+  if ! verify_playwright_mcp_rows "Codex" "$CODEX_MCP_OUTPUT"; then
     echo "$CODEX_MCP_OUTPUT"
-    echo "This image is expected to preconfigure Playwright MCP for Codex during build."
     echo "If this happens only in a runtime container with mounted /home/box/.codex, the mount may be overriding the image-baked Codex config."
     exit 1
   fi

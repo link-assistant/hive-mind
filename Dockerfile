@@ -13,11 +13,12 @@
 #
 # Box image version: pinned to a specific release for stable, reproducible builds.
 # To upgrade: update the version tag below and in coolify/Dockerfile.
+# Keep this in lockstep with the DinD base-image release.
 # Latest Box releases: https://github.com/link-foundation/box/releases
 #
 # Build: docker build -t konard/hive-mind .
 
-FROM konard/box:2.2.0
+FROM konard/box:2.3.1
 ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---
@@ -123,13 +124,17 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \
     bun install -g gh-load-pull-request && \
-    bun install -g gh-upload-log
+    bun install -g gh-upload-log@latest
 
 # --- Playwright MCP Setup ---
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
 # We only add @playwright/mcp (AI-specific MCP server for Claude/Codex).
 # --force handles the shared 'playwright' binary conflict between packages.
 RUN npm install -g @playwright/mcp@latest --no-fund --force
+
+# Verify both the Playwright CLI fallback and the locally installed MCP package.
+RUN playwright --version && \
+    npx --no-install @playwright/mcp --help | grep -q -- '--headless'
 
 # Configure Playwright MCP for Claude CLI — fail the build if registration fails (issue #1514)
 RUN if command -v claude &>/dev/null; then \
@@ -139,6 +144,20 @@ RUN if command -v claude &>/dev/null; then \
 # Configure Playwright MCP for Codex CLI with the same server settings
 RUN if command -v codex &>/dev/null; then \
       codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
+    fi
+
+# Fail the image build if MCP registration is merely present but unavailable.
+RUN if command -v claude >/dev/null 2>&1; then \
+      CLAUDE_MCP_OUTPUT="$(claude mcp list 2>&1)" && \
+      echo "$CLAUDE_MCP_OUTPUT" && \
+      echo "$CLAUDE_MCP_OUTPUT" | grep -Eiq 'playwright.*(connected|enabled)' && \
+      ! echo "$CLAUDE_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-]))'; \
+    fi && \
+    if command -v codex >/dev/null 2>&1; then \
+      CODEX_MCP_OUTPUT="$(codex mcp list 2>&1)" && \
+      echo "$CODEX_MCP_OUTPUT" && \
+      echo "$CODEX_MCP_OUTPUT" | grep -Eiq 'playwright.*(connected|enabled)' && \
+      ! echo "$CODEX_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-]))'; \
     fi
 
 # --- Disable noisy/unused Claude Code features and tools (issue #1627, issue #1642) ---

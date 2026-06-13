@@ -1,6 +1,7 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // GitHub-related utility functions. Check if use is already defined (when imported from solve.mjs), if not, fetch it (when running standalone)
-if (typeof globalThis.use === 'undefined') globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+if (typeof globalThis.use === 'undefined') await ensureUseM();
 const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
 import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
@@ -630,7 +631,7 @@ ${logContent}
         // Use the original sanitized content for upload since it's a plain text file
         await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
 
-        // Use gh-upload-log to upload the log file
+        // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
         const uploadResult = await uploadLogWithGhUploadLog({
           logFile: tempLogFile,

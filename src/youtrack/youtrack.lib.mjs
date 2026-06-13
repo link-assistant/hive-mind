@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+import { ensureUseM } from '../use-m-bootstrap.lib.mjs';
 // YouTrack-related utility functions
 
 // Check if use is already defined (when imported from other modules)
 // If not, fetch it (when running standalone)
 if (typeof use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 // Import log and other utilities from general lib

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 const earlyArgs = process.argv.slice(2);
 const { handleSolveEarlyExit } = await import('./solve.bootstrap.lib.mjs');
 await handleSolveEarlyExit(earlyArgs);
 
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
-globalThis.use = use;
+const use = (globalThis.use = await ensureUseM());
 const { $: __rawDollar$ } = await use('command-stream');
 const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
@@ -33,7 +33,7 @@ const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
 const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildSolveResumeCommand, maybeAttachWorkingSessionSummary, verifyPullRequestIssueLinkAfterAutoRestart } = results;
 const claudeLib = await import('./claude.lib.mjs');
-const { executeClaude, checkPlaywrightMcpAvailability } = claudeLib;
+const { executeClaude } = claudeLib;
 const githubLinking = await import('./github-linking.lib.mjs');
 const { extractLinkedIssueNumber } = githubLinking;
 const usageLimitLib = await import('./usage-limit.lib.mjs');
@@ -46,6 +46,7 @@ const { startWatchMode } = watchLib;
 const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
 const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const { runKeepWorkingUntilDone } = await import('./solve.keep-working.lib.mjs');
+const { runEscalation } = await import('./solve.escalate.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
@@ -243,8 +244,19 @@ if (argv.planModel) {
 
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+const { cascadePlaywrightMcpDisable, ensureSolvePlaywrightMcpReady } = await import('./playwright-mcp.lib.mjs');
+await cascadePlaywrightMcpDisable(argv, log);
 if (!(await performSystemChecks(argv.minDiskSpace || 2048, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
+}
+// Playwright MCP preflight is local/free and stays independent from paid tool connection checks.
+if (!argv.dryRun && argv.playwrightMcp !== false) {
+  const playwrightMcpPreflight = await ensureSolvePlaywrightMcpReady({ argv, log });
+  if (!playwrightMcpPreflight.ok) {
+    await safeExit(1, 'Playwright MCP preflight failed');
+  }
+} else if (argv.dryRun && argv.playwrightMcp !== false) {
+  await log('⏩ Skipping Playwright MCP preflight (dry-run mode)', { verbose: true });
 }
 // URL validation debug logging
 if (argv.verbose) {
@@ -691,24 +703,6 @@ try {
     $,
   });
 
-  const { cascadePlaywrightMcpDisable } = await import('./playwright-mcp.lib.mjs');
-  await cascadePlaywrightMcpDisable(argv, log);
-
-  async function resolvePlaywrightMcp(checkFn) {
-    if (argv.playwrightMcp === false) return;
-    if (argv.promptPlaywrightMcp) {
-      const available = await checkFn();
-      if (available) {
-        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
-      } else {
-        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
-        argv.promptPlaywrightMcp = false;
-      }
-    } else {
-      await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
-    }
-  }
-
   // Execute tool command with all prompts and settings
   let toolResult;
 
@@ -733,7 +727,6 @@ try {
     }
 
     await log(`\n[agent-commander] Using agent-commander for ${argv.tool || 'claude'} execution`);
-    await agentCommanderLib.resolvePlaywrightMcpForAgentCommander({ argv, log, tool: argv.tool || 'claude' });
 
     toolResult = await agentCommanderLib.executeWithAgentCommander({
       issueUrl,
@@ -767,7 +760,6 @@ try {
       qwen: { lib: './qwen.lib.mjs', execFn: 'executeQwen', envVar: 'QWEN_PATH', defaultBin: 'qwen', pathKey: 'qwenPath' },
     }[argv.tool];
     const toolLib = await import(toolDispatch.lib);
-    await resolvePlaywrightMcp(toolLib.checkPlaywrightMcpAvailability);
 
     toolResult = await toolLib[toolDispatch.execFn]({
       issueUrl,
@@ -795,9 +787,6 @@ try {
     });
   } else {
     // Default to Claude
-    if (argv.tool === 'claude' || !argv.tool) {
-      await resolvePlaywrightMcp(checkPlaywrightMcpAvailability);
-    }
     const claudeResult = await executeClaude({
       issueUrl,
       issueNumber,
@@ -1270,10 +1259,9 @@ try {
       await log('⚠️  PR title/description still not updated after restart');
     }
   }
-
-  // Issue #1383: --finalize
+  // Post-solve restart loops (escalate #1885 first, then finalize #1383, then keep-working #1883):
+  applyRestartResult(await runEscalation({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
   applyRestartResult(await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile }));
-  // Issue #1883: --keep-working-until-all-requirements-are-fully-done (detect deferred work and auto-restart until done)
   applyRestartResult(await runKeepWorkingUntilDone({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes

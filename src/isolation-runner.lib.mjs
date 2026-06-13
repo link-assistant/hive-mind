@@ -1,3 +1,4 @@
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 /**
  * Isolation Runner for Telegram bot
  *
@@ -19,7 +20,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 if (typeof use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 const { $ } = await use('command-stream');

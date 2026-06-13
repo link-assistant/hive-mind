@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 
 /**
  * Update npm for OIDC trusted publishing
@@ -11,7 +12,7 @@
  */
 
 // Load use-m dynamically
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+const use = await ensureUseM();
 
 // Import command-stream for shell command execution
 const { $ } = await use('command-stream');

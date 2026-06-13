@@ -19,11 +19,9 @@ import { dirname, join } from 'path';
 import { createYargsConfig as createSolveYargsConfig, SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 import { createYargsConfig as createHiveYargsConfig } from '../src/hive.config.lib.mjs';
 import { resolveYargsFactory } from '../src/yargs-factory.lib.mjs';
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 
-if (typeof use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
-
+const use = await ensureUseM();
 const yargsModule = await use('yargs@17.7.2');
 const yargs = resolveYargsFactory(yargsModule);
 

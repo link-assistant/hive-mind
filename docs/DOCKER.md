@@ -174,7 +174,12 @@ The image build now registers Playwright MCP for both Claude and Codex:
 - `claude mcp add playwright -s user -- ...`
 - `codex mcp add playwright -- ...`
 
-The CI workflow also builds the Docker image and verifies that both `claude mcp list` and `codex mcp list` contain `playwright`.
+The CI workflow also builds the Docker image and verifies that:
+
+- `playwright --version` works as a CLI fallback;
+- `npx --no-install @playwright/mcp --help` works without reinstalling the MCP package;
+- `claude mcp list` reports the Playwright server as connected/enabled, not pending or unavailable;
+- `codex mcp list` reports the Playwright server as connected/enabled, not pending or unavailable.
 
 If you still reproduce `codex mcp list` showing `No MCP servers configured yet` in a running container, the most likely root cause is a mounted `/home/box/.codex` directory from the host. In this image `HOME=/home/box`, so mounting `/home/box/.codex` replaces the image-baked Codex config, including any preconfigured MCP entries.
 
@@ -254,6 +259,11 @@ Because this mount fully overrides the image's `/home/box/.codex` directory, it 
 ```bash
 codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
 ```
+
+Hive Mind also attempts this default registration repair at runtime when
+`codex mcp list` has no Playwright row and `@playwright/mcp` is installed. It
+does not overwrite an existing Playwright row that is pending, disabled, or
+customized; those states need direct MCP startup debugging.
 
 ### Running in Detached Mode
 

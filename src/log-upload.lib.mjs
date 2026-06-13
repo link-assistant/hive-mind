@@ -1,11 +1,12 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Log upload module for hive-mind
 // Uses gh-upload-log for uploading log files to GitHub
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
@@ -25,6 +26,63 @@ const summarizeCommandOutput = value => {
   const text = value?.toString()?.trim() || '';
   if (!text) return '';
   return text.length > 500 ? `${text.slice(0, 500)}... [truncated ${text.length - 500} chars]` : text;
+};
+
+export const buildGhUploadLogArgs = ({ logFile, isPublic, description, verbose = false }) => {
+  if (!logFile) {
+    throw new Error('logFile is required for gh-upload-log');
+  }
+
+  const args = [logFile, isPublic ? '--public' : '--private'];
+
+  if (description) {
+    args.push('--description', description);
+  }
+  if (verbose) {
+    args.push('--verbose');
+  }
+
+  return args;
+};
+
+const quoteShellArg = value => {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=@+-]+$/u.test(text)) return text;
+  return `"${text.replace(/(["\\$`])/gu, '\\$1')}"`;
+};
+
+const formatGhUploadLogCommand = args => `gh-upload-log ${args.map(quoteShellArg).join(' ')}`;
+
+const runGhUploadLogCommand = async args => {
+  const { spawn } = await use('child_process');
+
+  return new Promise(resolve => {
+    const child = spawn('gh-upload-log', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const settle = value => {
+      if (!settled) {
+        settled = true;
+        resolve(value);
+      }
+    };
+
+    child.stdout?.on('data', chunk => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on('data', chunk => {
+      stderr += chunk.toString();
+    });
+    child.on('error', error => {
+      const errorText = stderr ? `${stderr}\n${error.message}` : error.message;
+      settle({ code: error.code === 'ENOENT' ? 127 : 1, stdout, stderr: errorText });
+    });
+    child.on('close', code => {
+      settle({ code: code ?? 1, stdout, stderr });
+    });
+  });
 };
 
 export const parseGhUploadLogOutput = outputValue => {
@@ -88,30 +146,18 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
 
   try {
-    // Build command flags
-    // IMPORTANT: When using command-stream's $ template tag, each ${} interpolation is treated
-    // as a single argument. DO NOT use commandArgs.join(' ') as it will make all flags part
-    // of the first positional argument, causing "File does not exist" errors.
-    // See case study: docs/case-studies/issue-1096/README.md
-    const publicFlag = isPublic ? '--public' : '--private';
+    const commandArgs = buildGhUploadLogArgs({
+      logFile,
+      isPublic,
+      description,
+      verbose,
+    });
 
     if (verbose) {
-      const descDisplay = description ? ` --description "${description}"` : '';
-      await log(`  📤 Running: gh-upload-log "${logFile}" ${publicFlag}${descDisplay} --verbose`, { verbose: true });
+      await log(`  📤 Running: ${formatGhUploadLogCommand(commandArgs)}`, { verbose: true });
     }
 
-    // Execute command with separate interpolations for each argument
-    // Each ${} is properly passed as a separate argument to the shell
-    let uploadResult;
-    if (description && verbose) {
-      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag} --description ${description} --verbose`;
-    } else if (description) {
-      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag} --description ${description}`;
-    } else if (verbose) {
-      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag} --verbose`;
-    } else {
-      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag}`;
-    }
+    const uploadResult = await runGhUploadLogCommand(commandArgs);
     const output = (uploadResult.stdout?.toString() || '') + (uploadResult.stderr?.toString() || '');
 
     if (uploadResult.code !== 0) {
@@ -251,5 +297,6 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
 // Export all functions as default object too
 export default {
   parseGhUploadLogOutput,
+  buildGhUploadLogArgs,
   uploadLogWithGhUploadLog,
 };

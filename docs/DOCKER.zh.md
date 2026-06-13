@@ -115,6 +115,43 @@ claude
 - ✅ 每个容器拥有独立的身份验证
 - ✅ 无需交互式身份验证即可成功构建 Docker 镜像
 
+## Docker 中的 Playwright MCP 状态
+
+镜像构建现在会为 Claude 和 Codex 注册 Playwright MCP：
+
+- `claude mcp add playwright -s user -- ...`
+- `codex mcp add playwright -- ...`
+
+CI 工作流还会构建 Docker 镜像并验证：
+
+- `playwright --version` 可作为 CLI fallback 使用；
+- `npx --no-install @playwright/mcp --help` 可在不重新安装 MCP 包的情况下运行；
+- `claude mcp list` 将 Playwright server 报告为 connected/enabled，而不是 pending 或 unavailable；
+- `codex mcp list` 将 Playwright server 报告为 connected/enabled，而不是 pending 或 unavailable。
+
+如果运行中的容器里 `codex mcp list` 仍显示 `No MCP servers configured yet`，最可能的原因是从宿主机挂载了 `/home/box/.codex`。在此镜像中 `HOME=/home/box`，因此挂载 `/home/box/.codex` 会替换镜像内置的 Codex 配置，包括预配置的 MCP 条目。
+
+这意味着：
+
+- 发布的镜像可能是正确的；
+- 运行时容器仍可能显示 Codex 未配置；
+- 差异来自持久化宿主机状态覆盖了容器默认值。
+
+快速确认方式是比较以下两种情况：
+
+```bash
+# 不挂载宿主机 Codex 状态的新容器
+docker run --rm -it konard/hive-mind:latest bash -lc 'codex mcp list'
+
+# 挂载宿主机持久化 Codex 状态的容器
+docker run --rm -it \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  konard/hive-mind:latest \
+  bash -lc 'codex mcp list'
+```
+
+如果第一条命令显示 `playwright` 而第二条没有，则宿主机挂载的 Codex 目录就是差异来源。
+
 ## 前提条件
 
 1. **Docker**：安装 Docker Desktop 或 Docker Engine（版本 20.10 或更高）
@@ -147,6 +184,14 @@ docker volume create box-home
 # 挂载卷运行
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
+
+如果持久化的 `/home/box/.codex/config.toml` 来自较旧镜像，可能缺少新版镜像添加的 Playwright MCP 注册。容器启动后可重新运行：
+
+```bash
+codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
+```
+
+当 `codex mcp list` 没有 Playwright 行且已安装 `@playwright/mcp` 时，Hive Mind 也会在运行时尝试这种默认注册修复。它不会覆盖已有的 pending、disabled 或自定义 Playwright 行；这些状态需要直接调试 MCP 启动路径。
 
 ### 以守护进程模式运行
 

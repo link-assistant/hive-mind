@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Session continuation module for solve command
 // Handles session resumption, PR detection, and limit reset waiting
@@ -8,7 +9,7 @@
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
@@ -53,6 +54,9 @@ import { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIt
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
+
+// Issue #1886: cumulative Anthropic cost carried across cross-process resumes
+const { getCumulativeAnthropicCost } = await import('./anthropic-cost-accumulator.lib.mjs');
 
 const { calculateWaitTime } = validation;
 
@@ -167,6 +171,20 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     }
     resumeArgs.push('--auto-resume-iteration', String(nextAutoResumeIteration));
     resumeArgs.push('--auto-resume-max-iterations', String(maxAutoResumeIterations));
+
+    // Issue #1886: carry the cumulative Anthropic cost into the resumed process.
+    // The resumed run reads the same session JSONL (full session, all runs), so
+    // its public-pricing estimate spans every run; without this the resumed
+    // run's "Calculated by Anthropic" figure would cover only its own process
+    // and disagree with the full-session public estimate (the -31.66% gap in
+    // issue #1886). getCumulativeAnthropicCost() already includes this run's
+    // cost folded in at the runClaude return, plus anything carried from prior
+    // iterations via --previous-anthropic-cost.
+    const carriedAnthropicCost = getCumulativeAnthropicCost();
+    if (carriedAnthropicCost > 0) {
+      resumeArgs.push('--previous-anthropic-cost', String(carriedAnthropicCost));
+      await log(`💰 Carrying forward cumulative Anthropic cost: $${carriedAnthropicCost.toFixed(6)} (issue #1886)`, { verbose: true });
+    }
 
     // Pass session type for proper comment differentiation
     // See: https://github.com/link-assistant/hive-mind/issues/1152

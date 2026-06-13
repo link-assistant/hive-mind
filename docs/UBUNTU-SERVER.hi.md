@@ -28,8 +28,8 @@
 
    ```bash
    # विकल्प 1: Docker का उपयोग करें (अनुशंसित)
-   docker pull konard/box:2.2.0
-   docker run -it konard/box:2.2.0
+   docker pull konard/box:2.3.1
+   docker run -it konard/box:2.3.1
 
    # विकल्प 2: Legacy Hive Mind bare-metal install script का उपयोग करें (इसे रखने वाले अंतिम commit पर pinned: 4f027b32)
    curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash

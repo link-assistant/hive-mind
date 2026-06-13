@@ -11,8 +11,11 @@
 
 import { addSubscriber, removeSubscriber, isSubscribed, getSubscriberCount, notifySubscribers, resetSubscribersForTests } from '../src/telegram-subscribers.lib.mjs';
 import { appendPullRequestLine, formatSessionCompletionMessage } from '../src/work-session-formatting.lib.mjs';
-import { trackSession, monitorSessions, resetSessionMonitorForTests, getActiveSessionCount } from '../src/session-monitor.lib.mjs';
+import { trackSession, monitorSessions, resetSessionMonitorForTests, getActiveSessionCount, extractPullRequestUrlFromText } from '../src/session-monitor.lib.mjs';
 import { assert, printSummary, getFailCount } from './test-helpers.mjs';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 console.log('Testing issue #1688: /subscribe + /unsubscribe + Issue/PR completion lines');
 console.log('='.repeat(60));
@@ -45,6 +48,17 @@ console.log('\n  appendPullRequestLine() helper:');
   // No-op for empty input
   assert(appendPullRequestLine('', 'https://x') === '', 'Empty infoBlock stays empty');
   assert(appendPullRequestLine('hello', null) === 'hello', 'Null pullRequestUrl returns infoBlock unchanged');
+}
+
+// -- issue #1905: PR URL extraction from completed solve logs --
+console.log('\n  extractPullRequestUrlFromText() helper:');
+{
+  const out = extractPullRequestUrlFromText('📍 URL: https://github.com/o/r/pull/77', { owner: 'o', repo: 'r' });
+  assert(out === 'https://github.com/o/r/pull/77', 'Extracts PR URL for matching repository');
+}
+{
+  const out = extractPullRequestUrlFromText('foreign https://github.com/other/r/pull/77', { owner: 'o', repo: 'r' });
+  assert(out === null, 'Ignores PR URLs from another owner');
 }
 
 // -- formatSessionCompletionMessage with pullRequestUrl --
@@ -212,6 +226,69 @@ assert(getActiveSessionCount() === 0, 'Session is removed from in-memory trackin
 
 resetSubscribersForTests();
 resetSessionMonitorForTests();
+
+// -- issue #1905: monitorSessions falls back to the completed solve log --
+console.log('\n  monitorSessions recovers Pull request line from completed solve log:');
+resetSubscribersForTests();
+resetSessionMonitorForTests();
+
+const issue1905TempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-issue-1905-'));
+try {
+  const issue1905LogPath = path.join(issue1905TempDir, 'session.log');
+  await fs.writeFile(issue1905LogPath, ['Some solve output before verification', '🎉 SUCCESS: A solution draft has been prepared as a pull request', '📍 URL: https://github.com/o/r/pull/77', 'More solve output after verification'].join('\n'), 'utf8');
+
+  const codexSessionId = 'sess-1905';
+  trackSession(codexSessionId, {
+    chatId: 33,
+    messageId: 44,
+    startTime: new Date('2026-06-10T12:00:00.000Z'),
+    url: 'https://github.com/o/r/issues/1',
+    command: 'solve',
+    isolationBackend: 'screen',
+    sessionId: codexSessionId,
+    tool: 'codex',
+    infoBlock: 'Requested by: @alice\nIssue: https://github.com/o/r/issues/1',
+    urlContext: { owner: 'o', repo: 'r', number: 1, type: 'issue' },
+    requesterUserId: 1,
+  });
+
+  const issue1905EditCalls = [];
+  const issue1905Bot = {
+    telegram: {
+      editMessageText: async (chatId, messageId, _inline, text, options) => {
+        issue1905EditCalls.push({ chatId, messageId, text, options });
+        return true;
+      },
+      sendMessage: async () => {
+        throw new Error('Should edit the original message, not send a new one');
+      },
+    },
+  };
+
+  const missingLinkedPrLookup = async () => null;
+  const completedCodexStatus = async () => ({
+    exists: true,
+    status: 'executed',
+    exitCode: 0,
+    startTime: '2026-06-10T12:00:00.000Z',
+    endTime: '2026-06-10T12:07:00.000Z',
+    logPath: issue1905LogPath,
+  });
+
+  await monitorSessions(issue1905Bot, false, {
+    statusProvider: completedCodexStatus,
+    lookupLinkedPullRequest: missingLinkedPrLookup,
+  });
+
+  assert(issue1905EditCalls.length === 1, 'monitorSessions edits the original codex message exactly once');
+  assert(issue1905EditCalls[0].text.includes('Issue: https://github.com/o/r/issues/1'), 'Edited codex message preserves Issue line');
+  assert(issue1905EditCalls[0].text.includes('Pull request: https://github.com/o/r/pull/77'), 'Edited codex message includes Pull request line from solve log');
+  assert(getActiveSessionCount() === 0, 'Codex session is removed after log-based PR link notification');
+} finally {
+  await fs.rm(issue1905TempDir, { recursive: true, force: true });
+  resetSubscribersForTests();
+  resetSessionMonitorForTests();
+}
 
 printSummary();
 

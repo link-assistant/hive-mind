@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Playwright MCP session-level disable/restore utilities.
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
@@ -14,6 +15,21 @@ export const getCommandResultOutput = result => `${result?.stdout?.toString() ||
 
 export const isCommandResultSuccess = result => getCommandResultCode(result) === 0;
 
+export const PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN = /\b(pending|disabled|failed|error|disconnected|not[-_\s]+connected|unavailable|timed[-_\s]+out)\b|(?:^|[^A-Za-z0-9_-])timeout(?:$|[^A-Za-z0-9_-])|\benabled\s*[:=]?\s*false\b/i;
+export const PLAYWRIGHT_MCP_CONNECTED_PATTERN = /\b(connected|enabled)\b|[✓✔]/i;
+
+export const getPlaywrightMcpListRows = output =>
+  String(output || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line.toLowerCase().includes('playwright'));
+
+export const hasConnectedPlaywrightMcpServer = output => {
+  const rows = getPlaywrightMcpListRows(output);
+  if (rows.length === 0) return false;
+  return rows.some(row => PLAYWRIGHT_MCP_CONNECTED_PATTERN.test(row) && !PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN.test(row));
+};
+
 export const checkPlaywrightMcpPackageAvailability = async () => {
   try {
     const result = await $`timeout 5 npx --no-install @playwright/mcp --help 2>&1`.catch(() => null);
@@ -23,6 +39,83 @@ export const checkPlaywrightMcpPackageAvailability = async () => {
   } catch {
     return false;
   }
+};
+
+export const ensureConnectedPlaywrightMcpServer = async ({ list, add, hasPackage = checkPlaywrightMcpPackageAvailability }) => {
+  try {
+    const result = await list().catch(() => null);
+    if (!isCommandResultSuccess(result)) return false;
+    const output = getCommandResultOutput(result);
+    if (hasConnectedPlaywrightMcpServer(output)) return true;
+    if (getPlaywrightMcpListRows(output).length > 0) return false;
+    if (!(await hasPackage())) return false;
+
+    await add().catch(() => null);
+    const retryResult = await list().catch(() => null);
+    return isCommandResultSuccess(retryResult) && hasConnectedPlaywrightMcpServer(getCommandResultOutput(retryResult));
+  } catch {
+    return false;
+  }
+};
+
+export const ensureClaudePlaywrightMcpServer = async () =>
+  ensureConnectedPlaywrightMcpServer({
+    list: () => $`timeout 5 claude mcp list 2>&1`,
+    add: () => $`claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080`,
+  });
+
+export const ensureCodexPlaywrightMcpServer = async () =>
+  ensureConnectedPlaywrightMcpServer({
+    list: () => $`timeout 5 codex mcp list 2>&1`,
+    add: () => $`codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080`,
+  });
+
+const SOLVE_PLAYWRIGHT_MCP_CHECKS = {
+  claude: ensureClaudePlaywrightMcpServer,
+  codex: ensureCodexPlaywrightMcpServer,
+  opencode: checkPlaywrightMcpPackageAvailability,
+  agent: checkPlaywrightMcpPackageAvailability,
+  gemini: checkPlaywrightMcpPackageAvailability,
+  qwen: checkPlaywrightMcpPackageAvailability,
+};
+
+const SOLVE_PLAYWRIGHT_MCP_LABELS = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  opencode: 'OpenCode',
+  agent: 'Agent',
+  gemini: 'Gemini',
+  qwen: 'Qwen Code',
+};
+
+export const getSolvePlaywrightMcpCheckTool = (argv = {}) => argv.tool || 'claude';
+
+export const ensureSolvePlaywrightMcpReady = async ({ argv = {}, log = async () => {}, checks = SOLVE_PLAYWRIGHT_MCP_CHECKS } = {}) => {
+  if (argv.playwrightMcp === false) {
+    await log('🎭 Playwright MCP preflight skipped because --no-playwright-mcp is set', { verbose: true });
+    return { ok: true, checkedTools: [], skipped: true };
+  }
+
+  const tool = getSolvePlaywrightMcpCheckTool(argv);
+  const label = SOLVE_PLAYWRIGHT_MCP_LABELS[tool] || tool;
+  const checkFn = checks[tool] || SOLVE_PLAYWRIGHT_MCP_CHECKS[tool] || checkPlaywrightMcpPackageAvailability;
+  await log(`🎭 Checking Playwright MCP preflight for ${label}...`, { verbose: true });
+
+  try {
+    if (await checkFn()) {
+      await log(`🎭 Playwright MCP ready for ${label}`, { verbose: true });
+      return { ok: true, checkedTools: [tool], skipped: false };
+    }
+  } catch (error) {
+    await log(`⚠️  Playwright MCP preflight check threw for ${label}: ${error.message}`, { verbose: true });
+  }
+
+  await log('', { level: 'error' });
+  await log(`❌ Playwright MCP preflight failed for ${label}`, { level: 'error' });
+  await log('   Playwright support is enabled by default, so solve stops before starting an AI working session.', { level: 'error' });
+  await log('   Fix the MCP registration or run with --no-playwright-mcp only when browser automation is intentionally disabled.', { level: 'error' });
+  await log('');
+  return { ok: false, checkedTools: [tool], skipped: false };
 };
 
 export const parseCodexMcpServerNames = output =>

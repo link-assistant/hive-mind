@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Useless Claude Code tools and MCP servers for autonomous headless workflows.
 //
 // Hive-mind runs `claude` inside Docker with `--print --dangerously-skip-permissions`
@@ -17,7 +18,7 @@
 // Related issue: https://github.com/link-assistant/hive-mind/issues/1627
 
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const fs = (await use('fs')).promises;
 const os = await use('os');

@@ -29,6 +29,8 @@ host:
    allowlist.
 
 Also filed the silent-passthrough footgun upstream as link-foundation/box#102
-(warn when an allowlist is set but no socket is mounted) and added a deep case
-study with the full reproduction, timeline, and root-cause analysis under
-`docs/case-studies/issue-1914`.
+(warn when an allowlist is set but no socket is mounted) — **now fixed and shipped
+in box v2.3.2** — and bumped this repo's base images from `konard/box:2.3.1` /
+`konard/box-dind:2.3.1` to `2.3.2` so the upstream warning ships at the source.
+Added a deep case study with the full reproduction, timeline, and root-cause
+analysis under `docs/case-studies/issue-1914`.

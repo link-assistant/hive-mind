@@ -8,10 +8,13 @@
 #
 # Box image version: pinned to a specific release for stable, reproducible builds.
 # To upgrade: update the dind version tag below.
-# Box 2.3.1 includes the host-image passthrough allowlist used by the issue #1879 runbook.
+# Box 2.3.2 includes the host-image passthrough allowlist used by the issue #1879
+# runbook, plus the box#102 fix: the dind entrypoint now WARNS when passthrough is
+# opted into (DIND_HOST_PASSTHROUGH_IMAGES set) but no host docker socket is mounted,
+# instead of silently leaving the nested daemon empty (issue #1914).
 # Latest Box releases: https://github.com/link-foundation/box/releases
 
-FROM konard/box-dind:2.3.1
+FROM konard/box-dind:2.3.2
 ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---

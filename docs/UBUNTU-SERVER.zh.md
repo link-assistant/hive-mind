@@ -28,8 +28,8 @@
 
    ```bash
    # 选项 1：使用 Docker（推荐）
-   docker pull konard/box:2.3.1
-   docker run -it konard/box:2.3.1
+   docker pull konard/box:2.3.2
+   docker run -it konard/box:2.3.2
 
    # 选项 2：使用旧版 Hive Mind 裸机安装脚本（固定到最后一个包含它的提交：4f027b32）
    curl -fsSL -o- https://raw.githubusercontent.com/link-assistant/hive-mind/4f027b32/scripts/ubuntu-24-server-install.sh | bash

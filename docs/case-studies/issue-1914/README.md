@@ -113,7 +113,7 @@ Every distinct requirement in the issue body, with where it is addressed:
 3. **Re-check the #1860 and #1879 fixes (they "didn't work").**
    → #1860's image/credential fix was correct but lived inside the screen wrapper (now native). #1879 pinned the tag and _recommended_ the socket mount but the deploy never adopted it, so the nested daemon stayed empty. See [Root Causes](#root-causes).
 4. **Check how the image is constructed at link-foundation/box and here; ensure passthrough is actually possible.**
-   → `Dockerfile.dind` is `FROM konard/box-dind:2.3.1` (passthrough-capable). box's passthrough needs the host socket mounted; confirmed it is the missing piece. See [Online / Source Facts](#online--source-facts).
+   → `Dockerfile.dind` is `FROM konard/box-dind:2.3.2` (passthrough-capable). box's passthrough needs the host socket mounted; confirmed it is the missing piece. The remaining silent-failure gap was filed as box#102 and fixed in box v2.3.2 (now pinned here). See [Online / Source Facts](#online--source-facts).
 5. **Fix it once and for all, at all levels (box and here); find the responsible.**
    → Responsible parties identified: Complaint 1 = Hive Mind's screen wrapper (fixed); Complaint 2 = the deploy script's `docker run` (fixed) plus box's _silent_ passthrough no-op (upstream report).
 6. **Maybe the deploy script is the problem (gist 67532e7a).**
@@ -213,10 +213,10 @@ returns true for _any_ locally present image, **including one loaded via
   `docker save | docker load`), `dockerImageExists` returns true and **no pull
   happens**. The two fixes compose. There is no `--pull always` to remove.
 
-### box host-image passthrough (base image `konard/box-dind:2.3.1`)
+### box host-image passthrough (base image `konard/box-dind:2.3.2`)
 
-`Dockerfile.dind` is `FROM konard/box-dind:2.3.1`; `Dockerfile` is
-`FROM konard/box:2.3.1`. box's passthrough is controlled by env vars its
+`Dockerfile.dind` is `FROM konard/box-dind:2.3.2`; `Dockerfile` is
+`FROM konard/box:2.3.2`. box's passthrough is controlled by env vars its
 entrypoint reads:
 
 | Variable                           | Default                     | Meaning                                                               |
@@ -230,8 +230,10 @@ Critically, passthrough is **enabled by default (`public`) but is a silent no-op
 when the host socket is absent** — exactly the production state. In `public`
 mode the host image must carry a RepoDigest (be pulled/pushed), or it is skipped.
 Prior box work for #1879 (box#94 pre-seed, box#96 public-mode false positive,
-box#97 per-repo allowlist) shipped in box v2.2.0 / v2.3.1; the remaining gap is
-the **silent** failure mode, which the upstream report targets.
+box#97 per-repo allowlist) shipped in box v2.2.0 / v2.3.1; the remaining gap —
+the **silent** failure mode — was filed as box#102 and **fixed in box v2.3.2**
+(the entrypoint now warns when the allowlist is set but no socket is mounted).
+This repo is now pinned to `2.3.2`, so the warning ships at the source.
 
 ## Existing Components / Libraries Considered
 
@@ -338,7 +340,18 @@ script), and the startup preflight then logs `✅ … already present`.
 
 ### link-foundation/box — passthrough is silent when an allowlist is set but no socket is mounted
 
-Filed as **[link-foundation/box#102](https://github.com/link-foundation/box/issues/102)**.
+Filed as **[link-foundation/box#102](https://github.com/link-foundation/box/issues/102)** —
+**FIXED and shipped in [box v2.3.2](https://github.com/link-foundation/box/releases/tag/v2.3.2)**
+(this repo's `Dockerfile`/`Dockerfile.dind` are now pinned to `2.3.2`). The dind
+entrypoint now emits the suggested `warn` in the `! host_docker_available`
+branch when `DIND_HOST_PASSTHROUGH_IMAGES` is set but no socket is mounted
+(`dind-entrypoint.sh` `passthrough_host_images`):
+
+> `host-image passthrough is enabled and DIND_HOST_PASSTHROUGH_IMAGES is set, but no host docker socket is mounted at ${DIND_HOST_DOCKER_SOCK}; the nested daemon will NOT be seeded from the host (first 'docker run' will pull from the registry). Mount it with: -v /var/run/docker.sock:${DIND_HOST_DOCKER_SOCK}:ro`
+
+So the silent no-op is gone at the source. The in-repo `preflightDockerIsolation`
+safety net still applies (it runs at bot boot, before any task, and covers the
+non-dind and socket-mounted-but-still-missing states too). Original report below.
 
 box's behavior is more nuanced than "always silent", confirmed by reading
 `ubuntu/24.04/dind/dind-entrypoint.sh` at main `b81aee7`

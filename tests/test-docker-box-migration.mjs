@@ -21,7 +21,7 @@ const dockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
 for (const filePath of dockerfiles) {
   const content = await read(filePath);
 
-  assertIncludes(content, 'FROM konard/box:2.3.1', filePath);
+  assertIncludes(content, 'FROM konard/box:2.3.2', filePath);
   assertIncludes(content, 'Keep this in lockstep with the DinD base-image release.', filePath);
   assertIncludes(content, 'USER box', filePath);
   assertIncludes(content, 'WORKDIR /home/box', filePath);

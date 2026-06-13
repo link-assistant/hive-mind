@@ -36,4 +36,7 @@ exact failure reported for meta-language PRs #65/#66 / issues #49/#50.
   preserved, results are deduped/merged, and search failures degrade gracefully.
 - docs/case-studies/issue-1895: deep case study with downloaded GraphQL/PR/issue
   evidence, reconstructed timeline, root-cause analysis, requirement mapping, and the
-  external-reporting decision.
+  external-reporting decision. Includes `github-api-linking-research.md` — a
+  definitive, introspection-backed answer to "is there an API to link a PR to an
+  issue?" (no: confirmed via live GraphQL schema introspection), with the gap
+  reported upstream (GitHub Community discussions #112224 / #155339 / #179613).

@@ -10,14 +10,15 @@ This folder is the deep case study for issue #1895, compiled as required by the
 issue itself ("make sure we compile that data to `./docs/case-studies/issue-{id}`
 folder, and use it to do deep case study analysis"). It contains:
 
-| File                                                 | Purpose                                                                                                           |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| [`README.md`](./README.md)                           | Overview, the verbatim problem, the reconstructed timeline, and the shipped solution at a glance                  |
-| [`requirements.md`](./requirements.md)               | The exhaustive, numbered list of every requirement extracted from the issue, each mapped to where it is satisfied |
-| [`analysis.md`](./analysis.md)                       | Root-cause analysis, the evidence, design decisions and trade-offs                                                |
-| [`existing-components.md`](./existing-components.md) | Survey of in-repo components reused, plus external prior art / GitHub behavior references                         |
-| [`external-report.md`](./external-report.md)         | Decision on the "report to other repositories" requirement (meta-language)                                        |
-| [`data/`](./data/)                                   | Downloaded raw evidence (GraphQL dump, PR/issue JSON) for the meta-language PRs #65/#66 and issues #49/#50        |
+| File                                                                 | Purpose                                                                                                              |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| [`README.md`](./README.md)                                           | Overview, the verbatim problem, the reconstructed timeline, and the shipped solution at a glance                     |
+| [`requirements.md`](./requirements.md)                               | The exhaustive, numbered list of every requirement extracted from the issue, each mapped to where it is satisfied    |
+| [`analysis.md`](./analysis.md)                                       | Root-cause analysis, the evidence, design decisions and trade-offs                                                   |
+| [`existing-components.md`](./existing-components.md)                 | Survey of in-repo components reused, plus external prior art / GitHub behavior references                            |
+| [`external-report.md`](./external-report.md)                         | Decision on the "report to other repositories" requirement (meta-language **and** the GitHub platform gap)           |
+| [`github-api-linking-research.md`](./github-api-linking-research.md) | **R-15** — definitive answer to "is there an API to link a PR to an issue?" (no), with live proof + upstream reports |
+| [`data/`](./data/)                                                   | Downloaded raw evidence (GraphQL dumps, schema introspection, upstream-discussion snapshots) for #65/#66/#49/#50     |
 
 ---
 
@@ -69,6 +70,34 @@ So a PR stacked onto another feature branch (a "sub-issue" branch such as
    "ISSUE LINK MISSING" warning fired even though `Fixes #N` was present), and
 2. **not** close its linked issue on merge.
 
+## Maintainer follow-up: "is there an API to link a PR to an issue?" (R-15)
+
+> _"We need to be able to do linking of pull requests to issues via API, as we can
+> do it manually in web UI. Maybe we just missed that API? Or if it does not exist,
+> we need to report all the issues."_
+
+**We did not miss an API — it does not exist.** Live GraphQL schema introspection
+confirms there is **no** public mutation (and no REST endpoint) to link an existing
+PR to an issue the way the web-UI **Development** sidebar does. The only
+API-reachable mechanism is the `Fixes #N` closing keyword, which GitHub honors
+**only for default-branch PRs** — the exact limitation behind this issue.
+
+Because the gap is real, we **reported it upstream** (as `konard`): upvoted the
+three canonical GitHub feature requests
+([#155339](https://github.com/orgs/community/discussions/155339) — link API,
+[#112224](https://github.com/orgs/community/discussions/112224) — non-default-branch
+auto-close,
+[#179613](https://github.com/orgs/community/discussions/179613) — read linked
+issues) and [posted a reproducible evidence comment](https://github.com/community/community/discussions/155339#discussioncomment-17288911)
+on #155339.
+
+Full method, proof and reproduction:
+[`github-api-linking-research.md`](./github-api-linking-research.md). No new code
+was added — calling a non-existent API is impossible, and hive-mind's
+head-branch search + post-merge close are the only viable response (and remain
+necessary even if GitHub ships the API, since auto-close is still default-branch
+only).
+
 ## The evidence (see [`data/meta-language-graphql-evidence.json`](./data/meta-language-graphql-evidence.json))
 
 | PR  | head branch             | base branch             | merged | `closingIssuesReferences` | linked issue      | issue state after merge |
@@ -79,6 +108,14 @@ So a PR stacked onto another feature branch (a "sub-issue" branch such as
 `meta-language` default branch = **`main`**. Both PRs targeted
 `issue-47-76af108c0f24`, a **non-default** branch → empty closing refs → issues
 left open. This is the textbook reproduction of the root cause.
+
+**Two refresher findings** (see [`data/meta-language-evidence-refreshed.json`](./data/meta-language-evidence-refreshed.json)):
+
+- GitHub itself records the broken link as **`willCloseTarget: false`** on the
+  `Fixes #N` cross-reference — machine-readable proof the keyword was not honored.
+- Issues #49/#50 are **now closed**, but by unrelated default-branch activity
+  (parent PR #48 / a later commit), **never by their own PRs #65/#66** (still empty
+  closing refs). This reinforces — does not contradict — the root cause.
 
 ## Reconstructed timeline
 

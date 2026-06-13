@@ -1,0 +1,49 @@
+# GitHub GraphQL API introspection — PR<->issue linking mutations
+# Captured 2026-06-13T11:25:34Z against api.github.com (live schema)
+
+## All mutations whose name matches link|connect|clos|refer:
+  - closeDiscussion
+  - closeIssue
+  - closePullRequest
+  - createLinkedBranch
+  - deleteLinkedBranch
+  - linkProjectV2ToRepository
+  - linkProjectV2ToTeam
+  - unlinkProjectV2FromRepository
+  - unlinkProjectV2FromTeam
+  - updateCheckSuitePreferences
+  - updateSponsorshipPreferences
+
+## createPullRequest input fields (no linked-issue / closing-reference field):
+  - clientMutationId
+  - repositoryId
+  - baseRefName
+  - headRefName
+  - headRepositoryId
+  - title
+  - body
+  - maintainerCanModify
+  - draft
+
+## updatePullRequest input fields (no linked-issue / closing-reference field):
+  - clientMutationId
+  - pullRequestId
+  - baseRefName
+  - title
+  - body
+  - state
+  - maintainerCanModify
+  - assigneeIds
+  - milestoneId
+  - labelIds
+  - projectIds
+
+## createLinkedBranch input (links a NEW branch to an issue — NOT a PR, cannot link existing branch):
+  - clientMutationId
+  - issueId
+  - oid
+  - name
+  - repositoryId
+
+## CONCLUSION: No mutation exists to link an existing PR (or existing branch) to an issue.
+## The web UI 'Development' sidebar link is backed by an internal, unexposed mutation.

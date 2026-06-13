@@ -74,8 +74,22 @@ wording of the issue title.
 }
 ```
 
-Both PRs: non-default base, merged, **empty** closing refs. Issues #49 and #50:
-**OPEN**. Root cause confirmed beyond doubt.
+Both PRs: non-default base, merged, **empty** closing refs. Issues #49 and #50
+were **OPEN** at capture time. Root cause confirmed beyond doubt.
+
+**Refreshed capture** ([`data/meta-language-evidence-refreshed.json`](./data/meta-language-evidence-refreshed.json))
+adds two findings:
+
+1. **`willCloseTarget: false`.** The `Fixes #49` keyword in PR #65 _does_ create a
+   `CrossReferencedEvent` in issue #49's timeline (so the relationship is visible),
+   but GitHub stamps that cross-reference with **`willCloseTarget: false`** — a
+   machine-readable admission that the keyword was **not** honored as a closing
+   link, precisely because of the non-default base. The same holds for #66 → #50.
+2. **Issues #49/#50 are now CLOSED — but not by their own PRs.** Their
+   `closingIssuesReferences` are still empty; they were closed later by unrelated
+   default-branch activity (parent PR #48 / a subsequent commit), never by #65/#66.
+   This _reinforces_ the root cause rather than contradicting it: the PRs that were
+   supposed to close them never did.
 
 ## 3. Solution options and the chosen plan (R-7)
 
@@ -153,3 +167,38 @@ observability so any recurrence is self-diagnosing:
 - `ensureLinkedIssueClosedAfterMerge` against a fake `$` exec: closes on
   non-default base, skips on default base / already-closed / no-keyword, and
   derives the issue number from the PR body when not supplied.
+
+## 6. Is there an API to link a PR to an issue? (R-15 — maintainer follow-up)
+
+On PR #1896 the maintainer asked whether GitHub exposes an API to link a PR to an
+issue the way the web-UI **Development** sidebar does — _"maybe we just missed that
+API? Or if it does not exist, we need to report all the issues."_
+
+**Answer: there is no such public API; we did not miss it.** Verified by **live
+GraphQL schema introspection** (full method, evidence and reproduction in
+[`github-api-linking-research.md`](./github-api-linking-research.md)):
+
+- The complete public mutation list contains **no** `linkPullRequestToIssue` /
+  `addClosingIssueReference` / `connectIssue`. The only link-ish mutations are
+  `createLinkedBranch`/`deleteLinkedBranch` (branches, not PRs; cannot link an
+  _existing_ branch). Raw dump: [`data/github-api-introspection.txt`](./data/github-api-introspection.txt).
+- `CreatePullRequestInput` and `UpdatePullRequestInput` expose **no** linked-issue
+  field.
+- REST has no such endpoint either (and no endpoint to even _read_ a PR's linked
+  issues — upstream #179613).
+
+The **only** API-reachable link is the closing keyword (`Fixes #N`), which GitHub
+honors **only for default-branch PRs** — the very limitation behind this issue. And
+even a hypothetical link API would still auto-close only on a default-branch merge
+(GitHub Docs), so it would restore _discoverability_, not auto-close — meaning the
+post-merge close fallback in §3 remains necessary regardless.
+
+**Why no new code.** Because the link API does not exist, the engineering response
+is already complete and correct: deterministic `head:issue-N-` branch search for
+discovery (auto-continue) + explicit post-merge close for closure. Adding code that
+calls a non-existent API is impossible; re-targeting PRs to `main` was rejected in
+§3 (option D). So R-15's code path is "report upstream," which we did.
+
+**What we reported (R-11).** We upvoted the three canonical feature requests and
+added a reproducible evidence comment — see [`external-report.md`](./external-report.md)
+and [`github-api-linking-research.md`](./github-api-linking-research.md) §5.

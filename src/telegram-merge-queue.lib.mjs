@@ -16,7 +16,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
 
-import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus, syncReadyTags } from './github-merge.lib.mjs';
+import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus, syncReadyTags, closeLinkedIssueIfNotAutoClosed } from './github-merge.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
 import { getProgressBar } from './limits.lib.mjs';
 
@@ -511,6 +511,17 @@ export class MergeQueueProcessor {
       item.completedAt = new Date();
       this.stats.merged++;
       this.log(`Successfully merged PR #${item.pr.number}`);
+
+      // Issue #1895: GitHub does not auto-close linked issues for PRs merged into
+      // a non-default branch. Close the linked issue explicitly in that case.
+      try {
+        const closeResult = await closeLinkedIssueIfNotAutoClosed(this.owner, this.repo, item.pr.number, this.verbose);
+        if (closeResult.closed) {
+          this.log(`Closed linked issue #${closeResult.issueNumber} for PR #${item.pr.number} (merged into non-default branch)`);
+        }
+      } catch (closeError) {
+        this.log(`Could not close linked issue for PR #${item.pr.number}: ${closeError.message}`);
+      }
 
       // Issue #1341: Get the merge commit SHA for post-merge CI tracking
       // Need a small delay to allow GitHub to update the PR state

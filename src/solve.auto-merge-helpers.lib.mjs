@@ -421,8 +421,52 @@ export const trackAuthenticatedUserCommentsSince = async (owner, repo, prNumber,
  * - billing_limit: Billing/spending limit reached → stop (private) or wait (public)
  * - no_checks: No CI checks yet (race condition) → wait
  */
+/**
+ * Issue #1918: Decide whether the consecutive "no workflow runs" counter should be
+ * reset after a getMergeBlockers() result.
+ *
+ * The counter (`consecutiveNoRunsChecks` in the watch loop) is a safety valve: after
+ * MAX_NO_RUNS_CHECKS consecutive checks where a repo's PR-triggered workflows produced
+ * 0 workflow runs, /merge stops waiting and trusts the available signal (external
+ * checks / mergeability). For that valve to ever fire, the counter must keep
+ * incrementing across watch-loop iterations for the same commit.
+ *
+ * The previous logic reset the counter whenever `ciStatus.status !== 'no_checks'`.
+ * That is wrong when `status === 'success'` comes from EXTERNAL checks only (e.g.
+ * CodeRabbit) while the repo's own PR-triggered workflows have 0 runs — for example a
+ * fork PR whose only workflow triggers on `push`, which never fires for fork commits in
+ * the base repo. In that case getMergeBlockers keeps emitting the "no workflow runs"
+ * wait, but the caller reset the counter to 0 every iteration, pinning it at "check
+ * 1/5" forever — an infinite watch loop that hung for over an hour (Issue #1918).
+ *
+ * Fix: keep the counter whenever getMergeBlockers signals it is still inside the
+ * no-workflow-runs wait (`noWorkflowRunsForCommit === true`), regardless of ciStatus.
+ *
+ * @param {{status?: string}|null|undefined} ciStatus - Detailed CI status object.
+ * @param {boolean} [noWorkflowRunsForCommit=false] - True when getMergeBlockers is still
+ *   waiting for PR-triggered workflow runs to register for the current commit.
+ * @returns {boolean} true if `consecutiveNoRunsChecks` should be reset to 0.
+ */
+export const shouldResetNoRunsCounter = (ciStatus, noWorkflowRunsForCommit = false) => {
+  // Still inside the no-workflow-runs safety-valve wait — the counter MUST keep
+  // climbing toward MAX_NO_RUNS_CHECKS, so do not reset it.
+  if (noWorkflowRunsForCommit) {
+    return false;
+  }
+  // Genuine CI checks exist (pending/success/failure backed by workflow runs) — the
+  // "no runs" counter is irrelevant and should be reset.
+  return Boolean(ciStatus && ciStatus.status !== 'no_checks');
+};
+
 export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCount = 1, prBranchRef = null) => {
   const blockers = [];
+
+  // Issue #1918: Tracks whether we are still waiting for PR-triggered workflow runs to
+  // register for the current commit (0 runs observed). When true, the caller must NOT
+  // reset its consecutive-no-runs counter, otherwise the MAX_NO_RUNS_CHECKS safety valve
+  // never fires and /merge loops forever (e.g. fork PR + push-only workflow + a passing
+  // external check reporting status 'success').
+  let noWorkflowRunsForCommit = false;
 
   // Use detailed CI status to distinguish between all possible states
   const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
@@ -630,6 +674,8 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             if (verbose) {
               await log(formatAligned('⏳', 'Waiting for CI:', `No workflow runs for SHA ${ciStatus.sha.substring(0, 7)}, but workflows have PR/push triggers (${prTriggers.workflows.map(w => w.name).join(', ')}) — check ${checkCount}/${MAX_NO_RUNS_CHECKS}, commit age: ${commitInfo.ageSeconds ?? 'unknown'}s`, 2));
             }
+            // Issue #1918: Still waiting for workflow runs to register — keep the counter.
+            noWorkflowRunsForCommit = true;
             blockers.push({
               type: 'ci_pending',
               message: `CI/CD workflow runs have not appeared yet — workflows have PR/push triggers (${prTriggers.workflows.map(w => w.name).join(', ')}), waiting for GitHub to register workflow runs (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`,
@@ -640,6 +686,8 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             if (verbose) {
               await log(`[VERBOSE] /merge: No PR/push triggers found in workflow files, but commit is only ${commitInfo.ageSeconds}s old — waiting to be safe`);
             }
+            // Issue #1918: Still inside the grace-period wait for workflow runs — keep the counter.
+            noWorkflowRunsForCommit = true;
             blockers.push({
               type: 'ci_pending',
               message: `CI/CD workflow runs have not appeared yet — commit is ${commitInfo.ageSeconds}s old, waiting for GitHub to register workflow runs (grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s)`,
@@ -717,6 +765,9 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             if (verbose) {
               await log(`[VERBOSE] /merge: PR #${prNumber} CI status is 'success' (${ciStatus.passedChecks.length} external checks), but repo has PR-triggered workflows with 0 workflow runs — likely race condition (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`);
             }
+            // Issue #1918: Keep the caller's no-runs counter climbing so the safety valve
+            // can fire — otherwise a 'success' from external-only checks resets it forever.
+            noWorkflowRunsForCommit = true;
             // Wait for GitHub Actions to register workflow runs
             blockers.push({
               type: 'ci_pending',
@@ -839,11 +890,12 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
     });
   }
 
-  return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false };
+  return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
 };
 
 export default {
   checkForExistingComment,
   checkForNonBotComments,
   getMergeBlockers,
+  shouldResetNoRunsCounter,
 };

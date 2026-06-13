@@ -54,7 +54,7 @@ import { limitReset } from './config.lib.mjs';
 
 // Import helper functions extracted for file size management (Issue #1593)
 const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
-const { checkForExistingComment, checkForNonBotComments, getMergeBlockers, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = autoMergeHelpers;
+const { checkForExistingComment, checkForNonBotComments, getMergeBlockers, shouldResetNoRunsCounter, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = autoMergeHelpers;
 
 // Issue #1769: cancelled/stale CI re-run failures need a human action stop, not polling forever.
 const cancelledCiRerunLib = await import('./cancelled-ci-rerun.lib.mjs');
@@ -203,10 +203,15 @@ export const watchUntilMergeable = async params => {
       consecutiveNoRunsChecks++;
 
       // Get merge blockers
-      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
+      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, noWorkflowRunsForCommit } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
 
-      // Issue #1503: Reset counter when CI checks exist (safety valve only for consecutive "no runs")
-      if (ciStatus && ciStatus.status !== 'no_checks') {
+      // Issue #1503/#1918: Reset counter when CI checks exist (safety valve only for
+      // consecutive "no runs"). Issue #1918: do NOT reset while getMergeBlockers is still
+      // waiting for PR-triggered workflow runs to register (noWorkflowRunsForCommit). A
+      // 'success' status from external-only checks (e.g. CodeRabbit) on a fork PR whose
+      // workflow only triggers on `push` previously reset the counter every iteration,
+      // pinning it at "check 1/5" forever and hanging /merge for over an hour.
+      if (shouldResetNoRunsCounter(ciStatus, noWorkflowRunsForCommit)) {
         // CI checks exist (pending, success, failure, etc.) — the "no runs" counter is irrelevant
         consecutiveNoRunsChecks = 0;
       } else if (noCiConfigured || noCiTriggered) {

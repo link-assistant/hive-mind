@@ -131,10 +131,12 @@ export function registerTaskCommands(bot, options) {
     const splitMode = commandName === 'split' || hasTaskSplitFlag(parsedArgs);
 
     if (!splitMode) {
+      const replyText = getReplyText(ctx.message);
       const creationInput = resolveTaskIssueCreationInput({
         commandText: ctx.message.text,
-        replyText: getReplyText(ctx.message),
+        replyText,
       });
+      VERBOSE && console.log(`[VERBOSE] ${commandDisplay} issue creation: isReply=${Boolean(replyText)} replyChars=${replyText.length} resolvedChars=${creationInput.length}`);
       const creation = parseTaskIssueCreationInput(creationInput);
 
       if (!creation.valid) {

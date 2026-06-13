@@ -314,21 +314,38 @@ token is read from `.lenv` on the server and is unaffected.
 
 ## Upstream Report
 
-### link-foundation/box — passthrough is a _silent_ no-op without the host socket
+### link-foundation/box — passthrough is silent when an allowlist is set but no socket is mounted
 
-- **Problem:** with `DIND_HOST_PASSTHROUGH=public` (the default) but no host
-  socket mounted at `DIND_HOST_DOCKER_SOCK`, the entrypoint copies nothing and
-  prints nothing. Operators only discover it as a surprise multi-GB pull on the
-  first nested `docker run`.
-- **Reproducible example:** run `konard/box-dind` **without**
+Filed as **[link-foundation/box#102](https://github.com/link-foundation/box/issues/102)**.
+
+box's behavior is more nuanced than "always silent", confirmed by reading
+`ubuntu/24.04/dind/dind-entrypoint.sh` at main `b81aee7`
+([L398-L408](https://github.com/link-foundation/box/blob/b81aee7ab1dc2bda53733e80739e3b2284f38571/ubuntu/24.04/dind/dind-entrypoint.sh#L398-L408)):
+
+- It **does** warn when the socket file is _present but unreachable_
+  (`host docker socket … is not accessible; skipping passthrough`).
+- It **stays silent by design** when no socket is mounted at all — the inline
+  comment is "the common 'no host socket mounted' case stays silent so the
+  default mode is free." Reasonable for plain `box-dind` containers that never
+  intended passthrough.
+
+- **The gap (filed):** when the operator sets `DIND_HOST_PASSTHROUGH_IMAGES`
+  (an explicit "pass these images through" opt-in) but forgets the socket mount,
+  box is _still_ silent — exactly the production state in #1914. The nested
+  daemon never seeds and the first `docker run` re-pulls the multi-GB image with
+  no explanation.
+- **Reproducible example:** run `konard/box-dind` with
+  `-e DIND_HOST_PASSTHROUGH_IMAGES="hello-world"` but **without**
   `-v /var/run/docker.sock:/var/run/host-docker.sock:ro`, then inside it
   `docker run hello-world` → it pulls from the registry even though the host has
-  `hello-world`.
+  `hello-world`, and prints no warning.
 - **Workaround:** mount the socket (this issue's fix) or `docker load` manually.
-- **Suggested fix:** when passthrough is enabled but the source socket is missing
-  at startup, emit a single clear warning (e.g. `box: host-image passthrough is
-enabled but <sock> is not mounted; nested daemon will not be seeded`). Optional:
-  a one-line summary of how many host images were considered/copied/skipped.
+- **Suggested fix:** keep the default-mode silence but add one `warn` in the
+  `! host_docker_available` branch when `DIND_HOST_PASSTHROUGH_IMAGES` is
+  non-empty (clear opt-in) yet no socket exists — telling the operator to add
+  `-v /var/run/docker.sock:${DIND_HOST_DOCKER_SOCK}:ro`. Optional: a one-line
+  `passthrough: copied N, skipped M` summary after a successful pass. Full patch
+  in box#102.
 
 ### link-foundation/start-command — optional DX niceties (no functional bug)
 

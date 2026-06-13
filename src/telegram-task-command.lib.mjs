@@ -95,7 +95,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerTaskCommands(bot, options) {
-  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, resolveLocale = null } = options;
+  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, resolveLocale = null } = options;
 
   async function handleTaskCommand(ctx) {
     const commandName = getTaskCommandNameFromText(ctx.message?.text) || 'task';
@@ -114,6 +114,13 @@ export function registerTaskCommands(bot, options) {
       return;
     }
     if (isOldMessage(ctx)) return;
+    // Issue #1922: a forwarded /task command must never be re-executed. Replies
+    // are still allowed because /task uses them for issue creation, so we use the
+    // forwarded-only filter instead of isForwardedOrReply.
+    if (isForwarded && isForwarded(ctx)) {
+      VERBOSE && console.log(`[VERBOSE] ${commandDisplay} ignored: forwarded message`);
+      return;
+    }
     if (!isGroupChat(ctx)) {
       await ctx.reply(`❌ The ${commandDisplay} command only works in group chats. Please add this bot to a group and make it an admin.`, { reply_to_message_id: ctx.message.message_id });
       return;

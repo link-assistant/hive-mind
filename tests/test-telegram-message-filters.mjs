@@ -14,7 +14,7 @@
  * @see https://github.com/link-assistant/hive-mind/pull/496
  */
 
-import { isOldMessage, isGroupChat, isChatAuthorized, isForwardedOrReply, extractCommandFromText } from '../src/telegram-message-filters.lib.mjs';
+import { isOldMessage, isGroupChat, isChatAuthorized, isForwarded, isForwardedOrReply, extractCommandFromText } from '../src/telegram-message-filters.lib.mjs';
 
 console.log('='.repeat(80));
 console.log('Unit Tests: Telegram Message Filters (Issue #1207)');
@@ -351,6 +351,47 @@ runTest('Handles message with forward_origin.type = "channel"', () => {
     },
   });
   return isForwardedOrReply(ctx) === true;
+});
+
+// ===========================================================================
+// Tests for isForwarded() - Issue #1922 forwarded-only filter
+// ===========================================================================
+console.log('\n--- isForwarded() Tests ---\n');
+
+runTest('isForwarded: false for normal message', () => {
+  const ctx = makeCtx({ message: { text: '/task https://github.com/owner/repo/issues/1' } });
+  return isForwarded(ctx) === false;
+});
+
+runTest('isForwarded: false when forward_origin is empty object {} (issue #493)', () => {
+  const ctx = makeCtx({ message: { text: '/task x', forward_origin: {} } });
+  return isForwarded(ctx) === false;
+});
+
+runTest('isForwarded: true for forwarded message (new API forward_origin.type)', () => {
+  const ctx = makeCtx({ message: { text: '/task x', forward_origin: { type: 'user', sender_user: { id: 1 } } } });
+  return isForwarded(ctx) === true;
+});
+
+runTest('isForwarded: true for forwarded message (old API forward_from)', () => {
+  const ctx = makeCtx({ message: { text: '/task x', forward_from: { id: 1, first_name: 'T' } } });
+  return isForwarded(ctx) === true;
+});
+
+runTest('isForwarded: true for old API forward_date', () => {
+  const ctx = makeCtx({ message: { text: '/task x', forward_date: 1700000000 } });
+  return isForwarded(ctx) === true;
+});
+
+// The whole point of issue #1922: a reply must NOT be treated as forwarded, so
+// the /task and /solve reply features keep working.
+runTest('isForwarded: false for a genuine user reply (reply feature preserved)', () => {
+  const ctx = makeCtx({ message: { text: '/task x', reply_to_message: { message_id: 5, text: 'hello' } } });
+  return isForwarded(ctx) === false;
+});
+
+runTest('isForwarded: false when there is no message object', () => {
+  return isForwarded({}) === false;
 });
 
 // ===========================================================================

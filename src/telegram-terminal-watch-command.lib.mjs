@@ -307,7 +307,7 @@ export async function startAutoTerminalWatchForSession({ bot, ctx, sessionId, se
 }
 
 export async function registerTerminalWatchCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
   const runner = !options.querySessionStatus || !options.isTerminalSessionStatus ? await import('./isolation-runner.lib.mjs') : null;
   const querySessionStatus = options.querySessionStatus || runner.querySessionStatus;
   const isTerminalSessionStatus = options.isTerminalSessionStatus || runner.isTerminalSessionStatus;
@@ -318,6 +318,11 @@ export async function registerTerminalWatchCommand(bot, options) {
   const handleTerminalWatchCommand = async ctx => {
     VERBOSE && console.log('[VERBOSE] /terminal_watch command received');
     if (isOldMessage && isOldMessage(ctx)) return;
+    // Issue #1922: never re-execute a forwarded command.
+    if (isForwarded && isForwarded(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /terminal_watch ignored: forwarded message');
+      return;
+    }
 
     const chat = ctx.chat;
     const message = ctx.message;

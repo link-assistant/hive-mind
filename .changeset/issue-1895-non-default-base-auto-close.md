@@ -18,6 +18,12 @@ exact failure reported for meta-language PRs #65/#66 / issues #49/#50.
 - src/solve.auto-pr.lib.mjs: replace the misleading "ISSUE LINK MISSING — add
   Fixes #N" warning with an accurate "ISSUE LINK DEFERRED" explanation when the
   keyword is present but the PR targets a non-default branch.
+- src/solve.auto-continue.lib.mjs (`collectIssuePrCandidates`): detect the existing
+  PR for an issue by BOTH GitHub's `linked:issue` search (legacy, preserved) and the
+  deterministic `head:issue-N-` branch search. A PR targeting a non-default base
+  branch never appears in `linked:issue`, so `--auto-continue` previously failed to
+  resume it and risked creating a duplicate; the head-branch search guarantees the
+  PR↔issue association regardless of base branch.
 - src/solve.auto-merge.lib.mjs (watchUntilMergeable + attemptAutoMerge),
   src/github-merge.lib.mjs / src/github-merge-issue-close.lib.mjs
   (`closeLinkedIssueIfNotAutoClosed`, used by the /merge queue), and
@@ -25,6 +31,9 @@ exact failure reported for meta-language PRs #65/#66 / issues #49/#50.
   into a non-default branch. All gh calls route through the rate-limit-aware wrappers.
 - tests/github-issue-auto-close.test.mjs: 14 cases reproducing the non-default-base
   bug and verifying the diagnosis + fallback.
+- tests/solve-auto-continue-detection-1895.test.mjs: 7 cases proving non-default-base
+  PRs are detected for auto-continue (head-branch search), legacy linked detection is
+  preserved, results are deduped/merged, and search failures degrade gracefully.
 - docs/case-studies/issue-1895: deep case study with downloaded GraphQL/PR/issue
   evidence, reconstructed timeline, root-cause analysis, requirement mapping, and the
   external-reporting decision.

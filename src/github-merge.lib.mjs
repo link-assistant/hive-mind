@@ -42,6 +42,12 @@ const exec = (cmd, opts = {}) =>
 import { syncReadyTags, getLinkedPRsFromTimeline, READY_LABEL } from './github-merge-ready-sync.lib.mjs';
 export { syncReadyTags, getLinkedPRsFromTimeline, READY_LABEL };
 
+// Issue #1895: After merging into a non-default branch, close the linked issue
+// explicitly (GitHub only auto-closes for default-branch merges). Extracted to a
+// separate module to keep this file under the 1500-line limit.
+import { closeLinkedIssueIfNotAutoClosed } from './github-merge-issue-close.lib.mjs';
+export { closeLinkedIssueIfNotAutoClosed };
+
 /**
  * Check if 'ready' label exists in repository
  * @param {string} owner - Repository owner
@@ -1419,6 +1425,7 @@ export default {
   getActiveBranchRuns, // Issue #1307: New exports for target branch CI waiting
   waitForBranchCI,
   getDefaultBranch,
+  closeLinkedIssueIfNotAutoClosed, // Issue #1895: close linked issue after merge into non-default branch
   // Issue #1314: Billing limit detection and enhanced CI status and re-run capabilities
   getCheckRunAnnotations,
   getRepoVisibility,

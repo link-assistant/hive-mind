@@ -294,23 +294,45 @@ node scripts/preload-dind-isolation-image.mjs \
   --container hive-mind --image konard/hive-mind-dind:latest
 ```
 
-## Deploy Script Fix
+## Deploy Script Fix (applied)
 
-In `deploy-docker.mjs`, the dind `VARIANT` should contribute a passthrough mount
+**Applied to [gist 67532e7a](https://gist.github.com/konard/67532e7a7090462a618ca86fc00d06a6)
+(revision 5).** The dind `VARIANT` now contributes a `passthroughFlags` field
+(host-socket mount + image allowlist) and the final `docker run` includes it.
+The plain variant contributes an empty `passthroughFlags` (it runs no nested
+dockerd, so there is nothing to seed). The exact change is captured token-free in
+[`data/deploy-docker.passthrough-fix.patch`](./data/deploy-docker.passthrough-fix.patch):
 
-- allowlist, and the final `docker run` should include them. Concretely:
-
-```js
-// dind variant only: let box seed the nested daemon from the host so isolated
-// tasks reuse the host image instead of re-pulling 30 GB (issue #1914).
-passthroughFlags: ('-v /var/run/docker.sock:/var/run/host-docker.sock:ro ' + '-e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind"',
-  // …
-  await run(`docker run -dit ${VARIANT.runFlags} ${VARIANT.finalEnvFlags} ${VARIANT.passthroughFlags} ` + `${VARIANT.finalUserFlag} ${VARIANT.entrypointFlag} --name ${CONTAINER} ` + `--restart unless-stopped ${MOUNTS} ${CONTAINER}-configured bash -l -c 'bash /home/box/start-bot.sh'`));
+```diff
+     entrypointFlag: '--entrypoint /usr/local/bin/dind-entrypoint.sh',
++    passthroughFlags:
++      '-v /var/run/docker.sock:/var/run/host-docker.sock:ro ' +
++      '-e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind"',
+     needsDockerd: true,
+   },
+   plain: {
+     ...
++    passthroughFlags: '',
+     needsDockerd: false,
+   },
+ };
+-await run(`docker run -dit ${VARIANT.runFlags} ${VARIANT.finalEnvFlags} ${VARIANT.finalUserFlag} ...`);
++await run(`docker run -dit ${VARIANT.runFlags} ${VARIANT.finalEnvFlags} ${VARIANT.passthroughFlags} ${VARIANT.finalUserFlag} ...`);
 ```
 
-(The plain variant contributes an empty `passthroughFlags`.) This is the single
-production change that ends the re-download. No secrets are involved; the bot
-token is read from `.lenv` on the server and is unaffected.
+This is the single production change that ends the re-download: on the next bot
+deploy/start, box seeds the nested daemon from the host (which already has
+`konard/hive-mind-dind:latest` with a registry digest, pulled earlier in the same
+script), and the startup preflight then logs `✅ … already present`.
+
+> **Security note (pre-existing, unrelated to this fix):** the gist's _other_
+> file, `deploy-remote-docker.mjs`, embeds a live-looking `TELEGRAM_BOT_TOKEN` in
+> clear text inside its `.lenv.example` template. This fix did **not** touch that
+> file, and the token is **not** reproduced anywhere in this repository. It should
+> be rotated and removed from the template (and `.lenv.example` should ship only a
+> placeholder). The same token already appears in several older case-study logs in
+> this repo — see the issue #1745 sanitization work — so this is a known,
+> pre-existing exposure rather than something introduced here.
 
 ## Upstream Report
 

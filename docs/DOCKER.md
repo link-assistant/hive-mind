@@ -88,6 +88,72 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 The DinD image is published separately from `konard/hive-mind:latest` so users
 who do not need nested Docker keep the existing lower-privilege image.
 
+#### Host-image passthrough (avoid re-downloading multi-GB images)
+
+When the bot runs with `--isolation docker` inside the DinD image, each task is
+launched as a _nested_ `docker run konard/hive-mind-dind:latest …`. That nested
+`docker run` talks to the **inner** dockerd, whose image store starts **empty**
+(the deploy wipes `/var/lib/docker` before `docker commit`). Docker then reports
+`Unable to find image '…' locally` and pulls a fresh copy — and the Hive Mind
+images are multiple gigabytes, so the first isolated task can spend a very long
+time (or run out of disk) re-downloading an image the **host already has**. See
+[issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) and
+[#1879](https://github.com/link-assistant/hive-mind/issues/1879).
+
+The base image (`konard/box-dind`) can seed the inner daemon from the host
+automatically — **host-image passthrough** — but only when the host Docker
+socket is bind-mounted into the container. **Without the socket mount,
+passthrough is a silent no-op** and the inner daemon stays empty. Mount it and
+set the allowlist:
+
+```bash
+docker run -dit --privileged --name hive-mind --restart unless-stopped \
+  # ... your usual credential mounts ...
+  -v /var/run/docker.sock:/var/run/host-docker.sock:ro \
+  -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind" \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+Passthrough is controlled by these environment variables (honored by `box-dind`):
+
+| Variable                           | Default                     | Purpose                                                                                   |
+| ---------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------- |
+| `DIND_HOST_PASSTHROUGH`            | `public`                    | `off`, `public` (copy only images with a public-registry digest), or `all`.               |
+| `DIND_HOST_DOCKER_SOCK`            | `/var/run/host-docker.sock` | Where the host socket is mounted inside the container. Hive Mind reads the same variable. |
+| `DIND_HOST_PASSTHROUGH_IMAGES`     | _(empty = any)_             | Space-separated image-name allowlist, e.g. `konard/hive-mind konard/hive-mind-dind`.      |
+| `DIND_HOST_PASSTHROUGH_REGISTRIES` | _(empty)_                   | Optional registry allowlist for `public` mode.                                            |
+
+In the default `public` mode, only images that carry a digest from a public
+registry are copied, so the host copy must be a pulled/pushed image (a locally
+`docker build`-only image without a `RepoDigest` will be skipped — push it first
+or use `all`).
+
+**Startup preflight.** When `--isolation docker` is enabled, the bot probes the
+inner daemon at startup and logs the result, so a misconfiguration surfaces
+immediately instead of as a surprise pull mid-task:
+
+- ✅ image already present → isolated tasks reuse it (no pull);
+- ⚠️ socket **not** mounted → it tells you to add the socket mount + allowlist;
+- ⚠️ socket mounted but image still absent → it tells you to check the
+  passthrough mode/allowlist/digest.
+
+Run the bot with `--verbose` (or `TELEGRAM_BOT_VERBOSE=true`) for the underlying
+`docker image inspect` traces.
+
+**Manual fallback.** To seed an already-running container immediately (or when
+you cannot change the deployment), copy the host image into the inner daemon:
+
+```bash
+node scripts/preload-dind-isolation-image.mjs \
+  --container hive-mind --image konard/hive-mind-dind:latest
+```
+
+This streams `docker save … | docker exec -i <container> docker load` so the
+tarball never touches disk, and is a no-op if the inner daemon already has the
+image. Once the image is present, start-command's native Docker backend reuses
+it automatically (Docker's default "missing" pull policy — it pulls only when
+the image is absent, so there is no re-download).
+
 ### Option 4: Development Mode (Gitpod-style)
 
 For development purposes, the legacy `Dockerfile` provides a Gitpod-compatible environment:

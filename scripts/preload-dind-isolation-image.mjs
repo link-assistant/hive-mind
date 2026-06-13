@@ -17,9 +17,18 @@
  *
  * This script copies the host image into the nested daemon via
  * `docker save | docker exec -i <container> docker load`. Run it once after the
- * container starts (and again after the host image is updated). Combine it with
- * `HIVE_MIND_DOCKER_ISOLATION_PULL=never` so isolated tasks reuse the seeded
- * image and fail fast instead of silently re-pulling.
+ * container starts (and again after the host image is updated). Once the image
+ * is in the nested daemon, isolated tasks reuse it automatically: start-command's
+ * native Docker backend runs `docker run` with Docker's default "missing" pull
+ * policy, so a locally present image is never re-pulled (issue #1914).
+ *
+ * Prefer the automatic path. This script is a manual fallback. The durable fix
+ * is to let box's host-image passthrough seed the nested daemon on boot by
+ * bind-mounting the host Docker socket into the bot container:
+ *   -v /var/run/docker.sock:/var/run/host-docker.sock:ro
+ *   -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind"
+ * See docs/DOCKER.md ("Host-image passthrough"). Use this script when you cannot
+ * change the deployment or need to seed an already-running container immediately.
  *
  * Usage:
  *   node scripts/preload-dind-isolation-image.mjs [--container hive-mind] [--image konard/hive-mind-dind:latest] [--verbose]
@@ -124,7 +133,10 @@ function main() {
     return 1;
   }
   console.log(`>>> Done. Nested daemon now has '${image}'.`);
-  console.log('>>> Tip: set HIVE_MIND_DOCKER_ISOLATION_PULL=never so isolated tasks reuse it.');
+  console.log('>>> Isolated tasks now reuse it automatically (native docker backend pulls only when missing).');
+  console.log('>>> Tip: to seed automatically on boot, mount the host socket into the bot container:');
+  console.log('>>>   -v /var/run/docker.sock:/var/run/host-docker.sock:ro \\');
+  console.log('>>>   -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind"');
   return 0;
 }
 

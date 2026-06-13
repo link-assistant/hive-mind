@@ -32,13 +32,21 @@ const TERMINAL_SESSION_STATUSES = new Set(['executed', 'completed', 'failed', 'c
 const HIVE_MIND_IMAGE_REPO = 'konard/hive-mind';
 const HIVE_MIND_DIND_IMAGE_REPO = 'konard/hive-mind-dind';
 const DEFAULT_HIVE_MIND_IMAGE_TAG = 'latest';
-// Docker's `--pull` accepts these policies. We only emit the flag when an
-// operator explicitly opts in; otherwise Docker's own default ("missing")
-// applies and `docker run` reuses any locally present image. See issue #1879.
-const VALID_DOCKER_PULL_POLICIES = new Set(['always', 'missing', 'never']);
-const DOCKER_ISOLATION_TRACKING_BACKEND = 'screen';
 const DOCKER_CONTAINER_HOME = '/home/box';
-const DOCKER_CONTAINER_PREFIX = 'hive-mind-isolation';
+// Default path where the host Docker socket is bind-mounted inside a DinD
+// container so box's host-image passthrough can copy host images into the
+// nested daemon. Matches box's own DIND_HOST_DOCKER_SOCK default. The deploy
+// must mount it (`-v /var/run/docker.sock:/var/run/host-docker.sock:ro`) or the
+// nested daemon starts empty and the first isolated task pulls the full,
+// multi-gigabyte image. See issue #1914.
+const DEFAULT_HOST_DOCKER_SOCK = '/var/run/host-docker.sock';
+// Force a POSIX shell for the inner command of Docker-isolated tasks. solve/
+// hive/task live on the image's baked-in PATH, so `sh -c` resolves them without
+// needing a login shell. Forcing the shell (instead of start's 'auto') also
+// skips start's shell-detection probe, which would otherwise `docker run` a
+// throwaway container — booting the dind image's dockerd entrypoint — purely to
+// check whether bash exists. See issue #1914.
+const DOCKER_ISOLATION_SHELL = 'sh';
 
 function normalizeProcessIds(value) {
   if (!value || typeof value !== 'object') return {};
@@ -62,17 +70,8 @@ function shellQuote(value) {
   return `'${stringValue.replaceAll("'", "'\\''")}'`;
 }
 
-function shellDoubleQuote(value) {
-  return `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('$', '\\$').replaceAll('`', '\\`')}"`;
-}
-
 function buildShellCommand(command, args = []) {
   return [command, ...args].map(shellQuote).join(' ');
-}
-
-function makeDockerContainerName(sessionId) {
-  const normalizedSession = String(sessionId || crypto.randomUUID()).replace(/[^a-zA-Z0-9_.-]/g, '-');
-  return `${DOCKER_CONTAINER_PREFIX}-${normalizedSession}`;
 }
 
 function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
@@ -117,20 +116,15 @@ export function getDockerIsolationImage({ env = process.env } = {}) {
 }
 
 /**
- * Resolve the Docker `--pull` policy for isolated tasks.
- *
- * Returns one of `always` | `missing` | `never`, or `null` when unset (in which
- * case the `--pull` flag is omitted and Docker's default applies). Operators set
- * `HIVE_MIND_DOCKER_ISOLATION_PULL=never` to force reuse of an image already
- * present in the (possibly nested) daemon and fail fast instead of silently
- * re-downloading it. Invalid values are ignored. See issue #1879.
+ * Resolve the path where the host Docker socket is expected to be mounted inside
+ * a DinD container. box's entrypoint reads this socket to copy host images into
+ * the nested daemon (host-image passthrough). Defaults to
+ * `/var/run/host-docker.sock` and can be overridden with `DIND_HOST_DOCKER_SOCK`
+ * (the same variable box honors). See issue #1914.
  */
-export function getDockerIsolationPullPolicy({ env = process.env } = {}) {
-  const raw = String(env.HIVE_MIND_DOCKER_ISOLATION_PULL || '')
-    .trim()
-    .toLowerCase();
-  if (!raw) return null;
-  return VALID_DOCKER_PULL_POLICIES.has(raw) ? raw : null;
+export function resolveHostDockerSock({ env = process.env } = {}) {
+  const explicit = String(env.DIND_HOST_DOCKER_SOCK || '').trim();
+  return explicit || DEFAULT_HOST_DOCKER_SOCK;
 }
 
 /**
@@ -157,46 +151,63 @@ export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.en
 }
 
 /**
- * Build the shell command executed inside a start-command wrapper session for
- * Docker isolation. The wrapper remains a start-command session so Telegram can
- * keep using the same status/log lifecycle while Hive Mind controls image and
- * auth mounts directly.
+ * Resolve the image-variant marker recorded inside the isolated container.
+ * A `hive-mind-dind` image is always the dind variant; otherwise fall back to
+ * the parent's `HIVE_MIND_IMAGE_VARIANT` (or `regular`).
  */
-export function buildDockerIsolationCommand(command, args = [], options = {}) {
+function resolveImageVariant(image, env = process.env) {
+  return image.includes('hive-mind-dind') ? 'dind' : env.HIVE_MIND_IMAGE_VARIANT || 'regular';
+}
+
+/**
+ * Build the `$` (start-command) arguments that launch a Docker-isolated task
+ * using start-command's NATIVE Docker backend (`$ --isolated docker`).
+ *
+ * Issue #1914: earlier versions wrapped a hand-rolled `docker run` inside a
+ * `screen` session (`$ --isolated screen -- docker run …`). That was *screen*
+ * isolation merely shelling out to Docker — not Docker isolation. We now hand
+ * the container lifecycle to start-command itself and only contribute the
+ * pieces Hive Mind must control: which image to run, privileged mode for the
+ * dind variant, the environment markers, and the credential mounts scoped to
+ * the selected tool.
+ *
+ * start-command's Docker backend reuses a locally present image and only pulls
+ * when it is missing (`docker run` with Docker's default "missing" pull
+ * policy), so a host image seeded into the nested daemon via box passthrough is
+ * reused instead of re-downloaded — no `--pull` plumbing required (issue #1879).
+ */
+export function buildDockerIsolationStartArgs(command, args = [], options = {}) {
   const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = options;
   const image = getDockerIsolationImage({ env });
-  const innerCommand = buildShellCommand(command, args);
-  const dockerArgs = ['docker', 'run', '--rm'];
 
-  // Reuse a locally present image instead of re-downloading it when the
-  // operator opts in. Omitted by default so Docker's "missing" policy applies.
-  const pullPolicy = getDockerIsolationPullPolicy({ env });
-  if (pullPolicy) {
-    dockerArgs.push('--pull', pullPolicy);
-  }
-
-  dockerArgs.push('--name', makeDockerContainerName(sessionId), '--workdir', DOCKER_CONTAINER_HOME, '-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`);
+  const startArgs = ['--isolated', 'docker', '--image', image];
 
   if (shouldRunPrivilegedDockerIsolation(image, env)) {
-    dockerArgs.push('--privileged');
+    startArgs.push('--privileged');
   }
 
-  const imageVariant = image.includes('hive-mind-dind') ? 'dind' : env.HIVE_MIND_IMAGE_VARIANT || 'regular';
-  dockerArgs.push('-e', `HIVE_MIND_IMAGE_VARIANT=${imageVariant}`);
+  // Force the inner shell so start-command does not probe the image to detect
+  // one (see DOCKER_ISOLATION_SHELL).
+  startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
+
+  // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME
+  // explicitly anyway so the credential mounts under /home/box resolve even if
+  // a future image forgets to. start-command has no --workdir flag, so the
+  // working directory comes from the image's WORKDIR.
+  startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
 
   for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync })) {
-    dockerArgs.push('--volume', `${mount.source}:${mount.target}`);
+    startArgs.push('--volume', `${mount.source}:${mount.target}`);
   }
 
-  dockerArgs.push(image, 'bash', '-lc');
-
-  return [...dockerArgs.map(shellQuote), shellDoubleQuote(innerCommand)].join(' ');
+  startArgs.push('--detached', '--session', sessionId, '--', buildShellCommand(command, args));
+  return startArgs;
 }
 
 export function buildStartCommandArgs(command, args = [], options = {}) {
   const { backend, sessionId } = options;
   if (backend === 'docker') {
-    return ['--isolated', DOCKER_ISOLATION_TRACKING_BACKEND, '--detached', '--session', sessionId, '--', buildDockerIsolationCommand(command, args, options)];
+    return buildDockerIsolationStartArgs(command, args, { ...options, sessionId });
   }
   return ['--isolated', backend, '--detached', '--session', sessionId, '--', buildShellCommand(command, args)];
 }
@@ -413,10 +424,11 @@ export async function executeWithIsolation(command, args, options = {}) {
     if (backend === 'docker') {
       const env = options.env || process.env;
       const image = getDockerIsolationImage({ env });
-      const pullPolicy = getDockerIsolationPullPolicy({ env });
       const mounts = getDockerIsolationAuthMounts({ tool: options.tool, env, homeDir: options.homeDir || os.homedir(), existsSync: options.existsSync || fs.existsSync });
+      console.log('[VERBOSE] isolation-runner: Docker isolation backend: native ($ --isolated docker)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation image: ${image}`);
-      console.log(`[VERBOSE] isolation-runner: Docker isolation pull policy: ${pullPolicy || '(docker default: missing — reuse local image if present)'}`);
+      console.log(`[VERBOSE] isolation-runner: Docker isolation privileged: ${shouldRunPrivilegedDockerIsolation(image, env)}`);
+      console.log('[VERBOSE] isolation-runner: Docker isolation pull: reuse local image if present, pull only if missing (start-command default)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => m.target).join(', ') || '(none)'}`);
     }
   }
@@ -554,11 +566,125 @@ export async function checkScreenSessionRunning(sessionName, verbose = false) {
 }
 
 /**
- * Check if an isolated session is still running.
- * Uses `$ --status` first, with a `screen -ls` fallback for screen-backend
- * sessions to work around start-command UUID mismatch issues.
+ * Check whether the Docker container backing a native `$ --isolated docker`
+ * session is still running.
  *
- * @param {string} sessionId - UUID of the session (used for both $ --status and screen session name)
+ * start-command names the container after the `--session` value, so the
+ * (possibly nested) Docker daemon can be queried directly. This is the
+ * native-Docker analogue of the `screen -ls` fallback: it is consulted only
+ * when `$ --status` has no usable record. The bot runs inside a Docker-in-
+ * Docker container, so `docker` here talks to the same nested daemon that
+ * start-command launched the task container on. See issue #1914.
+ *
+ * @param {string} containerName - Container name (the session UUID)
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<boolean>} True if the container exists and is running
+ */
+export async function checkDockerContainerRunning(containerName, verbose = false) {
+  try {
+    const result = await $({ mirror: false })`docker inspect -f ${'{{.State.Running}}'} ${containerName}`;
+    const running = (result.stdout?.toString() || '').trim() === 'true';
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: docker inspect for '${containerName}': ${running ? 'running' : 'not running'}`);
+    }
+    return running;
+  } catch {
+    // `docker inspect` exits non-zero when no such container exists.
+    return false;
+  }
+}
+
+/**
+ * Check whether an image is present in the local Docker daemon.
+ *
+ * Inside a Docker-in-Docker container "local" is the NESTED daemon. `docker
+ * image inspect` exits 0 only when the image exists, so a non-zero exit (or a
+ * missing docker binary) is treated as absent. Used by the startup preflight to
+ * predict whether the first isolated task will trigger a full image pull.
+ * See issue #1914.
+ *
+ * @param {string} image - Image reference (repo:tag)
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<boolean>} True if the image is present locally
+ */
+export async function checkDockerImagePresent(image, verbose = false) {
+  try {
+    await $({ mirror: false })`docker image inspect ${image}`;
+    if (verbose) console.log(`[VERBOSE] isolation-runner: docker image inspect '${image}': present`);
+    return true;
+  } catch {
+    if (verbose) console.log(`[VERBOSE] isolation-runner: docker image inspect '${image}': absent`);
+    return false;
+  }
+}
+
+/**
+ * Startup preflight for `--isolation docker`.
+ *
+ * The bot usually runs inside a Docker-in-Docker container whose NESTED daemon
+ * starts with an empty image store. If the isolation image is not already in
+ * that nested daemon, the first isolated task makes `docker run` pull a fresh
+ * copy — which for the Hive Mind images is multiple gigabytes (issues #1914,
+ * #1879). box can seed the nested daemon automatically (host-image passthrough)
+ * but only when the host Docker socket is bind-mounted into the container; if it
+ * is not mounted, passthrough is a SILENT no-op and the re-download is the first
+ * symptom an operator sees.
+ *
+ * This preflight makes that condition observable at startup instead: it reports
+ * whether the image is already present (reuse, no pull) and, when it is absent,
+ * warns loudly with the exact remediation (mount the host socket / set the
+ * passthrough allowlist, or run the preload script). It never throws and never
+ * blocks startup — a misconfigured passthrough should degrade to a slow first
+ * task, not a dead bot.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.env] - Environment (defaults to process.env)
+ * @param {Function} [options.existsSync] - fs.existsSync (injectable for tests)
+ * @param {boolean} [options.verbose] - Enable verbose logging
+ * @param {Object} [options.logger] - Logger with .log/.warn (defaults to console)
+ * @param {Function} [options.checkImagePresent] - Image-presence probe (injectable for tests)
+ * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, ok: boolean, warnings: string[]}>}
+ */
+export async function preflightDockerIsolation(options = {}) {
+  const { env = process.env, existsSync = fs.existsSync, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent } = options;
+
+  const image = getDockerIsolationImage({ env });
+  const sock = resolveHostDockerSock({ env });
+  const isDind = shouldRunPrivilegedDockerIsolation(image, env);
+  const socketMounted = Boolean(existsSync(sock));
+  const imagePresent = Boolean(await checkImagePresent(image, verbose));
+
+  const result = { image, sock, socketMounted, imagePresent, isDind, ok: imagePresent, warnings: [] };
+  const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
+  const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
+
+  if (imagePresent) {
+    info(`✅ Docker isolation image '${image}' is already present locally — isolated tasks reuse it (no multi-GB pull). See issue #1914.`);
+    return result;
+  }
+
+  // Image absent: the first isolated task will pull the full image. Explain the
+  // most likely cause and the exact fix instead of letting the operator first
+  // discover it as a surprise multi-gigabyte download mid-task.
+  const preload = `node scripts/preload-dind-isolation-image.mjs --image ${image}`;
+  if (isDind && !socketMounted) {
+    result.warnings.push(`Docker isolation image '${image}' is NOT in the nested Docker daemon and the host Docker socket is not mounted at ${sock}. ` + `box host-image passthrough cannot seed the nested daemon, so the FIRST isolated task will pull the full image (the Hive Mind images are multiple GB). ` + `Fix the deployment: add '-v /var/run/docker.sock:${sock}:ro' and '-e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind"' to the bot container's 'docker run', or seed it now with: ${preload}`);
+  } else if (isDind && socketMounted) {
+    result.warnings.push(`Docker isolation image '${image}' is NOT in the nested Docker daemon even though the host Docker socket is mounted at ${sock}. ` + `box host-image passthrough may have skipped it (check DIND_HOST_PASSTHROUGH mode, the DIND_HOST_PASSTHROUGH_IMAGES allowlist, and that the host actually has '${image}' with a registry digest). ` + `The first isolated task will pull the full image. Seed it now with: ${preload}`);
+  } else {
+    result.warnings.push(`Docker isolation image '${image}' is not present locally; the first isolated task will pull it. ` + `If this host already has it under a different tag, pin HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG, or seed it with: ${preload}`);
+  }
+  for (const w of result.warnings) warn(`⚠️ ${w}`);
+  return result;
+}
+
+/**
+ * Check if an isolated session is still running.
+ * Uses `$ --status` first, with a backend-specific fallback (screen -ls for
+ * screen, docker inspect for docker) to work around start-command UUID
+ * mismatch issues.
+ *
+ * @param {string} sessionId - UUID of the session (also the screen session name / docker container name)
  * @param {Object} [options] - Options
  * @param {string} [options.backend] - Isolation backend ('screen', 'tmux', 'docker')
  * @param {boolean} [options.verbose] - Enable verbose logging
@@ -579,19 +705,29 @@ export async function isSessionRunning(sessionId, options = {}) {
     }
   }
 
-  // Fallback: for screen-backed sessions, check screen -ls directly.
-  // Docker isolation is also tracked through a screen wrapper so Hive Mind can
-  // control image selection and credential mounts while preserving logs/status.
-  // Only use this when $ --status has no usable record. This works around
-  // older start-command bugs where:
-  // 1. $ --status can't find session by --session name (only by internal UUID)
-  // See: https://github.com/link-assistant/hive-mind/issues/1545
-  if ((backend === 'screen' || backend === 'docker') && shouldFallbackToScreenStatus(result)) {
-    const screenRunning = await checkScreenSessionRunning(sessionId, verbose);
-    if (screenRunning && verbose) {
-      console.log(`[VERBOSE] isolation-runner: $ --status says not running, but screen -ls confirms session '${sessionId}' is still active`);
+  // Fallback used only when `$ --status` has no usable record. This works
+  // around older start-command bugs where `$ --status` can't resolve a session
+  // by its --session name (only by an internal UUID). See issue #1545.
+  //   - screen sessions: confirm via `screen -ls`.
+  //   - docker sessions: confirm via `docker inspect` on the container that
+  //     start-command named after the session UUID. Native Docker isolation
+  //     (issue #1914) is a real container, not a screen wrapper, so the screen
+  //     check no longer applies to it.
+  if (shouldFallbackToScreenStatus(result)) {
+    if (backend === 'screen') {
+      const screenRunning = await checkScreenSessionRunning(sessionId, verbose);
+      if (screenRunning && verbose) {
+        console.log(`[VERBOSE] isolation-runner: $ --status says not running, but screen -ls confirms session '${sessionId}' is still active`);
+      }
+      return screenRunning;
     }
-    return screenRunning;
+    if (backend === 'docker') {
+      const containerRunning = await checkDockerContainerRunning(sessionId, verbose);
+      if (containerRunning && verbose) {
+        console.log(`[VERBOSE] isolation-runner: $ --status says not running, but docker inspect confirms container '${sessionId}' is still active`);
+      }
+      return containerRunning;
+    }
   }
 
   return false;

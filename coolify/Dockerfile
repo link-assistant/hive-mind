@@ -18,7 +18,7 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-FROM konard/box:2.3.1
+FROM konard/box:2.3.2
 ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---

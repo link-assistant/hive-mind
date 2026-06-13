@@ -180,6 +180,16 @@ if (ISOLATION_BACKEND) {
   }
   console.log(`🔒 Isolation mode enabled: ${ISOLATION_BACKEND} (experimental)`);
   isolationRunner = await import('./isolation-runner.lib.mjs');
+  // For docker isolation, run a startup preflight so a missing/un-passed-through
+  // image surfaces as a loud, actionable warning instead of a surprise multi-GB
+  // pull on the first isolated task (issues #1914, #1879). Never throws.
+  if (ISOLATION_BACKEND === 'docker' && typeof isolationRunner.preflightDockerIsolation === 'function') {
+    try {
+      await isolationRunner.preflightDockerIsolation({ verbose: VERBOSE });
+    } catch (preflightError) {
+      console.error(`⚠️ Docker isolation preflight failed (continuing): ${preflightError?.message || preflightError}`);
+    }
+  }
 }
 
 // Validate solve overrides early using solve's yargs config

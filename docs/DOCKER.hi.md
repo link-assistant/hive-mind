@@ -63,6 +63,67 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 
 DinD image `konard/hive-mind:latest` से अलग publish होती है, इसलिए जिन्हें nested Docker नहीं चाहिए वे existing lower-privilege image इस्तेमाल कर सकते हैं।
 
+#### Host-image passthrough (मल्टी-GB images फिर से download होने से बचाएं)
+
+जब bot DinD image के अंदर `--isolation docker` के साथ चलता है, तो हर task एक _nested_
+`docker run konard/hive-mind-dind:latest …` के रूप में launch होता है। वह nested `docker run`
+**inner** dockerd से बात करता है, जिसका image store शुरू में **खाली** होता है (deploy
+`docker commit` से पहले `/var/lib/docker` को wipe कर देता है)। इसलिए Docker
+`Unable to find image '…' locally` report करता है और एक नई copy pull करता है — और Hive Mind
+images कई gigabytes की होती हैं, इसलिए पहला isolated task एक ऐसी image को re-download करने में
+बहुत समय लगा सकता है (या disk खत्म कर सकता है) जो **host के पास पहले से मौजूद** है। देखें
+[issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) और
+[#1879](https://github.com/link-assistant/hive-mind/issues/1879)।
+
+Base image (`konard/box-dind`) inner daemon को host से अपने आप seed कर सकती है —
+**host-image passthrough** — लेकिन केवल तभी जब host का Docker socket container में
+bind-mount किया गया हो। **socket mount के बिना, passthrough एक silent no-op है** और
+inner daemon खाली रहता है। इसे mount करें और allowlist set करें:
+
+```bash
+docker run -dit --privileged --name hive-mind --restart unless-stopped \
+  # ... आपके सामान्य credential mounts ...
+  -v /var/run/docker.sock:/var/run/host-docker.sock:ro \
+  -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind" \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+Passthrough इन environment variables से नियंत्रित होता है (`box-dind` द्वारा honor किए जाते हैं):
+
+| Variable                           | Default                     | उद्देश्य                                                                             |
+| ---------------------------------- | --------------------------- | ------------------------------------------------------------------------------------ |
+| `DIND_HOST_PASSTHROUGH`            | `public`                    | `off`, `public` (केवल public-registry digest वाली images copy करें), या `all`।       |
+| `DIND_HOST_DOCKER_SOCK`            | `/var/run/host-docker.sock` | container के अंदर host socket कहाँ mount है। Hive Mind भी यही variable पढ़ता है।     |
+| `DIND_HOST_PASSTHROUGH_IMAGES`     | _(खाली = कोई भी)_           | space-separated image-name allowlist, जैसे `konard/hive-mind konard/hive-mind-dind`। |
+| `DIND_HOST_PASSTHROUGH_REGISTRIES` | _(खाली)_                    | `public` mode के लिए optional registry allowlist।                                    |
+
+default `public` mode में, केवल वे images copy होती हैं जिनमें public registry का digest होता है,
+इसलिए host copy एक pulled/pushed image होनी चाहिए (केवल local `docker build` से बनी, बिना
+`RepoDigest` वाली image skip हो जाएगी — पहले उसे push करें या `all` उपयोग करें)।
+
+**Startup preflight.** जब `--isolation docker` enabled होता है, bot startup पर inner daemon को
+probe करके result log करता है, ताकि misconfiguration task के बीच में surprise pull बनने के बजाय
+तुरंत सामने आ जाए:
+
+- ✅ image पहले से मौजूद → isolated tasks उसे reuse करते हैं (कोई pull नहीं);
+- ⚠️ socket mount **नहीं** है → यह आपको socket mount + allowlist जोड़ने को कहता है;
+- ⚠️ socket mounted है पर image अब भी absent → यह आपको passthrough mode/allowlist/digest जाँचने को कहता है।
+
+underlying `docker image inspect` traces के लिए bot को `--verbose` (या `TELEGRAM_BOT_VERBOSE=true`) के साथ चलाएं।
+
+**Manual fallback.** पहले से चल रहे container को तुरंत seed करने के लिए (या जब आप deployment नहीं बदल
+सकते), host image को inner daemon में copy करें:
+
+```bash
+node scripts/preload-dind-isolation-image.mjs \
+  --container hive-mind --image konard/hive-mind-dind:latest
+```
+
+यह `docker save … | docker exec -i <container> docker load` stream करता है ताकि tarball कभी disk पर
+न लिखा जाए, और अगर inner daemon के पास image पहले से है तो यह no-op है। image मौजूद होने के बाद,
+start-command का native Docker backend उसे अपने आप reuse करता है (Docker की default "missing" pull
+policy — यह केवल तभी pull करता है जब image absent हो, इसलिए कोई re-download नहीं होता)।
+
 ### विकल्प 4: Development Mode (Gitpod-style)
 
 Development उद्देश्यों के लिए, legacy `Dockerfile` एक Gitpod-compatible वातावरण प्रदान करता है:

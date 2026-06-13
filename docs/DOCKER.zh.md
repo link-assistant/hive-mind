@@ -63,6 +63,62 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 
 DinD 镜像与 `konard/hive-mind:latest` 分开发布，因此不需要嵌套 Docker 的用户可以继续使用现有的低权限镜像。
 
+#### 宿主镜像透传（避免重复下载数 GB 镜像）
+
+当机器人以 `--isolation docker` 在 DinD 镜像内运行时，每个任务都会以*嵌套*的
+`docker run konard/hive-mind-dind:latest …` 启动。该嵌套 `docker run` 与**内部**
+dockerd 通信，而内部镜像库一开始是**空的**（部署会在 `docker commit` 之前清空
+`/var/lib/docker`）。于是 Docker 报告 `Unable to find image '…' locally` 并拉取新副本——
+而 Hive Mind 镜像有数 GB，因此第一个隔离任务可能要花很长时间（或耗尽磁盘）去重新下载
+一个**宿主机已有**的镜像。参见
+[issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) 和
+[#1879](https://github.com/link-assistant/hive-mind/issues/1879)。
+
+基础镜像（`konard/box-dind`）可以从宿主机自动播种内部 daemon——**宿主镜像透传**——
+但前提是把宿主机的 Docker 套接字 bind-mount 进容器。**如果不挂载该套接字，透传将静默无效**，
+内部 daemon 保持为空。请挂载它并设置允许列表：
+
+```bash
+docker run -dit --privileged --name hive-mind --restart unless-stopped \
+  # ... 你常用的凭据挂载 ...
+  -v /var/run/docker.sock:/var/run/host-docker.sock:ro \
+  -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind" \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+透传由以下环境变量控制（由 `box-dind` 识别）：
+
+| 变量                               | 默认值                      | 用途                                                                        |
+| ---------------------------------- | --------------------------- | --------------------------------------------------------------------------- |
+| `DIND_HOST_PASSTHROUGH`            | `public`                    | `off`、`public`（仅复制带有公共注册表 digest 的镜像）或 `all`。             |
+| `DIND_HOST_DOCKER_SOCK`            | `/var/run/host-docker.sock` | 宿主套接字在容器内的挂载位置。Hive Mind 读取同一个变量。                    |
+| `DIND_HOST_PASSTHROUGH_IMAGES`     | _(空 = 任意)_               | 以空格分隔的镜像名允许列表，例如 `konard/hive-mind konard/hive-mind-dind`。 |
+| `DIND_HOST_PASSTHROUGH_REGISTRIES` | _(空)_                      | `public` 模式下可选的注册表允许列表。                                       |
+
+在默认的 `public` 模式下，只有携带公共注册表 digest 的镜像才会被复制，因此宿主副本必须是
+已拉取/推送的镜像（仅本地 `docker build`、没有 `RepoDigest` 的镜像会被跳过——请先推送，或使用 `all`）。
+
+**启动预检。** 启用 `--isolation docker` 时，机器人会在启动时探测内部 daemon 并记录结果，
+让配置错误立即暴露，而不是在任务执行中变成意外拉取：
+
+- ✅ 镜像已存在 → 隔离任务复用它（无需拉取）；
+- ⚠️ 套接字**未**挂载 → 提示你添加套接字挂载 + 允许列表；
+- ⚠️ 套接字已挂载但镜像仍缺失 → 提示你检查透传模式/允许列表/digest。
+
+以 `--verbose`（或 `TELEGRAM_BOT_VERBOSE=true`）运行机器人可查看底层
+`docker image inspect` 跟踪。
+
+**手动回退。** 要立即为正在运行的容器播种（或当你无法更改部署时），把宿主镜像复制进内部 daemon：
+
+```bash
+node scripts/preload-dind-isolation-image.mjs \
+  --container hive-mind --image konard/hive-mind-dind:latest
+```
+
+它以 `docker save … | docker exec -i <container> docker load` 流式传输，因此 tarball 永不落盘；
+如果内部 daemon 已有该镜像，则为空操作。镜像就位后，start-command 的原生 Docker 后端会自动复用它
+（Docker 默认的 "missing" 拉取策略——仅在镜像缺失时拉取，因此不会重复下载）。
+
 ### 选项 4：开发模式（Gitpod 风格）
 
 出于开发目的，旧版 `Dockerfile` 提供了一个 Gitpod 兼容的环境：

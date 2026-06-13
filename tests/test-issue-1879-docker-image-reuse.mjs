@@ -2,22 +2,29 @@
 /**
  * Regression test for issue #1879.
  *
- * In the Docker-in-Docker deployment, `--isolation docker` tasks launched a
- * `docker run konard/hive-mind-dind:latest ...` against the nested daemon,
- * whose image store starts empty. Docker reported "Unable to find image ...
- * locally" and pulled a fresh multi-gigabyte copy on every first task, even
- * though the host already had the exact image.
+ * In the Docker-in-Docker deployment, `--isolation docker` tasks run against a
+ * nested daemon whose image store starts empty. If the requested image is not
+ * present, Docker reports "Unable to find image ... locally" and pulls a fresh
+ * multi-gigabyte copy on every first task, even though the host already has the
+ * exact image.
  *
- * This test covers the new controls that let operators reuse a locally present
- * image instead of re-downloading it:
- *   - HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: pin the image tag.
- *   - HIVE_MIND_DOCKER_ISOLATION_PULL: emit a `--pull` policy on `docker run`.
+ * Reuse of a locally present image is achieved at two levels:
+ *   1. HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG pins the tag so a pre-seeded image
+ *      matches exactly (an unpinned :latest can drift from the host copy and
+ *      force a re-pull even when an image with that name is present).
+ *   2. start-command's NATIVE docker backend (issue #1914) runs `docker run`
+ *      with Docker's default "missing" pull policy: it reuses a locally present
+ *      image and only pulls when the image is absent. There is therefore no
+ *      `--pull` plumbing in Hive Mind — reuse-if-present is inherent, so a host
+ *      image seeded into the nested daemon (box passthrough) is reused rather
+ *      than re-downloaded.
  *
  * @hive-mind-test-suite default
  * @see https://github.com/link-assistant/hive-mind/issues/1879
+ * @see https://github.com/link-assistant/hive-mind/issues/1914
  */
 
-import { buildDockerIsolationCommand, getDockerIsolationImage, getDockerIsolationPullPolicy, resolveDockerIsolationImageTag } from '../src/isolation-runner.lib.mjs';
+import { buildDockerIsolationStartArgs, getDockerIsolationImage, resolveDockerIsolationImageTag } from '../src/isolation-runner.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -62,31 +69,21 @@ assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_IMAGE_VARIANT: 'dind', HI
 assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_IMAGE_VARIANT: 'regular', HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '1.74.11' } }), 'konard/hive-mind:1.74.11', 'regular image pins to requested tag');
 assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'local/x:dev', HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '1.74.11' } }), 'local/x:dev', 'full image override ignores tag pin');
 
-console.log('\n--- Pull policy resolution ---');
+console.log('\n--- Native invocation reuses a locally present image (no --pull) ---');
 
-assertEqual(getDockerIsolationPullPolicy({ env: {} }), null, 'pull policy is null when unset (use docker default)');
-assertEqual(getDockerIsolationPullPolicy({ env: { HIVE_MIND_DOCKER_ISOLATION_PULL: 'never' } }), 'never', 'never policy resolves');
-assertEqual(getDockerIsolationPullPolicy({ env: { HIVE_MIND_DOCKER_ISOLATION_PULL: 'MISSING' } }), 'missing', 'policy is case-insensitive');
-assertEqual(getDockerIsolationPullPolicy({ env: { HIVE_MIND_DOCKER_ISOLATION_PULL: 'always' } }), 'always', 'always policy resolves');
-assertEqual(getDockerIsolationPullPolicy({ env: { HIVE_MIND_DOCKER_ISOLATION_PULL: 'sometimes' } }), null, 'invalid policy is ignored');
-
-console.log('\n--- docker run command construction ---');
-
+const valueAfter = (arr, flag) => arr[arr.indexOf(flag) + 1];
 const baseEnv = { HIVE_MIND_IMAGE_VARIANT: 'dind' };
-const cmdDefault = buildDockerIsolationCommand('solve', ['https://example/issues/1'], { sessionId: 's1', tool: 'claude', env: baseEnv, homeDir: '/home/box', existsSync: noopExists });
-assertNotIncludes(cmdDefault, '--pull', 'no --pull flag emitted by default');
-assertIncludes(cmdDefault, "'konard/hive-mind-dind:latest'", 'default image used');
 
-const cmdNever = buildDockerIsolationCommand('solve', ['https://example/issues/1'], { sessionId: 's1', tool: 'claude', env: { ...baseEnv, HIVE_MIND_DOCKER_ISOLATION_PULL: 'never' }, homeDir: '/home/box', existsSync: noopExists });
-assertIncludes(cmdNever, "'--pull' 'never'", 'pull=never emits --pull never');
-// The --pull flag must come before the image and the command, i.e. as a `docker run` option.
-const pullIdx = cmdNever.indexOf("'--pull'");
-const imageIdx = cmdNever.indexOf("'konard/hive-mind-dind");
-assertEqual(pullIdx > 0 && pullIdx < imageIdx, true, '--pull precedes the image reference');
+const argsDefault = buildDockerIsolationStartArgs('solve', ['https://example/issues/1'], { sessionId: 's1', tool: 'claude', env: baseEnv, homeDir: '/home/box', existsSync: noopExists });
+assertNotIncludes(argsDefault.join(' '), '--pull', 'no --pull flag is emitted (start-command reuses a local image, pulling only when missing)');
+assertEqual(valueAfter(argsDefault, '--image'), 'konard/hive-mind-dind:latest', 'default dind image flows into the start-command --image flag');
 
-const cmdPinned = buildDockerIsolationCommand('solve', ['x'], { sessionId: 's1', tool: 'claude', env: { ...baseEnv, HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '1.74.11', HIVE_MIND_DOCKER_ISOLATION_PULL: 'never' }, homeDir: '/home/box', existsSync: noopExists });
-assertIncludes(cmdPinned, "'konard/hive-mind-dind:1.74.11'", 'pinned tag flows into docker run');
-assertIncludes(cmdPinned, "'--pull' 'never'", 'pinned + never combine for full host-image reuse');
+const argsPinned = buildDockerIsolationStartArgs('solve', ['x'], { sessionId: 's1', tool: 'claude', env: { ...baseEnv, HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG: '1.74.11' }, homeDir: '/home/box', existsSync: noopExists });
+assertEqual(valueAfter(argsPinned, '--image'), 'konard/hive-mind-dind:1.74.11', 'pinned tag flows into --image so a pre-seeded host image is matched and reused');
+assertNotIncludes(argsPinned.join(' '), '--pull', 'a pinned image still carries no --pull flag (reuse-if-present is inherent)');
+// The image must appear exactly once, as the --image value — not duplicated as a
+// positional argument the way a hand-rolled `docker run <image>` wrapper would.
+assertEqual(argsPinned.filter(a => a === 'konard/hive-mind-dind:1.74.11').length, 1, 'the image reference appears exactly once (as the --image value)');
 
 console.log(`\n${failed === 0 ? '✅' : '❌'} issue-1879 docker image reuse: ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

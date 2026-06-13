@@ -45,7 +45,7 @@ Hive Mind एक **सामान्यवादी AI** (मिनी-AGI) ह
 
 Hive Mind में औसत प्रोग्रामर से अलग न पहचानी जा सकने वाली उच्च रचनात्मकता है। यदि आवश्यकताएँ अस्पष्ट हों तो यह प्रश्न पूछता है, और आप PR टिप्पणियों के माध्यम से चलते-चलते स्पष्ट कर सकते हैं।
 
-विस्तृत विशेषताओं और तुलनाओं के लिए, [docs/FEATURES.hi.md](./docs/FEATURES.hi.md) और [docs/COMPARISON.hi.md](./docs/COMPARISON.hi.md) देखें।
+प्रोजेक्ट के दृष्टिकोण और उदाहरण उपयोगकर्ता यात्राओं के लिए, [docs/VISION.hi.md](./docs/VISION.hi.md) देखें। विस्तृत विशेषताओं और तुलनाओं के लिए, [docs/FEATURES.hi.md](./docs/FEATURES.hi.md) और [docs/COMPARISON.hi.md](./docs/COMPARISON.hi.md) देखें।
 
 ## ⚠️ चेतावनी
 

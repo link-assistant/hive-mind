@@ -45,7 +45,7 @@ Both tools can be combined in the same hive. Workers can run different tools in 
 
 Hive Mind has high creativity indistinguishable from average programmers. It asks questions if requirements are unclear, and you can clarify on the go via PR comments.
 
-For detailed features and comparisons, see [docs/FEATURES.md](./docs/FEATURES.md) and [docs/COMPARISON.md](./docs/COMPARISON.md).
+For the project's vision and example user journeys, see [docs/VISION.md](./docs/VISION.md). For detailed features and comparisons, see [docs/FEATURES.md](./docs/FEATURES.md) and [docs/COMPARISON.md](./docs/COMPARISON.md).
 
 ## ⚠️ WARNING
 

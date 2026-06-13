@@ -24,8 +24,13 @@ export function stripTaskCommandPrefix(text) {
 
 export function resolveTaskIssueCreationInput({ commandText = '', replyText = '' } = {}) {
   const inlineText = stripTaskCommandPrefix(commandText);
-  if (inlineText) return inlineText;
-  return normalizeNewlines(replyText).trim();
+  const reply = normalizeNewlines(replyText).trim();
+  // When replying to a message, the inline command and the replied-to message
+  // are complementary: one often carries the repository URL while the other
+  // carries the issue text (issue #1916). Combine both so neither part is lost.
+  // Inline text comes first so it takes precedence for title/body ordering.
+  if (inlineText && reply) return `${inlineText}\n${reply}`;
+  return inlineText || reply;
 }
 
 export function parseTaskRepository(value) {
@@ -72,6 +77,12 @@ function parseRepositoryLine(line) {
 function setRepository(currentRepository, nextRepository) {
   if (!nextRepository) return { repository: currentRepository };
   if (currentRepository) {
+    // The same repository may legitimately appear in both the inline command
+    // and the replied-to message once they are combined (issue #1916). Treat
+    // identical repositories as a no-op and only reject genuine conflicts.
+    if (currentRepository.fullName === nextRepository.fullName) {
+      return { repository: currentRepository };
+    }
     return {
       repository: currentRepository,
       error: 'Only one GitHub repository may be provided.',

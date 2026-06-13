@@ -6,7 +6,7 @@
 
 import assert from 'assert/strict';
 import { applyTaskCommandDefaults, buildTaskCommandArgs, findTaskIssueUrl, getTaskCommandNameFromText, getTaskToolFromArgs, registerTaskCommands } from '../src/telegram-task-command.lib.mjs';
-import { buildTaskIssueTitle, parseTaskIssueCreationInput, stripTaskCommandPrefix } from '../src/task.issue-creation.lib.mjs';
+import { buildTaskIssueTitle, parseTaskIssueCreationInput, resolveTaskIssueCreationInput, stripTaskCommandPrefix } from '../src/task.issue-creation.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -87,6 +87,63 @@ for (const [name, input] of [
   });
 }
 
+// Issue #1916: replying to a message containing the issue text with
+// `/task <repository-url>` must combine the inline repository with the
+// replied-to issue text instead of dropping the reply.
+await test('reply issue creation combines inline repo with replied issue text', () => {
+  const input = resolveTaskIssueCreationInput({
+    commandText: `/task ${repoUrl}`,
+    replyText: issueText,
+  });
+  const parsed = parseTaskIssueCreationInput(input);
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(parsed.issueText, issueText);
+});
+
+await test('reply issue creation combines inline issue text with replied repo', () => {
+  const input = resolveTaskIssueCreationInput({
+    commandText: `/task ${issueText}`,
+    replyText: repoUrl,
+  });
+  const parsed = parseTaskIssueCreationInput(input);
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(parsed.issueText, issueText);
+});
+
+await test('reply with bare /task uses repo and issue text from replied message', () => {
+  const input = resolveTaskIssueCreationInput({
+    commandText: '/task',
+    replyText: `${repoUrl}\n${issueText}`,
+  });
+  const parsed = parseTaskIssueCreationInput(input);
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(parsed.issueText, issueText);
+});
+
+await test('reply issue creation tolerates the same repo inline and in reply', () => {
+  const input = resolveTaskIssueCreationInput({
+    commandText: `/task ${repoUrl}`,
+    replyText: `${repoUrl}\n${issueText}`,
+  });
+  const parsed = parseTaskIssueCreationInput(input);
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(parsed.issueText, issueText);
+});
+
+await test('combining two different repositories still reports a conflict', () => {
+  const input = resolveTaskIssueCreationInput({
+    commandText: `/task ${repoUrl}`,
+    replyText: `https://github.com/link-assistant/formal-ai\n${issueText}`,
+  });
+  const parsed = parseTaskIssueCreationInput(input);
+  assert.equal(parsed.valid, false);
+  assert.match(parsed.error, /Only one GitHub repository/);
+});
+
 await test('inline /task issue creation strips command prefix', () => {
   const input = stripTaskCommandPrefix(`/task ${repoUrl}\n${issueText}`);
   const parsed = parseTaskIssueCreationInput(input);
@@ -163,6 +220,59 @@ await test('task issue creation replies with the created issue URL', async () =>
   assert.equal(edits[0].messageId, 301);
   assert.match(edits[0].text, /https:\/\/github\.com\/link-assistant\/hive-mind\/issues\/1734/);
   assert.match(edits[0].text, /Reply to this message with \/solve/);
+});
+
+// Issue #1916: end-to-end handler path for replying to an issue-text message
+// with `/task <repository-url>`.
+await test('handleTaskCommand creates issue when replying with repo and issue text in reply', async () => {
+  const bot = { command() {} };
+  const createdIssues = [];
+  const edits = [];
+  const { handleTaskCommand } = registerTaskCommands(bot, {
+    VERBOSE: false,
+    taskEnabled: true,
+    addBreadcrumb: async () => {},
+    isOldMessage: () => false,
+    isGroupChat: () => true,
+    isTopicAuthorized: () => true,
+    buildAuthErrorMessage: () => 'not authorized',
+    isChatStopped: () => false,
+    getStoppedChatRejectMessage: () => 'stopped',
+    safeReply: async () => {
+      throw new Error('safeReply should not be used for valid issue creation');
+    },
+    executeAndUpdateMessage: async () => {
+      throw new Error('split task execution should not run for issue creation');
+    },
+    createTaskIssue: async issue => {
+      createdIssues.push(issue);
+      return { url: 'https://github.com/link-assistant/hive-mind/issues/1916' };
+    },
+  });
+
+  const ctx = {
+    chat: { id: 100, type: 'group' },
+    from: { id: 200, username: 'tester' },
+    message: {
+      message_id: 300,
+      text: `/task ${repoUrl}`,
+      reply_to_message: { message_id: 250, text: issueText },
+    },
+    reply: async () => ({ chat: { id: 100 }, message_id: 301 }),
+    telegram: {
+      editMessageText: async (chatId, messageId, inlineMessageId, text) => {
+        edits.push({ chatId, messageId, text });
+      },
+    },
+  };
+
+  await handleTaskCommand(ctx);
+
+  assert.equal(createdIssues.length, 1);
+  assert.equal(createdIssues[0].repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(createdIssues[0].body, issueText);
+  assert.equal(edits.length, 1);
+  assert.match(edits[0].text, /issues\/1916/);
 });
 
 console.log(`\nTotal: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);

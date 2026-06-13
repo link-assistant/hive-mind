@@ -72,6 +72,22 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: false, isCapacity: false, requiresFreshSession: true, label: 'Corrupted thinking blocks (un-resumable session)' };
   }
 
+  // Issue #1924: Server-side temporary rate limiting (HTTP 429), distinct from an
+  // account usage/quota limit. The Claude CLI surfaces this as a synthetic
+  // assistant/result message and an api_error_status of 429:
+  //   "API Error: Server is temporarily limiting requests (not your usage limit) · Rate limited"
+  // The response carries `x-should-retry: true` and the stream emits a
+  // `rate_limit_event` with `status: "rejected"`. Because the message explicitly
+  // says "not your usage limit", it is NOT a usage-limit reset-time situation and
+  // must NOT be routed through detectUsageLimit() (there is no reset time to wait
+  // for). It is a transient throttle that clears on its own, so it is safe to
+  // retry with the session preserved (--resume) after a backoff. Switching models
+  // does not help (the throttle is request-rate, not model capacity), so
+  // isCapacity is false.
+  if (lower.includes('temporarily limiting requests') || (lower.includes('rate limited') && lower.includes('not your usage limit')) || (lower.includes('rate_limit') && lower.includes('429'))) {
+    return { message, isRetryable: true, isCapacity: false, label: 'Server rate limited (429)' };
+  }
+
   if (lower.includes('api error: 503') || (lower.includes('503') && (lower.includes('upstream connect error') || lower.includes('remote connection failure')))) {
     return { message, isRetryable: true, isCapacity: false, label: '503 network error' };
   }

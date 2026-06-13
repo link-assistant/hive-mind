@@ -40,7 +40,7 @@ const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-s
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
-const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
+const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 const { installTelegramFormattingFallback, isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
@@ -369,6 +369,13 @@ function isForwardedOrReply(ctx) {
   return _isForwardedOrReply(ctx, { verbose: VERBOSE });
 }
 
+// Forwarded-only check (issue #1922). Commands that support the reply feature
+// (e.g. /task, /solve) must still reject forwarded commands without rejecting
+// genuine user replies, so they use this instead of isForwardedOrReply.
+function isForwarded(ctx) {
+  return _isForwarded(ctx, { verbose: VERBOSE });
+}
+
 /**
  * Validates the model name in the args array and returns an error message if invalid
  * @param {string[]} args - Array of command arguments
@@ -613,7 +620,7 @@ const { registerLanguageCommand } = await import('./telegram-language-command.li
 registerLanguageCommand(bot, { VERBOSE, isOldMessage, isForwardedOrReply });
 
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
-const sharedCommandOpts = { VERBOSE, isOldMessage, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage };
+const sharedCommandOpts = { VERBOSE, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage };
 registerAcceptInvitesCommand(bot, sharedCommandOpts);
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
 registerMergeCommand(bot, sharedCommandOpts);
@@ -663,12 +670,9 @@ async function handleSolveCommand(ctx) {
   }
 
   // Check if this is a forwarded message (not allowed)
-  // But allow reply messages for URL extraction feature
+  // But allow reply messages for URL extraction feature (issue #1922)
   const message = ctx.message;
-  const isForwarded = message.forward_origin && message.forward_origin.type;
-  const isOldApiForwarded = message.forward_from || message.forward_from_chat || message.forward_from_message_id || message.forward_signature || message.forward_sender_name || message.forward_date;
-
-  if (isForwarded || isOldApiForwarded) {
+  if (isForwarded(ctx)) {
     if (VERBOSE) {
       console.log(`[VERBOSE] ${solveCommandDisplay} ignored: forwarded message`);
     }

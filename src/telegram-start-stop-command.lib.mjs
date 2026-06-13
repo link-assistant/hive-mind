@@ -270,7 +270,7 @@ export function isStopTargetRequester({ userId, queueItem = null, sessionInfo = 
  *   See https://github.com/link-assistant/hive-mind/issues/1871.
  */
 export function registerStartStopCommands(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, getSolveQueue } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, getSolveQueue } = options;
   const stopIsolatedSessionImpl = options.stopIsolatedSession || (async (...args) => (await import('./isolation-runner.lib.mjs')).stopIsolatedSession(...args));
   // Issue #1783: look the UUID up in the session monitor so /stop can let the
   // user who started the task stop it (mirrors /terminal_watch from PR #1779).
@@ -527,6 +527,13 @@ export function registerStartStopCommands(bot, options) {
     VERBOSE && console.log('[VERBOSE] /stop command received');
     if (isOldMessage(ctx)) {
       VERBOSE && console.log('[VERBOSE] /stop ignored: old message');
+      return;
+    }
+    // Issue #1922: a forwarded /stop (even a targeted `/stop <uuid>`) must never
+    // be re-executed. Replies are still allowed because the targeted modes use
+    // them on purpose (#524, #1780), so we use the forwarded-only filter here.
+    if (isForwarded && isForwarded(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /stop ignored: forwarded message');
       return;
     }
 

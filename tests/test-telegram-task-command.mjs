@@ -275,5 +275,68 @@ await test('handleTaskCommand creates issue when replying with repo and issue te
   assert.match(edits[0].text, /issues\/1916/);
 });
 
+// Issue #1922: a forwarded /task command must never be re-executed. Forwarding
+// the bot's own "/task <url>" reply (or any message starting with /task) used to
+// create a brand-new issue / spawn a session the user never intended.
+function buildTaskHarness(overrides = {}) {
+  const bot = { command() {} };
+  const calls = { createdIssues: [], executed: [], replies: [] };
+  const { handleTaskCommand } = registerTaskCommands(bot, {
+    VERBOSE: false,
+    taskEnabled: true,
+    addBreadcrumb: async () => {},
+    isOldMessage: () => false,
+    isForwarded: () => false,
+    isGroupChat: () => true,
+    isTopicAuthorized: () => true,
+    buildAuthErrorMessage: () => 'not authorized',
+    isChatStopped: () => false,
+    getStoppedChatRejectMessage: () => 'stopped',
+    safeReply: async (_ctx, text) => {
+      calls.replies.push(text);
+    },
+    executeAndUpdateMessage: async () => {
+      calls.executed.push(true);
+    },
+    createTaskIssue: async issue => {
+      calls.createdIssues.push(issue);
+      return { url: 'https://github.com/link-assistant/hive-mind/issues/9999' };
+    },
+    ...overrides,
+  });
+  return { handleTaskCommand, calls };
+}
+
+function buildTaskCtx(message) {
+  return {
+    chat: { id: 100, type: 'group' },
+    from: { id: 200, username: 'tester' },
+    message: { message_id: 300, ...message },
+    reply: async () => ({ chat: { id: 100 }, message_id: 301 }),
+    telegram: { editMessageText: async () => {} },
+  };
+}
+
+await test('forwarded /task (new API forward_origin) is ignored — no issue created, no execution', async () => {
+  const { handleTaskCommand, calls } = buildTaskHarness({ isForwarded: ctx => Boolean(ctx.message?.forward_origin?.type) });
+  await handleTaskCommand(buildTaskCtx({ text: `/task ${repoUrl}\n${issueText}`, forward_origin: { type: 'user', sender_user: { id: 1 } } }));
+  assert.equal(calls.createdIssues.length, 0);
+  assert.equal(calls.executed.length, 0);
+  assert.equal(calls.replies.length, 0);
+});
+
+await test('forwarded /split (split mode) is ignored — no execution', async () => {
+  const { handleTaskCommand, calls } = buildTaskHarness({ isForwarded: () => true });
+  await handleTaskCommand(buildTaskCtx({ text: `/split ${issueUrl}`, forward_from: { id: 1, first_name: 'T' } }));
+  assert.equal(calls.executed.length, 0);
+  assert.equal(calls.createdIssues.length, 0);
+});
+
+await test('non-forwarded /task still creates an issue (regression guard)', async () => {
+  const { handleTaskCommand, calls } = buildTaskHarness();
+  await handleTaskCommand(buildTaskCtx({ text: `/task ${repoUrl}\n${issueText}` }));
+  assert.equal(calls.createdIssues.length, 1);
+});
+
 console.log(`\nTotal: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);
 process.exit(failed > 0 ? 1 : 0);

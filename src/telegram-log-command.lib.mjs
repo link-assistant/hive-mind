@@ -154,7 +154,7 @@ async function fileSize(filePath) {
  * @param {Function} [options.parseGitHubUrl] - Override for tests
  */
 export async function registerLogCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
   const querySessionStatus = options.querySessionStatus || (await import('./isolation-runner.lib.mjs')).querySessionStatus;
   const getTrackedSessionInfo = options.getTrackedSessionInfo || (await import('./session-monitor.lib.mjs')).getTrackedSessionInfo;
   const detectRepositoryVisibility = options.detectRepositoryVisibility || (await import('./github.lib.mjs')).detectRepositoryVisibility;
@@ -165,6 +165,11 @@ export async function registerLogCommand(bot, options) {
 
     if (isOldMessage && isOldMessage(ctx)) {
       VERBOSE && console.log('[VERBOSE] /log ignored: old message');
+      return;
+    }
+    // Issue #1922: never re-execute a forwarded command.
+    if (isForwarded && isForwarded(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /log ignored: forwarded message');
       return;
     }
 

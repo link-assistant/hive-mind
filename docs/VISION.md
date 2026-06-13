@@ -36,8 +36,8 @@ Mind exists to remove them.
   of its results.
 - **Unsafe local execution.** Giving an AI full freedom on your developer
   machine risks your tokens, your files, and your production systems. Fully
-  sandboxed alternatives are safe but too limited to install packages, browse docs, or
-  configure a real environment.
+  sandboxed alternatives are safe but too limited to install packages, browse
+  docs, or configure a real environment.
 - **Context switching kills flow.** A two-hour interruption to fix a small issue
   costs far more than two hours once you account for losing focus on the work
   that actually matters.

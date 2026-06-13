@@ -1,5 +1,62 @@
 # @link-assistant/hive-mind
 
+## 1.78.10
+
+### Patch Changes
+
+- 02faadb: fix(auto-merge): stop `/merge` from hanging forever on fork PRs with external-only `success` checks (#1918)
+
+  The `/merge` auto-merge watch loop could spin on the same commit indefinitely
+  (observed 73 minutes, 72 identical iterations, before a human killed it). It
+  happened on a **fork pull request** whose only repo workflows trigger on `push`
+  (which never fires for fork commits in the base repo) while an external app
+  (CodeRabbit) reported CI status `success` with **0 workflow runs** for the head
+  SHA.
+
+  Root cause: the watch loop reset its consecutive "no workflow runs" safety-valve
+  counter (`consecutiveNoRunsChecks`) on every iteration whenever
+  `ciStatus.status !== 'no_checks'`. Because external-only checks make the status
+  `'success'`, the counter was pinned at `1` and never reached
+  `MAX_NO_RUNS_CHECKS`, so the valve that should have ended the wait never fired —
+  the loop logged `check 1/5` forever.
+
+  Fix: `getMergeBlockers()` now returns a `noWorkflowRunsForCommit` flag that is
+  true while it is still waiting for PR-triggered workflow runs to register, and a
+  new pure helper `shouldResetNoRunsCounter(ciStatus, noWorkflowRunsForCommit)`
+  only resets the counter when CI is **not** in that waiting state. The counter
+  now climbs `1 → 2 → … → 5`, trips the safety valve in a few minutes, and `/merge`
+  proceeds. The #1503 behaviors (reset on new push / on genuine CI runs) are
+  preserved and regression-guarded.
+
+  Added `tests/test-merge-stuck-no-workflow-runs-1918.mjs` and a full case study
+  with timeline, root-cause analysis, and the captured logs under
+  `docs/case-studies/issue-1918`.
+
+- 9e00f14: fix(telegram): never re-execute a forwarded command (`/task`, `/stop`, `/tokens`, `/log`, `/terminal_watch`) (#1922)
+
+  Forwarding a message that starts with a bot command (for example the bot's own
+  `/task <url>` reply, or any `/task https://github.com/owner/repo`) caused the
+  Telegram bot to execute the command again — creating a brand-new GitHub issue or
+  spawning a session the user never intended. `/task` and `/split` only checked
+  `isOldMessage` and never rejected forwarded messages, unlike `/help`, `/solve`,
+  `/hive`, `/merge`, etc.
+
+  Root cause: the existing `isForwardedOrReply` filter rejects _both_ forwards and
+  replies, so commands that use the reply feature (`/task` issue creation, `/solve`
+  URL extraction, targeted `/stop`) could not use it without breaking replies — and
+  were therefore left without any forwarded check at all.
+
+  Fix: a new dedicated `isForwarded(ctx)` filter detects _only_ forwarded messages
+  (new `forward_origin` API + legacy `forward_*` fields) and intentionally ignores
+  replies. It is now applied to every command that previously lacked a forwarded
+  guard — `/task`, `/split`, `/stop` (including targeted `/stop <uuid>`), `/tokens`,
+  `/log`, `/terminal_watch`/`/watch` — and `/solve` was refactored to reuse it
+  instead of its ad-hoc inline check. Genuine user replies keep working.
+
+  Added unit tests for `isForwarded` and for forwarded `/task`/`/split` rejection,
+  plus a full case study with timeline and per-command audit under
+  `docs/case-studies/issue-1922`.
+
 ## 1.78.9
 
 ### Patch Changes

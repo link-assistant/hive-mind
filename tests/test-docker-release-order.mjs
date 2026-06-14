@@ -8,12 +8,13 @@ const root = process.cwd();
 
 const read = file => fs.readFile(path.join(root, file), 'utf-8');
 
-const dockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
+const dockerfiles = ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile'];
 
 for (const file of dockerfiles) {
   const content = await read(file);
 
   assert.ok(content.includes('ARG HIVE_MIND_VERSION=latest'), `${file} should accept the exact published hive-mind version as a build arg`);
+  assert.ok(content.includes('ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"'), `${file} should bake the published version as the default Docker isolation image tag`);
   assert.ok(content.includes('bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"'), `${file} should install the published hive-mind package version`);
   assert.ok(content.includes('test "$(hive --version)" = "${HIVE_MIND_VERSION}"'), `${file} should verify the installed hive-mind version when a release version is supplied`);
   assert.ok(content.includes('configure-claude --settings-path /home/box/.claude/settings.json'), `${file} should invoke the published configure-claude bin`);

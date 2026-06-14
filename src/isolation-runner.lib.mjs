@@ -47,6 +47,12 @@ const DEFAULT_HOST_DOCKER_SOCK = '/var/run/host-docker.sock';
 // throwaway container — booting the dind image's dockerd entrypoint — purely to
 // check whether bash exists. See issue #1914.
 const DOCKER_ISOLATION_SHELL = 'sh';
+// Free-space floor (GiB) below which the preflight warns that an impending
+// isolation-image pull may fail with `no space left on device`. The Hive Mind
+// isolation images are well over 30 GB extracted, so a host/nested daemon with
+// less headroom than this cannot safely pull one. Diagnostic only — never
+// blocks startup. See issue #1914.
+const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
 
 function normalizeProcessIds(value) {
   if (!value || typeof value !== 'object') return {};
@@ -87,12 +93,13 @@ function maybeAddMount(mounts, source, target, existsSync) {
 /**
  * Resolve the tag used for the Docker isolation image.
  *
- * Defaults to `latest`, but operators can pin it (e.g. to the exact version
- * already present on the host) via `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`.
- * Pinning matters for Docker-in-Docker deployments: the nested daemon starts
- * with an empty image store, so an unpinned `:latest` whose registry digest has
- * drifted from the host copy forces a fresh multi-gigabyte pull on every task.
- * A pinned tag lets a pre-seeded image be reused instead. See issue #1879.
+ * Release Docker images bake this env var from `HIVE_MIND_VERSION`, so a parent
+ * container started via `:latest` still launches child isolation containers from
+ * the same immutable release tag. Local/PR builds fall back to `latest`, and
+ * operators can override the tag explicitly when using custom images. Pinning
+ * matters for Docker-in-Docker deployments: the nested daemon starts with an
+ * empty image store, so a `:latest` digest drift from the host copy forces a
+ * fresh multi-gigabyte pull. See issue #1879.
  */
 export function resolveDockerIsolationImageTag({ env = process.env } = {}) {
   const explicit = String(env.HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || '').trim();
@@ -619,6 +626,80 @@ export async function checkDockerImagePresent(image, verbose = false) {
 }
 
 /**
+ * Report the storage driver the (nested) Docker daemon is using.
+ *
+ * `vfs` performs NO copy-on-write — it stores a full copy of every image layer
+ * — so the multi-gigabyte Hive Mind images consume many times their real size
+ * on disk and the first isolated `docker run`/pull dies with
+ * `failed to register layer: no space left on device` (issue #1914 reopen).
+ * The preflight uses this to warn loudly when the daemon is on `vfs` instead of
+ * letting the disk silently overflow mid-task.
+ *
+ * Never throws: returns the lowercased driver name, or `null` when docker is
+ * unavailable / the daemon is unreachable.
+ *
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<string|null>} e.g. 'fuse-overlayfs', 'overlay2', 'vfs', or null
+ */
+export async function checkDockerStorageDriver(verbose = false) {
+  try {
+    const result = await $({ mirror: false })`docker info --format ${'{{.Driver}}'}`;
+    const driver = (result.stdout?.toString() || '').trim().toLowerCase() || null;
+    if (verbose) console.log(`[VERBOSE] isolation-runner: docker storage driver: ${driver || '(unknown)'}`);
+    return driver;
+  } catch {
+    if (verbose) console.log('[VERBOSE] isolation-runner: docker info unavailable; storage driver unknown');
+    return null;
+  }
+}
+
+/**
+ * Report the free space (in GiB) on the Docker daemon's data root.
+ *
+ * The Hive Mind isolation images are multiple gigabytes; when the nested daemon
+ * has to pull one, it needs room for the extracted layers. This lets the
+ * preflight predict a `no space left on device` failure (issue #1914) instead
+ * of discovering it mid-pull. Resolves the daemon's real data root via
+ * `docker info` and falls back to `/var/lib/docker`, then reads `df -Pk`.
+ *
+ * Never throws: returns `{ availableGiB, dataRoot }`, or `null` when the
+ * information cannot be determined (no docker, no df, unparseable output).
+ *
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<{availableGiB: number, dataRoot: string}|null>}
+ */
+export async function checkDockerDiskSpace(verbose = false) {
+  try {
+    let dataRoot = '/var/lib/docker';
+    try {
+      const info = await $({ mirror: false })`docker info --format ${'{{.DockerRootDir}}'}`;
+      const root = (info.stdout?.toString() || '').trim();
+      if (root) dataRoot = root;
+    } catch {
+      // Daemon unreachable: fall back to the conventional data root. If df then
+      // fails on it (e.g. the path does not exist) we return null below.
+    }
+
+    const df = await $({ mirror: false })`df -Pk ${dataRoot}`;
+    // `df -P` guarantees one logical line per filesystem (no wrapping). The last
+    // line is the data row: Filesystem 1024-blocks Used Available Capacity Mount
+    const lines = (df.stdout?.toString() || '').trim().split('\n');
+    const cols = (lines[lines.length - 1] || '').trim().split(/\s+/);
+    const availableKb = Number(cols[3]);
+    if (!Number.isFinite(availableKb)) {
+      if (verbose) console.log('[VERBOSE] isolation-runner: could not parse df output for Docker disk space');
+      return null;
+    }
+    const availableGiB = availableKb / (1024 * 1024);
+    if (verbose) console.log(`[VERBOSE] isolation-runner: Docker data root '${dataRoot}' has ${availableGiB.toFixed(1)} GiB free`);
+    return { availableGiB, dataRoot };
+  } catch {
+    if (verbose) console.log('[VERBOSE] isolation-runner: df unavailable; Docker disk space unknown');
+    return null;
+  }
+}
+
+/**
  * Startup preflight for `--isolation docker`.
  *
  * The bot usually runs inside a Docker-in-Docker container whose NESTED daemon
@@ -637,42 +718,78 @@ export async function checkDockerImagePresent(image, verbose = false) {
  * blocks startup — a misconfigured passthrough should degrade to a slow first
  * task, not a dead bot.
  *
+ * It also surfaces the two root causes of the issue #1914 reopen
+ * (`failed to register layer: no space left on device`): a non-copy-on-write
+ * storage driver (`vfs`, which copies every layer in full) and a Docker data
+ * root with too little free space to hold the >30 GB image. Both are reported
+ * as loud, actionable warnings so the disk overflow is self-diagnosing at
+ * startup instead of surfacing mid-task.
+ *
  * @param {Object} [options]
  * @param {Object} [options.env] - Environment (defaults to process.env)
  * @param {Function} [options.existsSync] - fs.existsSync (injectable for tests)
  * @param {boolean} [options.verbose] - Enable verbose logging
  * @param {Object} [options.logger] - Logger with .log/.warn (defaults to console)
  * @param {Function} [options.checkImagePresent] - Image-presence probe (injectable for tests)
- * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, ok: boolean, warnings: string[]}>}
+ * @param {Function} [options.checkStorageDriver] - Storage-driver probe (injectable for tests)
+ * @param {Function} [options.checkDiskSpace] - Disk-space probe (injectable for tests)
+ * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), ok: boolean, warnings: string[]}>}
  */
 export async function preflightDockerIsolation(options = {}) {
-  const { env = process.env, existsSync = fs.existsSync, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent } = options;
+  const { env = process.env, existsSync = fs.existsSync, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent, checkStorageDriver = checkDockerStorageDriver, checkDiskSpace = checkDockerDiskSpace } = options;
 
   const image = getDockerIsolationImage({ env });
   const sock = resolveHostDockerSock({ env });
   const isDind = shouldRunPrivilegedDockerIsolation(image, env);
   const socketMounted = Boolean(existsSync(sock));
   const imagePresent = Boolean(await checkImagePresent(image, verbose));
+  const storageDriver = await checkStorageDriver(verbose);
+  const disk = await checkDiskSpace(verbose);
+  const diskAvailableGiB = disk && Number.isFinite(disk.availableGiB) ? disk.availableGiB : null;
+  // Unknown driver (probe returned null) is treated as ok — we only flag the
+  // one driver known to overflow the disk, never block on missing information.
+  const storageDriverOk = storageDriver !== 'vfs';
 
-  const result = { image, sock, socketMounted, imagePresent, isDind, ok: imagePresent, warnings: [] };
+  const result = { image, sock, socketMounted, imagePresent, isDind, storageDriver, storageDriverOk, diskAvailableGiB, ok: imagePresent, warnings: [] };
   const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
   const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
 
-  if (imagePresent) {
-    info(`✅ Docker isolation image '${image}' is already present locally — isolated tasks reuse it (no multi-GB pull). See issue #1914.`);
-    return result;
+  const preload = `node scripts/preload-dind-isolation-image.mjs --image ${image}`;
+
+  // Root Cause A of the issue #1914 reopen: a non-copy-on-write storage driver.
+  // `vfs` stores a full copy of every image layer, so the multi-GB images
+  // consume many times their size on disk and any layer write (pull, run,
+  // commit) can fail with `failed to register layer: no space left on device`.
+  // This is dangerous even when the image is already present — a task that
+  // commits or pulls more layers still overflows — so we warn independent of
+  // image presence.
+  if (storageDriver === 'vfs') {
+    result.warnings.push(`The Docker daemon backing '--isolation docker' is using the 'vfs' storage driver, which performs NO copy-on-write: ` + `it stores a full copy of every image layer, so the multi-GB Hive Mind images consume many times their size on disk and isolated tasks can fail with 'failed to register layer: no space left on device' (issue #1914). ` + `Switch to a copy-on-write driver: rebuild/redeploy with the current Dockerfile.dind (it defaults to 'fuse-overlayfs'), or for an already-running container add '-e DIND_STORAGE_DRIVER=fuse-overlayfs' to the bot container's 'docker run' and recreate it.`);
   }
 
-  // Image absent: the first isolated task will pull the full image. Explain the
-  // most likely cause and the exact fix instead of letting the operator first
-  // discover it as a surprise multi-gigabyte download mid-task.
-  const preload = `node scripts/preload-dind-isolation-image.mjs --image ${image}`;
-  if (isDind && !socketMounted) {
-    result.warnings.push(`Docker isolation image '${image}' is NOT in the nested Docker daemon and the host Docker socket is not mounted at ${sock}. ` + `box host-image passthrough cannot seed the nested daemon, so the FIRST isolated task will pull the full image (the Hive Mind images are multiple GB). ` + `Fix the deployment: add '-v /var/run/docker.sock:${sock}:ro' and '-e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind"' to the bot container's 'docker run', or seed it now with: ${preload}`);
-  } else if (isDind && socketMounted) {
-    result.warnings.push(`Docker isolation image '${image}' is NOT in the nested Docker daemon even though the host Docker socket is mounted at ${sock}. ` + `box host-image passthrough may have skipped it (check DIND_HOST_PASSTHROUGH mode, the DIND_HOST_PASSTHROUGH_IMAGES allowlist, and that the host actually has '${image}' with a registry digest). ` + `The first isolated task will pull the full image. Seed it now with: ${preload}`);
-  } else {
-    result.warnings.push(`Docker isolation image '${image}' is not present locally; the first isolated task will pull it. ` + `If this host already has it under a different tag, pin HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG, or seed it with: ${preload}`);
+  if (!imagePresent) {
+    // Image absent: the first isolated task will pull the full image. Explain
+    // the most likely cause and the exact fix instead of letting the operator
+    // first discover it as a surprise multi-gigabyte download mid-task.
+    if (isDind && !socketMounted) {
+      result.warnings.push(`Docker isolation image '${image}' is NOT in the nested Docker daemon and the host Docker socket is not mounted at ${sock}. ` + `box host-image passthrough cannot seed the nested daemon, so the FIRST isolated task will pull the full image (the Hive Mind images are multiple GB). ` + `Fix the deployment: add '-v /var/run/docker.sock:${sock}:ro' and '-e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind"' to the bot container's 'docker run', or seed it now with: ${preload}`);
+    } else if (isDind && socketMounted) {
+      result.warnings.push(`Docker isolation image '${image}' is NOT in the nested Docker daemon even though the host Docker socket is mounted at ${sock}. ` + `box host-image passthrough may have skipped it (check DIND_HOST_PASSTHROUGH mode, the DIND_HOST_PASSTHROUGH_IMAGES allowlist, and that the host actually has '${image}' with a registry digest). ` + `The first isolated task will pull the full image. Seed it now with: ${preload}`);
+    } else {
+      result.warnings.push(`Docker isolation image '${image}' is not present locally; the first isolated task will pull it. ` + `If this host already has it under a different tag, pin HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG, or seed it with: ${preload}`);
+    }
+
+    // Root Cause B of the issue #1914 reopen: too little disk for the pull. The
+    // image is well over 30 GB extracted; predict the `no space left on device`
+    // failure here rather than hitting it mid-pull.
+    if (diskAvailableGiB != null && diskAvailableGiB < DOCKER_ISOLATION_LOW_DISK_GIB) {
+      const root = disk?.dataRoot || 'the Docker data root';
+      result.warnings.push(`Only ~${diskAvailableGiB.toFixed(0)} GiB free on ${root} and the isolation image '${image}' is not present yet. ` + `The Hive Mind isolation image is well over 30 GB extracted, so the first isolated task's pull may fail with 'no space left on device' (issue #1914). ` + `Seed it via host passthrough (mount the host docker socket) or with '${preload}', and free space on the Docker data root.`);
+    }
+  }
+
+  if (imagePresent) {
+    info(`✅ Docker isolation image '${image}' is already present locally — isolated tasks reuse it (no multi-GB pull). See issue #1914.`);
   }
   for (const w of result.warnings) warn(`⚠️ ${w}`);
   return result;

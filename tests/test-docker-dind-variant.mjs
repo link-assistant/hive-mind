@@ -46,7 +46,14 @@ assertIncludes(dindDockerfile, 'FROM konard/box-dind:2.3.2', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'host-image passthrough allowlist', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ARG HIVE_MIND_VERSION=latest', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ENV HIVE_MIND_IMAGE_VARIANT=dind', 'Dockerfile.dind');
-assertIncludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="vfs"', 'Dockerfile.dind');
+assertIncludes(dindDockerfile, 'ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
+// Issue #1914 reopen: the nested daemon MUST default to a copy-on-write driver.
+// `vfs` copies every layer in full, so the multi-GB images overflow the disk
+// (`failed to register layer: no space left on device`). fuse-overlayfs is
+// copy-on-write AND works overlay-on-overlay, the compatibility vfs was chosen
+// for. Guard both directions so the regression cannot silently return.
+assertIncludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="fuse-overlayfs"', 'Dockerfile.dind');
+assertExcludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="vfs"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'test "$(hive --version)" = "${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'configure-claude --settings-path /home/box/.claude/settings.json', 'Dockerfile.dind');
@@ -59,7 +66,7 @@ assertIncludes(detectCodeChanges, 'Dockerfile.dind', 'scripts/detect-code-change
 
 const dockerDocs = await read('docs/DOCKER.md');
 assertIncludes(dockerDocs, 'konard/hive-mind-dind:latest', 'docs/DOCKER.md');
-assertIncludes(dockerDocs, 'DIND_STORAGE_DRIVER=vfs', 'docs/DOCKER.md');
+assertIncludes(dockerDocs, 'DIND_STORAGE_DRIVER=fuse-overlayfs', 'docs/DOCKER.md');
 assertIncludes(dockerDocs, '--privileged', 'docs/DOCKER.md');
 assertIncludes(dockerDocs, '--runtime=sysbox-runc', 'docs/DOCKER.md');
 

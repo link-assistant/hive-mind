@@ -53,7 +53,12 @@ docker info
 docker run hello-world
 ```
 
-यह image overlay-backed hosts के साथ compatibility के लिए inner Docker daemon को default रूप से `DIND_STORAGE_DRIVER=vfs` पर चलाती है। जिन hosts पर nested overlay mounts supported हैं, वहां faster local runs के लिए `-e DIND_STORAGE_DRIVER=overlay2` pass करें।
+यह image inner Docker daemon को default रूप से `DIND_STORAGE_DRIVER=fuse-overlayfs` पर चलाती है। यह एक **copy-on-write** driver है, इसलिए कई गीगाबाइट की Hive Mind images डिस्क पर लगभग अपने असली आकार जितनी ही जगह (एक बार) लेती हैं — जबकि `vfs` हर layer की पूरी copy बनाता है और on-disk footprint को image आकार के कई गुना तक बढ़ा देता है, जिससे डिस्क `failed to register layer: no space left on device` के साथ भर जाती है ([issue #1914](https://github.com/link-assistant/hive-mind/issues/1914))। `fuse-overlayfs` overlay-on-overlay भी काम करता है (वही compatibility जिसके लिए शुरू में `vfs` चुना गया था), image में `fuse-overlayfs` binary पहले से मौजूद है, और Hive Mind DinD container को `--privileged` के साथ launch करता है, इसलिए `/dev/fuse` उपलब्ध रहता है। Override विकल्प:
+
+- `-e DIND_STORAGE_DRIVER=overlay2` — nested overlay mounts को support करने वाले hosts पर तेज़, लेकिन overlay-backed hosts पर fail हो सकता है;
+- `-e DIND_STORAGE_DRIVER=vfs` — केवल अंतिम विकल्प (compatibility fallback); कई गुना ज़्यादा डिस्क लेता है और यही वह configuration है जिसने issue #1914 पैदा किया।
+
+> **पुरानी `vfs` image पर container पहले से चल रहा है?** bot container के `docker run` में `-e DIND_STORAGE_DRIVER=fuse-overlayfs` जोड़ें और container को फिर से बनाएं — image rebuild की ज़रूरत नहीं।
 
 Shared hosts पर, उपलब्ध हो तो Sysbox runtime को प्राथमिकता दें:
 
@@ -107,7 +112,9 @@ probe करके result log करता है, ताकि misconfiguration
 
 - ✅ image पहले से मौजूद → isolated tasks उसे reuse करते हैं (कोई pull नहीं);
 - ⚠️ socket mount **नहीं** है → यह आपको socket mount + allowlist जोड़ने को कहता है;
-- ⚠️ socket mounted है पर image अब भी absent → यह आपको passthrough mode/allowlist/digest जाँचने को कहता है।
+- ⚠️ socket mounted है पर image अब भी absent → यह आपको passthrough mode/allowlist/digest जाँचने को कहता है;
+- ⚠️ inner daemon `vfs` storage driver पर है → यह आपको `fuse-overlayfs` पर switch करने को कहता है (issue #1914 की disk-amplification root cause);
+- ⚠️ Docker data root पर कम free space और image अब भी absent → यह चेतावनी देता है कि आने वाला pull डिस्क खत्म कर सकता है।
 
 underlying `docker image inspect` traces के लिए bot को `--verbose` (या `TELEGRAM_BOT_VERBOSE=true`) के साथ चलाएं।
 

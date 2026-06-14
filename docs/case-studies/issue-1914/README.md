@@ -1,12 +1,222 @@
 # Issue 1914 Case Study: `--isolation docker` is not working as expected
 
-> Status: analysis + fixes delivered in PR #1915.
+> Status: **REOPENED 2026-06-14** after PR #1915. The screen→docker fix landed,
+> but isolated tasks still fail — now with `failed to register layer: no space
+left on device`. **Root Cause A (the reopen): the nested Docker daemon runs on
+> the `vfs` storage driver, which has no copy-on-write, so the multi-GB image
+> consumes many times its size and overflows the disk.** Fixed in **PR #1926** by
+> defaulting the DinD image to `fuse-overlayfs` and adding self-diagnosing
+> startup preflight checks. See [**2026-06-14 Reopen**](#2026-06-14-reopen--root-cause-a-vfs-disk-amplification-pr-1926)
+> first; the original PR #1915 analysis (Complaints 1 & 2) follows below.
+>
 > Data captured under [`./data`](./data): the issue body & comments
-> (`issue-1914.json`), the PR snapshot (`pr-1915.json`), the production deploy
-> script (`deploy-docker.mjs`, mirrored from
-> [gist 67532e7a](https://gist.github.com/konard/67532e7a7090462a618ca86fc00d06a6)),
-> and the session logs for the three related issues
-> (`issue-1860-session.log`, `issue-1879-session.log`, `issue-1914-session.log`).
+> (`issue-1914.json`, `issue-1914-comments.json`, `issue-1914-current.json`), the
+> PR snapshot (`pr-1915.json`), the production deploy script (`deploy-docker.mjs`,
+> mirrored from [gist 67532e7a](https://gist.github.com/konard/67532e7a7090462a618ca86fc00d06a6)),
+> the reopen evidence (`issue-1914-comment-20260614-session.log`,
+> `comment-screenshot-1-stuck.png`, `comment-screenshot-2-failed.png`), the live
+> `vfs` reproduction (`preflight-live-vfs-reproduction.log`), and the session logs
+> for the related issues (`issue-1860-session.log`, `issue-1879-session.log`,
+> `issue-1914-session.log`).
+
+## 2026-06-14 Reopen — Root Cause A: `vfs` disk amplification (PR #1926)
+
+**Issue #1914 was reopened on 2026-06-14.** PR #1915 fixed Complaints 1 and 2
+(the screen wrapper and the empty nested daemon), but a real isolated task still
+failed. The reopen is a **third, independent root cause** that PR #1915 did not
+cover.
+
+### What the reopen evidence proves
+
+The operator ran a real task through native docker isolation
+(`data/issue-1914-comment-20260614-session.log`, `comment-screenshot-2-failed.png`):
+
+```
+Command: 'solve' '…/formal-ai/issues/461' '--model' 'opus' '--tool' 'claude' … --isolation docker
+Environment: docker          ←  Complaint 1 is FIXED: native docker, not screen
+…
+Failed to pull Docker image: konard/hive-mind-dind:latest
+Exit Code: 1
+```
+
+A manual `$ --isolated docker --image konard/hive-mind-dind:latest -- echo hi`
+captured the actual daemon error (issue comment, 2026-06-14):
+
+```
+latest: Pulling from konard/hive-mind-dind
+cb259a83ac3d: Already exists          ←  most layers ALREADY present (daemon is seeded)
+340569b17e0a: Already exists
+… (14 "Already exists") …
+342bf6b888dc: Pull complete
+a80e20373f2e: Extracting [===>] 498.4MB/498.4MB
+… (many "Download complete") …
+afd9cc6fa527: Download complete
+failed to register layer: no space left on device     ←  THE REOPEN FAILURE
+Error: Failed to pull Docker image: konard/hive-mind-dind:latest
+```
+
+Two facts are decisive:
+
+1. **The screen→docker fix works.** `$ --status`/`$ --list` now report
+   `isolated docker` (not `isolated screen`), and the bot built the native
+   `$ --isolated docker --image … --privileged …` command. **Complaint 1 is
+   closed.**
+2. **The daemon is no longer empty.** Most layers report `Already exists` — the
+   nested daemon was seeded (passthrough/preload now partly working), so
+   **Complaint 2 improved too**. The failure is **not** "re-download the whole
+   image from scratch."
+
+The remaining failure is `failed to register layer: no space left on device`
+while _registering_ (extracting) a layer — a **disk** problem, not a download
+problem.
+
+### Root Cause A — `vfs` has no copy-on-write, so layers amplify
+
+The nested daemon (inside `konard/hive-mind-dind`) was running on the **`vfs`**
+storage driver. `vfs` performs **no copy-on-write**: registering layer _N_ copies
+the **entire cumulative filesystem** of layers `1..N` into a fresh directory,
+rather than storing only layer _N_'s diff. For a ~30 GB image with dozens of
+layers, the on-disk footprint becomes the **sum of every cumulative layer size**
+— many multiples of 30 GB — so extracting even a single ~498 MB layer on top of
+the ~30 GB base needs ~30 GB _more_ free space, and the daemon hits
+`no space left on device`. This is exactly the observed failure: most layers
+already exist, yet registering the last few overflows the disk.
+
+This is why the earlier fixes "didn't fully work": seeding the daemon (Complaint 2) put the layers there, but `vfs` then re-expanded them on every
+`docker run`/pull-completion, and a multi-GB image simply cannot fit when each
+layer is stored at full cumulative size.
+
+**Why was it `vfs`? — the precise, in-repo cause.** It was **not** a box default.
+`konard/box-dind`'s entrypoint _auto-detects_ the storage driver in the order
+`overlay2 → fuse-overlayfs → vfs`, with graceful fallback (it retries the next
+driver when dockerd exits early), and only lands on `vfs` as a last resort. Given
+this environment (`/dev/fuse` present, `fuse-overlayfs` binary shipped, `overlay`
+in `/proc/filesystems`) it would have picked a **copy-on-write** driver. It did
+not, because **Hive Mind's own `Dockerfile.dind` baked
+`ENV DIND_STORAGE_DRIVER="vfs"`** (commit `44d2c29e`, 2026-05-01, _"Default DinD
+storage driver to vfs"_). An explicit `DIND_STORAGE_DRIVER` makes box's candidate
+list return _only_ that driver, so box never tried a CoW driver. The dockerd log
+confirms it: `Docker daemon … storage-driver=vfs version=29.5.3` with **no**
+overlay2/fuse-overlayfs attempts.
+
+That commit chose `vfs` deliberately — its comment reads _"Prefer compatibility
+for nested Docker. overlay2 can fail on common overlay-backed hosts."_ The intent
+(avoid overlay2-on-overlay failures) was sound; the cost (no copy-on-write → disk
+amplification on multi-GB images) was not anticipated. **`fuse-overlayfs` satisfies
+both:** copy-on-write _and_ overlay-on-overlay. So the reopen is fixed by pinning
+`fuse-overlayfs` instead of `vfs` — keeping box's compatibility intent while
+restoring CoW.
+
+**Empirically verified (`data/fuse-overlayfs-capability-proof.log`).** A direct
+`fuse-overlayfs` mount in this very `box-dind` container reads through to the
+lower layer and copies writes into the upper dir (true CoW), then unmounts
+cleanly. Docker's `fuse-overlayfs` graphdriver uses exactly this mechanism, so
+pinning the driver yields a working CoW daemon here. `/dev/fuse` is present
+(provided by the `--privileged` flag the isolation backend already uses), which
+removes the only risk of pinning an explicit driver (box does **not** fall back
+when an explicit driver fails to start).
+
+### The fix (PR #1926): default to `fuse-overlayfs` (copy-on-write)
+
+`Dockerfile.dind` now sets `ENV DIND_STORAGE_DRIVER="fuse-overlayfs"`.
+`fuse-overlayfs` is **copy-on-write** (a layer costs only its own diff, like
+`overlay2`) **and** works overlay-on-overlay (the compatibility property `vfs`
+was chosen for). The `--privileged` flag the isolation backend already uses
+provides `/dev/fuse`, and `konard/box-dind` already ships the `fuse-overlayfs`
+binary. Under CoW, registering the 498 MB layer costs ~498 MB, not ~30 GB — the
+pull completes and the image fits.
+
+This is the **highest-leverage** fix: even if passthrough/seeding (Complaint 2)
+is imperfect, under CoW a ~30 GB pull occupies ~30 GB instead of exploding.
+
+### Storage drivers considered
+
+| Driver               | Copy-on-write?               | Overlay-on-overlay (DinD)?                                                     | Verdict for the nested daemon                                                                                                                   |
+| -------------------- | ---------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`vfs`**            | **No** — full copy per layer | Yes (works anywhere)                                                           | **Rejected.** The reopen root cause: a ~30 GB image amplifies to many×30 GB → `no space left on device`.                                        |
+| **`overlay2`**       | Yes (efficient)              | **Often fails** when the parent FS is itself an overlay (common in containers) | Rejected as the default: can fail to start the nested daemon overlay-on-overlay; great on a real disk, not DinD.                                |
+| **`fuse-overlayfs`** | **Yes** (like `overlay2`)    | **Yes** — designed for it (rootless/nested)                                    | **Chosen default.** CoW efficiency _and_ DinD compatibility; needs `/dev/fuse` (provided by `--privileged`); binary ships in `konard/box-dind`. |
+
+`fuse-overlayfs` is the only option that gives both copy-on-write (fixes the disk
+amplification) and overlay-on-overlay support (the reason `box-dind` defaulted to
+`vfs` in the first place).
+
+### Self-diagnosing startup preflight (debug output, per the issue's request)
+
+The issue explicitly asked: _"If there is not enough data to find actual root
+cause, add debug output and verbose mode."_ `preflightDockerIsolation()` (run at
+bot startup from `src/telegram-bot.mjs`) now also probes:
+
+- **`checkDockerStorageDriver()`** → `docker info --format '{{.Driver}}'`. When the
+  driver is `vfs`, it emits a loud warning _even when the image is present_ (the
+  failure mode is disk, not absence), naming the `no space left on device`
+  symptom, issue #1914, and the exact remediation.
+- **`checkDockerDiskSpace()`** → `df` on `docker info`'s `DockerRootDir`. When the
+  image is absent **and** free space on the data root is below ~40 GiB, it warns
+  that the first pull may fail with `no space left on device`.
+
+The result object gained `storageDriver`, `storageDriverOk`, and
+`diskAvailableGiB`. The probes never throw and never block startup.
+
+**Live reproduction (`data/preflight-live-vfs-reproduction.log`).** The very
+container this work was performed in is a `hive-mind-dind` on `vfs` with 58.5 GiB
+free — the same configuration as the failing production deploy. Running the new
+preflight against its real daemon reproduces the warning:
+
+```
+[VERBOSE] isolation-runner: docker storage driver: vfs
+[VERBOSE] isolation-runner: Docker data root '/var/lib/docker' has 58.5 GiB free
+⚠️ The Docker daemon backing '--isolation docker' is using the 'vfs' storage
+   driver, which performs NO copy-on-write … 'failed to register layer: no space
+   left on device' (issue #1914). Switch to a copy-on-write driver: rebuild/
+   redeploy with the current Dockerfile.dind (it defaults to 'fuse-overlayfs'),
+   or for an already-running container add '-e DIND_STORAGE_DRIVER=fuse-overlayfs'
+   … and recreate it.
+```
+
+So the `no space left` failure is now **self-diagnosing at boot**, before any
+task runs.
+
+### Immediate operator workaround (no rebuild needed)
+
+For an already-running bot container, recreate it with the CoW driver — no image
+rebuild required (`konard/box-dind` reads `DIND_STORAGE_DRIVER` at entrypoint):
+
+```bash
+docker run -dit --privileged … \
+  -e DIND_STORAGE_DRIVER=fuse-overlayfs \
+  konard/hive-mind-dind:latest
+```
+
+The nested daemon's image store is reset by the driver switch, so re-seed it
+(host passthrough or `scripts/preload-dind-isolation-image.mjs`) after recreating.
+
+### Reopen timeline
+
+| When             | Event                                                                                                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-06-13       | Issue #1914 filed (Complaints 1 & 2). Fixed in PR #1915 (native docker backend + deploy/passthrough fix + preflight + docs).                                         |
+| 2026-06-14 16:43 | Real task via native docker isolation. `Environment: docker` confirms Complaint 1 fixed; daemon shows most layers `Already exists` (Complaint 2 improved).           |
+| 2026-06-14 16:49 | Pull ends in `failed to register layer: no space left on device`; task exits 1. Telegram bot blocks for ~7 min, then surfaces the error (screenshots).               |
+| 2026-06-14 16:47 | Issue **reopened**: "still does not pass even a basic check… find root cause of all issues and fix them."                                                            |
+| 2026-06-14 17:28 | Live preflight reproduction on this `vfs` daemon confirms Root Cause A (`data/preflight-live-vfs-reproduction.log`).                                                 |
+| PR #1926         | Default `DIND_STORAGE_DRIVER=fuse-overlayfs`; storage-driver + disk-space preflight diagnostics; docs (4 languages); tests; this case-study update; upstream report. |
+
+### Secondary observations (noted, not the root cause)
+
+- _"In telegram it stuck for minutes (in a blocking way, nothing else can be
+  executed)."_ The ~7-minute block is the synchronous pull/extract under `vfs`
+  thrashing the disk before failing. With `fuse-overlayfs` the pull completes
+  quickly and the block disappears; making the pull itself asynchronous in the
+  bot is a possible follow-up but is out of scope for the disk root cause.
+- _"$ does not provide the full log."_ The `$`-captured isolation log truncates
+  the daemon's pull progress; the full error is only visible interactively. A DX
+  suggestion for `start-command`, not a Hive Mind bug — noted in
+  [Upstream Report](#upstream-report).
+
+---
+
+## Original Analysis (PR #1915 — Complaints 1 & 2)
 
 ## Summary
 
@@ -338,6 +548,31 @@ script), and the startup preflight then logs `✅ … already present`.
 
 ## Upstream Report
 
+### link-foundation/box — warn when the nested daemon runs on `vfs` (Root Cause A)
+
+Filed as **[link-foundation/box#104](https://github.com/link-foundation/box/issues/104)**.
+This is the upstream half of the reopen. box's storage-driver **auto-detection is
+correct** (`overlay2 → fuse-overlayfs → vfs`, with graceful fallback), so this is
+**not** a "wrong default" bug — the in-repo `Dockerfile.dind` pin was the actual
+cause and is fixed here. The upstream ask is **observability**: when the daemon
+_actually_ runs on `vfs` (whether pinned via `DIND_STORAGE_DRIVER=vfs` or reached
+as the last-resort fallback), box emits no warning that the driver has no
+copy-on-write and will amplify large images on disk — so an operator hitting
+`failed to register layer: no space left on device` has no breadcrumb.
+
+- **Reproducible example:** run `konard/box-dind` with `-e DIND_STORAGE_DRIVER=vfs`,
+  then `docker pull` a multi-GB image inside it → it registers each layer as a
+  full copy and a >30 GB image eventually fails with `no space left on device`,
+  with no warning from box.
+- **Workaround:** `-e DIND_STORAGE_DRIVER=fuse-overlayfs` (copy-on-write + works
+  overlay-on-overlay; box ships the binary; `/dev/fuse` comes from `--privileged`).
+  Verified in `data/fuse-overlayfs-capability-proof.log`.
+- **Suggested fix (code):** add a one-line `warn` in `dind-entrypoint.sh`'s
+  `start_dockerd()` success branch when the active `DIND_STORAGE_DRIVER` is `vfs`,
+  explaining the CoW/disk implication and pointing at `fuse-overlayfs`; optionally
+  note in the auto-detect fallback _why_ `vfs` was chosen (e.g. `/dev/fuse`
+  missing). Full patch in box#104.
+
 ### link-foundation/box — passthrough is silent when an allowlist is set but no socket is mounted
 
 Filed as **[link-foundation/box#102](https://github.com/link-foundation/box/issues/102)** —
@@ -390,6 +625,24 @@ box's behavior is more nuanced than "always silent", confirmed by reading
   question is answered in the timeline. Not required for this issue's fix.
 
 ## Verification
+
+**Reopen / Root Cause A (PR #1926):**
+
+- `tests/test-issue-1914-storage-driver-diagnostics.mjs` — the storage-driver and
+  disk-space probes are exported and never throw; `vfs` warns even when the image
+  is present (`storageDriverOk=false`); `fuse-overlayfs` is silent; the low-disk
+  warning fires below the ~40 GiB threshold only when the image is absent; null
+  probes degrade gracefully; all three diagnostics can stack.
+- `tests/test-docker-dind-variant.mjs` — asserts `Dockerfile.dind` sets
+  `ENV DIND_STORAGE_DRIVER="fuse-overlayfs"` (and never `"vfs"`), and that
+  `docs/DOCKER.md` documents `DIND_STORAGE_DRIVER=fuse-overlayfs`.
+- `tests/test-issue-1914-preflight-passthrough.mjs` — extended so every preflight
+  scenario passes neutral storage/disk probes and asserts `storageDriverOk`/
+  `diskAvailableGiB` propagate.
+- Live reproduction: `data/preflight-live-vfs-reproduction.log` (real `vfs`
+  daemon, preflight emits the Root Cause A warning).
+
+**Original (PR #1915):**
 
 - `tests/test-issue-1914-native-docker-isolation.mjs` — native shape (Complaint 1).
 - `tests/test-issue-1914-preflight-passthrough.mjs` — preflight states + socket

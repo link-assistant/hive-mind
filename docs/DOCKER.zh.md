@@ -53,7 +53,12 @@ docker info
 docker run hello-world
 ```
 
-该镜像默认将内部 Docker daemon 设置为 `DIND_STORAGE_DRIVER=vfs`，以兼容 overlay-backed 宿主机。如果宿主机支持嵌套 overlay mount，可传入 `-e DIND_STORAGE_DRIVER=overlay2` 获得更快的本地运行速度。
+该镜像默认将内部 Docker daemon 设置为 `DIND_STORAGE_DRIVER=fuse-overlayfs`。这是一个**写时复制（copy-on-write）**驱动，因此数 GB 的 Hive Mind 镜像在磁盘上只占用约一份真实大小——而 `vfs` 会完整复制每一层，使磁盘占用膨胀到镜像大小的数倍，最终以 `failed to register layer: no space left on device` 耗尽磁盘（[issue #1914](https://github.com/link-assistant/hive-mind/issues/1914)）。`fuse-overlayfs` 同时支持 overlay-on-overlay（这正是当初选择 `vfs` 的兼容性原因），镜像已内置 `fuse-overlayfs` 二进制，且 Hive Mind 以 `--privileged` 启动 DinD 容器，因此 `/dev/fuse` 可用。覆盖选项：
+
+- `-e DIND_STORAGE_DRIVER=overlay2`——在支持嵌套 overlay mount 的宿主机上更快，但在 overlay-backed 宿主机上可能失败；
+- `-e DIND_STORAGE_DRIVER=vfs`——仅作为最后的兼容性回退；占用数倍磁盘，且正是导致 issue #1914 的配置。
+
+> **已经在旧的 `vfs` 镜像上运行的容器？** 在 bot 容器的 `docker run` 中加上 `-e DIND_STORAGE_DRIVER=fuse-overlayfs` 并重新创建容器——无需重新构建镜像。
 
 如果宿主机支持 Sysbox，优先使用 Sysbox runtime：
 
@@ -103,7 +108,9 @@ docker run -dit --privileged --name hive-mind --restart unless-stopped \
 
 - ✅ 镜像已存在 → 隔离任务复用它（无需拉取）；
 - ⚠️ 套接字**未**挂载 → 提示你添加套接字挂载 + 允许列表；
-- ⚠️ 套接字已挂载但镜像仍缺失 → 提示你检查透传模式/允许列表/digest。
+- ⚠️ 套接字已挂载但镜像仍缺失 → 提示你检查透传模式/允许列表/digest；
+- ⚠️ 内部 daemon 使用 `vfs` 存储驱动 → 提示你切换到 `fuse-overlayfs`（issue #1914 的磁盘膨胀根因）；
+- ⚠️ Docker data root 可用空间不足且镜像仍缺失 → 警告即将进行的拉取可能耗尽磁盘。
 
 以 `--verbose`（或 `TELEGRAM_BOT_VERBOSE=true`）运行机器人可查看底层
 `docker image inspect` 跟踪。

@@ -75,9 +75,26 @@ docker info
 docker run hello-world
 ```
 
-The image defaults the inner Docker daemon to `DIND_STORAGE_DRIVER=vfs` for
-compatibility with overlay-backed hosts. For faster local runs on hosts that
-support nested overlay mounts, pass `-e DIND_STORAGE_DRIVER=overlay2`.
+The image defaults the inner Docker daemon to
+`DIND_STORAGE_DRIVER=fuse-overlayfs`. This is a **copy-on-write** driver, so the
+multi-gigabyte Hive Mind images cost roughly their real size once on disk —
+unlike `vfs`, which copies every layer in full and inflated the on-disk
+footprint to many times the image size, overflowing the disk with
+`failed to register layer: no space left on device`
+([issue #1914](https://github.com/link-assistant/hive-mind/issues/1914)).
+`fuse-overlayfs` also works overlay-on-overlay (the compatibility that `vfs` was
+originally chosen for), and the image already ships the `fuse-overlayfs` binary;
+Hive Mind launches the DinD container with `--privileged`, so `/dev/fuse` is
+available. Overrides:
+
+- `-e DIND_STORAGE_DRIVER=overlay2` — faster on hosts that support nested
+  overlay mounts, but can fail on overlay-backed hosts;
+- `-e DIND_STORAGE_DRIVER=vfs` — last-resort compatibility only; uses many times
+  the disk and is the configuration that caused issue #1914.
+
+> **Already-running container on the old `vfs` image?** Add
+> `-e DIND_STORAGE_DRIVER=fuse-overlayfs` to the bot container's `docker run`
+> and recreate it — no rebuild required.
 
 On shared hosts, prefer a Sysbox runtime when it is available:
 
@@ -135,7 +152,11 @@ immediately instead of as a surprise pull mid-task:
 - ✅ image already present → isolated tasks reuse it (no pull);
 - ⚠️ socket **not** mounted → it tells you to add the socket mount + allowlist;
 - ⚠️ socket mounted but image still absent → it tells you to check the
-  passthrough mode/allowlist/digest.
+  passthrough mode/allowlist/digest;
+- ⚠️ inner daemon on the `vfs` storage driver → it tells you to switch to
+  `fuse-overlayfs` (the disk-amplification root cause of issue #1914);
+- ⚠️ low free space on the Docker data root with the image still absent → it
+  warns that the impending pull may run out of disk.
 
 Run the bot with `--verbose` (or `TELEGRAM_BOT_VERBOSE=true`) for the underlying
 `docker image inspect` traces.

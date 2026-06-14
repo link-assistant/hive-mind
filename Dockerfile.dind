@@ -20,9 +20,35 @@ ARG HIVE_MIND_VERSION=latest
 # --- Environment variables ---
 ENV HOME=/home/box
 ENV HIVE_MIND_IMAGE_VARIANT=dind
-# Prefer compatibility for nested Docker. overlay2 can fail on common
-# overlay-backed hosts; users can override this to overlay2 or fuse-overlayfs.
-ENV DIND_STORAGE_DRIVER="vfs"
+# Nested-Docker storage driver. MUST be a copy-on-write driver for these images.
+#
+# The Hive Mind images are multiple gigabytes with many layers. `vfs` performs
+# NO copy-on-write: it materializes a full, independent copy of the entire
+# filesystem for every layer, so the on-disk footprint is the *sum* of all
+# cumulative layer sizes — many times the image size. On a >30 GB image that
+# overflows the disk and the first isolated `--isolation docker` task dies with
+# `failed to register layer: no space left on device` (issue #1914 reopen).
+#
+# `fuse-overlayfs` is the right default: it is copy-on-write (so the image
+# costs roughly its real size once, not a per-layer multiple) AND it works
+# overlay-on-overlay, which is the compatibility `vfs` was originally chosen
+# for — `overlay2` can fail on the overlay-backed hosts our deploys run on.
+# box-dind ships the `fuse-overlayfs` binary and Hive Mind launches the dind
+# container with `--privileged`, so /dev/fuse is available at runtime.
+#
+# NOTE: box-dind already auto-detects a driver (overlay2 -> fuse-overlayfs ->
+# vfs, with graceful fallback). Setting this env var OVERRIDES that detection
+# and pins one driver. The previous `vfs` value here defeated the auto-detect
+# and forced the no-copy-on-write driver — the exact cause of the #1914 reopen.
+# We pin `fuse-overlayfs` (not blank/auto) for determinism: it skips the
+# overlay2-on-overlay attempt that tends to fail in our nested deploys and
+# guarantees a copy-on-write daemon.
+#
+# Override only if you know your host: `-e DIND_STORAGE_DRIVER=overlay2` is
+# faster where nested overlay mounts are supported; `-e DIND_STORAGE_DRIVER=vfs`
+# is a last-resort compatibility fallback but uses many times the disk and is
+# the configuration that caused issue #1914.
+ENV DIND_STORAGE_DRIVER="fuse-overlayfs"
 ENV NVM_DIR="/home/box/.nvm"
 ENV PYENV_ROOT="/home/box/.pyenv"
 ENV BUN_INSTALL="/home/box/.bun"

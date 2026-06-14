@@ -71,6 +71,15 @@ function captureLogger() {
 const DIND = { HIVE_MIND_IMAGE_VARIANT: 'dind' };
 const REGULAR = { HIVE_MIND_IMAGE_VARIANT: 'regular' };
 
+// Neutral storage/disk probes so these passthrough scenarios stay deterministic
+// on any host: overlay2 is copy-on-write and 500 GiB is plenty, so the
+// storage-driver and low-disk diagnostics never fire here. Those have their own
+// dedicated coverage in test-issue-1914-storage-driver-diagnostics.mjs.
+const NEUTRAL_PROBES = {
+  checkStorageDriver: async () => 'overlay2',
+  checkDiskSpace: async () => ({ availableGiB: 500, dataRoot: '/var/lib/docker' }),
+};
+
 console.log('\n--- resolveHostDockerSock: single source of truth for the socket path ---');
 
 assertEqual(resolveHostDockerSock({ env: {} }), '/var/run/host-docker.sock', "defaults to box's own DIND_HOST_DOCKER_SOCK default");
@@ -91,11 +100,14 @@ const a = await preflightDockerIsolation({
   env: DIND,
   existsSync: () => false,
   checkImagePresent: async () => true,
+  ...NEUTRAL_PROBES,
   logger: captureLogger(),
 });
 assertEqual(a.ok, true, 'A: ok=true when the image is already present');
 assertEqual(a.imagePresent, true, 'A: imagePresent=true');
 assertEqual(a.warnings.length, 0, 'A: no warnings emitted (isolated tasks reuse the local image — no pull)');
+assertEqual(a.storageDriverOk, true, 'A: storageDriverOk=true for a copy-on-write driver (overlay2)');
+assertEqual(a.diskAvailableGiB, 500, 'A: diskAvailableGiB is surfaced from the disk probe');
 
 console.log('\n--- Scenario B: dind + socket NOT mounted + image absent → mount-socket remediation ---');
 
@@ -104,6 +116,7 @@ const b = await preflightDockerIsolation({
   env: DIND,
   existsSync: () => false,
   checkImagePresent: async () => false,
+  ...NEUTRAL_PROBES,
   logger: bLogger,
 });
 assertEqual(b.ok, false, 'B: ok=false when the image is absent');
@@ -123,6 +136,7 @@ const c = await preflightDockerIsolation({
   env: DIND,
   existsSync: () => true,
   checkImagePresent: async () => false,
+  ...NEUTRAL_PROBES,
   logger: captureLogger(),
 });
 assertEqual(c.ok, false, 'C: ok=false when the image is absent');
@@ -138,6 +152,7 @@ const d = await preflightDockerIsolation({
   env: REGULAR,
   existsSync: () => false,
   checkImagePresent: async () => false,
+  ...NEUTRAL_PROBES,
   logger: captureLogger(),
 });
 assertEqual(d.ok, false, 'D: ok=false when the image is absent');
@@ -152,6 +167,7 @@ const e = await preflightDockerIsolation({
   env: { ...DIND, DIND_HOST_DOCKER_SOCK: '/custom/docker.sock' },
   existsSync: p => p === '/custom/docker.sock',
   checkImagePresent: async () => false,
+  ...NEUTRAL_PROBES,
   logger: captureLogger(),
 });
 assertEqual(e.sock, '/custom/docker.sock', 'custom DIND_HOST_DOCKER_SOCK flows into the preflight result');

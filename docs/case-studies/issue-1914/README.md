@@ -120,6 +120,19 @@ pinning the driver yields a working CoW daemon here. `/dev/fuse` is present
 removes the only risk of pinning an explicit driver (box does **not** fall back
 when an explicit driver fails to start).
 
+**The pinned base honors the explicit pin.** box's dind entrypoint
+(`ubuntu/24.04/dind/dind-entrypoint.sh`, verified against `main`) sets
+`storage_driver_candidates()` to return _only_ `$DIND_STORAGE_DRIVER` when it is
+non-empty, then launches `dockerd --storage-driver="$storage_driver"` — so the
+pin is passed straight to a native Docker graphdriver. That `storage_driver_candidates`/retry logic landed in box `55a9a90b` ("fix(dind):
+retry storage drivers during daemon startup", 2026-06-04), well before
+**box v2.3.2** (2026-06-13) — the exact base `Dockerfile.dind` pins
+(`FROM konard/box-dind:2.3.2`). The capability proof was captured _inside an
+actual `konard/hive-mind-dind` container_ (the production base), so the proof and
+the deployed image are the same environment. If `fuse-overlayfs` somehow failed
+to start, the entrypoint still brings up the user shell (returns 0) — no worse
+than today — but the proof shows it starts.
+
 ### The fix (PR #1926): default to `fuse-overlayfs` (copy-on-write)
 
 `Dockerfile.dind` now sets `ENV DIND_STORAGE_DRIVER="fuse-overlayfs"`.

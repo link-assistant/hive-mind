@@ -14,10 +14,14 @@ left on device`. **Root Cause A (the reopen): the nested Docker daemon runs on
 > PR snapshot (`pr-1915.json`), the production deploy script (`deploy-docker.mjs`,
 > mirrored from [gist 67532e7a](https://gist.github.com/konard/67532e7a7090462a618ca86fc00d06a6)),
 > the reopen evidence (`issue-1914-comment-20260614-session.log`,
+> the operator's full `$` start-command log
+> [`start-command-full-log-e6599cf2.log`](./data/start-command-full-log-e6599cf2.log)
+> mirrored from [gist c2457b74](https://gist.github.com/konard/c2457b741b80f917bc9b1d778f1cf759),
 > `comment-screenshot-1-stuck.png`, `comment-screenshot-2-failed.png`), the live
-> `vfs` reproduction (`preflight-live-vfs-reproduction.log`), and the session logs
-> for the related issues (`issue-1860-session.log`, `issue-1879-session.log`,
-> `issue-1914-session.log`).
+> `vfs` reproduction (`preflight-live-vfs-reproduction.log`), the empirical
+> `fuse-overlayfs` capability proof (`fuse-overlayfs-capability-proof.log`), and
+> the session logs for the related issues (`issue-1860-session.log`,
+> `issue-1879-session.log`, `issue-1914-session.log`).
 
 ## 2026-06-14 Reopen — Root Cause A: `vfs` disk amplification (PR #1926)
 
@@ -193,14 +197,14 @@ The nested daemon's image store is reset by the driver switch, so re-seed it
 
 ### Reopen timeline
 
-| When             | Event                                                                                                                                                                |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-06-13       | Issue #1914 filed (Complaints 1 & 2). Fixed in PR #1915 (native docker backend + deploy/passthrough fix + preflight + docs).                                         |
-| 2026-06-14 16:43 | Real task via native docker isolation. `Environment: docker` confirms Complaint 1 fixed; daemon shows most layers `Already exists` (Complaint 2 improved).           |
-| 2026-06-14 16:49 | Pull ends in `failed to register layer: no space left on device`; task exits 1. Telegram bot blocks for ~7 min, then surfaces the error (screenshots).               |
-| 2026-06-14 16:47 | Issue **reopened**: "still does not pass even a basic check… find root cause of all issues and fix them."                                                            |
-| 2026-06-14 17:28 | Live preflight reproduction on this `vfs` daemon confirms Root Cause A (`data/preflight-live-vfs-reproduction.log`).                                                 |
-| PR #1926         | Default `DIND_STORAGE_DRIVER=fuse-overlayfs`; storage-driver + disk-space preflight diagnostics; docs (4 languages); tests; this case-study update; upstream report. |
+| When             | Event                                                                                                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-06-13       | Issue #1914 filed (Complaints 1 & 2). Fixed in PR #1915 (native docker backend + deploy/passthrough fix + preflight + docs).                                                                                             |
+| 2026-06-14 16:43 | Real task via native docker isolation (`data/start-command-full-log-e6599cf2.log`). `Environment: docker`, `Mode: detached` confirm Complaint 1 fixed; daemon shows most layers `Already exists` (Complaint 2 improved). |
+| 2026-06-14 16:47 | Issue **reopened** after repeated failed attempts: "still does not pass even a basic check… find root cause of all issues and fix them."                                                                                 |
+| 2026-06-14 16:49 | The detached pull (started 16:43:55) ends at 16:49:05 in `failed to register layer: no space left on device`; task exits 1. Telegram bot blocks for ~7 min across attempts, then surfaces the error (screenshots).       |
+| 2026-06-14 17:28 | Live preflight reproduction on this `vfs` daemon confirms Root Cause A (`data/preflight-live-vfs-reproduction.log`).                                                                                                     |
+| PR #1926         | Default `DIND_STORAGE_DRIVER=fuse-overlayfs`; storage-driver + disk-space preflight diagnostics; docs (4 languages); tests; this case-study update; upstream report.                                                     |
 
 ### Secondary observations (noted, not the root cause)
 

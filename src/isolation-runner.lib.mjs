@@ -18,6 +18,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
 
 if (typeof use === 'undefined') {
   await ensureUseM();
@@ -25,10 +26,14 @@ if (typeof use === 'undefined') {
 
 const { $ } = await use('command-stream');
 
+// Re-export the shared status predicates so existing callers that reach them via
+// the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`)
+// keep working. The canonical definitions live in session-status.lib.mjs so the
+// killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
+export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
+
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
-const RUNNING_SESSION_STATUSES = new Set(['executing', 'running']);
-const TERMINAL_SESSION_STATUSES = new Set(['executed', 'completed', 'failed', 'cancelled', 'canceled', 'error']);
 const HIVE_MIND_IMAGE_REPO = 'konard/hive-mind';
 const HIVE_MIND_DIND_IMAGE_REPO = 'konard/hive-mind-dind';
 const DEFAULT_HIVE_MIND_IMAGE_TAG = 'latest';
@@ -357,16 +362,84 @@ export function parseSessionStatusOutput(output) {
   };
 }
 
-export function isExecutingSessionStatus(status) {
-  return RUNNING_SESSION_STATUSES.has(String(status || '').toLowerCase());
-}
-
-export function isTerminalSessionStatus(status) {
-  return TERMINAL_SESSION_STATUSES.has(String(status || '').toLowerCase());
-}
-
 export function shouldFallbackToScreenStatus(statusResult) {
   return !statusResult?.exists || !statusResult?.status;
+}
+
+/**
+ * Parse the footer start-command appends to every execution log when the wrapped
+ * command exits. The footer is authoritative about the terminal exit code even
+ * when `$ --status` is wrong: start-command writes it from the command's own
+ * `close`/`exited` handler, so its presence proves the command terminated.
+ *
+ * Footer shape (see start-command spawn-helpers.js):
+ *
+ *     ==================================================
+ *     Finished: 2026-06-14 19:10:49.822
+ *     Exit Code: 137
+ *
+ * Issue #1927: start-command's `enrichDetachedStatus` can flip a completed
+ * `executed/137` record back to `executing` (nulling the exit code) when a
+ * lingering shell keeps the screen session alive — so `$ --status` reports
+ * `executing` forever and the bot never notices the kill. Reading this footer
+ * lets hive-mind detect the real terminal exit regardless of that flip.
+ *
+ * @param {string} text - Log text (typically the tail of the log file)
+ * @returns {{finished: boolean, exitCode: number|null, endTime: string|null}}
+ */
+export function parseSessionExitFooter(text) {
+  if (!text) return { finished: false, exitCode: null, endTime: null };
+  // Match the LAST footer block in the text (a re-run could append more than
+  // one). Anchor on the `=` separator so command output that merely prints
+  // "Exit Code: N" mid-stream is not mistaken for the footer.
+  const re = /={10,}\s*\r?\nFinished:\s*([^\r\n]+)\r?\nExit Code:\s*(-?\d+)/g;
+  let match;
+  let last = null;
+  while ((match = re.exec(text)) !== null) last = match;
+  if (!last) return { finished: false, exitCode: null, endTime: null };
+  return { finished: true, exitCode: Number(last[2]), endTime: last[1].trim() };
+}
+
+/**
+ * Read the terminal exit code from the tail of a start-command execution log.
+ *
+ * Only the last `tailBytes` of the file are read (the footer lives at the end),
+ * so this is cheap even for multi-megabyte logs. Never throws — a missing or
+ * unreadable log yields `{ finished: false }`.
+ *
+ * @param {string} logPath
+ * @param {Object} [options]
+ * @param {Object} [options.fsImpl=fs] - Injectable fs (for tests)
+ * @param {number} [options.tailBytes=16384] - How many trailing bytes to scan
+ * @param {boolean} [options.verbose]
+ * @returns {{finished: boolean, exitCode: number|null, endTime: string|null}}
+ */
+export function readSessionExitFromLog(logPath, options = {}) {
+  const { fsImpl = fs, tailBytes = 16384, verbose = false } = options;
+  if (!logPath) return { finished: false, exitCode: null, endTime: null };
+  try {
+    const { size } = fsImpl.statSync(logPath);
+    if (!size) return { finished: false, exitCode: null, endTime: null };
+    const start = Math.max(0, size - tailBytes);
+    const length = size - start;
+    const buffer = Buffer.alloc(length);
+    const fd = fsImpl.openSync(logPath, 'r');
+    try {
+      fsImpl.readSync(fd, buffer, 0, length, start);
+    } finally {
+      fsImpl.closeSync(fd);
+    }
+    const result = parseSessionExitFooter(buffer.toString('utf8'));
+    if (verbose && result.finished) {
+      console.log(`[VERBOSE] isolation-runner: log footer for ${logPath} reports exit ${result.exitCode} (finished ${result.endTime})`);
+    }
+    return result;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: could not read exit footer from ${logPath}: ${error.message}`);
+    }
+    return { finished: false, exitCode: null, endTime: null };
+  }
 }
 
 /**
@@ -499,6 +572,78 @@ export async function querySessionStatus(sessionId, verbose = false) {
 }
 
 /**
+ * Parse output from `$ --list --output-format json`.
+ *
+ * start-command may return a top-level array, or an object with an
+ * `executions`/`sessions` array. Each entry is normalized to the same shape used
+ * by {@link parseSessionStatusOutput} (uuid/status/exitCode/command/isolation/…).
+ * Tolerant of unknown layouts — anything unparseable yields an empty list.
+ *
+ * @param {string} output - Raw stdout from `$ --list`
+ * @returns {Array<{uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null}>}
+ */
+export function parseSessionListOutput(output) {
+  const raw = (output || '').trim();
+  if (!raw) return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  const records = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.executions) ? parsed.executions : Array.isArray(parsed?.sessions) ? parsed.sessions : parsed && typeof parsed === 'object' ? [parsed] : [];
+
+  return records
+    .map(data => {
+      if (!data || typeof data !== 'object') return null;
+      const isolationCandidate = (typeof data.isolation === 'string' && data.isolation) || (typeof data.options?.isolated === 'string' && data.options.isolated) || (typeof data.options?.isolation === 'string' && data.options.isolation) || null;
+      return {
+        uuid: data.uuid || data.session || data.sessionId || null,
+        status: typeof data.status === 'string' ? data.status.toLowerCase() : null,
+        exitCode: data.exitCode !== undefined && data.exitCode !== null ? Number(data.exitCode) : null,
+        startTime: data.startTime || null,
+        endTime: data.endTime || null,
+        command: data.command || null,
+        isolation: isolationCandidate ? isolationCandidate.toLowerCase() : null,
+        workingDirectory: data.workingDirectory || null,
+        sessionName: data.sessionName || data.options?.sessionName || null,
+      };
+    })
+    .filter(Boolean);
+}
+
+/**
+ * List all executions known to start-command via `$ --list --output-format json`.
+ *
+ * Unlike `$ --status`, the `--list` path does NOT run start-command's
+ * `enrichDetachedStatus` liveness gate, so it reports the recorded status/exit
+ * code as stored. Used by the bot's restart-resume scan to discover detached
+ * solve/hive/task sessions that were launched before the bot last started
+ * (issue #1927, requirement #2). Never throws — returns an empty list on any
+ * failure.
+ *
+ * @param {boolean} [verbose]
+ * @returns {Promise<Array<object>>} Normalized session records (see parseSessionListOutput)
+ */
+export async function listIsolationSessions(verbose = false) {
+  const binPath = await findStartCommandBinary();
+  if (!binPath) {
+    if (verbose) console.log('[VERBOSE] isolation-runner: Cannot list sessions - $ binary not found');
+    return [];
+  }
+  try {
+    const result = await $({ mirror: false })`${binPath} --list --output-format json`;
+    const stdout = result.stdout?.toString().trim() || '';
+    const sessions = parseSessionListOutput(stdout);
+    if (verbose) console.log(`[VERBOSE] isolation-runner: $ --list returned ${sessions.length} session(s)`);
+    return sessions;
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] isolation-runner: $ --list error: ${error.message}`);
+    return [];
+  }
+}
+
+/**
  * Ask the `$` CLI to gracefully stop an isolated session by sending CTRL+C.
  *
  * Wraps `$ --stop <uuid>` from start-command (link-foundation/start#112).
@@ -599,6 +744,45 @@ export async function checkDockerContainerRunning(containerName, verbose = false
     // `docker inspect` exits non-zero when no such container exists.
     return false;
   }
+}
+
+/**
+ * Check whether a tmux session with the given name still exists.
+ * `tmux has-session -t <name>` exits 0 when it exists and non-zero otherwise,
+ * so command-stream throwing is treated as "not found".
+ *
+ * @param {string} sessionName
+ * @param {boolean} [verbose]
+ * @returns {Promise<boolean>}
+ */
+export async function checkTmuxSessionRunning(sessionName, verbose = false) {
+  try {
+    await $({ mirror: false })`tmux has-session -t ${sessionName}`;
+    if (verbose) console.log(`[VERBOSE] isolation-runner: tmux has-session '${sessionName}': running`);
+    return true;
+  } catch {
+    if (verbose) console.log(`[VERBOSE] isolation-runner: tmux has-session '${sessionName}': not found`);
+    return false;
+  }
+}
+
+/**
+ * Directly probe whether the backend session/container is still alive, bypassing
+ * `$ --status`. This is the cross-check used to detect a session that
+ * start-command still reports as `executing` even though its backing process is
+ * gone (issue #1927). Returns `null` for unknown backends so callers can treat
+ * an indeterminate probe as "no signal" rather than "dead".
+ *
+ * @param {string} sessionId - Session UUID (also the screen name / container name)
+ * @param {string} backend - 'screen' | 'tmux' | 'docker'
+ * @param {boolean} [verbose]
+ * @returns {Promise<boolean|null>}
+ */
+export async function checkBackendSessionAlive(sessionId, backend, verbose = false) {
+  if (backend === 'screen') return checkScreenSessionRunning(sessionId, verbose);
+  if (backend === 'tmux') return checkTmuxSessionRunning(sessionId, verbose);
+  if (backend === 'docker') return checkDockerContainerRunning(sessionId, verbose);
+  return null;
 }
 
 /**

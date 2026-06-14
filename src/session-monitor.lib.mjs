@@ -1032,9 +1032,17 @@ export async function getRunningSessionItems(verbose = false, options = {}) {
     let status = null;
 
     if (sessionInfo.isolationBackend) {
+      // Forward every injectable seam so the listing applies the same #1927
+      // stale-`executing` reconciliation the monitor does — a session that
+      // start-command still reports as `executing` but whose backend is gone (or
+      // whose log footer shows a kill) must not be listed as running — and so the
+      // whole path stays controllable from tests.
       const state = await getIsolationSessionState(sessionName, sessionInfo, {
         verbose,
         statusProvider: options.statusProvider,
+        exitFromLog: options.exitFromLog,
+        backendAlive: options.backendAlive,
+        sessionRunning: options.sessionRunning,
       });
       running = state.running;
       status = state.status || null;

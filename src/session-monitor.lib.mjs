@@ -396,6 +396,9 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
           if (footer?.finished) {
             exitCode = footer.exitCode;
             const correctedStatus = classifyExitStatus(footer.exitCode) || statusResult.status;
+            if (verbose) {
+              console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${statusResult.exitCode}; recovered real exit ${exitCode} (${correctedStatus}) from log footer`);
+            }
             return { running: false, exitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode } };
           }
         }

@@ -18,7 +18,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
+import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
 
 if (typeof use === 'undefined') {
   await ensureUseM();

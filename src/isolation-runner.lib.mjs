@@ -93,12 +93,13 @@ function maybeAddMount(mounts, source, target, existsSync) {
 /**
  * Resolve the tag used for the Docker isolation image.
  *
- * Defaults to `latest`, but operators can pin it (e.g. to the exact version
- * already present on the host) via `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`.
- * Pinning matters for Docker-in-Docker deployments: the nested daemon starts
- * with an empty image store, so an unpinned `:latest` whose registry digest has
- * drifted from the host copy forces a fresh multi-gigabyte pull on every task.
- * A pinned tag lets a pre-seeded image be reused instead. See issue #1879.
+ * Release Docker images bake this env var from `HIVE_MIND_VERSION`, so a parent
+ * container started via `:latest` still launches child isolation containers from
+ * the same immutable release tag. Local/PR builds fall back to `latest`, and
+ * operators can override the tag explicitly when using custom images. Pinning
+ * matters for Docker-in-Docker deployments: the nested daemon starts with an
+ * empty image store, so a `:latest` digest drift from the host copy forces a
+ * fresh multi-gigabyte pull. See issue #1879.
  */
 export function resolveDockerIsolationImageTag({ env = process.env } = {}) {
   const explicit = String(env.HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || '').trim();

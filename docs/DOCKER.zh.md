@@ -70,12 +70,14 @@ DinD 镜像与 `konard/hive-mind:latest` 分开发布，因此不需要嵌套 Do
 
 #### 宿主镜像透传（避免重复下载数 GB 镜像）
 
-当机器人以 `--isolation docker` 在 DinD 镜像内运行时，每个任务都会以*嵌套*的
-`docker run konard/hive-mind-dind:latest …` 启动。该嵌套 `docker run` 与**内部**
-dockerd 通信，而内部镜像库一开始是**空的**（部署会在 `docker commit` 之前清空
-`/var/lib/docker`）。于是 Docker 报告 `Unable to find image '…' locally` 并拉取新副本——
-而 Hive Mind 镜像有数 GB，因此第一个隔离任务可能要花很长时间（或耗尽磁盘）去重新下载
-一个**宿主机已有**的镜像。参见
+当机器人以 `--isolation docker` 在发布版 DinD 镜像内运行时，每个任务都会以*嵌套*的
+`docker run konard/hive-mind-dind:<release-tag> …` 启动。发布镜像会从已发布的
+`HIVE_MIND_VERSION` 写入 `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`，所以即使父容器以
+`konard/hive-mind-dind:latest` 启动，子容器仍使用同一个不可变发布标签。该嵌套
+`docker run` 与**内部** dockerd 通信，而内部镜像库一开始是**空的**（部署会在
+`docker commit` 之前清空 `/var/lib/docker`）。于是 Docker 报告
+`Unable to find image '…' locally` 并拉取新副本——而 Hive Mind 镜像有数 GB，因此第一个
+隔离任务可能要花很长时间（或耗尽磁盘）去重新下载一个**宿主机已有**的镜像。参见
 [issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) 和
 [#1879](https://github.com/link-assistant/hive-mind/issues/1879)。
 
@@ -103,6 +105,17 @@ docker run -dit --privileged --name hive-mind --restart unless-stopped \
 在默认的 `public` 模式下，只有携带公共注册表 digest 的镜像才会被复制，因此宿主副本必须是
 已拉取/推送的镜像（仅本地 `docker build`、没有 `RepoDigest` 的镜像会被跳过——请先推送，或使用 `all`）。
 
+发布部署中，请在最终机器人容器启动前确保宿主机也有精确的子镜像标签。只拉取 `:latest`
+已经不够，因为发布镜像会固定 `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`：
+
+```bash
+TAG="$(docker image inspect konard/hive-mind-dind:latest \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | sed -n 's/^HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG=//p' \
+  | tail -1)"
+docker pull "konard/hive-mind-dind:${TAG:-latest}"
+```
+
 **启动预检。** 启用 `--isolation docker` 时，机器人会在启动时探测内部 daemon 并记录结果，
 让配置错误立即暴露，而不是在任务执行中变成意外拉取：
 
@@ -118,8 +131,9 @@ docker run -dit --privileged --name hive-mind --restart unless-stopped \
 **手动回退。** 要立即为正在运行的容器播种（或当你无法更改部署时），把宿主镜像复制进内部 daemon：
 
 ```bash
+TAG="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || true)"
 node scripts/preload-dind-isolation-image.mjs \
-  --container hive-mind --image konard/hive-mind-dind:latest
+  --container hive-mind --image "konard/hive-mind-dind:${TAG:-latest}"
 ```
 
 它以 `docker save … | docker exec -i <container> docker load` 流式传输，因此 tarball 永不落盘；

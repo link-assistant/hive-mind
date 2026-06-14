@@ -20,6 +20,10 @@ ARG HIVE_MIND_VERSION=latest
 # --- Environment variables ---
 ENV HOME=/home/box
 ENV HIVE_MIND_IMAGE_VARIANT=dind
+# Release builds pass the exact published package version here. Bake it as the
+# default child isolation image tag so a parent started via :latest still runs
+# Docker-isolated tasks on the same immutable release image.
+ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"
 # Nested-Docker storage driver. MUST be a copy-on-write driver for these images.
 #
 # The Hive Mind images are multiple gigabytes with many layers. `vfs` performs

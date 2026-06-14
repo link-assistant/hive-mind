@@ -70,14 +70,18 @@ DinD-образ публикуется отдельно от `konard/hive-mind:l
 
 #### Проброс образов с хоста (избегаем повторной загрузки многогигабайтных образов)
 
-Когда бот работает с `--isolation docker` внутри DinD-образа, каждая задача
-запускается как _вложенный_ `docker run konard/hive-mind-dind:latest …`. Этот
-вложенный `docker run` обращается к **внутреннему** dockerd, чьё хранилище образов
-изначально **пусто** (деплой очищает `/var/lib/docker` перед `docker commit`).
-Тогда Docker сообщает `Unable to find image '…' locally` и загружает свежую копию —
-а образы Hive Mind весят несколько гигабайт, поэтому первая изолированная задача
-может потратить очень много времени (или исчерпать диск), повторно скачивая образ,
-который **уже есть на хосте**. См.
+Когда бот работает с `--isolation docker` внутри release DinD-образа, каждая задача
+запускается как _вложенный_ `docker run konard/hive-mind-dind:<release-tag> …`.
+Release-образы записывают `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG` из опубликованного
+`HIVE_MIND_VERSION`, поэтому даже родительский контейнер, запущенный как
+`konard/hive-mind-dind:latest`, использует тот же неизменяемый release-tag для
+дочерних контейнеров. Этот вложенный `docker run` обращается к **внутреннему**
+dockerd, чьё хранилище образов изначально **пусто** (деплой очищает
+`/var/lib/docker` перед `docker commit`). Тогда Docker сообщает
+`Unable to find image '…' locally` и загружает свежую копию — а образы Hive Mind
+весят несколько гигабайт, поэтому первая изолированная задача может потратить
+очень много времени (или исчерпать диск), повторно скачивая образ, который **уже
+есть на хосте**. См.
 [issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) и
 [#1879](https://github.com/link-assistant/hive-mind/issues/1879).
 
@@ -109,6 +113,18 @@ docker run -dit --privileged --name hive-mind --restart unless-stopped \
 (образ, собранный только локально через `docker build` и не имеющий `RepoDigest`,
 будет пропущен — сначала отправьте его в реестр или используйте `all`).
 
+Для release-деплоев убедитесь, что на хосте есть и точный дочерний tag до запуска
+финального контейнера. Одного `:latest` уже недостаточно, потому что release-образ
+пинит `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`:
+
+```bash
+TAG="$(docker image inspect konard/hive-mind-dind:latest \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | sed -n 's/^HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG=//p' \
+  | tail -1)"
+docker pull "konard/hive-mind-dind:${TAG:-latest}"
+```
+
 **Предстартовая проверка (preflight).** Когда включён `--isolation docker`, бот при
 запуске опрашивает внутренний daemon и логирует результат, чтобы ошибка конфигурации
 проявилась сразу, а не как неожиданная загрузка посреди задачи:
@@ -126,8 +142,9 @@ docker run -dit --privileged --name hive-mind --restart unless-stopped \
 когда вы не можете изменить деплой), скопируйте образ с хоста во внутренний daemon:
 
 ```bash
+TAG="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || true)"
 node scripts/preload-dind-isolation-image.mjs \
-  --container hive-mind --image konard/hive-mind-dind:latest
+  --container hive-mind --image "konard/hive-mind-dind:${TAG:-latest}"
 ```
 
 Скрипт передаёт `docker save … | docker exec -i <container> docker load` потоком, так что

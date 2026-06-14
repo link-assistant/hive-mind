@@ -9,9 +9,11 @@
  * exact image.
  *
  * Reuse of a locally present image is achieved at two levels:
- *   1. HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG pins the tag so a pre-seeded image
- *      matches exactly (an unpinned :latest can drift from the host copy and
- *      force a re-pull even when an image with that name is present).
+ *   1. Release Docker images bake HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG from
+ *      HIVE_MIND_VERSION, so a parent started via :latest still launches child
+ *      containers from the same immutable release tag. That exact tag lets a
+ *      pre-seeded image match, while an unpinned :latest can drift from the host
+ *      copy and force a re-pull even when an image with that name is present.
  *   2. start-command's NATIVE docker backend (issue #1914) runs `docker run`
  *      with Docker's default "missing" pull policy: it reuses a locally present
  *      image and only pulls when the image is absent. There is therefore no

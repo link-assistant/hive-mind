@@ -20,6 +20,10 @@
 
 FROM konard/box:2.3.2
 ARG HIVE_MIND_VERSION=latest
+# Release builds pass the exact published package version here. Bake it as the
+# default child isolation image tag so a parent started via :latest still runs
+# Docker-isolated tasks on the same immutable release image.
+ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"
 
 # --- Environment variables ---
 # Set environment variables EARLY so they're available in subsequent RUN commands

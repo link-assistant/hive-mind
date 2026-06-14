@@ -468,7 +468,7 @@ This repo is now pinned to `2.3.2`, so the warning ships at the source.
 | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **box host-image passthrough** (mount host socket)                            | **Primary fix.** Zero per-task cost, automatic, already in the base image. Needs the socket mount + allowlist in the deploy.                                                                         |
 | **`scripts/preload-dind-isolation-image.mjs`** (`docker save \| docker load`) | **Kept as the manual fallback.** Works without the host socket; seeds an already-running container. Loaded image has no RepoDigest but start-command's `docker image inspect` check still reuses it. |
-| **`HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`** tag pinning (#1879)                | **Retained.** Ensures the seeded tag matches exactly so an unpinned `:latest` drift can't force a re-pull.                                                                                           |
+| **`HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`** tag pinning (#1879)                | **Strengthened.** Release Dockerfiles now bake it from `HIVE_MIND_VERSION`, so a parent launched as `:latest` still starts child containers from the same immutable release tag.                     |
 | **`docker save`/`load` over a bind-mounted host socket directly**             | Equivalent to passthrough but manual; passthrough automates it.                                                                                                                                      |
 | **`skopeo copy` / registry mirror / pull-through cache**                      | Heavier infra; unnecessary when the host already has the image and box can pass it through. Noted for completeness.                                                                                  |
 | **Baking the image into the DinD image at build time**                        | Rejected: the deploy intentionally wipes `/var/lib/docker` before commit, and a 30 GB self-referential layer is impractical.                                                                         |
@@ -497,11 +497,19 @@ This repo is now pinned to `2.3.2`, so the warning ships at the source.
    section: the socket mount, the passthrough env-var table, the startup
    preflight states, and the manual preload fallback.
 5. **Deploy script — [gist 67532e7a](https://gist.github.com/konard/67532e7a7090462a618ca86fc00d06a6).**
-   Add the host-socket mount + allowlist to the final `docker run`. See
+   Add the host-socket mount + allowlist to the final `docker run`, and pull the
+   exact release child tag before passthrough seeds the nested daemon. See
    [Deploy Script Fix](#deploy-script-fix).
-6. **Tests.** `tests/test-issue-1914-native-docker-isolation.mjs` (native shape),
+6. **Release child-image pin — `Dockerfile`, `Dockerfile.dind`,
+   `coolify/Dockerfile`.** Release builds pass the published npm version as
+   `HIVE_MIND_VERSION`; the images now bake the same value into
+   `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`, so nested `$ --isolated docker`
+   commands use `konard/hive-mind(-dind):<same release>` instead of a drifting
+   `:latest`.
+7. **Tests.** `tests/test-issue-1914-native-docker-isolation.mjs` (native shape),
    `tests/test-issue-1914-preflight-passthrough.mjs` (the four preflight states +
-   `resolveHostDockerSock`), and refreshed `#1860`/`#1879` tests.
+   `resolveHostDockerSock`), Docker release-order checks, and refreshed
+   `#1860`/`#1879` tests.
 
 ## Recommended Operator Runbook (no re-download)
 
@@ -512,24 +520,37 @@ This repo is now pinned to `2.3.2`, so the warning ships at the source.
 -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind"
 ```
 
-Ensure the host actually has the image with a registry digest
-(`docker pull konard/hive-mind-dind:latest` on the host). On the next bot start,
-the preflight logs `✅ … already present` and isolated tasks reuse it.
+Ensure the host actually has the exact release-tagged image with a registry
+digest. If the host was updated through `:latest`, extract the baked child tag
+and pull that tag before starting the final container:
+
+```bash
+TAG="$(docker image inspect konard/hive-mind-dind:latest \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | sed -n 's/^HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG=//p' \
+  | tail -1)"
+docker pull "konard/hive-mind-dind:${TAG:-latest}"
+```
+
+On the next bot start, the preflight logs `✅ … already present` and isolated
+tasks reuse it.
 
 **Fallback — explicit preload (no host socket needed):**
 
 ```bash
+TAG="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || true)"
 node scripts/preload-dind-isolation-image.mjs \
-  --container hive-mind --image konard/hive-mind-dind:latest
+  --container hive-mind --image "konard/hive-mind-dind:${TAG:-latest}"
 ```
 
 ## Deploy Script Fix (applied)
 
-**Applied to [gist 67532e7a](https://gist.github.com/konard/67532e7a7090462a618ca86fc00d06a6)
-(revision 5).** The dind `VARIANT` now contributes a `passthroughFlags` field
-(host-socket mount + image allowlist) and the final `docker run` includes it.
+**Applied to [gist 67532e7a](https://gist.github.com/konard/67532e7a7090462a618ca86fc00d06a6).**
+The dind `VARIANT` now contributes a `passthroughFlags` field for the
+host-socket mount and image allowlist, and the final `docker run` includes it.
 The plain variant contributes an empty `passthroughFlags` (it runs no nested
-dockerd, so there is nothing to seed). The exact change is captured token-free in
+dockerd, so there is nothing to seed). The exact passthrough change is captured
+token-free in
 [`data/deploy-docker.passthrough-fix.patch`](./data/deploy-docker.passthrough-fix.patch):
 
 ```diff
@@ -549,10 +570,36 @@ dockerd, so there is nothing to seed). The exact change is captured token-free i
 +await run(`docker run -dit ${VARIANT.runFlags} ${VARIANT.finalEnvFlags} ${VARIANT.passthroughFlags} ${VARIANT.finalUserFlag} ...`);
 ```
 
-This is the single production change that ends the re-download: on the next bot
-deploy/start, box seeds the nested daemon from the host (which already has
-`konard/hive-mind-dind:latest` with a registry digest, pulled earlier in the same
-script), and the startup preflight then logs `✅ … already present`.
+The follow-up release-tag pin is captured in
+[`data/deploy-docker.release-tag-pin.patch`](./data/deploy-docker.release-tag-pin.patch):
+
+```diff
+@@ -250,6 +256,23 @@ if (imageUpToDate) {
+ // Show local image details for confirmation
+ await run(`docker images --digests ${IMAGE}`);
+
++if (VARIANT.needsDockerd) {
++  nextStep('Ensuring exact child isolation image tag is present on host');
++  const childTagResult = await run(
++    `docker image inspect ${IMAGE} --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG=//p' | tail -1`,
++    { silent: true }
++  );
++  const childTag = childTagResult.stdout.trim() || ACTIVE_TAG;
++  const childImage = `${ACTIVE_REPO}:${childTag}`;
++  console.log(`>>> Docker isolation child image: ${childImage}`);
++  if (childImage !== IMAGE) {
++    await run(`docker pull ${childImage}`);
++  } else {
++    console.log('>>> Child image tag matches deployment image');
++  }
++  await run(`docker images --digests ${childImage}`);
++}
+```
+
+Together these are the production changes that end the re-download: on the next
+bot deploy/start, box seeds the nested daemon from the host, and the host has the
+exact `konard/hive-mind-dind:<release-tag>` image that the child task will ask
+for. The startup preflight then logs `✅ … already present`.
 
 > **Security note (pre-existing, unrelated to this fix):** the gist's _other_
 > file, `deploy-remote-docker.mjs`, embeds a live-looking `TELEGRAM_BOT_TOKEN` in

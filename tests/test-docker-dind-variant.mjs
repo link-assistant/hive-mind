@@ -46,6 +46,7 @@ assertIncludes(dindDockerfile, 'FROM konard/box-dind:2.3.2', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'host-image passthrough allowlist', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ARG HIVE_MIND_VERSION=latest', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ENV HIVE_MIND_IMAGE_VARIANT=dind', 'Dockerfile.dind');
+assertIncludes(dindDockerfile, 'ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
 // Issue #1914 reopen: the nested daemon MUST default to a copy-on-write driver.
 // `vfs` copies every layer in full, so the multi-GB images overflow the disk
 // (`failed to register layer: no space left on device`). fuse-overlayfs is

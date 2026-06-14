@@ -115,6 +115,16 @@ _terminal_ status, so a flipped-back-to-`executing` status means the kill is nev
 The **log footer is authoritative** (it is written once, at process exit); socket liveness is
 a heuristic that the OOM scenario violates.
 
+Confirmed against upstream source: the first branch of `enrichDetachedStatus`
+(`if (alive && enriched.status === 'executed')`) flips `status`→`'executing'` and sets
+`exitCode`/`endTime`→`null`, and never consults `readExitCodeFromLog` — even though the very
+next branch does. Filed as
+[link-foundation/start#134](https://github.com/link-foundation/start/issues/134) with a runnable
+repro (`experiments/upstream-start-enrichDetachedStatus-flip.mjs`) that reproduces the flip
+(`executed`/`137` → `executing`/`null`) against a real lingering `screen` session. It is a
+regression of the fix for upstream #60 / #101 (the same "executing while actually finished"
+symptom), whose remedy introduced `enrichDetachedStatus` in the first place.
+
 ### RC-2 — No durable session registry → a restart orphans everything
 
 The session monitor kept its registry purely in memory. If the bot itself is killed (the OOM
@@ -164,7 +174,11 @@ state, so an OOM looked like an ordinary non-zero failure (or nothing at all).
   paths with explicit `[VERBOSE]`/`debug()` tracing, so the next failure leaves a trail.
 - **#7 (upstream):** File an issue on `link-foundation/start` for the `enrichDetachedStatus`
   liveness-over-exit-code flip (RC-1), with a reproducible example, the footer-authoritative
-  workaround, and a suggested fix.
+  workaround, and a suggested fix. _Filed:_
+  [link-foundation/start#134](https://github.com/link-foundation/start/issues/134), with a
+  runnable repro (`experiments/upstream-start-enrichDetachedStatus-flip.mjs`) that copies the
+  three upstream functions verbatim and demonstrates the flip against a real lingering `screen`
+  session (`executed`/`137` → `executing`/`null`).
 - **#8 (whole codebase):** Centralize the new logic in shared libs
   (`session-status.lib.mjs`, `session-store.lib.mjs`, `bot-logger.lib.mjs`,
   `bot-lifecycle.lib.mjs`) and route **every** completion/monitor path through them, so there is
@@ -206,5 +220,6 @@ state, so an OOM looked like an ordinary non-zero failure (or nothing at all).
   recoverable**; it does not add host-level memory limits or admission control — that is a
   deployment concern tracked separately if desired.
 - The fix is defensive at the consumer (hive-mind) side. The authoritative upstream fix belongs in
-  `start-command`'s `enrichDetachedStatus` (requirement #7); the cross-check here keeps hive-mind
-  correct regardless of when upstream lands.
+  `start-command`'s `enrichDetachedStatus` (requirement #7, filed as
+  [link-foundation/start#134](https://github.com/link-foundation/start/issues/134)); the
+  cross-check here keeps hive-mind correct regardless of when upstream lands.

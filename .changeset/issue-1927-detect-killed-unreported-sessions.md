@@ -63,8 +63,9 @@ destroying the evidence needed to reconstruct the failure.
 A `verbose` flag is threaded through the new status/footer/liveness/resume paths
 with explicit `[VERBOSE]` tracing so the next failure leaves a trail (req #6).
 
-Added `tests/test-issue-1927-*.mjs` (8 suites, 246 assertions: status vocabulary,
+Added `tests/test-issue-1927-*.mjs` (9 suites, 263 assertions: status vocabulary,
 log-footer parsing, completion labeling, killed-detection, session store, resume,
-bot logger, bot lifecycle). Full deep-dive in `docs/case-studies/issue-1927`
+bot logger, bot lifecycle, terminal-watch kill). Full deep-dive in
+`docs/case-studies/issue-1927`
 (timeline, 8 requirements, 5 root causes, per-requirement solutions, preserved
 source artifacts), plus a runnable upstream repro under `experiments/`.

@@ -13,8 +13,10 @@ export const USE_M_CODE_URLS = Object.freeze(['https://unpkg.com/use-m/use.js', 
 
 // A CDN can answer 200 with an HTML/text error page instead of the bundle.
 // Reject obvious non-JavaScript bodies so we keep trying the next candidate
-// rather than eval()'ing garbage.
-const looksLikeError = code => !code || /^\s*Not found:/i.test(code) || /^\s*<(?:!doctype|html)/i.test(code);
+// rather than eval()'ing garbage. The error wording differs per CDN — unpkg
+// serves `Not found: ...`, while jsdelivr serves `Couldn't find ...` /
+// `Cannot find ...` / `Error: ...` — so match all of them plus raw HTML pages.
+const looksLikeError = code => !code || /^\s*(?:Not found|Cannot (?:find|GET)|Couldn't find|Error|Failed to)\b/i.test(code) || /^\s*<(?:!doctype|html)/i.test(code);
 
 /**
  * Fetch the use-m bootstrap source, trying each candidate URL until one returns

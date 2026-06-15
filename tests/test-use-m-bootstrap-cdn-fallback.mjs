@@ -62,6 +62,17 @@ await test('loadUseMCode rejects a "Not found" body served with HTTP 200', async
   assert.equal(code, '({ use: () => {} })');
 });
 
+await test('loadUseMCode rejects jsdelivr-style error bodies served with HTTP 200', async () => {
+  for (const errorBody of ["Couldn't find use-m@8.14.0/use.js", 'Cannot find module', 'Error: version not found', 'Failed to resolve use-m']) {
+    const fetchImpl = async url => {
+      if (url.includes('unpkg.com')) return response(true, 200, errorBody);
+      return response(true, 200, '({ use: () => {} })');
+    };
+    const code = await loadUseMCode({ fetchImpl });
+    assert.equal(code, '({ use: () => {} })', `should skip body: ${errorBody}`);
+  }
+});
+
 await test('loadUseMCode skips an HTML error page served with HTTP 200', async () => {
   const fetchImpl = async url => {
     if (url.includes('unpkg.com')) return response(true, 200, '<!DOCTYPE html><html><body>error</body></html>');

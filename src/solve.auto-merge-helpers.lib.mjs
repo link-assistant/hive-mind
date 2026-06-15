@@ -870,6 +870,13 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
         });
       }
     }
+  } else if (ciStatus.status === 'terminal_github_entity_error') {
+    blockers.push({
+      type: 'terminal_github_entity_error',
+      message: ciStatus.error || 'GitHub repository, pull request, issue, or branch is no longer accessible',
+      details: [],
+    });
+    return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
   } else if (ciStatus.status === 'unknown') {
     // Unable to determine CI status - treat as pending to be safe
     // Do NOT treat as mergeable (which would be incorrect)
@@ -882,6 +889,15 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
 
   // Check mergeability
   const mergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
+  if (mergeStatus.terminal) {
+    blockers.push({
+      type: 'terminal_github_entity_error',
+      message: mergeStatus.reason || 'GitHub repository, pull request, issue, or branch is no longer accessible',
+      details: [],
+    });
+    return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
+  }
+
   if (!mergeStatus.mergeable) {
     blockers.push({
       type: 'not_mergeable',

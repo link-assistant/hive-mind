@@ -10,11 +10,24 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { createInteractiveHandler } from '../src/interactive-mode.lib.mjs';
-import { isUnavailableMcpStatus } from '../src/interactive-mcp-status.lib.mjs';
-import { ensureConnectedPlaywrightMcpServer, ensureSolvePlaywrightMcpReady, hasConnectedPlaywrightMcpServer } from '../src/playwright-mcp.lib.mjs';
-import { formatVersionMessage } from '../src/version-info.lib.mjs';
 import { asyncTest, getFailCount, printSummary, test } from './test-helpers.mjs';
+
+const fsModule = await import('node:fs');
+const osModule = await import('node:os');
+const pathModule = await import('node:path');
+
+globalThis.use = async name => {
+  if (name === 'command-stream') return { $: () => ({ catch: async () => null }) };
+  if (name === 'fs') return { ...fsModule, default: fsModule };
+  if (name === 'os') return { ...osModule, default: osModule };
+  if (name === 'path') return { ...pathModule, default: pathModule };
+  return await import(name);
+};
+
+const { createInteractiveHandler } = await import('../src/interactive-mode.lib.mjs');
+const { getPlaywrightMcpSessionInitFailure, isUnavailableMcpStatus } = await import('../src/interactive-mcp-status.lib.mjs');
+const { ensureConnectedPlaywrightMcpServer, ensureSolvePlaywrightMcpReady, hasConnectedPlaywrightMcpServer } = await import('../src/playwright-mcp.lib.mjs');
+const { formatVersionMessage } = await import('../src/version-info.lib.mjs');
 
 const repoRoot = process.cwd();
 const read = filePath => fs.readFile(path.join(repoRoot, filePath), 'utf-8');
@@ -37,6 +50,44 @@ test('Issue #1901: Playwright MCP availability ignores timeout-action command ar
 test('Issue #1901: interactive status detection ignores timeout-action command arguments', () => {
   assert.equal(isUnavailableMcpStatus('npx @playwright/mcp --timeout-action=600000 - Connected'), false);
   assert.equal(isUnavailableMcpStatus('timeout'), true);
+});
+
+test('Issue #1901: Claude session init guard rejects pending Playwright without tools', () => {
+  const failure = getPlaywrightMcpSessionInitFailure({
+    playwrightMcpEnabled: true,
+    event: {
+      type: 'system',
+      subtype: 'init',
+      tools: ['Task', 'Bash', 'ToolSearch'],
+      mcp_servers: [{ name: 'playwright', status: 'pending' }],
+    },
+  });
+
+  assert.match(failure.message, /Playwright MCP is enabled/);
+  assert.match(failure.message, /pending/);
+  assert.match(failure.message, /mcp__playwright__/);
+});
+
+test('Issue #1901: Claude session init guard allows connected Playwright with Tool Search deferred tools', () => {
+  const failure = getPlaywrightMcpSessionInitFailure({
+    playwrightMcpEnabled: true,
+    event: {
+      type: 'system',
+      subtype: 'init',
+      tools: ['Task', 'Bash', 'ToolSearch'],
+      mcp_servers: [{ name: 'playwright', status: 'connected' }],
+    },
+  });
+
+  assert.equal(failure, null);
+});
+
+await asyncTest('Issue #1901: Claude stream handling aborts unusable Playwright MCP sessions', async () => {
+  const claudeSource = await read('src/claude.lib.mjs');
+
+  assert.match(claudeSource, /getPlaywrightMcpSessionInitFailure/);
+  assert.match(claudeSource, /playwrightMcpEnabled: argv\.playwrightMcp !== false/);
+  assert.match(claudeSource, /killProcessTree\('SIGTERM'\)/);
 });
 
 test('Issue #1901: Codex-style enabled rows still count as available', () => {

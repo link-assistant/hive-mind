@@ -33,6 +33,14 @@ Claude/Codex MCP list rows instead of accepting any row containing
 Playwright MCP registration when it is completely missing and the MCP package
 is installed.
 
+A 2026-06-15 follow-up log showed one more gap: the local Claude preflight
+reported Playwright MCP as connected, but the actual Claude Code process was
+started with a filtered `--strict-mcp-config --mcp-config ...` file and its
+`system.init` event still reported `playwright` as `pending` with no
+`mcp__playwright__*` browser tools. Hive Mind now treats that actual session
+state as a hard failure when Playwright MCP is enabled, instead of letting the
+AI continue without browser automation.
+
 The linked `kefine#173` E2E failures had a separate root cause: stale
 Playwright specs after UI changes in `kefine#174` and `kefine#175`. That
 external PR was ultimately made green by updating those specs on commit
@@ -44,20 +52,23 @@ the Claude sessions.
 All downloaded issue, PR, comment, AI-session, and CI artifacts are kept under
 this directory:
 
-| Path                                                         | Purpose                                                               |
-| ------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `data/raw/hive-mind-issue-1901.json`                         | Source issue metadata and body                                        |
-| `data/raw/hive-mind-pr-1907.json`                            | Prepared Hive Mind PR metadata                                        |
-| `data/raw/kefine-issue-172.json`                             | External issue linked by `kefine#173`                                 |
-| `data/raw/kefine-pr-173.json`                                | External PR metadata                                                  |
-| `data/raw/kefine-pr-173-issue-comments.json`                 | External PR conversation comments, including `system.init` comments   |
-| `data/raw/kefine-issue-172-run-list.json`                    | Recent GitHub Actions runs for the external branch                    |
-| `data/raw/kefine-pr-174.json`                                | Related frontend PR metadata                                          |
-| `data/raw/kefine-pr-175.json`                                | Related frontend PR metadata                                          |
-| `data/raw/deploy-gist-67532e7a7090462a618ca86fc00d06a6.txt`  | Deployment script referenced by PR review feedback                    |
-| `data/external-logs/solution-draft-log-pr-1781180008338.txt` | First AI session log                                                  |
-| `data/external-logs/auto-restart-log-pr-1781183077272.txt`   | Auto-restart AI session log                                           |
-| `data/ci-logs/*.log`                                         | Downloaded GitHub Actions logs from passing and failing external runs |
+| Path                                                         | Purpose                                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `data/raw/hive-mind-issue-1901.json`                         | Source issue metadata and body                                           |
+| `data/raw/hive-mind-issue-1901-comments-2026-06-15.json`     | Follow-up issue comments that linked the new pending-session gist        |
+| `data/raw/hive-mind-pr-1907.json`                            | Prepared Hive Mind PR metadata                                           |
+| `data/raw/hive-mind-pr-1932*.json`                           | Current follow-up PR metadata, comments, reviews, and run list           |
+| `data/raw/kefine-issue-172.json`                             | External issue linked by `kefine#173`                                    |
+| `data/raw/kefine-pr-173.json`                                | External PR metadata                                                     |
+| `data/raw/kefine-pr-173-issue-comments.json`                 | External PR conversation comments, including `system.init` comments      |
+| `data/raw/kefine-issue-172-run-list.json`                    | Recent GitHub Actions runs for the external branch                       |
+| `data/raw/kefine-pr-174.json`                                | Related frontend PR metadata                                             |
+| `data/raw/kefine-pr-175.json`                                | Related frontend PR metadata                                             |
+| `data/raw/deploy-gist-67532e7a7090462a618ca86fc00d06a6.txt`  | Deployment script referenced by PR review feedback                       |
+| `data/external-logs/solution-draft-log-pr-1781180008338.txt` | First AI session log                                                     |
+| `data/external-logs/auto-restart-log-pr-1781183077272.txt`   | Auto-restart AI session log                                              |
+| `data/external-logs/start-command-log-2026-06-15.txt`        | Follow-up solve log where preflight passed but `system.init` was pending |
+| `data/ci-logs/*.log`                                         | Downloaded GitHub Actions logs from passing and failing external runs    |
 
 No screenshots were present in the issue or linked PR comments.
 
@@ -75,6 +86,9 @@ No screenshots were present in the issue or linked PR comments.
 | 2026-06-11 13:04:21    | External final summary comment (`4680853216`) stated local `CI=1 playwright test` passed with 129 tests and all 8 checks were green on `b020bd3`. The auto-restart log contains the same result around line 100673.                                          |
 | 2026-06-11 17:27:10    | PR #1907 review feedback requested checking the Hive Mind Docker/DinD image and deployment script because Playwright MCP and the Playwright CLI fallback should be accessible in all images.                                                                 |
 | 2026-06-11 22:28+      | Local container verification showed `codex mcp list` with Playwright `enabled`, `claude mcp list` with Playwright `Connected`, `playwright --version` returning `1.60.0`, and `npx --no-install @playwright/mcp --help` exposing server options.             |
+| 2026-06-15 12:41:07    | A follow-up `solve` run started with `--tool claude --attach-logs --verbose --no-tool-check`; `start-command-log-2026-06-15.txt` lines 45-49 show the local Claude Playwright MCP preflight passed.                                                          |
+| 2026-06-15 12:41:38    | The actual Claude command then used a filtered strict MCP config (`--strict-mcp-config --mcp-config`, lines 280-285). Its `system.init` event reported `playwright` as `pending` and exposed no `mcp__playwright__*` tools (lines 586-616).                  |
+| 2026-06-15 17:05:19    | The follow-up issue comment asked PR #1932 to explain why Playwright MCP was still pending and fix the failure if needed.                                                                                                                                    |
 
 ## External CI Run Summary
 
@@ -124,6 +138,34 @@ included `mcp_servers: [{ name: "playwright", status: "pending" }]`, while
 the `tools` list had only built-in Claude tools such as `Bash`, `Read`,
 `WebFetch`, and `WebSearch`.
 
+### Follow-up strict-session root cause
+
+The 2026-06-15 log demonstrated that a successful local preflight is necessary
+but not sufficient. Hive Mind ran `claude mcp list` before the work session and
+received a connected Playwright row. Later, `src/useless-tools.lib.mjs` created
+a filtered MCP config for the Claude process and `src/claude.lib.mjs` launched
+Claude with `--strict-mcp-config --mcp-config`.
+
+That actual Claude session initialized with:
+
+```json
+{
+  "tools": ["Task", "Bash", "ToolSearch", "WebFetch", "WebSearch"],
+  "mcp_servers": [{ "name": "playwright", "status": "pending" }]
+}
+```
+
+Because there were no `mcp__playwright__*` browser tools, the session could not
+use Playwright MCP even though the earlier preflight passed. Hive Mind was only
+warning about this in the interactive status comment; it did not fail the
+working session.
+
+The same log also contains unrelated downstream errors. A missing `file`
+command caused one attachment inspection command to exit 127, and the tail of
+the run repeatedly hit `GraphQL: Could not resolve to a Repository with the
+name 'uselessgoddess/ultimate'`. Those errors happened after the MCP mismatch
+and do not explain the initial pending Playwright state.
+
 ### External PR root cause
 
 The failing external E2E checks were not caused by missing Playwright MCP
@@ -162,17 +204,17 @@ Commit `b020bd3` updated six stale spec files and produced green CI.
 
 ## Existing Components And Libraries
 
-| Component                                             | Role before this PR                                  | Change                                                                                  |
-| ----------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `src/playwright-mcp.lib.mjs`                          | Shared Playwright MCP utilities and disable helpers  | Adds `hasConnectedPlaywrightMcpServer()` and row extraction helpers                     |
-| `src/claude.lib.mjs`                                  | Claude execution and Playwright MCP prompt preflight | Uses the shared parser instead of substring matching                                    |
-| `src/codex.lib.mjs`                                   | Codex execution and Playwright MCP prompt preflight  | Uses the shared parser instead of substring matching                                    |
-| `src/version-info.lib.mjs`                            | `/version` browser automation status rendering       | Uses the shared parser so pending rows render as not connected                          |
-| `src/interactive-mcp-status.lib.mjs`                  | New shared interactive status helpers                | Formats pending/unavailable MCP status and emits Playwright-specific diagnostics        |
-| `src/interactive-mode.lib.mjs`                        | Renders `system.init` PR comments                    | Marks pending/failed MCP status as unavailable and adds Playwright-specific diagnostics |
-| `Dockerfile`, `Dockerfile.dind`, `coolify/Dockerfile` | Docker image build contracts                         | Verify Playwright CLI fallback, local MCP package availability, and healthy MCP rows    |
-| `scripts/verify-docker-image.sh`                      | Runtime image verification in CI                     | Rejects pending/unavailable Claude/Codex Playwright rows and checks MCP package access  |
-| `tests/test-issue-1901-playwright-mcp-pending.mjs`    | New regression coverage                              | Reproduces the pending-list-row and pending-system-init cases                           |
+| Component                                             | Role before this PR                                  | Change                                                                                   |
+| ----------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `src/playwright-mcp.lib.mjs`                          | Shared Playwright MCP utilities and disable helpers  | Adds `hasConnectedPlaywrightMcpServer()` and row extraction helpers                      |
+| `src/claude.lib.mjs`                                  | Claude execution and Playwright MCP prompt preflight | Uses the shared parser and aborts unusable pending Playwright MCP sessions               |
+| `src/codex.lib.mjs`                                   | Codex execution and Playwright MCP prompt preflight  | Uses the shared parser instead of substring matching                                     |
+| `src/version-info.lib.mjs`                            | `/version` browser automation status rendering       | Uses the shared parser so pending rows render as not connected                           |
+| `src/interactive-mcp-status.lib.mjs`                  | New shared interactive status helpers                | Formats pending/unavailable MCP status, emits diagnostics, and detects unusable sessions |
+| `src/interactive-mode.lib.mjs`                        | Renders `system.init` PR comments                    | Marks pending/failed MCP status as unavailable and adds Playwright-specific diagnostics  |
+| `Dockerfile`, `Dockerfile.dind`, `coolify/Dockerfile` | Docker image build contracts                         | Verify Playwright CLI fallback, local MCP package availability, and healthy MCP rows     |
+| `scripts/verify-docker-image.sh`                      | Runtime image verification in CI                     | Rejects pending/unavailable Claude/Codex Playwright rows and checks MCP package access   |
+| `tests/test-issue-1901-playwright-mcp-pending.mjs`    | New regression coverage                              | Reproduces the pending-list-row and pending-system-init cases                            |
 
 ## Solution
 
@@ -191,7 +233,10 @@ Commit `b020bd3` updated six stale spec files and produced green CI.
    image-baked config.
 5. Harden Docker build/runtime verification so CI fails on pending/unavailable
    MCP status and on missing Playwright CLI or `@playwright/mcp` fallback.
-6. Add a focused default-suite regression test for issue #1901.
+6. Add a Claude `system.init` guard that fails the working session immediately
+   when Playwright MCP is enabled but the actual session reports Playwright as
+   missing or unavailable and exposes no `mcp__playwright__*` tools.
+7. Add focused default-suite regression tests for issue #1901.
 
 ## Reproduction Test
 
@@ -215,6 +260,11 @@ The test also feeds an interactive `system.init` event with:
 
 The expected comment now states that Playwright MCP tools are unavailable and
 warns that no `mcp__playwright__*` tools were exposed.
+
+The follow-up regression models the June 15 `system.init` event with
+`playwright` set to `pending` and no browser tools. It asserts that the new
+session guard returns a hard failure message and that `src/claude.lib.mjs`
+wires that guard into stream handling before letting the run continue.
 
 ## Follow-up Review Notes
 
@@ -242,8 +292,10 @@ patterns and keep explicit `playwright --version` plus
 This Hive Mind fix does not force a running Claude Code process to reconnect a
 pending MCP server or overwrite an existing custom Playwright registration. It
 prevents Hive Mind from treating pending as usable browser access, makes the
-missing tool exposure visible in PR comments, and repairs the default
-registration only when no Playwright MCP row exists. If a future run still
-shows pending, the next debugging target is the MCP client/server startup path:
-CLI MCP configuration, server command startup, browser/display availability,
-and client logs.
+missing tool exposure visible in PR comments, repairs the default registration
+only when no Playwright MCP row exists, and now stops Claude sessions whose
+actual `system.init` state proves browser automation is unavailable. If a
+future run still shows pending, the next debugging target is the MCP
+client/server startup path: CLI MCP configuration, filtered strict config
+contents, server command startup, browser/display availability, and client
+logs.

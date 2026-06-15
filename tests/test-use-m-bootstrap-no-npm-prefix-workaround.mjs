@@ -12,6 +12,7 @@
 
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 
 const bootstrapPath = new URL('../src/use-m-bootstrap.lib.mjs', import.meta.url);
 const removedHelperPath = new URL('../src/npm-global-prefix.lib.mjs', import.meta.url);
@@ -32,3 +33,19 @@ assert.doesNotMatch(bootstrapSource, /npm-global-prefix/, 'ensureUseM should not
 assert.doesNotMatch(bootstrapSource, /ensureWritableNpmGlobalPrefix/, 'ensureUseM should not run a local npm prefix preflight');
 assert.doesNotMatch(bootstrapSource, /npm_config_prefix|NPM_CONFIG_PREFIX|npm root -g|\.npm-global/, 'ensureUseM should not contain local npm prefix policy');
 assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m\/use\.js/, 'ensureUseM should still load the upstream use-m bootstrap');
+assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m@8\.13\.8\/use\.js/, 'ensureUseM should fall back to the last root use-m bootstrap');
+
+const originalUse = globalThis.use;
+delete globalThis.use;
+
+try {
+  const loadedUse = await ensureUseM({
+    fetchUseMCode: async () => `const use = async moduleSpecifier => ({ moduleSpecifier });
+module.exports = { use };`,
+  });
+  assert.equal((await loadedUse('command-stream')).moduleSpecifier, 'command-stream');
+  assert.equal(globalThis.use, loadedUse);
+} finally {
+  if (typeof originalUse === 'undefined') delete globalThis.use;
+  else globalThis.use = originalUse;
+}

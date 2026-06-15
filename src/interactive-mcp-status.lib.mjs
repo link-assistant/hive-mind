@@ -22,6 +22,30 @@ export const formatInteractiveMcpServerStatus = server => {
   return `\`${name}\` (${displayStatus})`;
 };
 
+export const getPlaywrightMcpSessionInitFailure = ({ event, playwrightMcpEnabled = true } = {}) => {
+  if (!playwrightMcpEnabled || event?.type !== 'system' || event?.subtype !== 'init') return null;
+  if (hasPlaywrightMcpTools(event.tools)) return null;
+
+  const servers = Array.isArray(event.mcp_servers) ? event.mcp_servers : [];
+  const playwrightServers = servers.filter(server =>
+    String(server?.name || '')
+      .toLowerCase()
+      .includes('playwright')
+  );
+  if (playwrightServers.length === 0) {
+    return {
+      message: `Playwright MCP is enabled, but Claude Code system.init reported no Playwright MCP server and exposed no \`${PLAYWRIGHT_TOOL_PREFIX}*\` browser tools. This working session cannot use browser automation.`,
+    };
+  }
+
+  const unavailableServers = playwrightServers.filter(server => isUnavailableMcpStatus(server?.status));
+  if (unavailableServers.length === 0) return null;
+
+  return {
+    message: `Playwright MCP is enabled, but Claude Code system.init reported ${unavailableServers.map(formatInteractiveMcpServerStatus).join(', ')} and exposed no \`${PLAYWRIGHT_TOOL_PREFIX}*\` browser tools. This working session cannot use browser automation.`,
+  };
+};
+
 export const getInteractiveMcpDiagnostics = (mcpServers = [], tools = []) => {
   const servers = Array.isArray(mcpServers) ? mcpServers : [];
   const diagnostics = [];

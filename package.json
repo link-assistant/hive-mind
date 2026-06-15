@@ -8,6 +8,7 @@
     "hive": "./src/hive.mjs",
     "solve": "./src/solve.mjs",
     "task": "./src/task.mjs",
+    "fix": "./src/fix.mjs",
     "cleanup": "./src/cleanup.mjs",
     "review": "./src/review.mjs",
     "configure-claude": "./src/configure-claude.mjs",
@@ -28,7 +29,7 @@
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "npm run build:pre && changeset publish",
-    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/configure-claude.mjs && chmod +x src/hive-screens.mjs",
+    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/fix.mjs && chmod +x src/configure-claude.mjs && chmod +x src/hive-screens.mjs",
     "prepare": "husky"
   },
   "repository": {

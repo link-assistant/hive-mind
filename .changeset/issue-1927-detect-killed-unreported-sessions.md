@@ -51,6 +51,14 @@ destroying the evidence needed to reconstruct the failure.
 - **`src/work-session-formatting.lib.mjs`** + `telegram-bot.mjs` — completion
   messages now call out a **killed** outcome (❌ killed / signal) distinctly from
   an ordinary failure.
+- **`src/telegram-terminal-watch-command.lib.mjs`** — the same fix applied to the
+  live `/terminal_watch` loop (req #8, "fix in all places"): it decided
+  "completed" purely from `--status`, so a session killed while `--status` still
+  read `executing` would be **polled forever** with a misleading "running"
+  snapshot — the #1927 silent-hang, in the watch path. It now cross-checks the
+  authoritative log footer (`reconcileWatchCompletion`), stops on a recorded exit,
+  corrects the displayed status to the real terminal one (e.g. `killed`), and a
+  completed-but-failed session renders a ❌ failure title instead of a ✅.
 
 A `verbose` flag is threaded through the new status/footer/liveness/resume paths
 with explicit `[VERBOSE]` tracing so the next failure leaves a trail (req #6).

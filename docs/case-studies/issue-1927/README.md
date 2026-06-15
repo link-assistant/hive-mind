@@ -209,9 +209,37 @@ state, so an OOM looked like an ordinary non-zero failure (or nothing at all).
   ❌ killed (signal) / ❌ failed (non-zero) / ✅ success (RC-5).
 - **`src/telegram-bot.mjs`** — wires the logger + store + heartbeat + resume + shutdown handler at
   startup; records `bot_starting`; resumes before entering long-polling.
+- **`src/telegram-terminal-watch-command.lib.mjs`** — the **second location** of the same bug,
+  found by the requirement #8 audit. `/terminal_watch`'s live loop decided "completed" purely from
+  `--status`, so a session killed while `--status` still read `executing` would be **polled
+  forever** with a misleading "running" snapshot — the #1927 silent-hang in the watch path. New
+  `reconcileWatchCompletion` cross-checks the authoritative footer: once an `Exit Code:` is
+  recorded the watch stops, corrects the displayed status to the real terminal one (e.g. `killed`),
+  and a completed-but-failed session renders a ❌ failure title instead of a ✅ (RC-1, req #8).
 - **Tests:** `tests/test-issue-1927-*.mjs` (status vocabulary, log-footer parsing, completion
   labeling, the core killed-detection regression, session store, resume, bot logger, bot
-  lifecycle) — all green.
+  lifecycle, terminal-watch kill-detection) — all green.
+
+## Requirement #8: Codebase-Wide Audit ("fix in all places")
+
+The root flaw is _trusting a non-terminal `--status` (e.g. `executing`) without cross-checking the
+authoritative log footer_. Every call site of `querySessionStatus` / session-status code was audited
+to decide whether it shares that flaw. The footer reconciliation was applied **only** where trusting
+`executing` produces the #1927 symptom (a missed kill report or an infinite poll); sites where the
+non-terminal default is already the _safe_ behavior were intentionally left unchanged.
+
+| Call site                                                                | Trusts `executing`? | #1927 impact                              | Decision                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------ | ------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session-monitor.lib.mjs` `getIsolationSessionState` (completion)        | yes                 | **kill unreported / hang**                | **Fixed** — footer + 90s-gated liveness probe                                                                                                                                                                                                                                                                                                  |
+| `session-monitor.lib.mjs` `getRunningSessionItems` (listing)             | yes                 | dead session listed "running"             | **Fixed** — forwards the same reconciliation seams                                                                                                                                                                                                                                                                                             |
+| `telegram-terminal-watch-command.lib.mjs` `/terminal_watch`              | yes                 | **polls forever, misleading snapshot**    | **Fixed** — `reconcileWatchCompletion` (footer authoritative)                                                                                                                                                                                                                                                                                  |
+| `cleanup.os.lib.mjs` `listActiveTaskRefsFromSessions` → `getActiveTasks` | yes                 | a killed session counts as an active task | **Kept as-is (deliberate)** — an active task → `action:'keep'` (folder _protected_ from deletion). Counting a killed session as active errs toward **keeping** a dead workspace — the safe default for a destructive op. Applying the footer here would make deletion **more aggressive** (a mis-parsed footer could delete a live workspace). |
+| `cleanup.os.lib.mjs` status-enrich (listing display)                     | yes                 | informational only                        | **Kept as-is** — cosmetic; erring toward "running" is conservative                                                                                                                                                                                                                                                                             |
+| `telegram-log-command.lib.mjs` `/log`                                    | yes                 | DM-vs-chat routing only                   | **Kept as-is** — one-shot, no loop; the delivered log file already contains the kill footer, so the user sees it regardless                                                                                                                                                                                                                    |
+
+The fix targets the **reporting and hang** paths (where a wrong `executing` silently loses a failure
+or spins forever). The cleanup path's non-terminal default is the correct, safer behavior for a
+destructive (workspace-deletion) operation, so it is left intact rather than made more aggressive.
 
 ## Residual Notes
 

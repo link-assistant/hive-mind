@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `cleanup` — free disk space by removing stale hive-mind temporary
+ * `hive-cleanup` — free disk space by removing stale hive-mind temporary
  * directories/files while preserving folders that belong to currently-running
  * (active) tasks, protected system paths and any work that is not yet pushed.
  *
@@ -33,9 +33,9 @@
 
 import path from 'node:path';
 import { promises as fsp } from 'node:fs';
-import { execSync } from 'node:child_process';
 
-import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES } from './cleanup.lib.mjs';
+import { isConfirmationYes, readConfirmationLine } from './confirmation.lib.mjs';
+import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES, formatEntryContext, formatTaskSummary } from './cleanup.lib.mjs';
 import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees } from './cleanup.os.lib.mjs';
 import { formatProcessDebugReport } from './process-debug.lib.mjs';
 
@@ -86,7 +86,7 @@ if (hasFlag('--version')) {
 }
 
 if (hasFlag('--help', '-h')) {
-  console.log(`Usage: cleanup [options]
+  console.log(`Usage: hive-cleanup [options]
 
 Free disk space by removing stale hive-mind temporary directories/files while
 keeping folders that belong to active tasks and protected system paths.
@@ -244,8 +244,8 @@ async function main() {
     matchers = buildActiveMatchers(activeTasks);
     if (activeTasks.length > 0) {
       await log(`🏃 Active tasks detected: ${activeTasks.length}`);
-      for (const t of activeTasks) {
-        await log(`   • ${t.owner}/${t.repo} ${t.type} #${t.number}${t.branch ? ` (branch ${t.branch})` : ''}`);
+      for (const task of activeTasks) {
+        await log(`   • ${formatTaskSummary(task)}`);
       }
     } else {
       await log('🏃 No active tasks detected from running processes/sessions');
@@ -289,13 +289,13 @@ async function main() {
   await log('\n🟢 KEPT folders/files:');
   if (classified.keep.length === 0) await log('   (none)');
   for (const item of classified.keep.sort((a, b) => (b.size || 0) - (a.size || 0))) {
-    await log(`   ${formatBytes(item.size).padStart(7)}  ${item.path}  — ${describeReason(item.reason)}`);
+    await log(`   ${formatBytes(item.size).padStart(7)}  ${item.path}  — ${describeReason(item.reason)}${formatEntryContext(item)}`);
   }
 
   await log(`\n🗑️  ${options.dryRun ? 'WOULD DELETE' : 'TO DELETE'} folders/files:`);
   if (classified.remove.length === 0) await log('   (none)');
   for (const item of classified.remove.sort((a, b) => (b.size || 0) - (a.size || 0))) {
-    await log(`   ${formatBytes(item.size).padStart(7)}  ${item.path}  — ${describeReason(item.reason)}`);
+    await log(`   ${formatBytes(item.size).padStart(7)}  ${item.path}  — ${describeReason(item.reason)}${formatEntryContext(item)}`);
   }
 
   await log(`\n📊 Summary: keep ${totals.keepCount} (${formatBytes(totals.keepBytes)}), remove ${totals.removeCount} (${formatBytes(totals.removeBytes)})`);
@@ -309,15 +309,14 @@ async function main() {
     if (!options.force) {
       console.log(`\n⚠️  This will permanently delete ${classified.remove.length} entries (${formatBytes(totals.removeBytes)}).`);
       console.log('Type "yes" to confirm, or Ctrl+C to cancel:');
-      process.stdout.write('> ');
       let answer = '';
       try {
-        answer = execSync('read answer && echo $answer', { encoding: 'utf8', stdio: ['inherit', 'pipe', 'pipe'], shell: '/bin/bash' }).trim();
+        answer = await readConfirmationLine({ prompt: '> ' });
       } catch {
         await log('\n❌ Cancelled');
         return;
       }
-      if (answer.toLowerCase() !== 'yes') {
+      if (!isConfirmationYes(answer)) {
         await log('\n❌ Cancelled');
         return;
       }

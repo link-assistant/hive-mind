@@ -730,7 +730,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ### 磁盘清理
 
-`cleanup` 通过删除过时的 hive-mind 临时目录/文件（如每个任务的克隆
+`hive-cleanup` 通过删除过时的 hive-mind 临时目录/文件（如每个任务的克隆
 `/tmp/gh-issue-solver-*`、MCP 配置文件、日志下载目录等）来释放磁盘空间，同时
 **保留属于当前正在运行任务的文件夹**、受保护的系统路径，以及任何包含未提交或未推送
 更改的克隆。它通过运行中的进程和实时隔离会话检测活动任务，并使用与 `solve` 相同的
@@ -739,40 +739,40 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ```bash
 # 预览：列出保留的文件夹和将被删除的文件夹（不删除任何内容）
-cleanup --dry-run
+hive-cleanup --dry-run
 
 # 实际删除过时的临时文件（会先要求确认）
-cleanup
+hive-cleanup
 
 # 删除时不显示确认提示
-cleanup --force
+hive-cleanup --force
 
 # 同时考虑非 hive-mind 临时项（更激进）
-cleanup --all --dry-run
+hive-cleanup --all --dry-run
 
 # 允许删除 /tmp/start-command（默认保留；其中存放隔离日志）
-cleanup --force-start-command
+hive-cleanup --force-start-command
 
 # Ubuntu / 系统清理（apt 缓存、journald 日志、npm 缓存）
-cleanup --system --sudo
+hive-cleanup --system --sudo
 
 # 将实时/卡住的 agent PID 映射回 hive/start-command 任务会话
-cleanup --processes
+hive-cleanup --processes
 
 # 跟踪指定的非 agent PID，例如浏览器子进程或 shell
-cleanup --pid 94445
+hive-cleanup --pid 94445
 
 # 预览可以停止的孤立 agent
-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --dry-run
 
 # 审查预览后停止孤立 agent 进程树
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --force
 
 # 禁用活动任务检测（仅保留受保护的路径）
-cleanup --no-keep-active-tasks-folders --dry-run
+hive-cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-运行 `cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
+运行 `hive-cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
 带时间戳的 `cleanup-*.log` 日志。进程诊断输出会在打印命令行前遮蔽常见 token
 格式。
 
@@ -830,14 +830,14 @@ hive 任务时，优先使用内置进程诊断命令：
 
 ```bash
 # 显示 agent PID、start-command 会话 ID、GitHub 任务 URL、工作区、匹配原因和可能的孤立 agent。
-cleanup --processes
+hive-cleanup --processes
 
 # 在同一报告中包含任意 PID。
-cleanup --pid 62220
+hive-cleanup --pid 62220
 
 # 只停止已完成任务中的孤立 agent。
-cleanup --kill-orphaned-agents --dry-run
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --force
 ```
 
 手动兜底：识别消耗资源的进程所属的 Screen 会话。

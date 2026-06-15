@@ -31,4 +31,5 @@ assert.equal(await exists(removedHelperPath), false, 'src/npm-global-prefix.lib.
 assert.doesNotMatch(bootstrapSource, /npm-global-prefix/, 'ensureUseM should not import the removed npm prefix helper');
 assert.doesNotMatch(bootstrapSource, /ensureWritableNpmGlobalPrefix/, 'ensureUseM should not run a local npm prefix preflight');
 assert.doesNotMatch(bootstrapSource, /npm_config_prefix|NPM_CONFIG_PREFIX|npm root -g|\.npm-global/, 'ensureUseM should not contain local npm prefix policy');
-assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m\/use\.js/, 'ensureUseM should still load the upstream use-m bootstrap');
+assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m\/use\.js/, 'ensureUseM should still try the upstream use-m bootstrap first');
+assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m@8\.13\.8\/use\.js/, 'ensureUseM should keep a known working bootstrap fallback');

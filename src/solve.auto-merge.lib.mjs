@@ -43,7 +43,12 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
-const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isUsageLimitReached } = restartShared;
+const { checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isUsageLimitReached } = restartShared;
+
+// Issue #1931: deleted/inaccessible repositories, PRs, issues, and branches
+// are terminal states for long-running watch loops, not retryable CI states.
+const terminalStateLib = await import('./github-terminal-state.lib.mjs');
+const { checkGitHubTerminalState } = terminalStateLib;
 
 // Import validation functions for time parsing (used for usage limit wait)
 const validation = await import('./solve.validation.lib.mjs');
@@ -155,24 +160,30 @@ export const watchUntilMergeable = async params => {
     iteration++;
     const currentTime = new Date();
 
-    // Check if PR is merged
-    const isMerged = await checkPRMerged(owner, repo, prNumber);
-    if (isMerged) {
+    const terminalState = await checkGitHubTerminalState({
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      sourceBranchName: prBranch || branchName,
+      commandRunner: $,
+    });
+    if (terminalState.terminal && terminalState.success) {
       await log('');
       await log(formatAligned('🎉', 'PR MERGED!', 'Stopping auto-restart-until-mergeable mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been merged`, 2));
       await log('');
       return { success: true, reason: 'merged', latestSessionId, latestAnthropicCost };
     }
-
-    // Check if PR is closed (not merged)
-    const isClosed = await checkPRClosed(owner, repo, prNumber);
-    if (isClosed) {
+    if (terminalState.terminal) {
       await log('');
-      await log(formatAligned('🚫', 'PR CLOSED!', 'Stopping auto-restart-until-mergeable mode'));
-      await log(formatAligned('', 'Pull request:', `#${prNumber} has been closed without merging`, 2));
+      await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', terminalState.message, 2), { level: 'error' });
+      for (const detail of terminalState.details || []) {
+        await log(formatAligned('', 'Detail:', detail, 4), { level: 'error' });
+      }
+      await log(formatAligned('', 'Action:', 'Stopping auto-restart-until-mergeable mode', 2), { level: 'error' });
       await log('');
-      return { success: false, reason: 'closed', latestSessionId, latestAnthropicCost };
+      return { success: false, reason: terminalState.reason, latestSessionId, latestAnthropicCost };
     }
 
     await log(formatAligned('🔍', `Check #${iteration}:`, currentTime.toLocaleTimeString()));
@@ -204,6 +215,18 @@ export const watchUntilMergeable = async params => {
 
       // Get merge blockers
       const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, noWorkflowRunsForCommit } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
+
+      const terminalGitHubBlocker = blockers.find(b => b.type === 'terminal_github_entity_error');
+      if (terminalGitHubBlocker) {
+        await log('');
+        await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', terminalGitHubBlocker.message, 2), { level: 'error' });
+        for (const detail of terminalGitHubBlocker.details || []) {
+          await log(formatAligned('', 'Detail:', detail, 4), { level: 'error' });
+        }
+        await log(formatAligned('', 'Action:', 'Stopping auto-restart-until-mergeable mode', 2), { level: 'error' });
+        await log('');
+        return { success: false, reason: 'terminal_github_entity_error', latestSessionId, latestAnthropicCost };
+      }
 
       // Issue #1503/#1918: Reset counter when CI checks exist (safety valve only for
       // consecutive "no runs"). Issue #1918: do NOT reset while getMergeBlockers is still
@@ -1201,6 +1224,25 @@ export const attemptAutoMerge = async params => {
   await log('');
   await log(formatAligned('🔀', 'AUTO-MERGE:', 'Checking if PR can be merged...'));
 
+  const terminalState = await checkGitHubTerminalState({
+    owner,
+    repo,
+    issueNumber,
+    prNumber,
+    commandRunner: $,
+  });
+  if (terminalState.terminal) {
+    if (terminalState.success) {
+      await log(formatAligned('🎉', 'PR already merged:', `#${prNumber}`, 2));
+      return { success: true, reason: 'merged' };
+    }
+    await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', terminalState.message, 2), { level: 'error' });
+    for (const detail of terminalState.details || []) {
+      await log(formatAligned('', 'Detail:', detail, 4), { level: 'error' });
+    }
+    return { success: false, reason: terminalState.reason, error: terminalState.message };
+  }
+
   // Issue #1226: Check merge permissions before attempting
   const { canMerge, permission } = await checkMergePermissions(owner, repo, argv.verbose);
   if (!canMerge) {
@@ -1234,6 +1276,11 @@ export const attemptAutoMerge = async params => {
 
   // Check if PR is mergeable
   const mergeStatus = await checkPRMergeable(owner, repo, prNumber, argv.verbose);
+  if (mergeStatus.terminal) {
+    await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', mergeStatus.reason || 'GitHub repository, pull request, issue, or branch is no longer accessible', 2), { level: 'error' });
+    return { success: false, reason: 'terminal_github_entity_error', error: mergeStatus.reason };
+  }
+
   if (!mergeStatus.mergeable) {
     await log(formatAligned('⚠️', 'PR not mergeable:', mergeStatus.reason || 'Unknown reason', 2));
     return { success: false, reason: 'not_mergeable', error: mergeStatus.reason };

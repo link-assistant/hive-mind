@@ -432,6 +432,14 @@ export class MergeQueueProcessor {
       item.status = MergeItemStatus.CHECKING_CI;
       const mergeableCheck = await checkPRMergeable(this.owner, this.repo, item.pr.number, this.verbose);
 
+      if (mergeableCheck.terminal) {
+        item.status = MergeItemStatus.FAILED;
+        item.error = mergeableCheck.reason || 'GitHub repository, pull request, issue, or branch is no longer accessible';
+        this.stats.failed++;
+        this.log(`Failed PR #${item.pr.number}: ${item.error}`);
+        return;
+      }
+
       if (!mergeableCheck.mergeable) {
         item.status = MergeItemStatus.SKIPPED;
         item.error = mergeableCheck.reason;
@@ -449,6 +457,14 @@ export class MergeQueueProcessor {
         item.error = 'CI checks failed';
         this.stats.failed++;
         this.log(`Failed PR #${item.pr.number}: CI checks failed`);
+        return;
+      }
+
+      if (ciStatus.status === 'terminal_github_entity_error') {
+        item.status = MergeItemStatus.FAILED;
+        item.error = ciStatus.error || 'GitHub repository, pull request, issue, or branch is no longer accessible';
+        this.stats.failed++;
+        this.log(`Failed PR #${item.pr.number}: ${item.error}`);
         return;
       }
 

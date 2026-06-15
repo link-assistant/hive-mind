@@ -532,6 +532,32 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/fix` - Auto-Remediate CI/CD
+
+```
+/fix <github-repository-url> --ci-cd [options]
+
+Examples:
+/fix https://github.com/owner/repo --ci-cd
+/fix owner/repo --ci-cd --tool codex --model gpt-5.5 --think max
+/fix owner/repo --ci-cd --dry-run
+/fix owner/repo --ci-cd --no-solve
+```
+
+`/fix --ci-cd` detects the target repository's languages, inspects the latest
+default-branch commit and its CI/CD runs, and automatically creates a CI/CD
+remediation issue (using the standard prompt and the templates from
+[`docs/CI-CD-BEST-PRACTICES.md`](docs/CI-CD-BEST-PRACTICES.md), sorted by the
+detected languages). It then hands the issue off to `/solve --auto-merge`. Every
+option `/fix` does not consume itself (e.g. `--tool`, `--model`, `--think`) is
+forwarded to `/solve`. Use `--dry-run` to preview the issue without creating it,
+or `--no-solve` to create the issue without starting `/solve`. See
+[Automatic CI/CD Remediation](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation)
+for details.
+
+> `/fix` currently runs from the command line (e.g. `fix owner/repo --ci-cd`);
+> the in-chat Telegram handler is a planned follow-up.
+
 #### `/limits` - Show Usage Limits
 
 ```

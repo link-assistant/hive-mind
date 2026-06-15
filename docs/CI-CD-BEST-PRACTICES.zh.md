@@ -25,6 +25,9 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+
+> **提示：** 您不必手动挑选模板。运行 `fix <repository-url> --ci-cd`（参见[自动 CI/CD 修复](#自动-cicd-修复)），Hive Mind 会检测仓库使用的语言并为您选择匹配的模板。
 
 ## 关键 CI/CD 原则
 
@@ -131,6 +134,7 @@ done
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| PHP                   | PHP CS Fixer                  |
 
 所有模板都包含在每次提交前自动运行格式化工具的 pre-commit 钩子。
 
@@ -146,6 +150,7 @@ done
 | Go                    | go vet + staticcheck         |
 | C#                    | .NET 分析器（警告视为错误）  |
 | Java                  | SpotBugs（最大力度）         |
+| PHP                   | PHPStan（最高级别）          |
 
 ### 5. 快速失败任务排序
 
@@ -187,6 +192,7 @@ test-suites:
 | JavaScript/TypeScript | @changesets/cli          |
 | Rust                  | changelog.d + 自定义脚本 |
 | Python                | Scriv                    |
+| PHP                   | changelog.d + 自定义脚本 |
 | Go、C#、Java          | 自定义 changeset 工作流  |
 
 **免除仅文档 PR 的 changeset 要求：**
@@ -319,6 +325,45 @@ validate-docs:
 4. **开始开发**，所有最佳实践均已预先配置
 
 AI 求解器将自动尊重所有已配置的检查并与之迭代，产生比没有 CI/CD 强制的仓库更高质量的输出。
+
+## 自动 CI/CD 修复
+
+对于现有仓库，您无需手动应用这些实践。`fix` 命令可自动完成整个流程：
+
+```bash
+fix https://github.com/owner/repo --ci-cd
+```
+
+此命令将：
+
+1. **检测仓库使用的语言** — 使用 GitHub Linguist API（`GET /repos/{owner}/{repo}/languages`），按每种语言的字节数排序。
+2. **从上面的表格中选择匹配的 CI/CD 模板** — 经过排序，使最常用语言的模板排在最前面。
+3. **检查默认分支的最新提交** 并收集其 CI/CD 运行（当最新提交没有运行时，回退到默认分支上最近的运行）。
+4. **创建一个修复 issue**，列出失败的运行、检测到的语言、推荐的模板以及指向本文档的链接。
+5. **将该 issue 移交给 `/solve --auto-merge`**，它会持续迭代直到修复被合并。`fix` 自身不消费的每个选项（例如 `--tool`、`--model`、`--think`）都会转发给 `/solve`。
+
+### 语言 → 模板映射
+
+该命令将检测到的语言映射到模板，规则如下（JavaScript 和 TypeScript 共用一个模板）：
+
+| 检测到的语言          | 模板                                                             |
+| --------------------- | ---------------------------------------------------------------- |
+| JavaScript/TypeScript | `link-foundation/js-ai-driven-development-pipeline-template`     |
+| Rust                  | `link-foundation/rust-ai-driven-development-pipeline-template`   |
+| Python                | `link-foundation/python-ai-driven-development-pipeline-template` |
+| Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
+| C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
+| Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+
+没有专用模板的语言（例如 Shell 或 Dockerfile）会在 issue 中列出以供知悉，并推荐最接近的匹配模板。
+
+使用 `--dry-run` 可在不创建 issue 的情况下预览，使用 `--no-solve` 可在不启动 `/solve` 的情况下创建 issue：
+
+```bash
+fix owner/repo --ci-cd --dry-run
+fix owner/repo --ci-cd --no-solve
+```
 
 ## 参考资料
 

@@ -1,0 +1,82 @@
+{
+  "issue": "https://github.com/link-assistant/hive-mind/issues/1733",
+  "pull_request": "https://github.com/link-assistant/hive-mind/pull/1929",
+  "branch": "issue-1733-2f309a19e44b",
+  "captured": "2026-06-15",
+  "template_issue": {
+    "title": "web-capture#139 — Check for all false positives and errors in CI/CD and fix them all",
+    "url": "https://github.com/link-assistant/web-capture/issues/139",
+    "local_copy": "data/web-capture-issue-139.txt",
+    "used_for": "Source of the standard remediation prompt reproduced by buildStandardPrompt(); defines the 'compare full file tree, report upstream template issues, compile case study to docs/case-studies/issue-{id}, single PR' instructions."
+  },
+  "repository_sources": ["src/fix.mjs", "src/fix.ci-cd.lib.mjs", "src/task.issue-creation.lib.mjs", "src/solve.config.lib.mjs", "src/hive.mjs", "docs/CI-CD-BEST-PRACTICES.md", "docs/case-studies/issue-1823/research-sources.json"],
+  "data_files": [
+    {
+      "path": "data/hive-mind-issue-1733.json",
+      "source": "gh issue view 1733 --repo link-assistant/hive-mind --json ...",
+      "description": "The issue itself (title, body, state, no comments at capture)."
+    },
+    {
+      "path": "data/hive-mind-issue-1733-comments.json",
+      "source": "gh api repos/link-assistant/hive-mind/issues/1733/comments --paginate",
+      "description": "Issue comments — empty array at capture time."
+    },
+    {
+      "path": "data/hive-mind-languages.json",
+      "source": "gh api repos/link-assistant/hive-mind/languages",
+      "description": "Byte-weighted language breakdown used for template ordering."
+    },
+    {
+      "path": "data/hive-mind-main-runs.json",
+      "source": "gh api 'repos/link-assistant/hive-mind/actions/runs?branch=main&per_page=20'",
+      "description": "Recent CI/CD workflow runs on the default branch (used to validate the branch fallback)."
+    }
+  ],
+  "online_sources": [
+    {
+      "title": "List repository languages — GitHub REST API",
+      "url": "https://docs.github.com/en/rest/repos/repos#list-repository-languages",
+      "used_for": "Authoritative byte-per-language map (server-side GitHub Linguist) that drives detectLanguages() and the template ordering."
+    },
+    {
+      "title": "List workflow runs for a repository — GitHub REST API (Actions)",
+      "url": "https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-repository",
+      "used_for": "head_sha and branch query parameters, and the run fields (name/status/conclusion/html_url/head_sha) listed in the generated issue."
+    },
+    {
+      "title": "GitHub Linguist",
+      "url": "https://github.com/github-linguist/linguist",
+      "used_for": "Explains how GitHub computes the byte-weighted language breakdown that the /languages endpoint returns."
+    },
+    {
+      "title": "linguist-js (npm)",
+      "url": "https://www.npmjs.com/package/linguist-js",
+      "used_for": "Considered as an offline language-detection fallback; not used because the /languages API is authoritative and already available via gh."
+    },
+    {
+      "title": "dacbd/create-issue-action (GitHub Action)",
+      "url": "https://github.com/dacbd/create-issue-action",
+      "used_for": "Prior art for auto-creating an issue from a failed CI run; /fix differs by detecting languages and delegating the fix to /solve --auto-merge."
+    },
+    {
+      "title": "Create an issue when a GitHub Actions workflow fails (GitHub Docs / IssueOps)",
+      "url": "https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow",
+      "used_for": "Background on issue-driven automation (IssueOps) patterns informing the issue-first design of /fix."
+    },
+    {
+      "title": "OpenAI Codex — automatically fixing CI failures (cookbook)",
+      "url": "https://github.com/openai/codex",
+      "used_for": "Prior art for AI-agent-driven CI remediation; /fix reuses the same idea but routes through hive-mind's /solve agent loop."
+    },
+    {
+      "title": "php-ai-driven-development-pipeline-template (link-foundation)",
+      "url": "https://github.com/link-foundation/php-ai-driven-development-pipeline-template",
+      "used_for": "The PHP CI/CD template added to CI_CD_TEMPLATES and to docs/CI-CD-BEST-PRACTICES.md per the issue; verified its tooling (PHP CS Fixer, PHPStan, PHPUnit, changelog.d) for the documentation rows."
+    },
+    {
+      "title": "Changesets",
+      "url": "https://github.com/changesets/changesets",
+      "used_for": "Versioning mechanism; a changeset is added in this PR to trigger the release that ships the /fix command."
+    }
+  ]
+}

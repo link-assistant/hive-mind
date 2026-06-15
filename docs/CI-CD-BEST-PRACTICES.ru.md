@@ -25,6 +25,9 @@ AI-решатель задач Hive Mind инструктирован обращ
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+
+> **Совет:** вам не нужно выбирать шаблон вручную. Запустите `fix <repository-url> --ci-cd` (см. раздел [Автоматическое исправление CI/CD](#автоматическое-исправление-cicd)), и Hive Mind определит языки репозитория и подберёт для вас подходящие шаблоны.
 
 ## Ключевые принципы CI/CD
 
@@ -131,6 +134,7 @@ done
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| PHP                   | PHP CS Fixer                  |
 
 Все шаблоны включают pre-commit хуки, автоматически запускающие форматтеры перед каждым коммитом.
 
@@ -146,6 +150,7 @@ done
 | Go                    | go vet + staticcheck                       |
 | C#                    | .NET analyzers (предупреждения как ошибки) |
 | Java                  | SpotBugs (максимальные усилия)             |
+| PHP                   | PHPStan (max level)                        |
 
 ### 5. Порядок быстрого обнаружения ошибок
 
@@ -187,6 +192,7 @@ test-suites:
 | JavaScript/TypeScript | @changesets/cli                      |
 | Rust                  | changelog.d + кастомные скрипты      |
 | Python                | Scriv                                |
+| PHP                   | changelog.d + кастомные скрипты      |
 | Go, C#, Java          | Кастомные рабочие процессы changeset |
 
 **Освобождайте PR только с документацией от требования changeset:**
@@ -319,6 +325,45 @@ validate-docs:
 4. **Начинайте разработку** со всеми предварительно настроенными лучшими практиками
 
 AI-решатели автоматически будут учитывать и итерировать со всеми настроенными проверками, производя более качественный результат по сравнению с репозиториями без принуждения CI/CD.
+
+## Автоматическое исправление CI/CD
+
+Для существующего репозитория вам не нужно применять эти практики вручную. Команда `fix` автоматизирует весь процесс:
+
+```bash
+fix https://github.com/owner/repo --ci-cd
+```
+
+Эта команда:
+
+1. **Определяет языки репозитория** с помощью API GitHub Linguist (`GET /repos/{owner}/{repo}/languages`), упорядочивая их по количеству байт на язык.
+2. **Подбирает подходящие шаблоны CI/CD** из таблицы выше, сортируя так, чтобы шаблон для наиболее используемого языка шёл первым.
+3. **Проверяет последний коммит ветки по умолчанию** и собирает его запуски CI/CD (возвращаясь к самым свежим запускам в ветке по умолчанию, если у последнего коммита их нет).
+4. **Создаёт задачу на исправление**, в которой перечисляются неуспешные запуски, обнаруженные языки, рекомендуемые шаблоны и ссылка на этот документ.
+5. **Передаёт задачу команде `/solve --auto-merge`**, которая итерирует до тех пор, пока исправления не будут слиты. Каждая опция, которую сама команда `fix` не использует (например, `--tool`, `--model`, `--think`), передаётся в `/solve`.
+
+### Сопоставление язык → шаблон
+
+Команда сопоставляет обнаруженные языки с шаблонами следующим образом (JavaScript и TypeScript используют один общий шаблон):
+
+| Обнаруженный язык(и)  | Шаблон                                                           |
+| --------------------- | ---------------------------------------------------------------- |
+| JavaScript/TypeScript | `link-foundation/js-ai-driven-development-pipeline-template`     |
+| Rust                  | `link-foundation/rust-ai-driven-development-pipeline-template`   |
+| Python                | `link-foundation/python-ai-driven-development-pipeline-template` |
+| Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
+| C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
+| Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+
+Языки без выделенного шаблона (например, Shell или Dockerfile) перечисляются в задаче для сведения, и для них рекомендуется наиболее близкий по соответствию шаблон.
+
+Используйте `--dry-run` для предварительного просмотра задачи без её создания и `--no-solve` для создания задачи без запуска `/solve`:
+
+```bash
+fix owner/repo --ci-cd --dry-run
+fix owner/repo --ci-cd --no-solve
+```
 
 ## Ссылки
 

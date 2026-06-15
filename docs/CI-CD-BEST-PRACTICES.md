@@ -25,6 +25,9 @@ We provide ready-to-use templates for multiple languages with all best practices
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+
+> **Tip:** You don't have to pick a template by hand. Run `fix <repository-url> --ci-cd` (see [Automatic CI/CD Remediation](#automatic-cicd-remediation)) and Hive Mind detects the repository's languages and selects the matching templates for you.
 
 ## Key CI/CD Principles
 
@@ -131,6 +134,7 @@ Consistent formatting eliminates style debates and reduces diff noise:
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| PHP                   | PHP CS Fixer                  |
 
 All templates include pre-commit hooks that run formatters automatically before each commit.
 
@@ -146,6 +150,7 @@ Catch bugs and enforce patterns before code reaches review:
 | Go                    | go vet + staticcheck                |
 | C#                    | .NET analyzers (warnings as errors) |
 | Java                  | SpotBugs (maximum effort)           |
+| PHP                   | PHPStan (max level)                 |
 
 ### 5. Fast-Fail Job Ordering
 
@@ -187,6 +192,7 @@ All templates use a changeset system that:
 | JavaScript/TypeScript | @changesets/cli              |
 | Rust                  | changelog.d + custom scripts |
 | Python                | Scriv                        |
+| PHP                   | changelog.d + custom scripts |
 | Go, C#, Java          | Custom changeset workflows   |
 
 **Exempt docs-only PRs from changeset requirements:**
@@ -319,6 +325,45 @@ Each layer catches different issues, ensuring no problematic code reaches produc
 4. **Start developing** with all best practices pre-configured
 
 The AI solvers will automatically respect and iterate with all configured checks, producing higher quality output than repositories without CI/CD enforcement.
+
+## Automatic CI/CD Remediation
+
+For an existing repository, you don't need to apply these practices by hand. The `fix` command automates the whole flow:
+
+```bash
+fix https://github.com/owner/repo --ci-cd
+```
+
+This command:
+
+1. **Detects the repository's languages** using the GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`), ordered by the number of bytes per language.
+2. **Selects the matching CI/CD templates** from the table above, sorted so the template for the most-used language comes first.
+3. **Inspects the latest default-branch commit** and collects its CI/CD runs (falling back to the most recent runs on the default branch when the latest commit has none).
+4. **Creates a remediation issue** that lists the failing runs, the detected languages, the recommended templates, and a link back to this document.
+5. **Hands the issue off to `/solve --auto-merge`**, which iterates until the fixes are merged. Every option `fix` does not consume itself (for example `--tool`, `--model`, `--think`) is forwarded to `/solve`.
+
+### Language → Template Mapping
+
+The command maps detected languages to templates as follows (JavaScript and TypeScript share a single template):
+
+| Detected Language(s)  | Template                                                         |
+| --------------------- | ---------------------------------------------------------------- |
+| JavaScript/TypeScript | `link-foundation/js-ai-driven-development-pipeline-template`     |
+| Rust                  | `link-foundation/rust-ai-driven-development-pipeline-template`   |
+| Python                | `link-foundation/python-ai-driven-development-pipeline-template` |
+| Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
+| C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
+| Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+
+Languages without a dedicated template (for example Shell or Dockerfile) are listed in the issue for awareness, and the closest matching template is recommended.
+
+Use `--dry-run` to preview the issue without creating it, and `--no-solve` to create the issue without starting `/solve`:
+
+```bash
+fix owner/repo --ci-cd --dry-run
+fix owner/repo --ci-cd --no-solve
+```
 
 ## References
 

@@ -508,6 +508,28 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/fix` - 自动修复 CI/CD
+
+```
+/fix <github-repository-url> --ci-cd [options]
+
+Examples:
+/fix https://github.com/owner/repo --ci-cd
+/fix owner/repo --ci-cd --tool codex --model gpt-5.5 --think max
+/fix owner/repo --ci-cd --dry-run
+/fix owner/repo --ci-cd --no-solve
+```
+
+`/fix --ci-cd` 会检测目标仓库使用的语言，检查默认分支的最新提交及其 CI/CD 运行情况，并自动创建一个 CI/CD
+修复 issue（使用标准提示词，以及来自
+[`docs/CI-CD-BEST-PRACTICES.md`](docs/CI-CD-BEST-PRACTICES.md) 的模板，按检测到的语言排序）。随后它会将该
+issue 交给 `/solve --auto-merge` 处理。所有 `/fix` 自身不消费的选项（例如 `--tool`、`--model`、`--think`）
+都会转发给 `/solve`。使用 `--dry-run` 可在不创建 issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动
+`/solve`。详见
+[自动 CI/CD 修复](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation)。
+
+> `/fix` 目前从命令行运行（例如 `fix owner/repo --ci-cd`）；聊天内的 Telegram 处理器是计划中的后续工作。
+
 #### `/limits` - 显示用量限制
 
 ```

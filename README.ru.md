@@ -512,6 +512,29 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/fix` — Автоматическое исправление CI/CD
+
+```
+/fix <github-repository-url> --ci-cd [options]
+
+Examples:
+/fix https://github.com/owner/repo --ci-cd
+/fix owner/repo --ci-cd --tool codex --model gpt-5.5 --think max
+/fix owner/repo --ci-cd --dry-run
+/fix owner/repo --ci-cd --no-solve
+```
+
+`/fix --ci-cd` определяет языки целевого репозитория, анализирует последний коммит ветки по умолчанию и его
+запуски CI/CD и автоматически создаёт issue для исправления CI/CD (используя стандартный промпт и шаблоны из
+[`docs/CI-CD-BEST-PRACTICES.md`](docs/CI-CD-BEST-PRACTICES.md), отсортированные по обнаруженным языкам). Затем
+он передаёт issue в `/solve --auto-merge`. Любая опция, которую `/fix` не использует сам (например, `--tool`,
+`--model`, `--think`), передаётся в `/solve`. Используйте `--dry-run`, чтобы предварительно просмотреть issue
+без его создания, или `--no-solve`, чтобы создать issue без запуска `/solve`. Подробнее см.
+[Автоматическое исправление CI/CD](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation).
+
+> `/fix` сейчас запускается из командной строки (например, `fix owner/repo --ci-cd`); встроенный обработчик
+> Telegram запланирован как следующий шаг.
+
 #### `/limits` — Показать лимиты использования
 
 ```

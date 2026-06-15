@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
-import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { ensureUseM, loadUseMCode } from './use-m-bootstrap.lib.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
@@ -46,12 +46,7 @@ if (isRunningDirectly) {
     if (typeof globalThis.use === 'undefined') {
       try {
         await ensureUseM({
-          fetchUseMCode: () =>
-            withTimeout(
-              fetch('https://unpkg.com/use-m/use.js').then(r => r.text()),
-              10000,
-              'fetching use-m library'
-            ),
+          fetchUseMCode: () => withTimeout(loadUseMCode(), 10000, 'fetching use-m library'),
           log: message => console.log(message),
         });
       } catch (error) {

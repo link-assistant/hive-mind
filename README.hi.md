@@ -511,6 +511,30 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/fix` - CI/CD स्वतः ठीक करें
+
+```
+/fix <github-repository-url> --ci-cd [options]
+
+Examples:
+/fix https://github.com/owner/repo --ci-cd
+/fix owner/repo --ci-cd --tool codex --model gpt-5.5 --think max
+/fix owner/repo --ci-cd --dry-run
+/fix owner/repo --ci-cd --no-solve
+```
+
+`/fix --ci-cd` लक्ष्य रिपॉज़िटरी की भाषाओं का पता लगाता है, डिफ़ॉल्ट ब्रांच के नवीनतम कमिट और उसके CI/CD रनों
+की जाँच करता है, और स्वचालित रूप से एक CI/CD सुधार issue बनाता है (मानक प्रॉम्प्ट और
+[`docs/CI-CD-BEST-PRACTICES.md`](docs/CI-CD-BEST-PRACTICES.md) के टेम्पलेट्स का उपयोग करके, जिन्हें पहचानी
+गई भाषाओं के अनुसार क्रमबद्ध किया जाता है)। इसके बाद यह issue को `/solve --auto-merge` को सौंप देता है। हर वह
+विकल्प जिसे `/fix` स्वयं उपयोग नहीं करता (जैसे `--tool`, `--model`, `--think`) `/solve` को अग्रेषित कर दिया
+जाता है। issue बनाए बिना उसका पूर्वावलोकन करने के लिए `--dry-run` का उपयोग करें, या `/solve` शुरू किए बिना केवल
+issue बनाने के लिए `--no-solve` का उपयोग करें। विवरण के लिए
+[स्वचालित CI/CD सुधार](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation) देखें।
+
+> `/fix` वर्तमान में कमांड लाइन से चलता है (उदाहरण के लिए `fix owner/repo --ci-cd`); इन-चैट Telegram हैंडलर
+> एक नियोजित अनुवर्ती कार्य है।
+
 #### `/limits` - उपयोग सीमाएँ दिखाएँ
 
 ```

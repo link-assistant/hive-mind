@@ -11,10 +11,10 @@
 - **Captured:** 2026-06-15
 
 This folder contains the raw data captured while solving the issue
-([`data/`](./data)), an empty [`logs/`](./logs) placeholder for run logs, the
-list of external research sources
+([`data/`](./data)), the list of external research sources
 ([`research-sources.json`](./research-sources.json)), and this deep-dive
-analysis.
+analysis. (Run logs live under a `logs/` directory at solve time, but `logs/` is
+globally git-ignored, so only the curated `data/` snapshots are committed.)
 
 ---
 
@@ -124,8 +124,7 @@ The issue had no comments at capture time.)
 - **CI-run patterns** — the `gh run`/`gh api .../actions/runs` calls already
   used across `src/*.prompts.lib.mjs` informed `getRunsForCommit` (R3).
 - **Case-study convention** — `docs/case-studies/issue-1823/`
-  (`README.md` + `data/` + `logs/` + `research-sources.json`) is mirrored here
-  (R15).
+  (`README.md` + `data/` + `research-sources.json`) is mirrored here (R15).
 
 ## 4.1 External APIs / Facts (verified live)
 
@@ -235,4 +234,3 @@ fix link-assistant/hive-mind --ci-cd --tool codex --model gpt-5.5 --think max
 - [`data/hive-mind-main-runs.json`](./data/hive-mind-main-runs.json) — recent CI/CD runs on `main`.
 - [`data/web-capture-issue-139.txt`](./data/web-capture-issue-139.txt) — the source prompt template.
 - [`research-sources.json`](./research-sources.json) — external research sources.
-- [`logs/`](./logs) — placeholder for captured run logs.

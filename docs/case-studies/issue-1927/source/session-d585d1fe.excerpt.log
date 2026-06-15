@@ -1,0 +1,41 @@
+### HEAD (start banner) ###
+=== Start Command Log ===
+Execution ID: d585d1fe-2c2c-4736-9433-e70637ffd43a
+Timestamp: 2026-06-14 18:54:18.582
+Command: 'solve' 'https://github.com/xlabtg/teleton-agent/pull/625' '--model' 'opus' '--tool' 'claude' '--attach-logs' '--verbose' '--no-tool-check' '--disable-report-issue' '--language' 'ru'
+Environment: screen
+Mode: detached
+Session: bbad6733-76a8-4203-b12d-c6beb9510e3f
+Platform: linux
+
+### TAIL (last 30 lines incl. kill footer) ###
+    },
+    stream: true,
+  },
+  headers: {
+    accept: "application/json",
+    "anthropic-beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,advisor-tool-2026-03-01,advanced-tool-use-2025-11-20,effort-2025-11-24,cache-diagnosis-2026-04-07",
+    "anthropic-dangerous-direct-browser-access": "true",
+    "anthropic-version": "2023-06-01",
+    authorization: "***",
+    "content-type": "application/json",
+    "user-agent": "claude-cli/2.1.177 (external, sdk-cli)",
+    "x-app": "cli",
+    "x-claude-code-agent-id": "a3287868c009cf6ec",
+    "x-claude-code-session-id": "735e3ff0-17d0-4364-ad65-699abf91bf50",
+    "x-client-request-id": "4018ff4c-d0df-4a1f-aff7-fa98a1800d79",
+    "x-stainless-arch": "x64",
+    "x-stainless-lang": "js",
+    "x-stainless-os": "Linux",
+    "x-stainless-package-version": "0.94.0",
+    "x-stainless-retry-count": "0",
+    "x-stainless-runtime": "node",
+    "x-stainless-runtime-version": "v24.3.0",
+    "x-stainless-timeout": "600",
+  },
+}
+Killed
+
+==================================================
+Finished: 2026-06-14 19:10:49.782
+Exit Code: 137

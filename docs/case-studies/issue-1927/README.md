@@ -1,6 +1,6 @@
 # Issue 1927 Case Study: Detached `/solve` sessions OOM-killed (exit 137) but never reported by the Telegram bot
 
-> **One-line summary.** Two detached `solve` sessions launched by the Telegram bot
+> **One-line summary.** Four detached `solve` sessions launched by the Telegram bot
 > were killed by the Linux OOM-killer at the same instant (`Exit Code: 137`), the
 > external start-command CLI correctly recorded the kill in each log footer, yet the
 > bot stayed alive and never told the user — because liveness derived from
@@ -13,15 +13,25 @@ All evidence is preserved under `source/` (requirement #4: "no data should be de
 
 - Issue metadata: `source/issue-1927.json`
 - Issue comments: `source/issue-1927-comments.json` (empty — the issue body carried all the detail)
+
+The issue body links **four** start-command execution logs (four public gists); all four are
+preserved here, ordered by start time:
+
 - Killed session #1 (full, gzipped): `source/session-33900bfd.log.gz` — `solve https://github.com/link-assistant/formal-ai/issues/479`
 - Killed session #1 (quick-read excerpt): `source/session-33900bfd.excerpt.log`
-- Killed session #2 (full, gzipped): `source/session-d585d1fe.log.gz` — `solve https://github.com/xlabtg/teleton-agent/pull/625`
-- Killed session #2 (quick-read excerpt): `source/session-d585d1fe.excerpt.log`
+- Killed session #2 (full, gzipped): `source/session-5ddd6525.log.gz` — `solve https://github.com/Payel-git-ol/Octra/issues/85`
+- Killed session #2 (quick-read excerpt): `source/session-5ddd6525.excerpt.log`
+- Killed session #3 (full, gzipped): `source/session-d585d1fe.log.gz` — `solve https://github.com/xlabtg/teleton-agent/pull/625`
+- Killed session #3 (quick-read excerpt): `source/session-d585d1fe.excerpt.log`
+- Killed session #4 (full, gzipped): `source/session-442ce104.log.gz` — `solve https://github.com/leaderstat/wb-part2/issues/91`
+- Killed session #4 (quick-read excerpt): `source/session-442ce104.excerpt.log`
 
-The two logs are the start-command execution logs the maintainer linked from the issue
-(originally public gists). They are reproduced verbatim except that start-command itself
-already redacts the `authorization` header to `***`; a scan for GitHub / Anthropic / AWS /
-GitLab / JWT token patterns found **zero** secrets, so nothing further was redacted.
+The four logs are reproduced verbatim except for redaction of secrets. start-command itself
+already redacts the `authorization` header to `***`; additionally, a scan for GitHub /
+Anthropic / AWS / GitLab / JWT token patterns found a single GitHub API `temp_clone_token`
+value embedded in a PR JSON payload inside `session-442ce104.log`, which was replaced with
+`***REDACTED-secret-issue-1927***`. No other secrets were found in any of the four logs (the
+other three carried only empty `"temp_clone_token":""` fields).
 
 ## External Research
 
@@ -56,24 +66,28 @@ GitLab / JWT token patterns found **zero** secrets, so nothing further was redac
     worker crash): https://docs.bullmq.io/ . We deliberately stayed in-process (a small JSON
     snapshot + JSONL event log) rather than adding a Redis/daemon dependency for a Telegram bot.
 
-## Timeline (reconstructed from the two start-command logs)
+## Timeline (reconstructed from the four start-command logs)
 
 All times are from the log banners/footers (the logs already carry millisecond timestamps).
 
-| Time (2026-06-14) | Event                                                                                                                                                                                               |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 17:19:14.582      | Bot launches session **33900bfd** in a detached `screen`: `solve formal-ai#479 --model opus --think max --tool claude --attach-logs --verbose` (cwd `/home/box`, Node v24.3.0).                     |
-| 17:19 – 19:10     | Session 33900bfd runs ~1h51m, 145,905 log lines, 2,125 `thinking_tokens` events, processing **base64 PNG screenshots** (`iVBORw0KGgo…`) — memory-heavy under `--attach-logs`.                       |
-| 18:54:18.582      | Bot launches a **second** detached session **d585d1fe**: `solve teleton-agent#625 --model opus --attach-logs --verbose --language ru`. Now **two** opus sessions run concurrently on the same host. |
-| 18:54 – 19:10     | Session d585d1fe runs ~16m, 48,206 log lines.                                                                                                                                                       |
-| **19:10:49.782**  | Host memory is exhausted; the OOM-killer terminates **d585d1fe**. Its log ends `Killed` → `Exit Code: 137`.                                                                                         |
-| **19:10:49.822**  | **40 ms later**, the OOM-killer also terminates **33900bfd**. Its log ends `Killed` → `Exit Code: 137`.                                                                                             |
-| 19:10:49+         | start-command writes the authoritative footer (`====… / Finished: … / Exit Code: 137`) to **both** logs.                                                                                            |
-| (after)           | The Telegram bot process stays alive but **never updates either work-session message** — the user is left seeing "executing…" forever for two jobs that are dead.                                   |
+| Time (2026-06-14) | Event                                                                                                                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 17:19:14.582      | Bot launches session **33900bfd** in a detached `screen`: `solve formal-ai#479 --model opus --think max --tool claude --attach-logs --verbose` (cwd `/home/box`, Node v24.3.0).                              |
+| 17:19 – 19:10     | Session 33900bfd runs ~1h51m, 145,905 log lines, 2,125 `thinking_tokens` events, processing **base64 PNG screenshots** (`iVBORw0KGgo…`) — memory-heavy under `--attach-logs`.                                |
+| 18:48:34.261      | Bot launches a **second** detached session **5ddd6525**: `solve Octra#85 --model opus --base-branch optimize/stream-marshal-once --attach-logs --verbose` (34,427 log lines).                                |
+| 18:54:18.582      | Bot launches a **third** detached session **d585d1fe**: `solve teleton-agent#625 --model opus --attach-logs --verbose --language ru` (48,206 log lines).                                                     |
+| 18:56:26.861      | Bot launches a **fourth** detached session **442ce104**: `solve wb-part2#91 --model opus --attach-logs --verbose --language en` (24,934 log lines). **Four** opus sessions now run concurrently on one host. |
+| **19:10:49.782**  | Host memory is exhausted; the OOM-killer terminates **d585d1fe** first (`Killed` → `Exit Code: 137`).                                                                                                        |
+| **19:10:49.795**  | **+13 ms**, it terminates **442ce104** (`Exit Code: 137`).                                                                                                                                                   |
+| **19:10:49.814**  | **+19 ms**, it terminates **5ddd6525** (`Exit Code: 137`).                                                                                                                                                   |
+| **19:10:49.822**  | **+8 ms**, it terminates **33900bfd** (`Exit Code: 137`). All four killed inside a **40 ms** window.                                                                                                         |
+| 19:10:49+         | start-command writes the authoritative footer (`====… / Finished: … / Exit Code: 137`) to **all four** logs.                                                                                                 |
+| (after)           | The Telegram bot process stays alive but **never updates any of the four work-session messages** — the user is left seeing "executing…" forever for four jobs that are dead.                                 |
 
-The two kills landing **40 ms apart** is the fingerprint of a single host-level OOM event
-(not two independent crashes): freeing the first victim did not recover enough memory, so the
-kernel immediately took the second. Neither process logged an in-process out-of-memory error
+All **four** kills landing inside a single **40 ms** window (19:10:49.782 → .822) is the
+fingerprint of one host-level OOM cascade (not four independent crashes): freeing the first
+victim did not recover enough memory, so the kernel immediately took the next, and the next,
+until pressure eased. None of the four processes logged an in-process out-of-memory error
 (a scan found only false positives inside base64/cookie/signature blobs), confirming an
 **external** SIGKILL rather than a Node heap failure.
 
@@ -243,10 +257,10 @@ destructive (workspace-deletion) operation, so it is left intact rather than mad
 
 ## Residual Notes
 
-- The OOM event itself is an environment/capacity problem (two concurrent `opus --attach-logs`
-  sessions on one host, one streaming large base64 PNGs). This PR makes the failure **visible and
-  recoverable**; it does not add host-level memory limits or admission control — that is a
-  deployment concern tracked separately if desired.
+- The OOM event itself is an environment/capacity problem (**four** concurrent `opus --attach-logs`
+  sessions on one host, at least one streaming large base64 PNGs). This PR makes the failure
+  **visible and recoverable**; it does not add host-level memory limits or admission control — that
+  is a deployment concern tracked separately if desired.
 - The fix is defensive at the consumer (hive-mind) side. The authoritative upstream fix belongs in
   `start-command`'s `enrichDetachedStatus` (requirement #7, filed as
   [link-foundation/start#134](https://github.com/link-foundation/start/issues/134)); the

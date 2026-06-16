@@ -570,6 +570,12 @@ export function listActiveTaskRefsFromProc() {
  * Discover currently-running isolation session UUIDs from start-command's live
  * session managers (screen / tmux). These names are the session UUIDs.
  *
+ * @deprecated Superseded by {@link listSessionTasks}, which sources every
+ * session (active *and* finished) from the single `$ --list` catalog rather
+ * than re-deriving liveness from `screen -ls`/`tmux ls`. Retained as a
+ * documented building block (issue #1848 case study) and for callers that only
+ * want live screen/tmux UUIDs without start-command.
+ *
  * @returns {string[]}
  */
 export function listLiveSessionIds() {
@@ -596,6 +602,11 @@ export function listLiveSessionIds() {
 /**
  * Query `$ --status <uuid>` for each live session and extract task references
  * from executing sessions' command lines. Optional; reuses isolation-runner.
+ *
+ * @deprecated Superseded by {@link listSessionTasks} (issue #1927 review), which
+ * reads the whole catalog from one `$ --list` call instead of N per-session
+ * `$ --status` queries and also surfaces finished sessions. Kept for the issue
+ * #1848 case study and backward compatibility.
  *
  * @param {string[]} sessionIds
  * @returns {Promise<Array<{owner, repo, type, number}>>}
@@ -651,32 +662,107 @@ export function resolvePrHeadBranch(ref) {
 }
 
 /**
+ * Enumerate ALL tasks known to start-command from the single `$ --list` source
+ * (issue #1927 review): one record per GitHub issue/PR reference found in each
+ * session's command line, carrying that session's id/name/status/workspace and a
+ * `terminal` flag (whether the session has finished). Unlike
+ * {@link listActiveTaskRefsFromSessions}, this includes *completed* sessions so a
+ * stale `gh-issue-solver-*` folder can be annotated with the PR and session it
+ * once belonged to — even after the task is no longer running.
+ *
+ * This consolidates session enumeration onto start-command's own `$ --list`
+ * (which knows every session, not just the ones still alive in screen/tmux) so
+ * `/queue`, `/limits`, the monitor and cleanup all read the same `$` data.
+ *
+ * @param {Object} [options]
+ * @param {boolean} [options.verbose=false]
+ * @param {boolean} [options.resolveBranches=false] - resolve PR head branches via gh
+ * @returns {Promise<Array<{owner, repo, type, number, branch: string|null, sessionId: string|null, sessionName: string|null, status: string|null, workspace: string|null, terminal: boolean, startTime: string|null}>>}
+ */
+export async function listSessionTasks(options = {}) {
+  const { verbose = false, resolveBranches = false } = options;
+  let listIsolationSessions;
+  let isTerminalSessionStatus;
+  try {
+    ({ listIsolationSessions, isTerminalSessionStatus } = await import('./isolation-runner.lib.mjs'));
+  } catch {
+    return [];
+  }
+
+  let sessions = [];
+  try {
+    sessions = await listIsolationSessions(verbose);
+  } catch {
+    return [];
+  }
+
+  // Newest session first, so when several sessions worked the same issue/PR the
+  // most recent one is the match a folder gets annotated with.
+  const sorted = [...sessions].sort((a, b) => new Date(b.startTime || 0).getTime() - new Date(a.startTime || 0).getTime());
+
+  const tasks = [];
+  for (const session of sorted) {
+    if (!session || !session.command) continue;
+    const terminal = !!(session.status && isTerminalSessionStatus(session.status));
+    for (const ref of extractTaskRefsFromCommand(session.command)) {
+      tasks.push({
+        ...ref,
+        branch: null,
+        sessionId: session.uuid || null,
+        sessionName: session.sessionName || null,
+        status: session.status || null,
+        workspace: session.workingDirectory || null,
+        terminal,
+        startTime: session.startTime || null,
+      });
+    }
+  }
+
+  if (resolveBranches) {
+    const branchCache = new Map();
+    for (const task of tasks) {
+      if (task.type !== 'pull') continue;
+      const key = `${task.owner}/${task.repo}#${task.number}`;
+      if (!branchCache.has(key)) branchCache.set(key, resolvePrHeadBranch(task));
+      task.branch = branchCache.get(key);
+    }
+  }
+
+  return tasks;
+}
+
+/**
  * Build the full active-task list, resolving PR head branches where possible.
  *
  * @param {Object} [options]
- * @param {boolean} [options.useSessions=true] - also query `$ --status`
+ * @param {boolean} [options.useSessions=true] - also consult `$ --list` sessions
  * @param {boolean} [options.resolveBranches=true] - resolve PR head branches via gh
+ * @param {Array} [options.sessionTasks] - pre-fetched `listSessionTasks()` result to reuse
  * @returns {Promise<Array<{owner, repo, type, number, branch: string|null}>>}
  */
 export async function getActiveTasks(options = {}) {
-  const { useSessions = true, resolveBranches = true } = options;
+  const { useSessions = true, resolveBranches = true, sessionTasks = null } = options;
   const refs = [...listActiveTaskRefsFromProc()];
   const seen = new Set(refs.map(r => `${r.owner}/${r.repo}#${r.number}:${r.type}`));
 
   if (useSessions) {
-    const sessionRefs = await listActiveTaskRefsFromSessions(listLiveSessionIds());
-    for (const ref of sessionRefs) {
-      const key = `${ref.owner}/${ref.repo}#${ref.number}:${ref.type}`;
+    // Active = sessions start-command still reports as non-terminal. Reuse the
+    // shared `$ --list` enumeration (optionally pre-fetched by the caller so the
+    // catalog is read only once).
+    const allSessionTasks = sessionTasks || (await listSessionTasks({ verbose: false, resolveBranches: false }));
+    for (const task of allSessionTasks) {
+      if (task.terminal) continue;
+      const key = `${task.owner}/${task.repo}#${task.number}:${task.type}`;
       if (!seen.has(key)) {
         seen.add(key);
-        refs.push(ref);
+        refs.push(task);
       }
     }
   }
 
   return refs.map(ref => {
-    let branch = null;
-    if (ref.type === 'pull' && resolveBranches) {
+    let branch = ref.branch || null;
+    if (!branch && ref.type === 'pull' && resolveBranches) {
       branch = resolvePrHeadBranch(ref);
     }
     return { ...ref, branch };

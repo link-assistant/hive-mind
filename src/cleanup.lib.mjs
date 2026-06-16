@@ -17,7 +17,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1848
  */
 
-import { isValidIssueBranchName } from './solve.branch.lib.mjs';
+import { isValidIssueBranchName, parseIssueBranchName } from './solve.branch.lib.mjs';
 
 /**
  * Directory names directly under the tmp root that must never be removed by
@@ -296,12 +296,17 @@ export function classifyEntry(entry, ctx) {
 export function classifyEntries(entries, ctx) {
   const keep = [];
   const remove = [];
-  const { matchers = [], gitInfoByPath = new Map() } = ctx || {};
+  const { matchers = [], sessionMatchers = [], gitInfoByPath = new Map() } = ctx || {};
   for (const entry of entries || []) {
     const { action, reason } = classifyEntry(entry, ctx);
     const gitInfo = gitInfoByPath.get(entry.path) || null;
     const activeTask = reason === 'active-task' ? folderMatchesActiveTask(gitInfo, matchers) : null;
-    const record = { name: entry.name, path: entry.path, size: entry.size ?? null, reason, gitInfo, activeTask };
+    // For folders that are NOT an active task, look up the (possibly finished)
+    // session this folder once belonged to so the listing can still report its
+    // PR and session id — issue #1927 review: "also for non active tasks to
+    // which pull request and to which session it was belonging."
+    const session = activeTask ? null : folderMatchesActiveTask(gitInfo, sessionMatchers);
+    const record = { name: entry.name, path: entry.path, size: entry.size ?? null, reason, gitInfo, activeTask, session };
     if (action === 'remove') remove.push(record);
     else keep.push(record);
   }
@@ -399,7 +404,13 @@ export function formatTaskSummary(task) {
  */
 export function formatEntryContext(item) {
   const details = [];
-  if (item?.activeTask) details.push(`task ${formatTaskSummary(item.activeTask)}`);
+  if (item?.activeTask) {
+    details.push(`task ${formatTaskSummary(item.activeTask)}`);
+  } else if (item?.session) {
+    // A finished (or otherwise non-active) folder still tells us which PR/issue
+    // and session it belonged to — render it with a "was" prefix.
+    details.push(`was ${formatTaskSummary(item.session)}`);
+  }
 
   const gitInfo = item?.gitInfo;
   if (gitInfo) {
@@ -408,6 +419,13 @@ export function formatEntryContext(item) {
     if (remote) gitParts.push(`repo ${remote.owner}/${remote.repo}`);
     if (gitInfo.branch) gitParts.push(`branch ${gitInfo.branch}`);
     if (gitInfo.dirty) gitParts.push('dirty/unpushed');
+    // When neither an active task nor a known session resolved the issue/PR,
+    // derive the issue number from the folder's branch so every hive-mind
+    // folder in the listing still shows which issue it belongs to.
+    if (!item?.activeTask && !item?.session && gitInfo.branch) {
+      const parsed = parseIssueBranchName(gitInfo.branch);
+      if (parsed) gitParts.push(`issue #${parsed.issueNumber}`);
+    }
     if (gitParts.length > 0) details.push(gitParts.join(', '));
   }
 

@@ -39,6 +39,11 @@ const { detectAndCountFeedback } = feedbackLib;
 const restartShared = await import('./solve.restart-shared.lib.mjs');
 const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildUncommittedChangesFeedback, isApiError } = restartShared;
 
+// Issue #1931: deleted/inaccessible repositories, PRs, issues, and branches
+// are terminal states for watch mode, not retryable feedback checks.
+const terminalStateLib = await import('./github-terminal-state.lib.mjs');
+const { checkGitHubTerminalState } = terminalStateLib;
+
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit } = await import('./auto-iteration-limits.lib.mjs');
@@ -111,8 +116,27 @@ export const watchForFeedback = async params => {
     iteration++;
     const currentTime = new Date();
 
+    const terminalState = await checkGitHubTerminalState({
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      sourceBranchName: prBranch || branchName,
+      commandRunner: $,
+    });
+    if (terminalState.terminal && !terminalState.success) {
+      await log('');
+      await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', terminalState.message, 2), { level: 'error' });
+      for (const detail of terminalState.details || []) {
+        await log(formatAligned('', 'Detail:', detail, 4), { level: 'error' });
+      }
+      await log(formatAligned('', 'Action:', 'Stopping watch mode', 2), { level: 'error' });
+      await log('');
+      break;
+    }
+
     // Check if PR is merged
-    const isMerged = await checkPRMerged(owner, repo, prNumber);
+    const isMerged = terminalState.terminal && terminalState.success ? true : await checkPRMerged(owner, repo, prNumber);
     if (isMerged) {
       await log('');
       await log(formatAligned('🎉', 'PR MERGED!', 'Stopping watch mode'));

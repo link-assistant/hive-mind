@@ -11,22 +11,25 @@ const readBootstrapResponse = async (response, url) => {
   throw new Error(`use-m bootstrap was not available at ${url}: ${code.slice(0, 120)}`);
 };
 
+const fetchUseMCodeFromUrl = async (url, fetcher = fetch) => readBootstrapResponse(await fetcher(url), url);
+
 export const fetchUseMCodeFromCdn = async ({ fetcher = fetch } = {}) => {
   let primaryError;
   try {
-    return await readBootstrapResponse(await fetcher(USE_M_BOOTSTRAP_URL), USE_M_BOOTSTRAP_URL);
+    return await fetchUseMCodeFromUrl(USE_M_BOOTSTRAP_URL, fetcher);
   } catch (error) {
     primaryError = error;
   }
 
   try {
-    return await readBootstrapResponse(await fetcher(USE_M_BOOTSTRAP_FALLBACK_URL), USE_M_BOOTSTRAP_FALLBACK_URL);
+    return await fetchUseMCodeFromUrl(USE_M_BOOTSTRAP_FALLBACK_URL, fetcher);
   } catch (fallbackError) {
     throw new Error(`Failed to load use-m bootstrap from primary and fallback URLs: ${primaryError.message}; ${fallbackError.message}`);
   }
 };
 
-const defaultFetchUseMCode = () => fetchUseMCodeFromCdn();
+const defaultFetchUseMCode = () => fetchUseMCodeFromUrl(USE_M_BOOTSTRAP_URL);
+const fallbackFetchUseMCode = () => fetchUseMCodeFromUrl(USE_M_BOOTSTRAP_FALLBACK_URL);
 
 /**
  * Load the shared use-m bootstrap.
@@ -36,9 +39,14 @@ const defaultFetchUseMCode = () => fetchUseMCodeFromCdn();
  * @returns {Promise<Function>} The global use-m `use` function.
  */
 export const ensureUseM = async (options = {}) => {
-  const { fetchUseMCode = defaultFetchUseMCode } = options;
+  const { fetchUseMCode = defaultFetchUseMCode, log = null } = options;
   if (typeof globalThis.use === 'undefined') {
-    globalThis.use = (await eval(await fetchUseMCode())).use;
+    try {
+      globalThis.use = (await eval(await fetchUseMCode())).use;
+    } catch (error) {
+      if (typeof log === 'function') log(`   use-m latest bootstrap failed (${error.message}); trying ${USE_M_BOOTSTRAP_FALLBACK_URL}`);
+      globalThis.use = (await eval(await fallbackFetchUseMCode())).use;
+    }
   }
   return globalThis.use;
 };

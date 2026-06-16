@@ -242,14 +242,14 @@ to decide whether it shares that flaw. The footer reconciliation was applied **o
 `executing` produces the #1927 symptom (a missed kill report or an infinite poll); sites where the
 non-terminal default is already the _safe_ behavior were intentionally left unchanged.
 
-| Call site                                                                | Trusts `executing`? | #1927 impact                              | Decision                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------------------------ | ------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `session-monitor.lib.mjs` `getIsolationSessionState` (completion)        | yes                 | **kill unreported / hang**                | **Fixed** — footer + 90s-gated liveness probe                                                                                                                                                                                                                                                                                                  |
-| `session-monitor.lib.mjs` `getRunningSessionItems` (listing)             | yes                 | dead session listed "running"             | **Fixed** — calls `getIsolationSessionState`, inheriting its footer + liveness reconciliation                                                                                                                                                                                                                                                  |
-| `telegram-terminal-watch-command.lib.mjs` `/terminal_watch`              | yes                 | **polls forever, misleading snapshot**    | **Fixed** — `reconcileWatchCompletion` (footer authoritative)                                                                                                                                                                                                                                                                                  |
-| `cleanup.os.lib.mjs` `listActiveTaskRefsFromSessions` → `getActiveTasks` | yes                 | a killed session counts as an active task | **Kept as-is (deliberate)** — an active task → `action:'keep'` (folder _protected_ from deletion). Counting a killed session as active errs toward **keeping** a dead workspace — the safe default for a destructive op. Applying the footer here would make deletion **more aggressive** (a mis-parsed footer could delete a live workspace). |
-| `cleanup.os.lib.mjs` `collectProcessDebugSessions` (debug listing)       | no                  | none — only reads `status.exists`         | **Kept as-is** — branches only on whether the session _exists_, never on executing-vs-terminal, so the RC-1 flip cannot affect it; purely informational                                                                                                                                                                                        |
-| `telegram-log-command.lib.mjs` `/log`                                    | yes                 | DM-vs-chat routing only                   | **Kept as-is** — one-shot, no loop; the delivered log file already contains the kill footer, so the user sees it regardless                                                                                                                                                                                                                    |
+| Call site                                                                                         | Trusts `executing`? | #1927 impact                              | Decision                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session-monitor.lib.mjs` `getIsolationSessionState` (completion)                                 | yes                 | **kill unreported / hang**                | **Fixed** — footer + 90s-gated liveness probe                                                                                                                                                                                                                                                                                                                                                                                   |
+| `session-monitor.lib.mjs` `getRunningSessionItems` (listing)                                      | yes                 | dead session listed "running"             | **Fixed** — calls `getIsolationSessionState`, inheriting its footer + liveness reconciliation                                                                                                                                                                                                                                                                                                                                   |
+| `telegram-terminal-watch-command.lib.mjs` `/terminal_watch`                                       | yes                 | **polls forever, misleading snapshot**    | **Fixed** — `reconcileWatchCompletion` (footer authoritative)                                                                                                                                                                                                                                                                                                                                                                   |
+| `cleanup.os.lib.mjs` `listSessionTasks` → `getActiveTasks` (was `listActiveTaskRefsFromSessions`) | yes                 | a killed session counts as an active task | **Kept as-is (deliberate)** — an active task → `action:'keep'` (folder _protected_ from deletion). Counting a killed session as active errs toward **keeping** a dead workspace — the safe default for a destructive op. Applying the footer here would make deletion **more aggressive** (a mis-parsed footer could delete a live workspace). _Now sourced from the single `$ --list` catalog (see "Review follow-up" below)._ |
+| `cleanup.os.lib.mjs` `collectProcessDebugSessions` (debug listing)                                | no                  | none — only reads `status.exists`         | **Kept as-is** — branches only on whether the session _exists_, never on executing-vs-terminal, so the RC-1 flip cannot affect it; purely informational                                                                                                                                                                                                                                                                         |
+| `telegram-log-command.lib.mjs` `/log`                                                             | yes                 | DM-vs-chat routing only                   | **Kept as-is** — one-shot, no loop; the delivered log file already contains the kill footer, so the user sees it regardless                                                                                                                                                                                                                                                                                                     |
 
 `getIsolationSessionState` is the single reconciliation chokepoint: all four of its callers in
 `session-monitor.lib.mjs` — `monitorSessions` (completion), `getRunningSessionItems` (listing),
@@ -260,6 +260,41 @@ four per-call-site copies.
 The fix targets the **reporting and hang** paths (where a wrong `executing` silently loses a failure
 or spins forever). The cleanup path's non-terminal default is the correct, safer behavior for a
 destructive (workspace-deletion) operation, so it is left intact rather than made more aggressive.
+
+## Review follow-up: deduplicated `$` session data + richer cleanup listing
+
+A review on PR #1928 asked to (a) confirm the `$` (start-command) session data is
+**not duplicated** across the consumers that read it — `/queue`, `/limits`, the session
+monitor and `cleanup` — and (b) make the `cleanup` listing show, for **every** hive-mind
+folder (active _and_ finished), which PR/issue and which session it belonged to.
+
+**(a) Deduplication.** All `$ --status` access already funnels through the single
+`querySessionStatus()` chokepoint in `isolation-runner.lib.mjs`, and all `$ --list`
+access through `listIsolationSessions()`. `/queue` and `/limits` count executing work via
+the session monitor (`getActiveSessionCount` + `getIsolationSessionState`), which itself
+calls `querySessionStatus` — so there is one reader of the raw `$` data, not several.
+
+The one remaining duplicate was inside `cleanup`: `getActiveTasks()` re-derived live
+sessions from `screen -ls`/`tmux ls` (`listLiveSessionIds`) and then issued one
+`$ --status` per session (`listActiveTaskRefsFromSessions`). That path is replaced by a
+single `listSessionTasks()` call that reads the whole catalog from one `$ --list`. The two
+old helpers are retained but marked `@deprecated`.
+
+**(b) Always-on PR/session annotation.** Because `$ --list` reports finished sessions too
+(unlike the screen/tmux liveness scan), `listSessionTasks()` carries each session's
+`sessionId`, `status`, `workspace` and a `terminal` flag. `classifyEntries` now attaches
+the matched session to each folder and `formatEntryContext` renders:
+
+- active folders — `task <owner/repo PR #N, branch …, session …, status …, workspace …>`
+- finished folders — `was <owner/repo PR #N, branch …, session …, status …>`
+- otherwise — the issue number derived from the folder's branch (`issue #N`)
+
+so the `cleanup` listing always shows which PR/issue and session a folder belongs (or
+belonged) to. Folder→session matching reuses the existing branch matchers
+(`buildActiveMatchers`/`folderMatchesActiveTask`) because `$ --list` reports the session's
+`workingDirectory` as the launcher's cwd (`/home/box`), not the per-task
+`gh-issue-solver-*` clone — the GitHub URL in the command line → branch → folder branch is
+the reliable key.
 
 ## Residual Notes
 

@@ -60,6 +60,14 @@ destroying the evidence needed to reconstruct the failure.
   corrects the displayed status to the real terminal one (e.g. `killed`), and a
   completed-but-failed session renders a ❌ failure title instead of a ✅.
 
+- **`src/cleanup.os.lib.mjs`** + `src/cleanup.lib.mjs` — review follow-up:
+  deduplicated `$` session-data access (cleanup no longer re-derives sessions
+  from `screen -ls`/`tmux ls` + per-session `$ --status`; a single
+  `listSessionTasks()` reads the whole catalog from `$ --list`, the same source
+  `/queue`, `/limits` and the monitor already funnel through), and the cleanup
+  listing now annotates **every** hive-mind folder — active _and_ finished — with
+  which PR/issue and which session it belongs (or belonged) to.
+
 A `verbose` flag is threaded through the new status/footer/liveness/resume paths
 with explicit `[VERBOSE]` tracing so the next failure leaves a trail (req #6).
 

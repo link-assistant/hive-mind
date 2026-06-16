@@ -1,5 +1,5 @@
 /**
- * OS-interaction layer for the `cleanup` command (issue #1848).
+ * OS-interaction layer for the `hive-cleanup` command (issue #1848).
  *
  * Everything that touches the real filesystem, the process table (/proc),
  * isolation session state (`$ --status` from start-command), git metadata of a
@@ -625,7 +625,13 @@ export async function listActiveTaskRefsFromSessions(sessionIds) {
       const key = `${ref.owner}/${ref.repo}#${ref.number}:${ref.type}`;
       if (!seen.has(key)) {
         seen.add(key);
-        refs.push(ref);
+        refs.push({
+          ...ref,
+          sessionId: status.uuid || id,
+          sessionName: status.sessionName || id,
+          status: status.status || null,
+          workspace: status.workingDirectory || null,
+        });
       }
     }
   }

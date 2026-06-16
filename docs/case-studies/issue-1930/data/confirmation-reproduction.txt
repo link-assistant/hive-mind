@@ -1,0 +1,17 @@
+plain yes:
+  raw JSON: "yes"
+  old trim/lowercase accepted: true
+  normalized: "yes"
+  new parser accepted: true
+
+Ctrl+Tab escape before yes:
+  raw JSON: "\u001b[27;5;9~yes"
+  old trim/lowercase accepted: false
+  normalized: "yes"
+  new parser accepted: true
+
+typed text removed with DEL before yes:
+  raw JSON: "noyes"
+  old trim/lowercase accepted: false
+  normalized: "yes"
+  new parser accepted: true

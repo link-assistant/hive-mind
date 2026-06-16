@@ -737,7 +737,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ### Очистка диска
 
-`cleanup` освобождает место на диске, удаляя устаревшие временные каталоги/файлы
+`hive-cleanup` освобождает место на диске, удаляя устаревшие временные каталоги/файлы
 hive-mind (клоны для каждой задачи вида `/tmp/gh-issue-solver-*`, файлы
 конфигурации MCP, каталоги загрузки логов и т. д.), при этом **сохраняя папки,
 относящиеся к выполняющимся в данный момент задачам**, защищённые системные пути и
@@ -748,40 +748,40 @@ hive-mind (клоны для каждой задачи вида `/tmp/gh-issue-s
 
 ```bash
 # Предпросмотр: список сохраняемых и удаляемых папок (ничего не удаляет)
-cleanup --dry-run
+hive-cleanup --dry-run
 
 # Реально удалить устаревшие временные файлы (сначала запросит подтверждение)
-cleanup
+hive-cleanup
 
 # Удалить без запроса подтверждения
-cleanup --force
+hive-cleanup --force
 
 # Учитывать также не-hive-mind временные записи (более агрессивно)
-cleanup --all --dry-run
+hive-cleanup --all --dry-run
 
 # Разрешить удаление /tmp/start-command (по умолчанию сохраняется; хранит логи изоляции)
-cleanup --force-start-command
+hive-cleanup --force-start-command
 
 # Очистка Ubuntu / системы (кэши apt, логи journald, кэш npm)
-cleanup --system --sudo
+hive-cleanup --system --sudo
 
 # Сопоставить живые/зависшие agent PID с задачами hive/start-command
-cleanup --processes
+hive-cleanup --processes
 
 # Отследить конкретный не-agent PID, например дочерний процесс браузера или shell
-cleanup --pid 94445
+hive-cleanup --pid 94445
 
 # Предпросмотр orphaned agents, которые можно остановить
-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --dry-run
 
 # Остановить деревья orphaned agent процессов после просмотра предпросмотра
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --force
 
 # Отключить обнаружение активных задач (сохраняются только защищённые пути)
-cleanup --no-keep-active-tasks-folders --dry-run
+hive-cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-Запустите `cleanup --help`, чтобы увидеть полный список опций. Команда удобна для
+Запустите `hive-cleanup --help`, чтобы увидеть полный список опций. Команда удобна для
 режима dry-run и записывает лог `cleanup-*.log` с меткой времени при каждом запуске.
 Диагностический вывод процессов скрывает распространённые формы token перед печатью
 командных строк.
@@ -841,14 +841,14 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 ```bash
 # Показать agent PID, start-command session ID, GitHub task URL, workspace,
 # причины совпадения и возможные orphaned agents.
-cleanup --processes
+hive-cleanup --processes
 
 # Включить произвольный PID в тот же отчёт.
-cleanup --pid 62220
+hive-cleanup --pid 62220
 
 # Остановить только orphaned agents, чья задача уже завершена.
-cleanup --kill-orphaned-agents --dry-run
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --force
 ```
 
 Ручной fallback: определите screen-сессии, являющиеся родительскими для процессов,

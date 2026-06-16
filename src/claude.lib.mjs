@@ -9,7 +9,7 @@ const path = (await use('path')).default;
 import { log, isENOSPC } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
-import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { detectUsageLimit, formatUsageLimitMessage, isUsageLimitError } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig, attachStreamingInput } from './bidirectional-interactive.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
@@ -978,11 +978,12 @@ export const executeClaudeCommand = async params => {
                     isRequestTimeout = true;
                     await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });
                   }
-                  // Issue #1924: Server-side temporary rate limiting (HTTP 429) — a transient
-                  // throttle, not an account usage limit ("...not your usage limit..."), so retry
-                  // with --resume. The message text is handled by classifyRetryableError; this also
-                  // catches the structured api_error_status if the wording ever changes.
-                  if (data.api_error_status === 429) {
+                  // Issue #1924: server-side temporary rate limiting (HTTP 429) is a transient
+                  // throttle ("...not your usage limit..."), so retry with --resume. Issue #1935
+                  // (regression from #1924): account usage limits ("session limit" / "weekly limit")
+                  // ALSO arrive with api_error_status === 429 plus an explicit reset time, so the
+                  // isUsageLimitError() guard routes those to the usage-limit handler below instead.
+                  if (data.api_error_status === 429 && !isUsageLimitError(lastMessage)) {
                     isRateLimitError = true;
                     await log(`⚠️ Detected server-side rate limiting (429) from Claude CLI (will retry with --resume). request_id=${data.request_id || 'unknown'}`, { verbose: true });
                   }

@@ -12,7 +12,8 @@
 
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
-import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
+
+import { fetchUseMCodeFromCdn, USE_M_BOOTSTRAP_FALLBACK_URL, USE_M_BOOTSTRAP_URL } from '../src/use-m-bootstrap.lib.mjs';
 
 const bootstrapPath = new URL('../src/use-m-bootstrap.lib.mjs', import.meta.url);
 const removedHelperPath = new URL('../src/npm-global-prefix.lib.mjs', import.meta.url);
@@ -32,20 +33,25 @@ assert.equal(await exists(removedHelperPath), false, 'src/npm-global-prefix.lib.
 assert.doesNotMatch(bootstrapSource, /npm-global-prefix/, 'ensureUseM should not import the removed npm prefix helper');
 assert.doesNotMatch(bootstrapSource, /ensureWritableNpmGlobalPrefix/, 'ensureUseM should not run a local npm prefix preflight');
 assert.doesNotMatch(bootstrapSource, /npm_config_prefix|NPM_CONFIG_PREFIX|npm root -g|\.npm-global/, 'ensureUseM should not contain local npm prefix policy');
-assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m\/use\.js/, 'ensureUseM should still load the upstream use-m bootstrap');
-assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m@8\.13\.8\/use\.js/, 'ensureUseM should fall back to the last root use-m bootstrap');
+assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m\/use\.js/, 'ensureUseM should still try the upstream use-m bootstrap first');
+assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m@8\.13\.8\/use\.js/, 'ensureUseM should keep a known working bootstrap fallback');
 
-const originalUse = globalThis.use;
-delete globalThis.use;
+const calls = [];
+const code = await fetchUseMCodeFromCdn({
+  fetcher: async url => {
+    calls.push(url);
+    if (url === USE_M_BOOTSTRAP_URL) {
+      return {
+        ok: false,
+        text: async () => 'Not found: /use-m@8.14.0/use.js',
+      };
+    }
+    return {
+      ok: true,
+      text: async () => 'makeUse',
+    };
+  },
+});
 
-try {
-  const loadedUse = await ensureUseM({
-    fetchUseMCode: async () => `const use = async moduleSpecifier => ({ moduleSpecifier });
-module.exports = { use };`,
-  });
-  assert.equal((await loadedUse('command-stream')).moduleSpecifier, 'command-stream');
-  assert.equal(globalThis.use, loadedUse);
-} finally {
-  if (typeof originalUse === 'undefined') delete globalThis.use;
-  else globalThis.use = originalUse;
-}
+assert.equal(code, 'makeUse', 'ensureUseM should use fallback bootstrap code when latest use.js is missing');
+assert.deepEqual(calls, [USE_M_BOOTSTRAP_URL, USE_M_BOOTSTRAP_FALLBACK_URL], 'ensureUseM should try latest first, then fallback');

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Unit tests for the `cleanup` command core logic (issue #1848).
+ * Unit tests for the `hive-cleanup` command core logic (issue #1848).
  *
  * These tests exercise the pure, offline-safe classification/parsing helpers in
  * src/cleanup.lib.mjs — no network, no real filesystem, no /proc. They reproduce
@@ -16,7 +16,7 @@
 
 import assert from 'node:assert/strict';
 
-import { parseTaskUrl, extractTaskRefsFromCommand, parseRemoteUrl, buildActiveMatchers, folderMatchesActiveTask, matchHiveMindPattern, classifyEntry, classifyEntries, formatBytes, summarize, describeReason, DEFAULT_PROTECTED_NAMES } from '../src/cleanup.lib.mjs';
+import { parseTaskUrl, extractTaskRefsFromCommand, parseRemoteUrl, buildActiveMatchers, folderMatchesActiveTask, matchHiveMindPattern, classifyEntry, classifyEntries, formatBytes, summarize, describeReason, formatEntryContext, formatTaskSummary, DEFAULT_PROTECTED_NAMES } from '../src/cleanup.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -33,7 +33,7 @@ function test(name, fn) {
   }
 }
 
-console.log('\n📋 cleanup command (#1848) Tests\n');
+console.log('\n📋 hive-cleanup command (#1848) Tests\n');
 
 // ---------------------------------------------------------------------------
 // URL / command parsing
@@ -253,6 +253,39 @@ test('summarize aggregates counts and bytes', () => {
   assert.equal(s.removeCount, 2);
   assert.equal(s.keepBytes, 300);
   assert.equal(s.removeBytes, 1000);
+});
+
+test('formatTaskSummary includes PR and session context', () => {
+  const summary = formatTaskSummary({
+    owner: 'link-assistant',
+    repo: 'hive-mind',
+    type: 'pull',
+    number: 1934,
+    branch: 'issue-1930-79b41127892b',
+    sessionId: 'session-123',
+    status: 'executing',
+    workspace: '/tmp/gh-issue-solver-1781543261323',
+  });
+  assert.equal(summary, 'link-assistant/hive-mind PR #1934, branch issue-1930-79b41127892b, session session-123, status executing, workspace /tmp/gh-issue-solver-1781543261323');
+});
+
+test('formatEntryContext includes active task and git context', () => {
+  const item = {
+    activeTask: {
+      owner: 'link-assistant',
+      repo: 'hive-mind',
+      type: 'pull',
+      number: 1934,
+      branch: 'issue-1930-79b41127892b',
+      sessionId: 'session-123',
+    },
+    gitInfo: {
+      branch: 'issue-1930-79b41127892b',
+      remotes: [{ owner: 'link-assistant', repo: 'hive-mind' }],
+      dirty: true,
+    },
+  };
+  assert.equal(formatEntryContext(item), ' (task link-assistant/hive-mind PR #1934, branch issue-1930-79b41127892b, session session-123; repo link-assistant/hive-mind, branch issue-1930-79b41127892b, dirty/unpushed)');
 });
 
 test('describeReason returns human-readable labels', () => {

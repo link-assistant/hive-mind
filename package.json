@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "1.78.12",
+  "version": "2.0.1",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -8,7 +8,7 @@
     "hive": "./src/hive.mjs",
     "solve": "./src/solve.mjs",
     "task": "./src/task.mjs",
-    "cleanup": "./src/cleanup.mjs",
+    "hive-cleanup": "./src/cleanup.mjs",
     "review": "./src/review.mjs",
     "configure-claude": "./src/configure-claude.mjs",
     "start-screen": "./src/start-screen.mjs",

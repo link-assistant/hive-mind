@@ -23,7 +23,6 @@ import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
-import { getPlaywrightMcpSessionInitFailure } from './interactive-mcp-status.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
@@ -797,6 +796,7 @@ export const executeClaudeCommand = async params => {
       let lastEventTime = null;
       let activityTimeoutId = null;
       let isActivityTimeout = false;
+      // Issue #1516: Kill process group (-pid) so leaked /bin/sh children don't survive
       // prettier-ignore
       const killProcessTree = signal => { try { const pid = execCommand.pid || execCommand._pid; if (pid) { process.kill(-pid, signal); return; } } catch { /* not group leader */ } execCommand.kill(signal); };
       const forceExitOnTimeout = async () => {
@@ -806,6 +806,7 @@ export const executeClaudeCommand = async params => {
         try {
           if (execCommand.kill) {
             killProcessTree('SIGTERM');
+            // Issue #1346/#1510: Follow up with SIGKILL after 5s if still alive
             const t = setTimeout(() => {
               try {
                 if (!execCommand.result?.code) {
@@ -822,6 +823,7 @@ export const executeClaudeCommand = async params => {
           await log(`   Warning: Could not kill process: ${e.message}`, { verbose: true });
         }
       };
+      // Issue #1472/#1475: Startup timeout — force-kill if no output within streamStartupMs
       if (timeouts.streamStartupMs > 0) {
         startupTimeoutId = setTimeout(async () => {
           if (!firstChunkReceived && !forceExitTriggered) {
@@ -832,6 +834,7 @@ export const executeClaudeCommand = async params => {
         }, timeouts.streamStartupMs);
         startupTimeoutId.unref();
       }
+      // Issue #1472: Helper to reset activity timeout on each stdout chunk
       const resetActivityTimeout = () => {
         if (timeouts.streamActivityMs > 0 && !resultEventReceived) {
           if (activityTimeoutId) clearTimeout(activityTimeoutId);
@@ -847,7 +850,10 @@ export const executeClaudeCommand = async params => {
         }
       };
       for await (const chunk of execCommand.stream()) {
+        // Issue #1510: Continue processing stream after SIGTERM to capture final output
+        // The stream will naturally end when the process exits (SIGTERM) or is force-killed (SIGKILL after 5s)
         if (!firstChunkReceived) {
+          // Issue #1472/#1475: Clear startup timeout on first output
           firstChunkReceived = true;
           if (startupTimeoutId) {
             clearTimeout(startupTimeoutId);
@@ -857,9 +863,11 @@ export const executeClaudeCommand = async params => {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           resetActivityTimeout(); // Issue #1472: Reset activity timeout on each stdout chunk
+          // Append to buffer and split; keep last element (may be incomplete) for next chunk
           stdoutLineBuffer += output;
           const lines = stdoutLineBuffer.split('\n');
           stdoutLineBuffer = lines.pop() || '';
+          // Parse each complete NDJSON line
           for (const line of lines) {
             if (!line.trim()) continue;
             try {
@@ -877,14 +885,6 @@ export const executeClaudeCommand = async params => {
                 } catch (interactiveError) {
                   await log(`⚠️ Interactive mode error: ${interactiveError.message}`, { verbose: true });
                 }
-              }
-              const playwrightMcpInitFailure = getPlaywrightMcpSessionInitFailure({ event: data, playwrightMcpEnabled: argv.playwrightMcp !== false });
-              if (playwrightMcpInitFailure) {
-                commandFailed = true;
-                exitCode = exitCode || 1;
-                lastMessage = playwrightMcpInitFailure.message;
-                await log(`\n❌ ${lastMessage}`, { level: 'error' });
-                killProcessTree('SIGTERM');
               }
               await log(JSON.stringify(data, null, 2));
               if (!sessionId && data.session_id) {

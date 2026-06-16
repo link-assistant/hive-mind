@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.0
+
+### Major Changes
+
+- fd84e85: Rename the cleanup executable to `hive-cleanup` and harden destructive confirmation parsing against hidden terminal control input.
+
 ## 1.78.13
 
 ### Patch Changes

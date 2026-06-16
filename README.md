@@ -755,7 +755,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ### Disk Cleanup
 
-`cleanup` frees disk space by removing stale hive-mind temporary
+`hive-cleanup` frees disk space by removing stale hive-mind temporary
 directories/files (per-task clones like `/tmp/gh-issue-solver-*`, MCP config
 files, log download dirs, …) while **keeping folders that belong to
 currently-running tasks**, protected system paths, and any clone with
@@ -766,40 +766,40 @@ branch).
 
 ```bash
 # Preview: list kept folders and folders that would be deleted (deletes nothing)
-cleanup --dry-run
+hive-cleanup --dry-run
 
 # Actually delete stale temp artifacts (asks for confirmation first)
-cleanup
+hive-cleanup
 
 # Delete without the confirmation prompt
-cleanup --force
+hive-cleanup --force
 
 # Also consider non-hive-mind temp entries (more aggressive)
-cleanup --all --dry-run
+hive-cleanup --all --dry-run
 
 # Allow deleting /tmp/start-command (kept by default; holds isolation logs)
-cleanup --force-start-command
+hive-cleanup --force-start-command
 
 # Ubuntu / system cleanup (apt caches, journald logs, npm cache)
-cleanup --system --sudo
+hive-cleanup --system --sudo
 
 # Map live/stuck agent PIDs back to hive/start-command task sessions
-cleanup --processes
+hive-cleanup --processes
 
 # Trace a specific non-agent PID, for example a browser child or shell
-cleanup --pid 94445
+hive-cleanup --pid 94445
 
 # Preview orphaned terminal-session agents that can be stopped
-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --dry-run
 
 # Stop orphaned agent process trees after reviewing the preview
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --force
 
 # Disable active-task detection (only protected paths are kept)
-cleanup --no-keep-active-tasks-folders --dry-run
+hive-cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-Run `cleanup --help` for the full list of options. The command is dry-run
+Run `hive-cleanup --help` for the full list of options. The command is dry-run
 friendly and writes a timestamped `cleanup-*.log` for every run. Process
 diagnostic output redacts common token shapes before printing command lines.
 
@@ -859,14 +859,14 @@ that launched it:
 ```bash
 # Show agent PIDs, start-command session IDs, GitHub task URLs, workspaces,
 # match reasons, and possible orphaned terminal-session agents.
-cleanup --processes
+hive-cleanup --processes
 
 # Include an arbitrary PID in the same report.
-cleanup --pid 62220
+hive-cleanup --pid 62220
 
 # Kill only agents whose matched start-command task is already terminal.
-cleanup --kill-orphaned-agents --dry-run
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --force
 ```
 
 Manual fallback: identify screens that are parents of processes that are eating

@@ -735,7 +735,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ### डिस्क क्लीनअप
 
-`cleanup` पुरानी hive-mind अस्थायी डायरेक्टरी/फ़ाइलों (जैसे प्रति-कार्य क्लोन
+`hive-cleanup` पुरानी hive-mind अस्थायी डायरेक्टरी/फ़ाइलों (जैसे प्रति-कार्य क्लोन
 `/tmp/gh-issue-solver-*`, MCP कॉन्फ़िग फ़ाइलें, लॉग डाउनलोड डायरेक्टरी आदि) को हटाकर
 डिस्क स्थान खाली करता है, जबकि **वर्तमान में चल रहे कार्यों से संबंधित फ़ोल्डर**,
 सुरक्षित सिस्टम पथ, और बिना कमिट या बिना पुश किए बदलावों वाले किसी भी क्लोन को बनाए
@@ -745,40 +745,40 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ```bash
 # पूर्वावलोकन: रखे जाने वाले और हटाए जाने वाले फ़ोल्डरों की सूची (कुछ भी नहीं हटाता)
-cleanup --dry-run
+hive-cleanup --dry-run
 
 # पुरानी अस्थायी फ़ाइलें वास्तव में हटाएँ (पहले पुष्टि माँगता है)
-cleanup
+hive-cleanup
 
 # पुष्टि प्रॉम्प्ट के बिना हटाएँ
-cleanup --force
+hive-cleanup --force
 
 # गैर-hive-mind अस्थायी प्रविष्टियों पर भी विचार करें (अधिक आक्रामक)
-cleanup --all --dry-run
+hive-cleanup --all --dry-run
 
 # /tmp/start-command को हटाने की अनुमति दें (डिफ़ॉल्ट रूप से रखा जाता है; इसमें आइसोलेशन लॉग होते हैं)
-cleanup --force-start-command
+hive-cleanup --force-start-command
 
 # Ubuntu / सिस्टम क्लीनअप (apt कैश, journald लॉग, npm कैश)
-cleanup --system --sudo
+hive-cleanup --system --sudo
 
 # लाइव/अटके हुए agent PID को hive/start-command कार्य सत्रों से मिलाएँ
-cleanup --processes
+hive-cleanup --processes
 
 # किसी खास non-agent PID को ट्रेस करें, जैसे browser child या shell
-cleanup --pid 94445
+hive-cleanup --pid 94445
 
 # रोके जा सकने वाले orphaned agents का पूर्वावलोकन करें
-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --dry-run
 
 # पूर्वावलोकन जाँचने के बाद orphaned agent process trees रोकें
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --force
 
 # सक्रिय-कार्य पहचान अक्षम करें (केवल सुरक्षित पथ रखे जाते हैं)
-cleanup --no-keep-active-tasks-folders --dry-run
+hive-cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-विकल्पों की पूरी सूची के लिए `cleanup --help` चलाएँ। यह कमांड dry-run के अनुकूल है और
+विकल्पों की पूरी सूची के लिए `hive-cleanup --help` चलाएँ। यह कमांड dry-run के अनुकूल है और
 हर रन के लिए टाइमस्टैम्प वाला `cleanup-*.log` लिखता है। प्रक्रिया डायग्नोस्टिक आउटपुट
 कमांड लाइन प्रिंट करने से पहले सामान्य token आकारों को छिपाता है।
 
@@ -836,14 +836,14 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ```bash
 # agent PID, start-command session ID, GitHub task URL, workspace, match reasons और संभावित orphaned agents दिखाएँ।
-cleanup --processes
+hive-cleanup --processes
 
 # उसी report में कोई भी PID शामिल करें।
-cleanup --pid 62220
+hive-cleanup --pid 62220
 
 # केवल terminal task वाले orphaned agents रोकें।
-cleanup --kill-orphaned-agents --dry-run
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --force
 ```
 
 Manual fallback: उन स्क्रीन की पहचान करें जो संसाधन खपत करने वाली प्रक्रियाओं के पैरेंट हैं।

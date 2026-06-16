@@ -20,8 +20,11 @@
  * Note: Archived repositories are preserved by default. Use --include-archived to delete them.
  */
 
+import { isConfirmationYes, readConfirmationLine } from './src/confirmation.lib.mjs';
+import { fetchUseMCodeFromCdn } from './src/use-m-bootstrap.lib.mjs';
+
 // Use use-m to dynamically import modules for cross-runtime compatibility
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+const { use } = eval(await fetchUseMCodeFromCdn());
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $ } = await use('command-stream');
@@ -66,16 +69,11 @@ try {
       console.log('');
       if (!forceMode && !dryRun) {
         console.log('Continue anyway? Type "yes" to continue, or Ctrl+C to cancel:');
-        process.stdout.write('> ');
 
         try {
-          const answer = execSync('read answer && echo $answer', {
-            encoding: 'utf8',
-            stdio: ['inherit', 'pipe', 'pipe'],
-            shell: '/bin/bash',
-          }).trim();
+          const answer = await readConfirmationLine({ prompt: '> ' });
 
-          if (answer.toLowerCase() !== 'yes') {
+          if (!isConfirmationYes(answer)) {
             console.log('\n❌ Cancelled');
             process.exit(0);
           }
@@ -206,23 +204,15 @@ try {
     console.log(`⚠️  This will permanently delete ${testRepos.length} repositories!`);
     console.log('');
     console.log('Type "yes" to confirm, or Ctrl+C to cancel:');
-    process.stdout.write('> ');
 
-    // Use execSync to read input, which handles Ctrl+C properly
     try {
-      // Read from stdin using shell command
-      const answer = execSync('read answer && echo $answer', {
-        encoding: 'utf8',
-        stdio: ['inherit', 'pipe', 'pipe'],
-        shell: '/bin/bash',
-      }).trim();
+      const answer = await readConfirmationLine({ prompt: '> ' });
 
-      if (answer.toLowerCase() !== 'yes') {
+      if (!isConfirmationYes(answer)) {
         console.log('\n❌ Cancelled');
         process.exit(0);
       }
     } catch (e) {
-      // Ctrl+C was pressed (execSync throws on SIGINT)
       console.log('\n\n❌ Cancelled');
       process.exit(0);
     }

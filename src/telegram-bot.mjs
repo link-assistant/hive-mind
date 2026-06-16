@@ -12,8 +12,6 @@ if (typeof use === 'undefined') {
 }
 
 const { lino } = await import('./lino.lib.mjs');
-const { buildUserMention } = await import('./buildUserMention.lib.mjs');
-const { reportError, initializeSentry, addBreadcrumb } = await import('./sentry.lib.mjs');
 const { loadLenvConfig } = await import('./lenv-reader.lib.mjs');
 const { getLinoYargsFactory, getenv, hideBin } = await import('./cli-arguments.lib.mjs');
 
@@ -27,29 +25,8 @@ await loadLenvConfig({ override: true, quiet: true });
 const yargs = getLinoYargsFactory();
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
-const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');
-const { validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
 const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
-const { extractIsolationFromArgs, isValidPerCommandIsolation, resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
-const limitsLib = await import('./limits.lib.mjs');
-const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
-const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
-const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
-const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
-const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
-const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
-const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
-const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
-const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
-const { installTelegramFormattingFallback, isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
-const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
-const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
-const { createBotLogger } = await import('./bot-logger.lib.mjs');
-const { createSessionStore } = await import('./session-store.lib.mjs');
-const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
-const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
-const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
+const { extractIsolationFromArgs, isValidPerCommandIsolation } = await import('./telegram-isolation.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -182,11 +159,16 @@ if (ISOLATION_BACKEND) {
     process.exit(1);
   }
   console.log(`🔒 Isolation mode enabled: ${ISOLATION_BACKEND} (experimental)`);
-  isolationRunner = await import('./isolation-runner.lib.mjs');
+  // Dry-run mode validates configuration and exits before any command can be
+  // executed, so avoid loading start-command/command-stream and their optional
+  // native dependencies on parser-only runs.
+  if (!config.dryRun) {
+    isolationRunner = await import('./isolation-runner.lib.mjs');
+  }
   // For docker isolation, run a startup preflight so a missing/un-passed-through
   // image surfaces as a loud, actionable warning instead of a surprise multi-GB
   // pull on the first isolated task (issues #1914, #1879). Never throws.
-  if (ISOLATION_BACKEND === 'docker' && typeof isolationRunner.preflightDockerIsolation === 'function') {
+  if (!config.dryRun && ISOLATION_BACKEND === 'docker' && typeof isolationRunner.preflightDockerIsolation === 'function') {
     try {
       await isolationRunner.preflightDockerIsolation({ verbose: VERBOSE });
     } catch (preflightError) {
@@ -316,6 +298,31 @@ if (config.dryRun) {
 
 // === HEAVY DEPENDENCIES LOADED BELOW (skipped in dry-run mode) ===
 // These imports are after dry-run check to speed up config validation. Telegraf can take 3-8s to load on cold start (issue #801).
+
+const { buildUserMention } = await import('./buildUserMention.lib.mjs');
+const { reportError, initializeSentry, addBreadcrumb } = await import('./sentry.lib.mjs');
+const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');
+const { validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
+const { resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
+const limitsLib = await import('./limits.lib.mjs');
+const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
+const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
+const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
+const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
+const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
+const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
+const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
+const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
+const { installTelegramFormattingFallback, isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
+const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
+const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
+const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
+const { createBotLogger } = await import('./bot-logger.lib.mjs');
+const { createSessionStore } = await import('./session-store.lib.mjs');
+const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
+const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
+const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
 
 // Initialize Sentry for error tracking
 await initializeSentry({

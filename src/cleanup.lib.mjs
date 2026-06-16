@@ -1,5 +1,5 @@
 /**
- * Core, offline-testable logic for the `cleanup` command (issue #1848).
+ * Core, offline-testable logic for the `hive-cleanup` command (issue #1848).
  *
  * This module deliberately avoids any top-level network access (no `use-m`
  * fetch) and any side effects so it can be unit-tested without a network
@@ -144,8 +144,8 @@ function sameRepo(a, b) {
  * fall back to the `issue-{number}-{hex}` prefix (the random hex is unknown from
  * the URL alone) combined with a repo match.
  *
- * @param {Array<{owner, repo, type, number, branch?: string|null}>} activeTasks
- * @returns {Array<{owner, repo, type, issueNumber: number|null, branch: string|null}>}
+ * @param {Array<{owner, repo, type, number, branch?: string|null, sessionId?: string|null, sessionName?: string|null, status?: string|null, workspace?: string|null}>} activeTasks
+ * @returns {Array<{owner, repo, type, number: number|null, issueNumber: number|null, branch: string|null, sessionId: string|null, sessionName: string|null, status: string|null, workspace: string|null}>}
  */
 export function buildActiveMatchers(activeTasks) {
   const matchers = [];
@@ -155,8 +155,13 @@ export function buildActiveMatchers(activeTasks) {
       owner: task.owner,
       repo: task.repo,
       type: task.type,
+      number: task.number ?? null,
       issueNumber: task.type === 'issue' ? task.number : (task.issueNumber ?? null),
       branch: task.branch || null,
+      sessionId: task.sessionId || null,
+      sessionName: task.sessionName || null,
+      status: task.status || null,
+      workspace: task.workspace || null,
     });
   }
   return matchers;
@@ -291,9 +296,12 @@ export function classifyEntry(entry, ctx) {
 export function classifyEntries(entries, ctx) {
   const keep = [];
   const remove = [];
+  const { matchers = [], gitInfoByPath = new Map() } = ctx || {};
   for (const entry of entries || []) {
     const { action, reason } = classifyEntry(entry, ctx);
-    const record = { name: entry.name, path: entry.path, size: entry.size ?? null, reason };
+    const gitInfo = gitInfoByPath.get(entry.path) || null;
+    const activeTask = reason === 'active-task' ? folderMatchesActiveTask(gitInfo, matchers) : null;
+    const record = { name: entry.name, path: entry.path, size: entry.size ?? null, reason, gitInfo, activeTask };
     if (action === 'remove') remove.push(record);
     else keep.push(record);
   }
@@ -356,4 +364,52 @@ export function describeReason(reason) {
     unrecognized: 'not a recognised hive-mind artifact',
   };
   return map[reason] || reason;
+}
+
+function firstRemote(gitInfo) {
+  return gitInfo?.remotes?.[0] || null;
+}
+
+function compactTaskType(type) {
+  return type === 'pull' ? 'PR' : 'issue';
+}
+
+/**
+ * Format an active task for logs.
+ *
+ * @param {{owner?: string, repo?: string, type?: string, number?: number|null, issueNumber?: number|null, branch?: string|null, sessionId?: string|null, sessionName?: string|null, status?: string|null, workspace?: string|null}} task
+ * @returns {string}
+ */
+export function formatTaskSummary(task) {
+  if (!task) return '';
+  const number = task.number ?? task.issueNumber ?? null;
+  const parts = [`${task.owner}/${task.repo} ${compactTaskType(task.type)} #${number ?? '?'}`];
+  if (task.branch) parts.push(`branch ${task.branch}`);
+  if (task.sessionId || task.sessionName) parts.push(`session ${task.sessionId || task.sessionName}`);
+  if (task.status) parts.push(`status ${task.status}`);
+  if (task.workspace) parts.push(`workspace ${task.workspace}`);
+  return parts.join(', ');
+}
+
+/**
+ * Format per-entry git/task context for one-line cleanup reports.
+ *
+ * @param {{gitInfo?: {branch?: string|null, remotes?: Array<{owner, repo}>|null, dirty?: boolean}|null, activeTask?: Object|null}} item
+ * @returns {string}
+ */
+export function formatEntryContext(item) {
+  const details = [];
+  if (item?.activeTask) details.push(`task ${formatTaskSummary(item.activeTask)}`);
+
+  const gitInfo = item?.gitInfo;
+  if (gitInfo) {
+    const remote = firstRemote(gitInfo);
+    const gitParts = [];
+    if (remote) gitParts.push(`repo ${remote.owner}/${remote.repo}`);
+    if (gitInfo.branch) gitParts.push(`branch ${gitInfo.branch}`);
+    if (gitInfo.dirty) gitParts.push('dirty/unpushed');
+    if (gitParts.length > 0) details.push(gitParts.join(', '));
+  }
+
+  return details.length > 0 ? ` (${details.join('; ')})` : '';
 }

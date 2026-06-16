@@ -19,6 +19,7 @@ const execRaw = promisify(execCallback);
 import { parseGitHubUrl } from './github.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { getTerminalGitHubEntityErrorMessage, isTerminalGitHubEntityError } from './github-terminal-state.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -411,6 +412,17 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
       hasPending,
     };
   } catch (error) {
+    if (isTerminalGitHubEntityError(error)) {
+      const terminalError = getTerminalGitHubEntityErrorMessage(error);
+      if (verbose) console.log(`[VERBOSE] /merge: Terminal GitHub entity error while checking CI status for PR #${prNumber}: ${terminalError}`);
+      return {
+        status: 'terminal_github_entity_error',
+        checks: [],
+        allPassed: false,
+        hasPending: false,
+        error: terminalError,
+      };
+    }
     if (verbose) {
       console.log(`[VERBOSE] /merge: Error checking CI status: ${error.message}`);
     }
@@ -434,7 +446,7 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{mergeable: boolean, reason: string|null}>}
+ * @returns {Promise<{mergeable: boolean, reason: string|null, terminal?: boolean}>}
  */
 export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
   // Issue #1339: GitHub computes mergeability asynchronously. When mergeStateStatus is
@@ -495,6 +507,12 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
 
       return { mergeable, reason };
     } catch (error) {
+      if (isTerminalGitHubEntityError(error)) {
+        const terminalError = getTerminalGitHubEntityErrorMessage(error);
+        if (verbose) console.log(`[VERBOSE] /merge: Terminal GitHub entity error while checking mergeability for PR #${prNumber}: ${terminalError}`);
+        return { mergeable: false, reason: terminalError, terminal: true };
+      }
+
       if (verbose) {
         console.log(`[VERBOSE] /merge: Error checking mergeability: ${error.message}`);
       }
@@ -650,6 +668,14 @@ export async function waitForCI(owner, repo, prNumber, options = {}, verbose = f
 
     if (ciStatus.status === 'failure') {
       return { success: false, status: 'failure', error: 'CI checks failed' };
+    }
+
+    if (ciStatus.status === 'terminal_github_entity_error') {
+      return {
+        success: false,
+        status: 'terminal_github_entity_error',
+        error: ciStatus.error || 'GitHub repository, pull request, issue, or branch is no longer accessible',
+      };
     }
 
     if (ciStatus.status === 'pending') {
@@ -1240,6 +1266,28 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
       passedChecks,
     };
   } catch (error) {
+    if (isTerminalGitHubEntityError(error)) {
+      const terminalError = getTerminalGitHubEntityErrorMessage(error);
+      if (verbose) console.log(`[VERBOSE] /merge: Terminal GitHub entity error while getting detailed CI status for PR #${prNumber}: ${terminalError}`);
+      return {
+        status: 'terminal_github_entity_error',
+        checks: [],
+        sha: null,
+        hasFailures: false,
+        hasCancelled: false,
+        hasStale: false,
+        hasPending: false,
+        hasQueued: false,
+        allPassed: false,
+        failedChecks: [],
+        cancelledChecks: [],
+        staleChecks: [],
+        pendingChecks: [],
+        queuedChecks: [],
+        passedChecks: [],
+        error: terminalError,
+      };
+    }
     if (verbose) {
       console.log(`[VERBOSE] /merge: Error getting detailed CI status: ${error.message}`);
     }

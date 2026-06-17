@@ -53,6 +53,11 @@ const DOCKER_ISOLATION_SHELL = 'sh';
 // less headroom than this cannot safely pull one. Diagnostic only — never
 // blocks startup. See issue #1914.
 const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
+// Sentinel start-command's detached docker logger records when it cannot capture
+// the container's real exit code. A terminal `$ --status` carrying this value is
+// ambiguous — the container may still be running — so we cross-check it against
+// a live `docker inspect` before concluding the session finished. See #1939.
+const DOCKER_UNKNOWN_EXIT_CODE = -1;
 
 function normalizeProcessIds(value) {
   if (!value || typeof value !== 'object') return {};
@@ -137,15 +142,28 @@ export function resolveHostDockerSock({ env = process.env } = {}) {
 /**
  * Build host auth mounts for a Docker-isolated task.
  *
- * GitHub auth is mounted for every task because solve/hive/task need gh. Tool
- * credentials are deliberately scoped: Codex sessions do not receive Claude
- * files and Claude sessions do not receive Codex files.
+ * GitHub auth is mounted for every task because solve/hive/task need gh. Git
+ * identity (`~/.gitconfig` and the XDG `~/.config/git` directory) is mounted for
+ * every task too: it is tool-agnostic and `solve` aborts early with "Git
+ * identity not configured" when `user.name`/`user.email` are absent, so a child
+ * container that authenticates with gh but inherits no git identity still cannot
+ * commit. See issue #1939. Tool credentials are deliberately scoped: Codex
+ * sessions do not receive Claude files and Claude sessions do not receive Codex
+ * files.
  */
 export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = {}) {
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
 
   maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
+
+  // Git identity (tool-agnostic, required for commits). Honor the same env vars
+  // git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL)
+  // and the XDG base dir, falling back to the conventional `~/.gitconfig` and
+  // `~/.config/git`. Missing host paths are skipped, so a container image that
+  // already bakes a git identity is left untouched. See issue #1939.
+  maybeAddMount(mounts, env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), existsSync);
+  maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), existsSync);
 
   if (normalizedTool === 'codex') {
     maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
@@ -365,6 +383,24 @@ export function isTerminalSessionStatus(status) {
   return TERMINAL_SESSION_STATUSES.has(String(status || '').toLowerCase());
 }
 
+/**
+ * Decide whether a detached-docker exit code is "unknown" (not a real result).
+ *
+ * start-command's detached docker logger writes the exit-code footer only after
+ * `docker logs -f` returns, capturing the real code via `docker inspect`. When
+ * it cannot capture one it records the sentinel `-1`. A `$ --status` that
+ * reports a terminal status ("executed") while still carrying that sentinel — or
+ * no exit code at all — is therefore ambiguous: the container may actually still
+ * be running. Callers treat such a status as provisional and cross-check the
+ * live container before declaring the session finished. See issue #1939.
+ *
+ * @param {number|null|undefined} exitCode
+ * @returns {boolean} True when the exit code carries no real result.
+ */
+export function isUnknownDockerExitCode(exitCode) {
+  return exitCode === null || exitCode === undefined || Number(exitCode) === DOCKER_UNKNOWN_EXIT_CODE;
+}
+
 export function shouldFallbackToScreenStatus(statusResult) {
   return !statusResult?.exists || !statusResult?.status;
 }
@@ -380,6 +416,41 @@ async function findStartCommandBinary() {
     return path || null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Verbose post-launch diagnostics for a native docker-isolated session.
+ *
+ * Logs, side by side: what `$ --status` reports (status + exit code) and what
+ * the nested Docker daemon reports for the container (running state + image
+ * presence). The two together make problems #1 and #2 of issue #1939
+ * observable on the next run — a status of "executed"/-1 while `docker inspect`
+ * says the container is running is the premature-completion symptom (problem
+ * #1); an isolation image that is absent right after launch points at a missing
+ * host-image passthrough that forced a re-pull (problem #2). Best-effort: any
+ * probe failure is swallowed so diagnostics never disrupt the task.
+ *
+ * @param {string} sessionId - Session UUID (also the container name)
+ * @param {Object} [env] - Environment used to resolve the isolation image
+ */
+async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.env) {
+  try {
+    const status = await querySessionStatus(sessionId, false);
+    console.log(`[VERBOSE] isolation-runner: Docker post-launch $ --status: status=${status.status ?? '(none)'} exitCode=${status.exitCode ?? '(none)'} exists=${status.exists} (issue #1939)`);
+    const containerRunning = await checkDockerContainerRunning(sessionId, false);
+    console.log(`[VERBOSE] isolation-runner: Docker post-launch container '${sessionId}' running=${containerRunning} (issue #1939)`);
+    if (status.exists && isTerminalSessionStatus(status.status) && isUnknownDockerExitCode(status.exitCode) && containerRunning) {
+      console.log(`[VERBOSE] isolation-runner: ⚠️ Docker session '${sessionId}' reports a terminal status with the unknown exit-code sentinel while its container is still running — premature-completion symptom (issue #1939, problem #1)`);
+    }
+    const image = getDockerIsolationImage({ env });
+    const imagePresent = await checkDockerImagePresent(image, false);
+    console.log(`[VERBOSE] isolation-runner: Docker post-launch isolation image '${image}' present=${imagePresent} (issue #1939)`);
+    if (!imagePresent) {
+      console.log(`[VERBOSE] isolation-runner: ⚠️ Docker isolation image '${image}' is absent right after launch — host-image passthrough likely did not seed the nested daemon, so the task re-pulled it (issue #1939, problem #2)`);
+    }
+  } catch {
+    // Diagnostics are best-effort; never let a probe failure affect the task.
   }
 }
 
@@ -437,6 +508,8 @@ export async function executeWithIsolation(command, args, options = {}) {
       console.log(`[VERBOSE] isolation-runner: Docker isolation privileged: ${shouldRunPrivilegedDockerIsolation(image, env)}`);
       console.log('[VERBOSE] isolation-runner: Docker isolation pull: reuse local image if present, pull only if missing (start-command default)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => m.target).join(', ') || '(none)'}`);
+      const gitIdentityMounted = mounts.some(m => m.target === path.join(DOCKER_CONTAINER_HOME, '.gitconfig') || m.target === path.join(DOCKER_CONTAINER_HOME, '.config', 'git'));
+      console.log(`[VERBOSE] isolation-runner: Docker isolation git identity propagated: ${gitIdentityMounted ? 'yes' : 'no (host ~/.gitconfig missing — child may fail with "Git identity not configured", issue #1939)'}`);
     }
   }
 
@@ -446,6 +519,14 @@ export async function executeWithIsolation(command, args, options = {}) {
     const stream = result.success ? console.log : console.error;
     stream(`[VERBOSE] isolation-runner: Output: ${result.output.substring(0, 500)}`);
     if (result.error) stream(`[VERBOSE] isolation-runner: Error: ${result.error}`);
+  }
+
+  // Issue #1939: capture the freshly-launched docker session's reported status
+  // and the live container state together, so the next iteration has the data to
+  // diagnose a premature "executed/-1" status (problem #1) or a surprise image
+  // re-pull (problem #2). Best-effort and verbose-only — never affects the run.
+  if (verbose && backend === 'docker' && result.success) {
+    await logDockerIsolationPostLaunchDiagnostics(sessionId, options.env || process.env);
   }
 
   if (result.success) {
@@ -796,6 +877,89 @@ export async function preflightDockerIsolation(options = {}) {
 }
 
 /**
+ * Host paths that, when present, propagate a git identity into a docker-isolated
+ * container via getDockerIsolationAuthMounts. Honors the same env vars git reads
+ * for an alternate global config (GIT_CONFIG_GLOBAL) and the XDG base dir, then
+ * the conventional `~/.gitconfig` and `~/.config/git`. See issue #1939.
+ */
+export function resolveHostGitIdentityPaths({ env = process.env, homeDir = os.homedir() } = {}) {
+  return [env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git')];
+}
+
+/**
+ * True when the host exposes a git identity that getDockerIsolationAuthMounts can
+ * mount into an isolated container. See issue #1939.
+ */
+export function hostHasMountableGitIdentity({ env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = {}) {
+  return resolveHostGitIdentityPaths({ env, homeDir }).some(p => Boolean(existsSync(p)));
+}
+
+/**
+ * Startup git-identity preflight for `--isolation docker`.
+ *
+ * A docker-isolated child container starts from a clean image and inherits the
+ * host's git identity ONLY through the mounted `~/.gitconfig`
+ * (getDockerIsolationAuthMounts). If the host has no git identity to mount, the
+ * child `solve` aborts with "Git identity not configured" even though gh is
+ * authenticated — the exact failure in issue #1939.
+ *
+ * This makes the deployment self-healing: when the host has no mountable git
+ * identity but `gh-setup-git-identity` is installed (the Hive Mind images bake
+ * it in) and gh is authenticated, it derives an identity from the gh account so
+ * the mount has something to propagate. The repair is idempotent — it runs only
+ * when no identity exists, so it never overwrites a configured one — and
+ * best-effort: any failure degrades to a loud, actionable warning rather than a
+ * thrown error. When neither a host identity nor a repair is possible, the
+ * warning tells the operator exactly how to fix it.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.env] - Environment (defaults to process.env)
+ * @param {string} [options.homeDir] - Home dir (injectable for tests)
+ * @param {Function} [options.existsSync] - fs.existsSync (injectable for tests)
+ * @param {Object} [options.logger] - Logger with .log/.warn (defaults to console)
+ * @param {Function} [options.repair] - repairGitIdentity-style probe (injectable for tests)
+ * @returns {Promise<{present: boolean, repaired: boolean, warnings: string[]}>}
+ */
+export async function ensureHostGitIdentityForIsolation(options = {}) {
+  const { env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, logger = console, repair = null } = options;
+  const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
+  const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
+  const result = { present: false, repaired: false, warnings: [] };
+
+  if (hostHasMountableGitIdentity({ env, homeDir, existsSync })) {
+    result.present = true;
+    info('✅ Host git identity present — docker-isolated tasks inherit it via the mounted ~/.gitconfig (issue #1939).');
+    return result;
+  }
+
+  // No mountable identity. Try to derive one from the authenticated gh account
+  // so the next isolated task does not fail with "Git identity not configured".
+  const repairFn =
+    repair ||
+    (async () => {
+      const gitLib = await import('./git.lib.mjs');
+      return gitLib.repairGitIdentity();
+    });
+  let repairOutcome = null;
+  try {
+    repairOutcome = await repairFn();
+  } catch (error) {
+    repairOutcome = { success: false, error: error?.message || String(error) };
+  }
+
+  if (repairOutcome?.success && hostHasMountableGitIdentity({ env, homeDir, existsSync })) {
+    result.present = true;
+    result.repaired = true;
+    info('✅ Host git identity was missing; derived it from the authenticated gh account via gh-setup-git-identity so docker-isolated tasks can mount it (issue #1939).');
+    return result;
+  }
+
+  result.warnings.push(`No host git identity (~/.gitconfig) to mount into docker-isolated containers, so isolated 'solve' tasks will fail with "Git identity not configured" even though gh is authenticated (issue #1939). ` + `Configure one on the bot host: run 'gh-setup-git-identity' (derives it from the authenticated gh account), set 'git config --global user.name/.email', or pass '--auto-gh-configuration-repair' to solve.` + (repairOutcome?.error ? ` Auto-repair attempt failed: ${repairOutcome.error}` : ''));
+  for (const w of result.warnings) warn(`⚠️ ${w}`);
+  return result;
+}
+
+/**
  * Check if an isolated session is still running.
  * Uses `$ --status` first, with a backend-specific fallback (screen -ls for
  * screen, docker inspect for docker) to work around start-command UUID
@@ -818,6 +982,21 @@ export async function isSessionRunning(sessionId, options = {}) {
       return true;
     }
     if (isTerminalSessionStatus(result.status)) {
+      // Issue #1939: a native docker session can report a terminal status
+      // ("executed") while the container is still alive, carrying the unknown
+      // exit-code sentinel (-1) because start-command's detached logger marks
+      // the launcher process executed before the container exits. Trust the
+      // terminal status only when a real exit code was captured; otherwise
+      // cross-check the live container before declaring the session finished.
+      if (backend === 'docker' && isUnknownDockerExitCode(result.exitCode)) {
+        const containerRunning = await checkDockerContainerRunning(sessionId, verbose);
+        if (containerRunning) {
+          if (verbose) {
+            console.log(`[VERBOSE] isolation-runner: $ --status reports '${result.status}' (exitCode ${result.exitCode}) for docker session '${sessionId}', but docker inspect shows the container is still running — treating as active (issue #1939)`);
+          }
+          return true;
+        }
+      }
       return false;
     }
   }

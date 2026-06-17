@@ -174,6 +174,17 @@ if (ISOLATION_BACKEND) {
     } catch (preflightError) {
       console.error(`⚠️ Docker isolation preflight failed (continuing): ${preflightError?.message || preflightError}`);
     }
+    // A docker-isolated child inherits the host git identity only through the
+    // mounted ~/.gitconfig. Ensure the host has one (deriving it from the authed
+    // gh account when missing) so isolated `solve` does not fail with "Git
+    // identity not configured". Never throws. See issue #1939.
+    if (typeof isolationRunner.ensureHostGitIdentityForIsolation === 'function') {
+      try {
+        await isolationRunner.ensureHostGitIdentityForIsolation({});
+      } catch (gitIdentityError) {
+        console.error(`⚠️ Docker isolation git-identity preflight failed (continuing): ${gitIdentityError?.message || gitIdentityError}`);
+      }
+    }
   }
 }
 

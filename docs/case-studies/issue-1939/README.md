@@ -115,6 +115,17 @@ user.name`/`user.email` were unset, so `solve`'s `checkGitIdentity` system check
 failed immediately (log lines 145–169). "Credentials not mounted" in the issue
 title is precisely this: the _git identity_ credential was missing.
 
+**The `gh` credentials _were_ mounted correctly.** The container went on to post
+its failure notification to issue #1596
+([`#1596 (comment)`](https://github.com/link-assistant/hive-mind/issues/1596#issuecomment-4724985433),
+log lines 176–188) — a `gh api` write that only an authenticated `gh` inside the
+container could perform. That posted comment is positive proof the `.config/gh`
+mount reached the container, which narrows the defect precisely: GitHub auth
+crossed the boundary, the git identity did not. (Observed by @konard in
+[`#1940 (comment)`](https://github.com/link-assistant/hive-mind/pull/1940#issuecomment-4727112692).)
+This is why the fix adds a `~/.gitconfig` mount rather than touching the
+already-working `gh` mount.
+
 Two contributing factors compound it:
 
 - The bot **host** itself may have no `~/.gitconfig` (only `gh` auth), so even a

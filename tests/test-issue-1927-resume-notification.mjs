@@ -109,6 +109,42 @@ try {
     assert(!text.includes('Resume'), 'a successful session gets NO resume section');
   }
 
+  // --- killed /solve, NO tool session id in the log → NO bogus resume ----------
+  // The isolation session id (sessionInfo.sessionId) is a DIFFERENT namespace
+  // from the AI tool's --resume id, so when the log carries no `Session ID:`
+  // marker and there is no `<sessionId>.log`, we must offer nothing rather than a
+  // wrong id.
+  {
+    const emptyLog = path.join(tmpDir, 'no-markers.log');
+    fs.writeFileSync(emptyLog, 'start\n... work ...\nKilled\nExit Code: 137\n');
+    resetSessionMonitorForTests();
+    trackSession(
+      'sess-iso-uuid-not-a-tool-id',
+      {
+        chatId: 555,
+        messageId: 777,
+        startTime: new Date(Date.now() - 5 * 60 * 1000),
+        url: URL,
+        command: 'solve',
+        tool: 'claude',
+        isolationBackend: 'screen',
+        sessionId: 'sess-iso-uuid-not-a-tool-id',
+        logPath: emptyLog,
+      },
+      false
+    );
+    const bot = makeBot();
+    await monitorSessions(bot, false, {
+      statusProvider: async () => ({ exists: true, status: 'executing', logPath: emptyLog }),
+      exitFromLog: () => ({ finished: true, exitCode: 137, endTime: '2026-06-14 19:10:49.822' }),
+      backendAlive: async () => true,
+    });
+    const text = bot.edits[0]?.text || '';
+    assert(/Work session killed/.test(text), 'killed /solve without a tool session id is still reported as killed');
+    assert(!text.includes('Resume'), 'no resume section when only the isolation session id is known (avoids a bogus --resume id)');
+    assert(!text.includes('--resume sess-iso-uuid-not-a-tool-id'), 'the isolation session id is never used as a --resume id');
+  }
+
   // --- killed /hive → NO resume section (only /solve is --resume-able) ---------
   {
     trackOom({ command: 'hive' });

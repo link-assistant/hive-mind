@@ -25,7 +25,8 @@ import { promisify } from 'util';
 import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifySessionOutcome } from './work-session-formatting.lib.mjs';
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
 import { classifyExitStatus } from './session-status.lib.mjs';
-import { readLastSessionIdFromLog, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
+import path from 'node:path';
+import { readLastSessionIdFromLog, findLatestSessionLogId, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 
@@ -622,7 +623,16 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
           if (outcome.killed && isResumableCommand) {
             const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-            const lastSessionId = readLastSessionIdFromLog(logPath, { verbose }) || sessionInfo?.sessionId || null;
+            // The id must be the AI TOOL's session id, not the isolation session
+            //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
+            //   Prefer the last `Session ID:` marker in the captured log; fall
+            //   back to the newest `<sessionId>.log` start-command wrote in the
+            //   same directory. If neither exists, offer no command (a bogus
+            //   resume id would be worse than none).
+            let lastSessionId = readLastSessionIdFromLog(logPath, { verbose });
+            if (!lastSessionId && logPath) {
+              lastSessionId = findLatestSessionLogId({ dir: path.dirname(logPath), verbose });
+            }
             const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
             const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
             if (resumeSection) {

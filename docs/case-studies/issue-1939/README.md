@@ -253,7 +253,9 @@ confirming the #1860 native-docker guarantees are intact.
 
 ## Remaining Follow-up
 
-- **Upstream (R7):** report to `link-foundation/start` that a detached
+- **Upstream (R7):** filed as
+  [link-foundation/start#136](https://github.com/link-foundation/start/issues/136) —
+  reports to `link-foundation/start` that a detached
   `--isolated docker` session is recorded as `status executed` with
   `exitCode -1` (and no `containerId`) while the container is still running, and
   that the live log is not followable during that window. Include the two

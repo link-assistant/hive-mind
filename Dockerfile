@@ -116,6 +116,10 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
+# start-command is pinned to >=0.29.1: that release fixes detached docker
+# `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
+# sentinel while the container is still running. See link-foundation/start#136
+# and link-assistant/hive-mind#1939.
 RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
@@ -123,7 +127,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent && \
-    bun install -g start-command && \
+    bun install -g start-command@0.29.1 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

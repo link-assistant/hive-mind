@@ -1,9 +1,9 @@
 {
-  "_id": "start-command@0.29.0",
-  "_rev": "55-a14bfa4a7a1c00791110aa70f66fd674",
+  "_id": "start-command@0.29.1",
+  "_rev": "56-439e040c917511ee0efa7988cd9e6ba5",
   "name": "start-command",
   "dist-tags": {
-    "latest": "0.29.0"
+    "latest": "0.29.1"
   },
   "versions": [
     "0.3.1",
@@ -60,11 +60,12 @@
     "0.27.1",
     "0.27.2",
     "0.28.0",
-    "0.29.0"
+    "0.29.0",
+    "0.29.1"
   ],
   "time": {
     "created": "2025-12-21T17:57:17.669Z",
-    "modified": "2026-06-09T20:27:10.456Z",
+    "modified": "2026-06-17T09:18:26.614Z",
     "0.3.1": "2025-12-21T17:57:17.937Z",
     "0.5.1": "2025-12-22T13:07:39.978Z",
     "0.5.2": "2025-12-22T15:32:49.724Z",
@@ -119,7 +120,8 @@
     "0.27.1": "2026-05-03T19:07:07.072Z",
     "0.27.2": "2026-05-12T22:02:30.534Z",
     "0.28.0": "2026-05-21T12:30:57.019Z",
-    "0.29.0": "2026-06-09T20:27:10.214Z"
+    "0.29.0": "2026-06-09T20:27:10.214Z",
+    "0.29.1": "2026-06-17T09:18:26.297Z"
   },
   "bugs": {
     "url": "https://github.com/link-foundation/start/issues"
@@ -142,7 +144,8 @@
     "konard <drakonard@gmail.com>"
   ],
   "readmeFilename": "README.md",
-  "version": "0.29.0",
+  "_contentLength": 154778,
+  "version": "0.29.1",
   "main": "src/bin/cli.js",
   "exports": {
     ".": "./src/bin/cli.js",
@@ -197,17 +200,17 @@
   "overrides": {
     "flatted": "^3.4.2"
   },
-  "gitHead": "f149468fb244ffbea1c577d6eecef3e6907f3335",
+  "gitHead": "96bd370642c54efd1c0e25694375647d0e5109ec",
   "_nodeVersion": "24.16.0",
-  "_npmVersion": "11.16.0",
+  "_npmVersion": "11.17.0",
   "dist": {
-    "integrity": "sha512-bTw8l5bwEdx2zrrCscvbPiQgcsmfU9ibMuvEhDB7yYASj7EIk0f0jmA9SMMfzg8AvgxOS4wUsSpiX/9WMQQyNA==",
-    "shasum": "db45ee7f5f29575ca3bfcd2d2ae1249a6d777cdc",
-    "tarball": "https://registry.npmjs.org/start-command/-/start-command-0.29.0.tgz",
+    "integrity": "sha512-9yRAsl552QeFyJID2zy0okC1MdnehFrSeVisjlJ54v5z+1P6fE9CG9s3G0m/TaTzj8K7+sdkqg0b9wGDlFkREg==",
+    "shasum": "0a39f7950aa2f8fe0b8412b87f2c7c626877b9a6",
+    "tarball": "https://registry.npmjs.org/start-command/-/start-command-0.29.1.tgz",
     "fileCount": 66,
-    "unpackedSize": 656746,
+    "unpackedSize": 670167,
     "attestations": {
-      "url": "https://registry.npmjs.org/-/npm/v1/attestations/start-command@0.29.0",
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/start-command@0.29.1",
       "provenance": {
         "predicateType": "https://slsa.dev/provenance/v1"
       }
@@ -215,7 +218,7 @@
     "signatures": [
       {
         "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
-        "sig": "MEYCIQD2ip25rmHqEFoxRK+8daQUvud6PMmBYH57FaTc8ucsaQIhAI2yBS0r8HYsZKE7pbyLl/J0d2kGfd3UVeLsqiWe3knc"
+        "sig": "MEYCIQCDQen5MxsMbBXP2r74sZCxdtC4ED4zLO/hkXrs0huigQIhAIljW9vIuwUgP4qgADuT/cMbNtYsZGjBX3ZJ1wyNP7l3"
       }
     ]
   },
@@ -223,7 +226,7 @@
   "directories": {},
   "_npmOperationalInternal": {
     "host": "s3://npm-registry-packages-npm-production",
-    "tmp": "tmp/start-command_0.29.0_1781036830043_0.6473516913368356"
+    "tmp": "tmp/start-command_0.29.1_1781687906083_0.9220515473655391"
   },
   "_hasShrinkwrap": false
 }

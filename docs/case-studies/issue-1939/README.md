@@ -40,7 +40,7 @@ All raw evidence lives under [`raw/`](./raw):
 | `issue-comments.json`         | Issue comments (empty at capture time).                                                                                                                                            |
 | `pr-1940.json`                | The pull request that carries this fix.                                                                                                                                            |
 | `failed-session-terminal.log` | **Primary evidence.** The 194-line operator terminal transcript from the failed run: the `$` invocation, two `$ --list` snapshots, the start-command log, and the `solve` failure. |
-| `start-command-npm.json`      | npm registry metadata for `@link-foundation/start` (latest `0.29.0`).                                                                                                              |
+| `start-command-npm.json`      | npm registry metadata for `start-command` (latest `0.29.1` — the release that fixes the premature-status bug, see below).                                                          |
 | `start-command-repo.json`     | start-command repository metadata (for the upstream report).                                                                                                                       |
 
 ## Timeline
@@ -146,6 +146,17 @@ then genuinely failing) container. The premature-status emission is an upstream
 start-command bug (R7); Hive Mind must additionally not trust an ambiguous
 `terminal + -1` status without cross-checking the container (R1).
 
+**Resolved upstream.** The bug was filed as
+[link-foundation/start#136](https://github.com/link-foundation/start/issues/136)
+and fixed in **start-command `0.29.1`** (released `2026-06-17`, issue closed as
+completed): `isDetachedSessionAlive()` now treats a failed `docker inspect` as
+"unknown" (keeps the session `executing`) instead of "stopped", and
+`enrichDetachedStatus()` resolves the real exit code from the `Exit Code:` log
+footer / `docker inspect .State.ExitCode` before ever falling back to `-1`. The
+Hive Mind Docker images now pin `start-command@0.29.1` (`Dockerfile`,
+`Dockerfile.dind`) so the fixed binary is what runs. The downstream cross-check
+below is kept as defense-in-depth for hosts still running an older `$`.
+
 ### Root Cause 3 (Problem 2, environmental): missing host-image passthrough
 
 Inside DinD the nested daemon starts empty, so an image that is not preloaded or
@@ -160,9 +171,12 @@ R6) rather than silently re-pull.
 
 ## Online And Source Facts
 
-- `@link-foundation/start` latest published version is `0.29.0`
-  (`raw/start-command-npm.json`), the version whose native `--isolated docker`
-  backend Hive Mind targets (introduced for #1914).
+- `start-command` latest published version is `0.29.1`
+  (`raw/start-command-npm.json`), the release that fixes the premature
+  detached-docker status bug ([link-foundation/start#136](https://github.com/link-foundation/start/issues/136));
+  Hive Mind targets its native `--isolated docker` backend (introduced for #1914)
+  and now pins this version in both Dockerfiles. The failed run captured here used
+  an earlier `0.29.x` that still carried the bug.
 - start-command's detached docker mode prints
   `Container will exit automatically after command completes` and a `Live log:`
   path (log lines 110–114), confirming that the live log file is the supported
@@ -236,10 +250,12 @@ git identity was propagated.
   Rejected for the same reason as in #1860 — it over-shares secrets. Git
   identity and `gh` are genuinely tool-agnostic (every `solve`/`hive` run needs
   them), so only those two are made universal; Claude/Codex creds stay scoped.
-- **Fix the premature status purely upstream in start-command.** Necessary but
-  insufficient: Hive Mind cannot ship a start-command release, and it must remain
-  correct against the deployed `0.29.0`. The defensive cross-check is kept and
-  the upstream bug is also reported (R7).
+- **Fix the premature status purely upstream in start-command.** Done, but kept
+  alongside the downstream guard: the upstream report (R7) was fixed in
+  `start-command@0.29.1`, which the Dockerfiles now pin. The defensive
+  cross-check is retained as defense-in-depth so an older `$` on an operator's
+  host cannot resurrect the bug, and so the consumer remains correct regardless
+  of which `$` is on PATH.
 - **Treat `exitCode -1` as success.** Rejected: `-1` is genuinely ambiguous; the
   only safe interpretation is "unknown — go ask the container", which is what the
   cross-check does.
@@ -264,15 +280,15 @@ confirming the #1860 native-docker guarantees are intact.
 
 ## Remaining Follow-up
 
-- **Upstream (R7):** filed as
-  [link-foundation/start#136](https://github.com/link-foundation/start/issues/136) —
-  reports to `link-foundation/start` that a detached
-  `--isolated docker` session is recorded as `status executed` with
-  `exitCode -1` (and no `containerId`) while the container is still running, and
-  that the live log is not followable during that window. Include the two
-  `$ --list` snapshots from `raw/failed-session-terminal.log` as the reproducer,
-  the cross-check as the workaround, and "do not record a terminal status/exit
-  code until the container actually exits" as the fix suggestion.
+- **Upstream (R7): resolved.** Filed as
+  [link-foundation/start#136](https://github.com/link-foundation/start/issues/136)
+  (with the two `$ --list` snapshots from `raw/failed-session-terminal.log` as the
+  reproducer, the cross-check as the workaround, and "do not record a terminal
+  status/exit code until the container actually exits" as the fix suggestion). The
+  maintainer fixed it in **start-command `0.29.1`** (issue closed as completed
+  `2026-06-17`). Hive Mind now pins `start-command@0.29.1` in `Dockerfile` and
+  `Dockerfile.dind` so the fixed binary ships in the images; the downstream
+  cross-check stays as defense-in-depth.
 - **Deployment (R2):** ensure the DinD host wires up image passthrough (host
   docker socket / preload) so `konard/hive-mind-dind:*` is reused, not re-pulled;
   the new verbose diagnostic confirms image presence post-launch.

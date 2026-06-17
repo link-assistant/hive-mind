@@ -57,6 +57,10 @@ const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
 // the container's real exit code. A terminal `$ --status` carrying this value is
 // ambiguous — the container may still be running — so we cross-check it against
 // a live `docker inspect` before concluding the session finished. See #1939.
+// The upstream emission of this premature sentinel was fixed in
+// start-command 0.29.1 (link-foundation/start#136), which the Hive Mind images
+// now pin; this cross-check is retained as defense-in-depth so an older `$` on
+// an operator's PATH cannot resurrect the bug.
 const DOCKER_UNKNOWN_EXIT_CODE = -1;
 
 function normalizeProcessIds(value) {

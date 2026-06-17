@@ -34,7 +34,12 @@ unaffected. A verbose post-launch diagnostic now records `$ --status`, container
 state, and local image presence so the next iteration can confirm the premature
 status and the image re-pull from data.
 
+The premature-terminal-status behaviour was reported upstream to
+link-foundation/start and fixed there in `start-command@0.29.1`
+(link-foundation/start#136); `Dockerfile` and `Dockerfile.dind` now pin
+`start-command@0.29.1` so the fixed `$` binary ships in the images, while the
+downstream cross-check stays as defense-in-depth for older hosts.
+
 Added `tests/test-issue-1939-docker-isolation.mjs` (25 assertions) and a full
 case study with timeline, root-cause analysis, and the captured logs under
-`docs/case-studies/issue-1939`. The premature-terminal-status behaviour is also
-reported upstream to link-foundation/start.
+`docs/case-studies/issue-1939`.

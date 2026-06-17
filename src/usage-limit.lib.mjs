@@ -48,6 +48,14 @@ export function isUsageLimitError(message) {
     // Provider-specific phrasings we've seen in the wild
     'session limit reached', // Claude
     'weekly limit reached', // Claude
+    // Issue #1935: Claude surfaces 5-hour / weekly account limits as
+    //   "You've hit your session limit · resets 4pm (UTC)"
+    //   "You've hit your weekly limit · resets Jan 15, 8am (UTC)"
+    // These arrive with api_error_status === 429 but are real usage limits with an
+    // explicit reset time, so detect the "hit your <window> limit" phrasing directly
+    // (independent of whether a parseable reset time is present in the message).
+    'hit your session limit', // Claude 5-hour limit
+    'hit your weekly limit', // Claude weekly limit
     'daily limit reached',
     'monthly limit reached',
     'billing hard limit',

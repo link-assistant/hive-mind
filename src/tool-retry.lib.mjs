@@ -43,6 +43,22 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: true, isCapacity: false, label: 'Stream disconnected before completion' };
   }
 
+  // Issue #1937: Stream idle timeout. When the Anthropic streaming response stalls
+  // (no bytes for the SDK's idle window) after the model has already emitted part of
+  // its answer, the Claude CLI aborts the turn and surfaces a synthetic assistant /
+  // result message:
+  //   "API Error: Stream idle timeout - partial response received"
+  // This is a transient network/streaming stall (a slow or stuck server-sent-events
+  // socket), not a request-content error, so the session is still valid and safe to
+  // resume. Before this branch classifyRetryableError() did not recognise it, so
+  // isRetryable was false and the whole solve session aborted with exit code 1 even
+  // though `--resume <sessionId>` could continue with the same context. Switching
+  // models does not help (the stall is in the response stream, not model capacity),
+  // so isCapacity is false → retry with the session preserved after a backoff.
+  if (lower.includes('stream idle timeout') || (lower.includes('idle timeout') && lower.includes('partial response'))) {
+    return { message, isRetryable: true, isCapacity: false, label: 'Stream idle timeout (partial response)' };
+  }
+
   // Issue #1881: Transient socket / network disconnects from the SDK's underlying fetch.
   // When the HTTP(S)/streaming socket drops mid-request, the Claude/Codex CLI surfaces a
   // synthetic assistant message such as:

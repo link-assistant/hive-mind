@@ -1,5 +1,137 @@
 # @link-assistant/hive-mind
 
+## 2.0.3
+
+### Patch Changes
+
+- 40fbf3d: fix(isolation): mount git identity into docker-isolated containers and stop trusting premature terminal status (#1939)
+
+  A `solve` task launched with `--isolation docker` inside a Docker-in-Docker host
+  (`konard/hive-mind-dind:2.0.2`) failed at the system-check stage with
+  `❌ Git identity not configured`, even though `gh` was fully authenticated
+  (account `konard`). The captured terminal log shows the native start-command
+  (`$`) invocation mounting only `~/.config/gh`, `~/.claude`, and `~/.claude.json`
+  — **no git identity** — so `git config user.name`/`user.email` were unset inside
+  the container and `solve` aborted before doing any work.
+
+  Root cause: `getDockerIsolationAuthMounts` (`src/isolation-runner.lib.mjs`)
+  mounted `gh` and the per-tool credentials but never the git identity. `gh`
+  authentication is not a git identity. The fix mounts the host git identity
+  (`~/.gitconfig` and the XDG `~/.config/git`, honoring `GIT_CONFIG_GLOBAL` /
+  `XDG_CONFIG_HOME`) for **every** tool, alongside `gh`, so the fix applies to all
+  isolation callers at once. A new self-healing preflight,
+  `ensureHostGitIdentityForIsolation`, gives the mount something to mount: when the
+  host has no git identity it derives one from the authenticated `gh` account
+  (`gh-setup-git-identity` / `repairGitIdentity`) and, if that is impossible, emits
+  one actionable warning naming the exact downstream failure.
+
+  The same run also exposed a second problem: `$ --list` reported the detached
+  session as `status executed` with `exitCode -1` (and no `containerId`) while the
+  container was still running, masking the live container and its real exit code.
+  `isUnknownDockerExitCode` plus a docker-only cross-check in `isSessionRunning`
+  and `getIsolationSessionState` (`src/session-monitor.lib.mjs`) keep an ambiguous
+  `terminal + -1` docker session "running" until `docker inspect` confirms the
+  container has actually exited; real exit codes and non-docker backends are
+  unaffected. A verbose post-launch diagnostic now records `$ --status`, container
+  state, and local image presence so the next iteration can confirm the premature
+  status and the image re-pull from data.
+
+  The premature-terminal-status behaviour was reported upstream to
+  link-foundation/start and fixed there in `start-command@0.29.1`
+  (link-foundation/start#136); `Dockerfile` and `Dockerfile.dind` now pin
+  `start-command@0.29.1` so the fixed `$` binary ships in the images, while the
+  downstream cross-check stays as defense-in-depth for older hosts.
+
+  Added `tests/test-issue-1939-docker-isolation.mjs` (25 assertions) and a full
+  case study with timeline, root-cause analysis, and the captured logs under
+  `docs/case-studies/issue-1939`.
+
+## 2.0.2
+
+### Patch Changes
+
+- 19aea85: fix(retry): auto-resume on "Stream idle timeout - partial response received" (#1937)
+
+  A long-running solve session (391 turns, ~$34.11) had its streaming response
+  stall mid-answer. The Claude CLI surfaced it as a `result` event with
+  `is_error: true`, `subtype: "success"`, and:
+
+  ```
+  API Error: Stream idle timeout - partial response received
+  ```
+
+  Instead of retrying with the session preserved, the harness fell straight
+  through to the generic failure path and exited with code 1 after **zero
+  retries** — abandoning the whole session even though it had a valid session ID
+  and printed the exact `--resume` command needed to continue.
+
+  Root cause: the shared retry classifier `classifyRetryableError()`
+  (`src/tool-retry.lib.mjs`) had no branch for the stream-idle-timeout family, so
+  `isRetryable` was false, `isTransientError` evaluated to false, and the unified
+  exponential-backoff retry block was never entered.
+
+  This error is a transient transport-level stall (a slow/stuck server-sent-events
+  socket), not a request-content rejection — the on-disk session transcript stays
+  valid, which is why a manual `--resume` works. The fix adds one branch to
+  `classifyRetryableError()` returning
+  `{ isRetryable: true, isCapacity: false, label: 'Stream idle timeout (partial response)' }`,
+  so the existing retry block resumes the session with the same context after an
+  exponential backoff. Because the classifier is shared, this fixes the behaviour
+  for **all** tools (claude/codex/gemini/opencode/qwen/agent) at once.
+
+  Added `tests/test-issue-1937-stream-idle-timeout-retry.mjs` (17 assertions) and a
+  full case study with timeline, root-cause analysis, upstream references, and the
+  captured logs under `docs/case-studies/issue-1937`.
+
+## 2.0.1
+
+### Patch Changes
+
+- 70e1542: fix(retry): treat 5-hour "session limit" and "weekly limit" 429s as account usage limits, not transient throttles (#1935)
+
+  A long-running solve session (588 turns, ~$70.62) hit Claude's **5-hour session
+  limit**. The Claude CLI surfaced it as a `result` event with `is_error: true`,
+  `api_error_status: 429`, and:
+
+  ```
+  You've hit your session limit · resets 4pm (UTC)
+  ```
+
+  Instead of being treated as an **account usage limit** (post a comment with the
+  reset time + wait until the exact reset moment), it was put through the transient
+  exponential-backoff retry loop:
+
+  ```
+  ⚠️ Server rate limited (429) detected. Retry 1/10 in 2 min (session preserved)...
+     Error: You've hit your session limit · resets 4pm (UTC)
+  ⚠️ Server rate limited (429) detected. Retry 2/10 in 4 min (session preserved)...
+  ```
+
+  Each retry re-hit the same limit because the quota only frees at the reset time —
+  so the harness burned ~10 futile retries and never told the user when the limit
+  resets.
+
+  Root cause (regression from #1924): `src/claude.lib.mjs` set
+  `isRateLimitError = true` for **every** structured `api_error_status === 429`,
+  without checking whether the message was an account usage limit. Claude reports
+  **both** a transient throttle ("...not your usage limit...") and account
+  session/weekly limits with `api_error_status: 429`, so the unconditional check
+  swept genuine usage limits into the transient-retry path — ahead of the
+  `detectUsageLimit()` reset-time wait, which was therefore never reached.
+
+  Fix: `src/claude.lib.mjs` now only flags a structured 429 as a transient rate
+  limit when the message is **not** a usage limit
+  (`api_error_status === 429 && !isUsageLimitError(lastMessage)`), so session/weekly
+  limits fall through to the usage-limit handler that immediately posts a comment
+  and waits until the exact reset time (auto-resuming there with
+  `--auto-continue-limit`). `src/usage-limit.lib.mjs` additionally recognises the
+  "hit your session limit" / "hit your weekly limit" phrasing as a backstop (the
+  reset-time regex already matched "resets 4pm").
+
+  Added `tests/test-issue-1935-session-limit-429.mjs` (15 assertions) and a full
+  case study with timeline, blame history (PR #1924), root-cause analysis, and the
+  captured logs under `docs/case-studies/issue-1935`.
+
 ## 2.0.0
 
 ### Major Changes

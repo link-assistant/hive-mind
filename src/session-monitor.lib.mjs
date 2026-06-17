@@ -79,6 +79,24 @@ export function resetSessionMonitorForTests() {
 }
 
 /**
+ * Inject a stub isolation runner so tests can drive getIsolationSessionState
+ * without spawning real `$ --status` / docker probes. Pass `null` to restore the
+ * lazy real import on the next call. See issue #1939.
+ */
+export function __setIsolationRunnerForTests(runner) {
+  _isolationRunner = runner;
+}
+
+/**
+ * Test-only accessor for getIsolationSessionState (otherwise module-private).
+ * Used by tests/test-issue-1939-docker-isolation.mjs to verify that an ambiguous
+ * docker terminal status falls through to the live container cross-check.
+ */
+export function getIsolationSessionStateForTests(sessionName, sessionInfo, options = {}) {
+  return getIsolationSessionState(sessionName, sessionInfo, options);
+}
+
+/**
  * Issue #1586: Timeout for non-isolation sessions.
  * Non-isolation (plain start-screen) sessions cannot reliably detect completion
  * because the screen stays alive via `exec bash`. To prevent false positives
@@ -402,7 +420,16 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
             return { running: false, exitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode } };
           }
         }
-        return { running: false, exitCode, status: statusResult.status, statusResult };
+        // Issue #1939: a native docker session can report a terminal status
+        // ("executed") with the unknown exit-code sentinel (-1) while the
+        // container is still running. When the log footer above did not recover
+        // a real terminal exit, such a status is provisional — fall through to
+        // isSessionRunning() below, which cross-checks the live container via
+        // `docker inspect` before we notify the user the work finished.
+        const ambiguousDockerTerminal = sessionInfo.isolationBackend === 'docker' && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(exitCode);
+        if (!ambiguousDockerTerminal) {
+          return { running: false, exitCode, status: statusResult.status, statusResult };
+        }
       }
     }
 

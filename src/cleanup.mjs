@@ -36,7 +36,7 @@ import { promises as fsp } from 'node:fs';
 
 import { isConfirmationYes, readConfirmationLine } from './confirmation.lib.mjs';
 import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES, formatEntryContext, formatTaskSummary } from './cleanup.lib.mjs';
-import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees } from './cleanup.os.lib.mjs';
+import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, listSessionTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees } from './cleanup.os.lib.mjs';
 import { formatProcessDebugReport } from './process-debug.lib.mjs';
 
 const args = process.argv.slice(2);
@@ -238,9 +238,21 @@ async function main() {
   const heldPaths = listProcessHeldPaths(tempRoot);
   await vlog(`Process-held paths: ${[...heldPaths].join(', ') || '(none)'}`);
 
+  // Enumerate every start-command session once (active AND finished) so we can
+  // both detect active tasks and annotate finished folders with the PR/session
+  // they belonged to. Reused as the source for getActiveTasks to avoid a second
+  // `$ --list` call.
+  let sessionTasks = [];
+  let sessionMatchers = [];
+  if (options.useSessions) {
+    sessionTasks = await listSessionTasks({ verbose: options.verbose, resolveBranches: options.resolveBranches });
+    sessionMatchers = buildActiveMatchers(sessionTasks);
+    await vlog(`Known sessions (active + finished): ${sessionTasks.length}`);
+  }
+
   let matchers = [];
   if (options.keepActiveTasks) {
-    const activeTasks = await getActiveTasks({ useSessions: options.useSessions, resolveBranches: options.resolveBranches });
+    const activeTasks = await getActiveTasks({ useSessions: options.useSessions, resolveBranches: options.resolveBranches, sessionTasks });
     matchers = buildActiveMatchers(activeTasks);
     if (activeTasks.length > 0) {
       await log(`🏃 Active tasks detected: ${activeTasks.length}`);
@@ -275,6 +287,7 @@ async function main() {
     selfPaths,
     heldPaths,
     matchers,
+    sessionMatchers,
     gitInfoByPath,
   };
   const classified = classifyEntries(entries, ctx);

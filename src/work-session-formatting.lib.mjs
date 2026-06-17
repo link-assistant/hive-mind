@@ -1,7 +1,6 @@
 import { t } from './i18n.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
-
-const FAILURE_STATUSES = new Set(['failed', 'cancelled', 'canceled', 'error']);
+import { FAILURE_SESSION_STATUSES, KILLED_SESSION_STATUSES, isKilledSessionStatus, describeExitSignal, normalizeExitCode } from './session-status.lib.mjs';
 
 function text(locale, key, fallback, params = {}) {
   if (!locale) return fallback;
@@ -14,12 +13,6 @@ function parseDateValue(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function normalizeExitCode(value) {
-  if (value === null || value === undefined) return null;
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
 export function getSessionCompletionExitCode({ exitCode = null, statusResult = null } = {}) {
   const explicitExitCode = normalizeExitCode(exitCode);
   if (explicitExitCode !== null) return explicitExitCode;
@@ -28,10 +21,33 @@ export function getSessionCompletionExitCode({ exitCode = null, statusResult = n
   if (statusExitCode !== null) return statusExitCode;
 
   const status = String(statusResult?.status || '').toLowerCase();
-  if (FAILURE_STATUSES.has(status)) return 1;
+  if (FAILURE_SESSION_STATUSES.has(status)) return 1;
 
   return null;
 }
+
+/**
+ * Decide how a completed session should be presented: success, generic failure,
+ * or an explicit kill (OOM/SIGKILL/SIGTERM/…). A session counts as "killed"
+ * when its exit code is a signal exit (>128) or its status is one of the kill
+ * statuses. This is what stops a SIGKILLed /solve from ever being labelled
+ * "finished successfully" (issue #1927, requirement #1).
+ *
+ * @param {Object} params
+ * @param {number|null} params.exitCode - Resolved final exit code
+ * @param {string|null} [params.status] - Session status string, if known
+ * @returns {{ failed: boolean, killed: boolean, signal: object|null }}
+ */
+export function classifySessionOutcome({ exitCode = null, status = null } = {}) {
+  const code = normalizeExitCode(exitCode);
+  const signal = describeExitSignal(code);
+  const killedByStatus = isKilledSessionStatus(status);
+  const killed = Boolean(signal) || killedByStatus;
+  const failed = killed || (code !== null && code !== 0) || FAILURE_SESSION_STATUSES.has(String(status || '').toLowerCase());
+  return { failed, killed, signal };
+}
+
+export { KILLED_SESSION_STATUSES };
 
 export function formatSessionDurationSeconds(seconds) {
   const totalSeconds = Math.max(0, Math.round(Number(seconds) || 0));
@@ -104,10 +120,27 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
 
 export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, extraSections = [], locale = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
-  const failed = finalExitCode !== null && finalExitCode !== 0;
+  const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
+  const { failed, killed, signal } = outcome;
   const statusEmoji = failed ? '❌' : '✅';
   const messageLocale = locale || sessionInfo?.locale || null;
-  const statusText = failed ? text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode }) : text(messageLocale, 'telegram.work_session_finished', 'Work session finished successfully');
+  // Issue #1927: a killed session (OOM/SIGKILL/SIGTERM) must never read as a
+  // success, and the signal/reason is surfaced explicitly so an operator can
+  // tell an out-of-memory kill apart from an ordinary non-zero exit.
+  let statusText;
+  if (killed) {
+    // A real signal exit is always >128; an exit code of exactly 1 on a
+    // status-only kill (process vanished, code unknown) is a synthesized failure
+    // sentinel, so suppress the misleading "(exit code: 1)" in that case.
+    const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
+    const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
+    const reason = signal ? signal.reason : 'killed';
+    statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '' });
+  } else if (failed) {
+    statusText = text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode });
+  } else {
+    statusText = text(messageLocale, 'telegram.work_session_finished', 'Work session finished successfully');
+  }
   const durationLabel = text(messageLocale, 'telegram.duration_label', 'Duration');
   const sessionLabel = text(messageLocale, 'telegram.session_label', 'Session');
   const isolationLabel = text(messageLocale, 'telegram.isolation_label', 'Isolation');

@@ -109,7 +109,9 @@ export function buildExecuteAndUpdateMessage(deps) {
       }
     };
     const requesterUserId = ctx.from?.id ?? null; // Issue #1688: suppress duplicate /subscribe DM
-    const baseSessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId, showLimits, limitsAtStart, locale }; // #594: showLimits/limitsAtStart
+    // #1927 review follow-up: persist the full args so a killed /solve can be
+    //   resumed with its exact original invocation + `--resume <lastSessionId>`.
+    const baseSessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, tool, infoBlock, urlContext, requesterUserId, showLimits, limitsAtStart, locale, args: Array.isArray(args) ? [...args] : undefined }; // #594: showLimits/limitsAtStart
     const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
     let result, session, sessionInfo;
     if (iso) {

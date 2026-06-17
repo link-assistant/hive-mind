@@ -60,6 +60,12 @@ const isoItems = await getRunningSessionItems(false, {
     exitCode: sessionId === 'issue-1837-iso-running' ? null : 0,
     raw: '',
   }),
+  // These sessions' startTimes are days old, so the #1927 stale-`executing`
+  // reconciliation (gated by STALE_EXECUTING_MIN_AGE_MS) cross-checks backend
+  // liveness before listing a session as running. A genuinely-executing session
+  // is alive at its backend; inject that here so the probe doesn't fall through
+  // to a real `screen -ls` (which would have no such session and exclude it).
+  backendAlive: async sessionId => sessionId === 'issue-1837-iso-running',
 });
 assert(isoItems.length === 1, 'Only executing isolation sessions are listed');
 assert(isoItems[0].sessionName === 'issue-1837-iso-running', 'Listed item is the executing session');

@@ -328,7 +328,10 @@ const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized
 const { installTelegramFormattingFallback, isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
-const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl } = await import('./session-monitor.lib.mjs');
+const { trackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
+const { createBotLogger } = await import('./bot-logger.lib.mjs');
+const { createSessionStore } = await import('./session-store.lib.mjs');
+const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
 const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
 
@@ -354,6 +357,18 @@ installTelegramFormattingFallback(bot.telegram, { verbose: VERBOSE });
 
 // Track bot startup time (Unix seconds to match Telegram's message.date format)
 const BOT_START_TIME = Math.floor(Date.now() / 1000);
+
+// Issue #1927: durable, timestamped bot log + durable session store. The logger
+// preserves the previous run's log under a timestamped backup (never overwriting
+// it) so the moment of a total failure stays discoverable, and every line is
+// timestamped. The session store mirrors the in-memory session registry to disk
+// so a restart can resume monitoring detached sessions that were still running.
+const botLogger = createBotLogger({ verbose: VERBOSE });
+const sessionStore = createSessionStore({ verbose: VERBOSE, logger: botLogger });
+setSessionLogger(botLogger);
+setSessionStore(sessionStore);
+botLogger.event('bot_starting', { pid: process.pid, ppid: process.ppid, botStartTime: BOT_START_TIME, startTimeIso: new Date(BOT_START_TIME * 1000).toISOString(), logFile: botLogger.filePath, sessionSnapshot: sessionStore.snapshotPath });
+
 // Wrapper functions binding filter logic to bot state (actual logic in telegram-message-filters.lib.mjs, issue #1207)
 function isChatAuthorized(chatId) {
   return _isChatAuthorized(chatId, allowedChats);
@@ -1341,13 +1356,28 @@ function startSessionMonitoringOnce() {
   sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE);
 }
 
+// Issue #1927 (requirements #3/#4): a periodic timestamped heartbeat so the "last
+// time the bot was alive" is always discoverable from the log. The heartbeat
+// logic lives in bot-lifecycle.lib.mjs so it can be unit tested.
+const heartbeat = createHeartbeat({ logger: botLogger, getActiveSessionCount });
+
 async function onBotLaunched() {
   if (isShuttingDown || launchAnnouncementShown) return;
   launchAnnouncementShown = true;
 
   console.log('✅ SwarmMindBot is now running!');
   console.log('Press Ctrl+C to stop');
+  botLogger.event('bot_launched', { pid: process.pid, botStartTime: BOT_START_TIME });
+
+  // Issue #1927 (requirements #2/#4): after a restart, reload sessions that were
+  // still being tracked when the previous process died and re-register them so
+  // the monitor resumes watching — and finally reports any that were killed while
+  // the bot was down. Done before starting the monitor so the first tick already
+  // sees the resumed sessions.
+  await resumeSessionsOnLaunch({ resumeTrackedSessions, botStartTime: BOT_START_TIME, verbose: VERBOSE, logger: botLogger });
+
   startSessionMonitoringOnce();
+  heartbeat.start();
 
   if (VERBOSE) {
     console.log('[VERBOSE] Bot launched successfully');
@@ -1429,22 +1459,33 @@ const stopSolveQueue = () => {
   }
 };
 
+// Issue #1927: record the shutdown (with a timestamp) so the log shows the bot
+// stopped cleanly — the ABSENCE of this line before the next startup is how a
+// later analysis tells an orderly stop apart from a hard kill. The handler lives
+// in bot-lifecycle.lib.mjs; the timer/flag mutations stay here via the closures
+// (issue #1240: still abort the retry loop on the way out).
+const handleShutdownSignal = createShutdownHandler({
+  logger: botLogger,
+  getActiveSessionCount,
+  verbose: VERBOSE,
+  bot,
+  onShutdown: () => {
+    isShuttingDown = true;
+  },
+  cleanup: () => {
+    launchAbortController.abort();
+    if (sessionMonitoringTimer) clearInterval(sessionMonitoringTimer);
+    heartbeat.stop();
+    stopSolveQueue();
+  },
+});
+
 process.once('SIGINT', () => {
-  isShuttingDown = true;
   console.log('\n🛑 Received SIGINT (Ctrl+C), stopping bot...');
-  if (VERBOSE) console.log(`[VERBOSE] Signal: SIGINT, PID: ${process.pid}, PPID: ${process.ppid}`);
-  launchAbortController.abort(); // Cancel retry loop if still retrying (issue #1240)
-  if (sessionMonitoringTimer) clearInterval(sessionMonitoringTimer);
-  stopSolveQueue();
-  bot.stop('SIGINT');
+  handleShutdownSignal('SIGINT');
 });
 
 process.once('SIGTERM', () => {
-  isShuttingDown = true;
   console.log('\n🛑 Received SIGTERM, stopping bot... (Check system logs: journalctl -u <service> or dmesg)');
-  if (VERBOSE) console.log(`[VERBOSE] Signal: SIGTERM, PID: ${process.pid}, PPID: ${process.ppid}`);
-  launchAbortController.abort(); // Cancel retry loop if still retrying (issue #1240)
-  if (sessionMonitoringTimer) clearInterval(sessionMonitoringTimer);
-  stopSolveQueue();
-  bot.stop('SIGTERM');
+  handleShutdownSignal('SIGTERM');
 });

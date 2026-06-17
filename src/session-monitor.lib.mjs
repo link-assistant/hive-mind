@@ -8,18 +8,25 @@
  * 1. Screen mode (default): Uses `screen -ls` to detect session completion
  * 2. Isolation mode: Uses `$ --status <uuid>` from start-command CLI for reliable tracking
  *
- * Session state is stored in-memory. The `$` CLI (start-command) is accessed
- * purely via its CLI interface, not as a library dependency.
+ * Session state is stored in-memory and, since issue #1927, mirrored to a
+ * durable on-disk store so a bot restart can reload and resume monitoring of
+ * detached sessions that were still running when the previous process died. The
+ * `$` CLI (start-command) is accessed purely via its CLI interface, not as a
+ * library dependency.
  *
  * @see https://github.com/link-foundation/start
  * @see https://github.com/link-assistant/hive-mind/issues/380
+ * @see https://github.com/link-assistant/hive-mind/issues/1927
  */
 
 import { exec as execCallback } from 'child_process';
 import fs from 'fs/promises';
 import { promisify } from 'util';
-import { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
+import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifySessionOutcome } from './work-session-formatting.lib.mjs';
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
+import { classifyExitStatus } from './session-status.lib.mjs';
+import path from 'node:path';
+import { readLastSessionIdFromLog, findLatestSessionLogId, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 
@@ -36,8 +43,41 @@ async function getIsolationRunner() {
 // In-memory session store
 const activeSessions = new Map();
 
+// Issue #1927: optional durable mirror of the in-memory registry. When set (by
+// the bot at startup via setSessionStore), every track/complete is persisted so
+// a restart can reload and keep monitoring detached sessions. Left null in unit
+// tests and one-off CLI paths, where in-memory tracking is sufficient.
+let sessionStore = null;
+let sessionLogger = null;
+
+/**
+ * Attach a durable session store (see session-store.lib.mjs) so tracked sessions
+ * survive a bot restart. Passing null disconnects the store (used by tests).
+ * @param {object|null} store
+ */
+export function setSessionStore(store) {
+  sessionStore = store || null;
+}
+
+/**
+ * Attach a structured logger (see bot-logger.lib.mjs) so session lifecycle
+ * transitions are recorded with timestamps. Optional; console is used otherwise.
+ * @param {object|null} logger
+ */
+export function setSessionLogger(logger) {
+  sessionLogger = logger || null;
+}
+
+function logEvent(type, data) {
+  if (sessionLogger && typeof sessionLogger.event === 'function') {
+    sessionLogger.event(type, data);
+  }
+}
+
 export function resetSessionMonitorForTests() {
   activeSessions.clear();
+  sessionStore = null;
+  sessionLogger = null;
 }
 
 /**
@@ -102,10 +142,41 @@ export async function checkScreenSessionExists(sessionName) {
  */
 export function trackSession(sessionName, sessionInfo, verbose = false) {
   activeSessions.set(sessionName, sessionInfo);
+  const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'screen';
   if (verbose) {
-    const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'screen';
     console.log(`[VERBOSE] Session ${sessionName} tracked in memory (mode: ${mode})`);
   }
+  // Issue #1927: mirror to the durable store so a restart can resume monitoring.
+  // Only isolation-backed sessions are persisted — they are the ones tracked in
+  // `$` (start-command) with a reliable status record (requirement #2). Plain
+  // screen sessions are timeout-based best-effort; resuming them after a restart
+  // could fabricate a "finished" message with no real exit code, so they stay
+  // in-memory only.
+  if (sessionStore && isPersistableSession(sessionInfo)) {
+    try {
+      sessionStore.persist(sessionName, sessionInfo);
+    } catch (error) {
+      console.error(`[session-monitor] Could not persist session ${sessionName}: ${error.message}`);
+    }
+  }
+  logEvent('session_tracked', {
+    sessionName,
+    mode,
+    url: sessionInfo.url || null,
+    command: sessionInfo.command || null,
+    sessionId: sessionInfo.sessionId || null,
+    startTime: sessionInfo.startTime instanceof Date ? sessionInfo.startTime.toISOString() : sessionInfo.startTime || null,
+  });
+}
+
+/**
+ * Whether a session should be mirrored to the durable store. Only isolation
+ * sessions with a start-command UUID qualify (see trackSession rationale).
+ * @param {object} sessionInfo
+ * @returns {boolean}
+ */
+function isPersistableSession(sessionInfo) {
+  return Boolean(sessionInfo?.isolationBackend && sessionInfo?.sessionId);
 }
 
 /**
@@ -156,11 +227,22 @@ function getActiveSessions(verbose = false) {
  * @param {string} sessionName - Name of the session to remove
  * @param {boolean} verbose - Whether to log verbose output
  */
-function completeSession(sessionName, exitCode = 0, verbose = false) {
+function completeSession(sessionName, exitCode = 0, verbose = false, status = null) {
+  const sessionInfo = activeSessions.get(sessionName) || null;
   activeSessions.delete(sessionName);
   if (verbose) {
-    console.log(`[VERBOSE] Session ${sessionName} removed from tracking (exit: ${exitCode})`);
+    console.log(`[VERBOSE] Session ${sessionName} removed from tracking (exit: ${exitCode}${status ? `, status: ${status}` : ''})`);
   }
+  // Issue #1927: drop from the durable snapshot (and append a `complete` audit
+  // event recording how it ended) so a later restart does not try to resume it.
+  if (sessionStore && isPersistableSession(sessionInfo)) {
+    try {
+      sessionStore.remove(sessionName, { status, exitCode });
+    } catch (error) {
+      console.error(`[session-monitor] Could not remove persisted session ${sessionName}: ${error.message}`);
+    }
+  }
+  logEvent('session_completed', { sessionName, exitCode: exitCode ?? null, status: status || null });
 }
 
 function isMessageAlreadyUpdatedError(error) {
@@ -232,8 +314,72 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) 
   return true;
 }
 
+/**
+ * Issue #1927: minimum age before a session that `$ --status` still reports as
+ * `executing` is allowed to be declared dead purely on a backend-liveness probe
+ * (the screen/tmux/docker session is gone). This avoids a race where a session
+ * that has just been launched — but whose backend has not registered yet — is
+ * falsely reported as killed. The authoritative log-footer check is NOT gated by
+ * this, because a written "Exit Code:" footer is proof the command terminated.
+ */
+export const STALE_EXECUTING_MIN_AGE_MS = 90 * 1000;
+
+function sessionStartMs(sessionInfo) {
+  const start = sessionInfo?.startTime;
+  if (!start) return null;
+  const date = start instanceof Date ? start : new Date(start);
+  const ms = date.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * Cross-check whether a session that `$ --status` still reports as `executing`
+ * has actually terminated. Issue #1927: start-command's status can get stuck on
+ * `executing` after the process was killed (a lingering shell keeps the screen
+ * session alive, flipping executed→executing), so a SIGKILLed /solve was never
+ * reported. Two independent signals are consulted, strongest first:
+ *
+ *   1. The execution log FOOTER. When start-command wrote "Exit Code: N" the
+ *      command terminated, full stop — regardless of what `--status` claims.
+ *      This is authoritative and catches the dominant lingering-shell case.
+ *   2. Backend LIVENESS. If no footer was written (e.g. the wrapper itself was
+ *      hard-killed) but the backing screen/tmux/docker session is gone, the
+ *      process cannot still be executing. Gated by STALE_EXECUTING_MIN_AGE_MS to
+ *      avoid a just-launched-not-yet-registered race.
+ *
+ * @returns {Promise<{exitCode: number|null, status: string, reason: string}|null>}
+ *   Terminal details when the session is actually dead, else null (still running).
+ */
+async function resolveStaleExecutingState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive }) {
+  // 1. Authoritative: the log footer.
+  const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+  if (logPath) {
+    const readFooter = exitFromLog || runner.readSessionExitFromLog;
+    const footer = readFooter ? readFooter(logPath, { verbose }) : null;
+    if (footer?.finished) {
+      const status = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');
+      return { exitCode: footer.exitCode, status, reason: `log-footer(exit ${footer.exitCode})` };
+    }
+  }
+
+  // 2. Liveness probe, only once the session is old enough to have registered.
+  const startMs = sessionStartMs(sessionInfo);
+  const ageMs = startMs != null ? Date.now() - startMs : Infinity;
+  if (ageMs >= STALE_EXECUTING_MIN_AGE_MS && sessionInfo?.isolationBackend) {
+    const probe = backendAlive || runner.checkBackendSessionAlive;
+    const alive = probe ? await probe(sessionInfo.sessionId || sessionName, sessionInfo.isolationBackend, verbose) : null;
+    // Only `false` (definitively gone) counts as killed; `null` (unknown backend)
+    // is treated as "no signal" so we don't kill on an indeterminate probe.
+    if (alive === false) {
+      return { exitCode: null, status: 'killed', reason: 'backend-gone' };
+    }
+  }
+
+  return null;
+}
+
 async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
-  const { verbose = false, statusProvider = null } = options;
+  const { verbose = false, statusProvider = null, exitFromLog = null, backendAlive = null, sessionRunning = null } = options;
   const sessionId = sessionInfo.sessionId || sessionName;
 
   try {
@@ -242,30 +388,81 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
 
     if (statusResult?.exists && statusResult.status) {
       if (runner.isExecutingSessionStatus(statusResult.status)) {
+        // Issue #1927: an `executing` status is not trusted blindly — verify the
+        // process is really alive. start-command can keep reporting `executing`
+        // after a kill, which is exactly how an OOM-killed /solve went unreported.
+        const stale = await resolveStaleExecutingState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive });
+        if (stale) {
+          if (verbose) {
+            console.log(`[VERBOSE] Session ${sessionName} reported '${statusResult.status}' but is actually terminated (${stale.reason}); treating as ${stale.status} (exit ${stale.exitCode})`);
+          }
+          // Rewrite the status payload so downstream completion formatting sees
+          // the real terminal status/exit code instead of the stale `executing`.
+          const correctedStatus = stale.status || 'killed';
+          const corrected = { ...statusResult, status: correctedStatus, exitCode: stale.exitCode, endTime: statusResult.endTime || stale.endTime || null };
+          return { running: false, exitCode: stale.exitCode, status: correctedStatus, statusResult: corrected, stale: true };
+        }
         return { running: true, exitCode: null, status: statusResult.status, statusResult };
       }
       if (runner.isTerminalSessionStatus(statusResult.status)) {
+        let exitCode = statusResult.exitCode !== undefined ? statusResult.exitCode : null;
+        // Issue #1927: when start-command reports a terminal status but a missing
+        // or sentinel (-1) exit code — which its lingering-shell reverse-flip can
+        // produce — recover the real code from the log footer so a SIGKILL is not
+        // mislabelled as a generic failure.
+        if ((exitCode === null || exitCode === -1) && (statusResult.logPath || sessionInfo?.logPath)) {
+          const readFooter = exitFromLog || runner.readSessionExitFromLog;
+          const footer = readFooter ? readFooter(statusResult.logPath || sessionInfo.logPath, { verbose }) : null;
+          if (footer?.finished) {
+            exitCode = footer.exitCode;
+            const correctedStatus = classifyExitStatus(footer.exitCode) || statusResult.status;
+            if (verbose) {
+              console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${statusResult.exitCode}; recovered real exit ${exitCode} (${correctedStatus}) from log footer`);
+            }
+            return { running: false, exitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode } };
+          }
+        }
         // Issue #1939: a native docker session can report a terminal status
         // ("executed") with the unknown exit-code sentinel (-1) while the
-        // container is still running. Such a status is provisional — fall
-        // through to isSessionRunning(), which cross-checks the live container
-        // via `docker inspect` before we notify the user the work finished.
-        const ambiguousDockerTerminal = sessionInfo.isolationBackend === 'docker' && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(statusResult.exitCode);
+        // container is still running. When the log footer above did not recover
+        // a real terminal exit, such a status is provisional — fall through to
+        // isSessionRunning() below, which cross-checks the live container via
+        // `docker inspect` before we notify the user the work finished.
+        const ambiguousDockerTerminal = sessionInfo.isolationBackend === 'docker' && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(exitCode);
         if (!ambiguousDockerTerminal) {
-          return {
-            running: false,
-            exitCode: statusResult.exitCode !== undefined ? statusResult.exitCode : null,
-            status: statusResult.status,
-            statusResult,
-          };
+          return { running: false, exitCode, status: statusResult.status, statusResult };
         }
       }
     }
 
-    const running = await runner.isSessionRunning(sessionId, {
+    // The status record is unavailable (no `exists`/`status`). Fall back to a
+    // direct backend liveness check. `sessionRunning` is injectable purely so
+    // this path is testable without the real `$`/`screen` binaries; production
+    // always uses the runner's real check.
+    const checkRunning = sessionRunning || runner.isSessionRunning;
+    const running = await checkRunning(sessionId, {
       backend: sessionInfo.isolationBackend,
       verbose,
     });
+    if (!running) {
+      // Issue #1927: the `$ --status` record is unavailable (e.g. garbage-
+      // collected while the bot was down) and the backend reports not-running.
+      // Before declaring a bare null exit — which classifies as success — try
+      // the log footer so a session that was killed while we were offline is
+      // reported as the kill it was, not a silent success.
+      const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+      if (logPath) {
+        const readFooter = exitFromLog || runner.readSessionExitFromLog;
+        const footer = readFooter ? readFooter(logPath, { verbose }) : null;
+        if (footer?.finished) {
+          const correctedStatus = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');
+          if (verbose) {
+            console.log(`[VERBOSE] Session ${sessionName} has no live status record; recovered exit ${footer.exitCode} (${correctedStatus}) from log footer`);
+          }
+          return { running: false, exitCode: footer.exitCode, status: correctedStatus, statusResult: { ...(statusResult || {}), status: correctedStatus, exitCode: footer.exitCode, endTime: statusResult?.endTime || footer.endTime || null } };
+        }
+      }
+    }
     return {
       running,
       exitCode: running ? null : (statusResult?.exitCode ?? null),
@@ -300,6 +497,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
     let stillRunning;
     let exitCode = null;
     let statusResult = null;
+    let resolvedStatus = null;
 
     if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
       // Isolation mode: use $ --status, with screen -ls only as a fallback
@@ -308,10 +506,31 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
       const state = await getIsolationSessionState(sessionName, sessionInfo, {
         verbose,
         statusProvider: options.statusProvider,
+        exitFromLog: options.exitFromLog,
+        backendAlive: options.backendAlive,
+        sessionRunning: options.sessionRunning,
       });
       stillRunning = state.running;
       exitCode = state.exitCode;
       statusResult = state.statusResult;
+      resolvedStatus = state.status || statusResult?.status || null;
+      if (state.stale && verbose) {
+        console.log(`[VERBOSE] Session ${sessionName} detected as killed/terminated despite an 'executing' status report (issue #1927 cross-check)`);
+      }
+      // Issue #1927: once start-command reveals the log path, record it in the
+      // durable snapshot. If the bot dies and restarts after start-command has
+      // garbage-collected the status record, the resumed session can still read
+      // the log footer to learn whether it was killed.
+      if (statusResult?.logPath && sessionInfo.logPath !== statusResult.logPath) {
+        sessionInfo.logPath = statusResult.logPath;
+        if (sessionStore) {
+          try {
+            sessionStore.persist(sessionName, sessionInfo);
+          } catch {
+            /* best effort — persistence must never break monitoring */
+          }
+        }
+      }
     } else {
       // Issue #1586: Non-isolation screen sessions cannot reliably detect
       // completion because start-screen keeps the screen alive via `exec bash`.
@@ -389,6 +608,46 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
 
+        // Issue #1927 (review follow-up): when a /solve session was KILLED
+        //   (OOM/SIGKILL — the silent failure this issue is about), surface a
+        //   ready-to-run `--resume <lastSessionId>` command so the surviving
+        //   parent (the operator, or an automation watching the bot) can pick the
+        //   work back up. We deliberately do NOT auto-relaunch here: a job that
+        //   reliably OOMs would storm. The rule "use the LAST of multiple
+        //   sessions" is honored by reading the last `Session ID:` marker from
+        //   the captured log. Purely additive — failures never block the
+        //   completion notification, preserving backward compatibility.
+        const resumeExtraSections = [];
+        try {
+          const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
+          const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
+          if (outcome.killed && isResumableCommand) {
+            const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+            // The id must be the AI TOOL's session id, not the isolation session
+            //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
+            //   Prefer the last `Session ID:` marker in the captured log; fall
+            //   back to the newest `<sessionId>.log` start-command wrote in the
+            //   same directory. If neither exists, offer no command (a bogus
+            //   resume id would be worse than none).
+            let lastSessionId = readLastSessionIdFromLog(logPath, { verbose });
+            if (!lastSessionId && logPath) {
+              lastSessionId = findLatestSessionLogId({ dir: path.dirname(logPath), verbose });
+            }
+            const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
+            const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
+            if (resumeSection) {
+              resumeExtraSections.push(resumeSection);
+              if (verbose) {
+                console.log(`[VERBOSE] Session ${sessionName} was killed; offering resume from last session ${lastSessionId}`);
+              }
+            }
+          }
+        } catch (resumeError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Could not build resume section for ${sessionName}: ${resumeError?.message || resumeError}`);
+          }
+        }
+
         const message = formatSessionCompletionMessage({
           sessionName,
           sessionInfo,
@@ -397,7 +656,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           exitCode: finalExitCode,
           infoBlock: sessionInfo?.infoBlock || '',
           pullRequestUrl,
-          extraSections: limitsExtraSections,
+          extraSections: [...limitsExtraSections, ...resumeExtraSections],
         });
 
         // Update the original reply message if messageId is available, otherwise send new message
@@ -437,11 +696,11 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
 
-        completeSession(sessionName, finalExitCode || 0, verbose);
+        completeSession(sessionName, finalExitCode || 0, verbose, resolvedStatus);
       } catch (error) {
         console.error(`Failed to send completion notification for ${sessionName}:`, error);
         if (isMessageAlreadyUpdatedError(error)) {
-          completeSession(sessionName, exitCode || 0, verbose);
+          completeSession(sessionName, exitCode || 0, verbose, resolvedStatus);
         } else {
           sessionInfo.lastNotificationError = error.message;
           sessionInfo.lastKnownStatus = statusResult?.status || sessionInfo.lastKnownStatus || null;
@@ -529,8 +788,86 @@ export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000,
   };
   const timer = setInterval(runMonitor, intervalMs);
   runMonitor();
-  console.log(`📊 Session monitoring started (checking every ${intervalMs / 1000} seconds, storage: in-memory)`);
+  const storage = sessionStore ? `durable+in-memory (${sessionStore.snapshotPath})` : 'in-memory';
+  console.log(`📊 Session monitoring started (checking every ${intervalMs / 1000} seconds, storage: ${storage})`);
   return timer;
+}
+
+/**
+ * Issue #1927 (requirements #2 and #4): after a bot restart, reload the sessions
+ * that were still being tracked when the previous process died and re-register
+ * them so {@link monitorSessions} resumes watching them to completion. The very
+ * next monitor tick re-queries each session's status — so a session that was
+ * *killed while the bot was down* is finally reported (via the log-footer /
+ * backend-liveness cross-check in {@link getIsolationSessionState}) instead of
+ * vanishing silently.
+ *
+ * Only sessions persisted by this bot are resumed (they carry the chatId /
+ * messageId needed to notify). The durable snapshot already contains exactly the
+ * sessions that had not completed when the previous process died, because
+ * completed sessions are removed from it. As a guard we additionally skip any
+ * record whose startTime is after the current bot start (it cannot belong to a
+ * previous run), satisfying requirement #2's "started before bot start time".
+ *
+ * @param {object} [options]
+ * @param {object} [options.store] - Session store to load from (default: the store set via setSessionStore).
+ * @param {number} [options.botStartTime] - Epoch seconds; only sessions started strictly before this are resumed. Defaults to now.
+ * @param {boolean} [options.verbose]
+ * @returns {Promise<{resumed: Array<{sessionName: string, sessionInfo: object}>, skipped: Array<{sessionName: string, reason: string}>}>}
+ */
+export async function resumeTrackedSessions(options = {}) {
+  const { store = sessionStore, verbose = false, botStartTime = Math.floor(Date.now() / 1000) } = options;
+  const resumed = [];
+  const skipped = [];
+
+  if (!store) {
+    if (verbose) console.log('[VERBOSE] resumeTrackedSessions: no durable session store configured, nothing to resume');
+    return { resumed, skipped };
+  }
+
+  let persisted = [];
+  try {
+    persisted = store.load();
+  } catch (error) {
+    console.error(`[session-monitor] resumeTrackedSessions: could not load persisted sessions: ${error.message}`);
+    return { resumed, skipped };
+  }
+
+  for (const { sessionName, sessionInfo } of persisted) {
+    if (activeSessions.has(sessionName)) {
+      skipped.push({ sessionName, reason: 'already-tracked' });
+      continue;
+    }
+    // Requirement #2/#4: a session that started after this bot came up cannot be
+    // a leftover from a previous run, so never resume it here.
+    const startMs = sessionStartMs(sessionInfo);
+    if (startMs != null && startMs > botStartTime * 1000) {
+      skipped.push({ sessionName, reason: 'started-after-bot-start' });
+      if (verbose) console.log(`[VERBOSE] Skipping resume of ${sessionName}: started after bot start`);
+      continue;
+    }
+
+    activeSessions.set(sessionName, sessionInfo);
+    resumed.push({ sessionName, sessionInfo });
+    logEvent('session_resumed', {
+      sessionName,
+      url: sessionInfo.url || null,
+      command: sessionInfo.command || null,
+      sessionId: sessionInfo.sessionId || null,
+      startTime: sessionInfo.startTime instanceof Date ? sessionInfo.startTime.toISOString() : sessionInfo.startTime || null,
+    });
+    if (verbose) {
+      console.log(`[VERBOSE] Resumed tracking of session ${sessionName} (url: ${sessionInfo.url || 'n/a'}, command: ${sessionInfo.command || 'n/a'}, backend: ${sessionInfo.isolationBackend || 'screen'})`);
+    }
+  }
+
+  if (resumed.length > 0) {
+    console.log(`♻️  Resumed monitoring of ${resumed.length} session(s) from durable store after restart`);
+  } else if (verbose) {
+    console.log('[VERBOSE] resumeTrackedSessions: no eligible sessions to resume');
+  }
+
+  return { resumed, skipped };
 }
 
 /**
@@ -764,9 +1101,17 @@ export async function getRunningSessionItems(verbose = false, options = {}) {
     let status = null;
 
     if (sessionInfo.isolationBackend) {
+      // Forward every injectable seam so the listing applies the same #1927
+      // stale-`executing` reconciliation the monitor does — a session that
+      // start-command still reports as `executing` but whose backend is gone (or
+      // whose log footer shows a kill) must not be listed as running — and so the
+      // whole path stays controllable from tests.
       const state = await getIsolationSessionState(sessionName, sessionInfo, {
         verbose,
         statusProvider: options.statusProvider,
+        exitFromLog: options.exitFromLog,
+        backendAlive: options.backendAlive,
+        sessionRunning: options.sessionRunning,
       });
       running = state.running;
       status = state.status || null;

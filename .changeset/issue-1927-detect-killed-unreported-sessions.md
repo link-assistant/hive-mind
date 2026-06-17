@@ -68,6 +68,21 @@ destroying the evidence needed to reconstruct the failure.
   listing now annotates **every** hive-mind folder — active _and_ finished — with
   which PR/issue and which session it belongs (or belonged) to.
 
+- **`src/session-resume.lib.mjs`** — review follow-up: when a detached `/solve`
+  is killed, the surviving parent (the bot, or `/hive`) now surfaces a
+  ready-to-run `solve <url> … --resume <lastSessionId>` command in the
+  killed-session notification. A single `/solve` run prints many `Session ID:`
+  markers (auto-continue, watch restarts, manual resume chains); the module reads
+  the **last** marker from the log tail (`selectLastSessionId` /
+  `readLastSessionIdFromLog`), with a filesystem fallback
+  (`findLatestSessionLogId`). The bot deliberately **surfaces** the command rather
+  than auto-relaunching (a job that reliably OOMs would storm);
+  `planKilledSessionResume` bounds any automatic resume (default `maxAttempts: 1`).
+  The section is additive (existing `extraSections` path), emitted only for
+  `killed` `/solve` sessions, and failure-isolated so it can never break the
+  notification. `args` was added to the persisted session fields so the resume
+  command reproduces the original invocation exactly.
+
 A `verbose` flag is threaded through the new status/footer/liveness/resume paths
 with explicit `[VERBOSE]` tracing so the next failure leaves a trail (req #6).
 

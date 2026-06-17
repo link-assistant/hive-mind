@@ -296,6 +296,51 @@ belonged) to. Folder→session matching reuses the existing branch matchers
 `gh-issue-solver-*` clone — the GitHub URL in the command line → branch → folder branch is
 the reliable key.
 
+## Review follow-up: which level resumes a killed `/solve`, and the "use the last session" rule
+
+A second review on PR #1928 asked to nail down **which level actually performs a resume**
+when a `/solve` is killed, to make resume use **the last of multiple sessions** in a single
+`/solve` run, and to guarantee none of this can crash the system or break backward
+compatibility. The survival hierarchy is three nested levels; each resumes at the level
+_above_ the one that died:
+
+| Level                               | Process                           | Survives a kill of…                                           | Resume mechanism                                                                                                                   |
+| ----------------------------------- | --------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| AI tool (`claude`/`codex`/`gemini`) | child of `/solve`                 | a single tool turn (usage limit, uncommitted-changes restart) | `/solve` re-invokes the tool with `--resume <sessionId>` automatically (auto-continue / `solve.watch`) — **already existed**       |
+| `/solve`                            | detached screen/tmux/docker job   | the AI tool process                                           | `solve.mjs … --resume <id>` (`solve.resume-command.lib.mjs`) — **already existed**                                                 |
+| `/hive` & Telegram bot              | the parent that launched `/solve` | the entire detached `/solve` job (OOM/SIGKILL — issue #1927)  | the bot's completion notification now carries a ready-to-run `solve <url> … --resume <lastSessionId>` command — **new in this PR** |
+
+So when `/solve` itself survives, it keeps using `--resume` on the tool directly (nothing
+changed). The gap this issue exposed is the **top** level: when the whole `/solve` job is
+OOM-killed, the surviving parent had no way to pick the work back up. That is what the new
+[`session-resume.lib.mjs`](../../../src/session-resume.lib.mjs) adds.
+
+**Use the LAST session id.** A single `/solve` run prints _many_ `Session ID:` markers to
+its captured log — one per auto-continue across a usage-limit reset, per uncommitted-changes
+restart, and per manual `--resume` chain. The most advanced context lives in the **last** of
+these, so `readLastSessionIdFromLog()` scans the log tail and `selectLastSessionId()` returns
+the last marker (never the first). `findLatestSessionLogId()` is a filesystem fallback that
+picks the most-recently-modified `<sessionId>.log` start-command wrote, for the case where
+the captured stdout log has rotated away.
+
+**Never storm; stay backward compatible.** The bot deliberately **surfaces** the resume
+command rather than auto-relaunching: a job that reliably OOMs would otherwise spawn an
+infinite relaunch loop — worse than the silent hang #1927 set out to fix.
+`planKilledSessionResume()` exists for any caller that _does_ want automatic resume and caps
+it (default `maxAttempts: 1`). Every part of the wiring is additive and failure-isolated:
+the resume section is appended via the existing `extraSections` mechanism, only for
+`killed` `/solve` sessions (a successful session or a `/hive` session gets nothing), and the
+whole block is wrapped so a resume-planning error can never break the completion
+notification. `args` was added to the persisted session fields so the resume command
+reproduces the original invocation exactly; sessions persisted before this change simply
+fall back to a reconstructed `<url> [--tool]` command.
+
+Coverage: [`test-issue-1927-session-resume.mjs`](../../../tests/test-issue-1927-session-resume.mjs)
+(31 unit assertions on the pure planning module) and
+[`test-issue-1927-resume-notification.mjs`](../../../tests/test-issue-1927-resume-notification.mjs)
+(10 end-to-end assertions driving the real `monitorSessions`, proving the LAST session id
+reaches the notification and that successful/`/hive` sessions stay unchanged).
+
 ## Residual Notes
 
 - The OOM event itself is an environment/capacity problem (**four** concurrent `opus --attach-logs`

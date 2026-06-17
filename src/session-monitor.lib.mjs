@@ -22,9 +22,10 @@
 import { exec as execCallback } from 'child_process';
 import fs from 'fs/promises';
 import { promisify } from 'util';
-import { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
+import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifySessionOutcome } from './work-session-formatting.lib.mjs';
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
 import { classifyExitStatus } from './session-status.lib.mjs';
+import { readLastSessionIdFromLog, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 
@@ -606,6 +607,37 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
 
+        // Issue #1927 (review follow-up): when a /solve session was KILLED
+        //   (OOM/SIGKILL — the silent failure this issue is about), surface a
+        //   ready-to-run `--resume <lastSessionId>` command so the surviving
+        //   parent (the operator, or an automation watching the bot) can pick the
+        //   work back up. We deliberately do NOT auto-relaunch here: a job that
+        //   reliably OOMs would storm. The rule "use the LAST of multiple
+        //   sessions" is honored by reading the last `Session ID:` marker from
+        //   the captured log. Purely additive — failures never block the
+        //   completion notification, preserving backward compatibility.
+        const resumeExtraSections = [];
+        try {
+          const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
+          const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
+          if (outcome.killed && isResumableCommand) {
+            const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+            const lastSessionId = readLastSessionIdFromLog(logPath, { verbose }) || sessionInfo?.sessionId || null;
+            const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
+            const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
+            if (resumeSection) {
+              resumeExtraSections.push(resumeSection);
+              if (verbose) {
+                console.log(`[VERBOSE] Session ${sessionName} was killed; offering resume from last session ${lastSessionId}`);
+              }
+            }
+          }
+        } catch (resumeError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Could not build resume section for ${sessionName}: ${resumeError?.message || resumeError}`);
+          }
+        }
+
         const message = formatSessionCompletionMessage({
           sessionName,
           sessionInfo,
@@ -614,7 +646,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           exitCode: finalExitCode,
           infoBlock: sessionInfo?.infoBlock || '',
           pullRequestUrl,
-          extraSections: limitsExtraSections,
+          extraSections: [...limitsExtraSections, ...resumeExtraSections],
         });
 
         // Update the original reply message if messageId is available, otherwise send new message

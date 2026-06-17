@@ -31,7 +31,9 @@ import path from 'node:path';
 // Only plain, serializable metadata is persisted. Runtime-only fields (the bot
 // instance, cached limits snapshots, transient error strings) are deliberately
 // excluded so the snapshot stays small and safe to reload.
-const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'isolationBackend', 'sessionId', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath'];
+// `args` (#1927 review follow-up) is persisted so a killed /solve can be resumed
+// with its exact original invocation plus `--resume <lastSessionId>`.
+const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'isolationBackend', 'sessionId', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args'];
 
 /**
  * Resolve the directory durable bot state is written to. Honors

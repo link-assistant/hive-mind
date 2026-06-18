@@ -30,44 +30,109 @@ export const hasConnectedPlaywrightMcpServer = output => {
   return rows.some(row => PLAYWRIGHT_MCP_CONNECTED_PATTERN.test(row) && !PLAYWRIGHT_MCP_UNAVAILABLE_PATTERN.test(row));
 };
 
-export const checkPlaywrightMcpPackageAvailability = async () => {
+// `claude mcp list` / `codex mcp list` perform live health checks against every
+// registered MCP server (Playwright MCP launches a browser to report status),
+// which can take noticeably longer than a couple of seconds on a cold cache or
+// a busy CI host. A too-aggressive `timeout` kills the probe before it answers,
+// which previously aborted the entire solve (issue #1943). The probe timeout is
+// therefore generous by default and overridable for slow/fast environments.
+export const PLAYWRIGHT_MCP_LIST_TIMEOUT_SECONDS_DEFAULT = 30;
+
+export const getPlaywrightMcpListTimeoutSeconds = (env = process.env) => {
+  const parsed = Number.parseInt(env?.PLAYWRIGHT_MCP_PREFLIGHT_TIMEOUT_SECONDS ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : PLAYWRIGHT_MCP_LIST_TIMEOUT_SECONDS_DEFAULT;
+};
+
+const diagLog =
+  (log, opts = { verbose: true }) =>
+  async message => {
+    if (log) await log(message, opts);
+  };
+
+export const checkPlaywrightMcpPackageAvailability = async ({ log } = {}) => {
+  const diag = diagLog(log);
   try {
-    const result = await $`timeout 5 npx --no-install @playwright/mcp --help 2>&1`.catch(() => null);
-    if (isCommandResultSuccess(result)) return true;
-    const npmResult = await $`timeout 5 npm ls -g @playwright/mcp 2>&1`.catch(() => null);
-    return getCommandResultOutput(npmResult).includes('@playwright/mcp');
-  } catch {
+    const timeoutSeconds = getPlaywrightMcpListTimeoutSeconds();
+    const result = await $`timeout ${timeoutSeconds} npx --no-install @playwright/mcp --help 2>&1`.catch(() => null);
+    if (isCommandResultSuccess(result)) {
+      await diag('🎭 @playwright/mcp package is available via npx');
+      return true;
+    }
+    const npmResult = await $`timeout ${timeoutSeconds} npm ls -g @playwright/mcp 2>&1`.catch(() => null);
+    const available = getCommandResultOutput(npmResult).includes('@playwright/mcp');
+    await diag(`🎭 @playwright/mcp global package ${available ? 'is installed' : 'was not found'}`);
+    return available;
+  } catch (error) {
+    await diag(`⚠️  @playwright/mcp package availability check threw: ${error.message}`);
     return false;
   }
 };
 
-export const ensureConnectedPlaywrightMcpServer = async ({ list, add, hasPackage = checkPlaywrightMcpPackageAvailability }) => {
+export const ensureConnectedPlaywrightMcpServer = async ({ list, add, hasPackage = checkPlaywrightMcpPackageAvailability, log } = {}) => {
+  const diag = diagLog(log);
   try {
     const result = await list().catch(() => null);
-    if (!isCommandResultSuccess(result)) return false;
+    const code = getCommandResultCode(result);
     const output = getCommandResultOutput(result);
-    if (hasConnectedPlaywrightMcpServer(output)) return true;
-    if (getPlaywrightMcpListRows(output).length > 0) return false;
-    if (!(await hasPackage())) return false;
+    const rows = getPlaywrightMcpListRows(output);
+    await diag(`🎭 Playwright MCP probe: 'mcp list' exit=${code === null ? 'timeout/none' : code}, playwright rows=${rows.length}${rows.length ? ` [${rows.join(' | ')}]` : ''}`);
 
+    // Inconclusive probe: the `mcp list` command itself failed (timed out,
+    // crashed, or its binary is missing). That tells us NOTHING about whether
+    // Playwright MCP actually works, so it must not abort the whole solve as it
+    // did in issue #1943. A still-connecting server is normal — Tool Search
+    // loads MCP tools on demand (issue #1901) — so fall back to the local
+    // @playwright/mcp package check: if the package is installed, the server can
+    // connect on demand and the working session should proceed.
+    if (!isCommandResultSuccess(result)) {
+      const packageAvailable = await hasPackage({ log });
+      await diag(`⚠️  Playwright MCP 'mcp list' probe was inconclusive (exit=${code === null ? 'timeout' : code}); @playwright/mcp package ${packageAvailable ? 'is installed, so Tool Search can connect it on demand — preflight passes' : 'is NOT installed — preflight fails'}`);
+      return packageAvailable;
+    }
+
+    if (hasConnectedPlaywrightMcpServer(output)) {
+      await diag('🎭 Playwright MCP reported as connected by mcp list');
+      return true;
+    }
+
+    // A registration row exists but is not reported connected (pending /
+    // disabled / failed). Leave it untouched (do not overwrite an intentional
+    // or in-progress registration) and let the caller decide.
+    if (rows.length > 0) {
+      await diag('🎭 Playwright MCP is registered but not reported connected by mcp list; leaving registration unchanged');
+      return false;
+    }
+
+    // No registration at all → register the default server when the package is
+    // available, then re-probe.
+    if (!(await hasPackage({ log }))) {
+      await diag('⚠️  No Playwright MCP registration found and @playwright/mcp package is unavailable');
+      return false;
+    }
+    await diag('🎭 No Playwright MCP registration found; registering the default server...');
     await add().catch(() => null);
     const retryResult = await list().catch(() => null);
-    return isCommandResultSuccess(retryResult) && hasConnectedPlaywrightMcpServer(getCommandResultOutput(retryResult));
-  } catch {
+    const connected = isCommandResultSuccess(retryResult) && hasConnectedPlaywrightMcpServer(getCommandResultOutput(retryResult));
+    await diag(`🎭 Playwright MCP registration ${connected ? 'succeeded and is now connected' : 'did not report connected after add'}`);
+    return connected;
+  } catch (error) {
+    await diag(`⚠️  Playwright MCP preflight probe threw: ${error.message}`);
     return false;
   }
 };
 
-export const ensureClaudePlaywrightMcpServer = async () =>
+export const ensureClaudePlaywrightMcpServer = async ({ log } = {}) =>
   ensureConnectedPlaywrightMcpServer({
-    list: () => $`timeout 5 claude mcp list 2>&1`,
+    list: () => $`timeout ${getPlaywrightMcpListTimeoutSeconds()} claude mcp list 2>&1`,
     add: () => $`claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080`,
+    log,
   });
 
-export const ensureCodexPlaywrightMcpServer = async () =>
+export const ensureCodexPlaywrightMcpServer = async ({ log } = {}) =>
   ensureConnectedPlaywrightMcpServer({
-    list: () => $`timeout 5 codex mcp list 2>&1`,
+    list: () => $`timeout ${getPlaywrightMcpListTimeoutSeconds()} codex mcp list 2>&1`,
     add: () => $`codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080`,
+    log,
   });
 
 const SOLVE_PLAYWRIGHT_MCP_CHECKS = {
@@ -102,7 +167,7 @@ export const ensureSolvePlaywrightMcpReady = async ({ argv = {}, log = async () 
   await log(`🎭 Checking Playwright MCP preflight for ${label}...`, { verbose: true });
 
   try {
-    if (await checkFn()) {
+    if (await checkFn({ log })) {
       await log(`🎭 Playwright MCP ready for ${label}`, { verbose: true });
       return { ok: true, checkedTools: [tool], skipped: false };
     }

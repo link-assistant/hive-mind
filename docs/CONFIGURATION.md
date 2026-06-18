@@ -320,6 +320,31 @@ claude mcp remove playwright
 codex mcp remove playwright
 ```
 
+#### Preflight Timeout
+
+Before starting a working session, `solve` runs a local Playwright MCP preflight
+that calls `claude mcp list` / `codex mcp list`. Those commands perform a live
+health check against every registered MCP server (Playwright MCP launches a
+browser to report its status), so on a cold npx cache or a busy CI host the
+probe can take longer than a few seconds.
+
+The probe timeout defaults to **30 seconds** and is overridable:
+
+```bash
+# Give the mcp list probe up to 90 seconds (slow/cold environments)
+PLAYWRIGHT_MCP_PREFLIGHT_TIMEOUT_SECONDS=90 solve <issue-url>
+```
+
+If the probe is still inconclusive (it times out or the CLI is missing), the
+preflight no longer aborts the run: it falls back to checking whether the local
+`@playwright/mcp` package is installed. When the package is present, the server
+connects on demand via Tool Search (see
+[case study issue-1943](./case-studies/issue-1943/README.md) and
+[issue-1901](./case-studies/issue-1901/README.md)), so the working session
+proceeds. The preflight only fails when the `@playwright/mcp` package itself is
+genuinely unavailable. Use `--no-playwright-mcp` to skip the preflight entirely
+when browser automation is intentionally disabled.
+
 #### Best Practices
 
 1. **Always use `--isolated` mode** - Prevents Chrome process accumulation and memory leaks

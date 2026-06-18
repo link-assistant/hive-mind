@@ -14,7 +14,7 @@ const path = (await use('path')).default;
 const os = (await use('os')).default;
 
 // Import log from general lib
-import { log } from './lib.mjs';
+import { log, isMeaningfulErrorText, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -532,7 +532,8 @@ export const executeOpenCodeCommand = async params => {
           ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
           // Issue #1845: surface the actual error so callers can show it to users
-          errorInfo: { message: lastMessage || allOutput || `OpenCode command failed with exit code ${exitCode}`, exitCode },
+          // Issue #1941: reject meaningless stream fragments (e.g. a lone "}").
+          errorInfo: { message: buildToolErrorMessage({ lastMessage: isMeaningfulErrorText(lastMessage) ? lastMessage : allOutput, exitCode, fallback: `OpenCode command failed with exit code ${exitCode}`, toolLabel: 'OpenCode' }), exitCode },
         };
       }
 

@@ -10,7 +10,7 @@ if (typeof globalThis.use === 'undefined') {
 
 const { $ } = await use('command-stream');
 
-import { log } from './lib.mjs';
+import { log, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -576,8 +576,8 @@ export const executeGeminiCommand = async params => {
           pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
           publicPricingEstimate: null,
           resultSummary: geminiJsonState.resultSummary || null,
-          // Issue #1845: surface the actual error so callers can show it to users
-          errorInfo: { message: errorText || `Gemini command failed with exit code ${exitCode}`, exitCode },
+          // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
+          errorInfo: { message: buildToolErrorMessage({ lastMessage: errorText, exitCode, fallback: `Gemini command failed with exit code ${exitCode}`, toolLabel: 'Gemini' }), exitCode },
         };
       }
 

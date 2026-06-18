@@ -666,6 +666,53 @@ export const cleanErrorMessage = error => {
 };
 
 /**
+ * Decide whether a string looks like a meaningful, human-readable error message
+ * rather than a stray structural fragment (Issue #1941).
+ *
+ * When a tool process is interrupted mid-stream (CTRL+C / SIGINT) or killed, the
+ * last captured stdout line can be a lone JSON-structural character left over
+ * from a truncated stream — for example a bare `}` or `{`. Surfacing that as the
+ * "core error" produced nonsense failure messages such as
+ * "CLAUDE execution failed with }" / "failed by {". A real error message always
+ * contains at least one letter or digit (in any script), so we treat fragments
+ * that contain none as not meaningful.
+ *
+ * @param {*} value - Candidate error string
+ * @returns {boolean} True when the value contains usable error text
+ */
+export const isMeaningfulErrorText = value => {
+  if (!value || typeof value !== 'string') return false;
+  const collapsed = value.replace(/\s+/g, ' ').trim();
+  if (!collapsed) return false;
+  // Require at least one Unicode letter or number; pure punctuation/brackets
+  // (e.g. "}", "{", "[]", ",") are stream fragments, not real errors.
+  return /[\p{L}\p{N}]/u.test(collapsed);
+};
+
+/**
+ * Build a clean tool error message for `errorInfo.message`, rejecting
+ * meaningless stream fragments (Issue #1941).
+ *
+ * Picks the tool-reported `lastMessage` only when it is meaningful; otherwise
+ * falls back to an interrupt label (exit code 130 = SIGINT/CTRL+C) or the
+ * provided generic fallback. This keeps junk like a lone `}` out of the stored
+ * error so every downstream surface (GitHub comment, terminal, retry logic)
+ * shows something honest.
+ *
+ * @param {Object} options
+ * @param {string} [options.lastMessage] - The last message captured from the tool stream
+ * @param {number} [options.exitCode] - Process exit code
+ * @param {string} [options.fallback] - Generic fallback message
+ * @param {string} [options.toolLabel='Tool'] - Human tool label for the interrupt message
+ * @returns {string} A clean, meaningful error message
+ */
+export const buildToolErrorMessage = ({ lastMessage, exitCode, fallback, toolLabel = 'Tool' } = {}) => {
+  if (isMeaningfulErrorText(lastMessage)) return lastMessage.replace(/\s+/g, ' ').trim();
+  if (exitCode === 130) return `${toolLabel} command interrupted (CTRL+C)`;
+  return fallback;
+};
+
+/**
  * Extract the core/root error string from a tool runner result (Issue #1845).
  *
  * Applies a single precedence everywhere so every failure surface shows the
@@ -674,6 +721,10 @@ export const cleanErrorMessage = error => {
  * usable error string is available. Shared by `formatToolExecutionFailure`
  * (GitHub comments / exit message) and the terminal "Error details:" lines in
  * watch / auto-merge so they never diverge.
+ *
+ * Issue #1941: a meaningless structural fragment (e.g. a lone `}` captured when
+ * a tool is interrupted mid-stream) is treated as "no usable error" so callers
+ * fall back to the generic phrase instead of "execution failed with }".
  *
  * @param {Object} options
  * @param {Object} [options.toolResult] - Result object returned by the tool runner
@@ -687,6 +738,9 @@ export const extractToolErrorCore = ({ toolResult } = {}) => {
   const rawCore = errorInfo?.message || errorInfo?.errorMatch || (typeof errorInfo === 'string' ? errorInfo : null) || toolResult?.result || null;
 
   if (!rawCore || typeof rawCore !== 'string') return null;
+
+  // Issue #1941: reject stray fragments with no letters/digits (e.g. "}").
+  if (!isMeaningfulErrorText(rawCore)) return null;
 
   // Collapse to a single clean line and strip noise.
   const core = rawCore.replace(/\s+/g, ' ').trim();

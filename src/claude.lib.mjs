@@ -6,7 +6,7 @@ if (typeof globalThis.use === 'undefined') {
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
-import { log, isENOSPC } from './lib.mjs';
+import { log, isENOSPC, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage, isUsageLimitError } from './usage-limit.lib.mjs';
@@ -1211,8 +1211,8 @@ export const executeClaudeCommand = async params => {
             is503Error,
             anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnStuckRetry, // Issue #1104/#1886
             resultSummary,
-            // Issue #1845: surface the actual error so callers can show it to users
-            errorInfo: { message: lastMessage || 'API explicitly marked error as not retryable', exitCode },
+            // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
+            errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: 'API explicitly marked error as not retryable', toolLabel: 'Claude' }), exitCode },
             queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
@@ -1260,8 +1260,8 @@ export const executeClaudeCommand = async params => {
             is503Error, // preserve for callers that check this
             anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnRetriesExhausted, // Issue #1104/#1886: Include cumulative cost even on failure
             resultSummary, // Issue #1263: Include result summary
-            // Issue #1845: surface the actual error so callers can show it to users
-            errorInfo: { message: lastMessage || `Transient API error persisted after ${maxRetries} retries`, exitCode },
+            // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
+            errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Transient API error persisted after ${maxRetries} retries`, toolLabel: 'Claude' }), exitCode },
             queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
@@ -1327,9 +1327,9 @@ export const executeClaudeCommand = async params => {
           errorDuringExecution,
           anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnFailure, // Issue #1104/#1886: cumulative cost even on failure
           resultSummary, // Issue #1263: Include result summary
-          // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content
-          // filtering policy") so users see what actually went wrong, not just a generic message.
-          errorInfo: { message: lastMessage || `Claude command failed with exit code ${exitCode}`, exitCode },
+          // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content filtering policy").
+          // Issue #1941: a lone "}" fragment at interrupt time must not become "CLAUDE execution failed with }".
+          errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${exitCode}`, toolLabel: 'Claude' }), exitCode },
           queuedFeedback, // Issue #817: Bidirectional mode feedback
         };
       }

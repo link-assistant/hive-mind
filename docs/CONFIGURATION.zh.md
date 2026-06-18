@@ -301,6 +301,27 @@ claude mcp get playwright
 claude mcp remove playwright
 ```
 
+#### 预检超时
+
+在启动工作会话之前，`solve` 会运行本地 Playwright MCP 预检，调用
+`claude mcp list` / `codex mcp list`。这些命令会对每个已注册的 MCP 服务器执行
+实时健康检查（Playwright MCP 会启动浏览器以报告其状态），因此在 npx 缓存冷启动
+或繁忙的 CI 主机上，探测可能需要超过几秒钟。
+
+探测超时默认为 **30 秒**，并且可以覆盖：
+
+```bash
+# 给 mcp list 探测最多 90 秒（缓慢/冷启动环境）
+PLAYWRIGHT_MCP_PREFLIGHT_TIMEOUT_SECONDS=90 solve <issue-url>
+```
+
+如果探测仍然没有定论（超时或 CLI 缺失），预检不再中止运行：它会回退到检查本地
+是否安装了 `@playwright/mcp` 包。当该包存在时，服务器会通过 Tool Search 按需连接
+（参见[案例研究 issue-1943](./case-studies/issue-1943/README.md) 和
+[issue-1901](./case-studies/issue-1901/README.md)），因此工作会话会继续。只有当
+`@playwright/mcp` 包本身确实不可用时，预检才会失败。当有意禁用浏览器自动化时，
+使用 `--no-playwright-mcp` 可完全跳过预检。
+
 #### 最佳实践
 
 1. **始终使用 `--isolated` 模式** - 防止 Chrome 进程积累和内存泄漏

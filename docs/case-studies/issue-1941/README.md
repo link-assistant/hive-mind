@@ -11,14 +11,14 @@
 
 ## 1. Requirements extracted from the issue
 
-| #   | Requirement                                                                                                                                      | Status                                                                                              |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| R1  | Download all logs/data about the issue into `./docs/case-studies/issue-1941/` and compile it.                                                    | ✅ [`data/`](./data) (issue JSON, failure comment, full log, error excerpt)                         |
-| R2  | Deep case study: reconstruct timeline, list all requirements, find root cause(s), propose solutions/plans, check known libraries; search online. | ✅ This document (§2–§7)                                                                            |
-| R3  | If not enough data to find root cause, add debug output / verbose mode for the next iteration.                                                   | ✅ Root cause found from existing logs; verbose tracing already present and was sufficient (see §4) |
-| R4  | If the issue relates to another repository/project, report it there with reproducible examples, workarounds, and fix suggestions.                | ✅ Analyzed — the bug is entirely internal to hive-mind; nothing to report upstream (see §7)        |
-| R5  | Apply the fix across the **entire codebase** — if the problem exists in multiple places, fix all of them.                                        | ✅ Shared chokepoint + every tool runner (claude/opencode); other runners already handled (see §5)  |
-| R6  | Plan and execute everything in the single PR #1942.                                                                                              | ✅                                                                                                  |
+| #   | Requirement                                                                                                                                      | Status                                                                                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| R1  | Download all logs/data about the issue into `./docs/case-studies/issue-1941/` and compile it.                                                    | ✅ [`data/`](./data) (issue JSON, failure comment, full log, error excerpt)                            |
+| R2  | Deep case study: reconstruct timeline, list all requirements, find root cause(s), propose solutions/plans, check known libraries; search online. | ✅ This document (§2–§7)                                                                               |
+| R3  | If not enough data to find root cause, add debug output / verbose mode for the next iteration.                                                   | ✅ Root cause found from existing logs; verbose tracing already present and was sufficient (see §4)    |
+| R4  | If the issue relates to another repository/project, report it there with reproducible examples, workarounds, and fix suggestions.                | ✅ Analyzed — the bug is entirely internal to hive-mind; nothing to report upstream (see §7)           |
+| R5  | Apply the fix across the **entire codebase** — if the problem exists in multiple places, fix all of them.                                        | ✅ Shared chokepoint + every tool runner (claude/opencode/gemini/qwen); agent already handled (see §5) |
+| R6  | Plan and execute everything in the single PR #1942.                                                                                              | ✅                                                                                                     |
 
 ---
 
@@ -147,6 +147,8 @@ This is defence-in-depth: the source is cleaned **and** the surface is guarded.
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/claude.lib.mjs`   | All three failure-return sites now build `errorInfo.message` via `buildToolErrorMessage({ … toolLabel: 'Claude' })`.                          |
 | `src/opencode.lib.mjs` | Failure-return site uses `buildToolErrorMessage`, preferring a meaningful `lastMessage` else the accumulated output, `toolLabel: 'OpenCode'`. |
+| `src/gemini.lib.mjs`   | Failure-return site uses `buildToolErrorMessage({ lastMessage: errorText, … toolLabel: 'Gemini' })`.                                          |
+| `src/qwen.lib.mjs`     | Failure-return site uses `buildToolErrorMessage({ lastMessage: combinedErrorText \|\| errorMessage, … toolLabel: 'Qwen Code' })`.             |
 | `src/agent.lib.mjs`    | Already special-cased exit 130 (`Agent command interrupted (CTRL+C)`) — the pattern this fix generalises. No change needed.                   |
 | `src/codex.lib.mjs`    | Reviewed — does not store a raw fall-through line as the error message, and is additionally protected by the §5.1 chokepoint guard.           |
 

@@ -13,7 +13,7 @@ const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 const os = (await use('os')).default;
 
-import { log } from './lib.mjs';
+import { log, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -633,8 +633,8 @@ export const executeQwenCommand = async params => {
           limitResetTime: null,
           ...usageResult,
           resultSummary,
-          // Issue #1845: surface the actual error so callers can show it to users
-          errorInfo: { message: combinedErrorText || errorMessage || `Qwen Code command failed${exitCode !== 0 ? ` with exit code ${exitCode}` : ''}`, exitCode },
+          // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
+          errorInfo: { message: buildToolErrorMessage({ lastMessage: combinedErrorText || errorMessage, exitCode, fallback: `Qwen Code command failed${exitCode !== 0 ? ` with exit code ${exitCode}` : ''}`, toolLabel: 'Qwen Code' }), exitCode },
         };
       }
 

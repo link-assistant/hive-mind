@@ -86,11 +86,9 @@ During the verbose `Response` object dump, the final non-empty line was just `}`
 
 When the command exits non-zero, the tool runner builds its failure return as:
 
-```js
+```text
 // BEFORE (src/claude.lib.mjs)
-errorInfo: {
-  message: (lastMessage || `Claude command failed with exit code ${exitCode}`, exitCode);
-}
+errorInfo: { message: lastMessage || `Claude command failed with exit code ${exitCode}`, exitCode }
 ```
 
 Because `lastMessage` was the truthy string `"}"`, the `||` fallback was skipped and `"}"` became `errorInfo.message`. The shared error-surfacing chokepoint introduced in issue #1845 (`extractToolErrorCore` → `formatToolExecutionFailure`) then faithfully rendered it as:

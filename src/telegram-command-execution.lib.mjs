@@ -98,7 +98,7 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
  * @returns {Function} executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation, tool, urlContext, sessionExtras)
  */
 export function buildExecuteAndUpdateMessage(deps) {
-  const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage } = deps;
+  const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = deps;
   return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null, locale = null } = {}) {
     const { chat, message_id: msgId } = startingMessage;
     const safeEdit = async text => {
@@ -115,12 +115,23 @@ export function buildExecuteAndUpdateMessage(deps) {
     const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
     let result, session, sessionInfo;
     if (iso) {
+      // Issue #1946: the isolation session UUID is generated locally, *before*
+      // start-command launches the (potentially multi-GB, slow) container. Show
+      // the UUID + isolation backend and track the session immediately so it is
+      // addressable by /watch, /log and /status during the whole startup window
+      // instead of only after the blocking launch returns. start-command runs the
+      // container detached, so the await below does not block other bot commands.
       session = iso.runner.generateSessionId();
       VERBOSE && console.log(`[VERBOSE] Using isolation (${iso.backend}), session: ${session}`);
+      sessionInfo = { ...baseSessionInfo, isolationBackend: iso.backend, sessionId: session };
+      trackSession(session, sessionInfo, VERBOSE);
+      await safeEdit(formatStartingWorkSessionMessage({ sessionName: session, isolationBackend: iso.backend, infoBlock, locale }));
       result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE });
-      if (result.success) {
-        sessionInfo = { ...baseSessionInfo, isolationBackend: iso.backend, sessionId: session };
-        trackSession(session, sessionInfo, VERBOSE);
+      if (!result.success) {
+        // The launch never produced a live container — drop the optimistic
+        // tracking so a phantom session is not monitored or resumed.
+        if (typeof untrackSession === 'function') untrackSession(session, VERBOSE);
+        sessionInfo = undefined;
       }
     } else {
       result = await executeStartScreen(commandName, args);

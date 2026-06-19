@@ -8,13 +8,20 @@
 #
 # Box image version: pinned to a specific release for stable, reproducible builds.
 # To upgrade: update the dind version tag below.
-# Box 2.3.2 includes the host-image passthrough allowlist used by the issue #1879
+# Box 2.3.2 introduced the host-image passthrough allowlist used by the issue #1879
 # runbook, plus the box#102 fix: the dind entrypoint now WARNS when passthrough is
 # opted into (DIND_HOST_PASSTHROUGH_IMAGES set) but no host docker socket is mounted,
 # instead of silently leaving the nested daemon empty (issue #1914).
+# Box 2.3.4 (box#106 / box PR #107) goes further for issue #1946: the dind
+# entrypoint now VERIFIES (via `docker image inspect` against the nested daemon)
+# that each concrete passthrough allowlist entry was actually seeded, and reports
+# `image preload/passthrough finished WITH WARNINGS` instead of a misleading
+# `complete` when it was not — so a misconfigured deploy can no longer silently
+# trigger a ~30 GB re-download of the host image on the first nested `docker run`.
+# We pin 2.3.5 (latest patch on top of that fix).
 # Latest Box releases: https://github.com/link-foundation/box/releases
 
-FROM konard/box-dind:2.3.2
+FROM konard/box-dind:2.3.5
 ARG HIVE_MIND_VERSION=latest
 
 # --- Environment variables ---
@@ -118,10 +125,13 @@ RUN bun install -g @openai/codex && \
     bun install -g @github/copilot && \
     bun install -g opencode-ai
 
-# start-command is pinned to 0.29.1: that release fixes detached docker
+# start-command is pinned to 0.29.2: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
-# sentinel while the container is still running. See link-foundation/start#136
-# and link-assistant/hive-mind#1939.
+# sentinel while the container is still running (link-foundation/start#136,
+# link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
+# docker image-preparation phase (the `docker pull`/dind boot) in the session log,
+# so `$ --upload-log` no longer returns a near-empty 546-byte log while a multi-GB
+# image is still pulling — the missing-image-prep-logs half of issue #1946.
 RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
@@ -129,7 +139,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent && \
-    bun install -g start-command@0.29.1 && \
+    bun install -g start-command@0.29.2 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

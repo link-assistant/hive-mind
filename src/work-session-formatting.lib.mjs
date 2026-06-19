@@ -65,9 +65,19 @@ export function formatSessionDurationSeconds(seconds) {
   return parts.join(' ');
 }
 
-export function formatStartingWorkSessionMessage({ infoBlock = '', locale = null } = {}) {
+export function formatStartingWorkSessionMessage({ sessionName = null, isolationBackend = null, infoBlock = '', locale = null } = {}) {
+  const header = text(locale, 'telegram.work_session_starting', '🔄 Starting...');
   const details = infoBlock ? `\n\n${infoBlock}` : '';
-  return `${text(locale, 'telegram.work_session_starting', '🔄 Starting...')}${details}`;
+  // Issue #1946: for isolation backends the session UUID is known *before* the
+  // (potentially long, multi-GB) container/image preparation finishes, so
+  // surface it together with the isolation backend right away. This makes the
+  // session addressable by /watch, /log and /status while it is still starting,
+  // instead of leaving an info-less "Starting..." up for the whole image pull.
+  if (!sessionName) return `${header}${details}`;
+  const sessionLabel = text(locale, 'telegram.session_label', 'Session');
+  const isolationLabel = text(locale, 'telegram.isolation_label', 'Isolation');
+  const isolationInfo = isolationBackend ? `\n🔒 ${isolationLabel}: \`${isolationBackend}\`` : '';
+  return `${header}\n\n📊 ${sessionLabel}: \`${sessionName}\`${isolationInfo}${details}`;
 }
 
 export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', isolationBackend = null, infoBlock = '', locale = null } = {}) {

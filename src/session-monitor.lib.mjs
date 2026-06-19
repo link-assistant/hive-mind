@@ -195,6 +195,32 @@ export function getTrackedSessionInfo(sessionName) {
 }
 
 /**
+ * Stop tracking a session that was registered optimistically but never actually
+ * started (e.g. the start-command launch failed). Removes it from the in-memory
+ * map and the durable store without emitting a `session_completed` audit event —
+ * the session never ran, so it has no exit code to record (issue #1946).
+ *
+ * @param {string} sessionName - Name/UUID of the session to drop
+ * @param {boolean} verbose - Whether to log verbose output
+ */
+export function untrackSession(sessionName, verbose = false) {
+  if (!sessionName) return;
+  const sessionInfo = activeSessions.get(sessionName) || null;
+  const existed = activeSessions.delete(sessionName);
+  if (verbose && existed) {
+    console.log(`[VERBOSE] Session ${sessionName} untracked (launch failed before it started)`);
+  }
+  if (sessionStore && isPersistableSession(sessionInfo)) {
+    try {
+      sessionStore.remove(sessionName, { status: 'launch-failed', exitCode: null });
+    } catch (error) {
+      console.error(`[session-monitor] Could not remove untracked session ${sessionName}: ${error.message}`);
+    }
+  }
+  logEvent('session_untracked', { sessionName });
+}
+
+/**
  * Get the number of active sessions being tracked
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {number} Number of active sessions

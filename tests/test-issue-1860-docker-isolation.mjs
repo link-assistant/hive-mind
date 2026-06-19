@@ -200,12 +200,15 @@ const executeAndUpdateMessage = buildExecuteAndUpdateMessage({
   trackSession: (sessionId, sessionInfo) => {
     directTrackCalls.push({ sessionId, sessionInfo });
   },
+  untrackSession: () => {},
   AUTO_WATCH_MESSAGE: false,
   startAutoTerminalWatchForSession: async () => {
     throw new Error('auto watch should not run in this test');
   },
   bot: {},
   formatExecutingWorkSessionMessage: ({ sessionName, isolationBackend }) => `session=${sessionName} isolation=${isolationBackend}`,
+  // Issue #1946: the session UUID + isolation are surfaced before the launch.
+  formatStartingWorkSessionMessage: ({ sessionName = null, isolationBackend = null } = {}) => (sessionName ? `starting session=${sessionName} isolation=${isolationBackend}` : 'starting'),
 });
 
 await executeAndUpdateMessage(

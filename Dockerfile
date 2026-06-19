@@ -18,7 +18,7 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-FROM konard/box:2.3.2
+FROM konard/box:2.3.5
 ARG HIVE_MIND_VERSION=latest
 # Release builds pass the exact published package version here. Bake it as the
 # default child isolation image tag so a parent started via :latest still runs

@@ -251,23 +251,35 @@ the next iteration can confirm R3/R4 from data.
 
 ## Upstream Follow-ups (R9)
 
-- **link-foundation/start [#138](https://github.com/link-foundation/start/issues/138)**
-  — the detached docker session log must capture the image-preparation phase
-  (`docker pull` / dind boot) from the first byte so the `$` "one complete log"
-  guarantee holds (problems 2/3/5). Reproducer: the 546-byte `$ --upload-log` at
-  the 7-minute mark; workaround: read the host `docker logs <session>`
-  separately; fix suggestion: tee the pull/prepare stage into the session log
-  before attaching the container command stream.
-- **link-foundation/box [#106](https://github.com/link-foundation/box/issues/106)**
-  — the nested DinD daemon re-downloads `konard/hive-mind-dind:2.0.6` (~30 GB)
-  despite host passthrough (problem 4), continuing #94/#102. Reproducer: `df -h`
-  before/after shows ~30 GB consumed and the run takes ~1 hour; workaround: mount
-  `-v /var/run/docker.sock:/var/run/host-docker.sock:ro` and set
-  `DIND_HOST_PASSTHROUGH_IMAGES`; fix suggestion: make passthrough fail loudly
-  (not silently no-op) when the allowlist is set but no socket is mounted, and
-  document the required deployment wiring.
+Both upstream issues were filed, fixed, and released — this PR pins the fixed
+versions in `Dockerfile` / `Dockerfile.dind`:
 
-See [`upstream/`](./upstream) for the exact issue bodies filed.
+- **link-foundation/start [#138](https://github.com/link-foundation/start/issues/138)**
+  (✅ **fixed** in [start PR #139](https://github.com/link-foundation/start/pull/139),
+  released as **`start-command@0.29.2`**) — the detached docker session log must
+  capture the image-preparation phase (`docker pull` / dind boot) from the first
+  byte so the `$` "one complete log" guarantee holds (problems 2/3/5). Reproducer:
+  the 546-byte `$ --upload-log` at the 7-minute mark; workaround: read the host
+  `docker logs <session>` separately; fix: tee the pull/prepare stage into the
+  session log before attaching the container command stream. **Hive Mind now pins
+  `start-command@0.29.2`** (was `0.29.1`).
+- **link-foundation/box [#106](https://github.com/link-foundation/box/issues/106)**
+  (✅ **fixed** in [box PR #107](https://github.com/link-foundation/box/pull/107),
+  released as **`konard/box-dind:2.3.4`**) — the nested DinD daemon re-downloads
+  `konard/hive-mind-dind:2.0.6` (~30 GB) despite host passthrough (problem 4),
+  continuing #94/#102. Reproducer: `df -h` before/after shows ~30 GB consumed and
+  the run takes ~1 hour; workaround: mount
+  `-v /var/run/docker.sock:/var/run/host-docker.sock:ro` and set
+  `DIND_HOST_PASSTHROUGH_IMAGES`; fix: the dind entrypoint now verifies (via
+  `docker image inspect` against the nested daemon) that each concrete passthrough
+  allowlist entry was actually seeded and reports
+  `image preload/passthrough finished WITH WARNINGS` instead of a misleading
+  `complete` when it was not, so a misconfigured deploy can no longer silently
+  trigger the re-download. **`Dockerfile.dind` now bases on `konard/box-dind:2.3.5`**
+  (was `2.3.2`).
+
+See [`upstream/`](./upstream) for the exact issue bodies filed (those reflect the
+state at filing time, when both still reproduced on `start-command 0.29.1`).
 
 ## Alternatives Considered
 

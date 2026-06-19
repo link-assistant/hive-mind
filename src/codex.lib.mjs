@@ -358,6 +358,30 @@ const isNonFatalCodexItemErrorMessage = message => /^in-process app-server event
 export const getCodexErrorEventSummary = codexJsonState => {
   const events = [];
   const ignoredEvents = [];
+
+  // Issue #1955: When the codex turn genuinely completed (a `turn.completed`
+  // event was observed) and codex never emitted a `turn.failed`, the session
+  // SUCCEEDED. Any stray top-level `error` (stream) or nested item `error` event
+  // in that case is non-fatal and must not fail the run. Two things produce such
+  // strays:
+  //   1. A transient error codex itself retried/recovered from before completing
+  //      the turn (e.g. a momentary stream blip).
+  //   2. Echoed content that merely *looks* like a codex protocol event. The
+  //      codex CLI prints OTEL telemetry (`codex_otel.log_only`,
+  //      event.name="codex.tool_result") containing a raw `Output:` dump of each
+  //      command's stdout. When a command prints a line shaped like a protocol
+  //      event — e.g. a printed NDJSON fixture line
+  //      `{"type":"error","message":"Network lookup skipped in fixture"}` — our
+  //      line-by-line parser misreads it as a genuine codex stream error and
+  //      fails an otherwise-successful run. This was the exact false positive in
+  //      issue #1955 (codex finished, working tree clean, CI passed, yet the run
+  //      was reported failed).
+  // `turn.failed` is the authoritative failure signal, so it is NEVER suppressed
+  // here; only non-`turn` error events are gated on turn completion.
+  const turnCompleted = (codexJsonState?.eventCounts?.['turn.completed'] || 0) > 0;
+  const turnFailed = (codexJsonState?.turnFailures?.length || 0) > 0;
+  const sessionSucceeded = turnCompleted && !turnFailed;
+
   const addEvents = (type, items = []) => {
     for (const item of items) {
       const message = unwrapCodexErrorMessage(item?.message);
@@ -366,6 +390,13 @@ export const getCodexErrorEventSummary = codexJsonState => {
         ignoredEvents.push({
           ...event,
           reason: 'Codex app-server backpressure warning; the turn can still complete successfully',
+        });
+        continue;
+      }
+      if (type !== 'turn' && sessionSucceeded) {
+        ignoredEvents.push({
+          ...event,
+          reason: 'Codex turn completed successfully with no turn.failed; stray non-turn error event is non-fatal (Issue #1955)',
         });
         continue;
       }
@@ -1146,7 +1177,13 @@ export const executeCodexCommand = async params => {
       const codexErrorSummary = getCodexErrorEventSummary(codexJsonState);
       if (codexErrorSummary.ignoredEvents.length > 0) {
         const ignoredMessages = [...new Set(codexErrorSummary.ignoredEvents.map(event => event.message))].join('; ');
-        await log(`⚠️ Ignoring non-fatal Codex item error event(s): ${ignoredMessages}`, { level: 'warning', verbose: true });
+        await log(`⚠️ Ignoring non-fatal Codex error event(s): ${ignoredMessages}`, { level: 'warning', verbose: true });
+        // Issue #1955: trace why each stray error event was treated as non-fatal so a
+        // future regression (e.g. a real error wrongly suppressed) is diagnosable from
+        // the verbose log without re-deriving the turn.completed/turn.failed state.
+        for (const ignored of codexErrorSummary.ignoredEvents) {
+          await log(`   ↳ [${ignored.type}] "${ignored.message}" — ${ignored.reason}`, { verbose: true });
+        }
       }
       if (codexErrorSummary.hasError) {
         const limitSource = codexErrorSummary.message || lastMessage;

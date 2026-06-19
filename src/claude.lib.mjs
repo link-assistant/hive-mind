@@ -26,7 +26,7 @@ import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
-import { classifyRetryableError, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, logExecutionContext, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
@@ -619,18 +619,10 @@ export const executeClaudeCommand = async params => {
       await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
     }
     if (argv.verbose) {
-      // Output the actual model being used
-      const modelName = argv.model === 'opus' ? 'opus' : 'sonnet';
-      await log(`   Model: ${modelName}`, { verbose: true });
-      await log(`   Working directory: ${tempDir}`, { verbose: true });
-      await log(`   Branch: ${branchName}`, { verbose: true });
-      await log(`   Prompt length: ${prompt.length} chars`, { verbose: true });
-      await log(`   System prompt length: ${systemPrompt.length} chars`, { verbose: true });
-      if (feedbackLines && feedbackLines.length > 0) {
-        await log(`   Feedback info included: Yes (${feedbackLines.length} lines)`, { verbose: true });
-      } else {
-        await log('   Feedback info included: No', { verbose: true });
-      }
+      // Issue #1949: logExecutionContext shows the requested alias with its resolved
+      // full ID (e.g. "opus (claude-opus-4-8)"). The old `argv.model === 'opus' ?
+      // 'opus' : 'sonnet'` heuristic mislabelled every non-"opus" alias as "sonnet".
+      await logExecutionContext({ log, model: argv.model, tool: 'claude', tempDir, branchName, promptLength: prompt.length, systemPromptLength: systemPrompt.length, feedbackLines });
     }
     const resourcesBefore = await getResourceSnapshot();
     await log('📈 System resources before execution:', { verbose: true });
@@ -704,7 +696,13 @@ export const executeClaudeCommand = async params => {
     const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined; // Issue #1223
     const effectiveModel = resolvedPlanModel ? 'opusplan' : mappedModel;
     const resolvedExecutionModel = resolvedPlanModel ? mappedModel : undefined;
+    // Issue #1949: Let Claude Code handle transient overload (529) fallback via its own
+    // `--fallback-model` flag (it re-tries the primary each turn) instead of us swapping
+    // `--model`. Only for plain `--model` runs (not opusplan) with a distinct fallback.
+    const mappedFallbackModel = argv.fallbackModel ? mapModelToId(argv.fallbackModel) : undefined;
+    const useClaudeFallbackModel = !resolvedPlanModel && mappedFallbackModel && mappedFallbackModel !== effectiveModel;
     let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
+    if (useClaudeFallbackModel) claudeArgs += ` --fallback-model ${mappedFallbackModel}`;
     // Declare queuedFeedback for use in catch/finally blocks and return value
     let queuedFeedback = [];
     // Issue #817: When --accept-incomming-comments-as-input is set and we are
@@ -761,17 +759,19 @@ export const executeClaudeCommand = async params => {
       const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
       const mcpDisableArgs = mcpConfigPath ? ['--strict-mcp-config', '--mcp-config', mcpConfigPath] : [];
       const disallowedToolsArgs = disallowedToolsList.length ? ['--disallowedTools', ...disallowedToolsList] : [];
+      const fallbackModelArgs = useClaudeFallbackModel ? ['--fallback-model', mappedFallbackModel] : []; // Issue #1949: Claude Code's per-request overload fallback
+      if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });
       if (argv.resume) {
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
-        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else if (streamingInput) {
         // Issue #817: Drive Claude via --input-format stream-json on a pipe
         // stdin. Initial prompt + later PR comments are written as NDJSON
         // frames by attachStreamingInput (see bidirectional-interactive.lib.mjs).
         const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
-        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
-        execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
       }
       if (streamingInput) {
         await attachStreamingInput(bidirectionalHandler, execCommand, prompt, log, !!argv.verbose);

@@ -1,0 +1,1 @@
+{ "conclusion": "failure", "head_sha": "65ac1726e51fc9581d1de2fa58e089206d99390c", "html_url": "https://github.com/xlabtg/teleton-agent/actions/runs/27821270533", "id": 27821270533, "name": "CI", "path": ".github/workflows/ci.yml", "run_attempt": 1, "status": "completed" }

@@ -89,6 +89,44 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: true, isCapacity: false, label: 'Socket/connection closed unexpectedly' };
   }
 
+  // Issue #1955: Transient DNS resolution failures. When the local resolver, the
+  // upstream DNS, or the network briefly drops, Node's undici/fetch (and the Codex
+  // CLI's reqwest stack) surface the failure with one of these signatures:
+  //   getaddrinfo ENOTFOUND api.openai.com / getaddrinfo EAI_AGAIN api.github.com /
+  //   "Temporary failure in name resolution" / "dns error" / "failed to lookup
+  //   address information". These are 100% temporary — the host is not gone, name
+  //   resolution simply failed for a moment — so the same request is safe to retry
+  //   after a backoff. Switching models does not help (it is a network-layer fault),
+  //   so isCapacity is false.
+  // NOTE: deliberately scoped to real resolver error tokens so it never matches
+  // unrelated text that merely contains the word "lookup" (e.g. the echoed fixture
+  // line "Network lookup skipped in fixture" from issue #1955, which is not an error
+  // at all).
+  if (lower.includes('enotfound') || lower.includes('eai_again') || lower.includes('temporary failure in name resolution') || lower.includes('getaddrinfo') || lower.includes('dns error') || lower.includes('failed to lookup address information') || lower.includes('name or service not known')) {
+    return { message, isRetryable: true, isCapacity: false, label: 'DNS resolution failure' };
+  }
+
+  // Issue #1955: Transient connection-level network failures from the OS/socket
+  // layer — the peer is unreachable or refused the connection for a moment, or a
+  // connect/read timed out. These are temporary (load balancer rotating, a node
+  // briefly down, a VPN/proxy hiccup, a flaky link) and the identical request
+  // typically succeeds on retry. Covers Node libuv error codes and their textual
+  // equivalents. ETIMEDOUT/"timed out" here is the connection/socket timeout
+  // (distinct from the API-level "request timed out" handled above).
+  if (lower.includes('etimedout') || lower.includes('connection timed out') || lower.includes('econnrefused') || lower.includes('connection refused') || lower.includes('ehostunreach') || lower.includes('no route to host') || lower.includes('enetunreach') || lower.includes('network is unreachable') || lower.includes('epipe') || lower.includes('eai_fail')) {
+    return { message, isRetryable: true, isCapacity: false, label: 'Transient network connection failure' };
+  }
+
+  // Issue #1955: Transient HTTP gateway / proxy errors (502 Bad Gateway, 504 Gateway
+  // Timeout) and Cloudflare's edge family (520 Unknown Error, 521 Web Server Is Down,
+  // 522 Connection Timed Out, 523 Origin Is Unreachable, 524 A Timeout Occurred).
+  // These come from an intermediary (CDN/proxy/load balancer), not from a request the
+  // client got wrong, and clear on their own — OpenAI/Anthropic/GitHub all front their
+  // APIs with such proxies. Safe to retry the same request after a backoff.
+  if (lower.includes('502 bad gateway') || lower.includes('bad gateway') || lower.includes('504 gateway timeout') || lower.includes('gateway time-out') || lower.includes('gateway timeout') || lower.includes('api error: 502') || lower.includes('api error: 504') || /\b52[0-4]\b/.test(lower)) {
+    return { message, isRetryable: true, isCapacity: false, label: 'Gateway error (502/504/52x)' };
+  }
+
   // Issue #1834: Corrupted extended-thinking blocks. When extended thinking is combined with tool
   // use, Claude Code can persist a thinking block to the session transcript with the `thinking`
   // text emptied to "" while retaining the original `signature`. On resume/continue the block is
@@ -120,7 +158,10 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: true, isCapacity: false, label: 'Server rate limited (429)' };
   }
 
-  if (lower.includes('api error: 503') || (lower.includes('503') && (lower.includes('upstream connect error') || lower.includes('remote connection failure')))) {
+  // Issue #1955: broadened to also catch the bare "503 Service Unavailable" that
+  // GitHub/OpenAI/Anthropic return when a backend is briefly saturated — a
+  // transient, self-clearing condition, safe to retry with the same request.
+  if (lower.includes('api error: 503') || lower.includes('503 service unavailable') || lower.includes('service unavailable') || (lower.includes('503') && (lower.includes('upstream connect error') || lower.includes('remote connection failure')))) {
     return { message, isRetryable: true, isCapacity: false, label: '503 network error' };
   }
 

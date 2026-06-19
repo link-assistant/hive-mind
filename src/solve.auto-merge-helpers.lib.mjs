@@ -37,6 +37,12 @@ const { reportError } = sentryLib;
 const githubMergeLib = await import('./github-merge.lib.mjs');
 const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getWorkflowRunJobsCount, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI, getActivePRWorkflowRuns } = githubMergeLib;
 
+// Issue #1952: Cross-reference cancelled check-runs against workflow-run conclusions so a
+// job that hit `timeout-minutes` (check-run cancelled + workflow_run failed) is treated as a
+// CI failure rather than a re-triggerable cancellation that stops for human review.
+const cancelledCiRerunLib = await import('./cancelled-ci-rerun.lib.mjs');
+const { classifyCancelledCIByWorkflowRuns } = cancelledCiRerunLib;
+
 /**
  * Issue #1712: Plain-English meaning of GitHub Actions / check-run statuses, so the
  * verbose log explains itself instead of forcing the user to look up GitHub docs.
@@ -816,19 +822,60 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
         billingMessage: billingCheck.message,
       });
     } else {
-      // These need to be re-triggered, NOT treated as AI-fixable failures
+      // Issue #1952: A check-run with conclusion 'cancelled' does NOT always mean a
+      // re-triggerable cancellation. When a job hits its `timeout-minutes` limit GitHub
+      // cancels the job (check-run conclusion 'cancelled') but the parent workflow_run
+      // concludes 'failure'/'timed_out'/'startup_failure'. getDetailedCIStatus only sees the
+      // check-runs, so it reports status='cancelled' and we used to post a "Cancelled CI/CD
+      // Requires Review" comment and stop. Cross-reference the workflow runs for this SHA to
+      // tell the two cases apart:
+      //   - any run still queued/in_progress  → wait (ci_pending) until every check is terminal
+      //   - any completed run failed/timed out → treat as a CI failure (auto-restart the AI)
+      //   - otherwise                          → genuine re-triggerable cancellation (ci_cancelled)
       const cancelledOrStaleChecks = [...ciStatus.cancelledChecks, ...(ciStatus.staleChecks || [])];
       const cancelledDetails = cancelledOrStaleChecks.map(c => {
         const concPart = c.conclusion ? ` [${c.conclusion}]` : '';
         const urlPart = c.html_url ? ` — ${c.html_url}` : '';
         return `${c.name}${concPart}${urlPart}`;
       });
-      blockers.push({
-        type: 'ci_cancelled',
-        message: 'CI/CD checks were cancelled or became stale',
-        details: cancelledDetails,
-        sha: ciStatus.sha,
-      });
+
+      const cancelledWorkflowRuns = await getWorkflowRunsForSha(owner, repo, ciStatus.sha, verbose);
+      const { classification, incompleteRuns, failedRuns } = classifyCancelledCIByWorkflowRuns({ runs: cancelledWorkflowRuns });
+
+      if (classification === 'pending') {
+        // Some checks already show cancelled, but a workflow run is still running — the issue
+        // requires waiting until ALL checks reach a terminal state before auto-restarting.
+        if (verbose) {
+          await log(`[VERBOSE] /merge: PR #${prNumber} has cancelled check-run(s) but ${incompleteRuns.length} workflow run(s) still in progress — waiting for all to reach a terminal state before classifying`);
+        }
+        blockers.push({
+          type: 'ci_pending',
+          message: `Some CI/CD checks are cancelled, but ${incompleteRuns.length} workflow run(s) have not reached a terminal state yet — waiting before deciding`,
+          details: incompleteRuns.map(formatRunLine),
+        });
+      } else if (classification === 'failure') {
+        // The cancellation reflects a real failure (e.g. a job hit `timeout-minutes`). Per
+        // issue #1952 this must be treated as a CI failure so the AI is restarted to fix it,
+        // instead of posting a "requires human review" comment for a re-trigger that would
+        // never make progress.
+        if (verbose) {
+          await log(`[VERBOSE] /merge: PR #${prNumber} cancelled check-run(s) belong to ${failedRuns.length} failed workflow run(s) (conclusions: ${[...new Set(failedRuns.map(r => r.conclusion))].join(', ')}) — treating cancellation as a CI failure`);
+        }
+        await log(formatAligned('❌', 'CI cancelled by failure/timeout:', `${failedRuns.map(r => `${r.name} (${r.conclusion})`).join(', ')}`, 2));
+        blockers.push({
+          type: 'ci_failure',
+          message: 'CI/CD checks were cancelled by a workflow failure or timeout (treated as a failure)',
+          details: [...cancelledDetails, ...failedRuns.map(r => `${r.path || r.name} (${r.conclusion}) — see ${r.html_url}`)],
+        });
+      } else {
+        // Genuine re-triggerable cancellation (manual cancel, concurrency cancel, stale).
+        blockers.push({
+          type: 'ci_cancelled',
+          message: 'CI/CD checks were cancelled or became stale',
+          details: cancelledDetails,
+          sha: ciStatus.sha,
+        });
+      }
     }
   } else if (ciStatus.status === 'failure') {
     // Some checks genuinely failed - check if it's billing limits first

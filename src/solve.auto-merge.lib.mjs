@@ -489,7 +489,13 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
       // Cancelled checks (e.g., manually cancelled, cancelled by another workflow) should be
       // re-triggered automatically. We should NOT restart the AI for these.
       const cancelledBlocker = blockers.find(b => b.type === 'ci_cancelled');
-      if (cancelledBlocker && !billingBlocker) {
+      // Issue #1952: When a genuine CI failure coexists with cancelled checks, the result is a
+      // failure ("if we still have other fails in the CI/CD checks - it is fail"). Defer to the
+      // ci_failure path (which restarts the AI) instead of attempting a re-trigger and then
+      // stopping for human review — the latter posted a misleading "Cancelled CI/CD Requires
+      // Review" comment even though real failures needed fixing.
+      const ciFailureBlocker = blockers.find(b => b.type === 'ci_failure');
+      if (cancelledBlocker && !billingBlocker && !ciFailureBlocker) {
         await log('');
         await log(formatAligned('🔄', 'CANCELLED CI/CD CHECKS DETECTED', ''));
         await log(formatAligned('', 'Cancelled checks:', (cancelledBlocker.details || []).join(', '), 2));
@@ -570,7 +576,9 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
       // Reason 2: CI failures (only if NOT a billing limit issue and NOT just cancelled)
       // Only restart AI when we have genuine code failures (real feedback to act on)
       const externalReviewLimitBlocker = blockers.find(b => b.type === 'external_review_limit');
-      const ciBlocker = blockers.find(b => b.type === 'ci_failure');
+      // Issue #1952: Reuse the ci_failure blocker resolved above so cancelled+failure mixes
+      // take the restart path rather than the cancelled-review path.
+      const ciBlocker = ciFailureBlocker;
       const hasMergeConflictBlocker = blockers.some(b => b.type === 'not_mergeable' && b.message?.includes('conflicts'));
       if (externalReviewLimitBlocker && !ciBlocker && !billingBlocker && !cancelledBlocker && !hasNewComments && !hasUncommittedChanges && !hasMergeConflictBlocker) {
         await log('');

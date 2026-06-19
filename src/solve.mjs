@@ -942,10 +942,10 @@ try {
             toolName: getToolDisplayName(argv.tool),
             resumeCommand,
             sessionId,
+            argv,
             requestedModel: argv.originalModel || argv.model,
             tool: argv.tool || 'claude',
-            // Issue #1454: Pass resultModelUsage for accurate multi-model display
-            resultModelUsage,
+            resultModelUsage, // Issue #1454: accurate multi-model display
           });
 
           if (logUploadSuccess) {
@@ -1014,10 +1014,10 @@ try {
               // See: https://github.com/link-assistant/hive-mind/issues/1152
               isAutoResumeEnabled: true,
               autoResumeMode: limitContinueMode,
+              argv,
               requestedModel: argv.originalModel || argv.model,
               tool: argv.tool || 'claude',
-              // Issue #1454: Pass resultModelUsage for accurate multi-model display
-              resultModelUsage,
+              resultModelUsage, // Issue #1454: accurate multi-model display
             });
 
             if (logUploadSuccess) {
@@ -1125,10 +1125,10 @@ try {
           sessionId,
           // If not a usage limit case, fall back to generic failure format
           errorMessage: limitReached ? undefined : toolFailureMessage,
+          argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
-          // Issue #1454: Pass resultModelUsage for accurate multi-model display
-          resultModelUsage,
+          resultModelUsage, // Issue #1454: accurate multi-model display
         });
 
         if (logUploadSuccess) {
@@ -1380,10 +1380,10 @@ try {
           sessionId,
           tempDir,
           anthropicTotalCostUSD,
+          argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
-          // Issue #1454: Pass resultModelUsage for accurate multi-model display
-          resultModelUsage,
+          resultModelUsage, // Issue #1454: accurate multi-model display
         });
 
         if (logUploadSuccess) {

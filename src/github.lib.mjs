@@ -5,7 +5,7 @@ if (typeof globalThis.use === 'undefined') await ensureUseM();
 const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
 import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { githubLimits, timeouts } from './config.lib.mjs';
+import { describeRequestedThinking, githubLimits, timeouts } from './config.lib.mjs';
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent }; // Re-export for backward compatibility
@@ -356,6 +356,8 @@ export async function attachLogToGitHub(options) {
     pricingInfo = null,
     errorDuringExecution = false, // Issue #1088
     requestedModel = null, // Issue #1225: The --model flag value
+    argv = null, // Issue #1949: parsed CLI args, used to derive the requested thinking level for the comment
+    thinkingInfo = null, // Issue #1949: explicit thinking level description (overrides the value derived from argv)
     tool = null, // The tool used (claude, agent, opencode, codex)
     resultModelUsage = null, // Issue #1454
     budgetStatsData = null, // Issue #1491: budget stats for comment
@@ -428,7 +430,10 @@ export async function attachLogToGitHub(options) {
     let modelInfoString = '';
     if (requestedModel || tool || actualModelIds) {
       try {
-        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds });
+        // Issue #1949: prefer an explicit thinkingInfo, otherwise derive it from argv
+        // (e.g. "high (~24000 tokens)"). null when the run used the tool's default.
+        const resolvedThinkingInfo = thinkingInfo ?? describeRequestedThinking(argv);
+        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo });
         if (verbose && modelInfoString) {
           await log('  🤖 Model info fetched for comment', { verbose: true });
         }

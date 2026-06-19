@@ -206,6 +206,7 @@ export async function notifyIssueAboutPrePullRequestFailure(options) {
           verbose: argv.verbose,
           errorMessage: `${errorPrefix}\n\nReason: ${reason || 'Unknown error'}`,
           failureActionSection: buildPrePullRequestFailureActionSection(reason),
+          argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
         });

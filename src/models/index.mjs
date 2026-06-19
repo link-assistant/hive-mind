@@ -926,7 +926,7 @@ const doesRequestedMatchActual = (requestedModel, actualModelId, tool) => {
  * @param {Array<{modelId: string, modelInfo: Object|null}>|null} options.modelsUsed - Actual models used from CLI JSON output
  * @returns {string} Formatted markdown string for model info section
  */
-export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null } = {}) => {
+export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null, thinkingInfo = null } = {}) => {
   const hasRequested = requestedModel !== null && requestedModel !== undefined;
   const hasModelsUsed = Array.isArray(modelsUsed) && modelsUsed.length > 0;
   const hasModelInfo = modelInfo !== null;
@@ -941,7 +941,22 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
   }
 
   if (hasRequested) {
-    info += `\n- Requested: \`${requestedModel}\``;
+    // Issue #1949: the bare alias (e.g. "opus") is ambiguous \u2014 show the full model
+    // ID it resolves to so reviewers know exactly which model ran, e.g.
+    // "Requested: `opus` (`claude-opus-4-8`)". When the alias already equals its
+    // resolved ID (or cannot be resolved) we just print the alias once.
+    const resolvedRequested = resolveModelId(requestedModel, tool);
+    if (resolvedRequested && String(resolvedRequested).toLowerCase() !== String(requestedModel).toLowerCase()) {
+      info += `\n- Requested: \`${requestedModel}\` (\`${resolvedRequested}\`)`;
+    } else {
+      info += `\n- Requested: \`${requestedModel}\``;
+    }
+  }
+
+  // Issue #1949: surface the requested thinking level alongside the model so the
+  // comment records how deeply the model was asked to think (null = tool default).
+  if (thinkingInfo) {
+    info += `\n- Thinking level: ${thinkingInfo}`;
   }
 
   if (hasModelsUsed) {
@@ -1044,7 +1059,7 @@ export const resolveDefaultFallbackModel = (tool, model) => {
  * @param {Array<string>|null} options.actualModelIds - Actual model IDs from CLI JSON output
  * @returns {Promise<string>} Formatted markdown model info section
  */
-export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null } = {}) => {
+export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null, thinkingInfo = null } = {}) => {
   let modelIds = [];
 
   if (Array.isArray(actualModelIds) && actualModelIds.length > 0) {
@@ -1075,5 +1090,6 @@ export const getModelInfoForComment = async ({ requestedModel = null, tool = nul
     pricingInfo,
     modelInfo: modelsUsed.length === 0 ? firstModelInfo : null,
     modelsUsed: modelsUsed.length > 0 ? modelsUsed : null,
+    thinkingInfo,
   });
 };

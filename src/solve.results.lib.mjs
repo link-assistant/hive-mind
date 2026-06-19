@@ -875,6 +875,7 @@ Fixes ${issueRef}
             // Issue #1152: Pass sessionType for differentiated log comments
             sessionType,
             // Issue #1225: Pass model and tool info for PR comments
+            argv,
             requestedModel: argv.originalModel || argv.model,
             tool: argv.tool || 'claude',
             // Issue #1454: Pass resultModelUsage for accurate multi-model display
@@ -961,6 +962,7 @@ Fixes ${issueRef}
           // Issue #1152: Pass sessionType for differentiated log comments
           sessionType,
           // Issue #1225: Pass model and tool info for issue comments
+          argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
           // Issue #1454: Pass resultModelUsage for accurate multi-model display
@@ -1052,6 +1054,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           verbose: argv.verbose || false,
           errorMessage: cleanErrorMessage(error),
           // Issue #1225: Pass model and tool info for PR comments
+          argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
         });

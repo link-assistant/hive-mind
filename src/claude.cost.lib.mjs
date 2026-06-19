@@ -8,12 +8,22 @@
 import Decimal from 'decimal.js-light';
 import { SERVER_TOOL_PRICING_USD } from './anthropic-server-tool-pricing.lib.mjs';
 
+const getCacheWrite5mPrice = cost => cost.cache_write_5m ?? cost.cache_write ?? 0;
+
+const getCacheWrite1hPrice = (cost, cacheWrite5mPrice) => {
+  if (cost.cache_write_1h !== undefined && cost.cache_write_1h !== null) return cost.cache_write_1h;
+  if (cost.input) return new Decimal(cost.input).mul(2).toNumber();
+  if (cacheWrite5mPrice) return new Decimal(cacheWrite5mPrice).mul(1.6).toNumber();
+  return 0;
+};
+
 /**
  * Calculate USD cost for a model's usage with optional detailed breakdown.
  *
  * Cost components (Issue #1600 uses Decimal for precision):
  *   - input        × cost.input        / 1M
- *   - cacheWrite   × cost.cache_write  / 1M
+ *   - cacheWrite5m × cost.cache_write  / 1M
+ *   - cacheWrite1h × (cost.cache_write_1h || cost.input × 2) / 1M
  *   - cacheRead    × cost.cache_read   / 1M
  *   - output       × cost.output       / 1M
  *   - webSearch    × $0.01 / request   (Issue #1710 — see SERVER_TOOL_PRICING_USD)
@@ -32,6 +42,8 @@ export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) =
   const breakdown = {
     input: { tokens: 0, costPerMillion: 0, cost: 0 },
     cacheWrite: { tokens: 0, costPerMillion: 0, cost: 0 },
+    cacheWrite5m: { tokens: 0, costPerMillion: 0, cost: 0 },
+    cacheWrite1h: { tokens: 0, costPerMillion: 0, cost: 0 },
     cacheRead: { tokens: 0, costPerMillion: 0, cost: 0 },
     output: { tokens: 0, costPerMillion: 0, cost: 0 },
     // Issue #1710: server-side tool usage (web_search) is billed per-request,
@@ -47,11 +59,35 @@ export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) =
       cost: new Decimal(usage.inputTokens).div(million).mul(new Decimal(cost.input)).toNumber(),
     };
   }
-  if (usage.cacheCreationTokens && cost.cache_write) {
+  const explicitCacheWrite5mTokens = usage.cacheCreation5mTokens || 0;
+  const explicitCacheWrite1hTokens = usage.cacheCreation1hTokens || 0;
+  const explicitCacheWriteTokens = explicitCacheWrite5mTokens + explicitCacheWrite1hTokens;
+  const cacheWriteTokens = Math.max(usage.cacheCreationTokens || 0, explicitCacheWriteTokens);
+  const hasCacheWriteTtlSplit = explicitCacheWriteTokens > 0;
+  const unsplitCacheWriteTokens = hasCacheWriteTtlSplit ? Math.max(0, cacheWriteTokens - explicitCacheWriteTokens) : cacheWriteTokens;
+  const cacheWrite5mTokens = hasCacheWriteTtlSplit ? explicitCacheWrite5mTokens + unsplitCacheWriteTokens : cacheWriteTokens;
+  const cacheWrite1hTokens = hasCacheWriteTtlSplit ? explicitCacheWrite1hTokens : 0;
+  const cacheWrite5mPrice = getCacheWrite5mPrice(cost);
+  const cacheWrite1hPrice = getCacheWrite1hPrice(cost, cacheWrite5mPrice);
+  if (cacheWriteTokens && (cacheWrite5mPrice || cacheWrite1hPrice)) {
+    const cacheWrite5mCost = new Decimal(cacheWrite5mTokens).div(million).mul(new Decimal(cacheWrite5mPrice)).toNumber();
+    const cacheWrite1hCost = new Decimal(cacheWrite1hTokens).div(million).mul(new Decimal(cacheWrite1hPrice)).toNumber();
+    const cacheWriteCost = new Decimal(cacheWrite5mCost).plus(new Decimal(cacheWrite1hCost)).toNumber();
     breakdown.cacheWrite = {
-      tokens: usage.cacheCreationTokens,
-      costPerMillion: cost.cache_write,
-      cost: new Decimal(usage.cacheCreationTokens).div(million).mul(new Decimal(cost.cache_write)).toNumber(),
+      tokens: cacheWriteTokens,
+      costPerMillion: hasCacheWriteTtlSplit ? new Decimal(cacheWriteCost).div(new Decimal(cacheWriteTokens)).mul(million).toNumber() : cacheWrite5mPrice,
+      cost: cacheWriteCost,
+      hasExplicitTtlSplit: hasCacheWriteTtlSplit,
+    };
+    breakdown.cacheWrite5m = {
+      tokens: cacheWrite5mTokens,
+      costPerMillion: cacheWrite5mPrice,
+      cost: cacheWrite5mCost,
+    };
+    breakdown.cacheWrite1h = {
+      tokens: cacheWrite1hTokens,
+      costPerMillion: cacheWrite1hPrice,
+      cost: cacheWrite1hCost,
     };
   }
   if (usage.cacheReadTokens && cost.cache_read) {

@@ -111,16 +111,26 @@ export const displayModelUsage = async (usage, log) => {
     await log('');
     await log('      Cost Calculation (USD):');
     const breakdown = usage.costBreakdown;
-    const types = [
-      { key: 'input', label: 'Input' },
-      { key: 'cacheWrite', label: 'Cache write' },
-      { key: 'cacheRead', label: 'Cache read' },
-      { key: 'output', label: 'Output' },
-    ];
-    for (const { key, label } of types) {
-      if (breakdown[key].tokens > 0) {
-        await log(`        ${label}: ${formatNumber(breakdown[key].tokens)} tokens × $${breakdown[key].costPerMillion}/M = $${new Decimal(breakdown[key].cost).toFixed(6)}`);
+    if (breakdown.input.tokens > 0) {
+      await log(`        Input: ${formatNumber(breakdown.input.tokens)} tokens × $${breakdown.input.costPerMillion}/M = $${new Decimal(breakdown.input.cost).toFixed(6)}`);
+    }
+    if (breakdown.cacheWrite?.tokens > 0) {
+      if (breakdown.cacheWrite.hasExplicitTtlSplit) {
+        if (breakdown.cacheWrite5m.tokens > 0) {
+          await log(`        Cache write (5m): ${formatNumber(breakdown.cacheWrite5m.tokens)} tokens × $${breakdown.cacheWrite5m.costPerMillion}/M = $${new Decimal(breakdown.cacheWrite5m.cost).toFixed(6)}`);
+        }
+        if (breakdown.cacheWrite1h.tokens > 0) {
+          await log(`        Cache write (1h): ${formatNumber(breakdown.cacheWrite1h.tokens)} tokens × $${breakdown.cacheWrite1h.costPerMillion}/M = $${new Decimal(breakdown.cacheWrite1h.cost).toFixed(6)}`);
+        }
+      } else {
+        await log(`        Cache write: ${formatNumber(breakdown.cacheWrite.tokens)} tokens × $${breakdown.cacheWrite.costPerMillion}/M = $${new Decimal(breakdown.cacheWrite.cost).toFixed(6)}`);
       }
+    }
+    if (breakdown.cacheRead.tokens > 0) {
+      await log(`        Cache read: ${formatNumber(breakdown.cacheRead.tokens)} tokens × $${breakdown.cacheRead.costPerMillion}/M = $${new Decimal(breakdown.cacheRead.cost).toFixed(6)}`);
+    }
+    if (breakdown.output.tokens > 0) {
+      await log(`        Output: ${formatNumber(breakdown.output.tokens)} tokens × $${breakdown.output.costPerMillion}/M = $${new Decimal(breakdown.output.cost).toFixed(6)}`);
     }
     // Issue #1710: itemise server-tool charges so the residual that puzzled
     // readers in PR #1707 ($0.04 web_search) is visible in the breakdown.

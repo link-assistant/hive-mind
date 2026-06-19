@@ -58,6 +58,7 @@ const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('
 const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.disk-diagnostics.lib.mjs');
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
+const { attachFinalLogIfMissing } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's
 // own usage-limit notifications (so they're excluded from the
 // "did the AI post anything?" check in --auto-attach-solution-summary).
@@ -1430,12 +1431,10 @@ try {
         }
       }
     }
-
-    // If auto-merge succeeded, update logs attached status
-    if (autoMergeResult && autoMergeResult.success) {
-      logsAttached = true;
-    }
   }
+
+  // Issue #1952: Final --attach-logs safety net + logsAttached reconciliation. See attach-logs-guarantee.lib.mjs.
+  logsAttached = (await attachFinalLogIfMissing({ shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage })) || logsAttached;
 
   // Issue #1516: Cleanup after all signals (was before verifyResults, caused premature commits)
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);

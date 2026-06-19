@@ -790,6 +790,9 @@ ${sessionNote}
             await log(`  ${status.emoji} ${status.label} uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
             await log(`  🔗 Log URL: ${logUrl}`);
             await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
+            // Issue #1952: Record that a session log was attached anywhere in this process so the
+            // top-level --attach-logs safety net can guarantee no session finishes with no logs.
+            global.logAttachedToGitHub = true;
             return true;
           } else {
             await log(`  ❌ Failed to post comment with log link: ${posted.stderr || 'unknown error'}`);
@@ -813,7 +816,12 @@ ${sessionNote}
       }
     } else {
       // Comment fits within limit
-      return await attachRegularComment(options, logComment);
+      const regularOk = await attachRegularComment(options, logComment);
+      // Issue #1952: see note above — mark a successful attach for the --attach-logs safety net.
+      if (regularOk) {
+        global.logAttachedToGitHub = true;
+      }
+      return regularOk;
     }
   } catch (uploadError) {
     // Issue #1212: ENOSPC-specific actionable guidance

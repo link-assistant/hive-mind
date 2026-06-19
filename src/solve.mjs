@@ -55,6 +55,7 @@ const { configureWorkingSession, beginWorkingSession, endWorkingSession } = awai
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
 const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('./solve.repo-setup.lib.mjs');
+const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.disk-diagnostics.lib.mjs');
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's
@@ -501,6 +502,8 @@ try {
     needsClone,
   });
 
+  cleanupContext.diskDiagnostics = { beforeBytes: await recordAfterCloneSize({ tempDir, log }) };
+
   // Verify default branch and status using the new module
   // Pass argv, owner, repo, issueUrl for empty repository auto-initialization (--auto-init-repository)
   const defaultBranch = await verifyDefaultBranchAndStatus({
@@ -812,6 +815,12 @@ try {
       $,
     });
     toolResult = claudeResult;
+  }
+
+  try {
+    await recordAfterAgentSize({ tempDir, beforeBytes: cleanupContext.diskDiagnostics?.beforeBytes ?? null, log });
+  } catch (diskError) {
+    await log(`⚠️  Disk-size measurement failed: ${cleanErrorMessage(diskError)}`, { level: 'warning', verbose: true });
   }
 
   // Issue #1823: Mark the end of the AI working session. If a graceful-shutdown interrupt arrived

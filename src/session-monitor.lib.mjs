@@ -323,6 +323,28 @@ async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = fal
   }
 }
 
+/**
+ * Issue #1945: Parse `📊 [DISK]` checkpoint markers out of the captured solve
+ * log and, when the captured sizes cross the 5 GB threshold(s), build a
+ * Telegram extraSection that warns the operator. Returns an empty string if
+ * the log is unreadable or contains no markers.
+ */
+async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, readFile = fs.readFile } = {}) {
+  if (!logPath) return '';
+  try {
+    const diskLib = await import('./solve.disk-diagnostics.lib.mjs');
+    const logText = await readFile(logPath, 'utf8');
+    const parsed = diskLib.parseDiskMarkers(logText);
+    if (!parsed.afterClone && !parsed.afterAgent) return '';
+    return diskLib.formatDiskDiagnosticsBlock(parsed);
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] Could not inspect session log ${logPath} for disk diagnostics: ${error?.message || error}`);
+    }
+    return '';
+  }
+}
+
 function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) {
   const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
   const elapsed = Date.now() - startTime.getTime();
@@ -674,6 +696,20 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
 
+        // Issue #1945: append a "💾 Disk usage" block (with warnings when the
+        // cloned repo, the delta during the run, or the total exceed 5 GB)
+        // parsed from the captured solve log markers.
+        const diskExtraSections = [];
+        try {
+          const diskLogPath = statusResult?.logPath || sessionInfo?.logPath || null;
+          const diskBlock = await buildDiskDiagnosticsExtraSection(diskLogPath, { verbose });
+          if (diskBlock) diskExtraSections.push(diskBlock);
+        } catch (diskError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Could not build disk diagnostics section for ${sessionName}: ${diskError?.message || diskError}`);
+          }
+        }
+
         const message = formatSessionCompletionMessage({
           sessionName,
           sessionInfo,
@@ -682,7 +718,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           exitCode: finalExitCode,
           infoBlock: sessionInfo?.infoBlock || '',
           pullRequestUrl,
-          extraSections: [...limitsExtraSections, ...resumeExtraSections],
+          extraSections: [...limitsExtraSections, ...resumeExtraSections, ...diskExtraSections],
         });
 
         // Update the original reply message if messageId is available, otherwise send new message

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.9
+
+### Patch Changes
+
+- c8b241a: Fix Claude public cost estimates for 1-hour prompt-cache writes by pricing `cache_creation.ephemeral_1h_input_tokens` at the documented 2x input rate instead of the 5-minute cache-write rate.
+
 ## 2.0.8
 
 ### Patch Changes

@@ -413,6 +413,42 @@ export const getTokensToThinkingLevel = (maxBudget = DEFAULT_MAX_THINKING_BUDGET
 export const tokensToThinkingLevel = getTokensToThinkingLevel(DEFAULT_MAX_THINKING_BUDGET);
 
 /**
+ * Issue #1949: Produce a human-readable description of the thinking level that was
+ * requested for a run, for inclusion in the PR/issue "Models used" comment. The
+ * user asked us to "display requested and (actual thinking level if possible)".
+ *
+ * The level is derived from `argv.think` (an explicit level keyword) and/or
+ * `argv.thinkingBudget` (an explicit token budget), mirroring the same translation
+ * logic used by resolveThinkingSettings():
+ *   - When only --think is given, show the keyword (with the token budget it maps to).
+ *   - When only --thinking-budget is given, derive the keyword from the budget.
+ *   - When neither is given, the level is the tool's default → returns null so the
+ *     caller can omit the line rather than guess.
+ *
+ * @param {Object} argv - Parsed CLI args (reads think, thinkingBudget, maxThinkingBudget)
+ * @returns {string|null} e.g. "high (~24000 tokens)", "off (disabled)", or null
+ */
+export const describeRequestedThinking = (argv = {}) => {
+  if (!argv || typeof argv !== 'object') return null;
+  const maxBudget = argv.maxThinkingBudget ?? DEFAULT_MAX_THINKING_BUDGET;
+  const levelToTokens = getThinkingLevelToTokens(maxBudget);
+  const tokensToLevel = getTokensToThinkingLevel(maxBudget);
+
+  let level = argv.think;
+  let budget = argv.thinkingBudget;
+
+  // Neither specified → tool default; the caller omits the line.
+  if (level === undefined && budget === undefined) return null;
+
+  if (level === undefined && budget !== undefined) level = tokensToLevel(budget);
+  if (budget === undefined && level !== undefined) budget = levelToTokens[level];
+
+  if (level === 'off' || budget === 0) return 'off (disabled)';
+  if (budget !== undefined && budget !== null) return `${level} (~${budget} tokens)`;
+  return String(level);
+};
+
+/**
  * Valid effort levels for Opus 4.6 and Sonnet 4.6 (Issue #1238, Issue #1620)
  * These models use CLAUDE_CODE_EFFORT_LEVEL for thinking depth control
  * @type {string[]}

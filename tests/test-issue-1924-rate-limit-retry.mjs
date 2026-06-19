@@ -118,10 +118,12 @@ for (const message of USAGE_LIMIT_CASES) {
 // ============================================================
 console.log('\n=== 4. Pre-existing transient classifications still work ===');
 
-test('"Overloaded" remains retryable (capacity)', () => {
+test('"Overloaded" remains retryable (Issue #1949: transient, not capacity)', () => {
   const result = classifyRetryableError('Overloaded');
   assert.strictEqual(result.isRetryable, true);
-  assert.strictEqual(result.isCapacity, true);
+  // Issue #1949: a server-wide overload (529) is transient, not a model-specific
+  // capacity problem, so it must NOT trigger a --model fallback switch.
+  assert.strictEqual(result.isCapacity, false);
 });
 
 test('"Request timed out" remains retryable', () => {

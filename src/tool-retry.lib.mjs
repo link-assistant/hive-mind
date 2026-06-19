@@ -27,12 +27,28 @@ export const classifyRetryableError = value => {
   const message = normalizeMessage(value);
   const lower = message.toLowerCase();
 
+  // Genuine model-specific capacity: the API explicitly tells us this *particular*
+  // model is full and recommends trying a *different* model (e.g. Codex's
+  // "Selected model is at capacity. Please try a different model."). Here a model
+  // switch is the correct, API-recommended recovery, so isCapacity stays true.
   if (lower.includes('selected model is at capacity') || (lower.includes('at capacity') && lower.includes('try a different model'))) {
     return { message, isRetryable: true, isCapacity: true, label: 'Model capacity error' };
   }
 
+  // Issue #1949: Transient server-wide overload (HTTP 529 / "overloaded_error"). The
+  // Claude API surfaces this as a synthetic result message:
+  //   "API Error: 529 Overloaded. This is a server-side issue, usually temporary —
+  //    try again in a moment. If it persists, check https://status.claude.com."
+  // This is NOT a model-specific capacity problem — Anthropic's own guidance is to
+  // retry the *same* request after a short backoff (the message literally says "try
+  // again in a moment"). Switching the requested `--model` to a fallback (e.g.
+  // opus -> opus-4-7) is wrong here: it silently downgrades the user's chosen model
+  // for a purely transient blip, and the fallback model lives behind the same
+  // overloaded API anyway. Claude Code already exposes its own per-request fallback
+  // via `--fallback-model` (wired in claude.lib.mjs), so we keep `--model` stable and
+  // simply retry. Therefore isCapacity is false → retry with the same model.
   if (lower.includes('overloaded') || lower.includes('overloaded_error')) {
-    return { message, isRetryable: true, isCapacity: true, label: 'API overload' };
+    return { message, isRetryable: true, isCapacity: false, label: 'API overload' };
   }
 
   if (lower.includes('request timed out')) {
@@ -140,6 +156,34 @@ export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredF
   return resolveDefaultFallbackModel(tool, currentModel);
 };
 
+// Issue #1949: Render a model alias together with the full ID it resolves to, e.g.
+// "opus (claude-opus-4-8)". Earlier the warning printed only the bare alias, so a
+// message like "Switching to fallback model: opus -> opus-4-7" was ambiguous (what
+// does "opus" actually map to?). Showing both removes that ambiguity. When the alias
+// already equals its resolved ID (or cannot be resolved) we just print the alias.
+export const formatModelWithResolvedId = (model, tool) => {
+  if (!model) return String(model);
+  const resolved = resolveModelId(model, tool);
+  if (!resolved || normalizeModelKey(resolved) === normalizeModelKey(model)) return String(model);
+  return `${model} (${resolved})`;
+};
+
+// Issue #1949: Shared verbose "execution context" logger. Extracted from
+// claude.lib.mjs so the per-tool retry loops can emit a consistent pre-run summary
+// (resolved model, working dir, branch, prompt sizes, feedback) without each file
+// duplicating the block. The model line uses formatModelWithResolvedId so the alias
+// and its full ID are always shown together (e.g. "opus (claude-opus-4-8)").
+export const logExecutionContext = async ({ log, model, tool, tempDir, branchName, promptLength, systemPromptLength, feedbackLines } = {}) => {
+  if (typeof log !== 'function') return;
+  await log(`   Model: ${formatModelWithResolvedId(model, tool)}`, { verbose: true });
+  await log(`   Working directory: ${tempDir}`, { verbose: true });
+  await log(`   Branch: ${branchName}`, { verbose: true });
+  await log(`   Prompt length: ${promptLength} chars`, { verbose: true });
+  await log(`   System prompt length: ${systemPromptLength} chars`, { verbose: true });
+  const feedbackCount = feedbackLines && feedbackLines.length > 0 ? feedbackLines.length : 0;
+  await log(feedbackCount > 0 ? `   Feedback info included: Yes (${feedbackCount} lines)` : '   Feedback info included: No', { verbose: true });
+};
+
 export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage } = {}) => {
   const fallbackModel = resolveConfiguredFallbackModel({
     tool,
@@ -148,7 +192,17 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
   });
 
   const classification = classifyRetryableError(errorMessage);
+
+  // Issue #1949: Only switch the requested `--model` for genuine model-specific
+  // capacity errors where the API itself recommends a different model. Transient,
+  // retryable conditions (overload/529, timeouts, rate limits, socket drops, …) are
+  // classified with isCapacity=false and must retry the *same* model — Claude Code's
+  // own `--fallback-model` handles per-request fallback for those without us mutating
+  // the user's chosen model.
   if (!fallbackModel || !classification.isCapacity || !argv?.model) {
+    if (typeof log === 'function' && classification.isRetryable && !classification.isCapacity) {
+      await log(`   Keeping requested model ${formatModelWithResolvedId(argv?.model, tool)} (transient ${classification.label || 'error'} — no fallback switch, Issue #1949)`, { verbose: true });
+    }
     return { switched: false, fallbackModel, reason: classification.label };
   }
 
@@ -163,7 +217,9 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
   if (!argv.fallbackModel) argv.fallbackModel = fallbackModel;
 
   if (typeof log === 'function') {
-    await log(`🔀 Switching to fallback model: ${previousModel} -> ${fallbackModel}`, { level: 'warning' });
+    // Issue #1949: show the resolved full model IDs so the switch is unambiguous,
+    // e.g. "opus (claude-opus-4-8) -> opus-4-7 (claude-opus-4-7)".
+    await log(`🔀 Switching to fallback model: ${formatModelWithResolvedId(previousModel, tool)} -> ${formatModelWithResolvedId(fallbackModel, tool)}`, { level: 'warning' });
   }
 
   return {
@@ -180,4 +236,6 @@ export default {
   waitWithCountdown,
   resolveConfiguredFallbackModel,
   maybeSwitchToFallbackModel,
+  formatModelWithResolvedId,
+  logExecutionContext,
 };

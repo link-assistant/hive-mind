@@ -192,17 +192,23 @@ no-ops when `DIND_HOST_PASSTHROUGH_IMAGES` is set but no host docker socket is
 mounted). Hive Mind already detects and warns about this in
 `preflightDockerIsolation` (`src/isolation-runner.lib.mjs`) and logs a
 post-launch image-presence diagnostic (`logDockerIsolationPostLaunchDiagnostics`,
-verbose). The actual passthrough must be wired up in the deployment / box.
+verbose). The actual passthrough must be wired up in the deployment / box. The
+silent-no-op half was **fixed in `box-dind` 2.3.4** (link-foundation/box#106): the
+dind entrypoint now verifies each concrete passthrough allowlist entry actually
+seeded the nested daemon and reports `finished WITH WARNINGS` instead of a
+misleading `complete`. `Dockerfile.dind` now bases on `konard/box-dind:2.3.5`.
 
 ## Online And Source Facts
 
-- `start-command` latest published version is `0.29.1`
+- At capture time `start-command` latest published version was `0.29.1`
   (`raw/start-command-npm.json`); this is the release that fixed the #1939
   premature-status bug, and the #1946 transcript confirms that fix held
   (`status executing`, both ids present — no `executed/-1`). The image-prep
-  logging gap (R3/R5) is a separate, still-open behaviour.
+  logging gap (R3/R5) was a separate behaviour, **since fixed in `0.29.2`**
+  (link-foundation/start#138) and now pinned by this repo's images.
 - The transcript's `$ --version` block shows `start-command version: 0.29.1`,
-  `tmux: not installed`, `docker: 29.5.3` — i.e. the run used the fixed `$`.
+  `tmux: not installed`, `docker: 29.5.3` — i.e. the run used the fixed `$`
+  (the image-prep logging fix landed one patch later, in `0.29.2`).
 - `docker run` uses Docker's default "missing" pull policy, so a host image
   seeded into the nested daemon (box passthrough) is reused, not re-pulled — no
   `--pull` plumbing is required on the Hive Mind side (issue #1879). The

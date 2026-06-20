@@ -873,7 +873,7 @@ async function handleSolveCommand(ctx) {
   }
   // Issue #1714: read the parsed argv (default-on per #1694) instead of the raw args list,
   // so the invite hint is suppressed on the default-on path where the literal flag is absent.
-  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, verbose: VERBOSE, autoAcceptInvite: !!parsedSolveArgs?.autoAcceptInvite });
+  const entityCheck = await validateGitHubEntityExistence({ owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, baseBranch: parsedSolveArgs?.baseBranch, verbose: VERBOSE, autoAcceptInvite: !!parsedSolveArgs?.autoAcceptInvite });
   if (!entityCheck.valid) {
     await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
     return;

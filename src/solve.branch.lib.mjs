@@ -308,6 +308,10 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
   // Create a branch for the issue or checkout existing PR branch
   let branchName;
   let checkoutResult;
+  // Tracked across the create path so the error handler can report the real
+  // root cause when branch creation fails from a missing base branch (issue #1959).
+  let baseBranchForError = null;
+  let branchSourceForError = null;
 
   if (isContinueMode && prBranch) {
     // Continue mode: checkout existing PR branch
@@ -324,6 +328,8 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
     // Use user-specified base branch if provided, otherwise use repository default
     const baseBranch = argv.baseBranch || defaultBranch;
     const branchSource = argv.baseBranch ? 'custom' : 'default';
+    baseBranchForError = baseBranch;
+    branchSourceForError = branchSource;
 
     // Defense-in-depth: validate base branch name even if already validated at CLI parsing (issue #1482)
     const baseBranchValidation = validateBranchName(baseBranch);
@@ -391,6 +397,8 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
         tempDir,
         owner,
         repo,
+        baseBranch: baseBranchForError,
+        branchSource: branchSourceForError,
         formatAligned,
         log,
       });

@@ -289,7 +289,7 @@ if (!hasWriteAccess) {
 }
 
 // Issue #1552: Validate entity existence AFTER permissions (cascade: user/org → repo → issue/PR)
-const entityCheck = await (await import('./github-entity-validation.lib.mjs')).validateGitHubEntityExistence({ owner, repo, number: urlNumber, type: isIssueUrl ? 'issue' : isPrUrl ? 'pull' : undefined, verbose: argv.verbose, autoAcceptInvite: !!argv.autoAcceptInvite });
+const entityCheck = await (await import('./github-entity-validation.lib.mjs')).validateGitHubEntityExistence({ owner, repo, number: urlNumber, type: isIssueUrl ? 'issue' : isPrUrl ? 'pull' : undefined, baseBranch: argv.baseBranch, verbose: argv.verbose, autoAcceptInvite: !!argv.autoAcceptInvite });
 if (!entityCheck.valid) {
   await log(`\n❌ ${entityCheck.error}\n`, { level: 'error' });
   await safeExit(1, `GitHub entity not found (${entityCheck.level})`);

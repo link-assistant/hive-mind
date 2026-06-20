@@ -471,7 +471,10 @@ export const isTransientNetworkError = error => {
   const combined = msg + ' ' + output;
 
   // Issue #1536: added 'unexpected eof' — seen in gh CLI when connection drops mid-response
-  const transientPatterns = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up', 'unexpected eof'];
+  // Issue #1957: added git fetch-pack/sideband disconnect patterns — seen when a
+  // `gh repo clone` / `git clone` connection drops mid-transfer, leaving an incomplete
+  // (or missing) working tree even though the wrapper can exit 0.
+  const transientPatterns = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up', 'unexpected eof', 'unexpected disconnect', 'sideband', 'early eof', 'the remote end hung up', 'rpc failed', 'fetch-pack', 'index-pack failed', 'remote end hung up unexpectedly', 'transfer closed'];
 
   return transientPatterns.some(pattern => combined.includes(pattern));
 };

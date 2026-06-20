@@ -65,9 +65,44 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   const defaultBranchResult = await $({ cwd: tempDir })`git branch --show-current`;
 
   if (defaultBranchResult.code !== 0) {
+    // Issue #1957: the most common cause of this failure is an interrupted/incomplete
+    // clone — `git` reports "fatal: not a git repository" because there is no `.git`
+    // directory. The previous message ("Failed to get current branch") gave the user
+    // no idea what happened or what to do. Detect the incomplete-clone case and give
+    // concrete, actionable instructions instead.
+    const branchErr = ((defaultBranchResult.stderr?.toString() || '') + (defaultBranchResult.stdout?.toString() || '')).trim();
+    const isNotAGitRepo = /not a git repository/i.test(branchErr);
+
+    await log('');
+    await log(`${formatAligned('❌', isNotAGitRepo ? 'INCOMPLETE CLONE DETECTED' : 'FAILED TO READ CURRENT BRANCH', '')}`, { level: 'error' });
+    await log('');
+    await log('  🔍 What happened:');
+    if (isNotAGitRepo) {
+      await log(`     The working directory is not a valid git repository: ${tempDir}`);
+      await log('     This almost always means the clone was interrupted before it finished');
+      await log('     (e.g. "fetch-pack: unexpected disconnect while reading sideband packet"),');
+      await log('     so no .git directory was created.');
+    } else {
+      await log(`     Could not determine the current branch in: ${tempDir}`);
+    }
+    await log('');
+    await log('  📦 Error details:');
+    for (const line of (branchErr || 'Unknown error').split('\n')) {
+      if (line.trim()) await log(`     ${line}`);
+    }
+    await log('');
+    await log('  🔧 How to fix:');
+    await log('     1. Check your network connection / VPN / proxy (interrupted transfers are usually transient)');
+    await log('     2. Re-run the command — the solver retries clones automatically and a fresh run usually succeeds');
+    if (owner && repo) await log(`     3. Verify access to the repository: gh repo view ${owner}/${repo}`);
+    await log(`     ${owner && repo ? '4' : '3'}. Check GitHub status if it keeps failing: https://www.githubstatus.com`);
+    await log('');
+    await log('  ℹ️  If this is reproducible, ask a Hive Mind administrator to inspect the solver terminal log for the clone error.');
+    await log('');
+
     await log('Error: Failed to get current branch');
-    await log(defaultBranchResult.stderr ? defaultBranchResult.stderr.toString() : 'Unknown error');
-    throw new Error('Failed to get current branch');
+    if (branchErr) await log(branchErr);
+    throw new Error(isNotAGitRepo ? 'Failed to get current branch - working directory is not a git repository (incomplete clone)' : 'Failed to get current branch');
   }
 
   let defaultBranch = defaultBranchResult.stdout.toString().trim();

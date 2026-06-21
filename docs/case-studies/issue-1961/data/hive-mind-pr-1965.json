@@ -1,0 +1,15 @@
+{
+  "baseRefName": "main",
+  "body": "## 🤖 AI-Powered Solution Draft\n\nThis pull request is being automatically generated to solve issue #1961.\n\n### 📋 Issue Reference\nFixes #1961\n\n### 🚧 Status\n**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.\n\n### 📝 Implementation Details\n_Details will be added as the solution draft is developed..._\n\n---\n*This PR was created automatically by the AI issue solver*",
+  "comments": [],
+  "commits": [{ "authoredDate": "2026-06-21T14:41:32Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-06-21T14:41:32Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/1961", "messageHeadline": "Initial commit with task details", "oid": "d57afaf909a42225967f0617e736d1870cf07573" }],
+  "createdAt": "2026-06-21T14:41:39Z",
+  "headRefName": "issue-1961-040643e2b59d",
+  "isDraft": true,
+  "number": 1965,
+  "reviews": [],
+  "state": "OPEN",
+  "title": "[WIP] Is it confirmed compaction split or now in `--tool codex`?",
+  "updatedAt": "2026-06-21T14:41:41Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/1965"
+}

@@ -1,0 +1,6 @@
+[
+  { "headRefName": "issue-1834-60cf8031f181", "mergedAt": "2026-05-29T08:00:50Z", "number": 1835, "title": "fix(claude): recover from corrupted extended-thinking blocks (#1834)", "url": "https://github.com/link-assistant/hive-mind/pull/1835" },
+  { "headRefName": "issue-1706-454ed5890b77", "mergedAt": "2026-04-28T14:07:54Z", "number": 1707, "title": "feat(claude/codex): add --sub-session-size and --disable-1m-context options (#1706)", "url": "https://github.com/link-assistant/hive-mind/pull/1707" },
+  { "headRefName": "issue-1491-5133e3334fbf", "mergedAt": "2026-03-29T17:55:29Z", "number": 1492, "title": "feat: enhance --tokens-budget-stats with sub-session tracking, stream comparison, and GitHub comment display", "url": "https://github.com/link-assistant/hive-mind/pull/1492" },
+  { "headRefName": "issue-1590-9a985f177077", "mergedAt": "2026-04-12T11:35:52Z", "number": 1591, "title": "Track sub-agent calls and show per-call stats in budget display (#1590)", "url": "https://github.com/link-assistant/hive-mind/pull/1591" }
+]

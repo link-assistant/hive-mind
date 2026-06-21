@@ -1,0 +1,47 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "baseRefName": "main",
+  "body": "Fixes #439.\n\n## Summary\n- add the browser worker parity handler for dimensionally incompatible measurement units\n- extend Russian unit seed forms for meter, kilogram, and gram case variants\n- add Rust and Playwright regressions for `Сколько метров в килограмме?` plus multilingual length/mass variations\n\n## Reproduction\nAsk the wasm-worker demo: `Сколько метров в килограмме?`\n\nBefore this change, the browser worker fell through to `intent:unknown`. After this change it returns `intent:unit_incompatibility` and explains that meters measure length while kilograms measure mass.\n\n## Tests\n- `cargo fmt --check`\n- `cargo clippy --all-targets --all-features -- -D warnings`\n- `rust-script scripts/check-file-size.rs`\n- `cargo test`\n- `node --check src/web/formal_ai_worker.js`\n- `npm --prefix tests/e2e run check:web-tdz`\n- `npm --prefix tests/e2e run check:intent-coverage`\n- `npm --prefix tests/e2e run check:language-test-coverage`\n- `scripts/sync-seed.sh --check`\n- `(cd tests/e2e && npx playwright test --config=playwright.local.config.js tests/issue-439.spec.js)`",
+  "comments": [
+    {
+      "id": "IC_kwDOSbOoU88AAAABGEas9A",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "<!-- hive-mind:working-session-summary -->\n## Working session summary\n\nImplemented and pushed the fix for issue #439.\n\nPR: https://github.com/link-assistant/formal-ai/pull/471  \nCommit: `9efd018f`  \nCI: `CI/CD Pipeline` passed for the pushed commit.\n\n**Changed**\n- Added browser-worker parity for `unit_incompatibility`.\n- Extended Russian unit forms for meter/kilogram/gram.\n- Added Rust regressions for the exact prompt and multilingual length-vs-mass variants.\n- Added Playwright regression for the wasm-worker demo path.\n\n**Verified**\n- `cargo fmt --check`\n- `cargo clippy --all-targets --all-features -- -D warnings`\n- `rust-script scripts/check-file-size.rs`\n- `cargo test`\n- focused Playwright issue #439 test\n- worker syntax/TDZ/language/intent/seed checks\n- PR 471 marked ready, merge state clean, CI green.\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+      "createdAt": "2026-06-14T15:48:04Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-assistant/formal-ai/pull/471#issuecomment-4702252276",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDOSbOoU88AAAABGEau8Q",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-5.5\n- Provider: OpenAI\n- Public pricing estimate: $17.248181\n\n### 📊 **Context and tokens usage:**\n\n**GPT-5.5:** (2 sub-sessions)\n1. ~150K / 200K (75%) input tokens, 13.0K / 128K (10%) output tokens\n2. ~269.9K / 200K (135%) input tokens, 23.5K / 128K (18%) output tokens\n\n_Sub-session values are estimates from observed compact events; the Total line remains exact._\n\nTotal: (419.9K + 11.4M cached) input tokens, 36.5K output tokens, $17.248181 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-5.5`\n- **Model: GPT-5.5** (`gpt-5.5`)\n\n### 📎 **Log file uploaded as Repository** (52615KB)\n- [View complete solution draft log](https://github.com/konard/public-logs/raw/main/log-tmp-solution-draft-log-pr-1781452088392.txt/tmp-solution-draft-log-pr-1781452088392.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+      "createdAt": "2026-06-14T15:48:16Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-assistant/formal-ai/pull/471#issuecomment-4702252785",
+      "viewerDidAuthor": true
+    },
+    { "id": "IC_kwDOSbOoU88AAAABGEbRAA", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*", "createdAt": "2026-06-14T15:50:35Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/formal-ai/pull/471#issuecomment-4702261504", "viewerDidAuthor": true },
+    { "id": "IC_kwDOSbOoU88AAAABG9m6jA", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "We should support exactly all possible measuring units, check https://github.com/link-foundation/si-units and others. While we implement everything in place at the moment, we should ask https://github.com/link-foundation/si-units to be also available as Rust library.\r\n\r\nAnd cover much variety of requests in natural language by actually using meanings.", "createdAt": "2026-06-21T14:05:06Z", "includesCreatedEdit": true, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/formal-ai/pull/471#issuecomment-4762221196", "viewerDidAuthor": true }
+  ],
+  "commits": [
+    { "authoredDate": "2026-06-14T14:58:14Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-06-14T14:58:14Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/formal-ai/issues/439", "messageHeadline": "Initial commit with task details", "oid": "d181662513a9281c9b54d0623e1dd23ed261df89" },
+    { "authoredDate": "2026-06-14T15:36:31Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-06-14T15:36:31Z", "messageBody": "", "messageHeadline": "fix(issue-439): classify incompatible length and mass units", "oid": "9efd018f991576c93e7e7aea9bfbca76d30c46dd" }
+  ],
+  "createdAt": "2026-06-14T14:58:21Z",
+  "headRefName": "issue-439-416e69e14603",
+  "number": 471,
+  "reviews": [],
+  "state": "OPEN",
+  "title": "Fix incompatible length/mass unit prompts",
+  "updatedAt": "2026-06-21T14:27:53Z",
+  "url": "https://github.com/link-assistant/formal-ai/pull/471"
+}

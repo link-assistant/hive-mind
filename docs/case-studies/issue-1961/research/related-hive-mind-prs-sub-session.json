@@ -1,0 +1,12 @@
+[
+  { "headRefName": "issue-1912-0b8f13ab601f", "mergedAt": "2026-06-12T23:21:05Z", "number": 1913, "title": "fix: show Codex compact sub-sessions", "url": "https://github.com/link-assistant/hive-mind/pull/1913" },
+  { "headRefName": "issue-1931-6113fcda57b4", "mergedAt": "2026-06-15T21:14:44Z", "number": 1933, "title": "Fail fast when watched GitHub targets disappear", "url": "https://github.com/link-assistant/hive-mind/pull/1933" },
+  { "headRefName": "issue-1901-81c2933cb565", "mergedAt": "2026-06-17T22:04:58Z", "number": 1932, "title": "Do not fail Claude sessions on pending Playwright MCP (Tool Search)", "url": "https://github.com/link-assistant/hive-mind/pull/1932" },
+  { "headRefName": "issue-1930-79b41127892b", "mergedAt": "2026-06-16T13:33:13Z", "number": 1934, "title": "Fix hive-cleanup confirmation and context reporting", "url": "https://github.com/link-assistant/hive-mind/pull/1934" },
+  { "headRefName": "issue-1959-0d667c54040b", "mergedAt": "2026-06-20T14:59:17Z", "number": 1960, "title": "fix(branch): validate `--base-branch` existence up-front instead of opaque \"Branch operation failed\" (#1959)", "url": "https://github.com/link-assistant/hive-mind/pull/1960" },
+  { "headRefName": "issue-1945-19f1d0d9b4e0", "mergedAt": "2026-06-19T06:37:02Z", "number": 1947, "title": "feat(solve): log working-tree size before/after the AI agent and warn on >5 GB", "url": "https://github.com/link-assistant/hive-mind/pull/1947" },
+  { "headRefName": "issue-1941-37b623189463", "mergedAt": "2026-06-18T15:13:22Z", "number": 1942, "title": "fix(errors): reject meaningless stream fragments in tool failures (#1941)", "url": "https://github.com/link-assistant/hive-mind/pull/1942" },
+  { "headRefName": "issue-1946-94305ac66541", "mergedAt": "2026-06-19T18:29:45Z", "number": 1948, "title": "fix(telegram): surface docker-isolation session id + isolation immediately (#1946)", "url": "https://github.com/link-assistant/hive-mind/pull/1948" },
+  { "headRefName": "issue-1877-b1f51fdc5723", "mergedAt": "2026-06-10T22:20:53Z", "number": 1878, "title": "HANDOFF.md support: experimental --use-handoff continuity skill (#1877)", "url": "https://github.com/link-assistant/hive-mind/pull/1878" },
+  { "headRefName": "issue-1914-0db0f6530c5c", "mergedAt": "2026-06-14T21:11:34Z", "number": 1926, "title": "fix(isolation): prevent DinD disk blowups and child image drift", "url": "https://github.com/link-assistant/hive-mind/pull/1926" }
+]

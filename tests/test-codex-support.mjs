@@ -270,37 +270,40 @@ test('Codex exec JSON parser captures optional nested cache write and reasoning 
   assert.match(costInfo, /0 cache write/);
 });
 
-test('Codex exec parser turns compact diagnostics into sub-session usage rows', () => {
+test('Codex exec parser does not fabricate compact sub-session usage rows from cumulative usage', () => {
   const output = [
     '[2026-06-12T21:21:49.135Z] [INFO] 2026-06-12T21:21:49.135056Z  INFO session_init: codex_otel.log_only: event.name="codex.conversation_starts" context_window=200000 auto_compact_token_limit=125000 event.timestamp=2026-06-12T21:21:49.135Z conversation.id=thread_issue_1912 app.version=0.139.0 originator=codex_exec model=gpt-5.5 slug=gpt-5.5',
     '{"type":"thread.started","thread_id":"thread_issue_1912"}',
+    '[2026-06-12T21:25:00.000Z] [INFO] 2026-06-12T21:25:00.000000Z  INFO codex_otel.log_only: event.name="codex.sse_event" event.kind=response.completed input_token_count=80000 output_token_count=5000 cached_token_count=10000 reasoning_token_count=1000 tool_token_count=85000 event.timestamp=2026-06-12T21:25:00.000Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
     '[2026-06-12T21:30:31.355Z] [INFO] 2026-06-12T21:30:31.354832Z  INFO turn:endpoint_session.execute_with{http.method=POST api.path="responses/compact"}: codex_otel.log_only: event.name="codex.api_request" http.response.status_code=200 endpoint="/responses/compact" event.timestamp=2026-06-12T21:30:31.354Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
-    '[2026-06-12T21:40:46.641Z] [INFO] 2026-06-12T21:40:46.641228Z  INFO turn:endpoint_session.execute_with{http.method=POST api.path="responses/compact"}: codex_otel.log_only: event.name="codex.api_request" http.response.status_code=200 endpoint="/responses/compact" event.timestamp=2026-06-12T21:40:46.641Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
-    '{"type":"turn.completed","usage":{"input_tokens":7996733,"cached_input_tokens":7642624,"output_tokens":57353,"reasoning_output_tokens":21471}}',
+    '[2026-06-12T21:30:31.355Z] [INFO] 2026-06-12T21:30:31.354832Z  INFO turn:endpoint_session.execute_with{http.method=POST api.path="responses/compact"}: codex_otel.trace_safe: event.name="codex.api_request" http.response.status_code=200 endpoint="/responses/compact" event.timestamp=2026-06-12T21:30:31.355Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
+    '[2026-06-12T21:35:00.000Z] [INFO] 2026-06-12T21:35:00.000000Z  INFO codex_otel.log_only: event.name="codex.sse_event" event.kind=response.completed input_token_count=120000 output_token_count=7000 cached_token_count=60000 reasoning_token_count=2000 tool_token_count=127000 event.timestamp=2026-06-12T21:35:00.000Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
+    '{"type":"turn.completed","usage":{"input_tokens":11827490,"cached_input_tokens":11407616,"output_tokens":36485,"reasoning_output_tokens":10057}}',
   ].join('\n');
 
   const parsed = parseCodexExecJsonOutput(output, {}, 'gpt-5.5');
 
-  assert.equal(parsed.tokenUsage.inputTokens, 354109);
-  assert.equal(parsed.tokenUsage.cacheReadTokens, 7642624);
-  assert.equal(parsed.tokenUsage.outputTokens, 57353);
-  assert.equal(parsed.tokenUsage.reasoningTokens, 21471);
+  assert.equal(parsed.tokenUsage.inputTokens, 419874);
+  assert.equal(parsed.tokenUsage.cacheReadTokens, 11407616);
+  assert.equal(parsed.tokenUsage.outputTokens, 36485);
+  assert.equal(parsed.tokenUsage.reasoningTokens, 10057);
   assert.equal(parsed.tokenUsage.contextLimit, 200000);
   assert.equal(parsed.tokenUsage.autoCompactTokenLimit, 125000);
-  assert.equal(parsed.tokenUsage.compactifications.length, 2);
+  assert.equal(parsed.tokenUsage.compactifications.length, 1);
   assert.deepEqual(
     parsed.tokenUsage.compactifications.map(compact => compact.timestamp),
-    ['2026-06-12T21:30:31.354Z', '2026-06-12T21:40:46.641Z']
+    ['2026-06-12T21:30:31.354Z']
   );
-  assert.equal(parsed.tokenUsage.subSessions.length, 3);
-  assert.deepEqual(
-    parsed.tokenUsage.subSessions.map(session => session.inputTokens),
-    [125000, 125000, 104109]
-  );
-  assert.equal(
-    parsed.tokenUsage.subSessions.reduce((sum, session) => sum + session.inputTokens, 0),
-    parsed.tokenUsage.inputTokens
-  );
+  assert.equal(parsed.tokenUsage.subSessions.length, 0);
+  assert.equal(parsed.tokenUsage.diagnosticResponses.length, 2);
+  assert.deepEqual(parsed.tokenUsage.diagnosticResponseTotals, {
+    count: 2,
+    inputTokens: 200000,
+    cacheReadTokens: 70000,
+    nonCachedInputTokens: 130000,
+    outputTokens: 12000,
+    reasoningTokens: 3000,
+  });
 
   const budgetStatsData = buildAgentBudgetStats(parsed.tokenUsage, {
     modelId: 'gpt-5.5',
@@ -309,10 +312,12 @@ test('Codex exec parser turns compact diagnostics into sub-session usage rows', 
     totalCostUSD: null,
   });
   const renderedStats = buildBudgetStatsString(budgetStatsData);
-  assert.equal(budgetStatsData.subSessions.length, 3);
-  assert.match(renderedStats, /\*\*GPT-5\.5:\*\* \(3 sub-sessions\)/);
-  assert.match(renderedStats, /1\. ~125K \/ 200K \(63%\) input tokens/);
-  assert.match(renderedStats, /_Sub-session values are estimates from observed compact events/);
+  assert.equal(budgetStatsData.subSessions.length, 0);
+  assert.doesNotMatch(renderedStats, /sub-sessions/);
+  assert.doesNotMatch(renderedStats, /~125K/);
+  assert.doesNotMatch(renderedStats, /419\.9K \/ 200K/);
+  assert.match(renderedStats, /Observed 1 compact event/);
+  assert.match(renderedStats, /Total: \(419\.9K \+ 11\.4M cached\) input tokens, 36\.5K output tokens/);
 });
 
 test('Codex exec JSON parser captures remaining supported item payloads', () => {
@@ -469,7 +474,11 @@ await asyncTest('Codex command succeeds when only non-fatal app-server stream la
 });
 
 await asyncTest('Codex command parses compact diagnostics from stderr stream chunks', async () => {
-  const stderr = ['[2026-06-12T21:21:49.135Z] [INFO] 2026-06-12T21:21:49.135056Z  INFO session_init: codex_otel.log_only: event.name="codex.conversation_starts" context_window=200000 auto_compact_token_limit=125000 event.timestamp=2026-06-12T21:21:49.135Z conversation.id=thread_issue_1912 app.version=0.139.0 originator=codex_exec model=gpt-5.5 slug=gpt-5.5', '[2026-06-12T21:30:31.355Z] [INFO] 2026-06-12T21:30:31.354832Z  INFO turn:endpoint_session.execute_with{http.method=POST api.path="responses/compact"}: codex_otel.log_only: event.name="codex.api_request" http.response.status_code=200 endpoint="/responses/compact" event.timestamp=2026-06-12T21:30:31.354Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5'].join('\n');
+  const stderr = [
+    '[2026-06-12T21:21:49.135Z] [INFO] 2026-06-12T21:21:49.135056Z  INFO session_init: codex_otel.log_only: event.name="codex.conversation_starts" context_window=200000 auto_compact_token_limit=125000 event.timestamp=2026-06-12T21:21:49.135Z conversation.id=thread_issue_1912 app.version=0.139.0 originator=codex_exec model=gpt-5.5 slug=gpt-5.5',
+    '[2026-06-12T21:30:31.355Z] [INFO] 2026-06-12T21:30:31.354832Z  INFO turn:endpoint_session.execute_with{http.method=POST api.path="responses/compact"}: codex_otel.log_only: event.name="codex.api_request" http.response.status_code=200 endpoint="/responses/compact" event.timestamp=2026-06-12T21:30:31.354Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
+    '[2026-06-12T21:35:00.000Z] [INFO] 2026-06-12T21:35:00.000000Z  INFO codex_otel.log_only: event.name="codex.sse_event" event.kind=response.completed input_token_count=120000 output_token_count=7000 cached_token_count=60000 reasoning_token_count=2000 tool_token_count=127000 event.timestamp=2026-06-12T21:35:00.000Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
+  ].join('\n');
   const stdout = ['{"type":"thread.started","thread_id":"thread_issue_1912"}', '{"type":"item.completed","item":{"id":"msg_1","type":"agent_message","text":"Done."}}', '{"type":"turn.completed","usage":{"input_tokens":300000,"cached_input_tokens":50000,"output_tokens":1200}}'].join('\n');
   const fakeDollar = () => () => ({
     async *stream() {
@@ -507,11 +516,11 @@ await asyncTest('Codex command parses compact diagnostics from stderr stream chu
   assert.equal(result.success, true);
   assert.equal(result.sessionId, 'thread_issue_1912');
   assert.equal(result.pricingInfo.tokenUsage.compactifications.length, 1);
-  assert.equal(result.pricingInfo.tokenUsage.subSessions.length, 2);
-  assert.deepEqual(
-    result.pricingInfo.tokenUsage.subSessions.map(session => session.inputTokens),
-    [125000, 125000]
-  );
+  assert.equal(result.pricingInfo.tokenUsage.subSessions.length, 0);
+  assert.equal(result.pricingInfo.tokenUsage.inputTokens, 250000);
+  assert.equal(result.pricingInfo.tokenUsage.cacheReadTokens, 50000);
+  assert.equal(result.pricingInfo.tokenUsage.diagnosticResponses.length, 1);
+  assert.equal(result.pricingInfo.tokenUsage.diagnosticResponseTotals.outputTokens, 7000);
 });
 
 await asyncTest('Codex command retries with resume and fallback model after capacity error', async () => {

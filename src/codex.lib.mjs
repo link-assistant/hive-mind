@@ -36,6 +36,8 @@ import Decimal from 'decimal.js-light';
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'reasoning_output_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
 const CODEX_LONG_CONTEXT_PRICE_THRESHOLD = 272000;
 const CODEX_COMPACT_API_ENDPOINT = '/responses/compact';
+const CODEX_SSE_EVENT_NAME = 'codex.sse_event';
+const CODEX_SSE_RESPONSE_COMPLETED_KIND = 'response.completed';
 const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
 const CODEX_MODEL_DIAGNOSTIC_PATHS = [
   ['model', data => data?.model],
@@ -108,81 +110,10 @@ const isSuccessfulCodexCompactRequestLine = line => {
   return statusCode === null || (statusCode >= 200 && statusCode < 300);
 };
 
-const splitTokenCountEvenly = (total, partCount) => {
-  const safeTotal = Math.max(0, Math.round(total || 0));
-  const safePartCount = Math.max(1, Math.round(partCount || 1));
-  const base = Math.floor(safeTotal / safePartCount);
-  let remainder = safeTotal % safePartCount;
-  return Array.from({ length: safePartCount }, () => {
-    const value = base + (remainder > 0 ? 1 : 0);
-    if (remainder > 0) remainder--;
-    return value;
-  });
-};
-
-const splitCodexSubSessionInputTokens = (total, partCount, autoCompactTokenLimit = null) => {
-  const safeTotal = Math.max(0, Math.round(total || 0));
-  const safePartCount = Math.max(1, Math.round(partCount || 1));
-  const safeLimit = Number.isFinite(autoCompactTokenLimit) && autoCompactTokenLimit > 0 ? Math.round(autoCompactTokenLimit) : null;
-  if (safePartCount <= 1) return [safeTotal];
-  if (safeLimit && safeTotal > safeLimit * (safePartCount - 1)) {
-    const chunks = [];
-    let remaining = safeTotal;
-    for (let i = 0; i < safePartCount - 1; i++) {
-      const chunk = Math.min(safeLimit, remaining);
-      chunks.push(chunk);
-      remaining -= chunk;
-    }
-    chunks.push(Math.max(0, remaining));
-    return chunks;
-  }
-  return splitTokenCountEvenly(safeTotal, safePartCount);
-};
-
-const splitTokenCountByWeights = (total, weights) => {
-  const safeTotal = Math.max(0, Math.round(total || 0));
-  const safeWeights = Array.isArray(weights) && weights.length > 0 ? weights.map(weight => Math.max(0, weight || 0)) : [1];
-  const weightTotal = safeWeights.reduce((sum, weight) => sum + weight, 0);
-  if (weightTotal <= 0) return splitTokenCountEvenly(safeTotal, safeWeights.length);
-
-  let allocated = 0;
-  return safeWeights.map((weight, index) => {
-    if (index === safeWeights.length - 1) return Math.max(0, safeTotal - allocated);
-    const value = Math.floor((safeTotal * weight) / weightTotal);
-    allocated += value;
-    return value;
-  });
-};
-
-const rebuildCodexSubSessionsFromCompactifications = tokenUsage => {
-  const compactifications = Array.isArray(tokenUsage.compactifications) ? tokenUsage.compactifications : [];
-  if (compactifications.length === 0 || (tokenUsage.stepCount || 0) === 0) {
-    tokenUsage.subSessions = Array.isArray(tokenUsage.subSessions) ? tokenUsage.subSessions : [];
-    return;
-  }
-
-  const subSessionCount = compactifications.length + 1;
-  const inputChunks = splitCodexSubSessionInputTokens(tokenUsage.inputTokens || 0, subSessionCount, tokenUsage.autoCompactTokenLimit);
-  const cacheWriteChunks = splitTokenCountByWeights(tokenUsage.cacheWriteTokens || 0, inputChunks);
-  const cacheReadChunks = splitTokenCountByWeights(tokenUsage.cacheReadTokens || 0, inputChunks);
-  const outputChunks = splitTokenCountByWeights(tokenUsage.outputTokens || 0, inputChunks);
-
-  tokenUsage.subSessions = inputChunks.map((inputTokens, index) => {
-    const cacheCreationTokens = cacheWriteChunks[index] || 0;
-    const outputTokens = outputChunks[index] || 0;
-    return {
-      inputTokens,
-      cacheCreationTokens,
-      cacheReadTokens: cacheReadChunks[index] || 0,
-      outputTokens,
-      messageCount: null,
-      peakContextUsage: getCumulativeContextInputTokens({ inputTokens, cacheCreationTokens }),
-      peakOutputUsage: outputTokens,
-      estimated: true,
-      source: 'codex.compact-diagnostics',
-      compactBoundaryBefore: index === 0 ? null : compactifications[index - 1] || null,
-    };
-  });
+const isCodexResponseCompletedDiagnosticLine = line => {
+  if (!line.includes('codex_otel.log_only:')) return false;
+  if (!line.includes(`event.name="${CODEX_SSE_EVENT_NAME}"`)) return false;
+  return line.includes(`event.kind=${CODEX_SSE_RESPONSE_COMPLETED_KIND}`) || line.includes(`event.kind="${CODEX_SSE_RESPONSE_COMPLETED_KIND}"`);
 };
 
 const recordCodexCompactification = (line, tokenUsage) => {
@@ -201,6 +132,52 @@ const recordCodexCompactification = (line, tokenUsage) => {
   });
 };
 
+const summarizeCodexDiagnosticResponses = diagnosticResponses => {
+  const responses = Array.isArray(diagnosticResponses) ? diagnosticResponses : [];
+  return responses.reduce(
+    (summary, response) => {
+      summary.count += 1;
+      summary.inputTokens += response.inputTokens || 0;
+      summary.cacheReadTokens += response.cacheReadTokens || 0;
+      summary.nonCachedInputTokens += Math.max(0, (response.inputTokens || 0) - (response.cacheReadTokens || 0));
+      summary.outputTokens += response.outputTokens || 0;
+      summary.reasoningTokens += response.reasoningTokens || 0;
+      return summary;
+    },
+    {
+      count: 0,
+      inputTokens: 0,
+      cacheReadTokens: 0,
+      nonCachedInputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 0,
+    }
+  );
+};
+
+const recordCodexResponseCompletedDiagnostic = (line, tokenUsage) => {
+  if (!isCodexResponseCompletedDiagnosticLine(line)) return;
+  const timestamp = getCodexDiagnosticTimestamp(line);
+  const conversationId = getCodexDiagnosticValue(line, 'conversation.id');
+  const inputTokens = getCodexDiagnosticInteger(line, 'input_token_count') || 0;
+  const cacheReadTokens = getCodexDiagnosticInteger(line, 'cached_token_count') || 0;
+  const outputTokens = getCodexDiagnosticInteger(line, 'output_token_count') || 0;
+  const reasoningTokens = getCodexDiagnosticInteger(line, 'reasoning_token_count') || 0;
+  const existing = tokenUsage.diagnosticResponses.find(response => response.timestamp === timestamp && response.conversationId === conversationId && response.inputTokens === inputTokens && response.cacheReadTokens === cacheReadTokens && response.outputTokens === outputTokens && response.reasoningTokens === reasoningTokens);
+  if (existing) return;
+
+  tokenUsage.diagnosticResponses.push({
+    timestamp,
+    conversationId: conversationId || null,
+    inputTokens,
+    cacheReadTokens,
+    outputTokens,
+    reasoningTokens,
+    source: 'codex.sse_event.response.completed',
+  });
+  tokenUsage.diagnosticResponseTotals = summarizeCodexDiagnosticResponses(tokenUsage.diagnosticResponses);
+};
+
 const parseCodexDiagnosticLine = (line, tokenUsage) => {
   const contextLimit = getCodexDiagnosticInteger(line, 'context_window') ?? getCodexDiagnosticInteger(line, 'model_context_window');
   if (contextLimit !== null) tokenUsage.contextLimit = contextLimit;
@@ -209,6 +186,7 @@ const parseCodexDiagnosticLine = (line, tokenUsage) => {
   if (autoCompactTokenLimit !== null) tokenUsage.autoCompactTokenLimit = autoCompactTokenLimit;
 
   recordCodexCompactification(line, tokenUsage);
+  recordCodexResponseCompletedDiagnostic(line, tokenUsage);
 };
 
 export const createCodexTokenUsage = requestedModelId => ({
@@ -228,6 +206,8 @@ export const createCodexTokenUsage = requestedModelId => ({
   peakContextUsage: 0,
   subSessions: [],
   compactifications: [],
+  diagnosticResponses: [],
+  diagnosticResponseTotals: summarizeCodexDiagnosticResponses([]),
   tokenFieldAvailability: createCodexTokenFieldAvailability(),
 });
 
@@ -454,6 +434,8 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
   nextState.tokenUsage.tokenFieldAvailability ||= createCodexTokenFieldAvailability();
   if (!Array.isArray(nextState.tokenUsage.subSessions)) nextState.tokenUsage.subSessions = [];
   if (!Array.isArray(nextState.tokenUsage.compactifications)) nextState.tokenUsage.compactifications = [];
+  if (!Array.isArray(nextState.tokenUsage.diagnosticResponses)) nextState.tokenUsage.diagnosticResponses = [];
+  nextState.tokenUsage.diagnosticResponseTotals = summarizeCodexDiagnosticResponses(nextState.tokenUsage.diagnosticResponses);
   nextState.tokenUsage.autoCompactTokenLimit ??= null;
   const observedModelPaths = new Set(nextState.observedModelDiagnosticPaths);
 
@@ -577,7 +559,6 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     }
   }
 
-  rebuildCodexSubSessionsFromCompactifications(nextState.tokenUsage);
   nextState.observedModelDiagnosticPaths = [...observedModelPaths];
   return nextState;
 };
@@ -1113,6 +1094,13 @@ export const executeCodexCommand = async params => {
         await log(`📈 Codex usage from turn.completed: ${codexJsonState.tokenUsage.inputTokens.toLocaleString()} input, ${codexJsonState.tokenUsage.cacheReadTokens.toLocaleString()} cache read, ${codexJsonState.tokenUsage.outputTokens.toLocaleString()} output across ${codexJsonState.tokenUsage.stepCount} turn(s)`, { verbose: true });
       } else {
         await log('📈 No Codex usage found in turn.completed events', { level: 'warning', verbose: true });
+      }
+      if (codexJsonState.tokenUsage.compactifications.length > 0) {
+        await log(`🧩 Codex compact diagnostics observed: ${codexJsonState.tokenUsage.compactifications.length} successful /responses/compact request(s)`, { verbose: true });
+      }
+      if (codexJsonState.tokenUsage.diagnosticResponses.length > 0) {
+        const diagnosticTotals = summarizeCodexDiagnosticResponses(codexJsonState.tokenUsage.diagnosticResponses);
+        await log(`📐 Codex response.completed diagnostics observed: ${diagnosticTotals.count} responses, ${diagnosticTotals.nonCachedInputTokens.toLocaleString()} non-cached input, ${diagnosticTotals.cacheReadTokens.toLocaleString()} cached input, ${diagnosticTotals.outputTokens.toLocaleString()} output`, { verbose: true });
       }
       if (codexJsonState.subAgentCalls.length > 0) {
         await log(`🤝 Codex collab/sub-agent calls observed: ${codexJsonState.subAgentCalls.length}`, { verbose: true });

@@ -572,6 +572,13 @@ const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
   return result;
 };
 
+const formatUnsplitCompactificationNotice = compactifications => {
+  const count = Array.isArray(compactifications) ? compactifications.length : 0;
+  if (count <= 0) return '';
+  const noun = count === 1 ? 'compact event' : 'compact events';
+  return `\n\n_Observed ${count} ${noun}. Exact per-compact token deltas were not emitted, so no sub-session split is shown._`;
+};
+
 /**
  * Issue #1600: Build a single-line context + output tokens string (unified format, no "Context window:" prefix).
  * Issue #1737: The input figure is the peak restored-context input for the
@@ -684,6 +691,7 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
     // Issue #1508: For multi-model sessions, show sub-sessions once (globally), not per-model
     // Sub-sessions track compactification boundaries which are session-wide, not model-specific
     const subSessions = tokenUsage.subSessions || [];
+    const compactifications = Array.isArray(tokenUsage.compactifications) ? tokenUsage.compactifications : [];
     const hasMultipleSubSessions = subSessions.length > 1;
 
     for (const modelId of modelIds) {
@@ -696,6 +704,7 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
       const callCount = getSubAgentCallCount(modelId, subAgentCallCounts);
       const isPrimaryModel = !isMultiModel || modelId === modelIds[0];
       const showSubSessions = hasMultipleSubSessions && isPrimaryModel;
+      const showUnsplitCompactNotice = isPrimaryModel && compactifications.length > 0 && !showSubSessions;
 
       if (isMultiModel) {
         // Issue #1590: Show sub-agent call count alongside model name
@@ -716,6 +725,11 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
       if (showSubSessions) {
         // Issue #1600: Unified format — no "Context window:" prefix, same format as sub-agent calls
         stats += formatSubSessionsList(subSessions, contextLimit, outputLimit);
+      } else if (showUnsplitCompactNotice) {
+        // Issue #1961: Codex compact telemetry confirms a compact request, but
+        // current JSON usage is cumulative for the turn/session. Do not render
+        // cumulative totals as if they were compact-bounded context-window rows.
+        stats += formatUnsplitCompactificationNotice(compactifications);
       } else if (peakContext > 0) {
         stats += formatContextOutputLine(peakContext, contextLimit, usage.outputTokens, outputLimit, '- ');
       } else if (outputLimit && callCount <= 1) {

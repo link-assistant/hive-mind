@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.14
+
+### Patch Changes
+
+- 03954a9: Show fuzzy suggestions for mistyped CLI and Telegram command options, including the closest match plus up to four additional alternatives.
+
 ## 2.0.13
 
 ### Patch Changes

@@ -470,6 +470,16 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
       continue;
     }
 
+    // Issue #1968: a stream line that parses to a bare `null` (or any non-object
+    // JSON primitive such as a number/string/boolean) must not crash the parser.
+    // Codex echoes the stdout of every command it runs back into its own NDJSON
+    // stream (see issue #1955), so a target repo that prints a standalone `null`
+    // line surfaces here as `JSON.parse('null') === null`. Accessing `data.type`
+    // on that null threw "Cannot read properties of null (reading 'type')" and
+    // aborted the entire solve. Real Codex events are always JSON objects, so any
+    // non-object line is safely ignored.
+    if (data === null || typeof data !== 'object') continue;
+
     const eventType = typeof data.type === 'string' ? data.type : 'unknown';
     nextState.eventCounts[eventType] = (nextState.eventCounts[eventType] || 0) + 1;
 
@@ -1044,6 +1054,9 @@ export const executeCodexCommand = async params => {
               if (!line) continue;
               try {
                 const data = sanitizeObjectStrings(JSON.parse(line));
+                // Issue #1968: skip bare `null`/primitive lines so the handlers
+                // below never receive a non-object event (see parseCodexExecJsonOutput).
+                if (data === null || typeof data !== 'object') continue;
                 if (interactiveHandler) await interactiveHandler.processEvent(data);
                 if (progressMonitor) await progressMonitor.processStreamEvent(data);
               } catch {

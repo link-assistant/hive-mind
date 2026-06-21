@@ -342,6 +342,9 @@ export const executeOpenCodeCommand = async params => {
             for (const line of lines) {
               if (!line.trim()) continue;
               const data = sanitizeObjectStrings(JSON.parse(line));
+              // Issue #1968: a bare `null`/primitive NDJSON line must not abort the
+              // rest of the chunk (data.type access would throw on null).
+              if (data === null || typeof data !== 'object') continue;
               accumulateAgentStepFinishUsage(streamingTokenUsage, data);
               // Track text content for result summary
               // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
@@ -385,6 +388,8 @@ export const executeOpenCodeCommand = async params => {
               for (const line of lines) {
                 if (!line.trim()) continue;
                 const data = sanitizeObjectStrings(JSON.parse(line));
+                // Issue #1968: skip bare `null`/primitive lines (see stdout handler above).
+                if (data === null || typeof data !== 'object') continue;
                 accumulateAgentStepFinishUsage(streamingTokenUsage, data);
                 if (data.type === 'text' && data.text) {
                   lastTextContent = data.text;

@@ -872,6 +872,7 @@ export const executeClaudeCommand = async params => {
             if (!line.trim()) continue;
             try {
               const data = sanitizeObjectStrings(JSON.parse(line));
+              if (data === null || typeof data !== 'object') continue; // Issue #1968: skip bare null/primitive NDJSON lines
               // Issue #1510: Track last event time for all modes (not just interactive)
               // so activity timeout can report accurate idle duration
               lastEventTime = Date.now();
@@ -1110,11 +1111,10 @@ export const executeClaudeCommand = async params => {
         try {
           const data = sanitizeObjectStrings(JSON.parse(stdoutLineBuffer));
           await log(JSON.stringify(data, null, 2));
-          if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
+          if (data?.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
             anthropicTotalCostUSD = data.total_cost_usd;
-          } else if (data.type === 'result' && data.total_cost_usd != null) {
-            // Issue #1886: keep a non-success terminal result's cost as a fallback
-            // for accumulation (see the streaming branch above).
+          } else if (data?.type === 'result' && data.total_cost_usd != null) {
+            // Issue #1886: keep a non-success terminal result's cost as a fallback (see streaming branch above).
             anthropicCostFromAnyResult = data.total_cost_usd;
           }
           // Issue #1472: Forward remaining buffer event to interactive handler (was previously missed)

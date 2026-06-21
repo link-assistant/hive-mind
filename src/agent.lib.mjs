@@ -542,6 +542,9 @@ export const executeAgentCommand = async params => {
             if (!line.trim()) continue;
             try {
               const data = sanitizeObjectStrings(JSON.parse(line));
+              // Issue #1968: a bare `null`/primitive NDJSON line must not abort
+              // event processing (any data.X access would throw on null).
+              if (data === null || typeof data !== 'object') continue;
               // Output formatted JSON
               await log(JSON.stringify(data, null, 2));
               // Capture session ID from the first message
@@ -616,6 +619,8 @@ export const executeAgentCommand = async params => {
               if (!stderrLine.trim()) continue;
               try {
                 const stderrData = sanitizeObjectStrings(JSON.parse(stderrLine));
+                // Issue #1968: skip bare `null`/primitive lines (see stdout handler above).
+                if (stderrData === null || typeof stderrData !== 'object') continue;
                 // Output formatted JSON (same formatting as stdout)
                 await log(JSON.stringify(stderrData, null, 2));
                 // Capture session ID from stderr too (agent sends it via stderr)
@@ -694,6 +699,9 @@ export const executeAgentCommand = async params => {
 
           try {
             const msg = sanitizeObjectStrings(JSON.parse(line));
+
+            // Issue #1968: ignore bare `null`/primitive lines (msg.type would throw on null).
+            if (msg === null || typeof msg !== 'object') continue;
 
             // Check for explicit error message types from agent
             if (msg.type === 'error' || msg.type === 'step_error') {

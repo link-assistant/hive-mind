@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.15
+
+### Patch Changes
+
+- 0d2f2bb: Fix "Cannot read properties of null (reading 'type')" crash that aborted Codex (and other agent) runs when the tool echoed a stream line that parsed to a bare `null` or non-object JSON primitive. All NDJSON stream parsers (Codex, Claude, Agent, OpenCode) now ignore non-object lines instead of dereferencing them.
+
 ## 2.0.14
 
 ### Patch Changes

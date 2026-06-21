@@ -8,6 +8,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1618
  */
 
+import { enhanceUnknownArgumentError } from './option-suggestions.lib.mjs';
+
 export const TOOL_SOLVE_COMMAND_ALIASES = Object.freeze({
   claude: 'claude',
   codex: 'codex',
@@ -89,8 +91,9 @@ export async function parseArgsWithYargs(args, yargsFactory, createYargsConfig) 
     else if (typeof callback === 'function') callback();
     return true;
   };
+  let parser = null;
   try {
-    const parser = createYargsConfig(yargsFactory());
+    parser = createYargsConfig(yargsFactory());
     parser
       .exitProcess(false)
       .showHelpOnFail(false)
@@ -98,6 +101,8 @@ export async function parseArgsWithYargs(args, yargsFactory, createYargsConfig) 
         throw err || new Error(msg || 'Invalid arguments');
       });
     return await parser.parse(args);
+  } catch (error) {
+    throw enhanceUnknownArgumentError(error, parser);
   } finally {
     process.stderr.write = originalStderrWrite;
   }

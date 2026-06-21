@@ -1,5 +1,7 @@
 import { getenv, makeConfig, yargs as linoYargs } from 'lino-arguments';
 
+import { enhanceUnknownArgumentError } from './option-suggestions.lib.mjs';
+
 export { getenv };
 
 export const hideBin = argv => argv.slice(2);
@@ -52,17 +54,24 @@ export function addCliCompatibilityAliases(parsed, { positionalAliases = [] } = 
 
 export function parseCliArgumentsWithLino({ argv = process.argv, commandName = 'cli', createYargsConfig, positionalAliases = [], lenv = { enabled: true }, env = { enabled: false }, getenv: getenvOptions = { enabled: true } } = {}) {
   const fullArgv = ensureFullArgv(argv, commandName);
-  const parsed = makeConfig({
-    argv: fullArgv,
-    lenv,
-    env,
-    getenv: getenvOptions,
-    yargs: ({ yargs, getenv: getenvHelper }) => {
-      const parser = yargs.exitProcess(false);
-      const configured = createYargsConfig ? createYargsConfig(parser, getenvHelper) : parser;
-      return configured.exitProcess(false);
-    },
-  });
+  let configuredParser = null;
+  let parsed;
+
+  try {
+    parsed = makeConfig({
+      argv: fullArgv,
+      lenv,
+      env,
+      getenv: getenvOptions,
+      yargs: ({ yargs, getenv: getenvHelper }) => {
+        const parser = yargs.exitProcess(false);
+        configuredParser = createYargsConfig ? createYargsConfig(parser, getenvHelper) : parser;
+        return configuredParser.exitProcess(false);
+      },
+    });
+  } catch (error) {
+    throw enhanceUnknownArgumentError(error, configuredParser);
+  }
 
   return addCliCompatibilityAliases(parsed, { positionalAliases });
 }

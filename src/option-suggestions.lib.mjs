@@ -44,79 +44,97 @@ export function calculateLevenshteinDistance(a, b) {
   return matrix[b.length][a.length];
 }
 
+const normalizeOptionName = option =>
+  String(option || '')
+    .trim()
+    .replace(/^-+/, '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/[_\s]+/g, '-')
+    .toLowerCase();
+
+const compactOptionName = option => normalizeOptionName(option).replace(/-/g, '');
+
+function getAvailableOptionNames(yargsInstance, includeShortAliases) {
+  const availableOptions = yargsInstance.getOptions();
+  const allOptions = new Set();
+  const rawHiddenOptions = availableOptions.hiddenOptions || [];
+  const hiddenOptionNames = Array.isArray(rawHiddenOptions) ? rawHiddenOptions : Object.keys(rawHiddenOptions);
+  const hiddenOptions = new Set(hiddenOptionNames.map(normalizeOptionName));
+
+  const addOption = option => {
+    const normalized = normalizeOptionName(option);
+    if (!normalized || hiddenOptions.has(normalized)) return;
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(normalized)) return;
+    if (!includeShortAliases && normalized.length === 1) return;
+    allOptions.add(normalized);
+  };
+
+  if (availableOptions.key) {
+    const keys = Array.isArray(availableOptions.key) ? availableOptions.key : Object.keys(availableOptions.key || {});
+    keys.forEach(addOption);
+  }
+
+  if (availableOptions.alias) {
+    Object.entries(availableOptions.alias).forEach(([key, aliases]) => {
+      addOption(key);
+      if (Array.isArray(aliases)) {
+        aliases.forEach(addOption);
+      } else if (aliases) {
+        addOption(aliases);
+      }
+    });
+  }
+
+  return allOptions;
+}
+
 /**
  * Find similar option names based on Levenshtein distance
  *
  * @param {string} unknownOption - The option name that was not recognized (e.g., "branch")
  * @param {Object} yargsInstance - The yargs instance with defined options
- * @param {number} maxSuggestions - Maximum number of suggestions to return (default: 3)
+ * @param {number} maxSuggestions - Maximum number of suggestions to return (default: 5)
  * @param {number} distanceThreshold - Maximum distance to consider for suggestions (default: 5)
  * @returns {string[]} - Array of suggested option names, sorted by similarity
  */
-export function findSimilarOptions(unknownOption, yargsInstance, maxSuggestions = 3, distanceThreshold = 5) {
-  // Remove leading dashes from the unknown option
-  const cleanUnknown = unknownOption.replace(/^-+/, '');
+export function findSimilarOptions(unknownOption, yargsInstance, maxSuggestions = 5, distanceThreshold = 5) {
+  const cleanUnknown = normalizeOptionName(unknownOption);
+  const compactUnknown = compactOptionName(unknownOption);
+  const includeShortAliases = cleanUnknown.length === 1;
+  const allOptions = getAvailableOptionNames(yargsInstance, includeShortAliases);
 
-  // Get all available options from yargs
-  const availableOptions = yargsInstance.getOptions();
-  const allOptions = new Set();
-
-  // Collect all option names (both long form and aliases)
-  if (availableOptions.key) {
-    // Ensure it's an array before iterating
-    const keys = Array.isArray(availableOptions.key) ? availableOptions.key : Object.keys(availableOptions.key || {});
-    keys.forEach(opt => {
-      allOptions.add(opt);
-    });
-  }
-
-  // Collect aliases
-  if (availableOptions.alias) {
-    Object.entries(availableOptions.alias).forEach(([key, aliases]) => {
-      allOptions.add(key);
-      if (Array.isArray(aliases)) {
-        aliases.forEach(alias => allOptions.add(alias));
-      } else if (aliases) {
-        // If it's not an array but exists, add it as a single alias
-        allOptions.add(String(aliases));
-      }
-    });
-  }
-
-  // Calculate distance for each option
   const distances = [];
   allOptions.forEach(option => {
-    const distance = calculateLevenshteinDistance(cleanUnknown, option);
-    if (distance <= distanceThreshold) {
-      // Calculate bonus score for substring matches
-      // If the unknown option is a substring of the valid option, it's likely what the user meant
-      // Check both directions: is unknown a substring of option, or is option a substring of unknown
-      const unknownInOption = option.includes(cleanUnknown);
-      const optionInUnknown = cleanUnknown.includes(option);
+    const distance = Math.min(calculateLevenshteinDistance(cleanUnknown, option), calculateLevenshteinDistance(compactUnknown, compactOptionName(option)));
+    const unknownInOption = option.includes(cleanUnknown) || compactOptionName(option).includes(compactUnknown);
+    const optionInUnknown = cleanUnknown.includes(option) || compactUnknown.includes(compactOptionName(option));
 
-      // Strong bonus for when user typed a word that appears in the option name
-      // e.g., "branch" appears in "base-branch"
+    if (distance <= distanceThreshold || unknownInOption || optionInUnknown) {
       const substringBonus = unknownInOption ? -10 : optionInUnknown ? -5 : 0;
-
-      // Also prioritize options with similar length (user likely tried to type the full name)
       const lengthDiff = Math.abs(option.length - cleanUnknown.length);
       const lengthBonus = lengthDiff < 3 ? -1 : 0;
 
       distances.push({
         option,
         distance,
+        lengthDiff,
         effectiveDistance: distance + substringBonus + lengthBonus,
       });
     }
   });
 
-  // Sort by effective distance (closest first), then by actual distance
   return distances
     .sort((a, b) => {
       if (a.effectiveDistance !== b.effectiveDistance) {
         return a.effectiveDistance - b.effectiveDistance;
       }
-      return a.distance - b.distance;
+      if (a.distance !== b.distance) {
+        return a.distance - b.distance;
+      }
+      if (a.lengthDiff !== b.lengthDiff) {
+        return a.lengthDiff - b.lengthDiff;
+      }
+      return a.option.localeCompare(b.option);
     })
     .slice(0, maxSuggestions)
     .map(item => item.option);
@@ -133,17 +151,17 @@ export function formatSuggestions(suggestions) {
     return '';
   }
 
-  if (suggestions.length === 1) {
-    return `\n\nDid you mean --${suggestions[0]}?`;
-  }
-
-  // For multiple suggestions, format them nicely
   const formattedOptions = suggestions.map(opt => {
     // If it's a single character, show as -x, otherwise --option-name
     return opt.length === 1 ? `-${opt}` : `--${opt}`;
   });
+  const [primarySuggestion, ...alternatives] = formattedOptions;
 
-  return `\n\nDid you mean one of these?\n${formattedOptions.map(opt => `  • ${opt}`).join('\n')}`;
+  if (alternatives.length === 0) {
+    return `\n\nDid you mean \`${primarySuggestion}\` option?`;
+  }
+
+  return `\n\nDid you mean \`${primarySuggestion}\` option?\n\nOther close matches:\n${alternatives.map(opt => `  • \`${opt}\``).join('\n')}`;
 }
 
 /**
@@ -300,9 +318,13 @@ export function detectMalformedFlags(args) {
  * @returns {string} - Enhanced error message with suggestions
  */
 export function enhanceErrorMessage(originalError, yargsInstance) {
+  if (/Did you mean/i.test(originalError)) {
+    return originalError;
+  }
+
   // Extract the unknown option name from the error message
   // Typical format: "Unknown argument: branch" or "Unknown arguments: branch, test"
-  const unknownMatch = originalError.match(/Unknown arguments?:\s*(.+?)(?:\s|$)/i);
+  const unknownMatch = originalError.match(/Unknown arguments?:\s*([^\n]+)/i);
 
   if (!unknownMatch) {
     return originalError;
@@ -323,4 +345,24 @@ export function enhanceErrorMessage(originalError, yargsInstance) {
   }
 
   return enhancedMessage;
+}
+
+export function enhanceUnknownArgumentError(error, yargsInstance) {
+  if (!error || error._enhanced || !yargsInstance || !/Unknown arguments?/i.test(error.message || '')) {
+    return error;
+  }
+
+  const enhancedMessage = enhanceErrorMessage(error.message, yargsInstance);
+  if (enhancedMessage === error.message) {
+    return error;
+  }
+
+  const enhancedError = new Error(enhancedMessage);
+  enhancedError.name = error.name;
+  enhancedError.cause = error;
+  for (const key of Object.keys(error)) {
+    enhancedError[key] = error[key];
+  }
+  enhancedError._enhanced = true;
+  return enhancedError;
 }

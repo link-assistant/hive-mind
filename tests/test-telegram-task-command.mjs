@@ -332,6 +332,16 @@ await test('forwarded /split (split mode) is ignored — no execution', async ()
   assert.equal(calls.createdIssues.length, 0);
 });
 
+await test('/split reports enhanced unknown option and does not execute', async () => {
+  const { handleTaskCommand, calls } = buildTaskHarness();
+  await handleTaskCommand(buildTaskCtx({ text: `/split ${issueUrl} --modl opus` }));
+  assert.equal(calls.executed.length, 0);
+  assert.equal(calls.replies.length, 1);
+  assert.match(calls.replies[0], /❌ Invalid options:/);
+  assert.match(calls.replies[0], /Unknown argument: modl/);
+  assert.match(calls.replies[0], /Did you mean `--model` option\?/);
+});
+
 await test('non-forwarded /task still creates an issue (regression guard)', async () => {
   const { handleTaskCommand, calls } = buildTaskHarness();
   await handleTaskCommand(buildTaskCtx({ text: `/task ${repoUrl}\n${issueText}` }));

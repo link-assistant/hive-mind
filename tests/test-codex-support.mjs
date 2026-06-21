@@ -270,19 +270,23 @@ test('Codex exec JSON parser captures optional nested cache write and reasoning 
   assert.match(costInfo, /0 cache write/);
 });
 
-test('Codex exec parser does not fabricate compact sub-session usage rows from cumulative usage', () => {
+test('Codex exec parser reconstructs measured compact sub-sessions from per-response telemetry', () => {
   const output = [
     '[2026-06-12T21:21:49.135Z] [INFO] 2026-06-12T21:21:49.135056Z  INFO session_init: codex_otel.log_only: event.name="codex.conversation_starts" context_window=200000 auto_compact_token_limit=125000 event.timestamp=2026-06-12T21:21:49.135Z conversation.id=thread_issue_1912 app.version=0.139.0 originator=codex_exec model=gpt-5.5 slug=gpt-5.5',
     '{"type":"thread.started","thread_id":"thread_issue_1912"}',
-    '[2026-06-12T21:25:00.000Z] [INFO] 2026-06-12T21:25:00.000000Z  INFO codex_otel.log_only: event.name="codex.sse_event" event.kind=response.completed input_token_count=80000 output_token_count=5000 cached_token_count=10000 reasoning_token_count=1000 tool_token_count=85000 event.timestamp=2026-06-12T21:25:00.000Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
+    // First sub-session: context climbs to a measured peak of 110000 before compaction.
+    '[2026-06-12T21:24:00.000Z] [INFO] 2026-06-12T21:24:00.000000Z  INFO codex_otel.log_only: event.name="codex.sse_event" event.kind=response.completed input_token_count=80000 output_token_count=5000 cached_token_count=10000 reasoning_token_count=1000 tool_token_count=85000 event.timestamp=2026-06-12T21:24:00.000Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
+    '[2026-06-12T21:25:00.000Z] [INFO] 2026-06-12T21:25:00.000000Z  INFO codex_otel.log_only: event.name="codex.sse_event" event.kind=response.completed input_token_count=110000 output_token_count=3000 cached_token_count=95000 reasoning_token_count=800 tool_token_count=113000 event.timestamp=2026-06-12T21:25:00.000Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
     '[2026-06-12T21:30:31.355Z] [INFO] 2026-06-12T21:30:31.354832Z  INFO turn:endpoint_session.execute_with{http.method=POST api.path="responses/compact"}: codex_otel.log_only: event.name="codex.api_request" http.response.status_code=200 endpoint="/responses/compact" event.timestamp=2026-06-12T21:30:31.354Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
     '[2026-06-12T21:30:31.355Z] [INFO] 2026-06-12T21:30:31.354832Z  INFO turn:endpoint_session.execute_with{http.method=POST api.path="responses/compact"}: codex_otel.trace_safe: event.name="codex.api_request" http.response.status_code=200 endpoint="/responses/compact" event.timestamp=2026-06-12T21:30:31.355Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
+    // Second sub-session (post-compaction): context measured at 120000.
     '[2026-06-12T21:35:00.000Z] [INFO] 2026-06-12T21:35:00.000000Z  INFO codex_otel.log_only: event.name="codex.sse_event" event.kind=response.completed input_token_count=120000 output_token_count=7000 cached_token_count=60000 reasoning_token_count=2000 tool_token_count=127000 event.timestamp=2026-06-12T21:35:00.000Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5',
     '{"type":"turn.completed","usage":{"input_tokens":11827490,"cached_input_tokens":11407616,"output_tokens":36485,"reasoning_output_tokens":10057}}',
   ].join('\n');
 
   const parsed = parseCodexExecJsonOutput(output, {}, 'gpt-5.5');
 
+  // The Total line stays exact (cumulative turn.completed usage), unaffected by reconstruction.
   assert.equal(parsed.tokenUsage.inputTokens, 419874);
   assert.equal(parsed.tokenUsage.cacheReadTokens, 11407616);
   assert.equal(parsed.tokenUsage.outputTokens, 36485);
@@ -294,16 +298,59 @@ test('Codex exec parser does not fabricate compact sub-session usage rows from c
     parsed.tokenUsage.compactifications.map(compact => compact.timestamp),
     ['2026-06-12T21:30:31.354Z']
   );
-  assert.equal(parsed.tokenUsage.subSessions.length, 0);
-  assert.equal(parsed.tokenUsage.diagnosticResponses.length, 2);
-  assert.deepEqual(parsed.tokenUsage.diagnosticResponseTotals, {
-    count: 2,
-    inputTokens: 200000,
-    cacheReadTokens: 70000,
-    nonCachedInputTokens: 130000,
-    outputTokens: 12000,
-    reasoningTokens: 3000,
+  assert.equal(parsed.tokenUsage.diagnosticResponses.length, 3);
+
+  // Two measured sub-sessions, split exactly at the compaction boundary.
+  assert.equal(parsed.tokenUsage.subSessions.length, 2);
+  assert.deepEqual(
+    parsed.tokenUsage.subSessions.map(session => session.peakContextUsage),
+    [110000, 120000]
+  );
+  assert.deepEqual(
+    parsed.tokenUsage.subSessions.map(session => session.outputTokens),
+    [8000, 7000]
+  );
+  assert.deepEqual(
+    parsed.tokenUsage.subSessions.map(session => session.messageCount),
+    [2, 1]
+  );
+  // The peak context is a real measured value, not an estimate.
+  assert.equal(
+    parsed.tokenUsage.subSessions.every(session => session.estimated === false),
+    true
+  );
+  assert.deepEqual(
+    parsed.tokenUsage.subSessions.map(session => session.source),
+    ['codex.response-completed-diagnostics', 'codex.response-completed-diagnostics']
+  );
+
+  const budgetStatsData = buildAgentBudgetStats(parsed.tokenUsage, {
+    modelId: 'gpt-5.5',
+    modelName: 'GPT-5.5',
+    modelInfo: { limit: { context: 200000, output: 128000 } },
+    totalCostUSD: null,
   });
+  const renderedStats = buildBudgetStatsString(budgetStatsData);
+  assert.equal(budgetStatsData.subSessions.length, 2);
+  assert.match(renderedStats, /\*\*GPT-5\.5:\*\* \(2 sub-sessions\)/);
+  // Measured peaks render without the "~" estimate marker.
+  assert.match(renderedStats, /\n1\. 110K \/ 200K \(55%\) input tokens/);
+  assert.match(renderedStats, /\n2\. 120K \/ 200K \(60%\) input tokens/);
+  assert.doesNotMatch(renderedStats, /1\. ~/);
+  assert.doesNotMatch(renderedStats, /are estimates from observed compact events/);
+  assert.match(renderedStats, /_Sub-session input is the measured peak restored context/);
+  assert.match(renderedStats, /Total: \(419\.9K \+ 11\.4M cached\) input tokens, 36\.5K output tokens/);
+});
+
+test('Codex exec parser shows an unsplit compact notice when per-response telemetry is unavailable', () => {
+  const output = ['[2026-06-12T21:21:49.135Z] [INFO] 2026-06-12T21:21:49.135056Z  INFO session_init: codex_otel.log_only: event.name="codex.conversation_starts" context_window=200000 auto_compact_token_limit=125000 event.timestamp=2026-06-12T21:21:49.135Z conversation.id=thread_issue_1912 app.version=0.139.0 originator=codex_exec model=gpt-5.5 slug=gpt-5.5', '{"type":"thread.started","thread_id":"thread_issue_1912"}', '[2026-06-12T21:30:31.355Z] [INFO] 2026-06-12T21:30:31.354832Z  INFO turn:endpoint_session.execute_with{http.method=POST api.path="responses/compact"}: codex_otel.log_only: event.name="codex.api_request" http.response.status_code=200 endpoint="/responses/compact" event.timestamp=2026-06-12T21:30:31.354Z conversation.id=thread_issue_1912 app.version=0.139.0 model=gpt-5.5', '{"type":"turn.completed","usage":{"input_tokens":11827490,"cached_input_tokens":11407616,"output_tokens":36485,"reasoning_output_tokens":10057}}'].join('\n');
+
+  const parsed = parseCodexExecJsonOutput(output, {}, 'gpt-5.5');
+
+  // Compaction is observed, but with no per-response telemetry there is no precise split to render.
+  assert.equal(parsed.tokenUsage.compactifications.length, 1);
+  assert.equal(parsed.tokenUsage.diagnosticResponses.length, 0);
+  assert.equal(parsed.tokenUsage.subSessions.length, 0);
 
   const budgetStatsData = buildAgentBudgetStats(parsed.tokenUsage, {
     modelId: 'gpt-5.5',
@@ -314,7 +361,6 @@ test('Codex exec parser does not fabricate compact sub-session usage rows from c
   const renderedStats = buildBudgetStatsString(budgetStatsData);
   assert.equal(budgetStatsData.subSessions.length, 0);
   assert.doesNotMatch(renderedStats, /sub-sessions/);
-  assert.doesNotMatch(renderedStats, /~125K/);
   assert.doesNotMatch(renderedStats, /419\.9K \/ 200K/);
   assert.match(renderedStats, /Observed 1 compact event/);
   assert.match(renderedStats, /Total: \(419\.9K \+ 11\.4M cached\) input tokens, 36\.5K output tokens/);
@@ -516,7 +562,11 @@ await asyncTest('Codex command parses compact diagnostics from stderr stream chu
   assert.equal(result.success, true);
   assert.equal(result.sessionId, 'thread_issue_1912');
   assert.equal(result.pricingInfo.tokenUsage.compactifications.length, 1);
-  assert.equal(result.pricingInfo.tokenUsage.subSessions.length, 0);
+  // Single post-compaction response.completed snapshot -> one measured sub-session window.
+  assert.equal(result.pricingInfo.tokenUsage.subSessions.length, 1);
+  assert.equal(result.pricingInfo.tokenUsage.subSessions[0].peakContextUsage, 120000);
+  assert.equal(result.pricingInfo.tokenUsage.subSessions[0].outputTokens, 7000);
+  assert.equal(result.pricingInfo.tokenUsage.subSessions[0].estimated, false);
   assert.equal(result.pricingInfo.tokenUsage.inputTokens, 250000);
   assert.equal(result.pricingInfo.tokenUsage.cacheReadTokens, 50000);
   assert.equal(result.pricingInfo.tokenUsage.diagnosticResponses.length, 1);

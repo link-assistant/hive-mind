@@ -556,18 +556,28 @@ export const buildCumulativeInputPhrase = ({ input, cacheWrites, cacheReads, for
  * Issue #1600: Format sub-sessions list using numbered single-line format.
  * Each sub-session gets: "N. X / Y (Z%) input tokens, A / B (W%) output tokens"
  */
+const CODEX_DIAGNOSTIC_SUBSESSION_SOURCE = 'codex.response-completed-diagnostics';
+
 const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
   let result = '';
   let hasEstimatedRows = false;
+  let hasMeasuredCompactRows = false;
   for (let i = 0; i < subSessions.length; i++) {
     const sub = subSessions[i];
     if (sub.estimated) hasEstimatedRows = true;
+    if (!sub.estimated && sub.source === CODEX_DIAGNOSTIC_SUBSESSION_SOURCE) hasMeasuredCompactRows = true;
     const subPeakContext = sub.peakContextUsage || 0;
     const line = formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `);
     result += sub.estimated ? line.replace(`\n${i + 1}. `, `\n${i + 1}. ~`) : line;
   }
   if (hasEstimatedRows) {
     result += '\n\n_Sub-session values are estimates from observed compact events; the Total line remains exact._';
+  } else if (hasMeasuredCompactRows) {
+    // Issue #1961: Codex sub-session rows are reconstructed from per-request
+    // `response.completed` telemetry between compaction events. The input figure
+    // is the measured peak restored context reached before each compaction; the
+    // output figure is the tokens generated within that window.
+    result += '\n\n_Sub-session input is the measured peak restored context per request between compaction events; output is the tokens generated in that window. The Total line remains exact._';
   }
   return result;
 };

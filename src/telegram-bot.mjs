@@ -25,6 +25,7 @@ await loadLenvConfig({ override: true, quiet: true });
 const yargs = getLinoYargsFactory();
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
+const { enhanceUnknownArgumentError } = await import('./option-suggestions.lib.mjs');
 const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
 const { extractIsolationFromArgs, isValidPerCommandIsolation } = await import('./telegram-isolation.lib.mjs');
 
@@ -229,7 +230,8 @@ if (solveEnabled && solveOverrides.length > 0) {
       process.stderr.write = originalStderrWrite;
     }
   } catch (error) {
-    console.error(`❌ Invalid solve-overrides: ${error.message || String(error)}`);
+    const enhancedError = enhanceUnknownArgumentError(error, createSolveYargsConfig(yargs()));
+    console.error(`❌ Invalid solve-overrides: ${enhancedError.message || String(enhancedError)}`);
     console.error(`   Overrides: ${solveOverrides.join(' ')}`);
     process.exit(1);
   }
@@ -275,7 +277,8 @@ if (hiveEnabled && hiveOverrides.length > 0) {
       process.stderr.write = originalStderrWrite;
     }
   } catch (error) {
-    console.error(`❌ Invalid hive-overrides: ${error.message || String(error)}`);
+    const enhancedError = enhanceUnknownArgumentError(error, createHiveYargsConfig(yargs()));
+    console.error(`❌ Invalid hive-overrides: ${enhancedError.message || String(enhancedError)}`);
     console.error(`   Overrides: ${hiveOverrides.join(' ')}`);
     process.exit(1);
   }

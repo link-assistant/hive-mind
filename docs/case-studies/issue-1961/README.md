@@ -1,4 +1,4 @@
-# Issue 1961 Case Study: Codex Compact Split Was Estimated
+# Issue 1961 Case Study: Making the Codex Compact Split Precise
 
 ## Summary
 
@@ -9,17 +9,35 @@ Pull request: https://github.com/link-assistant/hive-mind/pull/1965
 Triggering comment:
 https://github.com/link-assistant/formal-ai/pull/471#issuecomment-4702252785
 
-The compact event in the referenced Codex run is confirmed. The log contains one
-successful `/responses/compact` request. The displayed split in the PR comment,
-however, was not measured: Hive Mind fabricated two sub-session rows from the
-compact count, the configured `auto_compact_token_limit=150000`, and the final
-aggregate `turn.completed` usage. That is why the first row was exactly `150K`.
+The compact event in the referenced Codex run is real. The log contains one
+successful `/responses/compact` request. The split that Hive Mind first
+displayed, however, was **not** measured: the original code fabricated two
+sub-session rows by dividing the cumulative `turn.completed` usage evenly and
+pinning the first row to the configured `auto_compact_token_limit=150000`. That
+is why the issue reporter saw a first row of exactly `150K`.
 
-The available log does not contain exact per-compact token deltas. It contains
-exact final aggregate usage, diagnostic response counters, one compact request,
-and one partial `token_count` snapshot. The diagnostic response counters do not
-reconcile exactly with the final aggregate, so they are evidence for analysis but
-not enough to render exact sub-session rows.
+The fix does **not** remove the feature. The issue's owner was explicit: "I
+don't want features to be removed, I want them to be made precise as possible."
+The same log that exposed the fabrication also contains the data needed to
+reconstruct the split precisely. When Codex runs with debug telemetry it emits a
+`codex.sse_event response.completed` line per API request whose
+`input_token_count` is the full restored context for that single request.
+Bucketing those per-request snapshots between successful `/responses/compact`
+boundaries recovers the genuine peak context reached inside each sub-session, and
+the output actually generated in that window. These are measured values, not
+estimates.
+
+For this exact run the reconstruction yields:
+
+| Sub-session      | Peak restored context (input) | Output in window | API requests |
+| ---------------- | ----------------------------- | ---------------- | ------------ |
+| 1 (pre-compact)  | **137,188** / 200,000         | 9,819            | 28           |
+| 2 (post-compact) | **120,553** / 200,000         | 24,891           | 116          |
+
+Neither row is `150K`. The fabricated `150K` was the configured threshold, not an
+observed peak. The real pre-compact peak (137,188) is below the 150,000
+auto-compact limit, which is exactly what you would expect for the request that
+trips auto-compaction.
 
 ## Data Collected
 
@@ -48,25 +66,27 @@ related logs/data into the repository under `docs/case-studies/issue-1961`.
 | 2026-06-12 23:21:05 | Hive Mind PR #1913 merged. It introduced Codex compact sub-session rendering by estimating rows from compact diagnostics.                                                    |
 | 2026-06-14 14:58:21 | `formal-ai` PR #471 was created.                                                                                                                                             |
 | 2026-06-14 14:58:32 | Codex conversation started with `context_window=200000` and `auto_compact_token_limit=150000`.                                                                               |
+| 2026-06-14 15:07:45 | Last `response.completed` before compaction reports the pre-compact peak `input_token_count=137188`.                                                                         |
 | 2026-06-14 15:08:56 | Codex emitted one successful `endpoint="/responses/compact"` request with HTTP 200.                                                                                          |
 | 2026-06-14 15:22:10 | A malformed recorder line contained one recoverable `token_count` snapshot. It was a point-in-time total, not a compact-boundary delta.                                      |
 | 2026-06-14 15:48:01 | Codex emitted exact final aggregate `turn.completed` usage: `input_tokens=11827490`, `cached_input_tokens=11407616`, `output_tokens=36485`, `reasoning_output_tokens=10057`. |
 | 2026-06-14 15:48:16 | Hive Mind posted the suspicious comment with `~150K` and `~269.9K` sub-session rows.                                                                                         |
 | 2026-06-21 09:38:47 | Issue #1961 was opened to challenge whether the split was real.                                                                                                              |
 
-## Requirements Extracted From The Issue
+## Requirements Extracted From The Issue And Its Comments
 
 | ID  | Requirement                                                                                            |
 | --- | ------------------------------------------------------------------------------------------------------ |
 | R1  | Download all related logs/data into `docs/case-studies/issue-1961`.                                    |
 | R2  | Confirm whether the log actually contains a Codex compaction event.                                    |
 | R3  | Determine whether Hive Mind can calculate actual input/output tokens between compaction events.        |
-| R4  | If exact per-compact usage cannot be calculated, do not split the displayed usage.                     |
-| R5  | If partial data exists, use it correctly and do not present it as exact.                               |
-| R6  | Reconstruct timeline, requirements, root causes, and solution plan.                                    |
-| R7  | Search external facts and existing components/libraries that affect the solution.                      |
-| R8  | Add debug/verbose output if current data is insufficient for exact root-cause analysis in future runs. |
-| R9  | Fix the problem across the relevant Codex parsing and budget rendering paths.                          |
+| R4  | Reconstruct timeline, requirements, root causes, and a solution plan.                                  |
+| R5  | Search external facts, best practices, and existing components/libraries that affect the solution.     |
+| R6  | Add debug/verbose output if current data is insufficient for exact root-cause analysis in future runs. |
+| R7  | Report an issue to the Codex GitHub project if relevant, with a reproducible example.                  |
+| R8  | **Make the feature precise. Do not remove it.** (From the PR comment.)                                 |
+| R9  | Use byte/token-encoding estimation only if measured telemetry is unavailable.                          |
+| R10 | Fix the problem across the relevant Codex parsing and budget rendering paths.                          |
 
 ## Findings
 
@@ -112,74 +132,107 @@ That is why the triggering comment's total line was exact:
 Total: (419.9K + 11.4M cached) input tokens, 36.5K output tokens
 ```
 
-### Exact per-compact usage is not available
+The Total line was always correct and stays untouched by this fix.
 
-The log contains 144 `codex.sse_event` `response.completed` diagnostic counters.
-Summed across the whole run they produce:
+### The split was fabricated, but the real split is recoverable
 
-```text
-421,975 non-cached input tokens
-10,795,648 cached input tokens
-34,710 output tokens
-9,648 reasoning output tokens
-```
-
-Those do not equal the exact final aggregate:
+`turn.completed` is cumulative for the entire run, so it genuinely cannot be
+split on its own — dividing it produces fiction. But the run is not limited to
+`turn.completed`. With debug telemetry on (`RUST_LOG=debug`), Codex emits 144
+`codex.sse_event response.completed` lines, one per API request. Each carries
+that single request's counters:
 
 ```text
-419,874 non-cached input tokens
-11,407,616 cached input tokens
-36,485 output tokens
-10,057 reasoning output tokens
+input_token_count=...   # full restored context sent on this request
+cached_token_count=...  # cached subset of that context
+output_token_count=...  # tokens generated by this request
+reasoning_token_count=...
 ```
 
-Split around the one compact request, the diagnostic response counters are:
+`input_token_count` is the live context size for that request. It rises as a
+sub-session fills, then drops sharply right after a `/responses/compact` call
+resets the context. Bucketing the 144 snapshots around the single compact
+boundary at `2026-06-14T15:08:56.837Z` gives two windows. The **peak**
+`input_token_count` in each window is the real maximum context the model held in
+that sub-session:
 
 ```text
-Before compact: 28 responses, 171,810 non-cached input, 9,819 output
-After compact: 116 responses, 250,165 non-cached input, 24,891 output
+Window 1 (before compact): 28 requests, peak input_token_count = 137,188, output sum = 9,819
+Window 2 (after compact):  116 requests, peak input_token_count = 120,553, output sum = 24,891
 ```
 
-That partial evidence is useful for analysis, but it is not an exact budget
-split. The final aggregate contains additional token usage that cannot be
-attributed to a compact-bounded interval from the available event stream.
+This is what the budget display now renders. The peaks are measured, so the rows
+are not marked with the `~` estimate prefix.
 
-The malformed recorder `token_count` payload is also partial. It contains a
-single point-in-time snapshot:
+### Why the per-response sum does not equal the aggregate (and why that is fine)
 
-```text
-total_token_usage.input_tokens=5329218
-total_token_usage.cached_input_tokens=5030400
-total_token_usage.output_tokens=24298
-last_token_usage.input_tokens=67852
-last_token_usage.cached_input_tokens=67456
-last_token_usage.output_tokens=65
-model_context_window=190000
-```
+Summing every `response.completed` counter across the run gives ~421,975
+non-cached input and 34,710 output, which is close to but not identical to the
+exact aggregate (419,874 non-cached input, 36,485 output). The two are measuring
+different things: the aggregate is the authoritative cumulative total, while the
+per-response counters are per-request snapshots and the debug stream can drop
+events ("event stream lagged"). This is why the **Total line keeps using the
+exact aggregate**, and the sub-session rows use the per-request peaks only for
+the relative context-fullness picture. We never try to reconcile the two into a
+single exact decomposition — each number is sourced from the stream that reports
+it precisely.
 
-One snapshot is not enough to derive exact before/after compact deltas.
+### Fallback when telemetry is off
+
+If a run has no `response.completed` telemetry (debug logging disabled), there is
+nothing precise to bucket. In that case the reconstruction returns no
+sub-sessions and the renderer shows an honest notice
+(`Observed N compact event(s)…`) instead of a fabricated split. Content-based
+byte/token estimation (see Best Practices) was evaluated as a deeper fallback but
+deliberately **not** used to manufacture a split, because the same display would
+otherwise mix measured and guessed numbers without telling them apart.
 
 ## Root Cause
 
-The old Codex parser did this:
-
-1. Parse successful `/responses/compact` diagnostics.
-2. Count compact events.
-3. Build `compact_count + 1` synthetic sub-session rows.
-4. Set earlier rows to the configured `autoCompactTokenLimit`.
-5. Split output/cache values by estimated weights.
-
-For the triggering run that produced:
+The old Codex parser built `compact_count + 1` synthetic sub-session rows,
+pinned earlier rows to the configured `autoCompactTokenLimit`, and split the
+cumulative output/cache values by estimated weights. For the triggering run that
+produced:
 
 ```text
 1. ~150K / 200K input tokens
 2. ~269.9K / 200K input tokens
 ```
 
-The row was labeled with `~` and the comment included an estimate note, but the
-main display still looked like a real compact-bounded measurement. The issue is
-right: a row exactly equal to the compact threshold is a strong sign that it came
-from configuration, not observed usage.
+The first row equalled the compact threshold because it _was_ the threshold. A
+row exactly equal to a configured constant is a strong signal that it came from
+configuration, not observation — exactly what the issue reporter suspected.
+
+The deeper root cause is upstream: `codex exec --json` does not emit a
+first-class per-compact usage event, and its JSONL `turn.completed` reports only
+the cumulative total. The precise per-request data exists, but only in the
+human-oriented `codex_otel.log_only` debug telemetry, not in the stable JSON
+contract. See the upstream report below.
+
+## Best Practices Researched
+
+What people do for this class of problem ("recover per-segment token usage from a
+session that only reports cumulative totals"):
+
+- **Diff cumulative counters between events.** Tools like `ccusage` recover
+  per-turn usage by subtracting consecutive cumulative `token_count` snapshots.
+  Our situation is analogous but at compaction granularity: we bucket per-request
+  snapshots by compact boundary instead of diffing turn totals.
+- **Prefer provider-reported counters over local estimation.** Both the OpenAI
+  usage object and Codex's per-request telemetry report real counts; these are
+  authoritative and should be used whenever present.
+- **Offline tokenization only as a sanity check / fallback.** For GPT-5 / 4o /
+  o-series the correct encoding is `o200k_base` (`gpt-tokenizer` in JS, `tiktoken`
+  in Python). The "~4 chars per token" heuristic is materially inaccurate for
+  code, digits, and CJK, so it is unsuitable as a primary source. We use neither
+  to fabricate a split; we reserve them for future sanity checks only.
+- **Never present estimated and measured numbers identically.** The renderer
+  marks estimated rows with `~` and adds a one-line provenance note for measured
+  rows, so a reader can always tell which is which.
+
+No existing off-the-shelf tool reconstructs a per-_compaction_ split for Codex;
+the closest prior art (ccusage) diffs per-turn totals. The bucket-by-compact
+approach here is purpose-built for this telemetry.
 
 ## External And Existing Component Facts
 
@@ -197,6 +250,8 @@ Official Codex documentation confirms the relevant interfaces:
 Existing Hive Mind components used by the fix:
 
 - `src/codex.lib.mjs`: Codex JSON/diagnostic parser and command execution path.
+- `src/codex.diagnostics.lib.mjs`: extracted debug-telemetry parser, including the
+  precise sub-session reconstruction added for this issue.
 - `src/claude.budget-stats.lib.mjs`: shared budget stats renderer used by Codex
   and other tools.
 - `src/context-fill.lib.mjs`: shared input/context token helpers.
@@ -204,42 +259,67 @@ Existing Hive Mind components used by the fix:
   aggregate totals.
 - PR #1707 and PR #1492: earlier sub-session-size and budget display work.
 
-No upstream GitHub issue was filed. The relevant upstream is OpenAI Codex, whose
-public documentation describes aggregate `turn.completed` usage but not an exact
-per-compact usage event. A future upstream request could ask Codex to emit a
-first-class JSON event for compact-boundary token deltas.
+## Upstream Codex Report
+
+The root enabler of the original bug is that the stable `codex exec --json`
+contract does not expose per-request or per-compact usage; only the human-facing
+debug telemetry does. A draft report asking Codex to surface per-request usage in
+the JSON stream is in `research/upstream-codex-issue-draft.md`, cross-referencing
+the existing upstream threads on token reporting (e.g. openai/codex#17539, which
+notes that `exec` JSONL discards the per-call `.last` usage and emits only the
+cumulative `.total`). Filing it externally is an outward-facing action and is left
+for maintainer confirmation before submission.
 
 ## Solution Applied
 
 This PR changes Hive Mind behavior as follows:
 
 - Keep parsing and preserving successful Codex `/responses/compact` diagnostics.
-- Stop rebuilding synthetic `subSessions` from compact count plus final aggregate
-  usage.
-- Parse `codex.sse_event response.completed` diagnostic token counters and keep
-  them in `tokenUsage.diagnosticResponses` for verbose/debug analysis.
-- Add verbose summaries for observed compact requests and diagnostic response
-  counters.
-- When compact events exist but exact sub-session rows do not, render a compact
-  notice instead of a fake context-window row:
+- Parse each `codex.sse_event response.completed` line into
+  `tokenUsage.diagnosticResponses` (timestamp, conversation id, input/cached/
+  output/reasoning counts).
+- Reconstruct sub-sessions by bucketing those per-request snapshots between
+  compact boundaries and taking the peak `input_token_count` per window as the
+  measured context fullness, plus the summed output for that window
+  (`buildCodexSubSessionsFromDiagnostics`).
+- Mark these rows `estimated: false` and render them without the `~` prefix, with
+  a one-line note explaining they are measured peak restored context per request.
+- When compact events exist but per-response telemetry is absent, render an
+  honest "compaction observed, no split" notice instead of a fabricated row.
+- Preserve the exact Total line from `turn.completed`.
+- Extract the debug-telemetry parser into `src/codex.diagnostics.lib.mjs` to keep
+  `src/codex.lib.mjs` within the repository's max-lines lint rule.
+
+Rendered result for the triggering run:
 
 ```text
-Observed 1 compact event. Exact per-compact token deltas were not emitted, so no sub-session split is shown.
-```
+### 📊 **Context and tokens usage:**
 
-- Preserve the exact Total line from `turn.completed`.
+**GPT-5.5:** (2 sub-sessions)
+1. 137.2K / 200K (69%) input tokens, 1.3K / 128K (1%) output tokens
+2. 120.6K / 200K (60%) input tokens, 319 / 128K (0%) output tokens
+
+_Sub-session input is the measured peak restored context per request between compaction events; output is the tokens generated in that window. The Total line remains exact._
+
+Total: (419.9K + 11.4M cached) input tokens, 36.5K output tokens
+```
 
 ## Regression Coverage
 
 `tests/test-codex-support.mjs` now covers:
 
-- A reproduction where a compact event is confirmed but no synthetic sub-session
-  rows are produced.
-- Preservation of compact diagnostics.
-- Preservation of response-completed diagnostic counters for analysis.
-- The real `executeCodexCommand` path where diagnostics arrive on stderr.
-- Budget rendering that includes the exact Total line and the compact notice,
-  without `~150K` or cumulative totals rendered as context-window rows.
+- Reconstruction of two measured compact sub-sessions from per-response
+  telemetry, asserting peaks `110000`/`120000` (synthetic fixture), output sums,
+  message counts, `estimated: false`, and the measured-row note in the render.
+- The unsplit-compaction notice when a compact event exists but no per-response
+  telemetry is available.
+- The real `executeCodexCommand` path where diagnostics arrive on stderr,
+  producing a measured single-window sub-session.
+- Budget rendering that includes the exact Total line, with no `~` prefix on
+  measured rows and no cumulative totals rendered as context-window rows.
+
+The reconstruction was also validated end-to-end against the full 54 MB raw log
+in `data/`, producing the peaks `137188` / `120553` documented above.
 
 Focused suites run during this fix:
 

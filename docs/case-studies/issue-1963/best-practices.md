@@ -108,3 +108,28 @@ doesn't actually have.
 
 > **Recommendation.** Repro harnesses should import the real stylesheet/component, so
 > the harness and production cannot drift.
+
+## 9. Gotcha: the `language-test-coverage` gate wants *every* language
+
+Another hidden CI contract, in the same family as #5 — caught only because the
+*code* commit (not the placeholder revert) was validated in CI:
+
+* formal-ai's `check:language-test-coverage` (run in the Lint job) diffs the PR
+  against `main`; if any **language-facing** file changed (`src/web/app.js`,
+  `src/web/i18n*.{js,lino}`, `src/language.rs`, `src/solver*.rs`, `data/seed/**`,
+  `src/translation/**`, …), the PR's *added test lines* must cover **all** supported
+  UI languages (en, ru, hi, zh), detected by language name or by script
+  (Cyrillic → ru, Devanagari → hi, Han → zh).
+* The P2 fix touched `src/web/app.js` (the `thinkingDetailText` cap), so an
+  English-only Rust test tripped the gate: *"Missing: ru, hi, zh."*
+
+> **Recommendation.** When a fix touches language-facing code, add regression tests
+> in *every* supported language — and make them meaningful, not box-ticking. Here the
+> multilingual tests double as a real check that the 600-char cap counts Unicode
+> scalar values, not bytes (a Han detail of 208 chars / 624 bytes must survive whole).
+> One gate, two correctness wins.
+
+> **Meta-lesson.** Validate the *code* commit in CI, not only the `.gitkeep` revert.
+> A gate that fires on a language-facing diff is invisible when the head being tested
+> is the revert (which touches only `.gitkeep`); push the code commit as head first,
+> let CI exercise it, then add the revert last (see #6).

@@ -100,7 +100,13 @@ stylesheet so the pixels are production-faithful).
 * **Fix.** Raise the cap to **600** in both surfaces, kept in sync (the panel still
   scrolls and the P1 fade still applies, so the upper bound stays meaningful).
 * **Where.** `src/thinking.rs` + `src/web/app.js`. Pinned by
-  `tests/unit/issue_1963.rs`.
+  `tests/unit/issue_1963.rs` — four Rust tests that cover **every supported UI
+  language** (en, ru, hi, zh), since the cap is language-facing: a realistic detail
+  must survive verbatim in Latin, Cyrillic and Devanagari scripts, and a Chinese
+  (Han) detail whose UTF-8 length exceeds 600 *bytes* but stays under 600 *chars*
+  proves the cap counts Unicode scalar values, not bytes. (formal-ai's
+  `check:language-test-coverage` CI gate requires this multilingual coverage for any
+  language-facing change — see [`best-practices.md`](./best-practices.md).)
 
 ### P3 — pending message jumps in width
 
@@ -222,10 +228,13 @@ See [`solution-plans.md`](./solution-plans.md) for the full evaluation. Summary:
 
 All formal-ai CI gates pass on the fix branch:
 
-* `cargo test --test unit` — **1021 passed, 0 failed** (incl. the new
+* `cargo test --test unit` — **1023 passed, 0 failed** (incl. the four
   `issue_1963` tests and the `semantic_grounding` grounding scan).
 * `cargo fmt --check`, `cargo clippy --all-targets --all-features` — clean.
 * `check:i18n`, `check:web-tdz`, `check:web-hardcoded-ui` — pass.
+* `check:language-test-coverage` — **pass** (en, ru, hi, zh): the gate flags
+  `src/web/app.js` as language-facing and requires the added tests to exercise
+  every supported language, which the four `issue_1963` tests do.
 * `playwright … issue-1963` — **10 passed** (and 9/10 fail when the CSS fix is
   stashed, proving the tests bind to the fix).
 * `src/web/{vendor,ocr}.bundle.js` — unchanged (entry files untouched).

@@ -156,6 +156,45 @@ docker run -dit --name hive-mind --restart unless-stopped \
 `HIVE_MIND_HOST_CONFIG_DIR` 时，在首个任务之前发出警告——把原始的 Docker 挂载失败变成
 可操作的提示。
 
+## `~/.gitconfig` 写入陷阱（`Device or resource busy`）
+
+`~/.gitconfig` 是唯一一个**不能作为可写的单文件 bind 挂载**的凭据。`git config --global`
+——`gh-setup-git-identity --repair` 会运行它，bot 在不存在身份时的启动 git 身份预检也会调用
+它——并**不会**原地编辑该文件。它会写入一个临时文件，然后**通过 `rename()` 覆盖**
+`~/.gitconfig`，而**覆盖挂载点**的 rename 会失败：
+
+```text
+error: could not write config file /home/box/.gitconfig: Device or resource busy
+```
+
+（`git config` 以退出码 4 结束。）因此如果 `~/.gitconfig` 是单文件 bind 挂载——或是解析到
+单文件 bind 挂载的符号链接——任何针对它的 `git config --global` 都会失败。相比之下，
+`~/.claude.json` 由 agent 工具链**原地**重写，所以那里的单文件挂载没有问题；`.gitconfig`
+的特殊之处就在于这次原子 rename。
+
+对上文的配方有两点影响：
+
+1. **隔离任务以只读方式挂载 `~/.gitconfig`。** Hive Mind 把 git 身份
+   （`~/.gitconfig`、`~/.config/git`）以 `:ro` 绑定进每个任务：任务只**读取**身份以进行
+   提交，而 `:ro` 挂载会让任何意外的写穿挂载快速且清晰地失败，而不是在运行中途出错。
+2. **不要让 bot *通过*挂载的文件来填充自己的身份。** `gh-setup-git-identity` /
+   `git config --global` 所写入的路径**不能**是 bind 挂载（或指向 bind 挂载的符号链接）。
+   从以下二者中选其一：
+
+   - **先写后拷贝（推荐）。** 让 `gh-setup-git-identity` 把 `~/.gitconfig` 写到容器
+     **自己**的文件系统上（没有挂载 → rename 成功），然后把它拷贝到任务以只读方式挂载的
+     主机路径。任务只读取它，所以那里用 `:ro` 文件挂载是正确的。
+   - **挂载目录，而非文件。** 把 `GIT_CONFIG_GLOBAL` 指向**挂载目录**内的一个文件
+     （例如 `GIT_CONFIG_GLOBAL=/home/box/.gitcfg/config`，其中 `.gitcfg/` 是 bind 挂载）。
+     对挂载目录**内部**文件的 rename 可以正常工作；只有覆盖挂载点本身才会失败。bot 和隔离
+     任务必须遵循相同的 `GIT_CONFIG_GLOBAL`。
+
+   如果你使用上文的**方式 A 符号链接**布局，请让 `~/.gitconfig` 指向一个 bot **不会**写穿
+   的文件（一个预先填充好的只读身份），否则首次 `git config --global` 就会踩中这个陷阱。
+
+见 [issue #1962](https://github.com/link-assistant/hive-mind/issues/1962) 以及相关的 box ／
+command-stream 调查。
+
 ## 精确标签要求（两种模式）
 
 `resolveDockerIsolationImageTag()` 让每个任务请求**精确**的

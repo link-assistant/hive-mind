@@ -176,6 +176,51 @@ The startup preflight detects DooD and warns, before the first task, when the
 mount sources are still the bot's home paths and `HIVE_MIND_HOST_CONFIG_DIR` is
 unset — turning the raw Docker mount failure into an actionable message.
 
+## The `~/.gitconfig` write trap (`Device or resource busy`)
+
+`~/.gitconfig` is the one credential that **cannot be a writable single‑file bind
+mount**. `git config --global` — which `gh-setup-git-identity --repair` runs, and
+which the bot's startup git‑identity preflight invokes when no identity exists —
+does **not** edit the file in place. It writes a temp file and **`rename()`s it
+over** `~/.gitconfig`, and a rename **over a mountpoint** fails:
+
+```text
+error: could not write config file /home/box/.gitconfig: Device or resource busy
+```
+
+(`git config` exits 4.) So if `~/.gitconfig` is a single‑file bind mount — or a
+symlink that resolves to one — any `git config --global` against it dies. By
+contrast `~/.claude.json` is rewritten **in place** by the agent tooling, so a
+single‑file mount there is fine; `.gitconfig` is special because of the atomic
+rename.
+
+Two consequences for the recipes above:
+
+1. **The isolated task mounts `~/.gitconfig` read‑only.** Hive Mind binds the git
+   identity (`~/.gitconfig`, `~/.config/git`) into each task with `:ro`: the task
+   only **reads** the identity to commit, and a `:ro` mount makes any stray
+   write‑through‑the‑mount fail fast and legibly instead of mid‑run.
+2. **Do not let the bot populate its identity *through* the mounted file.** The
+   path that `gh-setup-git-identity` / `git config --global` writes must **not** be
+   a bind mount (or a symlink to one). Pick one of:
+
+   - **Write‑then‑copy (recommended).** Let `gh-setup-git-identity` write
+     `~/.gitconfig` on the container's **own** filesystem (no mount → the rename
+     succeeds), then copy it out to the host path the task mounts read‑only. The
+     task only reads it, so a `:ro` file mount there is correct.
+   - **Mount a directory, not a file.** Point `GIT_CONFIG_GLOBAL` at a file inside
+     a **mounted directory** (e.g. `GIT_CONFIG_GLOBAL=/home/box/.gitcfg/config`
+     where `.gitcfg/` is the bind mount). Renames of files **inside** a mounted
+     directory work; only renaming over the mountpoint itself fails. The same
+     `GIT_CONFIG_GLOBAL` must be honored by both the bot and the isolated task.
+
+   If you use the **Option A symlink** layout above, make `~/.gitconfig` point at a
+   file the bot does **not** write through (a pre‑populated, read‑only identity),
+   or the first `git config --global` will hit the trap.
+
+See [issue #1962](https://github.com/link-assistant/hive-mind/issues/1962) and the
+related box / command‑stream investigations.
+
 ## Concrete‑tag requirement (both modes)
 
 `resolveDockerIsolationImageTag()` makes each task request the **exact**

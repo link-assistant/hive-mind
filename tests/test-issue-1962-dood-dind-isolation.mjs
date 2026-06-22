@@ -23,7 +23,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1962
  */
 
-import { resolveDockerIsolationMode, isDoodIsolationMode, preflightDockerIsolation, resolveDockerIsolationConfigSourceHome, getDockerIsolationAuthMounts, preflightDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
+import { resolveDockerIsolationMode, isDoodIsolationMode, preflightDockerIsolation, resolveDockerIsolationConfigSourceHome, getDockerIsolationAuthMounts, preflightDockerIsolationAuthMounts, buildDockerIsolationStartArgs } from '../src/isolation-runner.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -210,6 +210,42 @@ assertTrue(
 assertFalse(
   doodCodex.some(m => m.source.includes('.claude')),
   'codex tool does not receive claude credentials (scoping preserved under relocation)'
+);
+
+console.log('\n--- getDockerIsolationAuthMounts: git identity is mounted read-only (the .gitconfig rename trap, issue #1962) ---');
+
+// git config --global (gh-setup-git-identity --repair) writes via temp-file +
+// atomic rename, which fails over a single-file bind mount ("Device or resource
+// busy"). The isolated task only READS the identity, so the git-identity mounts
+// must be read-only; the writable credentials (gh/claude/codex) must NOT be.
+const roMounts = getDockerIsolationAuthMounts({ tool: 'claude', env: doodEnv, homeDir: '/home/box', existsSync: () => false });
+const gitconfigMount = roMounts.find(m => m.target === '/home/box/.gitconfig');
+const xdgGitMount = roMounts.find(m => m.target === '/home/box/.config/git');
+assertTrue(gitconfigMount && gitconfigMount.readOnly === true, '~/.gitconfig is mounted read-only');
+assertTrue(xdgGitMount && xdgGitMount.readOnly === true, '~/.config/git is mounted read-only');
+assertFalse(
+  roMounts.some(m => m.target === '/home/box/.claude.json' && m.readOnly),
+  '~/.claude.json stays writable (rewritten in place by the agent tooling, no rename trap)'
+);
+assertFalse(
+  roMounts.some(m => m.target === '/home/box/.config/gh' && m.readOnly),
+  '~/.config/gh stays writable (gh refreshes tokens there)'
+);
+
+// The read-only flag must reach the actual `--volume` spec as a `:ro` suffix.
+const startArgs = buildDockerIsolationStartArgs('solve', ['--once'], { sessionId: 'abc', tool: 'claude', env: doodEnv, homeDir: '/home/box', existsSync: () => false });
+const volumeSpecs = startArgs.filter((a, i) => startArgs[i - 1] === '--volume');
+assertTrue(
+  volumeSpecs.some(v => v === '/srv/hive-config/.gitconfig:/home/box/.gitconfig:ro'),
+  'the ~/.gitconfig --volume spec carries the :ro suffix'
+);
+assertTrue(
+  volumeSpecs.some(v => v === '/srv/hive-config/.config/git:/home/box/.config/git:ro'),
+  'the ~/.config/git --volume spec carries the :ro suffix'
+);
+assertFalse(
+  volumeSpecs.some(v => v.startsWith('/srv/hive-config/.claude.json:') && v.endsWith(':ro')),
+  'the ~/.claude.json --volume spec is NOT read-only'
 );
 
 console.log('\n--- preflightDockerIsolationAuthMounts: warns in unconfigured DooD, clears once relocated, silent in DinD ---');

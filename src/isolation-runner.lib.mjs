@@ -266,9 +266,9 @@ export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.en
   // existence gate (trust the operator's host layout). See issue #1962.
   const sourceHome = resolveDockerIsolationConfigSourceHome({ env, homeDir });
   const relocated = sourceHome !== homeDir;
-  const add = (source, target) => {
+  const add = (source, target, { readOnly = false } = {}) => {
     if (!source) return;
-    if (relocated || existsSync(source)) mounts.push({ source, target });
+    if (relocated || existsSync(source)) mounts.push(readOnly ? { source, target, readOnly: true } : { source, target });
   };
 
   add(env.GH_CONFIG_DIR || path.join(sourceHome, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'));
@@ -278,8 +278,19 @@ export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.en
   // and the XDG base dir, falling back to the conventional `~/.gitconfig` and
   // `~/.config/git`. Missing host paths are skipped, so a container image that
   // already bakes a git identity is left untouched. See issue #1939.
-  add(env.GIT_CONFIG_GLOBAL || path.join(sourceHome, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'));
-  add(env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(sourceHome, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'));
+  //
+  // Mounted READ-ONLY (`:ro`). The task only READS the git identity to commit; it
+  // must never write through the mount. `~/.gitconfig` as a single-file bind mount
+  // is the one credential that breaks under writes: `git config --global` (e.g.
+  // `gh-setup-git-identity --repair`) writes a temp file and rename()s it over the
+  // target, and rename-over-a-mountpoint fails with "Device or resource busy"
+  // (git config exits 4). A `:ro` mount makes the read-only contract explicit and
+  // turns any stray write attempt into an immediate, legible error instead of a
+  // confusing mid-run failure. The bot's OWN identity must be populated on a path
+  // that is NOT this mount (write-then-copy, or a mounted directory with
+  // GIT_CONFIG_GLOBAL) — see docs/DOCKER-ISOLATION.md. Issue #1962.
+  add(env.GIT_CONFIG_GLOBAL || path.join(sourceHome, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), { readOnly: true });
+  add(env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(sourceHome, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), { readOnly: true });
 
   if (normalizedTool === 'codex') {
     add(path.join(sourceHome, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'));
@@ -338,7 +349,7 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
 
   for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync })) {
-    startArgs.push('--volume', `${mount.source}:${mount.target}`);
+    startArgs.push('--volume', mount.readOnly ? `${mount.source}:${mount.target}:ro` : `${mount.source}:${mount.target}`);
   }
 
   startArgs.push('--detached', '--session', sessionId, '--', buildShellCommand(command, args));
@@ -702,7 +713,7 @@ export async function executeWithIsolation(command, args, options = {}) {
       console.log(`[VERBOSE] isolation-runner: Docker isolation image: ${image}`);
       console.log(`[VERBOSE] isolation-runner: Docker isolation privileged: ${shouldRunPrivilegedDockerIsolation(image, env)}`);
       console.log('[VERBOSE] isolation-runner: Docker isolation pull: reuse local image if present, pull only if missing (start-command default)');
-      console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => m.target).join(', ') || '(none)'}`);
+      console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => (m.readOnly ? `${m.target} (ro)` : m.target)).join(', ') || '(none)'}`);
       const gitIdentityMounted = mounts.some(m => m.target === path.join(DOCKER_CONTAINER_HOME, '.gitconfig') || m.target === path.join(DOCKER_CONTAINER_HOME, '.config', 'git'));
       console.log(`[VERBOSE] isolation-runner: Docker isolation git identity propagated: ${gitIdentityMounted ? 'yes' : 'no (host ~/.gitconfig missing — child may fail with "Git identity not configured", issue #1939)'}`);
     }

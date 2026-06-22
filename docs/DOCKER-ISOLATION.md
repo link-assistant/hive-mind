@@ -111,6 +111,71 @@ Key flags:
 > container and image on the host. Use it on hosts you control, where that trust
 > boundary is acceptable.
 
+## Credential mounts in DooD (the host‑daemon mount‑source trap)
+
+Each isolated task mounts the bot's credentials into the container so `gh`, git,
+and the agent CLI authenticate: `~/.config/gh`, `~/.gitconfig`, `~/.config/git`,
+and — scoped to the tool — `~/.claude` + `~/.claude.json` or `~/.codex`. Those
+mount **sources** are resolved from the bot's home (e.g. `/home/box/.gitconfig`).
+
+In **DinD** that is correct: the nested daemon shares the bot filesystem, so
+`/home/box/.gitconfig` is the real file. In **DooD** the task runs on the **host**
+daemon, which resolves bind‑mount sources against the **host** filesystem — where
+`/home/box/...` usually does not exist. Docker then **auto‑creates each missing
+source as an empty directory** on the host, which breaks the task two ways
+([issue #1962](https://github.com/link-assistant/hive-mind/issues/1962)):
+
+1. File mounts (`~/.claude.json`, `~/.gitconfig`) fail with _"Are you trying to
+   mount a directory onto a file (or vice‑versa)?"_ — the task dies before it
+   starts.
+2. The git identity is empty (`fatal: empty ident name (for <>)`) because the
+   mounted `~/.gitconfig` is an empty directory.
+
+You must make the bot's config resolve to the **same paths on the host**. Two
+supported ways:
+
+**Option A — expose the same paths on the host (symlinks work).** Bind the
+container's home config into the host at the identical paths, or symlink them.
+Docker follows symlink mount sources, so pointing the host's `/home/box/.claude`
+etc. at wherever the files really live is enough:
+
+```bash
+# On the host, expose the bot's credentials at the SAME paths the bot uses.
+# (Adjust /home/box to the bot user's home if you changed it.)
+sudo mkdir -p /home/box/.config
+sudo ln -s /srv/hive-config/.gitconfig   /home/box/.gitconfig
+sudo ln -s /srv/hive-config/.claude      /home/box/.claude
+sudo ln -s /srv/hive-config/.claude.json /home/box/.claude.json
+sudo ln -s /srv/hive-config/.config/gh   /home/box/.config/gh
+# ...and ~/.codex for the Codex tool, ~/.config/git for XDG git config.
+```
+
+**Option B — point Hive Mind at a host config root (recommended).** Set
+`HIVE_MIND_HOST_CONFIG_DIR` to the directory on the **host** that holds the bot's
+`.gitconfig`, `.claude`, `.claude.json`, `.codex`, and `.config/gh`. In DooD,
+Hive Mind then resolves the conventional `~/.x` mount sources against that root
+instead of the bot home, so the host daemon binds the real files:
+
+```bash
+docker run -dit --name hive-mind --restart unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add "${HOST_DOCKER_GID}" \
+  -e DIND_SKIP_DAEMON=1 \
+  -e HIVE_MIND_DOCKER_ISOLATION_MODE=dood \
+  -e HIVE_MIND_HOST_CONFIG_DIR=/srv/hive-config \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+`HIVE_MIND_HOST_CONFIG_DIR` only takes effect in DooD (DinD always uses the bot
+home, since the sources are real there). Because the bot cannot stat host‑daemon
+paths, relocated sources skip the bot‑side existence check and trust your host
+layout — make sure each file/dir exists with the right type (e.g. `.claude.json`
+is a **file**, `.claude` is a **directory**).
+
+The startup preflight detects DooD and warns, before the first task, when the
+mount sources are still the bot's home paths and `HIVE_MIND_HOST_CONFIG_DIR` is
+unset — turning the raw Docker mount failure into an actionable message.
+
 ## Concrete‑tag requirement (both modes)
 
 `resolveDockerIsolationImageTag()` makes each task request the **exact**

@@ -23,7 +23,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1962
  */
 
-import { resolveDockerIsolationMode, isDoodIsolationMode, preflightDockerIsolation } from '../src/isolation-runner.lib.mjs';
+import { resolveDockerIsolationMode, isDoodIsolationMode, preflightDockerIsolation, resolveDockerIsolationConfigSourceHome, getDockerIsolationAuthMounts, preflightDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -149,6 +149,91 @@ const dind = await preflightDockerIsolation({
 });
 assertEqual(dind.mode, 'dind', 'mode=dind when no DooD signal is present');
 assertIncludes(dind.warnings[0], 'nested Docker daemon', 'DinD warning still references the nested daemon (unchanged)');
+
+function assertTrue(actual, label) {
+  if (actual === true) pass(label);
+  else fail(label, true, actual);
+}
+
+function assertFalse(actual, label) {
+  if (actual === false) pass(label);
+  else fail(label, false, actual);
+}
+
+console.log('\n--- resolveDockerIsolationConfigSourceHome: DinD keeps bot home, DooD relocates ---');
+
+assertEqual(resolveDockerIsolationConfigSourceHome({ env: {}, homeDir: '/home/box' }), '/home/box', 'DinD (no DooD signal) always uses the bot home as the mount source root');
+assertEqual(resolveDockerIsolationConfigSourceHome({ env: { HIVE_MIND_HOST_CONFIG_DIR: '/srv/hive-config' }, homeDir: '/home/box' }), '/home/box', 'HIVE_MIND_HOST_CONFIG_DIR is ignored in DinD (sources must stay on the shared bot FS)');
+assertEqual(resolveDockerIsolationConfigSourceHome({ env: { DIND_SKIP_DAEMON: '1', HIVE_MIND_HOST_CONFIG_DIR: '/srv/hive-config' }, homeDir: '/home/box' }), '/srv/hive-config', 'DooD + HIVE_MIND_HOST_CONFIG_DIR relocates the mount source root to the host config dir');
+assertEqual(resolveDockerIsolationConfigSourceHome({ env: { DIND_SKIP_DAEMON: '1', HIVE_MIND_HOST_CONFIG_DIR: '   ' }, homeDir: '/home/box' }), '/home/box', 'blank HIVE_MIND_HOST_CONFIG_DIR falls back to the bot home');
+assertEqual(resolveDockerIsolationConfigSourceHome({ env: { DIND_SKIP_DAEMON: '1' }, homeDir: '/home/box' }), '/home/box', 'DooD without HIVE_MIND_HOST_CONFIG_DIR still uses the bot home (operator must expose host paths)');
+
+console.log('\n--- getDockerIsolationAuthMounts: DinD gates on existence; DooD relocation bypasses the bot-FS gate ---');
+
+// DinD: only paths that exist on the (shared) bot FS are mounted.
+const dindMounts = getDockerIsolationAuthMounts({ tool: 'claude', env: {}, homeDir: '/home/box', existsSync: p => p === '/home/box/.gitconfig' });
+assertTrue(
+  dindMounts.some(m => m.source === '/home/box/.gitconfig'),
+  'DinD mounts an existing ~/.gitconfig'
+);
+assertFalse(
+  dindMounts.some(m => m.source === '/home/box/.claude.json'),
+  'DinD skips a missing ~/.claude.json (existence-gated)'
+);
+
+// DooD with HIVE_MIND_HOST_CONFIG_DIR: sources relocate to the host config root
+// AND bypass the existsSync gate (the bot cannot stat host-daemon paths).
+const doodEnv = { DIND_SKIP_DAEMON: '1', HIVE_MIND_HOST_CONFIG_DIR: '/srv/hive-config' };
+const doodMounts = getDockerIsolationAuthMounts({ tool: 'claude', env: doodEnv, homeDir: '/home/box', existsSync: () => false });
+assertTrue(
+  doodMounts.some(m => m.source === '/srv/hive-config/.gitconfig' && m.target === '/home/box/.gitconfig'),
+  'DooD relocates ~/.gitconfig source to the host config dir, target stays the container home'
+);
+assertTrue(
+  doodMounts.some(m => m.source === '/srv/hive-config/.claude.json'),
+  'DooD relocates ~/.claude.json despite existsSync=false (trusts the operator host layout)'
+);
+assertTrue(
+  doodMounts.some(m => m.source === '/srv/hive-config/.config/gh'),
+  'DooD relocates the gh config dir source to the host config dir'
+);
+assertFalse(
+  doodMounts.some(m => m.source.includes('.codex')),
+  'claude tool does not receive codex credentials (scoping preserved under relocation)'
+);
+
+const doodCodex = getDockerIsolationAuthMounts({ tool: 'codex', env: doodEnv, homeDir: '/home/box', existsSync: () => false });
+assertTrue(
+  doodCodex.some(m => m.source === '/srv/hive-config/.codex'),
+  'codex tool receives the relocated ~/.codex source'
+);
+assertFalse(
+  doodCodex.some(m => m.source.includes('.claude')),
+  'codex tool does not receive claude credentials (scoping preserved under relocation)'
+);
+
+console.log('\n--- preflightDockerIsolationAuthMounts: warns in unconfigured DooD, clears once relocated, silent in DinD ---');
+
+const dindAuth = await preflightDockerIsolationAuthMounts({ env: {}, homeDir: '/home/box', logger: captureLogger() });
+assertEqual(dindAuth.mode, 'dind', 'mode=dind surfaced');
+assertTrue(dindAuth.ok, 'DinD auth-mount preflight is always ok (shared FS, real files)');
+assertEqual(dindAuth.warnings.length, 0, 'DinD emits no auth-mount warning');
+
+const doodUnconfiguredLogger = captureLogger();
+const doodUnconfigured = await preflightDockerIsolationAuthMounts({ env: { DIND_SKIP_DAEMON: '1' }, homeDir: '/home/box', logger: doodUnconfiguredLogger });
+assertEqual(doodUnconfigured.mode, 'dood', 'mode=dood surfaced for the box DooD switch');
+assertFalse(doodUnconfigured.ok, 'unconfigured DooD (bot-home sources) is flagged not-ok');
+assertEqual(doodUnconfigured.warnings.length, 1, 'exactly one actionable warning');
+assertIncludes(doodUnconfigured.warnings[0], 'directory onto a file', 'warning names the .claude.json/.gitconfig mount failure');
+assertIncludes(doodUnconfigured.warnings[0], 'empty ident name', 'warning names the empty git identity failure');
+assertIncludes(doodUnconfigured.warnings[0], 'HIVE_MIND_HOST_CONFIG_DIR', 'warning points at the HIVE_MIND_HOST_CONFIG_DIR remedy');
+assertEqual(doodUnconfiguredLogger.warns.length, 1, 'the warning is emitted via logger.warn');
+
+const doodConfiguredLogger = captureLogger();
+const doodConfigured = await preflightDockerIsolationAuthMounts({ env: { DIND_SKIP_DAEMON: '1', HIVE_MIND_HOST_CONFIG_DIR: '/srv/hive-config' }, homeDir: '/home/box', logger: doodConfiguredLogger });
+assertTrue(doodConfigured.ok, 'DooD with HIVE_MIND_HOST_CONFIG_DIR clears the warning');
+assertEqual(doodConfigured.warnings.length, 0, 'no warnings once the host config dir is set');
+assertIncludes(doodConfiguredLogger.logs[0], 'HIVE_MIND_HOST_CONFIG_DIR', 'success line confirms sources resolve against the host config dir');
 
 console.log(`\n${failed === 0 ? '✅' : '❌'} issue-1962 DooD/DinD docker isolation: ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

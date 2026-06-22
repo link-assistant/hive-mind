@@ -106,6 +106,70 @@ docker run -dit --name hive-mind --restart unless-stopped \
 > तक पहुँच सकते हैं। इसे उन्हीं होस्ट पर उपयोग करें जिन पर आपका नियंत्रण है और जहाँ वह
 > ट्रस्ट सीमा स्वीकार्य हो।
 
+## DooD में क्रेडेंशियल माउंट (होस्ट‑daemon माउंट‑सोर्स जाल)
+
+हर आइसोलेटेड टास्क bot के क्रेडेंशियल कंटेनर में माउंट करता है ताकि `gh`, git और
+agent CLI प्रमाणित हो सकें: `~/.config/gh`, `~/.gitconfig`, `~/.config/git`, और —
+टूल के अनुसार — `~/.claude` + `~/.claude.json` या `~/.codex`। ये माउंट **सोर्स** bot
+के home से हल किए जाते हैं (जैसे `/home/box/.gitconfig`)।
+
+**DinD** में यह सही है: nested daemon bot की फ़ाइल‑सिस्टम साझा करता है, इसलिए
+`/home/box/.gitconfig` असली फ़ाइल है। **DooD** में टास्क **होस्ट** daemon पर चलता है, जो
+bind‑माउंट सोर्स को **होस्ट** फ़ाइल‑सिस्टम के सापेक्ष हल करता है — जहाँ `/home/box/...`
+आम तौर पर मौजूद नहीं होता। तब Docker हर गायब सोर्स को **खाली डायरेक्टरी के रूप में
+स्वतः बना देता है**, जो टास्क को दो तरह से तोड़ता है
+([issue #1962](https://github.com/link-assistant/hive-mind/issues/1962)):
+
+1. फ़ाइल माउंट (`~/.claude.json`, `~/.gitconfig`) _"Are you trying to mount a
+   directory onto a file (or vice‑versa)?"_ के साथ विफल होते हैं — टास्क शुरू होने से
+   पहले ही मर जाता है।
+2. git पहचान खाली होती है (`fatal: empty ident name (for <>)`) क्योंकि माउंट किया गया
+   `~/.gitconfig` एक खाली डायरेक्टरी है।
+
+आपको bot का कॉन्फ़िग **होस्ट पर समान पथों** पर हल करवाना होगा। दो समर्थित तरीके:
+
+**विकल्प A — होस्ट पर समान पथ उजागर करें (symlink काम करते हैं)।** कंटेनर के home
+कॉन्फ़िग को समान पथों पर होस्ट में बाइंड करें, या symlink बनाएँ। Docker symlink माउंट
+सोर्स का अनुसरण करता है, इसलिए होस्ट के `/home/box/.claude` आदि को वहाँ इंगित करना जहाँ
+फ़ाइलें वास्तव में रहती हैं, पर्याप्त है:
+
+```bash
+# होस्ट पर, bot द्वारा उपयोग किए जाने वाले समान पथों पर उसके क्रेडेंशियल उजागर करें।
+# (यदि आपने bot यूज़र का home बदला है तो /home/box को तदनुसार समायोजित करें।)
+sudo mkdir -p /home/box/.config
+sudo ln -s /srv/hive-config/.gitconfig   /home/box/.gitconfig
+sudo ln -s /srv/hive-config/.claude      /home/box/.claude
+sudo ln -s /srv/hive-config/.claude.json /home/box/.claude.json
+sudo ln -s /srv/hive-config/.config/gh   /home/box/.config/gh
+# ...और Codex टूल के लिए ~/.codex, XDG git कॉन्फ़िग के लिए ~/.config/git।
+```
+
+**विकल्प B — Hive Mind को होस्ट कॉन्फ़िग रूट पर इंगित करें (अनुशंसित)।**
+`HIVE_MIND_HOST_CONFIG_DIR` को **होस्ट** पर उस डायरेक्टरी पर सेट करें जिसमें bot के
+`.gitconfig`, `.claude`, `.claude.json`, `.codex` और `.config/gh` हैं। DooD में Hive
+Mind तब सामान्य `~/.x` माउंट सोर्स को bot के home के बजाय उस रूट के सापेक्ष हल करता है,
+इसलिए होस्ट daemon असली फ़ाइलें बाइंड करता है:
+
+```bash
+docker run -dit --name hive-mind --restart unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add "${HOST_DOCKER_GID}" \
+  -e DIND_SKIP_DAEMON=1 \
+  -e HIVE_MIND_DOCKER_ISOLATION_MODE=dood \
+  -e HIVE_MIND_HOST_CONFIG_DIR=/srv/hive-config \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+`HIVE_MIND_HOST_CONFIG_DIR` केवल DooD में प्रभावी होता है (DinD हमेशा bot का home उपयोग
+करता है, क्योंकि वहाँ सोर्स असली हैं)। चूँकि bot होस्ट‑daemon पथों को stat नहीं कर
+सकता, पुनर्स्थापित सोर्स bot‑साइड अस्तित्व जाँच को छोड़ देते हैं और आपके होस्ट लेआउट पर
+भरोसा करते हैं — सुनिश्चित करें कि हर फ़ाइल/डायरेक्टरी सही प्रकार के साथ मौजूद है (जैसे
+`.claude.json` एक **फ़ाइल** है, `.claude` एक **डायरेक्टरी** है)।
+
+स्टार्टअप प्रीफ़्लाइट DooD का पता लगाता है और, जब माउंट सोर्स अभी भी bot के home पथ हैं
+और `HIVE_MIND_HOST_CONFIG_DIR` अनसेट है, पहले टास्क से पहले चेतावनी देता है — कच्चे
+Docker माउंट विफलता को एक कार्रवाई‑योग्य संदेश में बदल देता है।
+
 ## सटीक‑टैग आवश्यकता (दोनों मोड)
 
 `resolveDockerIsolationImageTag()` हर टास्क को **सटीक**

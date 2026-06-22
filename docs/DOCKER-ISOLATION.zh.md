@@ -97,6 +97,65 @@ docker run -dit --name hive-mind --restart unless-stopped \
 > **安全提示。** DooD 共享主机 daemon，因此任务能访问主机上的每个容器和镜像。请在你掌控
 > 的主机上使用它，且该信任边界可被接受。
 
+## DooD 中的凭据挂载（主机 daemon 挂载源陷阱）
+
+每个隔离任务都会把 bot 的凭据挂载进容器，以便 `gh`、git 和 agent CLI 完成认证：
+`~/.config/gh`、`~/.gitconfig`、`~/.config/git`，以及按工具划分的 `~/.claude` +
+`~/.claude.json` 或 `~/.codex`。这些挂载**源**是从 bot 的 home 解析出来的（例如
+`/home/box/.gitconfig`）。
+
+在 **DinD** 下这是正确的：嵌套 daemon 与 bot 共享文件系统，所以
+`/home/box/.gitconfig` 就是真实文件。在 **DooD** 下，任务在**主机** daemon 上运行，
+它会按**主机**文件系统解析 bind 挂载源——而 `/home/box/...` 通常并不存在。于是 Docker
+会把每个缺失的源**自动创建为空目录**，从而以两种方式破坏任务
+（[issue #1962](https://github.com/link-assistant/hive-mind/issues/1962)）：
+
+1. 文件挂载（`~/.claude.json`、`~/.gitconfig`）失败并报 _"Are you trying to mount a
+   directory onto a file (or vice‑versa)?"_——任务尚未启动就崩溃。
+2. git 身份为空（`fatal: empty ident name (for <>)`），因为挂载进来的 `~/.gitconfig`
+   是一个空目录。
+
+你必须让 bot 的配置在**主机上解析到相同的路径**。两种受支持的方式：
+
+**方式 A——在主机上暴露相同路径（符号链接可用）。** 把容器的 home 配置以相同路径绑定到
+主机，或用符号链接。Docker 会跟随符号链接挂载源，所以把主机的 `/home/box/.claude` 等
+指向文件真正所在之处即可：
+
+```bash
+# 在主机上，以 bot 使用的相同路径暴露其凭据。
+# （若你修改了 bot 用户的 home，请相应调整 /home/box。）
+sudo mkdir -p /home/box/.config
+sudo ln -s /srv/hive-config/.gitconfig   /home/box/.gitconfig
+sudo ln -s /srv/hive-config/.claude      /home/box/.claude
+sudo ln -s /srv/hive-config/.claude.json /home/box/.claude.json
+sudo ln -s /srv/hive-config/.config/gh   /home/box/.config/gh
+# ……以及 Codex 工具的 ~/.codex、XDG git 配置的 ~/.config/git。
+```
+
+**方式 B——让 Hive Mind 指向主机配置根目录（推荐）。** 把
+`HIVE_MIND_HOST_CONFIG_DIR` 设为**主机**上存放 bot 的 `.gitconfig`、`.claude`、
+`.claude.json`、`.codex` 和 `.config/gh` 的目录。在 DooD 下，Hive Mind 会改为按该根目录
+解析常规的 `~/.x` 挂载源，而不是 bot 的 home，于是主机 daemon 绑定的就是真实文件：
+
+```bash
+docker run -dit --name hive-mind --restart unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add "${HOST_DOCKER_GID}" \
+  -e DIND_SKIP_DAEMON=1 \
+  -e HIVE_MIND_DOCKER_ISOLATION_MODE=dood \
+  -e HIVE_MIND_HOST_CONFIG_DIR=/srv/hive-config \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+`HIVE_MIND_HOST_CONFIG_DIR` 仅在 DooD 下生效（DinD 始终使用 bot 的 home，因为那里的源
+就是真实文件）。由于 bot 无法 stat 主机 daemon 的路径，重定位后的源会跳过 bot 侧的存在性
+检查并信任你的主机布局——请确保每个文件/目录都以正确类型存在（例如 `.claude.json` 是
+**文件**，`.claude` 是**目录**）。
+
+启动预检会检测 DooD，并在挂载源仍是 bot 的 home 路径且未设置
+`HIVE_MIND_HOST_CONFIG_DIR` 时，在首个任务之前发出警告——把原始的 Docker 挂载失败变成
+可操作的提示。
+
 ## 精确标签要求（两种模式）
 
 `resolveDockerIsolationImageTag()` 让每个任务请求**精确**的

@@ -143,6 +143,27 @@ export function isDoodIsolationMode({ env = process.env } = {}) {
   return resolveDockerIsolationMode({ env }) === DOCKER_ISOLATION_MODE_DOOD;
 }
 
+/**
+ * Resolve the home directory that credential mount SOURCES are built from.
+ *
+ * In DinD the isolated task runs on a nested daemon that shares the bot
+ * filesystem, so the bot's own home (`os.homedir()`, e.g. `/home/box`) is the
+ * right source — `/home/box/.gitconfig` is the real file. In DooD the task runs
+ * on the HOST daemon, where the bot's home paths don't exist; binding them makes
+ * Docker auto-create empty directories on the host (the two failures in issue
+ * #1962: `.claude.json` "directory onto a file" and an empty git identity).
+ *
+ * Setting `HIVE_MIND_HOST_CONFIG_DIR` to the host-side config root (where the
+ * bot's `~/.gitconfig`, `~/.claude`, … are exposed on the host) relocates the
+ * conventional `~/.x` mount sources there so Docker binds the real host files.
+ * It only takes effect in DooD; DinD always uses the bot home. See issue #1962.
+ */
+export function resolveDockerIsolationConfigSourceHome({ env = process.env, homeDir = os.homedir() } = {}) {
+  const hostConfigDir = String(env.HIVE_MIND_HOST_CONFIG_DIR || '').trim();
+  if (hostConfigDir && isDoodIsolationMode({ env })) return hostConfigDir;
+  return homeDir;
+}
+
 function normalizeProcessIds(value) {
   if (!value || typeof value !== 'object') return {};
   const out = {};
@@ -171,12 +192,6 @@ function buildShellCommand(command, args = []) {
 
 function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
   return String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' || String(image || '').includes('hive-mind-dind');
-}
-
-function maybeAddMount(mounts, source, target, existsSync) {
-  if (!source) return;
-  if (!existsSync(source)) return;
-  mounts.push({ source, target });
 }
 
 /**
@@ -239,21 +254,38 @@ export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.en
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
 
-  maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
+  // Credential mount SOURCES are resolved against the bot's home in DinD (the
+  // nested daemon shares the bot filesystem, so `/home/box/.gitconfig` is the
+  // real file). In DooD the task runs on the HOST daemon, where those bot paths
+  // don't exist — Docker then auto-creates them as empty DIRECTORIES, breaking
+  // file mounts (`.claude.json` / `.gitconfig` "directory onto a file") and
+  // yielding an empty git identity. When the operator points
+  // HIVE_MIND_HOST_CONFIG_DIR at the host-side config root, resolve the
+  // conventional `~/.x` sources against it so Docker binds the real host files.
+  // Because the bot cannot stat host paths, relocated sources skip the bot-FS
+  // existence gate (trust the operator's host layout). See issue #1962.
+  const sourceHome = resolveDockerIsolationConfigSourceHome({ env, homeDir });
+  const relocated = sourceHome !== homeDir;
+  const add = (source, target) => {
+    if (!source) return;
+    if (relocated || existsSync(source)) mounts.push({ source, target });
+  };
+
+  add(env.GH_CONFIG_DIR || path.join(sourceHome, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'));
 
   // Git identity (tool-agnostic, required for commits). Honor the same env vars
   // git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL)
   // and the XDG base dir, falling back to the conventional `~/.gitconfig` and
   // `~/.config/git`. Missing host paths are skipped, so a container image that
   // already bakes a git identity is left untouched. See issue #1939.
-  maybeAddMount(mounts, env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), existsSync);
-  maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), existsSync);
+  add(env.GIT_CONFIG_GLOBAL || path.join(sourceHome, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'));
+  add(env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(sourceHome, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'));
 
   if (normalizedTool === 'codex') {
-    maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
+    add(path.join(sourceHome, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'));
   } else if (normalizedTool === 'claude') {
-    maybeAddMount(mounts, path.join(homeDir, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'), existsSync);
-    maybeAddMount(mounts, path.join(homeDir, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'), existsSync);
+    add(path.join(sourceHome, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'));
+    add(path.join(sourceHome, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'));
   }
 
   return mounts;
@@ -1256,6 +1288,58 @@ export async function ensureHostGitIdentityForIsolation(options = {}) {
   }
 
   result.warnings.push(`No host git identity (~/.gitconfig) to mount into docker-isolated containers, so isolated 'solve' tasks will fail with "Git identity not configured" even though gh is authenticated (issue #1939). ` + `Configure one on the bot host: run 'gh-setup-git-identity' (derives it from the authenticated gh account), set 'git config --global user.name/.email', or pass '--auto-gh-configuration-repair' to solve.` + (repairOutcome?.error ? ` Auto-repair attempt failed: ${repairOutcome.error}` : ''));
+  for (const w of result.warnings) warn(`⚠️ ${w}`);
+  return result;
+}
+
+/**
+ * Startup credential-mount preflight for DooD `--isolation docker`.
+ *
+ * `getDockerIsolationAuthMounts` binds the bot's `~/.config/gh`, `~/.gitconfig`,
+ * `~/.claude[.json]` / `~/.codex` into each task. Those mount SOURCES are the
+ * bot's home paths, which only resolve correctly when the task daemon shares the
+ * bot filesystem (DinD). In DooD the task runs on the HOST daemon, where those
+ * paths don't exist — Docker auto-creates them as empty DIRECTORIES, which is
+ * the root cause of the two failures in issue #1962:
+ *
+ *   1. `.claude.json` / `.gitconfig` bind fails with "Are you trying to mount a
+ *      directory onto a file (or vice-versa)?" — the task dies before it starts.
+ *   2. The git identity is empty ("fatal: empty ident name (for <>)") because the
+ *      mounted `~/.gitconfig` is an empty dir.
+ *
+ * This preflight makes that trap loud and actionable before the first task,
+ * instead of surfacing as a raw Docker mount error mid-run. DinD is unaffected
+ * (it shares the bot filesystem, so the same sources are the real files), and
+ * setting `HIVE_MIND_HOST_CONFIG_DIR` (see
+ * {@link resolveDockerIsolationConfigSourceHome}) clears the warning.
+ *
+ * The warning is mode-level (it names both the Claude and Codex config files), so
+ * it does not depend on which tool a given task uses.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.env] - Environment (defaults to process.env)
+ * @param {string} [options.homeDir] - Bot home dir (injectable for tests)
+ * @param {Object} [options.logger] - Logger with .log/.warn (defaults to console)
+ * @returns {Promise<{mode: string, ok: boolean, warnings: string[]}>}
+ */
+export async function preflightDockerIsolationAuthMounts({ env = process.env, homeDir = os.homedir(), logger = console } = {}) {
+  const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
+  const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
+  const mode = resolveDockerIsolationMode({ env });
+  const result = { mode, ok: true, warnings: [] };
+
+  // DinD shares the bot filesystem, so the bot-home mount sources are the real
+  // files — nothing to validate here.
+  if (mode !== DOCKER_ISOLATION_MODE_DOOD) return result;
+
+  const sourceHome = resolveDockerIsolationConfigSourceHome({ env, homeDir });
+  if (sourceHome !== homeDir) {
+    info(`✅ DooD: credential mount sources resolved against HIVE_MIND_HOST_CONFIG_DIR ('${sourceHome}') so the HOST daemon binds the real config files (issue #1962).`);
+    return result;
+  }
+
+  result.ok = false;
+  result.warnings.push(`Docker isolation is in DooD mode but credential mount sources are the bot's home paths (e.g. '${path.join(homeDir, '.gitconfig')}', '${path.join(homeDir, '.claude.json')}'). ` + `Isolated tasks run on the HOST daemon, where those paths usually do not exist, so Docker auto-creates them as empty DIRECTORIES — breaking file mounts ('.claude.json'/'.gitconfig' fail with "directory onto a file") and producing an empty git identity ("fatal: empty ident name") (issue #1962). ` + `Expose the bot's ~/.config/gh, ~/.claude, ~/.claude.json, ~/.codex and ~/.gitconfig at the SAME host paths (symlinks work — Docker follows symlink mount sources), or set HIVE_MIND_HOST_CONFIG_DIR to the host-side config root. See docs/DOCKER-ISOLATION.md.`);
   for (const w of result.warnings) warn(`⚠️ ${w}`);
   return result;
 }

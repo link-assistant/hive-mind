@@ -166,26 +166,24 @@ if (ISOLATION_BACKEND) {
   if (!config.dryRun) {
     isolationRunner = await import('./isolation-runner.lib.mjs');
   }
-  // For docker isolation, run a startup preflight so a missing/un-passed-through
-  // image surfaces as a loud, actionable warning instead of a surprise multi-GB
-  // pull on the first isolated task (issues #1914, #1879). Never throws.
-  if (!config.dryRun && ISOLATION_BACKEND === 'docker' && typeof isolationRunner.preflightDockerIsolation === 'function') {
-    try {
-      await isolationRunner.preflightDockerIsolation({ verbose: VERBOSE });
-    } catch (preflightError) {
-      console.error(`⚠️ Docker isolation preflight failed (continuing): ${preflightError?.message || preflightError}`);
-    }
-    // A docker-isolated child inherits the host git identity only through the
-    // mounted ~/.gitconfig. Ensure the host has one (deriving it from the authed
-    // gh account when missing) so isolated `solve` does not fail with "Git
-    // identity not configured". Never throws. See issue #1939.
-    if (typeof isolationRunner.ensureHostGitIdentityForIsolation === 'function') {
+  // For docker isolation, run startup preflights so configuration problems
+  // surface as loud, actionable warnings instead of failing mid-run on the first
+  // isolated task. Each preflight is best-effort; the try/catch never throws:
+  //  - preflightDockerIsolation: missing / un-passed-through image (issues #1914, #1879)
+  //  - ensureHostGitIdentityForIsolation: host ~/.gitconfig for isolated solve (#1939)
+  //  - preflightDockerIsolationAuthMounts: DooD host-daemon credential mounts (#1962)
+  if (!config.dryRun && ISOLATION_BACKEND === 'docker') {
+    const runDockerPreflight = async (name, label, fn) => {
+      if (typeof isolationRunner[name] !== 'function') return;
       try {
-        await isolationRunner.ensureHostGitIdentityForIsolation({});
-      } catch (gitIdentityError) {
-        console.error(`⚠️ Docker isolation git-identity preflight failed (continuing): ${gitIdentityError?.message || gitIdentityError}`);
+        await fn();
+      } catch (preflightError) {
+        console.error(`⚠️ Docker isolation ${label} failed (continuing): ${preflightError?.message || preflightError}`);
       }
-    }
+    };
+    await runDockerPreflight('preflightDockerIsolation', 'preflight', () => isolationRunner.preflightDockerIsolation({ verbose: VERBOSE }));
+    await runDockerPreflight('ensureHostGitIdentityForIsolation', 'git-identity preflight', () => isolationRunner.ensureHostGitIdentityForIsolation({}));
+    await runDockerPreflight('preflightDockerIsolationAuthMounts', 'auth-mount preflight', () => isolationRunner.preflightDockerIsolationAuthMounts({}));
   }
 }
 

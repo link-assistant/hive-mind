@@ -180,7 +180,6 @@ error: could not write config file /home/box/.gitconfig: Device or resource busy
 2. **不要让 bot *通过*挂载的文件来填充自己的身份。** `gh-setup-git-identity` /
    `git config --global` 所写入的路径**不能**是 bind 挂载（或指向 bind 挂载的符号链接）。
    从以下二者中选其一：
-
    - **先写后拷贝（推荐）。** 让 `gh-setup-git-identity` 把 `~/.gitconfig` 写到容器
      **自己**的文件系统上（没有挂载 → rename 成功），然后把它拷贝到任务以只读方式挂载的
      主机路径。任务只读取它，所以那里用 `:ro` 文件挂载是正确的。

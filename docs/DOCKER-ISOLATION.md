@@ -200,10 +200,9 @@ Two consequences for the recipes above:
    identity (`~/.gitconfig`, `~/.config/git`) into each task with `:ro`: the task
    only **reads** the identity to commit, and a `:ro` mount makes any stray
    write‑through‑the‑mount fail fast and legibly instead of mid‑run.
-2. **Do not let the bot populate its identity *through* the mounted file.** The
+2. **Do not let the bot populate its identity _through_ the mounted file.** The
    path that `gh-setup-git-identity` / `git config --global` writes must **not** be
    a bind mount (or a symlink to one). Pick one of:
-
    - **Write‑then‑copy (recommended).** Let `gh-setup-git-identity` write
      `~/.gitconfig` on the container's **own** filesystem (no mount → the rename
      succeeds), then copy it out to the host path the task mounts read‑only. The

@@ -147,6 +147,41 @@ node scripts/preload-dind-isolation-image.mjs \
 start-command का native Docker backend उसे अपने आप reuse करता है (Docker की default "missing" pull
 policy — यह केवल तभी pull करता है जब image absent हो, इसलिए कोई re-download नहीं होता)।
 
+#### Docker आइसोलेशन मोड: DinD बनाम DooD
+
+ऊपर का होस्ट‑इमेज passthrough **DinD** (Docker-in-Docker) वाली कहानी है: बॉट अपना **nested**
+daemon चलाता है और मल्टी‑GB इमेज को उसमें कॉपी करना पड़ता है। डिस्क‑सीमित होस्ट पर वह कॉपी
+अनुपयोगी हो सकती है (हमने ~41 GB खाली वाले होस्ट पर ~19.5 GB डुप्लिकेट मापा)। वही इमेज **DooD**
+(Docker-out-of-Docker) मोड में भी चलती है, जहाँ बॉट **होस्ट daemon साझा** करता है और आइसोलेटेड
+टास्क होस्ट की इमेज कॉपी को **शून्य कॉपी, शून्य पुल, शून्य अतिरिक्त डिस्क** के साथ पुनः उपयोग
+करते हैं — हर टास्क फिर भी अपने कंटेनर में चलता है; केवल daemon साझा होता है। जब खाली डिस्क इमेज
+की दूसरी कॉपी नहीं रख सकती तब DooD अनुशंसित मोड है।
+
+बॉट को DooD मोड में चलाने के लिए, होस्ट Docker सॉकेट को `/var/run/docker.sock` के रूप में माउंट
+करें, होस्ट docker ग्रुप जोड़ें, और nested daemon छोड़ें:
+
+```bash
+HOST_DOCKER_GID="$(getent group docker | cut -d: -f3)"
+
+docker run -dit --name hive-mind --restart unless-stopped \
+  # ... आपके सामान्य क्रेडेंशियल माउंट ...
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add "${HOST_DOCKER_GID}" \
+  -e DIND_SKIP_DAEMON=1 \
+  -e HIVE_MIND_DOCKER_ISOLATION_MODE=dood \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+**दोनों** मोड में daemon को **सटीक** `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG` (कभी फ्लोटिंग
+`:latest` नहीं) रखना चाहिए वरना पहला टास्क री‑पुल करता है — DooD में, होस्ट पर
+`docker pull konard/hive-mind-dind:<version>`। स्टार्टअप प्रीफ्लाइट अपनी शब्दावली मोड अनुसार
+बदलता है (DooD में यह **होस्ट** daemon और सटीक‑टैग मार्गदर्शन रिपोर्ट करता है, वहाँ अप्रासंगिक
+nested‑daemon / passthrough उपाय कभी नहीं)।
+
+> 📖 **पूरा गाइड:** DinD‑बनाम‑DooD ट्रेड‑ऑफ, दोनों रन रेसिपी, `--group-add` सॉकेट आवश्यकता, और
+> होस्ट इमेज मूक री‑पुल के बजाय पुनः उपयोग होती है यह कैसे सत्यापित करें, के लिए
+> [DOCKER-ISOLATION.md](./DOCKER-ISOLATION.hi.md) देखें।
+
 ### विकल्प 4: Development Mode (Gitpod-style)
 
 Development उद्देश्यों के लिए, legacy `Dockerfile` एक Gitpod-compatible वातावरण प्रदान करता है:

@@ -237,7 +237,7 @@ docker run -dit \
 - ✅ 可使用不同 GitHub 账号轻松运行多个实例
 - ✅ 跨不同机器保持一致的环境
 
-高级 Docker 用法请参见 [docs/DOCKER.zh.md](./docs/DOCKER.zh.md)。
+高级 Docker 用法请参见 [docs/DOCKER.zh.md](./docs/DOCKER.zh.md)，关于 `--isolation docker` 的 DinD 与 DooD 取舍（DooD＝在磁盘受限的主机上零拷贝／零磁盘复用镜像）请参见 [docs/DOCKER-ISOLATION.zh.md](./docs/DOCKER-ISOLATION.zh.md)。
 
 #### 停止并删除 Docker 容器
 

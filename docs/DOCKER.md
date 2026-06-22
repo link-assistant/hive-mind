@@ -193,6 +193,44 @@ image. Once the image is present, start-command's native Docker backend reuses
 it automatically (Docker's default "missing" pull policy — it pulls only when
 the image is absent, so there is no re-download).
 
+#### Docker isolation modes: DinD vs DooD
+
+The host-image passthrough above is the **DinD** (Docker-in-Docker) story: the
+bot runs its own **nested** daemon and the multi-GB image must be copied into it.
+On a disk-constrained host that copy can be unusable (we measured ~19.5 GB
+duplicated on a host with ~41 GB free). The same image also runs in **DooD**
+(Docker-out-of-Docker) mode, where the bot **shares the host daemon** and
+isolated tasks reuse the host's copy of the image with **zero copy, zero pull,
+zero extra disk** — each task still runs in its own container; only the daemon is
+shared. DooD is the recommended mode when free disk can't hold a second copy of
+the image.
+
+To run the bot in DooD mode, mount the host Docker socket as
+`/var/run/docker.sock`, add the host docker group, and skip the nested daemon:
+
+```bash
+HOST_DOCKER_GID="$(getent group docker | cut -d: -f3)"
+
+docker run -dit --name hive-mind --restart unless-stopped \
+  # ... your usual credential mounts ...
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add "${HOST_DOCKER_GID}" \
+  -e DIND_SKIP_DAEMON=1 \
+  -e HIVE_MIND_DOCKER_ISOLATION_MODE=dood \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+In **both** modes the daemon must hold the **exact**
+`HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG` (never the floating `:latest`) or the
+first task re-pulls — in DooD, `docker pull konard/hive-mind-dind:<version>` on
+the host. The startup preflight adapts its wording per mode (it reports the
+**host** daemon and concrete-tag guidance in DooD, never the nested-daemon /
+passthrough remediation that does not apply there).
+
+> 📖 **Full guide:** see [DOCKER-ISOLATION.md](./DOCKER-ISOLATION.md) for the
+> DinD-vs-DooD trade-off, both run recipes, the `--group-add` socket requirement,
+> and how to verify the host image is reused rather than silently re-pulled.
+
 ### Option 4: Development Mode (Gitpod-style)
 
 For development purposes, the legacy `Dockerfile` provides a Gitpod-compatible environment:

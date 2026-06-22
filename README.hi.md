@@ -237,7 +237,7 @@ docker run -dit \
 - ✅ विभिन्न GitHub अकाउंट के साथ कई इंस्टेंस चलाना आसान
 - ✅ विभिन्न मशीनों पर सुसंगत वातावरण
 
-उन्नत Docker उपयोग के लिए [docs/DOCKER.hi.md](./docs/DOCKER.hi.md) देखें।
+उन्नत Docker उपयोग के लिए [docs/DOCKER.hi.md](./docs/DOCKER.hi.md), और `--isolation docker` के DinD‑बनाम‑DooD ट्रेड‑ऑफ (DooD = डिस्क‑सीमित होस्ट पर शून्य‑कॉपी／शून्य‑डिस्क इमेज पुनः उपयोग) के लिए [docs/DOCKER-ISOLATION.hi.md](./docs/DOCKER-ISOLATION.hi.md) देखें।
 
 #### Docker कंटेनर बंद करना और हटाना
 

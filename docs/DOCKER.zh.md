@@ -140,6 +140,37 @@ node scripts/preload-dind-isolation-image.mjs \
 如果内部 daemon 已有该镜像，则为空操作。镜像就位后，start-command 的原生 Docker 后端会自动复用它
 （Docker 默认的 "missing" 拉取策略——仅在镜像缺失时拉取，因此不会重复下载）。
 
+#### Docker 隔离模式：DinD 与 DooD
+
+上面的主机镜像透传是 **DinD**（Docker-in-Docker）的做法：机器人运行自己的**嵌套** daemon，
+多 GB 镜像必须被拷贝进去。在磁盘受限的主机上，该拷贝可能无法容纳（我们在约 41 GB 空闲的主机上
+测得约 19.5 GB 的重复占用）。同一镜像也可在 **DooD**（Docker-out-of-Docker）模式下运行，此时
+机器人**共享主机 daemon**，隔离任务复用主机的镜像，**零拷贝、零拉取、零额外磁盘**——每个任务
+仍在自己的容器中运行，只是 daemon 被共享。当空闲磁盘容纳不下第二份镜像副本时，推荐 DooD。
+
+要以 DooD 模式运行机器人，把主机 Docker 套接字挂载为 `/var/run/docker.sock`，加入主机 docker
+组，并跳过嵌套 daemon：
+
+```bash
+HOST_DOCKER_GID="$(getent group docker | cut -d: -f3)"
+
+docker run -dit --name hive-mind --restart unless-stopped \
+  # ... 你常用的凭据挂载 ...
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add "${HOST_DOCKER_GID}" \
+  -e DIND_SKIP_DAEMON=1 \
+  -e HIVE_MIND_DOCKER_ISOLATION_MODE=dood \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+在**两种**模式下，daemon 都必须持有**精确**的 `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`（绝不用
+浮动的 `:latest`），否则首个任务会重新拉取——在 DooD 中即在主机执行
+`docker pull konard/hive-mind-dind:<version>`。启动预检会按模式调整措辞（在 DooD 中报告**主机**
+daemon 与精确标签指引，绝不给出在那里不适用的嵌套 daemon／透传补救建议）。
+
+> 📖 **完整指南：** 关于 DinD 与 DooD 的取舍、两种运行配方、`--group-add` 套接字要求，以及如何
+> 验证主机镜像被复用而非静默重新拉取，见 [DOCKER-ISOLATION.md](./DOCKER-ISOLATION.zh.md)。
+
 ### 选项 4：开发模式（Gitpod 风格）
 
 出于开发目的，旧版 `Dockerfile` 提供了一个 Gitpod 兼容的环境：

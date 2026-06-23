@@ -39,10 +39,6 @@ const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 
 const fs = await import('fs');
 
-function isCliOptionToken(value) {
-  return /^--[a-zA-Z0-9][a-zA-Z0-9=_.-]*$/.test(value) || /^-[a-zA-Z]$/.test(value);
-}
-
 function collectStringValues(value, result = []) {
   if (value && typeof value === 'object' && Array.isArray(value.values)) {
     if (value.id !== null && value.id !== undefined) {
@@ -55,25 +51,6 @@ function collectStringValues(value, result = []) {
     result.push(String(value));
   }
   return result;
-}
-
-function validateNoBareSameLineOptions(content) {
-  let currentVar = 'configuration';
-
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed === '(' || trimmed === ')') continue;
-
-    const topLevelMatch = !/^\s/.test(line) ? trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*):(?:\s*(.*))?$/) : null;
-    const valueText = topLevelMatch ? (topLevelMatch[2] || '').trim() : trimmed;
-    if (topLevelMatch) currentVar = topLevelMatch[1];
-    if (!valueText || valueText === '(' || valueText === ')' || valueText.startsWith('(')) continue;
-
-    const parts = valueText.split(/\s+/).filter(Boolean);
-    if (parts.length > 1 && isCliOptionToken(parts[0])) {
-      throw new Error(`Invalid LINO format in "${currentVar}": Multiple values on the same line are not supported.\n` + `Found: "${parts.join(' ')}"\n` + `Each value must be on its own line with proper indentation, or grouped explicitly as a parenthesized link.`);
-    }
-  }
 }
 
 /**
@@ -97,8 +74,6 @@ export class LenvReader {
     const result = {};
 
     try {
-      validateNoBareSameLineOptions(content);
-
       // Parse the entire content as LINO
       const parsed = this.parser.parse(content);
 

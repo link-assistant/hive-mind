@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.18
+
+### Patch Changes
+
+- 08c2f07: Clarify fork auto-recovery safety failures so terminal exits and failure comments explain the mismatched repository, expected upstream, safety-check result, and recovery options.
+
 ## 2.0.17
 
 ### Patch Changes

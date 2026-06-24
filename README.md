@@ -246,7 +246,7 @@ docker exec -it hive-mind bash -lc 'codex mcp list && codex mcp add playwright -
 
 The Docker image itself now registers Playwright MCP for both Claude and Codex during build, and CI verifies those registrations in the built container. If `codex mcp list` is still empty in a running container, the usual cause is not the published image itself but a mounted `/home/box/.codex` directory from the host that replaces the image's default Codex configuration.
 
-See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
+See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage, and [docs/DOCKER-ISOLATION.md](./docs/DOCKER-ISOLATION.md) for the `--isolation docker` DinD-vs-DooD trade-off (DooD = zero-copy/zero-disk image reuse on disk-constrained hosts).
 
 #### Stoping and removing docker container
 

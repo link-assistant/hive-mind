@@ -58,6 +58,22 @@ const DOCKER_ISOLATION_SHELL = 'sh';
 // less headroom than this cannot safely pull one. Diagnostic only — never
 // blocks startup. See issue #1914.
 const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
+// Docker isolation runs in one of two modes (issue #1962). The runner code is
+// identical for both — it always issues a plain `$ --isolated docker` (i.e.
+// `docker run`); the mode only describes WHICH daemon that `docker` talks to,
+// which changes the disk math and the wording of the startup/post-launch
+// diagnostics:
+//   - DinD (Docker-in-Docker): the bot runs its own NESTED daemon and isolated
+//     tasks run on it. The image must be seeded into that nested store (box
+//     host-image passthrough), which copies the multi-GB image — unusable on a
+//     host whose free disk cannot hold a second copy.
+//   - DooD (Docker-out-of-Docker): the bot shares the HOST daemon (host socket
+//     mounted as /var/run/docker.sock, DIND_SKIP_DAEMON=1). Isolated tasks reuse
+//     the host's copy of the image — zero copy, zero pull, zero extra disk — and
+//     each task still runs in its own container (process/fs/network isolation);
+//     only the daemon is shared.
+const DOCKER_ISOLATION_MODE_DIND = 'dind';
+const DOCKER_ISOLATION_MODE_DOOD = 'dood';
 // Sentinel start-command's detached docker logger records when it cannot capture
 // the container's real exit code. A terminal `$ --status` carrying this value is
 // ambiguous — the container may still be running — so we cross-check it against
@@ -67,6 +83,86 @@ const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
 // now pin; this cross-check is retained as defense-in-depth so an older `$` on
 // an operator's PATH cannot resurrect the bug.
 const DOCKER_UNKNOWN_EXIT_CODE = -1;
+
+function isTruthyEnv(value) {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+/**
+ * Decide whether a `DOCKER_HOST` value points at a daemon OTHER than the
+ * in-container nested default — i.e. a shared/external daemon, which is DooD.
+ *
+ * `tcp://` and `ssh://` always reach a separate daemon. A `unix://` socket is
+ * DooD only when it is NOT the conventional in-container path
+ * (`/var/run/docker.sock`), because in DinD the nested daemon also listens
+ * there, so that bare value cannot distinguish the two modes (issue #1962).
+ */
+function dockerHostLooksRemote(dockerHost) {
+  const value = String(dockerHost || '')
+    .trim()
+    .toLowerCase();
+  if (!value) return false;
+  if (value.startsWith('tcp://') || value.startsWith('ssh://')) return true;
+  if (value.startsWith('unix://')) {
+    const socketPath = value.slice('unix://'.length);
+    return Boolean(socketPath) && socketPath !== '/var/run/docker.sock';
+  }
+  return false;
+}
+
+/**
+ * Resolve which Docker isolation MODE the bot runs in: `dind` or `dood`
+ * (issue #1962). Resolved from, in priority order:
+ *
+ *   1. `HIVE_MIND_DOCKER_ISOLATION_MODE` — explicit `dind`|`dood` override.
+ *   2. `DIND_SKIP_DAEMON` truthy — box's DooD switch: the entrypoint skips the
+ *      nested daemon, so the docker CLI targets the host daemon → DooD.
+ *   3. `DOCKER_HOST` pointing at a non-nested daemon (tcp/ssh, or a unix socket
+ *      that is not the in-container default) → DooD.
+ *   4. Otherwise `dind` — the historical default, so existing DinD deployments
+ *      and the diagnostics they rely on are unchanged.
+ */
+export function resolveDockerIsolationMode({ env = process.env } = {}) {
+  const explicit = String(env.HIVE_MIND_DOCKER_ISOLATION_MODE || '')
+    .trim()
+    .toLowerCase();
+  if (explicit === DOCKER_ISOLATION_MODE_DOOD || explicit === DOCKER_ISOLATION_MODE_DIND) return explicit;
+  if (isTruthyEnv(env.DIND_SKIP_DAEMON)) return DOCKER_ISOLATION_MODE_DOOD;
+  if (dockerHostLooksRemote(env.DOCKER_HOST)) return DOCKER_ISOLATION_MODE_DOOD;
+  return DOCKER_ISOLATION_MODE_DIND;
+}
+
+/**
+ * True when Docker isolation shares the host daemon (DooD) rather than running a
+ * nested daemon (DinD). See {@link resolveDockerIsolationMode}. Issue #1962.
+ */
+export function isDoodIsolationMode({ env = process.env } = {}) {
+  return resolveDockerIsolationMode({ env }) === DOCKER_ISOLATION_MODE_DOOD;
+}
+
+/**
+ * Resolve the home directory that credential mount SOURCES are built from.
+ *
+ * In DinD the isolated task runs on a nested daemon that shares the bot
+ * filesystem, so the bot's own home (`os.homedir()`, e.g. `/home/box`) is the
+ * right source — `/home/box/.gitconfig` is the real file. In DooD the task runs
+ * on the HOST daemon, where the bot's home paths don't exist; binding them makes
+ * Docker auto-create empty directories on the host (the two failures in issue
+ * #1962: `.claude.json` "directory onto a file" and an empty git identity).
+ *
+ * Setting `HIVE_MIND_HOST_CONFIG_DIR` to the host-side config root (where the
+ * bot's `~/.gitconfig`, `~/.claude`, … are exposed on the host) relocates the
+ * conventional `~/.x` mount sources there so Docker binds the real host files.
+ * It only takes effect in DooD; DinD always uses the bot home. See issue #1962.
+ */
+export function resolveDockerIsolationConfigSourceHome({ env = process.env, homeDir = os.homedir() } = {}) {
+  const hostConfigDir = String(env.HIVE_MIND_HOST_CONFIG_DIR || '').trim();
+  if (hostConfigDir && isDoodIsolationMode({ env })) return hostConfigDir;
+  return homeDir;
+}
 
 function normalizeProcessIds(value) {
   if (!value || typeof value !== 'object') return {};
@@ -96,12 +192,6 @@ function buildShellCommand(command, args = []) {
 
 function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
   return String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' || String(image || '').includes('hive-mind-dind');
-}
-
-function maybeAddMount(mounts, source, target, existsSync) {
-  if (!source) return;
-  if (!existsSync(source)) return;
-  mounts.push({ source, target });
 }
 
 /**
@@ -164,21 +254,49 @@ export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.en
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
 
-  maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
+  // Credential mount SOURCES are resolved against the bot's home in DinD (the
+  // nested daemon shares the bot filesystem, so `/home/box/.gitconfig` is the
+  // real file). In DooD the task runs on the HOST daemon, where those bot paths
+  // don't exist — Docker then auto-creates them as empty DIRECTORIES, breaking
+  // file mounts (`.claude.json` / `.gitconfig` "directory onto a file") and
+  // yielding an empty git identity. When the operator points
+  // HIVE_MIND_HOST_CONFIG_DIR at the host-side config root, resolve the
+  // conventional `~/.x` sources against it so Docker binds the real host files.
+  // Because the bot cannot stat host paths, relocated sources skip the bot-FS
+  // existence gate (trust the operator's host layout). See issue #1962.
+  const sourceHome = resolveDockerIsolationConfigSourceHome({ env, homeDir });
+  const relocated = sourceHome !== homeDir;
+  const add = (source, target, { readOnly = false } = {}) => {
+    if (!source) return;
+    if (relocated || existsSync(source)) mounts.push(readOnly ? { source, target, readOnly: true } : { source, target });
+  };
+
+  add(env.GH_CONFIG_DIR || path.join(sourceHome, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'));
 
   // Git identity (tool-agnostic, required for commits). Honor the same env vars
   // git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL)
   // and the XDG base dir, falling back to the conventional `~/.gitconfig` and
   // `~/.config/git`. Missing host paths are skipped, so a container image that
   // already bakes a git identity is left untouched. See issue #1939.
-  maybeAddMount(mounts, env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), existsSync);
-  maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), existsSync);
+  //
+  // Mounted READ-ONLY (`:ro`). The task only READS the git identity to commit; it
+  // must never write through the mount. `~/.gitconfig` as a single-file bind mount
+  // is the one credential that breaks under writes: `git config --global` (e.g.
+  // `gh-setup-git-identity --repair`) writes a temp file and rename()s it over the
+  // target, and rename-over-a-mountpoint fails with "Device or resource busy"
+  // (git config exits 4). A `:ro` mount makes the read-only contract explicit and
+  // turns any stray write attempt into an immediate, legible error instead of a
+  // confusing mid-run failure. The bot's OWN identity must be populated on a path
+  // that is NOT this mount (write-then-copy, or a mounted directory with
+  // GIT_CONFIG_GLOBAL) — see docs/DOCKER-ISOLATION.md. Issue #1962.
+  add(env.GIT_CONFIG_GLOBAL || path.join(sourceHome, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), { readOnly: true });
+  add(env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(sourceHome, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), { readOnly: true });
 
   if (normalizedTool === 'codex') {
-    maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
+    add(path.join(sourceHome, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'));
   } else if (normalizedTool === 'claude') {
-    maybeAddMount(mounts, path.join(homeDir, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'), existsSync);
-    maybeAddMount(mounts, path.join(homeDir, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'), existsSync);
+    add(path.join(sourceHome, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'));
+    add(path.join(sourceHome, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'));
   }
 
   return mounts;
@@ -231,7 +349,7 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
 
   for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync })) {
-    startArgs.push('--volume', `${mount.source}:${mount.target}`);
+    startArgs.push('--volume', mount.readOnly ? `${mount.source}:${mount.target}:ro` : `${mount.source}:${mount.target}`);
   }
 
   startArgs.push('--detached', '--session', sessionId, '--', buildShellCommand(command, args));
@@ -522,9 +640,18 @@ async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.
     }
     const image = getDockerIsolationImage({ env });
     const imagePresent = await checkDockerImagePresent(image, false);
-    console.log(`[VERBOSE] isolation-runner: Docker post-launch isolation image '${image}' present=${imagePresent} (issue #1939)`);
+    const dood = isDoodIsolationMode({ env });
+    console.log(`[VERBOSE] isolation-runner: Docker post-launch isolation image '${image}' present=${imagePresent} on the ${dood ? 'host' : 'nested'} daemon (issue #1939)`);
     if (!imagePresent) {
-      console.log(`[VERBOSE] isolation-runner: ⚠️ Docker isolation image '${image}' is absent right after launch — host-image passthrough likely did not seed the nested daemon, so the task re-pulled it (issue #1939, problem #2)`);
+      // The remediation differs by mode: in DinD an absent image means the
+      // nested daemon was not seeded (passthrough); in DooD it means the HOST
+      // daemon simply lacks the concrete tag, so don't false-warn about a
+      // passthrough that does not exist in DooD (issue #1962).
+      if (dood) {
+        console.log(`[VERBOSE] isolation-runner: ⚠️ Docker isolation image '${image}' is absent on the host daemon right after launch — the host did not hold this concrete tag, so the task re-pulled it. Pull/pin '${image}' on the host for zero-copy reuse (issue #1962)`);
+      } else {
+        console.log(`[VERBOSE] isolation-runner: ⚠️ Docker isolation image '${image}' is absent right after launch — host-image passthrough likely did not seed the nested daemon, so the task re-pulled it (issue #1939, problem #2)`);
+      }
     }
   } catch {
     // Diagnostics are best-effort; never let a probe failure affect the task.
@@ -581,10 +708,12 @@ export async function executeWithIsolation(command, args, options = {}) {
       const image = getDockerIsolationImage({ env });
       const mounts = getDockerIsolationAuthMounts({ tool: options.tool, env, homeDir: options.homeDir || os.homedir(), existsSync: options.existsSync || fs.existsSync });
       console.log('[VERBOSE] isolation-runner: Docker isolation backend: native ($ --isolated docker)');
+      const mode = resolveDockerIsolationMode({ env });
+      console.log(`[VERBOSE] isolation-runner: Docker isolation mode: ${mode} (${mode === DOCKER_ISOLATION_MODE_DOOD ? 'DooD — "docker" targets the HOST daemon; tasks reuse the host image with zero copy/zero pull (issue #1962)' : 'DinD — "docker" targets the bot\'s NESTED daemon; the image must be seeded into it (host-image passthrough)'})`);
       console.log(`[VERBOSE] isolation-runner: Docker isolation image: ${image}`);
       console.log(`[VERBOSE] isolation-runner: Docker isolation privileged: ${shouldRunPrivilegedDockerIsolation(image, env)}`);
       console.log('[VERBOSE] isolation-runner: Docker isolation pull: reuse local image if present, pull only if missing (start-command default)');
-      console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => m.target).join(', ') || '(none)'}`);
+      console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => (m.readOnly ? `${m.target} (ro)` : m.target)).join(', ') || '(none)'}`);
       const gitIdentityMounted = mounts.some(m => m.target === path.join(DOCKER_CONTAINER_HOME, '.gitconfig') || m.target === path.join(DOCKER_CONTAINER_HOME, '.config', 'git'));
       console.log(`[VERBOSE] isolation-runner: Docker isolation git identity propagated: ${gitIdentityMounted ? 'yes' : 'no (host ~/.gitconfig missing — child may fail with "Git identity not configured", issue #1939)'}`);
     }
@@ -1043,7 +1172,20 @@ export async function checkDockerDiskSpace(verbose = false) {
  * @param {Function} [options.checkImagePresent] - Image-presence probe (injectable for tests)
  * @param {Function} [options.checkStorageDriver] - Storage-driver probe (injectable for tests)
  * @param {Function} [options.checkDiskSpace] - Disk-space probe (injectable for tests)
- * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), ok: boolean, warnings: string[]}>}
+ * In DooD mode (issue #1962) the daemon is the HOST daemon, so there is no
+ * nested store and no host-image passthrough: the socket/passthrough warnings
+ * are replaced with host-daemon, concrete-tag guidance and the "nested daemon"
+ * wording is dropped so the diagnostics never false-warn.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.env] - Environment (defaults to process.env)
+ * @param {Function} [options.existsSync] - fs.existsSync (injectable for tests)
+ * @param {boolean} [options.verbose] - Enable verbose logging
+ * @param {Object} [options.logger] - Logger with .log/.warn (defaults to console)
+ * @param {Function} [options.checkImagePresent] - Image-presence probe (injectable for tests)
+ * @param {Function} [options.checkStorageDriver] - Storage-driver probe (injectable for tests)
+ * @param {Function} [options.checkDiskSpace] - Disk-space probe (injectable for tests)
+ * @returns {Promise<{image: string, sock: string, socketMounted: boolean, imagePresent: boolean, isDind: boolean, mode: string, storageDriver: (string|null), storageDriverOk: boolean, diskAvailableGiB: (number|null), ok: boolean, warnings: string[]}>}
  */
 export async function preflightDockerIsolation(options = {}) {
   const { env = process.env, existsSync = fs.existsSync, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent, checkStorageDriver = checkDockerStorageDriver, checkDiskSpace = checkDockerDiskSpace } = options;
@@ -1051,6 +1193,8 @@ export async function preflightDockerIsolation(options = {}) {
   const image = getDockerIsolationImage({ env });
   const sock = resolveHostDockerSock({ env });
   const isDind = shouldRunPrivilegedDockerIsolation(image, env);
+  const mode = resolveDockerIsolationMode({ env });
+  const isDood = mode === DOCKER_ISOLATION_MODE_DOOD;
   const socketMounted = Boolean(existsSync(sock));
   const imagePresent = Boolean(await checkImagePresent(image, verbose));
   const storageDriver = await checkStorageDriver(verbose);
@@ -1060,10 +1204,13 @@ export async function preflightDockerIsolation(options = {}) {
   // one driver known to overflow the disk, never block on missing information.
   const storageDriverOk = storageDriver !== 'vfs';
 
-  const result = { image, sock, socketMounted, imagePresent, isDind, storageDriver, storageDriverOk, diskAvailableGiB, ok: imagePresent, warnings: [] };
+  const result = { image, sock, socketMounted, imagePresent, isDind, mode, storageDriver, storageDriverOk, diskAvailableGiB, ok: imagePresent, warnings: [] };
   const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
   const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
 
+  // "host" vs "nested" daemon — the only word that changes between DooD and DinD
+  // in the shared parts of the diagnostics.
+  const daemonLabel = isDood ? 'host' : 'nested';
   const preload = `node scripts/preload-dind-isolation-image.mjs --image ${image}`;
 
   // Root Cause A of the issue #1914 reopen: a non-copy-on-write storage driver.
@@ -1072,16 +1219,23 @@ export async function preflightDockerIsolation(options = {}) {
   // commit) can fail with `failed to register layer: no space left on device`.
   // This is dangerous even when the image is already present — a task that
   // commits or pulls more layers still overflows — so we warn independent of
-  // image presence.
+  // image presence. The remediation differs by mode: a nested daemon is
+  // reconfigured via the DIND_* env / Dockerfile.dind; the host daemon is
+  // reconfigured on the host (issue #1962).
   if (storageDriver === 'vfs') {
-    result.warnings.push(`The Docker daemon backing '--isolation docker' is using the 'vfs' storage driver, which performs NO copy-on-write: ` + `it stores a full copy of every image layer, so the multi-GB Hive Mind images consume many times their size on disk and isolated tasks can fail with 'failed to register layer: no space left on device' (issue #1914). ` + `Switch to a copy-on-write driver: rebuild/redeploy with the current Dockerfile.dind (it defaults to 'fuse-overlayfs'), or for an already-running container add '-e DIND_STORAGE_DRIVER=fuse-overlayfs' to the bot container's 'docker run' and recreate it.`);
+    const fix = isDood ? `Switch the HOST Docker daemon to a copy-on-write driver (e.g. set '"storage-driver": "overlay2"' in /etc/docker/daemon.json and restart dockerd).` : `Switch to a copy-on-write driver: rebuild/redeploy with the current Dockerfile.dind (it defaults to 'fuse-overlayfs'), or for an already-running container add '-e DIND_STORAGE_DRIVER=fuse-overlayfs' to the bot container's 'docker run' and recreate it.`;
+    result.warnings.push(`The Docker daemon backing '--isolation docker' is using the 'vfs' storage driver, which performs NO copy-on-write: ` + `it stores a full copy of every image layer, so the multi-GB Hive Mind images consume many times their size on disk and isolated tasks can fail with 'failed to register layer: no space left on device' (issue #1914). ` + fix);
   }
 
   if (!imagePresent) {
     // Image absent: the first isolated task will pull the full image. Explain
     // the most likely cause and the exact fix instead of letting the operator
     // first discover it as a surprise multi-gigabyte download mid-task.
-    if (isDind && !socketMounted) {
+    if (isDood) {
+      // DooD: the daemon is the host daemon, so there is no nested store to seed
+      // and no passthrough — the host simply does not hold this concrete tag.
+      result.warnings.push(`Docker isolation image '${image}' is NOT present on the host Docker daemon (DooD mode). ` + `The FIRST isolated task will pull the full image (the Hive Mind images are multiple GB) instead of reusing a host copy. ` + `For zero-copy reuse, pull the EXACT tag on the host before starting tasks: 'docker pull ${image}' (pin HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG to that version — never rely on a floating ':latest', which re-pulls on digest drift). See issue #1962.`);
+    } else if (isDind && !socketMounted) {
       result.warnings.push(`Docker isolation image '${image}' is NOT in the nested Docker daemon and the host Docker socket is not mounted at ${sock}. ` + `box host-image passthrough cannot seed the nested daemon, so the FIRST isolated task will pull the full image (the Hive Mind images are multiple GB). ` + `Fix the deployment: add '-v /var/run/docker.sock:${sock}:ro' and '-e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind"' to the bot container's 'docker run', or seed it now with: ${preload}`);
     } else if (isDind && socketMounted) {
       result.warnings.push(`Docker isolation image '${image}' is NOT in the nested Docker daemon even though the host Docker socket is mounted at ${sock}. ` + `box host-image passthrough may have skipped it (check DIND_HOST_PASSTHROUGH mode, the DIND_HOST_PASSTHROUGH_IMAGES allowlist, and that the host actually has '${image}' with a registry digest). ` + `The first isolated task will pull the full image. Seed it now with: ${preload}`);
@@ -1094,12 +1248,14 @@ export async function preflightDockerIsolation(options = {}) {
     // failure here rather than hitting it mid-pull.
     if (diskAvailableGiB != null && diskAvailableGiB < DOCKER_ISOLATION_LOW_DISK_GIB) {
       const root = disk?.dataRoot || 'the Docker data root';
-      result.warnings.push(`Only ~${diskAvailableGiB.toFixed(0)} GiB free on ${root} and the isolation image '${image}' is not present yet. ` + `The Hive Mind isolation image is well over 30 GB extracted, so the first isolated task's pull may fail with 'no space left on device' (issue #1914). ` + `Seed it via host passthrough (mount the host docker socket) or with '${preload}', and free space on the Docker data root.`);
+      const seed = isDood ? `Pull '${image}' on the host (it already has it if you deployed in DooD for zero-copy reuse), and free space on the Docker data root.` : `Seed it via host passthrough (mount the host docker socket) or with '${preload}', and free space on the Docker data root.`;
+      result.warnings.push(`Only ~${diskAvailableGiB.toFixed(0)} GiB free on ${root} and the isolation image '${image}' is not present yet. ` + `The Hive Mind isolation image is well over 30 GB extracted, so the first isolated task's pull may fail with 'no space left on device' (issue #1914). ` + seed);
     }
   }
 
   if (imagePresent) {
-    info(`✅ Docker isolation image '${image}' is already present locally — isolated tasks reuse it (no multi-GB pull). See issue #1914.`);
+    const reuse = isDood ? `isolated tasks reuse the host copy (zero copy, zero pull, zero extra disk — issue #1962).` : `isolated tasks reuse it (no multi-GB pull). See issue #1914.`;
+    info(`✅ Docker isolation image '${image}' is already present on the ${daemonLabel} Docker daemon — ${reuse}`);
   }
   for (const w of result.warnings) warn(`⚠️ ${w}`);
   return result;
@@ -1184,6 +1340,58 @@ export async function ensureHostGitIdentityForIsolation(options = {}) {
   }
 
   result.warnings.push(`No host git identity (~/.gitconfig) to mount into docker-isolated containers, so isolated 'solve' tasks will fail with "Git identity not configured" even though gh is authenticated (issue #1939). ` + `Configure one on the bot host: run 'gh-setup-git-identity' (derives it from the authenticated gh account), set 'git config --global user.name/.email', or pass '--auto-gh-configuration-repair' to solve.` + (repairOutcome?.error ? ` Auto-repair attempt failed: ${repairOutcome.error}` : ''));
+  for (const w of result.warnings) warn(`⚠️ ${w}`);
+  return result;
+}
+
+/**
+ * Startup credential-mount preflight for DooD `--isolation docker`.
+ *
+ * `getDockerIsolationAuthMounts` binds the bot's `~/.config/gh`, `~/.gitconfig`,
+ * `~/.claude[.json]` / `~/.codex` into each task. Those mount SOURCES are the
+ * bot's home paths, which only resolve correctly when the task daemon shares the
+ * bot filesystem (DinD). In DooD the task runs on the HOST daemon, where those
+ * paths don't exist — Docker auto-creates them as empty DIRECTORIES, which is
+ * the root cause of the two failures in issue #1962:
+ *
+ *   1. `.claude.json` / `.gitconfig` bind fails with "Are you trying to mount a
+ *      directory onto a file (or vice-versa)?" — the task dies before it starts.
+ *   2. The git identity is empty ("fatal: empty ident name (for <>)") because the
+ *      mounted `~/.gitconfig` is an empty dir.
+ *
+ * This preflight makes that trap loud and actionable before the first task,
+ * instead of surfacing as a raw Docker mount error mid-run. DinD is unaffected
+ * (it shares the bot filesystem, so the same sources are the real files), and
+ * setting `HIVE_MIND_HOST_CONFIG_DIR` (see
+ * {@link resolveDockerIsolationConfigSourceHome}) clears the warning.
+ *
+ * The warning is mode-level (it names both the Claude and Codex config files), so
+ * it does not depend on which tool a given task uses.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.env] - Environment (defaults to process.env)
+ * @param {string} [options.homeDir] - Bot home dir (injectable for tests)
+ * @param {Object} [options.logger] - Logger with .log/.warn (defaults to console)
+ * @returns {Promise<{mode: string, ok: boolean, warnings: string[]}>}
+ */
+export async function preflightDockerIsolationAuthMounts({ env = process.env, homeDir = os.homedir(), logger = console } = {}) {
+  const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
+  const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
+  const mode = resolveDockerIsolationMode({ env });
+  const result = { mode, ok: true, warnings: [] };
+
+  // DinD shares the bot filesystem, so the bot-home mount sources are the real
+  // files — nothing to validate here.
+  if (mode !== DOCKER_ISOLATION_MODE_DOOD) return result;
+
+  const sourceHome = resolveDockerIsolationConfigSourceHome({ env, homeDir });
+  if (sourceHome !== homeDir) {
+    info(`✅ DooD: credential mount sources resolved against HIVE_MIND_HOST_CONFIG_DIR ('${sourceHome}') so the HOST daemon binds the real config files (issue #1962).`);
+    return result;
+  }
+
+  result.ok = false;
+  result.warnings.push(`Docker isolation is in DooD mode but credential mount sources are the bot's home paths (e.g. '${path.join(homeDir, '.gitconfig')}', '${path.join(homeDir, '.claude.json')}'). ` + `Isolated tasks run on the HOST daemon, where those paths usually do not exist, so Docker auto-creates them as empty DIRECTORIES — breaking file mounts ('.claude.json'/'.gitconfig' fail with "directory onto a file") and producing an empty git identity ("fatal: empty ident name") (issue #1962). ` + `Expose the bot's ~/.config/gh, ~/.claude, ~/.claude.json, ~/.codex and ~/.gitconfig at the SAME host paths (symlinks work — Docker follows symlink mount sources), or set HIVE_MIND_HOST_CONFIG_DIR to the host-side config root. See docs/DOCKER-ISOLATION.md.`);
   for (const w of result.warnings) warn(`⚠️ ${w}`);
   return result;
 }

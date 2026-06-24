@@ -237,7 +237,7 @@ docker run -dit \
 - ✅ Легко запускать несколько экземпляров с разными аккаунтами GitHub
 - ✅ Единообразная среда на разных машинах
 
-См. [docs/DOCKER.ru.md](./docs/DOCKER.ru.md) для расширенного использования Docker.
+См. [docs/DOCKER.ru.md](./docs/DOCKER.ru.md) для расширенного использования Docker и [docs/DOCKER-ISOLATION.ru.md](./docs/DOCKER-ISOLATION.ru.md) о компромиссе DinD против DooD для `--isolation docker` (DooD = переиспользование образа без копирования/диска на хостах с ограниченным диском).
 
 #### Остановка и удаление контейнера Docker
 

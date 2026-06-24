@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.20
+
+### Patch Changes
+
+- 078f346: Reap successful Docker-isolated task containers at session completion, keep failed containers with cleanup instructions by default, and update Docker images to start-command 0.30.1.
+
 ## 2.0.19
 
 ### Patch Changes

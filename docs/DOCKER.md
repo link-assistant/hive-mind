@@ -178,6 +178,14 @@ immediately instead of as a surprise pull mid-task:
 Run the bot with `--verbose` (or `TELEGRAM_BOT_VERBOSE=true`) for the underlying
 `docker image inspect` traces.
 
+**Task container retention.** When a Docker-isolated task reaches a terminal
+state, Hive Mind removes the task container after a successful run so its
+writable layer is reclaimed while the host-side start-command log remains
+available. Failed runs are kept by default for investigation, and the Telegram
+completion message includes inspect and cleanup commands. Override the policy
+with `HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` (default:
+`on-failure`).
+
 **Manual fallback.** To seed an already-running container immediately (or when
 you cannot change the deployment), copy the host image into the inner daemon:
 

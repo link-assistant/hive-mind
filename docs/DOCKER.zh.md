@@ -128,6 +128,11 @@ docker pull "konard/hive-mind-dind:${TAG:-latest}"
 以 `--verbose`（或 `TELEGRAM_BOT_VERBOSE=true`）运行机器人可查看底层
 `docker image inspect` 跟踪。
 
+**任务容器保留。** 当 Docker 隔离任务进入终止状态时，Hive Mind 会在成功运行后移除任务容器，
+从而回收其可写层，同时保留宿主侧的 start-command 日志。失败的运行默认会保留用于排查，
+Telegram 完成消息会包含检查和清理命令。可通过
+`HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` 覆盖策略（默认：`on-failure`）。
+
 **手动回退。** 要立即为正在运行的容器播种（或当你无法更改部署时），把宿主镜像复制进内部 daemon：
 
 ```bash

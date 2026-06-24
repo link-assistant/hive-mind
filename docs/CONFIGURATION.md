@@ -12,6 +12,7 @@ The Hive Mind application supports extensive configuration through environment v
   - [Limit Reset Settings](#22-limit-reset-settings)
   - [GitHub API Limits](#3-github-api-limits)
   - [System Resource Limits](#4-system-resource-limits)
+  - [Docker Isolation Settings](#41-docker-isolation-settings)
   - [Retry Configurations](#5-retry-configurations)
   - [Cache TTL Configurations](#51-cache-ttl-configurations)
   - [Claude Code CLI Configurations](#52-claude-code-cli-configurations)
@@ -81,6 +82,12 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 | -------------------------------- | ------- | --------------------------------- |
 | `HIVE_MIND_MIN_DISK_SPACE_MB`    | 2048    | Minimum required disk space in MB |
 | `HIVE_MIND_DEFAULT_PAGE_SIZE_KB` | 16      | Default memory page size in KB    |
+
+### 4.1. Docker Isolation Settings
+
+| Environment Variable            | Default      | Description                                                                                                                                                                |
+| ------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_KEEP_TASK_CONTAINER` | `on-failure` | Docker task-container retention after terminal completion: `always`, `on-failure`, or `never`. `on-failure` removes successful containers and keeps failed ones for debug. |
 
 ### 5. Retry Configurations
 

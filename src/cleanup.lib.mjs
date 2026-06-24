@@ -17,6 +17,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1848
  */
 
+import { classifyExitStatus, isExecutingSessionStatus, isFailureSessionStatus, isTerminalSessionStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { isValidIssueBranchName, parseIssueBranchName } from './solve.branch.lib.mjs';
 
 /**
@@ -161,6 +162,8 @@ export function buildActiveMatchers(activeTasks) {
       sessionId: task.sessionId || null,
       sessionName: task.sessionName || null,
       status: task.status || null,
+      exitCode: task.exitCode ?? null,
+      isolation: task.isolation || null,
       workspace: task.workspace || null,
     });
   }
@@ -430,4 +433,228 @@ export function formatEntryContext(item) {
   }
 
   return details.length > 0 ? ` (${details.join('; ')})` : '';
+}
+
+export const DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE = 'succeeded';
+export const DOCKER_ISOLATION_CLEANUP_MODES = new Set(['succeeded', 'all', 'none']);
+
+const DOCKER_ISOLATION_SESSION_NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function normalizeText(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Normalize the docker-isolation cleanup policy.
+ *
+ * Modes:
+ *   - succeeded: default; remove successful exited containers, keep failures
+ *   - all: remove all terminal/exited task containers
+ *   - none: report only
+ *
+ * @param {string|null|undefined} value
+ * @returns {'succeeded'|'all'|'none'}
+ */
+export function normalizeDockerIsolationCleanupMode(value) {
+  const mode = normalizeText(value);
+  if (!mode || ['default', 'true', '1', 'yes', 'on', 'succeeded', 'success', 'successful', 'failed-kept', 'keep-failed', 'on-failure'].includes(mode)) {
+    return DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE;
+  }
+  if (['false', '0', 'no', 'off', 'none', 'disabled'].includes(mode)) return 'none';
+  if (['all', 'everything', 'finished', 'terminal'].includes(mode)) return 'all';
+  throw new Error(`Invalid docker isolation cleanup mode: ${value}. Expected one of: succeeded, all, none`);
+}
+
+/**
+ * True when a Docker container name looks like a start-command session UUID.
+ *
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function isDockerIsolationSessionName(name) {
+  return DOCKER_ISOLATION_SESSION_NAME_RE.test(String(name || '').trim());
+}
+
+/**
+ * Parse Docker's status text, e.g. "Exited (137) 10 minutes ago".
+ *
+ * @param {string} status
+ * @returns {number|null}
+ */
+export function parseDockerContainerExitCode(status) {
+  const match = String(status || '').match(/\bExited\s+\((-?\d+)\)/i);
+  return match ? normalizeExitCode(match[1]) : null;
+}
+
+function createSessionLookup(sessionTasks) {
+  const lookup = new Map();
+  const merge = (key, task) => {
+    if (!key) return;
+    const existing = lookup.get(key) || {};
+    lookup.set(key, {
+      ...existing,
+      ...task,
+      status: task.status || existing.status || null,
+      exitCode: task.exitCode ?? existing.exitCode ?? null,
+      isolation: task.isolation || existing.isolation || null,
+      sessionId: task.sessionId || existing.sessionId || null,
+      sessionName: task.sessionName || existing.sessionName || null,
+      workspace: task.workspace || existing.workspace || null,
+    });
+  };
+
+  for (const task of sessionTasks || []) {
+    if (!task) continue;
+    merge(task.sessionId, task);
+    merge(task.sessionName, task);
+  }
+  return lookup;
+}
+
+function normalizeDockerContainer(container) {
+  const name = String(container?.name || container?.Names || container?.Name || '')
+    .replace(/^\//, '')
+    .trim();
+  const state = normalizeText(container?.state || container?.State);
+  const statusText = String(container?.status ?? container?.Status ?? '').trim();
+  const exitCode = normalizeExitCode(container?.exitCode ?? container?.ExitCode ?? parseDockerContainerExitCode(statusText));
+  const running = container?.running === true || state === 'running' || /^Up\b/i.test(statusText);
+  return {
+    ...container,
+    id: container?.id || container?.ID || null,
+    image: container?.image || container?.Image || null,
+    name,
+    state,
+    status: statusText,
+    exitCode,
+    running,
+  };
+}
+
+function inferDockerContainerOutcome(container, session) {
+  const sessionStatus = normalizeText(session?.status);
+  const exitCode = normalizeExitCode(container.exitCode ?? session?.exitCode);
+  const running = container.running || isExecutingSessionStatus(sessionStatus);
+  const containerTerminal = ['exited', 'dead', 'removing'].includes(container.state) || /^Exited\b/i.test(container.status) || exitCode !== null;
+  const sessionTerminal = isTerminalSessionStatus(sessionStatus);
+  const terminal = !running && (sessionTerminal || containerTerminal);
+  const exitStatus = classifyExitStatus(exitCode);
+  const failed = terminal && (isFailureSessionStatus(sessionStatus) || isFailureSessionStatus(exitStatus) || (exitCode !== null && exitCode !== 0));
+  const successful = terminal && !failed && exitCode === 0;
+  const unknown = terminal && !successful && !failed;
+
+  return {
+    running,
+    terminal,
+    exitCode,
+    successful,
+    failed,
+    unknown,
+  };
+}
+
+function dockerCleanupRecord(container, session, outcome, reason) {
+  return {
+    ...container,
+    ...outcome,
+    session: session || null,
+    reason,
+    command: `docker rm -f ${container.name}`,
+  };
+}
+
+/**
+ * Plan selective cleanup for Docker-isolation task containers.
+ *
+ * The input containers are expected to be Docker ps records already filtered to
+ * session UUID names, but the planner filters defensively too. Running
+ * containers are never removed, regardless of mode.
+ *
+ * @param {Object} options
+ * @param {Array} options.containers
+ * @param {Array} [options.sessionTasks]
+ * @param {string} [options.mode]
+ * @returns {{keep: Array, remove: Array, mode: string}}
+ */
+export function planDockerIsolationCleanup(options = {}) {
+  const mode = normalizeDockerIsolationCleanupMode(options.mode);
+  const sessions = createSessionLookup(options.sessionTasks || []);
+  const keep = [];
+  const remove = [];
+
+  for (const rawContainer of options.containers || []) {
+    const container = normalizeDockerContainer(rawContainer);
+    if (!isDockerIsolationSessionName(container.name)) continue;
+
+    const session = sessions.get(container.name) || null;
+    const outcome = inferDockerContainerOutcome(container, session);
+    let reason;
+    let action = 'keep';
+
+    if (mode === 'none') {
+      reason = 'disabled';
+    } else if (outcome.running) {
+      reason = 'active-container';
+    } else if (!outcome.terminal) {
+      reason = 'unknown-container-state';
+    } else if (mode === 'all') {
+      reason = 'finished-container';
+      action = 'remove';
+    } else if (outcome.successful) {
+      reason = 'successful-container';
+      action = 'remove';
+    } else if (outcome.failed) {
+      reason = 'failed-container-kept';
+    } else {
+      reason = 'unknown-outcome-kept';
+    }
+
+    const record = dockerCleanupRecord(container, session, outcome, reason);
+    if (action === 'remove') remove.push(record);
+    else keep.push(record);
+  }
+
+  return { keep, remove, mode };
+}
+
+/**
+ * Human-readable docker-isolation cleanup reason.
+ *
+ * @param {string} reason
+ * @returns {string}
+ */
+export function describeDockerIsolationReason(reason) {
+  const map = {
+    disabled: 'docker-isolation cleanup disabled',
+    'active-container': 'running docker-isolation task',
+    'unknown-container-state': 'container state is not terminal',
+    'successful-container': 'successful docker-isolation task container',
+    'finished-container': 'finished docker-isolation task container',
+    'failed-container-kept': 'failed docker-isolation task kept for debugging',
+    'unknown-outcome-kept': 'docker-isolation task outcome unknown',
+    'all-mode': 'non-running docker-isolation container',
+  };
+  return map[reason] || reason;
+}
+
+/**
+ * Format a docker-isolation container record for CLI logs.
+ *
+ * @param {Object} item
+ * @returns {string}
+ */
+export function formatDockerIsolationContainerSummary(item) {
+  if (!item) return '';
+  const parts = [`session ${item.name}`];
+  if (item.image) parts.push(`image ${item.image}`);
+  if (item.state) parts.push(`state ${item.state}`);
+  if (item.status) parts.push(`status ${item.status}`);
+  if (item.exitCode !== null && item.exitCode !== undefined) parts.push(`exit ${item.exitCode}`);
+  if (item.session) parts.push(formatTaskSummary(item.session));
+  if (item.command && ['disabled', 'failed-container-kept', 'unknown-outcome-kept'].includes(item.reason)) {
+    parts.push(`remove when done: ${item.command}`);
+  }
+  return parts.join(', ');
 }

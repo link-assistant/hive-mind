@@ -488,7 +488,7 @@ export function readSessionExitFromLog(logPath, options = {}) {
  */
 async function findStartCommandBinary() {
   try {
-    const result = await $`which $`;
+    const result = await $({ mirror: false })`which $`;
     const path = result.stdout?.toString().trim() || '';
     return path || null;
   } catch {

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.16
+
+### Patch Changes
+
+- a448b3d: Detect incomplete Claude stream-json runs that exit without a terminal result event, capture nested Claude tool/error events, and preserve compaction summaries for diagnostics.
+
 ## 2.0.15
 
 ### Patch Changes

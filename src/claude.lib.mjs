@@ -31,37 +31,11 @@ import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #17
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
+import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult } from './claude.stream-events.lib.mjs';
+import { formatNumber, mapModelToId, checkModelVisionCapability } from './claude.model-utils.lib.mjs';
+import { showResumeCommand } from './claude.resume-output.lib.mjs';
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
-const showResumeCommand = async (sessionId, tempDir, claudePath, model, log, argv = null) => {
-  if (!sessionId || !tempDir) return;
-  await log(`\n💡 To continue this session:\n`);
-  await log(`   Interactive mode:    ${buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model })}\n`);
-  await log(`   Autonomous mode:     ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, claudePath, model })}\n`);
-  // Issue #942: 3rd option - restart the entire /solve flow, not just the claude session.
-  if (argv && argv.url) await log(`   Solve resume mode:   ${buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: argv.tool || 'claude', model: argv.model, fallbackModel: argv.fallbackModel, tempDir })}\n`);
-};
-/** Format numbers with spaces as thousands separator (no commas) */
-export const formatNumber = num => {
-  if (num === null || num === undefined) return 'N/A';
-  const parts = num.toString().split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts[1];
-  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
-};
-// Model mapping to translate aliases to full model IDs
-// Supports [1m] suffix for 1 million token context (Issue #1221)
-export const mapModelToId = model => {
-  if (!model || typeof model !== 'string') return model;
-  // Check for [1m] suffix (case-insensitive)
-  const match = model.match(/^(.+?)\[1m\]$/i);
-  if (match) {
-    const baseModel = match[1];
-    const mappedBase = availableModels[baseModel] || baseModel;
-    return `${mappedBase}[1m]`;
-  }
-  return availableModels[model] || model;
-};
+export { formatNumber, mapModelToId, checkModelVisionCapability };
 // Function to validate Claude CLI connection with retry logic
 export const validateClaudeConnection = async (model = 'haiku') => {
   // Map model alias to full ID
@@ -377,17 +351,6 @@ export const executeClaude = async params => {
     })
   );
 };
-/** Check if a model supports vision (image input) using models.dev API @returns {Promise<boolean>} */
-export const checkModelVisionCapability = async modelId => {
-  try {
-    const modelInfo = await fetchModelInfo(modelId);
-    if (!modelInfo) return false;
-    const inputModalities = modelInfo.modalities?.input || [];
-    return inputModalities.includes('image');
-  } catch {
-    return false;
-  }
-};
 // Issue #1710: calculateModelCost extracted to ./claude.cost.lib.mjs to keep
 // this file under the 1500-line repo cap (see check-file-line-limits CI job).
 import { calculateModelCost } from './claude.cost.lib.mjs';
@@ -652,6 +615,7 @@ export const executeClaudeCommand = async params => {
     let errorDuringExecution = false;
     let resultSummary = null;
     let resultModelUsage = null;
+    let lastToolResultError = null;
     // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
     const subAgentCalls = [];
     // Issue #1590: Map tool_use_id -> subAgentCalls index for accumulating per-call usage from parent_tool_use_id events
@@ -903,8 +867,19 @@ export const executeClaudeCommand = async params => {
                   await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
                 }
               }
-              if (data.type === 'message') messageCount++;
-              else if (data.type === 'tool_use') toolUseCount++;
+              const eventFacts = collectClaudeStreamEventFacts(data);
+              messageCount += eventFacts.messageCountDelta;
+              toolUseCount += eventFacts.toolUseCountDelta;
+              if (eventFacts.lastText) lastMessage = eventFacts.lastText;
+              if (!resultSummary && eventFacts.compactionSummary) {
+                resultSummary = eventFacts.compactionSummary;
+                await log('📝 Captured fallback summary from Claude compaction context', { verbose: true });
+              }
+              if (eventFacts.toolResultError) {
+                lastToolResultError = eventFacts.toolResultError;
+                lastMessage = eventFacts.toolResultError;
+                await log(`⚠️ Tool result error detected: ${eventFacts.toolResultError.substring(0, 200)}`, { verbose: true });
+              }
               // Issue #1708: signal busy/idle to the bidirectional handler so
               // queue-comments-to-input mode can hold frames until the AI is
               // idle. Any assistant/tool_use/system event means the AI is
@@ -1023,7 +998,7 @@ export const executeClaudeCommand = async params => {
                 }
               }
               if (data.type === 'assistant' && data.message && data.message.content) {
-                const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+                const content = getClaudeMessageContent(data);
                 for (const item of content) {
                   if (item.type === 'text' && item.text) {
                     // Check for the specific 500/529 overload error pattern (Issue #1439: 529 is also an overload)
@@ -1111,11 +1086,26 @@ export const executeClaudeCommand = async params => {
         try {
           const data = sanitizeObjectStrings(JSON.parse(stdoutLineBuffer));
           await log(JSON.stringify(data, null, 2));
-          if (data?.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
-            anthropicTotalCostUSD = data.total_cost_usd;
-          } else if (data?.type === 'result' && data.total_cost_usd != null) {
-            // Issue #1886: keep a non-success terminal result's cost as a fallback (see streaming branch above).
-            anthropicCostFromAnyResult = data.total_cost_usd;
+          const eventFacts = collectClaudeStreamEventFacts(data);
+          messageCount += eventFacts.messageCountDelta;
+          toolUseCount += eventFacts.toolUseCountDelta;
+          if (eventFacts.lastText) lastMessage = eventFacts.lastText;
+          if (!resultSummary && eventFacts.compactionSummary) resultSummary = eventFacts.compactionSummary;
+          if (eventFacts.toolResultError) {
+            lastToolResultError = eventFacts.toolResultError;
+            lastMessage = eventFacts.toolResultError;
+          }
+          if (data?.type === 'result') {
+            resultEventReceived = true;
+            if (data.subtype === 'success') {
+              resultSuccessReceived = true;
+              if (data.result && typeof data.result === 'string') resultSummary = data.result;
+              if (data.modelUsage) resultModelUsage = data.modelUsage;
+            }
+            if (data.total_cost_usd != null) {
+              if (data.subtype === 'success') anthropicTotalCostUSD = data.total_cost_usd;
+              else anthropicCostFromAnyResult = data.total_cost_usd;
+            }
           }
           // Issue #1472: Forward remaining buffer event to interactive handler (was previously missed)
           if (interactiveHandler) {
@@ -1302,6 +1292,11 @@ export const executeClaudeCommand = async params => {
           .map(e => `   ${e.substring(0, 200)}`)
           .join('\n');
         await log(`\n\n❌ Command failed: No messages processed and errors detected in stderr\nStderr errors:\n${errorsPreview}`, { level: 'error' });
+      }
+      if (shouldFailClaudeStreamWithoutResult({ commandFailed, streamingInput, resultEventReceived })) {
+        commandFailed = true;
+        lastMessage = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage });
+        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
       }
       if (commandFailed) {
         // Take resource snapshot after failure

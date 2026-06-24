@@ -10,6 +10,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE, formatDockerIsolationContainerSummary, normalizeDockerIsolationCleanupMode, planDockerIsolationCleanup } from '../src/cleanup.lib.mjs';
 import { parseDockerPsJsonLines } from '../src/cleanup.os.lib.mjs';
@@ -33,6 +34,7 @@ const SUCCESS = '11111111-1111-4111-8111-111111111111';
 const FAILED = '22222222-2222-4222-8222-222222222222';
 const RUNNING = '33333333-3333-4333-8333-333333333333';
 const UNKNOWN = '44444444-4444-4444-8444-444444444444';
+const CREATED = '55555555-5555-4555-8555-555555555555';
 
 function dockerPsFixture() {
   return [
@@ -40,6 +42,7 @@ function dockerPsFixture() {
     { ID: 'def456', Image: 'konard/hive-mind-dind:latest', Names: FAILED, State: 'exited', Status: 'Exited (1) 1 hour ago' },
     { ID: 'ghi789', Image: 'konard/hive-mind-dind:latest', Names: RUNNING, State: 'running', Status: 'Up 4 minutes' },
     { ID: 'jkl012', Image: 'custom/hive-task:dev', Names: UNKNOWN, State: 'exited', Status: 'Exited (137) 10 minutes ago' },
+    { ID: 'pqr678', Image: 'custom/hive-task:dev', Names: CREATED, State: 'created', Status: 'Created' },
     { ID: 'mno345', Image: 'postgres:16', Names: 'unrelated-db', State: 'exited', Status: 'Exited (0) 5 hours ago' },
   ]
     .map(record => JSON.stringify(record))
@@ -93,7 +96,7 @@ function byName(items) {
 
 test('parseDockerPsJsonLines filters UUID-named task containers and parses state', () => {
   const containers = parseDockerPsJsonLines(dockerPsFixture());
-  assert.deepEqual(containers.map(container => container.name).sort(), [FAILED, RUNNING, SUCCESS, UNKNOWN].sort());
+  assert.deepEqual(containers.map(container => container.name).sort(), [CREATED, FAILED, RUNNING, SUCCESS, UNKNOWN].sort());
   assert.equal(containers.find(container => container.name === SUCCESS).exitCode, 0);
   assert.equal(containers.find(container => container.name === FAILED).exitCode, 1);
   assert.equal(containers.find(container => container.name === RUNNING).running, true);
@@ -104,7 +107,7 @@ test('parseDockerPsJsonLines filters UUID-named task containers and parses state
 });
 
 test('default docker-isolation cleanup removes successful exited containers and keeps failed ones', () => {
-  assert.equal(DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE, 'failed-kept');
+  assert.equal(DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE, 'succeeded');
   const plan = planDockerIsolationCleanup({
     containers: parseDockerPsJsonLines(dockerPsFixture()),
     sessionTasks: sessionTasks(),
@@ -120,6 +123,7 @@ test('default docker-isolation cleanup removes successful exited containers and 
   assert.equal(keep.get(RUNNING).reason, 'active-container');
   assert.equal(keep.get(UNKNOWN).reason, 'failed-container-kept');
   assert.equal(keep.get(UNKNOWN).command, `docker rm -f ${UNKNOWN}`);
+  assert.equal(keep.get(CREATED).reason, 'unknown-container-state');
 });
 
 test('docker ps exit status wins over stale unknown session exit code', () => {
@@ -137,7 +141,7 @@ test('docker ps exit status wins over stale unknown session exit code', () => {
   assert.equal(plan.remove[0].reason, 'successful-container');
 });
 
-test('running containers are protected even in all mode', () => {
+test('all mode removes finished containers but protects running and non-terminal containers', () => {
   const plan = planDockerIsolationCleanup({
     containers: parseDockerPsJsonLines(dockerPsFixture()),
     sessionTasks: sessionTasks(),
@@ -146,16 +150,7 @@ test('running containers are protected even in all mode', () => {
 
   assert.deepEqual(plan.remove.map(item => item.name).sort(), [FAILED, SUCCESS, UNKNOWN].sort());
   assert.equal(byName(plan.keep).get(RUNNING).reason, 'active-container');
-});
-
-test('finished mode removes failed terminal containers too', () => {
-  const plan = planDockerIsolationCleanup({
-    containers: parseDockerPsJsonLines(dockerPsFixture()),
-    sessionTasks: sessionTasks(),
-    mode: 'finished',
-  });
-
-  assert.deepEqual(plan.remove.map(item => item.name).sort(), [FAILED, SUCCESS, UNKNOWN].sort());
+  assert.equal(byName(plan.keep).get(CREATED).reason, 'unknown-container-state');
 });
 
 test('none mode disables docker-isolation cleanup without hiding discovered containers', () => {
@@ -166,17 +161,19 @@ test('none mode disables docker-isolation cleanup without hiding discovered cont
   });
 
   assert.deepEqual(plan.remove, []);
-  assert.equal(plan.keep.length, 4);
+  assert.equal(plan.keep.length, 5);
   assert.ok(plan.keep.every(item => item.reason === 'disabled'));
 });
 
 test('normalizes docker-isolation cleanup mode aliases', () => {
-  assert.equal(normalizeDockerIsolationCleanupMode(null), 'failed-kept');
-  assert.equal(normalizeDockerIsolationCleanupMode(''), 'failed-kept');
-  assert.equal(normalizeDockerIsolationCleanupMode('true'), 'failed-kept');
+  assert.equal(normalizeDockerIsolationCleanupMode(null), 'succeeded');
+  assert.equal(normalizeDockerIsolationCleanupMode(''), 'succeeded');
+  assert.equal(normalizeDockerIsolationCleanupMode('true'), 'succeeded');
   assert.equal(normalizeDockerIsolationCleanupMode('off'), 'none');
-  assert.equal(normalizeDockerIsolationCleanupMode('success'), 'failed-kept');
-  assert.equal(normalizeDockerIsolationCleanupMode('finished'), 'finished');
+  assert.equal(normalizeDockerIsolationCleanupMode('succeeded'), 'succeeded');
+  assert.equal(normalizeDockerIsolationCleanupMode('success'), 'succeeded');
+  assert.equal(normalizeDockerIsolationCleanupMode('failed-kept'), 'succeeded');
+  assert.equal(normalizeDockerIsolationCleanupMode('finished'), 'all');
   assert.throws(() => normalizeDockerIsolationCleanupMode('surprise'), /Invalid docker isolation cleanup mode/);
 });
 
@@ -192,6 +189,11 @@ test('docker container summary includes session and cleanup context', () => {
   assert.ok(summary.includes('exit 1'));
   assert.ok(summary.includes('link-assistant/hive-mind issue #1979'));
   assert.ok(summary.includes(`remove when done: docker rm -f ${FAILED}`));
+});
+
+test('findStartCommandBinary suppresses command-stream stdout mirroring', () => {
+  const source = readFileSync(new URL('../src/isolation-runner.lib.mjs', import.meta.url), 'utf8');
+  assert.match(source, /await\s+\$\(\{\s*mirror:\s*false\s*\}\)`which \$`/);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

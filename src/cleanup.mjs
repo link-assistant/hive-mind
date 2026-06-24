@@ -137,7 +137,7 @@ System / Ubuntu cleanup (opt-in):
 Docker isolation cleanup:
   --docker-isolation[=<mode>] Clean task containers named by session UUID
                               [default: ${DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE}]
-                              modes: failed-kept, finished, all, none
+                              modes: succeeded, all, none
   --no-docker-isolation       Disable Docker-isolation task container cleanup
 
   --verbose, -v               Verbose logging

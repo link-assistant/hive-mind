@@ -435,8 +435,8 @@ export function formatEntryContext(item) {
   return details.length > 0 ? ` (${details.join('; ')})` : '';
 }
 
-export const DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE = 'failed-kept';
-export const DOCKER_ISOLATION_CLEANUP_MODES = new Set(['failed-kept', 'finished', 'all', 'none']);
+export const DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE = 'succeeded';
+export const DOCKER_ISOLATION_CLEANUP_MODES = new Set(['succeeded', 'all', 'none']);
 
 const DOCKER_ISOLATION_SESSION_NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -450,23 +450,21 @@ function normalizeText(value) {
  * Normalize the docker-isolation cleanup policy.
  *
  * Modes:
- *   - failed-kept: default; remove successful exited containers, keep failures
- *   - finished: remove all terminal/exited task containers
- *   - all: remove every non-running task container
+ *   - succeeded: default; remove successful exited containers, keep failures
+ *   - all: remove all terminal/exited task containers
  *   - none: report only
  *
  * @param {string|null|undefined} value
- * @returns {'failed-kept'|'finished'|'all'|'none'}
+ * @returns {'succeeded'|'all'|'none'}
  */
 export function normalizeDockerIsolationCleanupMode(value) {
   const mode = normalizeText(value);
-  if (!mode || ['default', 'true', '1', 'yes', 'on', 'success', 'successful', 'failed-kept', 'keep-failed', 'on-failure'].includes(mode)) {
+  if (!mode || ['default', 'true', '1', 'yes', 'on', 'succeeded', 'success', 'successful', 'failed-kept', 'keep-failed', 'on-failure'].includes(mode)) {
     return DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE;
   }
   if (['false', '0', 'no', 'off', 'none', 'disabled'].includes(mode)) return 'none';
-  if (['finished', 'terminal'].includes(mode)) return 'finished';
-  if (['all', 'everything'].includes(mode)) return 'all';
-  throw new Error(`Invalid docker isolation cleanup mode: ${value}. Expected one of: failed-kept, finished, all, none`);
+  if (['all', 'everything', 'finished', 'terminal'].includes(mode)) return 'all';
+  throw new Error(`Invalid docker isolation cleanup mode: ${value}. Expected one of: succeeded, all, none`);
 }
 
 /**
@@ -599,12 +597,9 @@ export function planDockerIsolationCleanup(options = {}) {
       reason = 'disabled';
     } else if (outcome.running) {
       reason = 'active-container';
-    } else if (mode === 'all') {
-      reason = 'all-mode';
-      action = 'remove';
     } else if (!outcome.terminal) {
       reason = 'unknown-container-state';
-    } else if (mode === 'finished') {
+    } else if (mode === 'all') {
       reason = 'finished-container';
       action = 'remove';
     } else if (outcome.successful) {

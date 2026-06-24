@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.19
+
+### Patch Changes
+
+- 8061979: Preserve per-command isolation overrides for queued Telegram solve commands.
+
 ## 2.0.18
 
 ### Patch Changes

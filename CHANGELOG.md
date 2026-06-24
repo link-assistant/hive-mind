@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.21
+
+### Patch Changes
+
+- da88ee5: Add session-aware Docker-isolation container cleanup to hive-cleanup.
+
 ## 2.0.20
 
 ### Patch Changes

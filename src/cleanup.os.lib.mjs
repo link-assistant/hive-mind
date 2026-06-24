@@ -19,7 +19,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 
-import { extractTaskRefsFromCommand, parseRemoteUrl } from './cleanup.lib.mjs';
+import { extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
 import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
 
 /** Run a command, returning trimmed stdout or null on any failure. */
@@ -301,6 +301,73 @@ export function listScreenSessions() {
     });
   }
   return sessions;
+}
+
+function splitDockerNames(value) {
+  return String(value || '')
+    .split(',')
+    .map(name => name.trim().replace(/^\/+/, ''))
+    .filter(Boolean);
+}
+
+/**
+ * Parse `docker ps -a --format '{{json .}}'` output into docker-isolation task
+ * containers. start-command names native Docker isolation containers after the
+ * session UUID, so unrelated host containers are ignored.
+ *
+ * @param {string} output
+ * @returns {Array<{id: string|null, name: string, image: string|null, state: string, status: string, exitCode: number|null, running: boolean}>}
+ */
+export function parseDockerPsJsonLines(output) {
+  const containers = [];
+  const seen = new Set();
+
+  for (const line of String(output || '').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    let data;
+    try {
+      data = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+
+    const state = String(data.State || data.state || '')
+      .trim()
+      .toLowerCase();
+    const status = String(data.Status || data.status || '').trim();
+    const exitCode = parseDockerContainerExitCode(status);
+    const running = state === 'running' || /^Up\b/i.test(status);
+
+    for (const name of splitDockerNames(data.Names || data.Name || data.names || data.name)) {
+      if (!isDockerIsolationSessionName(name)) continue;
+      if (seen.has(name)) continue;
+      seen.add(name);
+      containers.push({
+        id: data.ID || data.Id || data.id || null,
+        name,
+        image: data.Image || data.image || null,
+        state,
+        status,
+        exitCode,
+        running,
+      });
+    }
+  }
+
+  return containers;
+}
+
+/**
+ * Enumerate Docker-isolation task containers from the local Docker daemon.
+ * Returns an empty list when docker is unavailable.
+ *
+ * @returns {Array}
+ */
+export function listDockerIsolationContainers() {
+  const out = tryExec('docker', ['ps', '-a', '--format', '{{json .}}']);
+  return out ? parseDockerPsJsonLines(out) : [];
 }
 
 function listStartCommandLogFiles(logRoot, maxFiles) {
@@ -677,7 +744,7 @@ export function resolvePrHeadBranch(ref) {
  * @param {Object} [options]
  * @param {boolean} [options.verbose=false]
  * @param {boolean} [options.resolveBranches=false] - resolve PR head branches via gh
- * @returns {Promise<Array<{owner, repo, type, number, branch: string|null, sessionId: string|null, sessionName: string|null, status: string|null, workspace: string|null, terminal: boolean, startTime: string|null}>>}
+ * @returns {Promise<Array<{owner, repo, type, number, branch: string|null, sessionId: string|null, sessionName: string|null, status: string|null, exitCode: number|null, isolation: string|null, workspace: string|null, terminal: boolean, startTime: string|null}>>}
  */
 export async function listSessionTasks(options = {}) {
   const { verbose = false, resolveBranches = false } = options;
@@ -711,6 +778,8 @@ export async function listSessionTasks(options = {}) {
         sessionId: session.uuid || null,
         sessionName: session.sessionName || null,
         status: session.status || null,
+        exitCode: session.exitCode ?? null,
+        isolation: session.isolation || null,
         workspace: session.workingDirectory || null,
         terminal,
         startTime: session.startTime || null,
@@ -782,6 +851,18 @@ export function removePath(targetPath) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Remove a Docker-isolation task container by session UUID. Returns false for
+ * invalid names, missing docker, missing containers, or docker errors.
+ *
+ * @param {string} containerName
+ * @returns {boolean}
+ */
+export function removeDockerContainer(containerName) {
+  if (!isDockerIsolationSessionName(containerName)) return false;
+  return tryExec('docker', ['rm', '-f', containerName], { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] }) !== null;
 }
 
 /**

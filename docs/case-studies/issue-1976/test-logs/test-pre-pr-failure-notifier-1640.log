@@ -1,0 +1,13 @@
+✅ notifies only nonzero exits with known issue and no PR
+✅ builds a pre-PR failure comment with the tracked failure marker
+✅ builds fork-specific user guidance without administrator commands
+✅ builds fork-divergence guidance with only the reusable force-with-lease option
+✅ targets an existing pull request for nonzero pre-exit failures
+✅ builds an existing-PR failure comment with fork-divergence option guidance
+✅ uploads logs to the issue when attach-logs is enabled
+✅ uploads logs to the pull request with fork-divergence option guidance
+✅ falls back to a plain pull request comment when log upload throws
+✅ falls back to a plain pull request comment when an existing PR fails before logs are attached
+✅ falls back to a plain issue comment when log upload is unavailable
+
+Pre-PR failure notifier tests: 11 passed, 0 failed

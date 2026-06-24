@@ -1,0 +1,28 @@
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@link-assistant/hive-mind@2.0.15',
+npm warn EBADENGINE   required: { node: '>=24.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '11.17.0' }
+npm warn EBADENGINE }
+
+> @link-assistant/hive-mind@2.0.15 prepare
+> husky
+
+
+added 497 packages, and audited 498 packages in 12s
+
+98 packages are looking for funding
+  run `npm fund` for details
+
+28 vulnerabilities (23 moderate, 5 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:
+npm warn allow-scripts   @sentry-internal/node-cpu-profiler@2.2.0 (install: node scripts/check-build.js)
+npm warn allow-scripts
+npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.

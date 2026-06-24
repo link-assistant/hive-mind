@@ -113,9 +113,9 @@ runTest('safe auto-recovery for non-fork/mismatch repos (Issue #1518)', () => {
     throw new Error('Missing commit comparison via GitHub compare API');
   }
 
-  // Check that deletion is blocked when extra commits exist
-  if (!content.includes('repository may contain commits that would be lost')) {
-    throw new Error('Missing safety exit when extra commits would be lost');
+  // Check that deletion is blocked with a clear user-facing reason when extra commits may exist
+  if (!content.includes('buildForkReplacementBlockedReason')) {
+    throw new Error('Missing clear safety exit when extra commits would be lost');
   }
 
   // Check for auto-recovery logic (only when safe)

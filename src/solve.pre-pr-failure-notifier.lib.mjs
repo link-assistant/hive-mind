@@ -1,4 +1,5 @@
 import { getTrackedToolCommentIds, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
+import { extractForkReplacementBlockedDetails, isForkReplacementBlockedReason } from './solve.repository-recovery-message.lib.mjs';
 
 export const FORK_DIVERGENCE_RESOLUTION_OPTION = '--allow-fork-divergence-resolution-using-force-push-with-lease';
 
@@ -28,6 +29,23 @@ const isPushRejectionFailure = reason => {
 export function buildPrePullRequestFailureActionSection(reason = '') {
   const normalizedReason = String(reason || '').toLowerCase();
   const isForkOrRecoveryFailure = normalizedReason.includes('fork') || normalizedReason.includes('auto-recovery') || normalizedReason.includes('repository setup');
+
+  if (isForkReplacementBlockedReason(reason)) {
+    const details = extractForkReplacementBlockedDetails(reason);
+    const repository = details.existingRepository || 'the existing repository';
+    const upstream = details.expectedUpstream || 'the expected upstream repository';
+
+    return `### What happened
+- Hive Mind found \`${repository}\` where it needed a GitHub fork of \`${upstream}\`.
+- It could not prove whether the existing repository has unique commits, so it did not delete it automatically.
+
+### What you can do
+- If you control \`${repository}\`, back up any needed work, then delete, rename, archive, or repair it in GitHub and rerun the solver.
+- If you do not control \`${repository}\`, ask the repository owner or a Hive Mind administrator to clean it up and rerun the solver.
+- Use \`--allow-force-non-fork-repository-deletion\` only after confirming that deleting \`${repository}\` is acceptable and any unique commits can be lost.
+
+Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this GitHub comment.`;
+  }
 
   if (isForkDivergenceFailure(reason)) {
     return `### What you can do

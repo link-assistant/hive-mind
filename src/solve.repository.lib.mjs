@@ -30,6 +30,7 @@ const { log, formatAligned } = lib;
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 import { parseForkFullNameFromGhOutput } from './github-repository-names.lib.mjs';
+import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescription } from './solve.repository-recovery-message.lib.mjs';
 
 // Import GitHub utilities for permission checks
 const githubLib = await import('./github.lib.mjs');
@@ -521,22 +522,30 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         await log('');
         await log(`${formatAligned('⚠️', 'FORK PARENT MISMATCH DETECTED', '')}`, { level: 'warning' });
         const detail = !forkValidation.isFork ? `Repository ${existingForkName} is NOT a GitHub fork (see issue #1518)` : `Fork ${existingForkName} was created from ${forkValidation.parent} instead of ${owner}/${repo} (see issue #967)`;
+        const relationshipDescription = !forkValidation.isFork ? `${existingForkName} is not a GitHub fork of ${owner}/${repo}.` : `${existingForkName} is a GitHub fork of ${forkValidation.parent || 'unknown parent'}, not ${owner}/${repo}.`;
         await log(`${formatAligned('', '', detail)}`);
         await log(`${formatAligned('', '', `Fork parent: ${forkValidation.parent || 'N/A (not a fork)'}, source: ${forkValidation.source || 'N/A'}, expected: ${owner}/${repo}`)}`);
         // Safety check: compare commits before deleting to avoid data loss
         await log(`${formatAligned('🔍', 'Safety check:', 'Comparing commits against upstream...')}`);
         let safeToDelete = false;
+        let safetyCheckDescription = buildForkReplacementSafetyCheckDescription();
         try {
           const cmp = await $`gh api repos/${owner}/${repo}/compare/${owner}:HEAD...${existingForkName.split('/')[0]}:HEAD --paginate --jq '.ahead_by' 2>&1`;
-          if (cmp.code === 0 && parseInt(cmp.stdout.toString().trim(), 10) === 0) {
+          const aheadBy = parseInt(cmp.stdout.toString().trim(), 10);
+          if (cmp.code === 0 && aheadBy === 0) {
             await log(`${formatAligned('✅', 'Safe to delete:', 'No additional commits in non-fork repository')}`);
             safeToDelete = true;
           } else if (cmp.code === 0) {
-            await log(`${formatAligned('⚠️', 'UNSAFE:', `Repository has ${cmp.stdout.toString().trim()} commit(s) ahead of upstream that would be lost`)}`, { level: 'warning' });
+            safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ aheadBy });
+            const aheadDescription = Number.isFinite(aheadBy) ? `${aheadBy} commit(s)` : 'an unknown number of commit(s)';
+            await log(`${formatAligned('⚠️', 'UNSAFE:', `Repository has ${aheadDescription} ahead of upstream that would be lost`)}`, { level: 'warning' });
           } else {
-            await log(`${formatAligned('⚠️', 'Compare failed:', ((cmp.stderr?.toString() || '') + (cmp.stdout?.toString() || '')).split('\n')[0])}`, { level: 'warning' });
+            const compareOutput = (cmp.stderr?.toString() || '') + (cmp.stdout?.toString() || '');
+            safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ compareFailureOutput: compareOutput });
+            await log(`${formatAligned('⚠️', 'Compare failed:', compareOutput.split('\n')[0])}`, { level: 'warning' });
           }
         } catch (e) {
+          safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ compareFailureOutput: e.message });
           await log(`${formatAligned('⚠️', 'Compare error:', e.message)}`, { level: 'warning' });
         }
         if (!safeToDelete) {
@@ -547,7 +556,15 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             await log(`  💡 Manual fix required: back up work, then: gh repo delete ${existingForkName} --yes`);
             await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);
             await log(`  🔧 Or force deletion (DANGEROUS): solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-force-non-fork-repository-deletion`);
-            await safeExit(1, 'Auto-recovery skipped - repository may contain commits that would be lost');
+            await safeExit(
+              1,
+              buildForkReplacementBlockedReason({
+                existingRepository: existingForkName,
+                expectedUpstream: `${owner}/${repo}`,
+                relationshipDescription,
+                safetyCheckDescription,
+              })
+            );
           }
         }
         await log(`${formatAligned('🔄', 'Auto-recovery:', 'Deleting non-fork repository and creating fresh fork...')}`);

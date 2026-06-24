@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.17
+
+### Patch Changes
+
+- 1cec7b4: Allow bare indented LINO option/value links in .lenv configuration, matching parenthesized links.
+
 ## 2.0.16
 
 ### Patch Changes

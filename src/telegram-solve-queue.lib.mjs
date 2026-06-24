@@ -58,6 +58,8 @@ class SolveQueueItem {
     this.requester = options.requester;
     this.infoBlock = options.infoBlock;
     this.tool = options.tool || 'claude';
+    // Issue #1983: preserve per-command isolation through queued execution.
+    this.perCommandIsolation = options.perCommandIsolation || null;
     // Issue #1688: keep parsed URL context (owner/repo/number/type) so completion
     //   notifications can look up linked PRs for issue URLs.
     this.urlContext = options.urlContext || null;

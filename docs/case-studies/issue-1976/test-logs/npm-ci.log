@@ -1,14 +1,14 @@
 npm warn EBADENGINE Unsupported engine {
-npm warn EBADENGINE   package: '@link-assistant/hive-mind@2.0.15',
+npm warn EBADENGINE   package: '@link-assistant/hive-mind@2.0.16',
 npm warn EBADENGINE   required: { node: '>=24.0.0' },
 npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '11.17.0' }
 npm warn EBADENGINE }
 
-> @link-assistant/hive-mind@2.0.15 prepare
+> @link-assistant/hive-mind@2.0.16 prepare
 > husky
 
 
-added 497 packages, and audited 498 packages in 12s
+added 497 packages, and audited 498 packages in 6s
 
 98 packages are looking for funding
   run `npm fund` for details

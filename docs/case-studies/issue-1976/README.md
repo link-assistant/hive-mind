@@ -73,6 +73,6 @@ The pre-PR failure notifier recognizes this structured reason and renders a spec
 - Broad checks:
   - `npm run lint`
   - `npm run format:check`
-  - `npm test` (`All 286 selected test file(s) passed.`)
+  - `npm test` (`All 287 selected test file(s) passed.`)
 
 Test logs are stored in `test-logs/`.

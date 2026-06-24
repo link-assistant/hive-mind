@@ -110,6 +110,20 @@ export function getIsolationSessionStateForTests(sessionName, sessionInfo, optio
  * mechanism will no longer be needed.
  */
 export const NON_ISOLATION_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+export const DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY = 'on-failure';
+export const DOCKER_TASK_CONTAINER_KEEP_POLICIES = ['always', 'on-failure', 'never'];
+
+export function resolveDockerTaskContainerKeepPolicy({ env = process.env, verbose = false } = {}) {
+  const raw = String(env?.HIVE_MIND_KEEP_TASK_CONTAINER || '')
+    .trim()
+    .toLowerCase();
+  if (!raw) return DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY;
+  if (DOCKER_TASK_CONTAINER_KEEP_POLICIES.includes(raw)) return raw;
+  if (verbose) {
+    console.log(`[VERBOSE] Invalid HIVE_MIND_KEEP_TASK_CONTAINER='${raw}', using '${DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY}'`);
+  }
+  return DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY;
+}
 
 /**
  * Check if a screen session exists
@@ -342,6 +356,70 @@ async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, read
       console.log(`[VERBOSE] Could not inspect session log ${logPath} for disk diagnostics: ${error?.message || error}`);
     }
     return '';
+  }
+}
+
+function isSuccessfulTaskCompletion({ exitCode = null, status = null } = {}) {
+  const outcome = classifySessionOutcome({ exitCode, status });
+  if (outcome.failed) return false;
+  if (exitCode === 0) return true;
+
+  const normalizedStatus = String(status || '')
+    .trim()
+    .toLowerCase();
+  return exitCode === null && (normalizedStatus === 'executed' || normalizedStatus === 'completed');
+}
+
+function formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) {
+  return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``].join('\n');
+}
+
+export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false } = {}) {
+  if (sessionInfo?.isolationBackend !== 'docker') {
+    return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
+  }
+
+  const containerName = sessionInfo.sessionId || sessionName || null;
+  if (!containerName) {
+    return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
+  }
+
+  const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
+  const successful = isSuccessfulTaskCompletion({ exitCode, status });
+  const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
+
+  return {
+    applies: true,
+    containerName,
+    keepPolicy,
+    successful,
+    shouldRemove: !shouldKeep,
+    extraSection: shouldKeep ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) : '',
+  };
+}
+
+async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null } = {}) {
+  if (!action?.applies || !action.shouldRemove || !action.containerName) return;
+
+  try {
+    const removeFn =
+      removeDockerContainer ||
+      (async (containerName, removeVerbose) => {
+        const runner = await getIsolationRunner();
+        return runner.removeDockerContainer(containerName, removeVerbose);
+      });
+    const result = await removeFn(action.containerName, verbose);
+    if (verbose) {
+      if (result?.success) {
+        console.log(`[VERBOSE] Removed docker task container '${action.containerName}' after terminal session completion`);
+      } else {
+        console.log(`[VERBOSE] Could not remove docker task container '${action.containerName}': ${result?.error || 'unknown error'}`);
+      }
+    }
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] Could not remove docker task container '${action.containerName}': ${error?.message || error}`);
+    }
   }
 }
 
@@ -602,8 +680,17 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
     if (!stillRunning) {
       console.log(`Session ${sessionName} has finished. Sending notification to chat ${sessionInfo.chatId}`);
 
+      let dockerTaskContainerAction = null;
       try {
         const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
+        dockerTaskContainerAction = buildDockerTaskContainerCompletionAction({
+          sessionName,
+          sessionInfo,
+          exitCode: finalExitCode,
+          status: resolvedStatus,
+          env: options.env || process.env,
+          verbose,
+        });
 
         // Issue #1688/#1905: When the original /solve URL was an issue, look up
         //   the created PR so the completion message can include both an
@@ -709,6 +796,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             console.log(`[VERBOSE] Could not build disk diagnostics section for ${sessionName}: ${diskError?.message || diskError}`);
           }
         }
+        const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
 
         const message = formatSessionCompletionMessage({
           sessionName,
@@ -718,7 +806,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           exitCode: finalExitCode,
           infoBlock: sessionInfo?.infoBlock || '',
           pullRequestUrl,
-          extraSections: [...limitsExtraSections, ...resumeExtraSections, ...diskExtraSections],
+          extraSections: [...limitsExtraSections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
         });
 
         // Update the original reply message if messageId is available, otherwise send new message
@@ -758,10 +846,18 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
 
+        await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
+          verbose,
+          removeDockerContainer: options.removeDockerContainer,
+        });
         completeSession(sessionName, finalExitCode || 0, verbose, resolvedStatus);
       } catch (error) {
         console.error(`Failed to send completion notification for ${sessionName}:`, error);
         if (isMessageAlreadyUpdatedError(error)) {
+          await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
+            verbose,
+            removeDockerContainer: options.removeDockerContainer,
+          });
           completeSession(sessionName, exitCode || 0, verbose, resolvedStatus);
         } else {
           sessionInfo.lastNotificationError = error.message;

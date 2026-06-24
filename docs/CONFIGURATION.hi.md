@@ -12,6 +12,7 @@ Hive Mind एप्लिकेशन environment variables और command-line 
   - [Limit Reset सेटिंग्स](#22-limit-reset-settings)
   - [GitHub API सीमाएँ](#3-github-api-limits)
   - [सिस्टम संसाधन सीमाएँ](#4-system-resource-limits)
+  - [Docker Isolation सेटिंग्स](#41-docker-isolation-settings)
   - [Retry कॉन्फ़िगरेशन](#5-retry-configurations)
   - [Cache TTL कॉन्फ़िगरेशन](#51-cache-ttl-configurations)
   - [Claude Code CLI कॉन्फ़िगरेशन](#52-claude-code-cli-configurations)
@@ -81,6 +82,12 @@ Hive Mind एप्लिकेशन environment variables और command-line 
 | -------------------------------- | -------- | -------------------------------- |
 | `HIVE_MIND_MIN_DISK_SPACE_MB`    | 2048     | MB में न्यूनतम आवश्यक disk स्थान |
 | `HIVE_MIND_DEFAULT_PAGE_SIZE_KB` | 16       | KB में डिफ़ॉल्ट memory page आकार |
+
+### 4.1. Docker Isolation सेटिंग्स
+
+| Environment Variable            | डिफ़ॉल्ट     | विवरण                                                                                                                                                                                  |
+| ------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_KEEP_TASK_CONTAINER` | `on-failure` | terminal completion के बाद Docker task-container retention: `always`, `on-failure`, या `never`। `on-failure` successful containers हटाता है और failed containers debug के लिए रखता है। |
 
 ### 5. Retry कॉन्फ़िगरेशन
 

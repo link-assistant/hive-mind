@@ -832,6 +832,47 @@ export async function checkDockerContainerRunning(containerName, verbose = false
 }
 
 /**
+ * Best-effort removal for a Docker container backing a native
+ * `$ --isolated docker` session.
+ *
+ * start-command names the container after the `--session` value. The monitor
+ * calls this only after the session is terminal and after the host-side log has
+ * been inspected, so removing the container reclaims its writable layer without
+ * losing the captured task log. Never throws: completion notification must not
+ * fail just because Docker already removed the container.
+ *
+ * @param {string} containerName - Container name (the session UUID)
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<{success: boolean, output: string, error: string|null}>}
+ */
+export async function removeDockerContainer(containerName, verbose = false) {
+  if (!containerName) {
+    return { success: false, output: '', error: 'missing container name' };
+  }
+
+  try {
+    const result = await $({ mirror: false })`docker rm -f ${containerName}`;
+    const stdout = result.stdout?.toString() || '';
+    const stderr = result.stderr?.toString() || '';
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: docker rm -f '${containerName}' succeeded`);
+    }
+    return { success: true, output: stdout || stderr, error: null };
+  } catch (error) {
+    const stderr = error?.stderr?.toString?.() || '';
+    const stdout = error?.stdout?.toString?.() || '';
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: docker rm -f '${containerName}' failed: ${stderr.trim() || error?.message || error}`);
+    }
+    return {
+      success: false,
+      output: stdout,
+      error: stderr.trim() || error?.message || String(error),
+    };
+  }
+}
+
+/**
  * Check whether a tmux session with the given name still exists.
  * `tmux has-session -t <name>` exits 0 when it exists and non-zero otherwise,
  * so command-stream throwing is treated as "not found".

@@ -133,6 +133,12 @@ probe करके result log करता है, ताकि misconfiguration
 
 underlying `docker image inspect` traces के लिए bot को `--verbose` (या `TELEGRAM_BOT_VERBOSE=true`) के साथ चलाएं।
 
+**Task container retention.** जब Docker-isolated task terminal state पर पहुँचता है, Hive Mind
+successful run के बाद task container हटाता है ताकि उसका writable layer reclaim हो जाए, जबकि
+host-side start-command log उपलब्ध रहता है। Failed runs debug के लिए default रूप से रखे जाते हैं,
+और Telegram completion message inspect और cleanup commands शामिल करता है। Policy override करने के लिए
+`HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` उपयोग करें (default: `on-failure`)।
+
 **Manual fallback.** पहले से चल रहे container को तुरंत seed करने के लिए (या जब आप deployment नहीं बदल
 सकते), host image को inner daemon में copy करें:
 

@@ -380,32 +380,50 @@ runTest('loadLenvConfig function', async () => {
 // Validation Tests (Issue #1086)
 // ===============================================
 
-// Test 17: Reject same-line options
-runTest('reject same-line options', () => {
+// Test 17: Accept bare same-line option/value links
+runTest('accept bare same-line option/value links', () => {
   const reader = new LenvReader();
   const config = `TELEGRAM_HIVE_OVERRIDES:
   --option1
-  --option2  --option3`;
+  --option2 value3`;
 
-  let errorThrown = false;
-  let errorMessage = '';
-  try {
-    reader.parse(config);
-  } catch (error) {
-    errorThrown = true;
-    errorMessage = error.message;
-  }
+  const result = reader.parse(config);
+  const expected = `(
+  --option1
+  --option2
+  value3
+)`;
 
-  if (!errorThrown) {
-    throw new Error('Expected error for same-line options, but no error was thrown');
-  }
-
-  if (!errorMessage.includes('Multiple values on the same line')) {
-    throw new Error(`Expected 'Multiple values on the same line' error, got: ${errorMessage}`);
+  if (result.TELEGRAM_HIVE_OVERRIDES !== expected) {
+    throw new Error(`Expected flattened bare option/value link, got: ${result.TELEGRAM_HIVE_OVERRIDES}`);
   }
 });
 
-// Test 18: Reject invalid character ? in options
+// Test 18: Bare and parenthesized option/value links parse identically
+runTest('parse bare and parenthesized option/value links identically', () => {
+  const reader = new LenvReader();
+  const bare = `TELEGRAM_SOLVE_OVERRIDES:
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --disable-report-issue
+  --isolation docker`;
+  const parenthesized = `TELEGRAM_SOLVE_OVERRIDES:
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --disable-report-issue
+  (--isolation docker)`;
+
+  const bareResult = reader.parse(bare);
+  const parenthesizedResult = reader.parse(parenthesized);
+
+  if (bareResult.TELEGRAM_SOLVE_OVERRIDES !== parenthesizedResult.TELEGRAM_SOLVE_OVERRIDES) {
+    throw new Error(`Expected bare and parenthesized overrides to match.\nBare: ${bareResult.TELEGRAM_SOLVE_OVERRIDES}\nParenthesized: ${parenthesizedResult.TELEGRAM_SOLVE_OVERRIDES}`);
+  }
+});
+
+// Test 19: Reject invalid character ? in options
 runTest('reject invalid character ? in options', () => {
   const reader = new LenvReader();
   const config = `TELEGRAM_HIVE_OVERRIDES:
@@ -430,7 +448,7 @@ runTest('reject invalid character ? in options', () => {
   }
 });
 
-// Test 19: Reject invalid character @ in options
+// Test 20: Reject invalid character @ in options
 runTest('reject invalid character @ in options', () => {
   const reader = new LenvReader();
   const config = `TELEGRAM_HIVE_OVERRIDES:
@@ -454,7 +472,7 @@ runTest('reject invalid character @ in options', () => {
   }
 });
 
-// Test 20: Accept valid options with = sign
+// Test 21: Accept valid options with = sign
 runTest('accept valid options with = sign', () => {
   const reader = new LenvReader();
   const config = `TELEGRAM_HIVE_OVERRIDES:
@@ -472,7 +490,7 @@ runTest('accept valid options with = sign', () => {
   }
 });
 
-// Test 21: Accept valid hyphenated options
+// Test 22: Accept valid hyphenated options
 runTest('accept valid hyphenated options', () => {
   const reader = new LenvReader();
   const config = `TELEGRAM_HIVE_OVERRIDES:
@@ -490,7 +508,7 @@ runTest('accept valid hyphenated options', () => {
   }
 });
 
-// Test 22: Non-option values should NOT be validated for special chars
+// Test 23: Non-option values should NOT be validated for special chars
 runTest('non-option values are not validated', () => {
   const reader = new LenvReader();
   const config = `TELEGRAM_BOT_TOKEN: some-token-with-special!@#
@@ -506,7 +524,7 @@ TELEGRAM_ALLOWED_CHATS:
   }
 });
 
-// Test 23: Accept explicit parenthesized lists
+// Test 24: Accept explicit parenthesized lists
 runTest('accept explicit parenthesized lists', () => {
   const reader = new LenvReader();
   const config = `LINO_LIST: (
@@ -523,7 +541,7 @@ runTest('accept explicit parenthesized lists', () => {
   }
 });
 
-// Test 24: Validation error message includes the problematic value
+// Test 25: Validation error message includes the problematic value
 runTest('validation error message includes problematic value', () => {
   const reader = new LenvReader();
   const config = `TELEGRAM_HIVE_OVERRIDES:
@@ -541,7 +559,7 @@ runTest('validation error message includes problematic value', () => {
   }
 });
 
-// Test 25: Accept parenthesized option/value links
+// Test 26: Accept parenthesized option/value links
 runTest('accept parenthesized option/value links', () => {
   const reader = new LenvReader();
   const config = `TELEGRAM_HIVE_OVERRIDES:
@@ -560,7 +578,7 @@ runTest('accept parenthesized option/value links', () => {
   }
 });
 
-// Test 26: Accept issue #1658 Telegram configuration shape
+// Test 27: Accept issue #1658 Telegram configuration shape
 runTest('accept issue #1658 Telegram configuration shape', () => {
   const reader = new LenvReader();
   const config = `TELEGRAM_BOT_TOKEN: 'test-token'

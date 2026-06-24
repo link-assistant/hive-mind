@@ -260,22 +260,14 @@ runTest('round-trip with numeric strings', () => {
 console.log('\n📋 Edge Case Tests (Issue #1086 Related)\n');
 
 // Test 23: Same-line parsing behavior
-// Note: This tests the current behavior where same-line items create nested structures
-// The lenv-reader should reject these, but lino.parseStringValues may not extract all values
-runTest('parseStringValues with same-line items (nested structure)', () => {
-  // When items are on the same line, LINO parser creates nested tuples
-  // The original parseStringValues only extracts top-level values
+// Same-line values are valid whole-line links in LINO and should be flattened.
+runTest('parseStringValues with same-line items', () => {
   const input = `(
   --option1
   --option2  --option3
 )`;
   const result = lino.parseStringValues(input);
-  // According to user feedback, same-line options should be rejected at lenv-reader level
-  // Here we just test the current behavior
-  if (result.length === 0) {
-    throw new Error('Should return at least one value');
-  }
-  // We expect --option1 to be extracted, --option2 and --option3 may be in nested structure
+  assertEqual(result, ['--option1', '--option2', '--option3'], 'Should flatten same-line values');
 });
 
 // Test 24: Options with equals sign

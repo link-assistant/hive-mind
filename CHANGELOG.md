@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.23
+
+### Patch Changes
+
+- 4778963: Add `--sub-agent-model` for Claude Code subagents and agent teams. The option is accepted by solve, hive, and Telegram command parsing, validates Claude aliases/full IDs plus `inherit`, and maps to `CLAUDE_CODE_SUBAGENT_MODEL` only when explicitly provided so Claude Code defaults remain unchanged.
+
 ## 2.0.22
 
 ### Patch Changes

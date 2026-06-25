@@ -74,7 +74,7 @@ if (isRunningDirectly) {
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
     const modelValidation = await import('./models/index.mjs');
-    const { validateAndExitOnInvalidModel, defaultModels, resolveRuntimeDefaultModel } = modelValidation;
+    const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel, defaultModels, resolveRuntimeDefaultModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
     // Import YouTrack-related functions
@@ -472,6 +472,9 @@ if (isRunningDirectly) {
         await safeExit(1, '--plan-model requires --tool claude');
       }
       await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+    }
+    if (argv.subAgentModel) {
+      await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);
     }
 
     // Handle -s (--skip-issues-with-prs) and --auto-continue interaction

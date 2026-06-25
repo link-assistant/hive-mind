@@ -21,7 +21,7 @@ import { seedCumulativeAnthropicCost, addAnthropicRunCost } from './anthropic-co
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
-import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
+import { CLAUDE_MODELS as availableModels, mapClaudeSubAgentModelToEnvValue } from './models/index.mjs'; // Issue #1221, #1978
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
@@ -658,6 +658,7 @@ export const executeClaudeCommand = async params => {
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
     const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined; // Issue #1223
+    const resolvedSubAgentModel = argv.subAgentModel ? mapClaudeSubAgentModelToEnvValue(argv.subAgentModel) : undefined; // Issue #1978
     const effectiveModel = resolvedPlanModel ? 'opusplan' : mappedModel;
     const resolvedExecutionModel = resolvedPlanModel ? mappedModel : undefined;
     // Issue #1949: Let Claude Code handle transient overload (529) fallback via its own
@@ -706,12 +707,13 @@ export const executeClaudeCommand = async params => {
       // Issue #1706: --sub-session-size + --disable-1m-context. Resolve here, then pass into getClaudeEnv along with the rest.
       const { parsed: parsedSubSessionSize, contextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
       // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens });
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens });
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
         await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms, ANTHROPIC_LOG: debug`, { verbose: true });
         if (resolvedPlanModel) await log(`📊 opusplan: plan=${resolvedPlanModel}, exec=${resolvedExecutionModel}`, { verbose: true });
+        if (claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL) await log(`📊 CLAUDE_CODE_SUBAGENT_MODEL: ${claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL}`, { verbose: true });
         if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_SHOW_THINKING) await log(`📊 CLAUDE_CODE_SHOW_THINKING: ${claudeEnv.CLAUDE_CODE_SHOW_THINKING}`, { verbose: true });

@@ -64,7 +64,7 @@ const { attachFinalLogIfMissing } = await import('./attach-logs-guarantee.lib.mj
 // "did the AI post anything?" check in --auto-attach-solution-summary).
 const { postTrackedComment, USAGE_LIMIT_REACHED_MARKER } = await import('./tool-comments.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
-const { validateAndExitOnInvalidModel } = await import('./models/index.mjs');
+const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 // Initialize log file early (before argument parsing) to capture all output
@@ -243,6 +243,7 @@ if (argv.planModel) {
   }
   await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
 }
+if (argv.subAgentModel) await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);
 
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;

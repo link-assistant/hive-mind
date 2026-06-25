@@ -316,7 +316,7 @@ if (config.dryRun) {
 const { buildUserMention } = await import('./buildUserMention.lib.mjs');
 const { reportError, initializeSentry, addBreadcrumb } = await import('./sentry.lib.mjs');
 const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');
-const { validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
+const { validateClaudeSubAgentModelName, validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
 const { resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
 const limitsLib = await import('./limits.lib.mjs');
 const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
@@ -435,6 +435,12 @@ function validateModelInArgs(args, tool = 'claude') {
       if (!validation.valid) {
         return validation.message;
       }
+    } else if (args[i] === '--sub-agent-model' || args[i].startsWith('--sub-agent-model=')) {
+      const modelName = args[i] === '--sub-agent-model' ? args[i + 1] : args[i].substring('--sub-agent-model='.length);
+      if (!modelName) continue;
+      if (tool !== 'claude') return `--sub-agent-model is only supported with --tool claude (current tool: ${tool})`;
+      const validation = validateClaudeSubAgentModelName(modelName);
+      if (!validation.valid) return `Invalid --sub-agent-model: ${validation.message}`;
     }
   }
   return null;

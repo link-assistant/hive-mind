@@ -742,6 +742,62 @@ export const validateModelName = (model, tool = 'claude') => {
   };
 };
 
+export const CLAUDE_SUB_AGENT_MODEL_INHERIT = 'inherit';
+
+export const normalizeClaudeSubAgentModelName = model => {
+  if (model === undefined || model === null) return model;
+  if (typeof model !== 'string') return model;
+
+  const trimmed = model.trim();
+  return trimmed.toLowerCase() === CLAUDE_SUB_AGENT_MODEL_INHERIT ? CLAUDE_SUB_AGENT_MODEL_INHERIT : trimmed;
+};
+
+const looksLikeClaudeProviderModelId = model => {
+  if (typeof model !== 'string') return false;
+  const normalized = model.toLowerCase();
+  return normalized.startsWith('claude-') || normalized.startsWith('anthropic/') || normalized.startsWith('anthropic.') || normalized.includes('.anthropic.');
+};
+
+/**
+ * Validate the Claude Code subagent/agent-team model override.
+ *
+ * Claude Code documents CLAUDE_CODE_SUBAGENT_MODEL as accepting full provider
+ * model IDs, normal Claude model aliases, and the special value "inherit".
+ * Keep "inherit" scoped to this option so it does not become a valid main
+ * session model.
+ *
+ * @param {string} model - The subagent model override value
+ * @returns {{ valid: boolean, message?: string, suggestions?: string[], mappedModel?: string }}
+ */
+export const validateClaudeSubAgentModelName = model => {
+  const normalized = normalizeClaudeSubAgentModelName(model);
+
+  if (normalized === CLAUDE_SUB_AGENT_MODEL_INHERIT) {
+    return {
+      valid: true,
+      mappedModel: CLAUDE_SUB_AGENT_MODEL_INHERIT,
+    };
+  }
+
+  const validation = validateModelName(normalized, 'claude');
+  if (validation.valid) return validation;
+  if (looksLikeClaudeProviderModelId(normalized)) {
+    return {
+      valid: true,
+      mappedModel: normalized,
+    };
+  }
+
+  return validation;
+};
+
+export const mapClaudeSubAgentModelToEnvValue = model => {
+  const result = validateClaudeSubAgentModelName(model);
+  if (result.valid && result.mappedModel) return result.mappedModel;
+  const normalized = normalizeClaudeSubAgentModelName(model);
+  return mapModelForTool('claude', normalized);
+};
+
 /**
  * Validate model name and exit with error if invalid
  * This is the main entry point for model validation in solve.mjs, hive.mjs, etc.
@@ -758,6 +814,46 @@ export const validateAndExitOnInvalidModel = async (model, tool = 'claude', exit
 
     if (exitFn) {
       await exitFn(1, 'Invalid model name');
+    } else {
+      process.exit(1);
+    }
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Validate --sub-agent-model and exit with error if invalid.
+ *
+ * This option maps to Claude Code's CLAUDE_CODE_SUBAGENT_MODEL, so it is only
+ * meaningful for the Claude tool even when solve/hive supports multiple tools.
+ *
+ * @param {string} model - The subagent model override value
+ * @param {string} tool - The selected tool
+ * @param {Function} exitFn - Function to call for exiting (default: process.exit)
+ * @returns {Promise<boolean>} True if valid, exits process if invalid
+ */
+export const validateAndExitOnInvalidClaudeSubAgentModel = async (model, tool = 'claude', exitFn = null) => {
+  if (model === undefined || model === null || model === '') return true;
+
+  if (tool !== 'claude') {
+    await log(`❌ --sub-agent-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+    if (exitFn) {
+      await exitFn(1, '--sub-agent-model requires --tool claude');
+    } else {
+      process.exit(1);
+    }
+    return false;
+  }
+
+  const result = validateClaudeSubAgentModelName(model);
+
+  if (!result.valid) {
+    await log(`❌ Invalid --sub-agent-model: ${result.message}`, { level: 'error' });
+
+    if (exitFn) {
+      await exitFn(1, 'Invalid sub-agent model name');
     } else {
       process.exit(1);
     }

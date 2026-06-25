@@ -8,7 +8,7 @@
  */
 
 import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
-import { mapModelForTool } from './models/index.mjs';
+import { mapClaudeSubAgentModelToEnvValue, mapModelForTool } from './models/index.mjs';
 import { buildCodexDisable1mContextConfigArgs, buildCodexSubSessionSizeConfigArgs, parseSubSessionSize } from './sub-session-size.lib.mjs';
 import { detectUsageLimit } from './usage-limit.lib.mjs';
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
@@ -54,6 +54,7 @@ const buildClaudeToolOptions = (argv = {}) => {
   if (argv.disable1mContext) extraEnv.CLAUDE_CODE_DISABLE_1M_CONTEXT = '1';
   if (argv.showThinkingContent) extraEnv.CLAUDE_CODE_SHOW_THINKING = '1';
   if (argv.planModel) extraEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = argv.planModel;
+  if (argv.subAgentModel) extraEnv.CLAUDE_CODE_SUBAGENT_MODEL = mapClaudeSubAgentModelToEnvValue(argv.subAgentModel);
   appendExtraEnv(options, extraEnv);
 
   return options;

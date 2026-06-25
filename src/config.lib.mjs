@@ -543,9 +543,11 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 // Supports planModel/executionModel for opusplan mode (Issue #1223)
 // Issue #1706: supports subSessionSize (parsed) + disable1mContext to cap
 // auto-compaction sub-session size and opt out of the 1M extended context.
+// Issue #1978: supports subAgentModel for Claude Code native subagents and agent teams.
 // See: https://code.claude.com/docs/en/env-vars and https://code.claude.com/docs/en/model-config
 //   ANTHROPIC_DEFAULT_OPUS_MODEL  → model used in plan mode (and for 'opus' alias)
 //   ANTHROPIC_DEFAULT_SONNET_MODEL → model used in execution mode (and for 'sonnet' alias)
+//   CLAUDE_CODE_SUBAGENT_MODEL     → model used by all subagents and agent teams
 //   CLAUDE_CODE_DISABLE_1M_CONTEXT, CLAUDE_CODE_AUTO_COMPACT_WINDOW, CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
 export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
@@ -617,6 +619,12 @@ export const getClaudeEnv = (options = {}) => {
   // Enables combinations like --plan-model opus --model haiku
   if (options.executionModel) {
     env.ANTHROPIC_DEFAULT_SONNET_MODEL = String(options.executionModel);
+  }
+
+  // Issue #1978: Set Claude Code native subagent/agent-team model only when
+  // explicitly requested. Leaving this unset preserves Claude Code defaults.
+  if (options.subAgentModel) {
+    env.CLAUDE_CODE_SUBAGENT_MODEL = String(options.subAgentModel);
   }
 
   // Issue #1706: --disable-1m-context. Sets CLAUDE_CODE_DISABLE_1M_CONTEXT=1.

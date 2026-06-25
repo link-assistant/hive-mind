@@ -54,7 +54,7 @@ const { parseResetTime: parseResetTimeToDate } = usageLimitLib;
 const { validateClaudeConnection } = claudeLib;
 
 // Wrapper function for disk space check using imported module
-const checkDiskSpace = async (minSpaceMB = 2048) => {
+const checkDiskSpace = async (minSpaceMB = 10240) => {
   const result = await memoryCheck.checkDiskSpace(minSpaceMB, { log });
   return result.success;
 };
@@ -216,7 +216,7 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
 // Perform all system checks (disk space, memory, tool connection, GitHub permissions)
 // Note: skipToolConnection only skips the connection check, not model validation
 // Model validation should be done separately before calling this function
-export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnection = false, model = 'sonnet', argv = {}) => {
+export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnection = false, model = 'sonnet', argv = {}) => {
   // Check disk space before proceeding
   const hasEnoughSpace = await checkDiskSpace(minDiskSpace);
   if (!hasEnoughSpace) {

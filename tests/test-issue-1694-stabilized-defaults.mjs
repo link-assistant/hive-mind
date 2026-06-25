@@ -4,11 +4,11 @@
  * Regression test for issue #1694.
  *
  * Locks in the post-stabilization defaults for four options that were flipped
- * from opt-in (false / empty) to opt-out (true / 'screen'):
+ * from opt-in (false / empty) to opt-out (true / 'screen', later 'docker'):
  *   - --auto-accept-invite             (solve / hive defaults to true)
  *   - --tokens-budget-stats            (solve / hive defaults to true)
  *   - --auto-attach-solution-summary   (solve / hive defaults to true)
- *   - --isolation                      (hive-telegram-bot defaults to 'screen')
+ *   - --isolation                      (hive-telegram-bot defaults to 'docker')
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1694
  */
@@ -102,7 +102,7 @@ console.log('\n📋 hive parser argv\n');
   assertEqual('hive parsed argv.autoAttachSolutionSummary === true', argv['auto-attach-solution-summary'] ?? argv.autoAttachSolutionSummary, true);
 }
 
-// 4. Confirm the Telegram bot defaults --isolation to 'screen'. Use --dry-run so we don't actually start the bot.
+// 4. Confirm the Telegram bot defaults --isolation to 'docker'. Use --dry-run so we don't actually start the bot.
 console.log('\n📋 hive-telegram-bot --isolation default\n');
 await new Promise(resolve => {
   const env = { ...process.env };
@@ -128,16 +128,16 @@ await new Promise(resolve => {
       resolve();
       return;
     }
-    if (out.includes('🔒 Isolation mode enabled: screen')) {
-      pass('telegram-bot reports isolation backend = screen by default');
+    if (out.includes('🔒 Isolation mode enabled: docker')) {
+      pass('telegram-bot reports isolation backend = docker by default');
     } else {
-      fail('telegram-bot reports isolation backend = screen by default', "log line '🔒 Isolation mode enabled: screen'", out);
+      fail('telegram-bot reports isolation backend = docker by default', "log line '🔒 Isolation mode enabled: docker'", out);
     }
     resolve();
   });
 });
 
-// 5. Confirm explicit empty isolation disables the screen backend.
+// 5. Confirm explicit empty isolation disables the default backend.
 await new Promise(resolve => {
   const env = { ...process.env };
   for (const key of ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_ALLOWED_CHATS', 'TELEGRAM_ALLOWED_TOPICS', 'TELEGRAM_HIVE_OVERRIDES', 'TELEGRAM_SOLVE_OVERRIDES', 'TELEGRAM_BOT_VERBOSE', 'TELEGRAM_CONFIGURATION', 'TELEGRAM_ISOLATION']) {
@@ -164,9 +164,9 @@ await new Promise(resolve => {
       return;
     }
     if (out.includes('🔒 Isolation mode enabled')) {
-      fail('--isolation "" opts out of screen', 'no isolation log line', out);
+      fail('--isolation "" opts out of isolation', 'no isolation log line', out);
     } else {
-      pass('--isolation "" opts out of screen (no isolation log line)');
+      pass('--isolation "" opts out of isolation (no isolation log line)');
     }
     resolve();
   });

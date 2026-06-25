@@ -102,7 +102,7 @@ const config = yargs(hideBin(process.argv))
   .option('autoStartScreenWatchMessage', { type: 'boolean', description: 'Experimental: auto-start separate /terminal_watch messages for public /solve sessions', alias: 'auto-start-screen-watch-message', default: getenv('TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE', getenv('TELEGRAM_AUTO_WATCH_MESSAGE', 'false')) === 'true' })
   // Issue #594: bot-owner toggle for --show-limits virtual option in /solve and /hive.
   .option('showLimits', { type: 'boolean', description: 'Experimental: allow /solve and /hive callers to use --show-limits to embed Claude/Codex usage at start, end, and delta in the completion message', alias: 'show-limits', default: getenv('TELEGRAM_SHOW_LIMITS', 'true') !== 'false' })
-  .option('isolation', { type: 'string', description: "Isolation backend (screen/tmux/docker). Defaults to 'screen' so Telegram-bot work sessions survive bot restarts; pass --isolation '' (or set TELEGRAM_ISOLATION='') to disable.", default: getenv('TELEGRAM_ISOLATION', 'screen') })
+  .option('isolation', { type: 'string', description: "Isolation backend (screen/tmux/docker). Defaults to 'docker' so Telegram-bot work sessions run in Docker isolation; pass --isolation '' (or set TELEGRAM_ISOLATION='') to disable.", default: getenv('TELEGRAM_ISOLATION', 'docker') })
   .help('h')
   .alias('h', 'help')
   .parserConfiguration({

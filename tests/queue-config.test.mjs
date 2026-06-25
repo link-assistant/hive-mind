@@ -10,6 +10,7 @@
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1242
  * @see https://github.com/link-assistant/hive-mind/issues/1253
+ * @see https://github.com/link-assistant/hive-mind/issues/1981
  */
 
 import assert from 'node:assert/strict';
@@ -64,7 +65,8 @@ test('QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)', () => {
 test('QUEUE_CONFIG has expected default values', () => {
   assert.equal(QUEUE_CONFIG.RAM_THRESHOLD, 0.65, 'RAM_THRESHOLD should be 0.65');
   assert.equal(QUEUE_CONFIG.CPU_THRESHOLD, 0.65, 'CPU_THRESHOLD should be 0.65');
-  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.9, 'DISK_THRESHOLD should be 0.9');
+  // Issue #1981: start backing off disk-heavy work at 80% used.
+  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.8, 'DISK_THRESHOLD should be 0.8');
   assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.65, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 0.65');
   assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, 0.97, 'CLAUDE_WEEKLY_THRESHOLD should be 0.97');
   // Issue #1726: lowered default from 0.75 to 0.50 for safer headroom.
@@ -102,7 +104,7 @@ test('DISPLAY_THRESHOLDS values are percentages (0 - 100)', () => {
 test('DISPLAY_THRESHOLDS has expected default values', () => {
   assert.equal(DISPLAY_THRESHOLDS.RAM, 65, 'RAM should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CPU, 65, 'CPU should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.DISK, 90, 'DISK should be 90');
+  assert.equal(DISPLAY_THRESHOLDS.DISK, 80, 'DISK should be 80');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, 65, 'CLAUDE_5_HOUR_SESSION should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY should be 97');
   assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, 65, 'CODEX_5_HOUR_SESSION should be 65');
@@ -186,7 +188,7 @@ test('Each threshold has value and strategy properties', () => {
 test('Default strategies are correct', () => {
   assert.equal(QUEUE_CONFIG.thresholds.ram.strategy, 'enqueue', 'RAM default should be enqueue');
   assert.equal(QUEUE_CONFIG.thresholds.cpu.strategy, 'enqueue', 'CPU default should be enqueue');
-  assert.equal(QUEUE_CONFIG.thresholds.disk.strategy, 'reject', 'DISK default should be reject (issue #1253)');
+  assert.equal(QUEUE_CONFIG.thresholds.disk.strategy, 'enqueue', 'DISK default should be enqueue (issue #1981)');
   assert.equal(QUEUE_CONFIG.thresholds.claude5Hour.strategy, 'dequeue-one-at-a-time', 'Claude 5h default should be dequeue-one-at-a-time');
   assert.equal(QUEUE_CONFIG.thresholds.claudeWeekly.strategy, 'dequeue-one-at-a-time', 'Claude weekly default should be dequeue-one-at-a-time');
   assert.equal(QUEUE_CONFIG.thresholds.codex5Hour.strategy, 'dequeue-one-at-a-time', 'Codex 5h default should be dequeue-one-at-a-time');
@@ -254,7 +256,7 @@ console.log('\n📋 Strategy Helper Functions Tests (Issue #1253)\n');
 test('getStrategy returns correct strategy for each metric', () => {
   assert.equal(getStrategy('ram'), 'enqueue', 'RAM strategy should be enqueue');
   assert.equal(getStrategy('cpu'), 'enqueue', 'CPU strategy should be enqueue');
-  assert.equal(getStrategy('disk'), 'reject', 'DISK strategy should be reject');
+  assert.equal(getStrategy('disk'), 'enqueue', 'DISK strategy should be enqueue');
   assert.equal(getStrategy('claude5Hour'), 'dequeue-one-at-a-time', 'Claude 5h strategy should be dequeue-one-at-a-time');
   assert.equal(getStrategy('claudeWeekly'), 'dequeue-one-at-a-time', 'Claude weekly strategy should be dequeue-one-at-a-time');
   assert.equal(getStrategy('codex5Hour'), 'dequeue-one-at-a-time', 'Codex 5h strategy should be dequeue-one-at-a-time');
@@ -267,13 +269,13 @@ test('getStrategy returns enqueue for unknown metric', () => {
 });
 
 test('isRejectStrategy works correctly', () => {
-  assert.equal(isRejectStrategy('disk'), true, 'Disk should be reject strategy');
+  assert.equal(isRejectStrategy('disk'), false, 'Disk should not be reject strategy');
   assert.equal(isRejectStrategy('ram'), false, 'RAM should not be reject strategy');
 });
 
 test('isEnqueueStrategy works correctly', () => {
   assert.equal(isEnqueueStrategy('ram'), true, 'RAM should be enqueue strategy');
-  assert.equal(isEnqueueStrategy('disk'), false, 'Disk should not be enqueue strategy');
+  assert.equal(isEnqueueStrategy('disk'), true, 'Disk should be enqueue strategy');
 });
 
 test('isOneAtATimeStrategy works correctly', () => {

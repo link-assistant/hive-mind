@@ -724,10 +724,11 @@ export class SolveQueue {
    * Default strategies:
    * - RAM: enqueue
    * - CPU: enqueue
-   * - DISK: reject (changed from dequeue-one-at-a-time - queue lost on restart)
+   * - DISK: enqueue (waits until disk drops below the threshold)
    *
    * See: https://github.com/link-assistant/hive-mind/issues/1155
    * See: https://github.com/link-assistant/hive-mind/issues/1253
+   * See: https://github.com/link-assistant/hive-mind/issues/1981
    *
    * @param {number} totalProcessing - Total processing count (queue + external claude processes)
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean, rejected: boolean, rejectReason: string|null}>}

@@ -289,8 +289,8 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'min-disk-space': {
     type: 'number',
-    description: 'Minimum required disk space in MB (default: 2048)',
-    default: 2048,
+    description: 'Minimum required disk space in MB (default: 10240)',
+    default: 10240,
   },
   'log-dir': {
     type: 'string',

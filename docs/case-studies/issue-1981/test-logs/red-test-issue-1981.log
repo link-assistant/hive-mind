@@ -1,0 +1,46 @@
+
+Issue #1981 default safety checks
+
+FAIL queue disk threshold defaults to 80% used and display stays in sync
+  Expected values to be strictly equal:
+
+0.9 !== 0.8
+
+FAIL queue disk strategy defaults to enqueue/wait instead of reject
+  Expected values to be strictly equal:
++ actual - expected
+
++ 'reject'
+- 'enqueue'
+FAIL absolute free disk default is 10240 MB in shared config and solve definitions
+  Expected values to be strictly equal:
+
+2048 !== 10240
+
+FAIL solve parser exposes --min-disk-space default as 10240 MB
+  Expected values to be strictly equal:
+
+2048 !== 10240
+
+FAIL hive parser inherits --min-disk-space default as 10240 MB
+  Expected values to be strictly equal:
+
+2048 !== 10240
+
+FAIL telegram bot dry-run defaults to docker isolation
+  The input did not match the regular expression /Isolation mode enabled: docker/. Input:
+
+'🔒 Isolation mode enabled: screen (experimental)\n' +
+  '\n' +
+  '✅ Dry-run mode: All validations passed successfully!\n' +
+  '\n' +
+  'Configuration summary:\n' +
+  '  Token: test-token...\n' +
+  '  Allowed chats: All (no restrictions)\n' +
+  '  Commands enabled: { solve: true, hive: true, task: true, auth: true }\n' +
+  '\n' +
+  '🎉 Bot configuration is valid. Exiting without starting the bot.\n'
+
+PASS telegram bot still allows explicit empty isolation opt-out
+
+Results: 1 passed, 6 failed

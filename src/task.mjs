@@ -35,7 +35,7 @@ if (earlyArgs.length === 0 || earlyArgs.includes('--help') || earlyArgs.includes
   console.log('  --split-count      Number of issues to split into [default: 2]');
   console.log('  --tool             AI tool for agent-commander read-only mode (claude, codex, opencode, agent, qwen, gemini) [default: claude]');
   console.log('  --model, -m        Model to use');
-  console.log('  --isolation        agent-commander isolation mode [default: screen]');
+  console.log('  --isolation        agent-commander isolation mode [default: docker]');
   console.log('  --dry-run          Print split output without creating GitHub issues');
   console.log('  --verbose, -v      Enable verbose logging');
   console.log('  --output-format    Output format (text or json) [default: text]');

@@ -61,7 +61,7 @@ export const createYargsConfig = yargsInstance =>
       type: 'string',
       description: 'agent-commander isolation mode',
       choices: ['screen', 'none', 'docker'],
-      default: 'screen',
+      default: 'docker',
     })
     .option('screen-name', {
       type: 'string',

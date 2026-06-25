@@ -584,7 +584,7 @@ export function registerStartStopCommands(bot, options) {
       // immediately and was dispatched to a detached session) but the session
       // monitor still tracks a running isolated session for this URL, forward
       // CTRL+C to its start-command UUID. This is the common case for tasks
-      // that begin executing right away with `--isolation screen`.
+      // that begin executing right away with an isolation backend.
       const queueHasTask = lookup.action === 'cancel-queued' || lookup.action === 'stop-running';
       if (!queueHasTask && runningSession?.stoppable && runningSession.sessionId) {
         VERBOSE && console.log(`[VERBOSE] /stop: forwarding CTRL+C to tracked session ${runningSession.sessionId} for ${url} (queue action=${lookup.action})`);
@@ -597,7 +597,7 @@ export function registerStartStopCommands(bot, options) {
         // running-but-non-stoppable (non-isolation) session, say so; otherwise
         // fall back to the UUID hint.
         if (runningSession) {
-          await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time you can run the command with \`--isolation screen\` to make this task interruptible via \`/stop\`.`, {
+          await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
             parse_mode: 'Markdown',
             reply_to_message_id: message.message_id,
           });
@@ -615,13 +615,13 @@ export function registerStartStopCommands(bot, options) {
         // have forwarded CTRL+C above). If it tracked a non-isolation session,
         // explain why it can't be stopped; otherwise report not found.
         if (runningSession) {
-          await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time you can run the command with \`--isolation screen\` to make this task interruptible via \`/stop\`.`, {
+          await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
             parse_mode: 'Markdown',
             reply_to_message_id: message.message_id,
           });
           return;
         }
-        await ctx.reply(`ℹ️ No queued or running task found for ${url}.\n\nIf the task is running with \`--isolation screen\`, try \`/stop <UUID>\` (the UUID is shown in the bot's session-id message).`, {
+        await ctx.reply(`ℹ️ No queued or running task found for ${url}.\n\nIf the task is running with an isolation backend, try \`/stop <UUID>\` (the UUID is shown in the bot's session-id message).`, {
           parse_mode: 'Markdown',
           reply_to_message_id: message.message_id,
         });
@@ -655,7 +655,7 @@ export function registerStartStopCommands(bot, options) {
       // running-not-isolated: a started, non-isolated screen session. We
       // could shell out to `screen -X -S <name> stuff $'\003'`, but that's
       // brittle and out of scope for #1780. Tell the user how to recover.
-      await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time you can run the command with \`--isolation screen\` to make this task interruptible via \`/stop\`.`, {
+      await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
         parse_mode: 'Markdown',
         reply_to_message_id: message.message_id,
       });

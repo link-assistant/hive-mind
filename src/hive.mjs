@@ -1447,7 +1447,7 @@ if (isRunningDirectly) {
     } else {
       const systemCheck = await checkSystem(
         {
-          minDiskSpaceMB: argv.minDiskSpace || 2048,
+          minDiskSpaceMB: argv.minDiskSpace || 10240,
           minMemoryMB: 256,
           exitOnFailure: true,
         },

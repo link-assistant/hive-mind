@@ -26,7 +26,7 @@ const lib = await import('./lib.mjs');
 const { log: libLog, setLogFile } = lib;
 
 // Function to check available disk space
-export const checkDiskSpace = async (minSpaceMB = 2048, options = {}) => {
+export const checkDiskSpace = async (minSpaceMB = 10240, options = {}) => {
   const log = options.log || libLog;
 
   try {
@@ -289,7 +289,7 @@ export const getResourceSnapshot = async () => {
 
 // Combined system check function
 export const checkSystem = async (requirements = {}, options = {}) => {
-  const { minMemoryMB = 256, minDiskSpaceMB = 2048, exitOnFailure = false } = requirements;
+  const { minMemoryMB = 256, minDiskSpaceMB = 10240, exitOnFailure = false } = requirements;
 
   // Note: log is passed through options to checkDiskSpace and checkRAM
   const results = {
@@ -334,7 +334,7 @@ const createMemoryCheckYargsConfig = yargsInstance =>
       alias: 'd',
       type: 'number',
       description: 'Minimum required disk space in MB',
-      default: 2048,
+      default: 10240,
     })
     .option('exit-on-failure', {
       alias: 'e',

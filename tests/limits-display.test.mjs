@@ -170,7 +170,7 @@ test('DISPLAY_THRESHOLDS constants are defined', () => {
   assert.ok(DISPLAY_THRESHOLDS !== undefined, 'DISPLAY_THRESHOLDS should be defined');
   assert.equal(DISPLAY_THRESHOLDS.RAM, 65, 'RAM threshold should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CPU, 65, 'CPU threshold should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.DISK, 90, 'DISK threshold should be 90');
+  assert.equal(DISPLAY_THRESHOLDS.DISK, 80, 'DISK threshold should be 80');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, 65, 'CLAUDE_5_HOUR_SESSION threshold should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY threshold should be 97');
   assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, 65, 'CODEX_5_HOUR_SESSION threshold should be 65');

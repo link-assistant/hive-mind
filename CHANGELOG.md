@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.22
+
+### Patch Changes
+
+- 4d65c05: Make disk admission safer by default: the disk usage queue gate now waits at 80%, the absolute free-space default is 10240 MB, and isolation defaults to Docker.
+
 ## 2.0.21
 
 ### Patch Changes

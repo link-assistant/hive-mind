@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.24
+
+### Patch Changes
+
+- 4cdff62: Improve task disk usage diagnostics for repository and Docker container filesystem reporting.
+
 ## 2.0.23
 
 ### Patch Changes

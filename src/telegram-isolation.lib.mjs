@@ -92,6 +92,7 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
             command: item.command || 'solve',
             isolationBackend: iso.backend,
             sessionId: sid,
+            containerFilesystemStartBytes: Number.isFinite(r.containerFilesystemStartBytes) ? r.containerFilesystemStartBytes : null,
             tool,
             infoBlock: item.infoBlock,
             // Issue #1688: propagate URL context + requester through the queue so the

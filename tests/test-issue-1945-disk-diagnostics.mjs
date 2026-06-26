@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Tests for src/solve.disk-diagnostics.lib.mjs (issue #1945).
+ * Tests for src/solve.disk-diagnostics.lib.mjs (issues #1945/#1988).
  *
  * Covers:
  *   - measureDirectorySize() returns a finite byte count on a real dir, null
@@ -18,6 +18,7 @@
  * Run with: node tests/test-issue-1945-disk-diagnostics.mjs
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1945
+ * @see https://github.com/link-assistant/hive-mind/issues/1988
  */
 
 import assert from 'node:assert/strict';
@@ -223,20 +224,23 @@ await test('formatDiskDiagnosticsBlock: under threshold → no warnings tail', (
     afterAgent: { bytes: 2 * 1024 ** 3, deltaBytes: 1 * 1024 ** 3, path: '/tmp/x' },
   });
   assert.match(block, /^💾 Disk usage/);
-  assert.match(block, /Cloned repository: 1\.0 GB/);
-  assert.match(block, /After agent:\s+2\.0 GB \(\+1\.0 GB\)/);
-  assert.match(block, /Threshold:\s+5\.0 GB/);
+  assert.match(block, /Repository size:/);
+  assert.match(block, /Cloned:\s+1\.0 GB/);
+  assert.match(block, /On completion:\s+2\.0 GB \(\+1\.0 GB\)/);
+  assert.doesNotMatch(block, /Container filesystem size:/);
+  assert.doesNotMatch(block, /Threshold:/);
   assert.doesNotMatch(block, /⚠️/);
 });
 
-await test('formatDiskDiagnosticsBlock: above all thresholds → emits ALL three warnings', () => {
+await test('formatDiskDiagnosticsBlock: above threshold → emits a task-total warning', () => {
   const block = formatDiskDiagnosticsBlock({
     afterClone: { bytes: 6 * 1024 ** 3, path: '/tmp/x' },
     afterAgent: { bytes: 12 * 1024 ** 3, deltaBytes: 6 * 1024 ** 3, path: '/tmp/x' },
   });
-  assert.match(block, /⚠️ Cloned repository exceeds 5\.0 GB/);
-  assert.match(block, /⚠️ Folder grew by more than 5\.0 GB during the run/);
-  assert.match(block, /⚠️ Total disk usage exceeds 5\.0 GB/);
+  assert.match(block, /⚠️ Total disk usage per task exceeds 5\.0 GB/);
+  assert.doesNotMatch(block, /Cloned repository exceeds/);
+  assert.doesNotMatch(block, /Folder grew by more than/);
+  assert.doesNotMatch(block, /Threshold:/);
 });
 
 await test('formatDiskDiagnosticsBlock: only clone known → block still renders', () => {
@@ -244,10 +248,47 @@ await test('formatDiskDiagnosticsBlock: only clone known → block still renders
     afterClone: { bytes: 6 * 1024 ** 3, path: '/tmp/x' },
     afterAgent: null,
   });
-  assert.match(block, /Cloned repository: 6\.0 GB/);
-  assert.match(block, /⚠️ Cloned repository exceeds 5\.0 GB/);
+  assert.match(block, /Cloned:\s+6\.0 GB/);
+  assert.match(block, /⚠️ Total disk usage per task exceeds 5\.0 GB/);
   // No "After agent" line because the second checkpoint was never reached.
-  assert.doesNotMatch(block, /After agent:/);
+  assert.doesNotMatch(block, /On completion:/);
+});
+
+await test('formatDiskDiagnosticsBlock: docker isolation includes container filesystem size', () => {
+  const block = formatDiskDiagnosticsBlock(
+    {
+      afterClone: { bytes: 248 * 1024 ** 2, path: '/tmp/x' },
+      afterAgent: { bytes: 13 * 1024 ** 3, deltaBytes: 13 * 1024 ** 3 - 248 * 1024 ** 2, path: '/tmp/x' },
+    },
+    {
+      isolationBackend: 'docker',
+      containerFilesystemStartBytes: 300 * 1024 ** 2,
+      containerFilesystemAfterBytes: 14 * 1024 ** 3,
+    }
+  );
+  assert.match(block, /Repository size:/);
+  assert.match(block, /Cloned:\s+248 MB/);
+  assert.match(block, /On completion:\s+13\.0 GB \(\+12\.8 GB\)/);
+  assert.match(block, /Container filesystem size:/);
+  assert.match(block, /On start:\s+300 MB/);
+  assert.match(block, /On completion:\s+14\.0 GB/);
+  assert.match(block, /⚠️ Total disk usage per task exceeds 5\.0 GB/);
+});
+
+await test('formatDiskDiagnosticsBlock: screen isolation shows repository size only', () => {
+  const block = formatDiskDiagnosticsBlock(
+    {
+      afterClone: { bytes: 248 * 1024 ** 2, path: '/tmp/x' },
+      afterAgent: { bytes: 300 * 1024 ** 2, deltaBytes: 52 * 1024 ** 2, path: '/tmp/x' },
+    },
+    {
+      isolationBackend: 'screen',
+      containerFilesystemStartBytes: 10 * 1024 ** 3,
+      containerFilesystemAfterBytes: 11 * 1024 ** 3,
+    }
+  );
+  assert.match(block, /Repository size:/);
+  assert.doesNotMatch(block, /Container filesystem size:/);
 });
 
 // --- recordAfterCloneSize / recordAfterAgentSize emit a marker via log ---

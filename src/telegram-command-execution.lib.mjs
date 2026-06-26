@@ -127,6 +127,10 @@ export function buildExecuteAndUpdateMessage(deps) {
       trackSession(session, sessionInfo, VERBOSE);
       await safeEdit(formatStartingWorkSessionMessage({ sessionName: session, isolationBackend: iso.backend, infoBlock, locale }));
       result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE });
+      if (result.success && sessionInfo && Number.isFinite(result.containerFilesystemStartBytes)) {
+        sessionInfo.containerFilesystemStartBytes = result.containerFilesystemStartBytes;
+        trackSession(session, sessionInfo, VERBOSE);
+      }
       if (!result.success) {
         // The launch never produced a live container — drop the optimistic
         // tracking so a phantom session is not monitored or resumed.

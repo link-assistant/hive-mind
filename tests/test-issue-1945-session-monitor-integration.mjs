@@ -3,7 +3,7 @@
  * Integration test: the captured solve log markers from
  * `solve.disk-diagnostics.lib.mjs` are recovered by
  * `session-monitor.lib.mjs` and turned into the expected Telegram extraSection
- * with the right warnings on (issue #1945).
+ * with the right warnings on (issues #1945/#1988).
  *
  * This test does NOT spawn a real solve run or attach to Telegram. It writes a
  * synthetic captured-log file that contains the two `📊 [DISK]` markers and
@@ -14,6 +14,7 @@
  * Run with: node tests/test-issue-1945-session-monitor-integration.mjs
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1945
+ * @see https://github.com/link-assistant/hive-mind/issues/1988
  */
 
 import assert from 'node:assert/strict';
@@ -70,11 +71,11 @@ await test('captured log → disk block surfaces in the completion message', asy
     });
     assert.match(message, /Work session finished successfully/);
     assert.match(message, /💾 Disk usage/);
-    assert.match(message, /Cloned repository: 12\.0 GB/);
-    assert.match(message, /After agent:\s+13\.0 GB \(\+1\.0 GB\)/);
-    // Only the cloned-repo threshold is crossed (12 > 5; total 13 > 5; delta 1 < 5).
-    assert.match(message, /⚠️ Cloned repository exceeds 5\.0 GB/);
-    assert.match(message, /⚠️ Total disk usage exceeds 5\.0 GB/);
+    assert.match(message, /Repository size:/);
+    assert.match(message, /Cloned:\s+12\.0 GB/);
+    assert.match(message, /On completion:\s+13\.0 GB \(\+1\.0 GB\)/);
+    assert.match(message, /⚠️ Total disk usage per task exceeds 5\.0 GB/);
+    assert.doesNotMatch(message, /Cloned repository exceeds/);
     assert.doesNotMatch(message, /Folder grew by more than/);
   } finally {
     fs.rmSync(logFile, { force: true });
@@ -86,15 +87,15 @@ await test('captured log with only the AFTER_CLONE marker (agent crashed) still 
   try {
     const parsed = parseDiskMarkers(fs.readFileSync(logFile, 'utf8'));
     const block = formatDiskDiagnosticsBlock(parsed);
-    assert.match(block, /Cloned repository: 6\.0 GB/);
-    assert.match(block, /⚠️ Cloned repository exceeds 5\.0 GB/);
-    assert.doesNotMatch(block, /After agent:/);
+    assert.match(block, /Cloned:\s+6\.0 GB/);
+    assert.match(block, /⚠️ Total disk usage per task exceeds 5\.0 GB/);
+    assert.doesNotMatch(block, /On completion:/);
   } finally {
     fs.rmSync(logFile, { force: true });
   }
 });
 
-await test('captured log with delta > 5 GB only flags the delta warning', async () => {
+await test('captured log warns only when total task usage is above threshold', async () => {
   const logFile = writeFakeLog([
     buildDiskMarker({ phase: DISK_PHASE_AFTER_CLONE, bytes: 100 * 1024 * 1024, path: '/tmp/foo' }),
     buildDiskMarker({
@@ -110,7 +111,35 @@ await test('captured log with delta > 5 GB only flags the delta warning', async 
     // delta is EXACTLY 5 GB (== threshold) — must NOT warn (strict >).
     assert.doesNotMatch(block, /Folder grew by more than/);
     // total IS strictly greater than threshold.
-    assert.match(block, /⚠️ Total disk usage exceeds 5\.0 GB/);
+    assert.match(block, /⚠️ Total disk usage per task exceeds 5\.0 GB/);
+  } finally {
+    fs.rmSync(logFile, { force: true });
+  }
+});
+
+await test('docker isolation block includes repository and container filesystem sections', async () => {
+  const logFile = writeFakeLog([
+    buildDiskMarker({ phase: DISK_PHASE_AFTER_CLONE, bytes: 248 * 1024 ** 2, path: '/tmp/foo' }),
+    buildDiskMarker({
+      phase: DISK_PHASE_AFTER_AGENT,
+      bytes: 13 * 1024 ** 3,
+      deltaBytes: 13 * 1024 ** 3 - 248 * 1024 ** 2,
+      path: '/tmp/foo',
+    }),
+  ]);
+  try {
+    const parsed = parseDiskMarkers(fs.readFileSync(logFile, 'utf8'));
+    const block = formatDiskDiagnosticsBlock(parsed, {
+      isolationBackend: 'docker',
+      containerFilesystemStartBytes: 300 * 1024 ** 2,
+      containerFilesystemAfterBytes: 14 * 1024 ** 3,
+    });
+    assert.match(block, /Repository size:/);
+    assert.match(block, /Cloned:\s+248 MB/);
+    assert.match(block, /Container filesystem size:/);
+    assert.match(block, /On start:\s+300 MB/);
+    assert.match(block, /On completion:\s+14\.0 GB/);
+    assert.match(block, /⚠️ Total disk usage per task exceeds 5\.0 GB/);
   } finally {
     fs.rmSync(logFile, { force: true });
   }

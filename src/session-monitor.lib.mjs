@@ -338,24 +338,57 @@ async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = fal
 }
 
 /**
- * Issue #1945: Parse `📊 [DISK]` checkpoint markers out of the captured solve
- * log and, when the captured sizes cross the 5 GB threshold(s), build a
- * Telegram extraSection that warns the operator. Returns an empty string if
- * the log is unreadable or contains no markers.
+ * Issue #1945/#1988: Parse `📊 [DISK]` repository-size checkpoint markers out
+ * of the captured solve log, optionally add docker writable-layer sizes, and
+ * build the Telegram extraSection. Returns an empty string if there is no
+ * repository or docker filesystem data to show.
  */
-async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, readFile = fs.readFile } = {}) {
-  if (!logPath) return '';
+async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, readFile = fs.readFile, isolationBackend = null, containerFilesystemStartBytes = null, containerFilesystemAfterBytes = null } = {}) {
+  if (!logPath && !Number.isFinite(containerFilesystemStartBytes) && !Number.isFinite(containerFilesystemAfterBytes)) return '';
   try {
     const diskLib = await import('./solve.disk-diagnostics.lib.mjs');
-    const logText = await readFile(logPath, 'utf8');
+    let logText = '';
+    if (logPath) {
+      try {
+        logText = await readFile(logPath, 'utf8');
+      } catch (readError) {
+        if (verbose) {
+          console.log(`[VERBOSE] Could not read session log ${logPath} for disk diagnostics: ${readError?.message || readError}`);
+        }
+      }
+    }
     const parsed = diskLib.parseDiskMarkers(logText);
-    if (!parsed.afterClone && !parsed.afterAgent) return '';
-    return diskLib.formatDiskDiagnosticsBlock(parsed);
+    if (!parsed.afterClone && !parsed.afterAgent && !Number.isFinite(containerFilesystemStartBytes) && !Number.isFinite(containerFilesystemAfterBytes)) return '';
+    return diskLib.formatDiskDiagnosticsBlock(parsed, {
+      isolationBackend,
+      containerFilesystemStartBytes,
+      containerFilesystemAfterBytes,
+    });
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] Could not inspect session log ${logPath} for disk diagnostics: ${error?.message || error}`);
     }
     return '';
+  }
+}
+
+async function getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
+  if (sessionInfo?.isolationBackend !== 'docker') return null;
+  const containerName = sessionInfo.sessionId || sessionName;
+  if (!containerName) return null;
+  try {
+    if (typeof sizeProvider === 'function') {
+      const bytes = await sizeProvider(containerName, { sessionName, sessionInfo, verbose });
+      return Number.isFinite(bytes) ? bytes : null;
+    }
+    const runner = await getIsolationRunner();
+    if (typeof runner.getDockerContainerWritableLayerSize !== 'function') return null;
+    return await runner.getDockerContainerWritableLayerSize(containerName, verbose);
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] Could not inspect docker filesystem size for ${containerName}: ${error?.message || error}`);
+    }
+    return null;
   }
 }
 
@@ -783,13 +816,22 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
 
-        // Issue #1945: append a "💾 Disk usage" block (with warnings when the
-        // cloned repo, the delta during the run, or the total exceed 5 GB)
-        // parsed from the captured solve log markers.
+        // Issue #1945/#1988: append a "💾 Disk usage" block from repository
+        // size markers and, for docker isolation, the container writable layer.
         const diskExtraSections = [];
         try {
           const diskLogPath = statusResult?.logPath || sessionInfo?.logPath || null;
-          const diskBlock = await buildDiskDiagnosticsExtraSection(diskLogPath, { verbose });
+          const containerFilesystemAfterBytes = await getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
+            verbose,
+            sizeProvider: options.dockerContainerSizeProvider,
+          });
+          const diskBlock = await buildDiskDiagnosticsExtraSection(diskLogPath, {
+            verbose,
+            readFile: options.readFile,
+            isolationBackend: sessionInfo?.isolationBackend || statusResult?.isolation || null,
+            containerFilesystemStartBytes: Number.isFinite(sessionInfo?.containerFilesystemStartBytes) ? sessionInfo.containerFilesystemStartBytes : null,
+            containerFilesystemAfterBytes,
+          });
           if (diskBlock) diskExtraSections.push(diskBlock);
         } catch (diskError) {
           if (verbose) {

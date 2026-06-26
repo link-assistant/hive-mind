@@ -535,7 +535,9 @@ await asyncTest('Codex command retries with resume and fallback model after capa
 
           yield {
             type: 'stdout',
-            data: Buffer.from(['{"type":"thread.started","thread_id":"thread_capacity_1666"}', '{"type":"item.completed","item":{"id":"msg_1","type":"agent_message","text":"Recovered after fallback."}}'].join('\n')),
+            // Issue #1990: a recovered codex turn always emits turn.completed; the
+            // completion-health gate requires it before reporting success.
+            data: Buffer.from(['{"type":"thread.started","thread_id":"thread_capacity_1666"}', '{"type":"turn.started"}', '{"type":"item.completed","item":{"id":"msg_1","type":"agent_message","text":"Recovered after fallback."}}', '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}'].join('\n')),
           };
           yield { type: 'exit', code: 0 };
         },
@@ -592,7 +594,9 @@ await asyncTest('Codex command retries stream disconnects by resuming the same s
 
           yield {
             type: 'stdout',
-            data: Buffer.from(['{"type":"thread.started","thread_id":"thread_stream_1673"}', '{"type":"item.completed","item":{"id":"msg_1","type":"agent_message","text":"Recovered after stream disconnect."}}'].join('\n')),
+            // Issue #1990: a recovered codex turn always emits turn.completed; the
+            // completion-health gate requires it before reporting success.
+            data: Buffer.from(['{"type":"thread.started","thread_id":"thread_stream_1673"}', '{"type":"turn.started"}', '{"type":"item.completed","item":{"id":"msg_1","type":"agent_message","text":"Recovered after stream disconnect."}}', '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}'].join('\n')),
           };
           yield { type: 'exit', code: 0 };
         },

@@ -15,6 +15,10 @@ const os = (await use('os')).default;
 
 // Import log from general lib
 import { log } from './lib.mjs';
+// Issues #1955 / #1990: run-health analysis lives in its own module to keep this
+// file under the max-lines budget. Re-exported below for backward compatibility.
+import { getCodexErrorEventSummary, getCodexCompletionHealth } from './codex-health.lib.mjs';
+export { getCodexErrorEventSummary, getCodexCompletionHealth };
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -325,108 +329,6 @@ const upsertCodexItemError = (itemErrors, item) => {
     id: item.id || null,
     message: item.message || '',
   });
-};
-
-const unwrapCodexErrorMessage = value => {
-  if (!value) return '';
-  if (typeof value !== 'string') {
-    if (typeof value?.error?.message === 'string') return unwrapCodexErrorMessage(value.error.message);
-    if (typeof value?.message === 'string') return unwrapCodexErrorMessage(value.message);
-    return String(value);
-  }
-
-  let text = value.trim();
-  for (let i = 0; i < 3; i++) {
-    if (!text.startsWith('{') && !text.startsWith('[')) break;
-    try {
-      const parsed = JSON.parse(text);
-      if (typeof parsed?.error?.message === 'string') return unwrapCodexErrorMessage(parsed.error.message);
-      if (typeof parsed?.message === 'string') {
-        text = parsed.message.trim();
-        continue;
-      }
-      return JSON.stringify(parsed);
-    } catch {
-      break;
-    }
-  }
-  return text;
-};
-
-const isNonFatalCodexItemErrorMessage = message => /^in-process app-server event stream lagged; dropped \d+ events?$/i.test(message || '');
-
-export const getCodexErrorEventSummary = codexJsonState => {
-  const events = [];
-  const ignoredEvents = [];
-
-  // Issue #1955: When the codex turn genuinely completed (a `turn.completed`
-  // event was observed) and codex never emitted a `turn.failed`, the session
-  // SUCCEEDED. Any stray top-level `error` (stream) or nested item `error` event
-  // in that case is non-fatal and must not fail the run. Two things produce such
-  // strays:
-  //   1. A transient error codex itself retried/recovered from before completing
-  //      the turn (e.g. a momentary stream blip).
-  //   2. Echoed content that merely *looks* like a codex protocol event. The
-  //      codex CLI prints OTEL telemetry (`codex_otel.log_only`,
-  //      event.name="codex.tool_result") containing a raw `Output:` dump of each
-  //      command's stdout. When a command prints a line shaped like a protocol
-  //      event — e.g. a printed NDJSON fixture line
-  //      `{"type":"error","message":"Network lookup skipped in fixture"}` — our
-  //      line-by-line parser misreads it as a genuine codex stream error and
-  //      fails an otherwise-successful run. This was the exact false positive in
-  //      issue #1955 (codex finished, working tree clean, CI passed, yet the run
-  //      was reported failed).
-  // `turn.failed` is the authoritative failure signal, so it is NEVER suppressed
-  // here; only non-`turn` error events are gated on turn completion.
-  const turnCompleted = (codexJsonState?.eventCounts?.['turn.completed'] || 0) > 0;
-  const turnFailed = (codexJsonState?.turnFailures?.length || 0) > 0;
-  const sessionSucceeded = turnCompleted && !turnFailed;
-
-  const addEvents = (type, items = []) => {
-    for (const item of items) {
-      const message = unwrapCodexErrorMessage(item?.message);
-      const event = { type, message: message || 'Codex emitted an error event' };
-      if (type === 'item' && isNonFatalCodexItemErrorMessage(message)) {
-        ignoredEvents.push({
-          ...event,
-          reason: 'Codex app-server backpressure warning; the turn can still complete successfully',
-        });
-        continue;
-      }
-      if (type !== 'turn' && sessionSucceeded) {
-        ignoredEvents.push({
-          ...event,
-          reason: 'Codex turn completed successfully with no turn.failed; stray non-turn error event is non-fatal (Issue #1955)',
-        });
-        continue;
-      }
-      events.push(event);
-    }
-  };
-
-  addEvents('item', codexJsonState?.itemErrors);
-  addEvents('turn', codexJsonState?.turnFailures);
-  addEvents('stream', codexJsonState?.streamErrors);
-
-  const countByType = items => ({
-    item: items.filter(item => item.type === 'item').length,
-    turn: items.filter(item => item.type === 'turn').length,
-    stream: items.filter(item => item.type === 'stream').length,
-  });
-
-  return {
-    hasError: events.length > 0,
-    message: events[0]?.message || null,
-    events,
-    ignoredEvents,
-    counts: countByType(events),
-    ignoredCounts: countByType(ignoredEvents),
-    observedCounts: {
-      item: codexJsonState?.itemErrors?.length || 0,
-      turn: codexJsonState?.turnFailures?.length || 0,
-      stream: codexJsonState?.streamErrors?.length || 0,
-    },
-  };
 };
 
 export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = null) => {
@@ -1336,6 +1238,59 @@ export const executeCodexCommand = async params => {
           codexJsonDetails: codexJsonState,
           errorInfo: getCodexErrorEventSummary(codexJsonState),
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
+        };
+      }
+
+      // Issue #1990: exit code 0 and the absence of a fatal codex error event are
+      // necessary but NOT sufficient for success. Verify the run actually
+      // completed its turn before declaring success. A broken-but-exit-0 run (the
+      // codex process cut off mid-turn by disk exhaustion / OOM) previously
+      // reported SUCCESS, which under docker isolation also discarded the
+      // container filesystem needed to inspect and retry the failure (#1990).
+      const completionHealth = getCodexCompletionHealth(codexJsonState, { lastMessage });
+      if (!completionHealth.healthy) {
+        await log('\n\n❌ Codex exited 0 but the run did not complete — treating as failure', { level: 'error' });
+        for (const reason of completionHealth.reasons) {
+          await log(`   • ${reason}`, { level: 'error' });
+        }
+        await log(`   📊 turn.started=${completionHealth.turnStarted}, turn.completed=${completionHealth.turnCompleted}, turn.failed=${completionHealth.turnFailed}`, { verbose: true });
+        if (completionHealth.diskPressureDetected) {
+          await log('   💽 Disk-exhaustion evidence (diagnostic):', { level: 'error' });
+          for (const evidence of completionHealth.diskEvidence.slice(0, 5)) {
+            await log(`      ↳ [${evidence.source}] ${evidence.text}`, { level: 'error' });
+          }
+          await log('   💡 Free disk space before retrying. Under docker isolation the container is preserved on failure for inspection.', { level: 'error' });
+        }
+
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        // Issue #1990: preserve the codex session so an outer full restart can
+        // resume with context (mirrors the transient-error retry above and the
+        // `--tool claude` behavior). We do NOT inline-retry within the same broken
+        // container — the run is registered as a failure so the session and (under
+        // docker isolation) the container filesystem are preserved for a clean
+        // restart at the orchestration level.
+        if (sessionId && !argv.resume) argv.resume = sessionId;
+
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime,
+          pricingInfo,
+          publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
+          resultModelUsage,
+          subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
+          codexJsonDetails: codexJsonState,
+          errorInfo: getCodexErrorEventSummary(codexJsonState),
+          completionHealth,
+          incompleteSession: completionHealth.incompleteSession,
+          diskPressureDetected: completionHealth.diskPressureDetected,
+          result: completionHealth.reasons.join(' '),
+          resultSummary: lastTextContent || null,
         };
       }
 

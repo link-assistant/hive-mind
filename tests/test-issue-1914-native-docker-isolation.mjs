@@ -46,6 +46,11 @@ function assertNotIncludes(haystack, needle, label) {
   else fail(label, `string NOT containing ${needle}`, haystack);
 }
 
+function assertIncludes(haystack, needle, label) {
+  if (haystack.includes(needle)) pass(label);
+  else fail(label, `string containing ${needle}`, haystack);
+}
+
 const valueAfter = (arr, flag) => arr[arr.indexOf(flag) + 1];
 
 const url = 'https://github.com/link-assistant/hive-mind/issues/1914';
@@ -80,7 +85,8 @@ assertEqual(valueAfter(dockerArgs, '--shell'), 'sh', 'docker isolation forces th
 assertEqual(dockerArgs.includes('--detached'), true, 'docker isolation runs detached');
 assertEqual(valueAfter(dockerArgs, '--session'), 'uuid-docker', 'the session UUID is passed as --session (and is also the container name)');
 assertEqual(dockerArgs[dockerArgs.length - 2], '--', 'a command separator precedes the task command');
-assertEqual(dockerArgs[dockerArgs.length - 1], `'solve' '${url}'`, 'the task command is passed after the separator as a single shell-quoted string');
+assertIncludes(dockerArgs[dockerArgs.length - 1], "gate='/tmp/hive-mind-disk-baseline-uuid-docker'", 'the task command waits behind the docker writable-layer baseline gate');
+assertIncludes(dockerArgs[dockerArgs.length - 1], `exec 'solve' '${url}'`, 'the original task command is preserved after the baseline gate');
 
 console.log('\n--- Regular (non-dind) variant ---');
 

@@ -10,12 +10,8 @@
  *
  * Both checkpoints are written to the captured solve log as a single-line
  * structured marker. The Telegram bot's `session-monitor.lib.mjs` parses those
- * markers and, on the completion message, surfaces a Telegram block plus
- * warnings when any of the three thresholds from the issue are crossed:
- *
- *   - cloned repository  > WARNING_THRESHOLD_BYTES
- *   - delta during run   > WARNING_THRESHOLD_BYTES
- *   - total space used   > WARNING_THRESHOLD_BYTES
+ * markers and, on the completion message, surfaces a Telegram block plus a
+ * warning when total task disk usage crosses the configured threshold.
  *
  * Implementation notes:
  *
@@ -220,54 +216,79 @@ export function computeDiskWarnings(parsed, threshold = WARNING_THRESHOLD_BYTES)
 
 /**
  * Telegram block (Markdown code fence) describing the captured sizes plus,
- * when any threshold is crossed, a `⚠️ Warnings:` tail. Returns an empty
- * string when there are no markers in the log (no logs ⇒ no surprise output).
+ * when the task total crosses the threshold, a warning tail. Returns an empty
+ * string when there are no markers or docker container filesystem sizes to show
+ * (no logs ⇒ no surprise output).
  *
  * Returned shape:
  *
  *   💾 Disk usage (gh-issue-solver-…)
  *   ```
- *   Cloned repository: 12.0 GB
- *   After agent:       12.4 GB (+500.0 MB)
- *   Threshold:         5.0 GB
+ *   Repository size:
+ *     Cloned:          12.0 GB
+ *     On completion:   12.4 GB (+500 MB)
  *
- *   ⚠️ Cloned repository exceeds 5.0 GB
- *   ⚠️ Total disk usage exceeds 5.0 GB
+ *   ⚠️ Total disk usage per task exceeds 5.0 GB
  *   ```
  *
  * @param {{afterClone: object|null, afterAgent: object|null}} parsed
  * @param {Object} [options]
  * @param {number} [options.threshold=WARNING_THRESHOLD_BYTES]
  * @param {string} [options.title='💾 Disk usage']
+ * @param {string} [options.isolationBackend] - Adds container filesystem details for docker isolation.
+ * @param {number|null} [options.containerFilesystemStartBytes]
+ * @param {number|null} [options.containerFilesystemAfterBytes]
  * @returns {string}
  */
 export function formatDiskDiagnosticsBlock(parsed, options = {}) {
-  if (!parsed || (!parsed.afterClone && !parsed.afterAgent)) return '';
   const threshold = Number.isFinite(options.threshold) ? options.threshold : WARNING_THRESHOLD_BYTES;
   const title = options.title || '💾 Disk usage';
-  const warnings = computeDiskWarnings(parsed, threshold);
+  const isolationBackend = String(options.isolationBackend || '').toLowerCase();
+  const isDockerIsolation = isolationBackend === 'docker';
+  const containerFilesystemStartBytes = Number.isFinite(options.containerFilesystemStartBytes) ? options.containerFilesystemStartBytes : null;
+  const containerFilesystemAfterBytes = Number.isFinite(options.containerFilesystemAfterBytes) ? options.containerFilesystemAfterBytes : null;
+  const hasRepositoryMarkers = Boolean(parsed?.afterClone || parsed?.afterAgent);
+  const hasContainerFilesystemMarkers = isDockerIsolation && (containerFilesystemStartBytes !== null || containerFilesystemAfterBytes !== null);
+  if (!hasRepositoryMarkers && !hasContainerFilesystemMarkers) return '';
+
   const lines = [];
-  const cloneBytes = parsed.afterClone?.bytes ?? null;
-  const totalBytes = parsed.afterAgent?.bytes ?? null;
-  const deltaBytes = parsed.afterAgent?.deltaBytes ?? null;
-  if (cloneBytes !== null) {
-    lines.push(`Cloned repository: ${formatBytes(cloneBytes)}`);
+  const cloneBytes = parsed?.afterClone?.bytes ?? null;
+  const totalBytes = parsed?.afterAgent?.bytes ?? null;
+  const deltaBytes = parsed?.afterAgent?.deltaBytes ?? null;
+
+  const pushSizeLine = (label, bytes, suffix = '') => {
+    if (bytes === null) return;
+    lines.push(`  ${label.padEnd(16)} ${formatBytes(bytes)}${suffix}`);
+  };
+
+  if (hasRepositoryMarkers) {
+    lines.push('Repository size:');
+    pushSizeLine('Cloned:', cloneBytes);
+    if (totalBytes !== null) {
+      const deltaStr = deltaBytes !== null ? ` (${formatBytesDelta(deltaBytes)})` : '';
+      pushSizeLine('On completion:', totalBytes, deltaStr);
+    } else if (deltaBytes !== null) {
+      lines.push(`  ${'Delta during run:'.padEnd(16)} ${formatBytesDelta(deltaBytes)}`);
+    }
   }
-  if (totalBytes !== null) {
-    const deltaStr = deltaBytes !== null ? ` (${formatBytesDelta(deltaBytes)})` : '';
-    lines.push(`After agent:       ${formatBytes(totalBytes)}${deltaStr}`);
-  } else if (deltaBytes !== null) {
-    lines.push(`Delta during run:  ${formatBytesDelta(deltaBytes)}`);
+
+  if (hasContainerFilesystemMarkers) {
+    lines.push('Container filesystem size:');
+    pushSizeLine('On start:', containerFilesystemStartBytes);
+    pushSizeLine('On completion:', containerFilesystemAfterBytes);
   }
-  lines.push(`Threshold:         ${formatBytes(threshold)}`);
+
+  const taskTotalBytes = isDockerIsolation && containerFilesystemAfterBytes !== null ? containerFilesystemAfterBytes : (totalBytes ?? cloneBytes);
   const warningLines = [];
-  if (warnings.cloneTooLarge) warningLines.push(`⚠️ Cloned repository exceeds ${formatBytes(threshold)}`);
-  if (warnings.deltaTooLarge) warningLines.push(`⚠️ Folder grew by more than ${formatBytes(threshold)} during the run`);
-  if (warnings.totalTooLarge) warningLines.push(`⚠️ Total disk usage exceeds ${formatBytes(threshold)}`);
+  if (Number.isFinite(taskTotalBytes) && taskTotalBytes > threshold) {
+    warningLines.push(`⚠️ Total disk usage per task exceeds ${formatBytes(threshold)}`);
+  }
+
   if (warningLines.length) {
     lines.push('');
     lines.push(...warningLines);
   }
+
   return `${title}\n\`\`\`\n${lines.join('\n')}\n\`\`\``;
 }
 

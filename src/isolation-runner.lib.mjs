@@ -58,6 +58,11 @@ const DOCKER_ISOLATION_SHELL = 'sh';
 // less headroom than this cannot safely pull one. Diagnostic only — never
 // blocks startup. See issue #1914.
 const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
+// Docker-only start gate used to capture the container writable-layer baseline
+// before the task command begins cloning or generating files. The parent
+// releases the gate immediately after `docker inspect --size`; the fallback
+// keeps the task from hanging forever if the parent exits at the wrong time.
+const DOCKER_START_GATE_WAIT_TENTHS = 300;
 // Sentinel start-command's detached docker logger records when it cannot capture
 // the container's real exit code. A terminal `$ --status` carrying this value is
 // ambiguous — the container may still be running — so we cross-check it against
@@ -92,6 +97,16 @@ function shellQuote(value) {
 
 function buildShellCommand(command, args = []) {
   return [command, ...args].map(shellQuote).join(' ');
+}
+
+function buildDockerStartGatePath(sessionId) {
+  return sessionId ? `/tmp/hive-mind-disk-baseline-${sessionId}` : null;
+}
+
+function buildDockerStartGatedCommand(taskCommand, sessionId) {
+  const gatePath = buildDockerStartGatePath(sessionId);
+  if (!gatePath) return taskCommand;
+  return `gate=${shellQuote(gatePath)}; i=0; while [ ! -e "$gate" ] && [ "$i" -lt ${DOCKER_START_GATE_WAIT_TENTHS} ]; do i=$((i+1)); sleep 0.1; done; rm -f "$gate"; exec ${taskCommand}`;
 }
 
 function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
@@ -234,7 +249,8 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
     startArgs.push('--volume', `${mount.source}:${mount.target}`);
   }
 
-  startArgs.push('--detached', '--session', sessionId, '--', buildShellCommand(command, args));
+  const taskCommand = buildShellCommand(command, args);
+  startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId));
   return startArgs;
 }
 
@@ -541,7 +557,7 @@ async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.
  * @param {string} [options.sessionId] - UUID for session tracking (auto-generated if not provided)
  * @param {string} [options.tool] - AI tool selected for the task; used to scope Docker auth mounts
  * @param {boolean} [options.verbose] - Enable verbose logging
- * @returns {Promise<{success: boolean, sessionId: string, output: string, error?: string, warning?: string}>}
+ * @returns {Promise<{success: boolean, sessionId: string, output: string, error?: string, warning?: string, containerFilesystemStartBytes?: number|null}>}
  */
 export async function executeWithIsolation(command, args, options = {}) {
   const { backend, verbose = false } = options;
@@ -598,6 +614,15 @@ export async function executeWithIsolation(command, args, options = {}) {
     if (result.error) stream(`[VERBOSE] isolation-runner: Error: ${result.error}`);
   }
 
+  let containerFilesystemStartBytes = null;
+  if (result.success && backend === 'docker') {
+    try {
+      containerFilesystemStartBytes = await getDockerContainerWritableLayerSize(sessionId, verbose);
+    } finally {
+      await releaseDockerContainerStartGate(sessionId, verbose);
+    }
+  }
+
   // Issue #1939: capture the freshly-launched docker session's reported status
   // and the live container state together, so the next iteration has the data to
   // diagnose a premature "executed/-1" status (problem #1) or a surprise image
@@ -611,6 +636,7 @@ export async function executeWithIsolation(command, args, options = {}) {
       success: true,
       sessionId,
       output: result.output,
+      containerFilesystemStartBytes,
     };
   }
 
@@ -829,6 +855,77 @@ export async function checkDockerContainerRunning(containerName, verbose = false
     // `docker inspect` exits non-zero when no such container exists.
     return false;
   }
+}
+
+export function parseDockerContainerWritableLayerSizeOutput(output) {
+  const text = String(output || '').trim();
+  if (!text) return null;
+  const bytes = Number.parseInt(text.split(/\s+/)[0], 10);
+  return Number.isFinite(bytes) && bytes >= 0 ? bytes : null;
+}
+
+/**
+ * Best-effort size of a Docker task container's writable layer.
+ *
+ * `docker inspect --size` exposes `.SizeRw`, which excludes the image's base
+ * layers and counts only filesystem data created or changed by this container.
+ * That is the closest Docker-native representation of per-task disk usage.
+ *
+ * @param {string} containerName - Container name (the session UUID)
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<number|null>} Writable layer bytes, or null when unavailable.
+ */
+export async function getDockerContainerWritableLayerSize(containerName, verbose = false) {
+  if (!containerName) return null;
+  try {
+    const result = await $({ mirror: false })`docker inspect --size -f ${'{{.SizeRw}}'} ${containerName}`;
+    const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout?.toString() || '');
+    if (verbose) {
+      const label = bytes === null ? 'unknown' : `${bytes} bytes`;
+      console.log(`[VERBOSE] isolation-runner: docker writable layer size for '${containerName}': ${label}`);
+    }
+    return bytes;
+  } catch (error) {
+    if (verbose) {
+      const stderr = error?.stderr?.toString?.().trim();
+      console.log(`[VERBOSE] isolation-runner: could not inspect writable layer size for '${containerName}': ${stderr || error?.message || error}`);
+    }
+    return null;
+  }
+}
+
+/**
+ * Release the Docker-only start gate after the writable-layer baseline has been
+ * captured. Best-effort: the gated task also has a timeout fallback.
+ *
+ * @param {string} containerName - Container name (the session UUID)
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<boolean>} true when the gate file was touched.
+ */
+export async function releaseDockerContainerStartGate(containerName, verbose = false) {
+  const gatePath = buildDockerStartGatePath(containerName);
+  if (!containerName || !gatePath) return false;
+  const releaseCommand = `touch ${shellQuote(gatePath)}`;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      await $({ mirror: false })`docker exec ${containerName} sh -c ${releaseCommand}`;
+      if (verbose) {
+        console.log(`[VERBOSE] isolation-runner: released docker start gate for '${containerName}'`);
+      }
+      return true;
+    } catch (error) {
+      lastError = error;
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+
+  if (verbose) {
+    const stderr = lastError?.stderr?.toString?.().trim();
+    console.log(`[VERBOSE] isolation-runner: could not release docker start gate for '${containerName}': ${stderr || lastError?.message || lastError}`);
+  }
+  return false;
 }
 
 /**

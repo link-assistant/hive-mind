@@ -36,6 +36,7 @@ const serialized = serializeSessionInfo({
   command: 'solve',
   isolationBackend: 'screen',
   sessionId: 'uuid-1',
+  containerFilesystemStartBytes: 123456,
   tool: 'claude',
   logPath: '/var/log/session.log',
   // runtime-only fields that must NOT be persisted:
@@ -44,6 +45,7 @@ const serialized = serializeSessionInfo({
 });
 assert(serialized.startTime === '2026-06-14T19:00:00.000Z', 'serializeSessionInfo converts startTime to an ISO string');
 assert(serialized.logPath === '/var/log/session.log', 'serializeSessionInfo keeps logPath (needed for footer recovery on resume)');
+assert(serialized.containerFilesystemStartBytes === 123456, 'serializeSessionInfo keeps docker filesystem start size');
 assert(!('bot' in serialized) && !('limitsSnapshot' in serialized), 'serializeSessionInfo drops runtime-only fields (bot, limitsSnapshot)');
 
 const round = deserializeSessionInfo(serialized);
@@ -60,7 +62,7 @@ try {
 
   store.persist('uuid-1', { chatId: 5, messageId: 7, startTime, url: 'https://github.com/acme/widgets/issues/42', command: 'solve', isolationBackend: 'screen', sessionId: 'uuid-1', logPath: '/var/log/s1.log' });
   clock = new Date('2026-06-14T19:01:00.000Z');
-  store.persist('uuid-2', { chatId: 6, startTime, url: 'https://github.com/acme/widgets/issues/43', command: 'hive', isolationBackend: 'docker', sessionId: 'uuid-2' });
+  store.persist('uuid-2', { chatId: 6, startTime, url: 'https://github.com/acme/widgets/issues/43', command: 'hive', isolationBackend: 'docker', sessionId: 'uuid-2', containerFilesystemStartBytes: 234567 });
 
   assert(fs.existsSync(store.snapshotPath), 'persist writes sessions.json');
   const snapshot = JSON.parse(fs.readFileSync(store.snapshotPath, 'utf8'));
@@ -73,6 +75,8 @@ try {
   const one = loaded.find(s => s.sessionName === 'uuid-1');
   assert(one && one.sessionInfo.startTime instanceof Date, 'load rehydrates startTime to a Date');
   assert(one.sessionInfo.logPath === '/var/log/s1.log', 'load round-trips logPath');
+  const two = loaded.find(s => s.sessionName === 'uuid-2');
+  assert(two.sessionInfo.containerFilesystemStartBytes === 234567, 'load round-trips docker filesystem start size');
 
   // Remove one (completion) — it leaves the snapshot but the OTHER stays.
   clock = new Date('2026-06-14T19:10:49.822Z');

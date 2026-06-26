@@ -18,7 +18,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1914
  */
 
-import { buildDockerIsolationStartArgs, buildStartCommandArgs, getDockerIsolationAuthMounts, getDockerIsolationImage } from '../src/isolation-runner.lib.mjs';
+import { buildDockerIsolationStartArgs, buildStartCommandArgs, getDockerIsolationAuthMounts, getDockerIsolationImage, parseDockerContainerWritableLayerSizeOutput } from '../src/isolation-runner.lib.mjs';
 import { buildExecuteAndUpdateMessage } from '../src/telegram-command-execution.lib.mjs';
 import { createIsolationAwareQueueCallback } from '../src/telegram-isolation.lib.mjs';
 import { resolveLogPath } from '../src/telegram-log-command.lib.mjs';
@@ -70,6 +70,12 @@ console.log('\n--- Docker isolation image selection ---');
 assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_IMAGE_VARIANT: 'dind' } }), 'konard/hive-mind-dind:latest', 'dind Hive Mind image spawns the dind Docker isolation image');
 assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_IMAGE_VARIANT: 'regular' } }), 'konard/hive-mind:latest', 'regular Hive Mind image spawns the regular Docker isolation image');
 assertEqual(getDockerIsolationImage({ env: { HIVE_MIND_DOCKER_ISOLATION_IMAGE: 'local/hive-mind-test:dev', HIVE_MIND_IMAGE_VARIANT: 'dind' } }), 'local/hive-mind-test:dev', 'explicit Docker isolation image override wins');
+
+console.log('\n--- Docker writable layer size parsing ---');
+
+assertEqual(parseDockerContainerWritableLayerSizeOutput('123456\n'), 123456, 'docker inspect SizeRw output parses as bytes');
+assertEqual(parseDockerContainerWritableLayerSizeOutput('<no value>\n'), null, 'missing SizeRw output returns null');
+assertEqual(parseDockerContainerWritableLayerSizeOutput(''), null, 'empty SizeRw output returns null');
 
 console.log('\n--- Tool-scoped credential mounts ---');
 
@@ -124,7 +130,8 @@ assertEqual(dockerStartArgs.includes('/home/box/.config/gh:/home/box/.config/gh'
 assertEqual(dockerStartArgs.includes('/home/box/.codex:/home/box/.codex'), true, 'Docker isolation mounts Codex credentials');
 assertNotIncludes(dockerStartArgs.join(' '), '.claude', 'Docker isolation does not mount Claude credentials for a Codex task');
 assertEqual(dockerStartArgs[dockerStartArgs.length - 2], '--', 'start-command receives an explicit command separator before the task command');
-assertEqual(dockerStartArgs[dockerStartArgs.length - 1], "'solve' 'https://github.com/link-assistant/hive-mind/issues/1855' '--tool' 'codex'", 'the separated command is a single shell string preserving the solve arguments');
+assertIncludes(dockerStartArgs[dockerStartArgs.length - 1], "gate='/tmp/hive-mind-disk-baseline-28b8eba8-14a6-4dd0-8782-a87db8809c11'", 'Docker isolation gates the task until the writable-layer baseline is captured');
+assertIncludes(dockerStartArgs[dockerStartArgs.length - 1], "exec 'solve' 'https://github.com/link-assistant/hive-mind/issues/1855' '--tool' 'codex'", 'the separated command preserves the solve arguments after releasing the disk baseline gate');
 
 // buildStartCommandArgs(backend:'docker') must delegate verbatim to the exported buildDockerIsolationStartArgs.
 const dockerStartArgsDirect = buildDockerIsolationStartArgs('solve', ['https://github.com/link-assistant/hive-mind/issues/1855', '--tool', 'codex'], {
@@ -187,7 +194,7 @@ const executeAndUpdateMessage = buildExecuteAndUpdateMessage({
       generateSessionId: () => 'direct-session-1860',
       executeWithIsolation: async (command, args, options) => {
         directIsolationCalls.push({ command, args, options });
-        return { success: true, output: 'session: direct-session-1860' };
+        return { success: true, output: 'session: direct-session-1860', containerFilesystemStartBytes: 123456 };
       },
     },
   }),
@@ -230,6 +237,7 @@ assertEqual(directIsolationCalls.length, 1, 'direct isolated execution invokes t
 assertEqual(directIsolationCalls[0].options.backend, 'docker', 'direct isolated execution keeps docker backend');
 assertEqual(directIsolationCalls[0].options.tool, 'codex', 'direct isolated execution passes the selected tool');
 assertEqual(directTrackCalls[0].sessionInfo.tool, 'codex', 'direct tracked session stores the selected tool');
+assertEqual(directTrackCalls.at(-1).sessionInfo.containerFilesystemStartBytes, 123456, 'direct tracked session stores docker filesystem start size after launch');
 
 const queuedIsolationCalls = [];
 const queuedTrackCalls = [];
@@ -239,7 +247,7 @@ const queueCallback = createIsolationAwareQueueCallback(
     generateSessionId: () => 'queued-session-1860',
     executeWithIsolation: async (command, args, options) => {
       queuedIsolationCalls.push({ command, args, options });
-      return { success: true, output: 'session: queued-session-1860' };
+      return { success: true, output: 'session: queued-session-1860', containerFilesystemStartBytes: 234567 };
     },
   },
   (sessionId, sessionInfo) => {
@@ -265,6 +273,7 @@ assertEqual(queuedIsolationCalls.length, 1, 'queued isolated execution invokes t
 assertEqual(queuedIsolationCalls[0].options.backend, 'docker', 'queued isolated execution keeps docker backend');
 assertEqual(queuedIsolationCalls[0].options.tool, 'codex', 'queued isolated execution passes the selected tool');
 assertEqual(queuedTrackCalls[0].sessionInfo.tool, 'codex', 'queued tracked session stores the selected tool');
+assertEqual(queuedTrackCalls[0].sessionInfo.containerFilesystemStartBytes, 234567, 'queued tracked session stores docker filesystem start size');
 
 console.log(`\nResult: ${passed} passed, ${failed} failed`);
 

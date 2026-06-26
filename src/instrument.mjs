@@ -42,7 +42,7 @@ const shouldDisableSentry = () => {
 // Lazily import Sentry only if needed
 // This prevents the Sentry packages from keeping the event loop alive when not needed
 let Sentry = null;
-let nodeProfilingIntegration = null;
+let nodeProfilingIntegration;
 
 // Initialize Sentry if not disabled
 if (!shouldDisableSentry()) {

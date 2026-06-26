@@ -151,14 +151,14 @@ export const createInteractiveHandler = options => {
       }
     }
 
-    let hits = [];
+    let hits;
     try {
       hits = await containsKnownToken(body, knownTokens);
     } catch {
       hits = [];
     }
 
-    let sanitized = body;
+    let sanitized;
     try {
       sanitized = await sanitizeCommentBody(body, {
         knownTokens,
@@ -495,7 +495,7 @@ ${createRawJsonSection(data)}`;
     state.toolUseRegistry.set(toolId, { toolName, toolIcon });
 
     // Format tool input based on tool type
-    let inputDisplay = '';
+    let inputDisplay;
     const input = toolUse.input || {};
 
     if (toolName === 'Bash' && input.command) {

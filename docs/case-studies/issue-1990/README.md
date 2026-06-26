@@ -217,6 +217,17 @@ incident is only reliably detectable **inside** the wrapped command — which is
 exactly the gate we added in hive-mind. Our in-repo gate is the workaround
 referenced in #144.
 
+> **Delivered.** [link-foundation/start#144](https://github.com/link-foundation/start/issues/144)
+> was closed and shipped in **`start-command@0.30.2`**: a detached/isolated run
+> now surfaces the container's `OOMKilled` status, and an abnormally-terminated
+> container's filesystem is preserved (not auto-removed) so it can be inspected.
+> This PR bumps the `start-command` pin in `Dockerfile`/`Dockerfile.dind` from
+> `0.30.1 → 0.30.2` to pick it up. The two halves are complementary, not
+> redundant: the upstream change closes the **OOM-kill** blind spot for every
+> `start` consumer, while hive-mind's per-tool terminal-completion gate remains
+> the primary fix for the _disk-full-but-process-survived_ variant that exits `0`
+> with no abnormal container status for `start` to report.
+
 ---
 
 ## 7. Known components / prior art reused

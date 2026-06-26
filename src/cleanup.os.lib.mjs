@@ -756,7 +756,7 @@ export async function listSessionTasks(options = {}) {
     return [];
   }
 
-  let sessions = [];
+  let sessions;
   try {
     sessions = await listIsolationSessions(verbose);
   } catch {

@@ -372,7 +372,7 @@ async function main() {
     if (!options.force) {
       console.log(`\n⚠️  This will permanently delete ${classified.remove.length} entries (${formatBytes(totals.removeBytes)}) and remove ${dockerIsolationPlan.remove.length} Docker isolation containers.`);
       console.log('Type "yes" to confirm, or Ctrl+C to cancel:');
-      let answer = '';
+      let answer;
       try {
         answer = await readConfirmationLine({ prompt: '> ' });
       } catch {

@@ -1266,7 +1266,7 @@ export async function ensureHostGitIdentityForIsolation(options = {}) {
       const gitLib = await import('./git.lib.mjs');
       return gitLib.repairGitIdentity();
     });
-  let repairOutcome = null;
+  let repairOutcome;
   try {
     repairOutcome = await repairFn();
   } catch (error) {

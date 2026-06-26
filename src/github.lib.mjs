@@ -967,7 +967,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
         context: 'github.lib.mjs - GitHub CLI auth status check',
         level: 'error',
       });
-      throw new Error('GitHub CLI authentication failed. Please run: gh auth login');
+      throw new Error('GitHub CLI authentication failed. Please run: gh auth login', { cause: error });
     }
     // Add delay to respect rate limits
     await log('   ⏰ Waiting 2 seconds before API call to respect rate limits...', { verbose: true });

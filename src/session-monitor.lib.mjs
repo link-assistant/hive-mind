@@ -1025,7 +1025,7 @@ export async function resumeTrackedSessions(options = {}) {
     return { resumed, skipped };
   }
 
-  let persisted = [];
+  let persisted;
   try {
     persisted = store.load();
   } catch (error) {
@@ -1297,7 +1297,7 @@ export async function getRunningSessionItems(verbose = false, options = {}) {
   const screenChecker = options.screenChecker || checkScreenSessionExists;
 
   for (const [sessionName, sessionInfo] of activeSessions.entries()) {
-    let running = false;
+    let running;
     let status = null;
 
     if (sessionInfo.isolationBackend) {

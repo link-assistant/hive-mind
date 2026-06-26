@@ -135,7 +135,7 @@ export const parseHiveScreensArgs = argv => {
  * the typical `NNNNN.name` session names.
  */
 export const listDetachedSessions = async ({ exec = execAsync } = {}) => {
-  let stdout = '';
+  let stdout;
   try {
     ({ stdout } = await exec('screen -ls'));
   } catch (err) {

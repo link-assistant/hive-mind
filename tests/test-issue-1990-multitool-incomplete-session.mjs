@@ -9,9 +9,9 @@
 // SDK schema) ends with a single terminal `result` event: gemini-cli and
 // qwen-code. (claude already gates on its final result event via
 // shouldFailClaudeStreamWithoutResult; opencode is intentionally excluded — its
-// terminal `step_finish` event is not reliably flushed before a clean exit on
-// some versions, upstream bug anomalyco/opencode#26855, so gating on it would
-// turn genuine successes into failures.)
+// `run --format json` output has no terminal completion event we have verified is
+// always emitted before a clean exit, so gating it without upstream confirmation
+// would risk turning genuine successes into failures.)
 //
 // Fix: getTerminalEventCompletionHealth() (src/tool-run-health.lib.mjs) flags an
 // exit-0 run that did work but never emitted its terminal `result` event as

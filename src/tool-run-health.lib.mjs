@@ -14,10 +14,13 @@
 // qwen-code. An exit-0 run that clearly began work but never emitted that
 // terminal event was interrupted and must NOT be reported as success.
 //
-// opencode is deliberately NOT gated here: its `step_finish` terminal event is
-// not reliably flushed before a clean exit on some versions (upstream bug
-// anomalyco/opencode#26855), so gating on it would convert genuine successes into
-// failures. See docs/case-studies/issue-1990 for the analysis.
+// opencode is deliberately NOT gated here. Its `run --format json` output has no
+// single terminal completion event we have verified is always emitted before a
+// clean exit — opencode.lib.mjs treats several event types ('text', 'assistant',
+// 'message', 'result', 'step_finish') as best-effort and decides success purely
+// on the exit code. Gating opencode on a terminal event without first confirming
+// upstream that it is reliably flushed would risk converting genuine successes
+// into failures, so it is left as follow-up. See docs/case-studies/issue-1990.
 //
 // Disk-exhaustion strings ("No space left on device", ENOSPC) are surfaced only
 // as supporting *diagnostics* — never an independent failure gate — to avoid the

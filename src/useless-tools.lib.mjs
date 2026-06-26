@@ -154,7 +154,7 @@ export const resolveClaudeSessionToolFlags = async ({ argv, log, fallbackBuildMc
 export const ensureDisallowedToolsInSettings = async ({ settingsPath, log } = {}) => {
   const resolvedPath = settingsPath || path.join(os.homedir(), '.claude', 'settings.json');
   const toBlock = buildDisallowedToolsList();
-  let settings = {};
+  let settings;
   try {
     const content = await fs.readFile(resolvedPath, 'utf-8');
     settings = JSON.parse(content);

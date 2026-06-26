@@ -94,7 +94,7 @@ function checkWrapperFunction(node, context, underscoreImports) {
 
   // Get the function body's single return statement
   const body = node.body;
-  let returnedCall = null;
+  let returnedCall;
 
   if (body.type === 'BlockStatement') {
     // Filter out empty statements

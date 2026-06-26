@@ -75,7 +75,7 @@ function refreshI18nRuntime() {
 export async function loadTranslations(locale) {
   if (localeCache.has(locale)) return localeCache.get(locale);
 
-  let translations = {};
+  let translations;
   try {
     translations = await readLocaleFile(locale);
   } catch {

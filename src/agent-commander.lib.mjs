@@ -91,7 +91,7 @@ const getAgentCommander = async () => {
   try {
     return await import('agent-commander');
   } catch (error) {
-    throw new Error(`agent-commander is not installed or cannot be loaded. Install it with: npm install agent-commander\nOriginal error: ${error.message}`);
+    throw new Error(`agent-commander is not installed or cannot be loaded. Install it with: npm install agent-commander\nOriginal error: ${error.message}`, { cause: error });
   }
 };
 

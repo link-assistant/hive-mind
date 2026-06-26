@@ -1275,9 +1275,9 @@ ${prBody}`,
           }
 
           if (errorMsg.includes('No commits between') || errorMsg.includes("Head sha can't be blank")) {
-            throw new Error(`PR creation failed - no commits between branches: ${cleanError}`);
+            throw new Error(`PR creation failed - no commits between branches: ${cleanError}`, { cause: prCreateError });
           } else {
-            throw new Error(`PR creation failed: ${cleanError}`);
+            throw new Error(`PR creation failed: ${cleanError}`, { cause: prCreateError });
           }
         }
       }

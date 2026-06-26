@@ -128,7 +128,7 @@ async function makeYouTrackRequest(endpoint, config, options = {}) {
     return await response.json();
   } catch (error) {
     if (error.message.includes('fetch')) {
-      throw new Error(`Failed to connect to YouTrack at ${config.url}: ${error.message}`);
+      throw new Error(`Failed to connect to YouTrack at ${config.url}: ${error.message}`, { cause: error });
     }
     throw error;
   }

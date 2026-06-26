@@ -19,7 +19,7 @@ function normalizeRepositoryFullName(owner, repositoryName) {
 
 function parseGitHubRepositoryUrlToken(token) {
   const cleaned = trimOutputToken(token);
-  let pathName = null;
+  let pathName;
 
   if (cleaned.startsWith('git@github.com:')) {
     pathName = cleaned.slice('git@github.com:'.length);

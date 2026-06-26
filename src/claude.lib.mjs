@@ -528,7 +528,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
       compactifications: compactifications.length > 0 ? compactifications : null,
     };
   } catch (readError) {
-    throw new Error(`Failed to read session file: ${readError.message}`);
+    throw new Error(`Failed to read session file: ${readError.message}`, { cause: readError });
   }
 };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)

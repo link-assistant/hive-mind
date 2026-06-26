@@ -233,7 +233,7 @@ export const validateGitIdentity = async ($, options = {}) => {
   const { log = console.log } = options;
 
   // Check user.name
-  let userName = null;
+  let userName;
   try {
     const nameResult = await $`git config user.name 2>/dev/null || true`;
     userName = nameResult.stdout.toString().trim() || null;
@@ -242,7 +242,7 @@ export const validateGitIdentity = async ($, options = {}) => {
   }
 
   // Check user.email
-  let userEmail = null;
+  let userEmail;
   try {
     const emailResult = await $`git config user.email 2>/dev/null || true`;
     userEmail = emailResult.stdout.toString().trim() || null;

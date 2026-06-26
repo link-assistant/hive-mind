@@ -125,9 +125,6 @@ export const parseEscalateRange = value => {
     throw new Error(`Invalid --escalate value: ${JSON.stringify(value)}. Expected a model range like "sonnet-fable".`);
   }
   const trimmed = raw.trim().toLowerCase();
-  if (trimmed === '') {
-    raw = DEFAULT_ESCALATE_RANGE;
-  }
   const parts = (trimmed === '' ? DEFAULT_ESCALATE_RANGE : trimmed).split('-');
 
   const order = MODEL_ESCALATION_ORDER;

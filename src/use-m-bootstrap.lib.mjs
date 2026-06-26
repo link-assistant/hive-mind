@@ -24,7 +24,7 @@ export const fetchUseMCodeFromCdn = async ({ fetcher = fetch } = {}) => {
   try {
     return await fetchUseMCodeFromUrl(USE_M_BOOTSTRAP_FALLBACK_URL, fetcher);
   } catch (fallbackError) {
-    throw new Error(`Failed to load use-m bootstrap from primary and fallback URLs: ${primaryError.message}; ${fallbackError.message}`);
+    throw new Error(`Failed to load use-m bootstrap from primary and fallback URLs: ${primaryError.message}; ${fallbackError.message}`, { cause: fallbackError });
   }
 };
 

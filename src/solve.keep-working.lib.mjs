@@ -159,7 +159,7 @@ export const runKeepWorkingUntilDone = async ({ issueUrl, owner, repo, issueNumb
   let iteration = 0;
   while (true) {
     // Gather and scan sources fresh on every iteration.
-    let sources = [];
+    let sources;
     try {
       sources = await collectDeferredWorkSources({ owner, repo, prNumber, resultSummary: lastResultSummary });
     } catch (error) {

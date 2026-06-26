@@ -302,7 +302,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
 
   // Skip tool connection validation if in dry-run mode or explicitly requested
   if (!skipToolConnection) {
-    let isToolConnected = false;
+    let isToolConnected;
     if (argv.useAgentCommander) {
       const agentCommanderLib = await import('./agent-commander.lib.mjs');
       isToolConnected = await agentCommanderLib.validateAgentCommanderConnection({
@@ -361,7 +361,6 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
         await log('❌ Cannot proceed without Claude CLI connection', { level: 'error' });
         return false;
       }
-      isToolConnected = true;
     }
 
     // Check GitHub permissions (only when tool check is not skipped)

@@ -145,7 +145,7 @@ export function registerTopCommand(bot, options) {
     const screenName = `top-chat-${chatId}`;
 
     // Check if screen session already exists
-    let sessionExists = false;
+    let sessionExists;
     try {
       const { stdout } = await exec('screen -ls');
       sessionExists = stdout.includes(screenName);

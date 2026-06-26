@@ -19,7 +19,7 @@ function detectByScript(word) {
 
 export function detectWordLanguage(word, detector = detectLanguage) {
   if (!word || typeof word !== 'string') return null;
-  let detected = null;
+  let detected;
   try {
     detected = detector(word);
   } catch {

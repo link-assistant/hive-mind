@@ -550,8 +550,8 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         }
         if (!safeToDelete) {
           if (argv.allowForceNonForkRepositoryDeletion) {
+            // Force flag set — proceed with deletion despite the failed safety check.
             await log(`${formatAligned('⚠️', 'Force deletion ENABLED:', '--allow-force-non-fork-repository-deletion — proceeding despite potential data loss')}`, { level: 'warning' });
-            safeToDelete = true;
           } else {
             await log(`  💡 Manual fix required: back up work, then: gh repo delete ${existingForkName} --yes`);
             await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);

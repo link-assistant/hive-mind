@@ -22,6 +22,7 @@ import { qwenModels, defaultModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
+import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -635,6 +636,48 @@ export const executeQwenCommand = async params => {
           resultSummary,
           // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
           errorInfo: { message: buildToolErrorMessage({ lastMessage: combinedErrorText || errorMessage, exitCode, fallback: `Qwen Code command failed${exitCode !== 0 ? ` with exit code ${exitCode}` : ''}`, toolLabel: 'Qwen Code' }), exitCode },
+        };
+      }
+
+      // Issue #1990: exit 0 with no error event is necessary but NOT sufficient.
+      // qwen-code's stream-json ends with a terminal `result` event; a run that
+      // did work but never emitted it was cut off mid-run (e.g. the docker
+      // container ran out of disk) and must be registered as a failure so the
+      // session is preserved for a context-preserving restart and — under docker
+      // isolation — the container filesystem is kept for inspection.
+      const completionHealth = getTerminalEventCompletionHealth({
+        eventCounts: qwenState.eventCounts,
+        terminalEventTypes: ['result'],
+        hadActivity: (qwenState.parsedEvents?.length || 0) > 0,
+        diskEvidenceTexts: [
+          { source: 'output', text: allOutput },
+          { source: 'result-summary', text: resultSummary },
+        ],
+      });
+      if (!completionHealth.healthy) {
+        await log('\n\n❌ Qwen Code exited 0 but the run did not complete — treating as failure', { level: 'error' });
+        for (const reason of completionHealth.reasons) {
+          await log(`   • ${reason}`, { level: 'error' });
+        }
+        if (completionHealth.diskPressureDetected) {
+          await log('   💽 Disk-exhaustion evidence (diagnostic):', { level: 'error' });
+          for (const evidence of completionHealth.diskEvidence.slice(0, 5)) {
+            await log(`      ↳ [${evidence.source}] ${evidence.text}`, { level: 'error' });
+          }
+          await log('   💡 Free disk space before retrying. Under docker isolation the container is preserved on failure for inspection.', { level: 'error' });
+        }
+        if (sessionId && !argv.resume) argv.resume = sessionId;
+        return {
+          success: false,
+          sessionId,
+          limitReached: false,
+          limitResetTime: null,
+          ...usageResult,
+          resultSummary,
+          completionHealth,
+          incompleteSession: completionHealth.incompleteSession,
+          diskPressureDetected: completionHealth.diskPressureDetected,
+          errorInfo: { message: completionHealth.reasons.join(' ') },
         };
       }
 

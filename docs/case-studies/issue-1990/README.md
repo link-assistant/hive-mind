@@ -197,19 +197,25 @@ investigation, but they are **never** an independent failure gate.
 ## 6. Upstream report (link-foundation/start)
 
 The `start-command` (`$`) detached-isolation tracker faithfully reported what the
-inner process told it (`Exit Code: 0`), so the **primary** fix belongs in
-hive-mind (the per-tool gate above). However, two improvements belong upstream
-and were reported with reproducible examples, our workaround, and code-fix
-suggestions:
+inner process told it (`Exit Code: 0`) — in both sessions the inner `solve`
+process genuinely caught the disk error, continued, and exited `0`, so this is
+**primarily a hive-mind bug**, fixed by the per-tool gate above. `start` already
+resolves the real exit code from the `Exit Code:` log footer and
+`docker inspect -f '{{.State.ExitCode}}'` (#136), but it has no field for a
+container that hit an OOM/disk-full event yet still exited `0`.
 
-1. A detached Docker session whose container is **OOM/disk-killed mid-run** can
-   still surface `exitCode 0`; the wrapper should distinguish "the inner command
-   exited 0" from "the container was torn down".
-2. On a failure (or unknown exit), the container filesystem should be preserved
-   for inspection by default for detached sessions.
+A **defense-in-depth enhancement** was therefore filed upstream (with a
+reproducible example, our workaround, and a concrete code suggestion):
 
-➡️ Upstream issue: see the link recorded in [PR #1991](https://github.com/link-assistant/hive-mind/pull/1991).
-Our in-repo gate is the temporary workaround referenced there.
+➡️ **[link-foundation/start#144](https://github.com/link-foundation/start/issues/144)** —
+surface `State.OOMKilled` (and don't auto-remove an abnormally-terminated
+container's filesystem under the #140 remove-on-finish default).
+
+The proposal is explicit that it closes the **OOM-kill** blind spot generically
+for every consumer, but the _disk-full-but-process-survived_ variant from this
+incident is only reliably detectable **inside** the wrapped command — which is
+exactly the gate we added in hive-mind. Our in-repo gate is the workaround
+referenced in #144.
 
 ---
 

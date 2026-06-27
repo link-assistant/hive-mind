@@ -1,0 +1,54 @@
+{
+  "models": [
+    {
+      "slug": "gpt-5.5",
+      "display_name": "GPT-5.5",
+      "description": "Frontier model for complex coding, research, and real-world work.",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 7,
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"]
+    },
+    {
+      "slug": "gpt-5.4",
+      "display_name": "GPT-5.4",
+      "description": "Strong model for everyday coding.",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 16,
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"]
+    },
+    {
+      "slug": "gpt-5.4-mini",
+      "display_name": "GPT-5.4-Mini",
+      "description": "Small, fast, and cost-efficient model for simpler coding tasks.",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 23,
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"]
+    },
+    {
+      "slug": "gpt-5.3-codex-spark",
+      "display_name": "GPT-5.3-Codex-Spark",
+      "description": "Ultra-fast coding model.",
+      "visibility": "list",
+      "supported_in_api": false,
+      "priority": 26,
+      "default_reasoning_level": "high",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"]
+    },
+    {
+      "slug": "codex-auto-review",
+      "display_name": "Codex Auto Review",
+      "description": "Automatic approval review model for Codex.",
+      "visibility": "hide",
+      "supported_in_api": true,
+      "priority": 43,
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"]
+    }
+  ]
+}

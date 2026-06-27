@@ -60,8 +60,31 @@ test('Codex validates gpt-5.5-nano model id', () => {
   assert.equal(result.mappedModel, 'gpt-5.5-nano');
 });
 
+for (const model of ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']) {
+  test(`Codex validates upcoming ${model} model id`, () => {
+    const result = validateModelName(model, 'codex');
+    assert.equal(result.valid, true);
+    assert.equal(result.mappedModel, model);
+  });
+}
+
+for (const model of ['openai.gpt-5.5', 'openai.gpt-5.4', 'openai.gpt-5.6-sol', 'openai.gpt-5.6-terra', 'openai.gpt-5.6-luna']) {
+  test(`Codex validates Bedrock-prefixed ${model} model id`, () => {
+    const result = validateModelName(model, 'codex');
+    assert.equal(result.valid, true);
+    assert.equal(result.mappedModel, model);
+  });
+}
+
+test('Codex validates hidden codex-auto-review model id from CLI catalog', () => {
+  const result = validateModelName('codex-auto-review', 'codex');
+  assert.equal(result.valid, true);
+  assert.equal(result.mappedModel, 'codex-auto-review');
+});
+
 test('Codex primary model names prioritize gpt-5.5 and current visible catalog entries', () => {
-  assert.deepEqual(primaryModelNames.codex, ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark']);
+  assert.deepEqual(primaryModelNames.codex, ['gpt-5.5', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark']);
+  assert.equal(primaryModelNames.codex.includes('codex-auto-review'), false);
 });
 
 await asyncTest('Codex runtime default stays on gpt-5.5 when the local catalog includes it', async () => {
@@ -69,6 +92,20 @@ await asyncTest('Codex runtime default stays on gpt-5.5 when the local catalog i
     availableCodexModels: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'],
   });
   assert.equal(result, 'gpt-5.5');
+});
+
+await asyncTest('Codex runtime default stays on gpt-5.5 for current CLI catalog including hidden auto-review model', async () => {
+  const result = await resolveRuntimeDefaultModel('codex', {
+    availableCodexModels: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark', 'codex-auto-review'],
+  });
+  assert.equal(result, 'gpt-5.5');
+});
+
+await asyncTest('Codex runtime default can fall forward to gpt-5.6 preview when gpt-5.5 is unavailable', async () => {
+  const result = await resolveRuntimeDefaultModel('codex', {
+    availableCodexModels: ['gpt-5.6-sol', 'gpt-5.4', 'gpt-5.4-mini'],
+  });
+  assert.equal(result, 'gpt-5.6-sol');
 });
 
 await asyncTest('Codex runtime default falls back to gpt-5.4 when gpt-5.5 is not in the local catalog', async () => {
@@ -88,6 +125,18 @@ await asyncTest('Codex runtime default falls back to gpt-5.5-mini when newer sma
 test('Codex default fallback model resolves from gpt-5.5 to gpt-5.4', () => {
   assert.equal(resolveDefaultFallbackModel('codex', 'gpt-5.5'), 'gpt-5.4');
 });
+
+for (const model of ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']) {
+  test(`Codex default fallback model resolves from ${model} to gpt-5.5`, () => {
+    assert.equal(resolveDefaultFallbackModel('codex', model), 'gpt-5.5');
+  });
+}
+
+for (const model of ['openai.gpt-5.6-sol', 'openai.gpt-5.6-terra', 'openai.gpt-5.6-luna']) {
+  test(`Codex default fallback model resolves from ${model} to openai.gpt-5.5`, () => {
+    assert.equal(resolveDefaultFallbackModel('codex', model), 'openai.gpt-5.5');
+  });
+}
 
 test('Claude default fallback model resolves from opus to opus-4-7', () => {
   // Updated for Issue #1832: opus is now claude-opus-4-8 with fallback to opus-4-7

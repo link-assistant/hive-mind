@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.27
+
+### Patch Changes
+
+- d3fdb7b: Respect explicit `--base-branch` through solve sessions by instructing agents not to retarget PRs and restoring the requested PR base before verification or auto-merge handling.
+
 ## 2.0.26
 
 ### Patch Changes

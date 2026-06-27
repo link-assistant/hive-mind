@@ -1353,7 +1353,17 @@ export const startAutoRestartUntilMergeable = async params => {
     return null;
   }
 
-  await ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
+  await ensurePullRequestBaseBranch({
+    owner,
+    repo,
+    prNumber,
+    argv,
+    log,
+    formatAligned,
+    $,
+    onMismatch: isAutoMerge ? 'throw' : 'restore',
+    operation: isAutoMerge ? 'auto-merge' : 'auto-restart-until-mergeable',
+  });
 
   // Issue #1226: Check if running in fork mode — auto-merge cannot work without write access
   if (argv.fork && isAutoMerge) {

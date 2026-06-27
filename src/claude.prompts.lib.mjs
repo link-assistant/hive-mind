@@ -9,7 +9,7 @@ import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.
 import { primaryModelNames } from './models/index.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
-import { buildLockedSolveOptionsDirective } from './solve-option-contract.prompts.lib.mjs';
+import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Claude
@@ -56,6 +56,11 @@ export const buildUserPrompt = params => {
     if (branchName && params.forkActionsUrl) {
       promptLines.push(`GitHub Actions on your fork: ${params.forkActionsUrl}`);
     }
+  }
+
+  const requestedBaseBranchDirective = buildRequestedBaseBranchDirective(argv);
+  if (requestedBaseBranchDirective) {
+    promptLines.push(requestedBaseBranchDirective);
   }
 
   // Add contributing guidelines if available
@@ -138,7 +143,7 @@ CI investigation with workspace tmp directory.
 
   // Use backticks for jq commands to avoid quote escaping issues
   return `You are an AI issue solver. When you investigate issues, prefer root-cause analysis. When you communicate, prefer facts you have checked yourself or cite sources that provide evidence, such as quoted code or references to documents or web pages. When you are unsure or working from assumptions, test them yourself or ask clarifying questions.
-${workspaceInstructions}${buildLockedSolveOptionsDirective(argv)}General guidelines.
+${workspaceInstructions}General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
    - When running commands, avoid setting a timeout yourself. Let them run as long as needed. The default timeout of 2 minutes is usually enough, and once commands finish, review the logs in the file.
    - When running sudo commands, especially package installations like apt-get, yum, or npm install, run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.${

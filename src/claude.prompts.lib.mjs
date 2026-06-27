@@ -9,6 +9,7 @@ import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.
 import { primaryModelNames } from './models/index.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Claude
@@ -55,6 +56,11 @@ export const buildUserPrompt = params => {
     if (branchName && params.forkActionsUrl) {
       promptLines.push(`GitHub Actions on your fork: ${params.forkActionsUrl}`);
     }
+  }
+
+  const requestedBaseBranchDirective = buildRequestedBaseBranchDirective(argv);
+  if (requestedBaseBranchDirective) {
+    promptLines.push(requestedBaseBranchDirective);
   }
 
   // Add contributing guidelines if available

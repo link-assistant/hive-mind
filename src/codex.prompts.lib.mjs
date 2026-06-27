@@ -8,6 +8,7 @@ import { getHandoffSubPrompt } from './handoff.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Codex
@@ -49,6 +50,11 @@ export const buildUserPrompt = params => {
     if (branchName && forkActionsUrl) {
       promptLines.push(`GitHub Actions on your fork: ${forkActionsUrl}`);
     }
+  }
+
+  const requestedBaseBranchDirective = buildRequestedBaseBranchDirective(argv);
+  if (requestedBaseBranchDirective) {
+    promptLines.push(requestedBaseBranchDirective);
   }
 
   // Add blank line

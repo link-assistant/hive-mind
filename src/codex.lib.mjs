@@ -35,6 +35,7 @@ import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, wa
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
+import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'reasoning_output_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
@@ -767,9 +768,12 @@ export const executeCodexCommand = async params => {
   const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown } = params;
 
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
+  const expectedBaseBranch = String(argv?.baseBranch || '').trim();
 
   // Retry configuration
   let retryCount = 0;
+  let baseBranchInterventionPrompt = null;
+  let baseBranchInterventionResumeCount = 0;
 
   const executeWithRetry = async () => {
     // Execute codex command from the cloned repository directory
@@ -806,7 +810,8 @@ export const executeCodexCommand = async params => {
 
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
-    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+    const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;
+    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${promptForAttempt}` : promptForAttempt;
 
     // Write the combined prompt to a file for piping
     // Use OS temporary directory instead of repository workspace to avoid polluting the repo
@@ -919,6 +924,17 @@ export const executeCodexCommand = async params => {
       let lastMessage = '';
       let lastTextContent = ''; // Issue #1263: Track last text content for result summary
       let authError = false;
+      const baseBranchCommandIntervention = createPullRequestBaseBranchCommandIntervention({
+        expectedBaseBranch,
+        prNumber,
+        log,
+        toolLabel: 'Codex',
+        stopSession: async () => {
+          if (!execCommand?.kill) return false;
+          execCommand.kill('SIGTERM');
+          return true;
+        },
+      });
       let codexJsonState = {
         sessionId: null,
         authError: false,
@@ -949,6 +965,7 @@ export const executeCodexCommand = async params => {
           lastMessage = output;
 
           codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel);
+          await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
 
           if (interactiveHandler || progressMonitor) {
             for (const rawLine of output.split('\n')) {
@@ -990,6 +1007,7 @@ export const executeCodexCommand = async params => {
             await log(errorOutput, { stream: 'stderr' });
           }
           codexJsonState = parseCodexExecJsonOutput(errorOutput, codexJsonState, mappedModel);
+          await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
         }
@@ -1062,6 +1080,31 @@ export const executeCodexCommand = async params => {
         await log(`🔎 Undocumented model-related JSON fields observed but ignored for accounting: ${codexJsonState.observedModelDiagnosticPaths.join(', ')}`, { verbose: true });
       } else {
         await log(`🤖 Codex exec JSON did not expose model IDs; using requested model for reporting: ${mappedModel}`, { verbose: true });
+      }
+
+      const baseBranchIntervention = baseBranchCommandIntervention.getIntervention();
+      if (baseBranchIntervention) {
+        if ((sessionId || argv.resume) && baseBranchInterventionResumeCount < 1) {
+          argv.resume = sessionId || argv.resume;
+          baseBranchInterventionPrompt = baseBranchIntervention.message;
+          baseBranchInterventionResumeCount++;
+          await log('\n🔄 Resuming Codex with requested base-branch correction prompt...');
+          return await executeWithRetry();
+        }
+
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime,
+          codexJsonDetails: codexJsonState,
+          errorInfo: {
+            message: baseBranchIntervention.message,
+            violation: baseBranchIntervention.violation,
+          },
+          result: baseBranchIntervention.message,
+          resultSummary: lastTextContent || null,
+        };
       }
 
       const firstActualModelId = mappedModel;

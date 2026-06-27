@@ -791,6 +791,20 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
+   * Stream a non-comment feedback message into the attached Claude stdin.
+   *
+   * @param {string} feedbackText
+   * @param {Object} [options]
+   * @param {string} [options.kind='metadata']
+   * @returns {Promise<boolean>} Whether the write succeeded
+   */
+  const sendFeedback = async (feedbackText, options = {}) => {
+    if (!state.claudeStdin) return false;
+    const frame = formatFeedbackForClaude(feedbackText, { kind: options.kind || 'metadata' });
+    return writeFrameToStdin(state.claudeStdin, frame, log, verbose);
+  };
+
+  /**
    * Get current handler state (for debugging)
    *
    * @returns {Object} Current state
@@ -828,6 +842,7 @@ export const createBidirectionalHandler = options => {
     attachClaudeStdin,
     detachClaudeStdin,
     streamInitialPrompt,
+    sendFeedback,
     // Issue #1708: queue mode + status streaming
     markAiBusy,
     markAiIdle,

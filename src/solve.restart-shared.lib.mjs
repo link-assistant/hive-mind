@@ -31,6 +31,7 @@ const fs = (await use('fs')).promises;
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, formatAligned, extractToolErrorCore } = lib;
+const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -460,6 +461,7 @@ export const executeToolIteration = async params => {
     });
   }
 
+  await ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
   return toolResult;
 };
 

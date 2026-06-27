@@ -1,0 +1,76 @@
+{
+  "models": [
+    {
+      "slug": "gpt-5.5",
+      "display_name": "GPT-5.5",
+      "description": "Frontier model for complex coding, research, and real-world work.",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 0,
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"],
+      "upgrade": null
+    },
+    {
+      "slug": "gpt-5.4",
+      "display_name": "gpt-5.4",
+      "description": "Strong model for everyday coding.",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 2,
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"],
+      "upgrade": null
+    },
+    {
+      "slug": "gpt-5.4-mini",
+      "display_name": "GPT-5.4-Mini",
+      "description": "Small, fast, and cost-efficient model for simpler coding tasks.",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 4,
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"],
+      "upgrade": null
+    },
+    {
+      "slug": "gpt-5.3-codex",
+      "display_name": "gpt-5.3-codex",
+      "description": "Coding-optimized model.",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 6,
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"],
+      "upgrade": {
+        "model": "gpt-5.4",
+        "migration_markdown": "Introducing GPT-5.4\n\nCodex just got an upgrade with GPT-5.4, our most capable model for professional work. It outperforms prior models while being more token efficient, with notable improvements on long-running tasks, tool calling, computer use, and frontend development.\n\nLearn more: https://openai.com/index/introducing-gpt-5-4\n\nYou can always keep using GPT-5.3-Codex if you prefer.\n"
+      }
+    },
+    {
+      "slug": "gpt-5.2",
+      "display_name": "gpt-5.2",
+      "description": "Optimized for professional work and long-running agents.",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 10,
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"],
+      "upgrade": {
+        "model": "gpt-5.4",
+        "migration_markdown": "Introducing GPT-5.4\n\nCodex just got an upgrade with GPT-5.4, our most capable model for professional work. It outperforms prior models while being more token efficient, with notable improvements on long-running tasks, tool calling, computer use, and frontend development.\n\nLearn more: https://openai.com/index/introducing-gpt-5-4\n\nYou can always keep using GPT-5.3-Codex if you prefer.\n"
+      }
+    },
+    {
+      "slug": "codex-auto-review",
+      "display_name": "Codex Auto Review",
+      "description": "Automatic approval review model for Codex.",
+      "visibility": "hide",
+      "supported_in_api": true,
+      "priority": 29,
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": ["low", "medium", "high", "xhigh"],
+      "upgrade": null
+    }
+  ]
+}

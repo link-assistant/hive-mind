@@ -125,6 +125,9 @@ export const codexModels = {
   'gpt-5.5': 'gpt-5.5',
   'gpt-5.5-mini': 'gpt-5.5-mini',
   'gpt-5.5-nano': 'gpt-5.5-nano',
+  'gpt-5.6-sol': 'gpt-5.6-sol',
+  'gpt-5.6-terra': 'gpt-5.6-terra',
+  'gpt-5.6-luna': 'gpt-5.6-luna',
   'gpt-5.4': 'gpt-5.4',
   'gpt-5.4-mini': 'gpt-5.4-mini',
   'gpt-5.4-nano': 'gpt-5.4-nano',
@@ -133,6 +136,12 @@ export const codexModels = {
   'gpt-5.3-codex': 'gpt-5.3-codex',
   'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
   'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
+  'openai.gpt-5.5': 'openai.gpt-5.5',
+  'openai.gpt-5.4': 'openai.gpt-5.4',
+  'openai.gpt-5.6-sol': 'openai.gpt-5.6-sol',
+  'openai.gpt-5.6-terra': 'openai.gpt-5.6-terra',
+  'openai.gpt-5.6-luna': 'openai.gpt-5.6-luna',
+  'codex-auto-review': 'codex-auto-review',
   'o3-mini': 'o3-mini',
   gpt4: 'gpt-4',
   'gpt-4': 'gpt-4',
@@ -261,6 +270,9 @@ export const CODEX_MODELS = {
   'gpt-5.5': 'gpt-5.5',
   'gpt-5.5-mini': 'gpt-5.5-mini',
   'gpt-5.5-nano': 'gpt-5.5-nano',
+  'gpt-5.6-sol': 'gpt-5.6-sol',
+  'gpt-5.6-terra': 'gpt-5.6-terra',
+  'gpt-5.6-luna': 'gpt-5.6-luna',
   'gpt-5.4': 'gpt-5.4',
   'gpt-5.4-mini': 'gpt-5.4-mini',
   'gpt-5.4-nano': 'gpt-5.4-nano',
@@ -269,6 +281,12 @@ export const CODEX_MODELS = {
   'gpt-5.3-codex': 'gpt-5.3-codex',
   'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
   'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
+  'openai.gpt-5.5': 'openai.gpt-5.5',
+  'openai.gpt-5.4': 'openai.gpt-5.4',
+  'openai.gpt-5.6-sol': 'openai.gpt-5.6-sol',
+  'openai.gpt-5.6-terra': 'openai.gpt-5.6-terra',
+  'openai.gpt-5.6-luna': 'openai.gpt-5.6-luna',
+  'codex-auto-review': 'codex-auto-review',
   'gpt-4': 'gpt-4',
   'gpt-4o': 'gpt-4o',
 };
@@ -344,7 +362,7 @@ export const getDefaultModelForTool = tool => {
 };
 
 let cachedInstalledCodexModelsPromise = null;
-const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['openai.gpt-5.5', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'openai.gpt-5.6-sol', 'openai.gpt-5.6-terra', 'openai.gpt-5.6-luna', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
 
 export const getInstalledCodexModels = async () => {
   if (!cachedInstalledCodexModelsPromise) {
@@ -468,7 +486,7 @@ export const getValidModelsForTool = tool => {
 export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable'],
   opencode: ['grok', 'gpt4o'],
-  codex: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark'],
+  codex: ['gpt-5.5', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark'],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
   qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash'],
   gemini: ['flash', 'pro', 'flash-lite', 'auto'],
@@ -1132,6 +1150,13 @@ export const defaultFallbackModels = {
     'claude-opus-4-7': 'opus-4-6',
   },
   codex: {
+    'gpt-5.6-sol': 'gpt-5.5',
+    'gpt-5.6-terra': 'gpt-5.5',
+    'gpt-5.6-luna': 'gpt-5.5',
+    'openai.gpt-5.6-sol': 'openai.gpt-5.5',
+    'openai.gpt-5.6-terra': 'openai.gpt-5.5',
+    'openai.gpt-5.6-luna': 'openai.gpt-5.5',
+    'openai.gpt-5.5': 'openai.gpt-5.4',
     'gpt-5.5': 'gpt-5.4',
   },
 };

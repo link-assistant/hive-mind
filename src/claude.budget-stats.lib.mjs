@@ -556,20 +556,37 @@ export const buildCumulativeInputPhrase = ({ input, cacheWrites, cacheReads, for
  * Issue #1600: Format sub-sessions list using numbered single-line format.
  * Each sub-session gets: "N. X / Y (Z%) input tokens, A / B (W%) output tokens"
  */
+const CODEX_DIAGNOSTIC_SUBSESSION_SOURCE = 'codex.response-completed-diagnostics';
+
 const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
   let result = '';
   let hasEstimatedRows = false;
+  let hasMeasuredCompactRows = false;
   for (let i = 0; i < subSessions.length; i++) {
     const sub = subSessions[i];
     if (sub.estimated) hasEstimatedRows = true;
+    if (!sub.estimated && sub.source === CODEX_DIAGNOSTIC_SUBSESSION_SOURCE) hasMeasuredCompactRows = true;
     const subPeakContext = sub.peakContextUsage || 0;
     const line = formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `);
     result += sub.estimated ? line.replace(`\n${i + 1}. `, `\n${i + 1}. ~`) : line;
   }
   if (hasEstimatedRows) {
     result += '\n\n_Sub-session values are estimates from observed compact events; the Total line remains exact._';
+  } else if (hasMeasuredCompactRows) {
+    // Issue #1961: Codex sub-session rows are reconstructed from per-request
+    // `response.completed` telemetry between compaction events. The input figure
+    // is the measured peak restored context reached before each compaction; the
+    // output figure is the tokens generated within that window.
+    result += '\n\n_Sub-session input is the measured peak restored context per request between compaction events; output is the tokens generated in that window. The Total line remains exact._';
   }
   return result;
+};
+
+const formatUnsplitCompactificationNotice = compactifications => {
+  const count = Array.isArray(compactifications) ? compactifications.length : 0;
+  if (count <= 0) return '';
+  const noun = count === 1 ? 'compact event' : 'compact events';
+  return `\n\n_Observed ${count} ${noun}. Exact per-compact token deltas were not emitted, so no sub-session split is shown._`;
 };
 
 /**
@@ -684,6 +701,7 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
     // Issue #1508: For multi-model sessions, show sub-sessions once (globally), not per-model
     // Sub-sessions track compactification boundaries which are session-wide, not model-specific
     const subSessions = tokenUsage.subSessions || [];
+    const compactifications = Array.isArray(tokenUsage.compactifications) ? tokenUsage.compactifications : [];
     const hasMultipleSubSessions = subSessions.length > 1;
 
     for (const modelId of modelIds) {
@@ -696,6 +714,7 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
       const callCount = getSubAgentCallCount(modelId, subAgentCallCounts);
       const isPrimaryModel = !isMultiModel || modelId === modelIds[0];
       const showSubSessions = hasMultipleSubSessions && isPrimaryModel;
+      const showUnsplitCompactNotice = isPrimaryModel && compactifications.length > 0 && !showSubSessions;
 
       if (isMultiModel) {
         // Issue #1590: Show sub-agent call count alongside model name
@@ -716,6 +735,11 @@ export const buildBudgetStatsString = (tokenUsage, subAgentCalls = null) => {
       if (showSubSessions) {
         // Issue #1600: Unified format — no "Context window:" prefix, same format as sub-agent calls
         stats += formatSubSessionsList(subSessions, contextLimit, outputLimit);
+      } else if (showUnsplitCompactNotice) {
+        // Issue #1961: Codex compact telemetry confirms a compact request, but
+        // current JSON usage is cumulative for the turn/session. Do not render
+        // cumulative totals as if they were compact-bounded context-window rows.
+        stats += formatUnsplitCompactificationNotice(compactifications);
       } else if (peakContext > 0) {
         stats += formatContextOutputLine(peakContext, contextLimit, usage.outputTokens, outputLimit, '- ');
       } else if (outputLimit && callCount <= 1) {

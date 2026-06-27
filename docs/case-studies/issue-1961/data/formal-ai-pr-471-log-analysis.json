@@ -1,0 +1,107 @@
+{
+  "logPath": "docs/case-studies/issue-1961/data/formal-ai-pr-471-solution-draft-log.txt",
+  "counts": {
+    "jsonEvents": {
+      "thread.started": 1,
+      "turn.started": 1,
+      "item.completed": 353,
+      "item.started": 189,
+      "unknown": 3,
+      "item.updated": 7,
+      "turn.completed": 1
+    },
+    "compactRequests": 1,
+    "conversationStarts": 1,
+    "responseCompletedDiagnostics": 144,
+    "tokenCountPayloads": 1
+  },
+  "conversationStarts": [
+    {
+      "lineNumber": 616,
+      "timestamp": "2026-06-14T14:58:32.067Z",
+      "conversationId": "019ec6a4-39c0-7181-9721-57b374be0ac5",
+      "contextWindow": 200000,
+      "autoCompactTokenLimit": 150000,
+      "model": "gpt-5.5",
+      "originator": "codex_exec"
+    }
+  ],
+  "compactRequests": [
+    {
+      "lineNumber": 17462,
+      "timestamp": "2026-06-14T15:08:56.837Z",
+      "conversationId": "019ec6a4-39c0-7181-9721-57b374be0ac5",
+      "statusCode": 200,
+      "durationMs": 68076,
+      "model": "gpt-5.5"
+    }
+  ],
+  "responseCompletedDiagnosticSummary": {
+    "count": 144,
+    "inputTokens": 11217623,
+    "cacheReadTokens": 10795648,
+    "nonCachedInputTokens": 421975,
+    "outputTokens": 34710,
+    "reasoningTokens": 9648,
+    "firstTimestamp": "2026-06-14T14:58:34.876Z",
+    "lastTimestamp": "2026-06-14T15:48:01.227Z"
+  },
+  "responseCompletedDiagnosticIntervals": [
+    {
+      "label": "before_first_compact",
+      "count": 28,
+      "inputTokens": 2277282,
+      "cacheReadTokens": 2105472,
+      "nonCachedInputTokens": 171810,
+      "outputTokens": 9819,
+      "reasoningTokens": 2936,
+      "firstTimestamp": "2026-06-14T14:58:34.876Z",
+      "lastTimestamp": "2026-06-14T15:07:45.851Z"
+    },
+    {
+      "label": "after_first_compact",
+      "count": 116,
+      "inputTokens": 8940341,
+      "cacheReadTokens": 8690176,
+      "nonCachedInputTokens": 250165,
+      "outputTokens": 24891,
+      "reasoningTokens": 6712,
+      "firstTimestamp": "2026-06-14T15:09:07.519Z",
+      "lastTimestamp": "2026-06-14T15:48:01.227Z"
+    }
+  ],
+  "turnCompleted": [
+    {
+      "lineNumber": 78470,
+      "usage": {
+        "input_tokens": 11827490,
+        "cached_input_tokens": 11407616,
+        "output_tokens": 36485,
+        "reasoning_output_tokens": 10057
+      }
+    }
+  ],
+  "tokenCountPayloads": [
+    {
+      "lineNumber": 78457,
+      "timestamp": "2026-06-14T15:22:10.588Z",
+      "info": {
+        "total_token_usage": {
+          "input_tokens": 5329218,
+          "cached_input_tokens": 5030400,
+          "output_tokens": 24298,
+          "reasoning_output_tokens": 6782,
+          "total_tokens": 5353516
+        },
+        "last_token_usage": {
+          "input_tokens": 67852,
+          "cached_input_tokens": 67456,
+          "output_tokens": 65,
+          "reasoning_output_tokens": 6,
+          "total_tokens": 67917
+        },
+        "model_context_window": 190000
+      }
+    }
+  ]
+}

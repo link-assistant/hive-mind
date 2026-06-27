@@ -890,7 +890,7 @@ _Details will be added as the solution draft is developed..._
 
         if (argv.verbose) {
           await log(`   PR Title: [WIP] ${issueTitle}`, { verbose: true });
-          await log(`   Base branch: ${defaultBranch}`, { verbose: true });
+          await log(`   Base branch: ${targetBranch}`, { verbose: true });
           await log(`   Head branch: ${branchName}`, { verbose: true });
           if (currentUser) {
             await log(`   Assignee: ${currentUser}`, { verbose: true });

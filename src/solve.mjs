@@ -47,6 +47,7 @@ const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.
 const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const { runKeepWorkingUntilDone } = await import('./solve.keep-working.lib.mjs');
 const { runEscalation } = await import('./solve.escalate.lib.mjs');
+const { finalizeSolveProcess } = await import('./solve.finalize.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
@@ -54,6 +55,7 @@ const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 const { configureWorkingSession, beginWorkingSession, endWorkingSession } = await import('./working-session.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
+const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('./solve.repo-setup.lib.mjs');
 const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.disk-diagnostics.lib.mjs');
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
@@ -616,6 +618,10 @@ try {
   if ((isContinueMode || argv.autoPullRequestCreation) && !prNumber) {
     await handleNoPrAvailableError({ isContinueMode, tempDir, issueNumber, issueUrl, owner, repo, log, formatAligned });
   }
+
+  const enforceRequestedBaseBranch = () => ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
+
+  await enforceRequestedBaseBranch();
 
   if (isContinueMode) {
     await log(`\n${formatAligned('🔄', 'Continue mode:', 'ACTIVE')}`);
@@ -1203,6 +1209,8 @@ try {
     await safeExit(0, 'Auto-continue child process will handle post-processing');
   }
 
+  await enforceRequestedBaseBranch();
+
   // Issue #1263 / #1728: Working session summary attachment.
   // Routed through the shared maybeAttachWorkingSessionSummary helper so that
   // top-level solve, auto-restart-until-mergeable, and watch-mode iterations
@@ -1328,6 +1336,8 @@ try {
       }
     }
   }
+
+  await enforceRequestedBaseBranch();
 
   // Track whether logs were successfully attached (used by endWorkSession)
   let logsAttached = false;
@@ -1475,23 +1485,5 @@ try {
     $,
   });
 } finally {
-  await cleanupTempDirectory(tempDir, argv, limitReached);
-
-  // Show final log file reference so users always know where to find the complete log
-  if (getLogFile()) {
-    const finalLogPath = path.resolve(getLogFile());
-    await log(`\n📁 Complete log file: ${finalLogPath}`);
-  }
-
-  // Issue #1346: Flush Sentry events before exit.
-  // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
-  await closeSentry();
-
-  // Issue #1431: Log active handles before draining.
-  // Always logged to file and console so future hangs are immediately visible in logs.
-  // drainHandles() inside safeExit() will unref/close these before process.exit().
-  await logActiveHandles(msg => log(msg));
-
-  // Issue #1431: safeExit() unrefs handles so the event loop exits naturally, then calls process.exit(0)
-  await safeExit(0, 'Process completed');
+  await finalizeSolveProcess({ tempDir, argv, limitReached, path, getLogFile, log, closeSentry, logActiveHandles, cleanupTempDirectory, safeExit });
 }

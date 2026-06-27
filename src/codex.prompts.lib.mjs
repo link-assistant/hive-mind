@@ -8,6 +8,7 @@ import { getHandoffSubPrompt } from './handoff.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { buildLockedSolveOptionsDirective } from './solve-option-contract.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Codex
@@ -119,7 +120,7 @@ CI investigation with workspace tmp directory.
   }
 
   return `You are an AI issue solver using OpenAI Codex.
-${workspaceInstructions}General guidelines.
+${workspaceInstructions}${buildLockedSolveOptionsDirective(argv)}General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
    - When running commands, avoid setting a timeout yourself. Let them run as long as needed. The default timeout of 2 minutes is usually enough, and once commands finish, review the logs in the file.
    - When running sudo commands, especially package installations like apt-get, yum, or npm install, run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.

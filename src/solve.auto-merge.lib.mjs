@@ -81,6 +81,7 @@ const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = results
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit, shouldSyncBeforeRestart } = await import('./auto-iteration-limits.lib.mjs');
+const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 
 // Issue #1895: explicitly close linked issues after merging a PR into a
 // non-default branch, where GitHub does not auto-close them.
@@ -1351,6 +1352,8 @@ export const startAutoRestartUntilMergeable = async params => {
     await log(formatAligned('', 'Note:', 'This mode only works with existing PRs', 2));
     return null;
   }
+
+  await ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
 
   // Issue #1226: Check if running in fork mode — auto-merge cannot work without write access
   if (argv.fork && isAutoMerge) {

@@ -7,6 +7,7 @@ import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mj
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { buildLockedSolveOptionsDirective } from './solve-option-contract.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Agent
@@ -118,7 +119,7 @@ CI investigation with workspace tmp directory.
   }
 
   return `You are an AI issue solver using @link-assistant/agent.
-${workspaceInstructions}General guidelines.
+${workspaceInstructions}${buildLockedSolveOptionsDirective(argv)}General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
    - When running commands, avoid setting a timeout yourself. Let them run as long as needed.
    - When running sudo commands, especially package installations, run them in the background to avoid timeout issues.

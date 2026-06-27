@@ -1,0 +1,548 @@
+Validate C# Build	UNKNOWN STEP	﻿2026-04-15T16:54:23.4961976Z Current runner version: '2.333.1'
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4986937Z ##[group]Runner Image Provisioner
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4987839Z Hosted Compute Agent
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4988395Z Version: 20260213.493
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4988961Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4989691Z Build Date: 2026-02-13T00:28:41Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4990411Z Worker ID: {03393016-2f61-45dd-a499-87b7f453776b}
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4991092Z Azure Region: centralus
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4991701Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4993096Z ##[group]Operating System
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4993691Z Ubuntu
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4994174Z 24.04.4
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4994675Z LTS
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4995093Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4995654Z ##[group]Runner Image
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4996462Z Image: ubuntu-24.04
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4996954Z Version: 20260406.80.1
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4998246Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260406.80/images/ubuntu/Ubuntu2404-Readme.md
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.4999701Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260406.80
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.5000636Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.5001698Z ##[group]GITHUB_TOKEN Permissions
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.5003700Z Contents: read
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.5004372Z Metadata: read
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.5004868Z Packages: read
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.5005346Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.5007685Z Secret source: Actions
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.5008622Z Prepare workflow directory
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.5335166Z Prepare all required actions
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.5373156Z Getting action download info
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:23.9296803Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:24.0445030Z Download action repository 'actions/setup-dotnet@v4' (SHA:67a3573c9a986a3f9c594539f4ab511d57bb3ce9)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:24.6988752Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:24.9231857Z Complete job name: Validate C# Build
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0111796Z ##[group]Run actions/checkout@v4
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0113294Z with:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0114176Z   ref: ea966c531d62c3267848507ad43a2ad90d6c6881
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0115329Z   repository: Jhon-Crow/godot-topdown-MVP
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0116808Z   token: ***
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0117537Z   ssh-strict: true
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0118282Z   ssh-user: git
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0119046Z   persist-credentials: true
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0119905Z   clean: true
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0120687Z   sparse-checkout-cone-mode: true
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0121632Z   fetch-depth: 1
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0122363Z   fetch-tags: false
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0123149Z   show-progress: true
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0123931Z   lfs: false
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0124649Z   submodules: false
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0125438Z   set-safe-directory: true
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.0126810Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1217562Z Syncing repository: Jhon-Crow/godot-topdown-MVP
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1220217Z ##[group]Getting Git version info
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1221787Z Working directory is '/home/runner/work/godot-topdown-MVP/godot-topdown-MVP'
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1223816Z [command]/usr/bin/git version
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1261798Z git version 2.53.0
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1287582Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1301340Z Temporarily overriding HOME='/home/runner/work/_temp/80d9bf67-0f9c-40bf-8256-e1c1862d5a74' before making global git config changes
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1306703Z Adding repository directory to the temporary git global config as a safe directory
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1309159Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1338999Z Deleting the contents of '/home/runner/work/godot-topdown-MVP/godot-topdown-MVP'
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1343024Z ##[group]Initializing the repository
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1347188Z [command]/usr/bin/git init /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1452921Z hint: Using 'master' as the name for the initial branch. This default branch name
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1456643Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1459285Z hint: to use in all of your new repositories, which will suppress this warning,
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1461043Z hint: call:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1461889Z hint:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1462924Z hint: 	git config --global init.defaultBranch <name>
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1464454Z hint:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1465794Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1468050Z hint: 'development'. The just-created branch can be renamed via this command:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1469749Z hint:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1470659Z hint: 	git branch -m <name>
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1471651Z hint:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1472956Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1475293Z Initialized empty Git repository in /home/runner/work/godot-topdown-MVP/godot-topdown-MVP/.git/
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1479080Z [command]/usr/bin/git remote add origin https://github.com/Jhon-Crow/godot-topdown-MVP
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1496513Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1497883Z ##[group]Disabling automatic garbage collection
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1499863Z [command]/usr/bin/git config --local gc.auto 0
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1527731Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1529005Z ##[group]Setting up auth
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1534156Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1567337Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1851902Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.1881918Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.2103385Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.2132296Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.2348040Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.2380948Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.2382228Z ##[group]Fetching the repository
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:25.2388991Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin ea966c531d62c3267848507ad43a2ad90d6c6881
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:31.3594636Z From https://github.com/Jhon-Crow/godot-topdown-MVP
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:31.3596029Z  * branch            ea966c531d62c3267848507ad43a2ad90d6c6881 -> FETCH_HEAD
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:31.3617706Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:31.3618406Z ##[group]Determining the checkout info
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:31.3621124Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:31.3626067Z [command]/usr/bin/git sparse-checkout disable
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:31.3662399Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:31.3687416Z ##[group]Checking out the ref
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:31.3691802Z [command]/usr/bin/git checkout --progress --force ea966c531d62c3267848507ad43a2ad90d6c6881
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.3785810Z Updating files:  56% (1795/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.4010675Z Updating files:  57% (1801/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.4540913Z Updating files:  58% (1833/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.4747355Z Updating files:  59% (1864/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.4865158Z Updating files:  60% (1896/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.4987121Z Updating files:  61% (1927/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.5202666Z Updating files:  62% (1959/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.5396155Z Updating files:  63% (1991/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.5588424Z Updating files:  64% (2022/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.6103725Z Updating files:  65% (2054/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.6409763Z Updating files:  66% (2085/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.6495388Z Updating files:  67% (2117/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.6637832Z Updating files:  68% (2149/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.6949803Z Updating files:  69% (2180/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.7205079Z Updating files:  70% (2212/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.7562231Z Updating files:  71% (2243/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.7910265Z Updating files:  72% (2275/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.8723423Z Updating files:  73% (2307/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9141570Z Updating files:  74% (2338/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9530314Z Updating files:  75% (2370/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9558910Z Updating files:  76% (2401/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9598013Z Updating files:  77% (2433/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9703914Z Updating files:  78% (2465/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9747382Z Updating files:  79% (2496/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9764715Z Updating files:  80% (2528/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9781991Z Updating files:  81% (2559/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9803730Z Updating files:  82% (2591/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9823332Z Updating files:  83% (2622/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9912594Z Updating files:  84% (2654/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9941308Z Updating files:  85% (2686/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9975291Z Updating files:  86% (2717/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:32.9999200Z Updating files:  87% (2749/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0024932Z Updating files:  88% (2780/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0074249Z Updating files:  89% (2812/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0098861Z Updating files:  90% (2844/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0124529Z Updating files:  91% (2875/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0148724Z Updating files:  92% (2907/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0177250Z Updating files:  93% (2938/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0200419Z Updating files:  94% (2970/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0225386Z Updating files:  95% (3002/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0264724Z Updating files:  96% (3033/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0302139Z Updating files:  97% (3065/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0328535Z Updating files:  98% (3096/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0355777Z Updating files:  99% (3128/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0356229Z Updating files: 100% (3159/3159)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0356813Z Updating files: 100% (3159/3159), done.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0393800Z Note: switching to 'ea966c531d62c3267848507ad43a2ad90d6c6881'.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0394260Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0394634Z You are in 'detached HEAD' state. You can look around, make experimental
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0395458Z changes and commit them, and you can discard any commits you make in this
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0396193Z state without impacting any branches by switching back to a branch.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0396940Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0397215Z If you want to create a new branch to retain commits you create, you may
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0397896Z do so (now or later) by using -c with the switch command. Example:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0398271Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0398496Z   git switch -c <new-branch-name>
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0398802Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0398961Z Or undo this operation with:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0399210Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0399328Z   git switch -
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0399501Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0399830Z Turn off this advice by setting config variable advice.detachedHead to false
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0400327Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0400536Z HEAD is now at ea966c5 Initial commit with task details
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0495908Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0533602Z [command]/usr/bin/git log -1 --format=%H
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0554928Z ea966c531d62c3267848507ad43a2ad90d6c6881
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0812461Z ##[group]Run actions/setup-dotnet@v4
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0812757Z with:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0812934Z   dotnet-version: 8.0.x
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0813139Z   cache: false
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.0813310Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.2554576Z [command]/home/runner/work/_actions/actions/setup-dotnet/v4/externals/install-dotnet.sh --skip-non-versioned-files --runtime dotnet --channel LTS
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:33.7728934Z dotnet-install: Attempting to download using aka.ms link https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.6/dotnet-runtime-10.0.6-linux-x64.tar.gz
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:34.1675377Z dotnet-install: Remote file https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.6/dotnet-runtime-10.0.6-linux-x64.tar.gz size is 36703845 bytes.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:34.1677753Z dotnet-install: Extracting archive from https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.6/dotnet-runtime-10.0.6-linux-x64.tar.gz
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:34.8277070Z dotnet-install: Downloaded file size is 36703845 bytes.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:34.8277785Z dotnet-install: The remote and local file sizes are equal.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:34.8555679Z dotnet-install: Installed version is 10.0.6
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:34.8611658Z dotnet-install: Adding to current process PATH: `/usr/share/dotnet`. Note: This change will be visible only when sourcing script.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:34.8614285Z dotnet-install: Note that the script does not resolve dependencies during installation.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:34.8616170Z dotnet-install: To check the list of dependencies, go to https://learn.microsoft.com/dotnet/core/install, select your operating system and check the "Dependencies" section.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:34.8618250Z dotnet-install: Installation finished successfully.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:34.8642856Z [command]/home/runner/work/_actions/actions/setup-dotnet/v4/externals/install-dotnet.sh --skip-non-versioned-files --channel 8.0
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:35.2543140Z dotnet-install: Attempting to download using aka.ms link https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0.420/dotnet-sdk-8.0.420-linux-x64.tar.gz
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:37.8906891Z dotnet-install: Remote file https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0.420/dotnet-sdk-8.0.420-linux-x64.tar.gz size is 216822173 bytes.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:37.8910418Z dotnet-install: Extracting archive from https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0.420/dotnet-sdk-8.0.420-linux-x64.tar.gz
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.5095167Z dotnet-install: Downloaded file size is 216822173 bytes.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.5095775Z dotnet-install: The remote and local file sizes are equal.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7523486Z dotnet-install: Installed version is 8.0.420
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7580327Z dotnet-install: Adding to current process PATH: `/usr/share/dotnet`. Note: This change will be visible only when sourcing script.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7581105Z dotnet-install: Note that the script does not resolve dependencies during installation.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7581989Z dotnet-install: To check the list of dependencies, go to https://learn.microsoft.com/dotnet/core/install, select your operating system and check the "Dependencies" section.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7583094Z dotnet-install: Installation finished successfully.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7731957Z ##[group]Run dotnet restore
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7732252Z [36;1mdotnet restore[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7759764Z shell: /usr/bin/bash -e {0}
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7759999Z env:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7760177Z   DOTNET_ROOT: /usr/share/dotnet
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:42.7760399Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:46.0585611Z   Determining projects to restore...
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5024116Z   Restored /home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj (in 1.04 sec).
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5325947Z ##[group]Run echo "Building C# project..."
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5326625Z [36;1mecho "Building C# project..."[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5327073Z [36;1m# Build with Debug configuration (matches Godot's standard configuration)[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5327641Z [36;1mif ! dotnet build --no-restore --configuration Debug 2>&1 | tee build-output.log; then[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5328407Z [36;1m  echo "::error::C# build failed! This will cause '.NET assemblies not found' error in exports."[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5328832Z [36;1m  echo ""[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5329028Z [36;1m  echo "=== Build Output ==="[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5329283Z [36;1m  cat build-output.log[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5329539Z [36;1m  exit 1[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5329734Z [36;1mfi[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5330101Z [36;1m[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5330268Z [36;1mecho "C# build succeeded!"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5330488Z [36;1m[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5330863Z [36;1m# Check that DLL was actually produced (Godot places it in .godot/mono/temp/bin/)[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5331476Z [36;1mDLL_PATH=".godot/mono/temp/bin/Debug/GodotTopDownTemplate.dll"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5331832Z [36;1mif [ -f "$DLL_PATH" ]; then[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5332098Z [36;1m  echo "✓ Assembly built: $DLL_PATH"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5332435Z [36;1m  ls -la .godot/mono/temp/bin/Debug/*.dll 2>/dev/null || true[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5332743Z [36;1melse[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5332962Z [36;1m  # Alternative path for standard dotnet build[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5333311Z [36;1m  ALT_PATH="bin/Debug/net6.0/GodotTopDownTemplate.dll"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5333619Z [36;1m  if [ -f "$ALT_PATH" ]; then[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5333889Z [36;1m    echo "✓ Assembly built: $ALT_PATH"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5334192Z [36;1m    ls -la bin/Debug/net6.0/*.dll 2>/dev/null || true[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5334468Z [36;1m  else[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5334778Z [36;1m    echo "Note: DLL path varies by environment. Build completed successfully."[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5335135Z [36;1m  fi[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5335295Z [36;1mfi[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5357182Z shell: /usr/bin/bash -e {0}
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5357403Z env:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5357596Z   DOTNET_ROOT: /usr/share/dotnet
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5357818Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:47.5399063Z Building C# project...
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3342631Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/Shotgun.cs(1356,17): warning CS0114: 'Shotgun.StartReload()' hides inherited member 'BaseWeapon.StartReload()'. To make the current member override that implementation, add the override keyword. Otherwise add the new keyword. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3358078Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/GrenadeTimer.cs(379,49): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3361629Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/GrenadeTimer.cs(645,67): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3364561Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/GrenadeTimer.cs(691,69): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3368543Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/GrenadeTimer.cs(714,73): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3371508Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/AbstractClasses/BaseWeapon.cs(519,90): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3374434Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/AbstractClasses/BaseWeapon.cs(702,75): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3377505Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/AbstractClasses/BaseWeapon.cs(725,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3381852Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SniperRifle.cs(935,63): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3386064Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Components/LevelInitFallback.cs(816,34): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3390233Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Components/LevelInitFallback.cs(817,45): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3394492Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Components/LevelInitFallback.cs(818,38): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3399274Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SniperRifle.cs(1025,63): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3404218Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SniperRifle.cs(1235,63): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3409686Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SniperRifle.cs(1423,63): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3412976Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SniperRifle.cs(1754,93): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3415913Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Components/LevelInitFallback.cs(1565,21): warning CS0618: 'Image.Create(int, int, bool, Image.Format)' is obsolete: 'Use 'Godot.Image.CreateEmpty(int, int, bool, Image.Format)'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3419612Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Components/LevelInitFallback.cs(1591,21): warning CS0618: 'Image.Create(int, int, bool, Image.Format)' is obsolete: 'Use 'Godot.Image.CreateEmpty(int, int, bool, Image.Format)'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3422439Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.ActiveItems.cs(3493,33): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3424992Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.ActiveItems.cs(3505,36): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3427915Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SilencedPistol.cs(823,94): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3432139Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/BreakerDetonation.cs(131,53): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3435220Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(291,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3437620Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(357,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3440041Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/BreakerDetonation.cs(247,36): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3442551Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/BreakerDetonation.cs(255,78): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3447020Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/SniperBullet.cs(222,45): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3450159Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(377,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3452351Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(420,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3454786Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(431,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3457478Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/SniperBullet.cs(300,72): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3459777Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(455,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3461919Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(483,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3464128Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(550,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3466760Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/SniperBullet.cs(408,99): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3471046Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(660,66): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3475964Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(667,45): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3479353Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(708,99): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3483633Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(657,66): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3488653Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(663,45): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3491798Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(636,36): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3494117Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(762,99): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3497074Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(772,72): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3499535Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(1672,31): warning CS8602: Dereference of a possibly null reference. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3501788Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(1696,58): warning CS8602: Dereference of a possibly null reference. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3504017Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(1712,38): warning CS8602: Dereference of a possibly null reference. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3506455Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(1733,21): warning CS8602: Dereference of a possibly null reference. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3508824Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(867,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3511007Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(877,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3513168Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(887,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3515340Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(895,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3517784Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(905,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3520119Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(912,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3522356Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(1018,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3524719Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(877,72): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3527484Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(795,24): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3529678Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(803,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3531810Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(813,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3534108Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(823,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3536400Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(838,36): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3538552Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(852,32): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3540665Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(876,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3542756Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(883,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3544860Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(892,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3547251Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(899,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3549537Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(906,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3551703Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(916,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3553989Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(938,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3556142Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1000,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3558615Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1020,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3560758Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1028,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3563054Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1036,32): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3565159Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1061,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3567708Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1072,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3569874Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1085,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3572073Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1093,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3574181Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1101,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3576437Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1261,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3579195Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/Revolver.cs(1232,75): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3581624Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1321,9): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3583745Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1446,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3586103Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1570,93): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3589143Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1589,109): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3591465Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1673,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3593596Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1693,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3595729Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1714,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3598290Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1757,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3600446Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1768,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3603170Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(2723,89): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3605578Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1820,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3608095Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1889,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3610502Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.ActiveItems.cs(1543,49): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3613018Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.ActiveItems.cs(4433,33): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3615476Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(914,52): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.3936489Z   GodotTopDownTemplate -> /home/runner/work/godot-topdown-MVP/godot-topdown-MVP/.godot/mono/temp/bin/Debug/GodotTopDownTemplate.dll
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4180325Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4186959Z Build succeeded.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4187408Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4193056Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/Shotgun.cs(1356,17): warning CS0114: 'Shotgun.StartReload()' hides inherited member 'BaseWeapon.StartReload()'. To make the current member override that implementation, add the override keyword. Otherwise add the new keyword. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4201827Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/GrenadeTimer.cs(379,49): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4209467Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/GrenadeTimer.cs(645,67): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4215382Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/GrenadeTimer.cs(691,69): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4221072Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/GrenadeTimer.cs(714,73): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4226537Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/AbstractClasses/BaseWeapon.cs(519,90): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4231694Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/AbstractClasses/BaseWeapon.cs(702,75): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4234816Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/AbstractClasses/BaseWeapon.cs(725,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4242065Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SniperRifle.cs(935,63): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4249438Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Components/LevelInitFallback.cs(816,34): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4255552Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Components/LevelInitFallback.cs(817,45): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4262099Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Components/LevelInitFallback.cs(818,38): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4271129Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SniperRifle.cs(1025,63): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4280592Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SniperRifle.cs(1235,63): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4288147Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SniperRifle.cs(1423,63): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4294117Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SniperRifle.cs(1754,93): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4299496Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Components/LevelInitFallback.cs(1565,21): warning CS0618: 'Image.Create(int, int, bool, Image.Format)' is obsolete: 'Use 'Godot.Image.CreateEmpty(int, int, bool, Image.Format)'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4304993Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Components/LevelInitFallback.cs(1591,21): warning CS0618: 'Image.Create(int, int, bool, Image.Format)' is obsolete: 'Use 'Godot.Image.CreateEmpty(int, int, bool, Image.Format)'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4310101Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.ActiveItems.cs(3493,33): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4314698Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.ActiveItems.cs(3505,36): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4319432Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/SilencedPistol.cs(823,94): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4327070Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/BreakerDetonation.cs(131,53): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4332549Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(291,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4336855Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(357,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4341361Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/BreakerDetonation.cs(247,36): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4346003Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/BreakerDetonation.cs(255,78): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4354368Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/SniperBullet.cs(222,45): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4361003Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(377,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4365248Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(420,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4370087Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(431,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4375084Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/SniperBullet.cs(300,72): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4379861Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(455,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4384411Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(483,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4389268Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(550,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4394808Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/SniperBullet.cs(408,99): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4402482Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(660,66): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4411789Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(667,45): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4419143Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(708,99): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4427646Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(657,66): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4437392Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(663,45): warning CS0618: 'TileMap' is obsolete: 'Use multiple 'TileMapLayer' nodes instead. To convert a TileMap to a set of TileMapLayer nodes, open the TileMap bottom panel with the node selected, click the toolbox icon in the top-right corner and choose 'Extract TileMap layers as individual TileMapLayer nodes'.' [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4441516Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(636,36): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4444541Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(762,99): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4448001Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(772,72): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4451021Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(1672,31): warning CS8602: Dereference of a possibly null reference. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4454257Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(1696,58): warning CS8602: Dereference of a possibly null reference. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4457217Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(1712,38): warning CS8602: Dereference of a possibly null reference. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4459600Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(1733,21): warning CS8602: Dereference of a possibly null reference. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4462285Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(867,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4465637Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(877,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4468375Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(887,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4470631Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(895,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4472842Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(905,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4475226Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(912,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4478270Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/ShotgunPellet.cs(1018,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4480832Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(877,72): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4484326Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(795,24): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4486840Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(803,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4489131Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(813,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4491297Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(823,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4493428Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(838,36): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4495559Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(852,32): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4498162Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(876,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4500328Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(883,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4502612Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(892,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4504782Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(899,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4507535Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(906,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4509837Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(916,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4512161Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(938,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4514302Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1000,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4516952Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1020,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4519278Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1028,28): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4521438Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1036,32): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4523582Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1061,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4525712Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1072,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4528302Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1085,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4530470Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1093,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4532617Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1101,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4534761Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1261,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4537813Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Weapons/Revolver.cs(1232,75): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4540520Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1321,9): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4542716Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1446,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4545076Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1570,93): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4547917Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1589,109): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4550375Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1673,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4552519Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1693,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4554645Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1714,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4557154Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1757,17): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4586984Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1768,13): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4589888Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(2723,89): warning CS8604: Possible null reference argument for parameter 'from' in 'Variant.implicit operator Variant(GodotObject from)'. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4592376Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1820,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4594564Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Projectiles/Bullet.cs(1889,21): warning CS0162: Unreachable code detected [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4597120Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.ActiveItems.cs(1543,49): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4599695Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.ActiveItems.cs(4433,33): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4602166Z ##[warning]/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/Scripts/Characters/Player.cs(914,52): warning CS8625: Cannot convert null literal to non-nullable reference type. [/home/runner/work/godot-topdown-MVP/godot-topdown-MVP/GodotTopDownTemplate.csproj]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4603678Z     94 Warning(s)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4603867Z     0 Error(s)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4603985Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4604090Z Time Elapsed 00:00:07.65
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4604333Z C# build succeeded!
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4604896Z ✓ Assembly built: .godot/mono/temp/bin/Debug/GodotTopDownTemplate.dll
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4605452Z -rwxr--r-- 1 runner runner 4968960 Aug 15  2024 .godot/mono/temp/bin/Debug/GodotSharp.dll
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4606064Z -rwxr--r-- 1 runner runner  210432 Aug 15  2024 .godot/mono/temp/bin/Debug/GodotSharpEditor.dll
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4607006Z -rw-r--r-- 1 runner runner  815616 Apr 15 16:54 .godot/mono/temp/bin/Debug/GodotTopDownTemplate.dll
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4646824Z ##[group]Run echo "Checking for common C# issues..."
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4647234Z [36;1mecho "Checking for common C# issues..."[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4647665Z [36;1merrors=0[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4647833Z [36;1m[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4648081Z [36;1m# Check for common patterns that indicate incomplete code[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4648406Z [36;1mwhile IFS= read -r file; do[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4648756Z [36;1m  # Check for TODO/FIXME that might indicate incomplete implementation[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4649220Z [36;1m  if grep -n "// TODO:" "$file" | grep -i "critical\|urgent\|fix\|broken"; then[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4649640Z [36;1m    echo "::warning file=$file::Found critical TODO comment"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4649949Z [36;1m  fi[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4650105Z [36;1m[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4650380Z [36;1m  # Check for NotImplementedException (code that will crash at runtime)[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4650857Z [36;1m  if grep -qn "throw new NotImplementedException" "$file"; then[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4651359Z [36;1m    echo "::warning file=$file::Contains NotImplementedException - this will crash at runtime"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4651783Z [36;1m  fi[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4651936Z [36;1m[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4652165Z [36;1mdone < <(find Scripts -name "*.cs" -type f 2>/dev/null)[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4652454Z [36;1m[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4652630Z [36;1mecho "C# syntax check completed."[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4673045Z shell: /usr/bin/bash -e {0}
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4673268Z env:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4673438Z   DOTNET_ROOT: /usr/share/dotnet
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4673663Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.4715178Z Checking for common C# issues...
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5528033Z C# syntax check completed.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5555067Z ##[group]Run echo "Checking method signatures for potential issues..."
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5555562Z [36;1mecho "Checking method signatures for potential issues..."[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5555878Z [36;1m[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5556141Z [36;1m# This check looks for patterns that commonly cause build failures:[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5556759Z [36;1m# - Methods with missing required parameters[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5557159Z [36;1m# - Abstract/virtual methods that might not be properly overridden[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5557494Z [36;1m[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5557644Z [36;1mwarnings=0[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5557848Z [36;1mwhile IFS= read -r file; do[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5558147Z [36;1m  # Check for abstract methods without implementation[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5558466Z [36;1m  if grep -n "abstract.*{" "$file"; then[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5558862Z [36;1m    echo "::warning file=$file::Abstract method has body (likely syntax error)"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5559267Z [36;1m    warnings=$((warnings + 1))[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5559490Z [36;1m  fi[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5559730Z [36;1mdone < <(find Scripts -name "*.cs" -type f 2>/dev/null)[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5560020Z [36;1m[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5560191Z [36;1mif [ "$warnings" -gt 0 ]; then[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5560501Z [36;1m  echo "Found $warnings potential issues. Please review."[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5560802Z [36;1melse[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5561028Z [36;1m  echo "No obvious method signature issues found."[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5561294Z [36;1mfi[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5581135Z shell: /usr/bin/bash -e {0}
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5581359Z env:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5581528Z   DOTNET_ROOT: /usr/share/dotnet
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5581750Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.5621201Z Checking method signatures for potential issues...
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6007681Z No obvious method signature issues found.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6040735Z ##[group]Run warnings=$(grep -c "warning CS" build-output.log 2>/dev/null || echo "0")
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6041315Z [36;1mwarnings=$(grep -c "warning CS" build-output.log 2>/dev/null || echo "0")[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6041700Z [36;1mecho "C# warnings: $warnings"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6041954Z [36;1mif [ "$warnings" -gt 50 ]; then[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6042345Z [36;1m  echo "::warning::High number of C# warnings ($warnings). Consider addressing them."[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6042877Z [36;1mfi[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6062617Z shell: /usr/bin/bash -e {0}
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6062844Z env:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6063018Z   DOTNET_ROOT: /usr/share/dotnet
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6063244Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6119078Z C# warnings: 188
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6129575Z ##[warning]High number of C# warnings (188). Consider addressing them.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6151572Z ##[group]Run echo "=== C# Build Validation Complete ==="
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6151958Z [36;1mecho "=== C# Build Validation Complete ==="[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6152218Z [36;1mecho ""[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6152406Z [36;1mecho "Checks performed:"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6152706Z [36;1mecho "  ✓ dotnet restore - dependencies resolved"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6153049Z [36;1mecho "  ✓ dotnet build - C# code compiles"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6153362Z [36;1mecho "  ✓ Assembly produced - DLL file created"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6153668Z [36;1mecho "  ✓ Syntax check - no critical issues"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6153943Z [36;1mecho ""[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6154237Z [36;1mecho "This workflow protects against issues like PR #275 where a C# build"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6154716Z [36;1mecho "failure caused '.NET assemblies not found' errors in exports."[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6155053Z [36;1mecho ""[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6155285Z [36;1mecho "C# code is ready for Godot export!"[0m
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6174441Z shell: /usr/bin/bash -e {0}
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6174659Z env:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6174833Z   DOTNET_ROOT: /usr/share/dotnet
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6175054Z ##[endgroup]
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6212802Z === C# Build Validation Complete ===
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6213141Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6213284Z Checks performed:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6213747Z   ✓ dotnet restore - dependencies resolved
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6214070Z   ✓ dotnet build - C# code compiles
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6214372Z   ✓ Assembly produced - DLL file created
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6214666Z   ✓ Syntax check - no critical issues
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6214848Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6215065Z This workflow protects against issues like PR #275 where a C# build
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6215845Z failure caused '.NET assemblies not found' errors in exports.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6216470Z
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6216664Z C# code is ready for Godot export!
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.6265066Z Post job cleanup.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.7889988Z Post job cleanup.
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.8821624Z [command]/usr/bin/git version
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.8863640Z git version 2.53.0
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.8905149Z Temporarily overriding HOME='/home/runner/work/_temp/dd1778e8-4aef-40f4-818e-83d2419ee4e5' before making global git config changes
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.8905942Z Adding repository directory to the temporary git global config as a safe directory
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.8910739Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.8943299Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.8974697Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.9198294Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.9218160Z http.https://github.com/.extraheader
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.9231358Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.9260359Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.9479988Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.9509128Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:55.9838297Z Cleaning up orphan processes
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:56.0119837Z Terminate orphan process: pid (2840) (VBCSCompiler)
+Validate C# Build	UNKNOWN STEP	2026-04-15T16:54:56.0132078Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/setup-dotnet@v4. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

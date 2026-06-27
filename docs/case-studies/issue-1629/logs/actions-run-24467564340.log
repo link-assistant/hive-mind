@@ -1,0 +1,818 @@
+Check GDScript Code Quality	UNKNOWN STEP	﻿2026-04-15T17:04:15.0053849Z Current runner version: '2.333.1'
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0078772Z ##[group]Runner Image Provisioner
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0079626Z Hosted Compute Agent
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0080382Z Version: 20260213.493
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0081040Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0081770Z Build Date: 2026-02-13T00:28:41Z
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0082427Z Worker ID: {8f7ddbfc-0553-41e2-a68e-27277304d672}
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0083162Z Azure Region: westus2
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0083677Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0085168Z ##[group]Operating System
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0085707Z Ubuntu
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0086281Z 24.04.4
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0086702Z LTS
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0087126Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0087634Z ##[group]Runner Image
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0088208Z Image: ubuntu-24.04
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0088730Z Version: 20260406.80.1
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0089921Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260406.80/images/ubuntu/Ubuntu2404-Readme.md
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0091631Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260406.80
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0092615Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0093689Z ##[group]GITHUB_TOKEN Permissions
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0095586Z Contents: read
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0096092Z Metadata: read
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0096586Z Packages: read
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0097090Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0099433Z Secret source: Actions
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0100469Z Prepare workflow directory
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0437215Z Prepare all required actions
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.0477278Z Getting action download info
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.5059681Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.7495394Z Complete job name: Check GDScript Code Quality
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8241421Z ##[group]Run actions/checkout@v4
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8242309Z with:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8242722Z   ref: dd5c998953f67e83c6cc3ce23f4b390a121bbe7c
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8243301Z   repository: Jhon-Crow/godot-topdown-MVP
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8243992Z   token: ***
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8244366Z   ssh-strict: true
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8244740Z   ssh-user: git
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8245131Z   persist-credentials: true
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8245554Z   clean: true
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8245946Z   sparse-checkout-cone-mode: true
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8246408Z   fetch-depth: 1
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8246770Z   fetch-tags: false
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8247155Z   show-progress: true
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8247546Z   lfs: false
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8247904Z   submodules: false
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8248300Z   set-safe-directory: true
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.8248961Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9380509Z Syncing repository: Jhon-Crow/godot-topdown-MVP
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9382316Z ##[group]Getting Git version info
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9383165Z Working directory is '/home/runner/work/godot-topdown-MVP/godot-topdown-MVP'
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9384198Z [command]/usr/bin/git version
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9425486Z git version 2.53.0
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9451990Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9465466Z Temporarily overriding HOME='/home/runner/work/_temp/cc76bb27-b974-4f32-98e9-fd1f3740d4d8' before making global git config changes
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9466998Z Adding repository directory to the temporary git global config as a safe directory
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9473112Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9504834Z Deleting the contents of '/home/runner/work/godot-topdown-MVP/godot-topdown-MVP'
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9508126Z ##[group]Initializing the repository
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9512204Z [command]/usr/bin/git init /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9596525Z hint: Using 'master' as the name for the initial branch. This default branch name
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9598110Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9599147Z hint: to use in all of your new repositories, which will suppress this warning,
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9600387Z hint: call:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9600803Z hint:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9601333Z hint: 	git config --global init.defaultBranch <name>
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9601917Z hint:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9602465Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9603457Z hint: 'development'. The just-created branch can be renamed via this command:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9604584Z hint:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9604976Z hint: 	git branch -m <name>
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9605410Z hint:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9605981Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9607187Z Initialized empty Git repository in /home/runner/work/godot-topdown-MVP/godot-topdown-MVP/.git/
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9609286Z [command]/usr/bin/git remote add origin https://github.com/Jhon-Crow/godot-topdown-MVP
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9637993Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9638716Z ##[group]Disabling automatic garbage collection
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9641752Z [command]/usr/bin/git config --local gc.auto 0
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9668585Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9669248Z ##[group]Setting up auth
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9675421Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9704234Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:15.9988894Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:16.0020244Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:16.0232467Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:16.0261015Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:16.0476194Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:16.0510378Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:16.0511230Z ##[group]Fetching the repository
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:16.0518238Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin dd5c998953f67e83c6cc3ce23f4b390a121bbe7c
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:21.7791237Z From https://github.com/Jhon-Crow/godot-topdown-MVP
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:21.7793616Z  * branch            dd5c998953f67e83c6cc3ce23f4b390a121bbe7c -> FETCH_HEAD
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:21.7816242Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:21.7817606Z ##[group]Determining the checkout info
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:21.7824706Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:21.7832475Z [command]/usr/bin/git sparse-checkout disable
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:21.7872584Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:21.7901374Z ##[group]Checking out the ref
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:21.7906399Z [command]/usr/bin/git checkout --progress --force dd5c998953f67e83c6cc3ce23f4b390a121bbe7c
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:22.8175968Z Updating files:  57% (1805/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:22.8640669Z Updating files:  58% (1832/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:22.8836650Z Updating files:  59% (1864/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:22.8962138Z Updating files:  60% (1895/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:22.9084983Z Updating files:  61% (1927/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:22.9286216Z Updating files:  62% (1958/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:22.9499558Z Updating files:  63% (1990/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:22.9689788Z Updating files:  64% (2022/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.0278089Z Updating files:  65% (2053/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.0460526Z Updating files:  66% (2085/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.0553072Z Updating files:  67% (2116/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.0732583Z Updating files:  68% (2148/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.1068863Z Updating files:  69% (2180/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.1300855Z Updating files:  70% (2211/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.1626002Z Updating files:  71% (2243/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.1986654Z Updating files:  72% (2274/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.2854139Z Updating files:  73% (2306/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3306927Z Updating files:  74% (2337/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3452502Z Updating files:  75% (2369/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3477802Z Updating files:  76% (2401/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3506081Z Updating files:  77% (2432/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3597312Z Updating files:  78% (2464/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3640717Z Updating files:  79% (2495/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3657472Z Updating files:  80% (2527/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3674637Z Updating files:  81% (2558/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3706460Z Updating files:  82% (2590/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3725317Z Updating files:  83% (2622/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3810730Z Updating files:  84% (2653/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3839636Z Updating files:  85% (2685/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3874872Z Updating files:  86% (2716/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3900186Z Updating files:  87% (2748/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3926417Z Updating files:  88% (2780/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.3983747Z Updating files:  89% (2811/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4008259Z Updating files:  90% (2843/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4034194Z Updating files:  91% (2874/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4058440Z Updating files:  92% (2906/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4087750Z Updating files:  93% (2937/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4110788Z Updating files:  94% (2969/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4135822Z Updating files:  95% (3001/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4163170Z Updating files:  96% (3032/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4190927Z Updating files:  97% (3064/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4216979Z Updating files:  98% (3095/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4244894Z Updating files:  99% (3127/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4245469Z Updating files: 100% (3158/3158)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4245982Z Updating files: 100% (3158/3158), done.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4283821Z Note: switching to 'dd5c998953f67e83c6cc3ce23f4b390a121bbe7c'.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4284453Z
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4284823Z You are in 'detached HEAD' state. You can look around, make experimental
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4285617Z changes and commit them, and you can discard any commits you make in this
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4286382Z state without impacting any branches by switching back to a branch.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4286889Z
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4287215Z If you want to create a new branch to retain commits you create, you may
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4287934Z do so (now or later) by using -c with the switch command. Example:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4288354Z
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4288590Z   git switch -c <new-branch-name>
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4288909Z
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4289061Z Or undo this operation with:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4289313Z
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4289470Z   git switch -
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4289668Z
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4290264Z Turn off this advice by setting config variable advice.detachedHead to false
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4290789Z
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4291183Z HEAD is now at dd5c998 Remove leftover .gitkeep (post-cleanup fallback, Issue #1436)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4386543Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4422980Z [command]/usr/bin/git log -1 --format=%H
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4445155Z dd5c998953f67e83c6cc3ce23f4b390a121bbe7c
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4629556Z ##[group]Run echo "Checking for nested loops that may indicate O(n²) or worse complexity..."
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4630677Z [36;1mecho "Checking for nested loops that may indicate O(n²) or worse complexity..."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4631116Z [36;1mwarnings=0[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4631320Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4631606Z [36;1m# Use awk for fast multi-line analysis instead of shell line-by-line[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4631990Z [36;1mwhile IFS= read -r file; do[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4632238Z [36;1m  results=$(awk '[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4632506Z [36;1m  /^[[:space:]]*(for |while )/ && !/^[[:space:]]*#/ {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4632801Z [36;1m    indent = 0[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4633246Z [36;1m    for (i = 1; i <= length($0); i++) {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4633542Z [36;1m      if (substr($0, i, 1) == "\t") indent++[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4633806Z [36;1m      else break[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4634004Z [36;1m    }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4634302Z [36;1m    if (prev_loop_indent >= 0 && indent > prev_loop_indent) {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4634675Z [36;1m      print FILENAME ":" NR ": nested loop"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4634942Z [36;1m    }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4635150Z [36;1m    prev_loop_indent = indent[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4635388Z [36;1m    next[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4635558Z [36;1m  }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4635761Z [36;1m  !/^[[:space:]]*$/ && !/^[[:space:]]*#/ {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4636020Z [36;1m    indent = 0[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4636250Z [36;1m    for (i = 1; i <= length($0); i++) {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4636530Z [36;1m      if (substr($0, i, 1) == "\t") indent++[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4636797Z [36;1m      else break[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4637011Z [36;1m    }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4637265Z [36;1m    if (prev_loop_indent >= 0 && indent <= prev_loop_indent) {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4637605Z [36;1m      prev_loop_indent = -1[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4637838Z [36;1m    }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4638001Z [36;1m  }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4638192Z [36;1m  BEGIN { prev_loop_indent = -1 }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4638449Z [36;1m  ' "$file" 2>/dev/null)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4638664Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4638845Z [36;1m  while IFS= read -r result; do[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4639098Z [36;1m    if [ -n "$result" ]; then[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4639364Z [36;1m      fpath=$(echo "$result" | cut -d: -f1)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4639678Z [36;1m      lnum=$(echo "$result" | cut -d: -f2)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4640568Z [36;1m      echo "::warning file=$fpath,line=$lnum::Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4641196Z [36;1m      warnings=$((warnings + 1))[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4641453Z [36;1m    fi[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4641630Z [36;1m  done <<< "$results"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4641945Z [36;1mdone < <(find scripts -name "*.gd" -type f 2>/dev/null)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4642247Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4642511Z [36;1mecho "Found $warnings nested loop warning(s) (non-blocking)."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4667216Z shell: /usr/bin/bash -e {0}
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4667473Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4730204Z Checking for nested loops that may indicate O(n²) or worse complexity...
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4910491Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4930826Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.4967190Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.5072025Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.5108250Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.5145542Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.5532764Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.5571010Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.5608970Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.5711373Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.5748197Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.5784841Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.5821522Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.6532247Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.7111211Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.7147058Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.7249645Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.7588360Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.7716966Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.8144919Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.8371280Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.8549235Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.8636292Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.8674070Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.8781899Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.8819345Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.8964899Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9003320Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9169306Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9206326Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9243889Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9280919Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9317442Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9355481Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9519051Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9739353Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9812829Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9946441Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:23.9983174Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.0075859Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.0175757Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.0242982Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.0378262Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.0481331Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.0578500Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.0979592Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.1015933Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.1053680Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.1165943Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.1337895Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.1379643Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.1473744Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.1669697Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.1854051Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.1891846Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.1991585Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2198579Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2235220Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2271788Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2308541Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2344886Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2382132Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2418832Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2455743Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2492663Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2530320Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2565897Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2602314Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2639140Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2676226Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2713855Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2751773Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2788972Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2826813Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2863123Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2899795Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2937024Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.2974631Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3011616Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3048202Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3085391Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3122218Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3158817Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3196110Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3232948Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3270426Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3307780Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3344686Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3381958Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3419063Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3456154Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3561531Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3598500Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3635362Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.3861435Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4033123Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4305409Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4344649Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4635193Z ##[warning]Nested loop detected (potential O(n²) complexity). Consider using a dictionary/set for lookups.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4793136Z Found 99 nested loop warning(s) (non-blocking).
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4848662Z ##[group]Run echo "Checking for potentially unbounded while loops..."
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4849158Z [36;1mecho "Checking for potentially unbounded while loops..."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4849609Z [36;1m# Find 'while true:' without a 'break' or 'return' in the same file region[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4850381Z [36;1mwarnings=0[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4850598Z [36;1mwhile IFS= read -r result; do[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4850876Z [36;1m  file=$(echo "$result" | cut -d: -f1)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4851168Z [36;1m  line=$(echo "$result" | cut -d: -f2)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4851645Z [36;1m  echo "::warning file=$file,line=$line::Found 'while true' loop. Ensure it has a break/return condition."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4852113Z [36;1m  warnings=$((warnings + 1))[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4852511Z [36;1mdone < <(grep -rn '^\s*while\s\+true\s*:' scripts/ --include="*.gd" 2>/dev/null || true)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4852893Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4853212Z [36;1mecho "Found $warnings 'while true' occurrence(s) (non-blocking)."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4873944Z shell: /usr/bin/bash -e {0}
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.4874174Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5434128Z Checking for potentially unbounded while loops...
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5516934Z Found 0 'while true' occurrence(s) (non-blocking).
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5552571Z ##[group]Run echo "Checking for functions exceeding 50 lines..."
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5553047Z [36;1mecho "Checking for functions exceeding 50 lines..."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5553354Z [36;1mwarnings=0[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5553545Z [36;1mFUNC_MAX_LINES=50[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5553747Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5553923Z [36;1mwhile IFS= read -r file; do[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5554217Z [36;1m  results=$(awk -v max_lines="$FUNC_MAX_LINES" '[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5554570Z [36;1m  /^[[:space:]]*func[[:space:]]+/ && !/^[[:space:]]*#/ {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5554924Z [36;1m    if (func_name != "" && (NR - func_start) > max_lines) {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5555386Z [36;1m      print FILENAME ":" func_start ": " func_name " (" (NR - func_start) " lines)"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5555757Z [36;1m    }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5556012Z [36;1m    match($0, /func[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)/, arr)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5556382Z [36;1m    func_name = arr[1][0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5556604Z [36;1m    func_start = NR[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5556808Z [36;1m  }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5556973Z [36;1m  END {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5557214Z [36;1m    if (func_name != "" && (NR - func_start) > max_lines) {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5557646Z [36;1m      print FILENAME ":" func_start ": " func_name " (" (NR - func_start) " lines)"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5558010Z [36;1m    }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5558176Z [36;1m  }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5558341Z [36;1m  ' "$file" 2>/dev/null)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5558552Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5558723Z [36;1m  while IFS= read -r result; do[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5558972Z [36;1m    if [ -n "$result" ]; then[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5559256Z [36;1m      fpath=$(echo "$result" | cut -d: -f1)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5559547Z [36;1m      lnum=$(echo "$result" | cut -d: -f2)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5559849Z [36;1m      detail=$(echo "$result" | cut -d: -f3-)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5560659Z [36;1m      echo "::warning file=$fpath,line=$lnum::Large function:$detail. Consider splitting into smaller functions."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5561176Z [36;1m      warnings=$((warnings + 1))[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5561413Z [36;1m    fi[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5561589Z [36;1m  done <<< "$results"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5561877Z [36;1mdone < <(find scripts -name "*.gd" -type f 2>/dev/null)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5562168Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5562426Z [36;1mecho "Found $warnings large function warning(s) (non-blocking)."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5583513Z shell: /usr/bin/bash -e {0}
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5583739Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5768401Z Checking for functions exceeding 50 lines...
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5904212Z ##[warning]Large function: _ready (88 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.5958711Z ##[warning]Large function: on_sound_heard_with_intensity (107 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6013051Z ##[warning]Large function: _physics_process (143 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6071897Z ##[warning]Large function: _update_enemy_model_rotation (59 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6126826Z ##[warning]Large function: _update_walk_animation (51 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6180410Z ##[warning]Large function: _process_ai_state (133 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6234117Z ##[warning]Large function: _process_combat_state (220 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6288246Z ##[warning]Large function: _process_in_cover_state (83 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6341905Z ##[warning]Large function: _process_flanking_state (61 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6395976Z ##[warning]Large function: _process_suppressed_state (55 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6452470Z ##[warning]Large function: _process_pursuing_state (226 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6505597Z ##[warning]Large function: _process_searching_state (81 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6564706Z ##[warning]Large function: _shoot_with_inaccuracy (64 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6619447Z ##[warning]Large function: _shoot_burst_shot (66 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6673968Z ##[warning]Large function: _choose_best_flank_side (56 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6727895Z ##[warning]Large function: _find_flank_cover_toward_target (62 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6781916Z ##[warning]Large function: _check_wall_ahead (51 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6835585Z ##[warning]Large function: _execute_shoot (59 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6890755Z ##[warning]Large function: _calculate_lead_prediction (51 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.6949250Z ##[warning]Large function: on_hit_with_bullet_info (66 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7010316Z ##[warning]Large function: _reset (75 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7072472Z ##[warning]Large function: _draw (66 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7200427Z ##[warning]Large function: _update_combat (58 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7262621Z ##[warning]Large function: _setup_drone_visual (71 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7541222Z ##[warning]Large function: _ready (138 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7596619Z ##[warning]Large function: _update_ui (93 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7660934Z ##[warning]Large function: _on_spawn_enemy_pressed (66 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7795445Z ##[warning]Large function: _ready (62 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7857486Z ##[warning]Large function: _refresh_all_texts (81 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7921986Z ##[warning]Large function: _build_ui (163 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.7988172Z ##[warning]Large function: _build_sidebar (90 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8049875Z ##[warning]Large function: _build_right_area (165 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8112936Z ##[warning]Large function: _create_item_slot (112 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8176824Z ##[warning]Large function: _create_active_item_slot (97 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8238998Z ##[warning]Large function: _on_slot_gui_input (52 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8300964Z ##[warning]Large function: _on_apply_pressed (56 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8357296Z ##[warning]Large function: _highlight_selected_items (62 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8415640Z ##[warning]Large function: _update_weapon_stats (85 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8474417Z ##[warning]Large function: _on_unlock_timer_timeout (64 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8534975Z ##[warning]Large function: _play_weapon_selection_animation (108 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8590603Z ##[warning]Large function: _animate_all_unlock_progress_bars (56 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8650648Z ##[warning]Large function: _animate_unlock_progress_bar (95 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8767872Z ##[warning]Large function: _ready (84 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8822877Z ##[warning]Large function: _update_ui (52 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8877630Z ##[warning]Large function: _run_benchmark (158 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.8933479Z ##[warning]Large function: _run_stress_benchmark (208 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9057288Z ##[warning]Large function: _build_ui (118 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9112146Z ##[warning]Large function: _populate_table (231 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9166914Z ##[warning]Large function: _add_table_row (70 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9283402Z ##[warning]Large function: _ready (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9338361Z ##[warning]Large function: _update_button_states (70 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9423017Z ##[warning]Large function: _build_ui (113 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9477943Z ##[warning]Large function: _create_level_card (199 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9613400Z ##[warning]Large function: _animate_stat_row (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9675884Z ##[warning]Large function: _animate_points_counting (72 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9731465Z ##[warning]Large function: _animate_total_counting (68 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9785158Z ##[warning]Large function: _animate_rank_reveal (122 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9843817Z ##[warning]Large function: _skip_counting_phase (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:24.9996568Z ##[warning]Large function: _build_ui (118 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0061491Z ##[warning]Large function: _add_table_row (130 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0255271Z ##[warning]Large function: _ready (196 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0311005Z ##[warning]Large function: _physics_process (156 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0366862Z ##[warning]Large function: _update_walk_animation (52 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0421670Z ##[warning]Large function: _shoot (87 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0487433Z ##[warning]Large function: _handle_sequence_reload_input (60 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0554708Z ##[warning]Large function: on_hit_with_info (94 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0621125Z ##[warning]Large function: _on_difficulty_changed (301 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0676801Z ##[warning]Large function: _handle_grenade_input (56 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0732807Z ##[warning]Large function: _throw_simple_grenade (71 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0787779Z ##[warning]Large function: _throw_grenade (124 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0842656Z ##[warning]Large function: _update_grenade_animation (100 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0897239Z ##[warning]Large function: _update_reload_animation (80 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.0955030Z ##[warning]Large function: _draw (94 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1022004Z ##[warning]Large function: _draw_trajectory_with_bounces (83 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1089196Z ##[warning]Large function: _draw_trajectory_glasses (61 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1146816Z ##[warning]Large function: _summon_bff_companion (65 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1202959Z ##[warning]Large function: _trigger_experimental_sample_effect (62 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1289427Z ##[warning]Large function: update (139 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1345491Z ##[warning]Large function: calculate_evasion_target (55 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1616623Z ##[warning]Large function: _recompute_group (84 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1761339Z ##[warning]Large function: initialize (67 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1816903Z ##[warning]Large function: handle_input (83 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1873138Z ##[warning]Large function: apply_loudspeaker_effect (69 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.1961901Z ##[warning]Large function: _execute_throw (69 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.2112442Z ##[warning]Large function: _spawn_footprint (76 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.2259418Z ##[warning]Large function: check_muzzle_flash (89 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.2490562Z ##[warning]Large function: _connect_weapon_signals (66 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.2562593Z ##[warning]Large function: _add_hint (53 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.2630394Z ##[warning]Large function: _setup_strikethrough_lines (54 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.2762136Z ##[warning]Large function: process_combat (68 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.2824751Z ##[warning]Large function: shoot_sniper_hitscan (85 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.2889290Z ##[warning]Large function: _create_laser_sight (96 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.2985621Z ##[warning]Large function: _update_laser_sight (69 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.3086327Z ##[warning]Large function: _activate_ragdoll (59 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.3149294Z ##[warning]Large function: _create_ragdoll_body (59 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.3217685Z ##[warning]Large function: _create_fall_animation_for_angle (58 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.3502138Z ##[warning]Large function: process_combat (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.3619410Z ##[warning]Large function: _setup_shield_visual (103 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.3732963Z ##[warning]Large function: _draw_combined_bar (60 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.3845736Z ##[warning]Large function: find_cover (113 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.3937394Z ##[warning]Large function: _execute_grenadier_throw (96 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.3993352Z ##[warning]Large function: try_passage_throw (65 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4080820Z ##[warning]Large function: check_flashlight (103 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4136837Z ##[warning]Large function: is_position_lit (58 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4322312Z ##[warning]Large function: _setup_player_tracking (92 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4377819Z ##[warning]Large function: _update_magazines_label (65 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4434403Z ##[warning]Large function: _show_fallback_score_screen (80 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4489715Z ##[warning]Large function: _show_victory_message (135 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4546242Z ##[warning]Large function: _add_score_screen_buttons (117 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4602544Z ##[warning]Large function: _setup_selected_weapon (194 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4696153Z ##[warning]Large function: _spawn_enemy (54 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4754255Z ##[warning]Large function: _configure_enemy_for_wave (60 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4810588Z ##[warning]Large function: _spawn_pickup (96 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4867032Z ##[warning]Large function: _apply_active_item_charge_pickup (53 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.4922874Z ##[warning]Large function: _setup_ui (128 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5018343Z ##[warning]Large function: _ready (54 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5074595Z ##[warning]Large function: _setup_selected_weapon (199 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5129799Z ##[warning]Large function: _connect_player_signals (183 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5186157Z ##[warning]Large function: _setup_ammo_tracking (85 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5241776Z ##[warning]Large function: _setup_strikethrough_lines (65 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5336533Z ##[warning]Large function: _setup_player_tracking (89 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5392661Z ##[warning]Large function: _update_magazines_label (62 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5447913Z ##[warning]Large function: _add_score_screen_buttons (115 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5505314Z ##[warning]Large function: _setup_selected_weapon (175 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5604510Z ##[warning]Large function: _setup_player_tracking (69 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5666925Z ##[warning]Large function: _update_magazines_label (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5728558Z ##[warning]Large function: _add_score_screen_buttons (103 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5789335Z ##[warning]Large function: _setup_selected_weapon (82 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5892398Z ##[warning]Large function: _setup_player_tracking (65 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.5954918Z ##[warning]Large function: _update_magazines_label (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6020507Z ##[warning]Large function: _add_score_screen_buttons (114 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6126192Z ##[warning]Large function: _setup_player_tracking (63 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6191276Z ##[warning]Large function: _update_magazines_label (53 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6254531Z ##[warning]Large function: _add_score_screen_buttons (108 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6316949Z ##[warning]Large function: _setup_selected_weapon (133 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6420495Z ##[warning]Large function: _setup_player_tracking (73 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6487050Z ##[warning]Large function: _update_magazines_label (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6546998Z ##[warning]Large function: _add_score_screen_buttons (104 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6605130Z ##[warning]Large function: _setup_selected_weapon (147 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6699072Z ##[warning]Large function: _setup_player_tracking (71 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6755262Z ##[warning]Large function: _update_magazines_label (52 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6810792Z ##[warning]Large function: _add_score_screen_buttons (107 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6904260Z ##[warning]Large function: _setup_player_tracking (64 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.6961056Z ##[warning]Large function: _show_fallback_score_screen (59 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7016242Z ##[warning]Large function: _update_magazines_label (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7072008Z ##[warning]Large function: _add_score_screen_buttons (83 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7167373Z ##[warning]Large function: _setup_player_tracking (89 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7223249Z ##[warning]Large function: _update_magazines_label (62 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7281330Z ##[warning]Large function: _add_score_screen_buttons (115 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7337486Z ##[warning]Large function: _setup_selected_weapon (164 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7432573Z ##[warning]Large function: _ready (53 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7488974Z ##[warning]Large function: _create_window_light (54 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7546843Z ##[warning]Large function: _setup_player_tracking (59 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7604031Z ##[warning]Large function: _add_score_screen_buttons (113 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7660182Z ##[warning]Large function: _setup_selected_weapon (134 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7767249Z ##[warning]Large function: _ready (53 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7826296Z ##[warning]Large function: _create_window_light (54 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7884635Z ##[warning]Large function: _setup_player_tracking (143 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.7943086Z ##[warning]Large function: _update_magazines_label (62 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8000962Z ##[warning]Large function: _add_score_screen_buttons (113 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8058447Z ##[warning]Large function: _setup_selected_weapon (212 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8114445Z ##[warning]Large function: _add_tutorial_hint (54 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8172930Z ##[warning]Large function: _setup_tutorial_strikethrough_lines (65 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8267965Z ##[warning]Large function: _setup_player_tracking (72 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8324939Z ##[warning]Large function: _update_magazines_label (61 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8382915Z ##[warning]Large function: _add_score_screen_buttons (108 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8440796Z ##[warning]Large function: _setup_selected_weapon (187 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8541824Z ##[warning]Large function: _ready (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8600887Z ##[warning]Large function: _setup_window_lights (58 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8661948Z ##[warning]Large function: _create_window_light (65 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8718966Z ##[warning]Large function: _setup_player_tracking (92 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8776706Z ##[warning]Large function: _setup_debug_ui (51 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8833032Z ##[warning]Large function: _update_magazines_label (65 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8890368Z ##[warning]Large function: _show_fallback_score_screen (51 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.8946923Z ##[warning]Large function: _add_score_screen_buttons (121 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9005238Z ##[warning]Large function: _setup_selected_weapon (247 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9100277Z ##[warning]Large function: _setup_player_tracking (87 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9156430Z ##[warning]Large function: _update_magazines_label (62 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9212547Z ##[warning]Large function: _add_score_screen_buttons (91 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9268901Z ##[warning]Large function: _setup_selected_weapon (202 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9371248Z ##[warning]Large function: _ready (168 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9426867Z ##[warning]Large function: _start_new_run (54 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9483010Z ##[warning]Large function: _generate_room_map (169 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9538005Z ##[warning]Large function: _create_door_barriers (53 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9598913Z ##[warning]Large function: _build_sewer_interior (66 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9660371Z ##[warning]Large function: _spawn_enemies_in_room (61 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9724534Z ##[warning]Large function: _get_enemy_positions (80 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9786668Z ##[warning]Large function: _spawn_player (58 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9855614Z ##[warning]Large function: _setup_player_tracking (61 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9921344Z ##[warning]Large function: _create_door_zone (104 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:25.9983562Z ##[warning]Large function: _setup_debug_ui (94 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0046731Z ##[warning]Large function: _on_combo_changed (51 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0110693Z ##[warning]Large function: _spawn_treasure_pedestal (197 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0176885Z ##[warning]Large function: _apply_pedestal_weapon (100 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0243513Z ##[warning]Large function: _apply_pedestal_active_item (83 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0308991Z ##[warning]Large function: _navigate_to_map_room (59 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0375253Z ##[warning]Large function: _start_next_level (71 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0438632Z ##[warning]Large function: _setup_minimap (113 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0504335Z ##[warning]Large function: _show_death_screen (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0695030Z ##[warning]Large function: plan (63 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0911026Z ##[warning]Large function: _init (137 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.0973170Z ##[warning]Large function: _generate_cover_hypotheses (51 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.1187902Z ##[warning]Large function: _physics_process (54 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.1243902Z ##[warning]Large function: _setup_drone_visual (70 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.1340638Z ##[warning]Large function: _physics_process (96 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.1396316Z ##[warning]Large function: _on_body_entered (143 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.1452795Z ##[warning]Large function: _on_area_entered (108 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.1510764Z ##[warning]Large function: _perform_ricochet (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.1567385Z ##[warning]Large function: _breaker_spawn_shrapnel (101 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.1623192Z ##[warning]Large function: _rpg_explode (67 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.1805508Z ##[warning]Large function: _scatter_casings (82 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.1920491Z ##[warning]Large function: _explode (51 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.2036522Z ##[warning]Large function: _ready (54 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.2093563Z ##[warning]Large function: _compute_bolt_data (57 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.2305394Z ##[warning]Large function: _process (76 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.2362323Z ##[warning]Large function: _spawn_selected_enemy_at_player (96 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.2449062Z ##[warning]Large function: _ready (53 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.2541975Z ##[warning]Large function: _find_player (63 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.2597799Z ##[warning]Large function: _freeze_node_except_player (113 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.2654121Z ##[warning]Large function: _on_node_added_during_freeze (88 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.2800917Z ##[warning]Large function: emit_sound (80 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.2953990Z ##[warning]Large function: refresh (59 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3164682Z ##[warning]Large function: _save_state_with_level (76 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3221346Z ##[warning]Large function: _load_state (134 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3277768Z ##[warning]Large function: clear_all_saves (64 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3402653Z ##[warning]Large function: _preload_effect_scenes (115 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3459085Z ##[warning]Large function: spawn_dust_effect (65 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3517053Z ##[warning]Large function: spawn_blood_effect (73 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3574850Z ##[warning]Large function: _schedule_delayed_decal (64 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3631785Z ##[warning]Large function: _remove_oldest_offscreen_decal (53 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3688636Z ##[warning]Large function: _spawn_wall_blood_splatter (87 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3746150Z ##[warning]Large function: spawn_penetration_hole (60 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3809092Z ##[warning]Large function: _warmup_particle_shaders (178 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.3942751Z ##[warning]Large function: _load_settings (60 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.4037308Z ##[warning]Large function: _find_player (54 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.4147916Z ##[warning]Large function: start_playback (51 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.4211204Z ##[warning]Large function: _record_frame (133 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.4271365Z ##[warning]Large function: _record_sound_events (72 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.4338898Z ##[warning]Large function: _create_bullet_ghost (56 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.4399924Z ##[warning]Large function: _create_replay_ui (79 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.4514563Z ##[warning]Large function: _ready (61 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.4656420Z ##[warning]Large function: add_shake (58 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.4768380Z ##[warning]Large function: _preload_all_sounds (78 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.5061385Z ##[warning]Large function: has_any_available_unlock (92 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.5117134Z ##[warning]Large function: _reset_condition_gated_items (85 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.5236133Z ##[warning]Large function: refresh (60 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.5323720Z ##[warning]Large function: calculate_score (74 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.5438731Z ##[warning]Large function: _clamp_light_to_walls (82 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.5700722Z ##[warning]Large function: _create_particle_visual (55 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.5907959Z ##[warning]Large function: _find_walls_with_hits (101 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.5964073Z ##[warning]Large function: _spawn_placed_charge_marker (62 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6083840Z ##[warning]Large function: _spawn_illusions_for_nearby_enemies (69 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6141695Z ##[warning]Large function: _create_particle_visual (51 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6373103Z ##[warning]Large function: _spawn_afterimage (63 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6497738Z ##[warning]Large function: _trap_bullet (62 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6646542Z ##[warning]Large function: _process (68 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6703906Z ##[warning]Large function: _get_weapon_max_ricochet_angle (55 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6759838Z ##[warning]Large function: _calculate_ricochet_trajectory (87 lines). Consider splitting into smaller functions.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6828705Z Found 258 large function warning(s) (non-blocking).
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6862357Z ##[group]Run echo "Checking for deeply nested code (>4 levels)..."
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6862840Z [36;1mecho "Checking for deeply nested code (>4 levels)..."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6863152Z [36;1mwarnings=0[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6863337Z [36;1mMAX_NESTING=4[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6863523Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6863702Z [36;1mwhile IFS= read -r file; do[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6863996Z [36;1m  results=$(awk -v max_nesting="$MAX_NESTING" '[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6864391Z [36;1m  /^[[:space:]]*(if |elif |else:|for |while |match )/ && !/^[[:space:]]*#/ {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6864735Z [36;1m    indent = 0[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6864957Z [36;1m    for (i = 1; i <= length($0); i++) {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6865238Z [36;1m      if (substr($0, i, 1) == "\t") indent++[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6865503Z [36;1m      else break[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6865693Z [36;1m    }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6865880Z [36;1m    if (indent > max_nesting) {[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6866186Z [36;1m      print FILENAME ":" NR ": level " indent[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6866449Z [36;1m    }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6866608Z [36;1m  }[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6866781Z [36;1m  ' "$file" 2>/dev/null)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6866993Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6867167Z [36;1m  while IFS= read -r result; do[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6867413Z [36;1m    if [ -n "$result" ]; then[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6867676Z [36;1m      fpath=$(echo "$result" | cut -d: -f1)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6868028Z [36;1m      lnum=$(echo "$result" | cut -d: -f2)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6868330Z [36;1m      detail=$(echo "$result" | cut -d: -f3-)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6868927Z [36;1m      echo "::warning file=$fpath,line=$lnum::Deep nesting detected ($detail, max $MAX_NESTING). Consider extracting to a helper function."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6869507Z [36;1m      warnings=$((warnings + 1))[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6869739Z [36;1m    fi[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6869922Z [36;1m  done <<< "$results"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6870616Z [36;1mdone < <(find scripts -name "*.gd" -type f 2>/dev/null)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6871106Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6871363Z [36;1mecho "Found $warnings deep nesting warning(s) (non-blocking)."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6893063Z shell: /usr/bin/bash -e {0}
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6893298Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.6933799Z Checking for deeply nested code (>4 levels)...
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7070299Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7126615Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7182348Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7236915Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7292116Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7347148Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7401678Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7456202Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7510902Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7878881Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7933558Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.7988149Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.8044540Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.8099159Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.8152753Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.8206660Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.8532119Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.8796165Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.8852596Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.8910436Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.8966998Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.9357632Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.9625058Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:26.9960242Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.1170392Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.1232118Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.1296473Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.1358119Z ##[warning]Deep nesting detected ( level 6, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.1424447Z ##[warning]Deep nesting detected ( level 6, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.1485928Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.1543498Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.1598130Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.1653079Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.2595520Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.2821563Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.2876231Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.2930844Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.3674611Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.3732165Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.3786155Z ##[warning]Deep nesting detected ( level 5, max 4). Consider extracting to a helper function.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4729857Z Found 40 deep nesting warning(s) (non-blocking).
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4761546Z ##[group]Run echo "Checking for repeated dictionary key access patterns..."
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4762093Z [36;1mecho "Checking for repeated dictionary key access patterns..."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4762556Z [36;1m# Simple grep-based check: find files with many dict[key] accesses[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4762901Z [36;1mwarnings=0[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4763110Z [36;1mwhile IFS= read -r file; do[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4763417Z [36;1m  # Count unique dict[key] patterns that appear 4+ times[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4764005Z [36;1m  repeated=$(grep -oE '[a-zA-Z_][a-zA-Z0-9_]*\[[^]]+\]' "$file" 2>/dev/null | sort | uniq -c | awk '$1 >= 4 { print $2 " (" $1 " times)" }')[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4764528Z [36;1m  if [ -n "$repeated" ]; then[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4764801Z [36;1m    while IFS= read -r pattern; do[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4765290Z [36;1m      echo "::warning file=$file::Repeated dictionary access: $pattern. Consider caching in a local variable."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4765837Z [36;1m      warnings=$((warnings + 1))[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4766082Z [36;1m    done <<< "$repeated"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4766296Z [36;1m  fi[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4766533Z [36;1mdone < <(find scripts -name "*.gd" -type f 2>/dev/null)[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4766820Z [36;1m[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4767084Z [36;1mecho "Found $warnings duplicate lookup warning(s) (non-blocking)."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4788050Z shell: /usr/bin/bash -e {0}
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4788286Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.4826147Z Checking for repeated dictionary key access patterns...
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.5540747Z ##[warning]Repeated dictionary access: Array[Vector2] (12 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.5542770Z ##[warning]Repeated dictionary access: result["position"] (7 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.5882187Z ##[warning]Repeated dictionary access: _active_item_slots[item_type] (7 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.5885045Z ##[warning]Repeated dictionary access: _grenade_slots[grenade_type] (7 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.5886639Z ##[warning]Repeated dictionary access: _shine_overlays[slot] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.5889019Z ##[warning]Repeated dictionary access: _weapon_slots[weapon_id] (7 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.5892251Z ##[warning]Repeated dictionary access: counts["current"] (6 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.5894945Z ##[warning]Repeated dictionary access: counts["max"] (6 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.5897358Z ##[warning]Repeated dictionary access: s[/color] (9 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.5958641Z ##[warning]Repeated dictionary access: n[Step (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.6026719Z ##[warning]Repeated dictionary access: Array[String] (7 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.6129279Z ##[warning]Repeated dictionary access: level_data["path"] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.6261520Z ##[warning]Repeated dictionary access: _action_buttons[action_name] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.6411570Z ##[warning]Repeated dictionary access: Array[Vector2] (6 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.6414015Z ##[warning]Repeated dictionary access: points[i] (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.6847701Z ##[warning]Repeated dictionary access: _original_materials[key] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.7179551Z ##[warning]Repeated dictionary access: _hint_labels[hint_key] (6 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.7246198Z ##[warning]Repeated dictionary access: wall_result["position"] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.7922725Z ##[warning]Repeated dictionary access: _grenade_bag[0] (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8240780Z ##[warning]Repeated dictionary access: _hint_labels[HINT_BOLT_CYCLE] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8243521Z ##[warning]Repeated dictionary access: _hint_labels[hint_key] (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8245795Z ##[warning]Repeated dictionary access: _hint_strike_lines[hint_key] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8681726Z ##[warning]Repeated dictionary access: _tutorial_hint_strike_lines[hint_key] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8684088Z ##[warning]Repeated dictionary access: _tutorial_hints[TUTORIAL_HINT_BOLT_CYCLE] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8686063Z ##[warning]Repeated dictionary access: _tutorial_hints[hint_key] (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8826806Z ##[warning]Repeated dictionary access: all_types[i] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8829780Z ##[warning]Repeated dictionary access: all_types[j] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8832792Z ##[warning]Repeated dictionary access: roguelike_room_map[map_idx] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8835717Z ##[warning]Repeated dictionary access: roguelike_room_map[map_room_idx] (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8838259Z ##[warning]Repeated dictionary access: rooms[i] (9 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8841571Z ##[warning]Repeated dictionary access: rooms[target_room_idx] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.8971397Z ##[warning]Repeated dictionary access: Array[GOAPAction] (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.9177097Z ##[warning]Repeated dictionary access: players[0] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.9408403Z ##[warning]Repeated dictionary access: players[0] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.9441802Z ##[warning]Repeated dictionary access: players[0] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.9841897Z ##[warning]Repeated dictionary access: _original_process_modes[node] (7 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.9907912Z ##[warning]Repeated dictionary access: GRENADE_DATA[type] (6 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:27.9982821Z ##[warning]Repeated dictionary access: base_keys[base_key] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0141234Z ##[warning]Repeated dictionary access: ACTIVE_ITEM_DATA[type] (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0143004Z ##[warning]Repeated dictionary access: players[0] (7 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0347788Z ##[warning]Repeated dictionary access: Array[Node] (6 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0453030Z ##[warning]Repeated dictionary access: _frames[0] (6 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0455882Z ##[warning]Repeated dictionary access: enemies[i] (10 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0589256Z ##[warning]Repeated dictionary access: Array[String] (8 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0725723Z ##[warning]Repeated dictionary access: _active_effects[entity_id] (15 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0728301Z ##[warning]Repeated dictionary access: effects["aggression"] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0731760Z ##[warning]Repeated dictionary access: effects["blindness"] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0734581Z ##[warning]Repeated dictionary access: effects["stun"] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0871788Z ##[warning]Repeated dictionary access: Array[String] (10 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0874615Z ##[warning]Repeated dictionary access: Array[int] (12 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0876518Z ##[warning]Repeated dictionary access: UNLOCK_CONDITIONS[condition_key] (18 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0878952Z ##[warning]Repeated dictionary access: unlocked_active_items[item_type] (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0882237Z ##[warning]Repeated dictionary access: unlocked_grenades[grenade_type] (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.0885192Z ##[warning]Repeated dictionary access: unlocked_weapons[weapon_id] (5 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.1442643Z ##[warning]Repeated dictionary access: walls_by_node[collider] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.1542636Z ##[warning]Repeated dictionary access: ring["elapsed"] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.1808384Z ##[warning]Repeated dictionary access: _trapped_boundary_angles[projectile] (4 times). Consider caching in a local variable.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.1972380Z Found 57 duplicate lookup warning(s) (non-blocking).
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2017671Z ##[group]Run echo "=== GDScript Code Quality Lint Complete ==="
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2018424Z [36;1mecho "=== GDScript Code Quality Lint Complete ==="[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2018947Z [36;1mecho ""[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2019283Z [36;1mecho "Checks performed:"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2019808Z [36;1mecho "  ✓ Nested loops (O(n²) complexity detection)"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2020766Z [36;1mecho "  ✓ Unbounded while loops (while true detection)"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2021484Z [36;1mecho "  ✓ Large functions (>50 lines)"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2021990Z [36;1mecho "  ✓ Deep nesting (>4 levels)"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2022512Z [36;1mecho "  ✓ Duplicate dictionary key lookups"[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2022995Z [36;1mecho ""[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2023428Z [36;1mecho "Note: All checks produce warnings, not errors."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2024167Z [36;1mecho "This allows gradual improvement without blocking merges."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2025001Z [36;1mecho "Fix warnings to improve code quality and performance."[0m
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2045662Z shell: /usr/bin/bash -e {0}
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2045894Z ##[endgroup]
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2082905Z === GDScript Code Quality Lint Complete ===
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2083253Z
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2083384Z Checks performed:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2083983Z   ✓ Nested loops (O(n²) complexity detection)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2084512Z   ✓ Unbounded while loops (while true detection)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2084862Z   ✓ Large functions (>50 lines)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2085127Z   ✓ Deep nesting (>4 levels)
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2085412Z   ✓ Duplicate dictionary key lookups
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2085859Z
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2086046Z Note: All checks produce warnings, not errors.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2086583Z This allows gradual improvement without blocking merges.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2087167Z Fix warnings to improve code quality and performance.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.2165046Z Post job cleanup.
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3093909Z [command]/usr/bin/git version
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3129422Z git version 2.53.0
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3178560Z Temporarily overriding HOME='/home/runner/work/_temp/dd3935c1-3241-49f2-bae3-db6681524445' before making global git config changes
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3179550Z Adding repository directory to the temporary git global config as a safe directory
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3184006Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/godot-topdown-MVP/godot-topdown-MVP
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3217000Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3248330Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3471838Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3492471Z http.https://github.com/.extraheader
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3504702Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3534266Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3750736Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.3780578Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.4106155Z Cleaning up orphan processes
+Check GDScript Code Quality	UNKNOWN STEP	2026-04-15T17:04:28.4405009Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

@@ -1,0 +1,13 @@
+--- scripts/autoload/unlock_manager.gd
+@@ -26,9 +26,9 @@ const UNLOCK_CONDITIONS: Dictionary = {
+ 		"active_items": []
+ 	},
+ 	"res://scenes/levels/BuildingLevel.tscn": {
+-		"min_rank": "D",
++		"min_rank": "F",
+ 		"weapons": ["shotgun"],
+-		"grenades": [1],    # GrenadeManager.GrenadeType.FRAG = 1 (Issue #1000 req.1)
++		"grenades": [1, 3],    # GrenadeManager.GrenadeType.FRAG = 1, GrenadeManager.GrenadeType.AGGRESSION_GAS = 3 (offensive grenade) (Issue #1000 req.1, Issue #1826)
+ 		"active_items": []
+ 	},
+ 	"res://scenes/levels/BuildingLevel.tscn:S": {

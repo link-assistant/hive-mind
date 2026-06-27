@@ -1,0 +1,14 @@
+[
+  {
+    "sha": "67f94e9ca695411513c35c45fee96ae4869ff715",
+    "filename": "scripts/autoload/unlock_manager.gd",
+    "status": "modified",
+    "additions": 2,
+    "deletions": 2,
+    "changes": 4,
+    "blob_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/blob/dd5c998953f67e83c6cc3ce23f4b390a121bbe7c/scripts%2Fautoload%2Funlock_manager.gd",
+    "raw_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/raw/dd5c998953f67e83c6cc3ce23f4b390a121bbe7c/scripts%2Fautoload%2Funlock_manager.gd",
+    "contents_url": "https://api.github.com/repos/Jhon-Crow/godot-topdown-MVP/contents/scripts%2Fautoload%2Funlock_manager.gd?ref=dd5c998953f67e83c6cc3ce23f4b390a121bbe7c",
+    "patch": "@@ -26,9 +26,9 @@ const UNLOCK_CONDITIONS: Dictionary = {\n \t\t\"active_items\": []\n \t},\n \t\"res://scenes/levels/BuildingLevel.tscn\": {\n-\t\t\"min_rank\": \"D\",\n+\t\t\"min_rank\": \"F\",\n \t\t\"weapons\": [\"shotgun\"],\n-\t\t\"grenades\": [1],    # GrenadeManager.GrenadeType.FRAG = 1 (Issue #1000 req.1)\n+\t\t\"grenades\": [1, 3],    # GrenadeManager.GrenadeType.FRAG = 1, GrenadeManager.GrenadeType.AGGRESSION_GAS = 3 (offensive grenade) (Issue #1000 req.1, Issue #1826)\n \t\t\"active_items\": []\n \t},\n \t\"res://scenes/levels/BuildingLevel.tscn:S\": {"
+  }
+]

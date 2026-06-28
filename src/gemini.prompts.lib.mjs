@@ -8,6 +8,7 @@ import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
+import { buildDevelopmentLogPrompt } from './development-log.lib.mjs';
 
 /**
  * Build the user prompt for Gemini
@@ -155,7 +156,7 @@ Initial research.
       2. PR conversation comments (general discussion): gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate
       3. PR reviews (approve/request changes): gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate
       Note: The command "gh pr view --json comments" only returns conversation comments and misses review comments.
-   - When you need the latest comments on the issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.
+   - When you need the latest comments on the issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.${buildDevelopmentLogPrompt({ argv, issueNumber, prNumber })}
 
 Solution development and testing.
    - When issue is solvable, first create a test that reproduces the problem, then implement the fix.

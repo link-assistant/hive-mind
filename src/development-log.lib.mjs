@@ -1,0 +1,236 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+const sanitizePathSegment = (value, fallback) => {
+  const raw = value === null || value === undefined || value === '' ? fallback : String(value);
+  const sanitized = raw.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+  return sanitized || fallback;
+};
+
+const stripDotSlash = value => value.replace(/^\.\//, '');
+const toPosixPath = value => value.split(path.sep).join('/');
+const addDotSlash = value => (value.startsWith('./') ? value : `./${value}`);
+
+const safeFileName = value => sanitizePathSegment(value, 'session');
+
+export const buildDevelopmentLogDirectory = ({ issueNumber, prNumber }) => {
+  const issueSegment = sanitizePathSegment(issueNumber, 'unknown');
+  const prSegment = sanitizePathSegment(prNumber, 'pending');
+  return `./dev/log/issues/${issueSegment}/pulls/${prSegment}`;
+};
+
+export const buildCaseStudyDirectory = ({ issueNumber }) => {
+  const issueSegment = sanitizePathSegment(issueNumber, 'unknown');
+  return `./docs/case-studies/issue-${issueSegment}`;
+};
+
+export const buildDevelopmentLogPrompt = ({ argv, issueNumber, prNumber }) => {
+  if (!(argv?.developmentLog || argv?.['development-log'])) return '';
+
+  const developmentLogDirectory = buildDevelopmentLogDirectory({ issueNumber, prNumber });
+  const caseStudyDirectory = buildCaseStudyDirectory({ issueNumber });
+
+  return `
+Development log.
+   - Bug issues: Download all logs and collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.
+   - Feature, task, and unspecified issues: Collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.
+   - Keep available tool session files for this run in ${developmentLogDirectory}/sessions/ (Claude, Codex, and equivalent files for other tools when possible).
+   - Commit the collected development-log files before finishing.
+   - Also create or update ${caseStudyDirectory}/ with requirements, issue data, timeline, analysis, root cause or design rationale, online/source research, known related tools/libraries, and proposed solution plans.
+`;
+};
+
+const fileExists = async filePath => {
+  try {
+    const stat = await fs.stat(filePath);
+    return stat.isFile();
+  } catch {
+    return false;
+  }
+};
+
+const copyIfExists = async ({ sourcePath, destinationPath }) => {
+  if (!(await fileExists(sourcePath))) return false;
+  await fs.copyFile(sourcePath, destinationPath);
+  return true;
+};
+
+const getClaudeSessionFile = ({ repositoryPath, sessionId, homeDir }) => {
+  if (!repositoryPath || !sessionId || !homeDir) return null;
+  const projectDirName = repositoryPath.replace(/\//g, '-');
+  return path.join(homeDir, '.claude', 'projects', projectDirName, `${sessionId}.jsonl`);
+};
+
+const copyKnownSessionFiles = async ({ repositoryPath, relativeDirectory, logFile, sessionId, tool, homeDir }) => {
+  if (!sessionId) return [];
+
+  const sessionsDirectory = path.join(repositoryPath, relativeDirectory, 'sessions');
+  const candidates = [];
+  const logDirectory = logFile ? path.dirname(logFile) : null;
+
+  if (logDirectory) {
+    candidates.push({
+      sourcePath: path.join(logDirectory, `${sessionId}.log`),
+      destinationName: `${tool || 'tool'}-${sessionId}.log`,
+    });
+  }
+
+  if (tool === 'claude') {
+    const claudeSessionFile = getClaudeSessionFile({ repositoryPath, sessionId, homeDir });
+    if (claudeSessionFile) {
+      candidates.push({
+        sourcePath: claudeSessionFile,
+        destinationName: `claude-${sessionId}.jsonl`,
+      });
+    }
+  }
+
+  const copied = [];
+  const seenSources = new Set();
+  for (const candidate of candidates) {
+    if (!candidate.sourcePath || seenSources.has(candidate.sourcePath)) continue;
+    seenSources.add(candidate.sourcePath);
+
+    const relativePath = `${relativeDirectory}/sessions/${safeFileName(candidate.destinationName)}`;
+    const copiedPath = path.join(sessionsDirectory, safeFileName(candidate.destinationName));
+    if (await copyIfExists({ sourcePath: candidate.sourcePath, destinationPath: copiedPath })) {
+      copied.push(addDotSlash(toPosixPath(relativePath)));
+    }
+  }
+
+  return copied;
+};
+
+export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, issueNumber, prNumber, tool, sessionId, branchName, rawCommand, now = new Date(), homeDir = os.homedir() }) => {
+  if (!repositoryPath) {
+    throw new Error('repositoryPath is required to write development-log artifacts');
+  }
+
+  const developmentLogDirectory = buildDevelopmentLogDirectory({ issueNumber, prNumber });
+  const caseStudyDirectory = buildCaseStudyDirectory({ issueNumber });
+  const relativeDirectory = stripDotSlash(developmentLogDirectory);
+  const absoluteDirectory = path.join(repositoryPath, relativeDirectory);
+  const sessionsDirectory = path.join(absoluteDirectory, 'sessions');
+  const timestamp = now.toISOString().replace(/[:.]/g, '-');
+
+  await fs.mkdir(sessionsDirectory, { recursive: true });
+
+  let copiedLogRelativePath = null;
+  if (logFile) {
+    copiedLogRelativePath = `${relativeDirectory}/sessions/solve-${timestamp}.log`;
+    await fs.copyFile(logFile, path.join(repositoryPath, copiedLogRelativePath));
+  }
+
+  const sessionFiles = await copyKnownSessionFiles({
+    repositoryPath,
+    relativeDirectory,
+    logFile,
+    sessionId,
+    tool,
+    homeDir,
+  });
+
+  const metadataRelativePath = `${relativeDirectory}/metadata.json`;
+  const metadata = {
+    schemaVersion: 1,
+    collectedAt: now.toISOString(),
+    issueNumber: issueNumber ?? null,
+    prNumber: prNumber ?? null,
+    branchName: branchName || null,
+    tool: tool || null,
+    sessionId: sessionId || null,
+    rawCommand: rawCommand || null,
+    developmentLogDirectory,
+    caseStudyDirectory,
+    artifacts: {
+      solveLog: copiedLogRelativePath ? addDotSlash(toPosixPath(copiedLogRelativePath)) : null,
+      sessionFiles,
+    },
+  };
+
+  await fs.writeFile(path.join(repositoryPath, metadataRelativePath), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
+
+  return {
+    developmentLogDirectory,
+    caseStudyDirectory,
+    relativeDirectory,
+    copiedLogRelativePath: copiedLogRelativePath ? toPosixPath(copiedLogRelativePath) : null,
+    metadataRelativePath: toPosixPath(metadataRelativePath),
+    sessionFiles,
+  };
+};
+
+const getCommandOutput = result => (result?.stderr?.toString?.() || result?.stdout?.toString?.() || '').trim();
+
+export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, repositoryPath, logFile, issueNumber, prNumber, tool, sessionId, branchName, rawCommand, $, log }) => {
+  if (!enabled) {
+    return { skipped: 'disabled' };
+  }
+
+  if (!repositoryPath) {
+    await log?.('⚠️  Development log requested but no repository path is available', { level: 'warning' });
+    return { skipped: 'missing-repository-path' };
+  }
+
+  try {
+    const artifacts = await writeDevelopmentLogArtifacts({
+      repositoryPath,
+      logFile,
+      issueNumber,
+      prNumber,
+      tool,
+      sessionId,
+      branchName,
+      rawCommand,
+    });
+
+    await log?.(`🧾 Development log artifacts written to ${artifacts.developmentLogDirectory}`);
+
+    if (!$) {
+      return { ...artifacts, committed: false, pushed: false };
+    }
+
+    const addResult = await $({ cwd: repositoryPath })`git add -f -- ${artifacts.relativeDirectory}`;
+    if (addResult.code !== 0) {
+      await log?.(`⚠️  Could not stage development log: ${getCommandOutput(addResult)}`, { level: 'warning' });
+      return { ...artifacts, committed: false, pushed: false };
+    }
+
+    const diffResult = await $({ cwd: repositoryPath })`git diff --cached --quiet -- ${artifacts.relativeDirectory}`;
+    if (diffResult.code === 0) {
+      await log?.('ℹ️  Development log artifacts already committed');
+      return { ...artifacts, committed: false, pushed: false };
+    }
+    if (diffResult.code !== 1) {
+      await log?.(`⚠️  Could not inspect staged development log changes: ${getCommandOutput(diffResult)}`, { level: 'warning' });
+      return { ...artifacts, committed: false, pushed: false };
+    }
+
+    const commitMessage = prNumber ? `Add development log for issue #${issueNumber} PR #${prNumber}` : `Add development log for issue #${issueNumber}`;
+    const commitResult = await $({ cwd: repositoryPath })`git commit -m ${commitMessage}`;
+    if (commitResult.code !== 0) {
+      await log?.(`⚠️  Could not commit development log: ${getCommandOutput(commitResult)}`, { level: 'warning' });
+      return { ...artifacts, committed: false, pushed: false };
+    }
+
+    await log?.('✅ Development log committed');
+
+    if (!branchName) {
+      await log?.('ℹ️  Development log committed locally; no branch name available for push');
+      return { ...artifacts, committed: true, pushed: false };
+    }
+
+    const pushResult = await $({ cwd: repositoryPath })`git push origin ${branchName}`;
+    if (pushResult.code !== 0) {
+      await log?.(`⚠️  Could not push development log commit: ${getCommandOutput(pushResult)}`, { level: 'warning' });
+      return { ...artifacts, committed: true, pushed: false };
+    }
+
+    await log?.('✅ Development log pushed');
+    return { ...artifacts, committed: true, pushed: true };
+  } catch (error) {
+    await log?.(`⚠️  Development log collection failed: ${error.message}`, { level: 'warning' });
+    return { skipped: 'error', error };
+  }
+};

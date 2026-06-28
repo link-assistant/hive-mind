@@ -207,6 +207,7 @@ const KNOWN_OPTION_NAMES = [
   'prompt-issue-reporting',
   'prompt-architecture-care',
   'prompt-case-studies',
+  'development-log',
   'use-handoff',
   'prompt-playwright-mcp',
   'prompt-check-sibling-pull-requests',

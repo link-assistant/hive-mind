@@ -61,6 +61,7 @@ const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.dis
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
 const { attachFinalLogIfMissing } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952
+const { collectAndCommitDevelopmentLogArtifacts } = await import('./development-log.lib.mjs');
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's
 // own usage-limit notifications (so they're excluded from the
 // "did the AI post anything?" check in --auto-attach-solution-summary).
@@ -1449,6 +1450,9 @@ try {
 
   // Issue #1516: Cleanup after all signals (was before verifyResults, caused premature commits)
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
+
+  // prettier-ignore
+  await collectAndCommitDevelopmentLogArtifacts({ enabled: argv.developmentLog === true || argv['development-log'] === true, repositoryPath: tempDir, logFile: getLogFile(), issueNumber, prNumber, tool: argv.tool || 'claude', sessionId, branchName, rawCommand, $, log });
 
   // End work session using the new module
   await endWorkSession({

@@ -10,6 +10,7 @@ import { primaryModelNames } from './models/index.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
+import { buildDevelopmentLogPrompt } from './development-log.lib.mjs';
 
 /**
  * Build the user prompt for Claude
@@ -202,7 +203,7 @@ Initial research.
        ? `
    - When working on this issue, create a comprehensive case study in the ./docs/case-studies/issue-${issueNumber}/ directory. Download all logs and data related to the issue to the repository. Perform deep case study analysis by searching online for additional facts and data, reconstructing the timeline/sequence of events, identifying root causes of the problem, and proposing possible solutions. Include files like README.md (executive summary, problem statement, timeline, root cause), TECHNICAL_SUMMARY.md (deep technical analysis), ANALYSIS.md (detailed investigation findings), improvements.md (proposed solutions), and supporting logs/data files.`
        : ''
-   }
+   }${buildDevelopmentLogPrompt({ argv, issueNumber, prNumber })}
 
 Solution development and testing.
    - When issue is solvable, first create a test that reproduces the problem, then implement the fix.

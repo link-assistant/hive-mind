@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 
 /**
  * Build a clickable, human-readable link to a queued issue/PR for the
- * /solve_queue (/queue) detailed status (issue #1837).
+ * /queue detailed status (issue #1837).
  *
  * For GitHub issue/PR URLs we render a compact `[owner/repo#number](url)`
  * Markdown link so the list is scannable and clickable. When the label would
@@ -269,7 +269,7 @@ export async function getRunningSessionItems(verbose = false) {
     return await impl(verbose);
   } catch (error) {
     if (verbose) {
-      console.error('[VERBOSE] /solve_queue error getting running session items:', error.message);
+      console.error('[VERBOSE] /queue error getting running session items:', error.message);
     }
     return [];
   }
@@ -300,9 +300,9 @@ export async function getRunningProcesses(processName, verbose = false) {
       .filter(p => p.pid);
 
     if (verbose) {
-      console.log(`[VERBOSE] /solve_queue found ${processes.length} running ${processName} processes`);
+      console.log(`[VERBOSE] /queue found ${processes.length} running ${processName} processes`);
       if (processes.length > 0) {
-        console.log(`[VERBOSE] /solve_queue processes: ${JSON.stringify(processes)}`);
+        console.log(`[VERBOSE] /queue processes: ${JSON.stringify(processes)}`);
       }
     }
 
@@ -312,7 +312,7 @@ export async function getRunningProcesses(processName, verbose = false) {
     };
   } catch (error) {
     if (verbose) {
-      console.error(`[VERBOSE] /solve_queue error counting ${processName} processes:`, error.message);
+      console.error(`[VERBOSE] /queue error counting ${processName} processes:`, error.message);
     }
     return { count: 0, processes: [] };
   }

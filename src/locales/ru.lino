@@ -355,7 +355,7 @@ ru
       queue
         only
           in
-            groups "❌ Команда /solve_queue работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
+            groups "❌ Команда /queue работает только в групповых чатах. Добавьте бота в группу и сделайте его администратором."
       disabled "❌ Команда solve отключена в этом экземпляре бота."
       rejected """
         ❌ Команда solve отклонена.
@@ -413,7 +413,7 @@ ru
           URL: {{url}}
           Статус: {{status}}
 
-          💡 Используйте /solve_queue для проверки очереди.
+          💡 Используйте /queue для проверки очереди.
         """
       session
         running """
@@ -422,7 +422,7 @@ ru
           URL: {{url}}
           Сеанс: `{{session}}`
 
-          💡 Дождитесь завершения текущего сеанса или используйте /solve\_stop для отмены.
+          💡 Дождитесь завершения текущего сеанса или используйте /stop для отмены.
         """
       issues
         list
@@ -515,7 +515,7 @@ ru
           detail "Алиасы инструментов добавляют `--tool <tool>`: `/codex <github-url>` равно `/solve <github-url> --tool codex`"
         reply "Или ответьте на сообщение со ссылкой GitHub: `/solve`"
         disabled "*/solve* (алиасы: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Отключено"
-        queue "`/solve_queue` (псевдоним: `/queue`) - Показать состояние очереди solve"
+        queue "`/queue` - Показать состояние очереди solve"
       locked
         options "🔒 Заблокированные опции: `{{options}}`"
       task
@@ -553,7 +553,7 @@ ru
       isolation
         mode "🔒 *Режим изоляции:* `{{isolationBackend}}` (экспериментально)"
       group
-        note "⚠️ *Замечание:* команды /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop и /start работают только в групповых чатах. /terminal\\_watch, /watch, /subscribe и /unsubscribe работают в личных и групповых чатах."
+        note "⚠️ *Замечание:* команды /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop и /start работают только в групповых чатах. /terminal\\_watch, /watch, /subscribe и /unsubscribe работают в личных и групповых чатах."
       common
         options "🔧 *Общие опции:*"
       model

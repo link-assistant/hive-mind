@@ -71,12 +71,27 @@ function fakeTimers() {
   const logger = captureLogger();
   const timers = fakeTimers();
   const proc = { uptime: () => 42 };
-  const hb = createHeartbeat({ logger, getActiveSessionCount: () => 3, intervalMs: 1000, processImpl: proc, setIntervalImpl: timers.setInterval, clearIntervalImpl: timers.clearInterval });
+  const hb = createHeartbeat({
+    logger,
+    getActiveSessionCount: () => 3,
+    intervalMs: 1000,
+    processImpl: proc,
+    setIntervalImpl: timers.setInterval,
+    clearIntervalImpl: timers.clearInterval,
+    captureResources: () => ({
+      phase: 'bot_heartbeat',
+      timestamp: '2026-06-29T18:00:00.000Z',
+      cpu: { load1: 1, load5: 0.5, load15: 0.25, cpuCount: 4 },
+      memory: { totalBytes: 16, availableBytes: 8, usedBytes: 8, processRssBytes: 4 },
+      disk: { path: '/', totalBytes: 100, availableBytes: 75, usedBytes: 25, usedPercent: 25, error: null },
+    }),
+  });
 
   assert(hb.timer === null, 'heartbeat starts with no timer');
   hb.start();
   assert(logger.heartbeats.length === 1, 'start() writes an immediate beat (no waiting a full interval)');
   assert(logger.heartbeats[0].activeSessions === 3 && logger.heartbeats[0].uptimeSec === 42, 'beat carries active session count and integer uptime');
+  assert(logger.heartbeats[0].resources.disk.usedBytes === 25, 'beat carries a structured resource snapshot for outside-container logs');
   assert(hb.timer && timers.active.size === 1, 'start() registers exactly one interval');
   assert(hb.timer.unrefCalled === true, "the interval is unref'd so it never keeps the process alive on its own");
   assert(hb.timer.ms === 1000, 'the configured interval is used');
@@ -111,6 +126,26 @@ function fakeTimers() {
     threw = true;
   }
   assert(threw === false, 'a heartbeat logging failure is swallowed (never crashes the bot)');
+}
+
+// A resource probe failure must not suppress the heartbeat itself.
+{
+  const logger = captureLogger();
+  const timers = fakeTimers();
+  const proc = { uptime: () => 9 };
+  const hb = createHeartbeat({
+    logger,
+    getActiveSessionCount: () => 1,
+    processImpl: proc,
+    setIntervalImpl: timers.setInterval,
+    clearIntervalImpl: timers.clearInterval,
+    captureResources: () => {
+      throw new Error('statfs failed');
+    },
+  });
+  hb.start();
+  assert(logger.heartbeats.length === 1, 'a failed resource probe still writes a heartbeat');
+  assert(logger.heartbeats[0].resources === null, 'failed resource probe is recorded as null resources');
 }
 
 // =============================================================================

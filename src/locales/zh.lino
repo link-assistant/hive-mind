@@ -355,7 +355,7 @@ zh
       queue
         only
           in
-            groups "❌ /solve_queue 命令仅在群聊中有效。请将本机器人加入群组并设为管理员。"
+            groups "❌ /queue 命令仅在群聊中有效。请将本机器人加入群组并设为管理员。"
       disabled "❌ 此机器人实例已禁用 solve 命令。"
       rejected """
         ❌ Solve 命令被拒绝。
@@ -413,7 +413,7 @@ zh
           URL：{{url}}
           状态：{{status}}
 
-          💡 使用 /solve_queue 查看队列状态。
+          💡 使用 /queue 查看队列状态。
         """
       session
         running """
@@ -422,7 +422,7 @@ zh
           URL：{{url}}
           会话：`{{session}}`
 
-          💡 等待当前会话完成，或使用 /solve\_stop 取消。
+          💡 等待当前会话完成，或使用 /stop 取消。
         """
       issues
         list
@@ -515,7 +515,7 @@ zh
           detail "工具别名会添加 `--tool <tool>`：`/codex <github-url>` 等同于 `/solve <github-url> --tool codex`"
         reply "也可以回复包含 GitHub 链接的消息：`/solve`"
         disabled "*/solve*（别名：*/do*、*/continue*、*/claude*、*/codex*、*/opencode*、*/agent*、*/gemini*、*/qwen*）- ❌ 已禁用"
-        queue "`/solve_queue`（别名：`/queue`）- 显示 solve 队列状态"
+        queue "`/queue` - 显示 solve 队列状态"
       locked
         options "🔒 锁定选项：`{{options}}`"
       task
@@ -553,7 +553,7 @@ zh
       isolation
         mode "🔒 *隔离模式：* `{{isolationBackend}}`（实验性）"
       group
-        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/hive、/solve\\_queue、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
+        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/hive、/queue、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
       common
         options "🔧 *常用选项：*"
       model

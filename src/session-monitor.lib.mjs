@@ -1274,7 +1274,7 @@ export async function getRunningTrackedIsolationSessions(verbose = false, option
 
 /**
  * Return the currently-executing tracked sessions with the details needed to
- * render them as a clickable list in `/solve_queue` (`/queue`): the issue/PR
+ * render them as a clickable list in `/queue`: the issue/PR
  * `url`, the `tool`, the start time, and (for isolation sessions) the backend
  * status. Both isolation and non-isolation screen sessions are included so the
  * list matches what is actually executing — the queue's own in-memory

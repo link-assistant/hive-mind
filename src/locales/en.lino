@@ -355,7 +355,7 @@ en
       queue
         only
           in
-            groups "❌ The /solve_queue command only works in group chats. Please add this bot to a group and make it an admin."
+            groups "❌ The /queue command only works in group chats. Please add this bot to a group and make it an admin."
       disabled "❌ The solve command is disabled on this bot instance."
       rejected """
         ❌ Solve command rejected.
@@ -413,7 +413,7 @@ en
           URL: {{url}}
           Status: {{status}}
 
-          💡 Use /solve_queue to check the queue status.
+          💡 Use /queue to check the queue status.
         """
       session
         running """
@@ -422,7 +422,7 @@ en
           URL: {{url}}
           Session: `{{session}}`
 
-          💡 Wait for the current session to complete, or use /solve\_stop to cancel it.
+          💡 Wait for the current session to complete, or use /stop to cancel it.
         """
       issues
         list
@@ -515,7 +515,7 @@ en
           detail "Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`"
         reply "Or reply to a message with a GitHub link: `/solve`"
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Disabled"
-        queue "`/solve_queue` (alias: `/queue`) - Show solve queue status"
+        queue "`/queue` - Show solve queue status"
       locked
         options "🔒 Locked options: `{{options}}`"
       task
@@ -553,7 +553,7 @@ en
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
+        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
       common
         options "🔧 *Common Options:*"
       model

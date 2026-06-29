@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Tests for issue #1837: list executing tasks in /solve_queue (/queue) status.
+ * Tests for issue #1837: list executing tasks in /queue status.
  *
  * The detailed status previously showed only a processing count but never
  * listed the tasks themselves, because the count was derived from external

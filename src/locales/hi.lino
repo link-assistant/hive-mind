@@ -355,7 +355,7 @@ hi
       queue
         only
           in
-            groups "❌ /solve_queue कमांड केवल समूह चैट में काम करती है। कृपया बॉट को समूह में जोड़ें और व्यवस्थापक बनाएँ।"
+            groups "❌ /queue कमांड केवल समूह चैट में काम करती है। कृपया बॉट को समूह में जोड़ें और व्यवस्थापक बनाएँ।"
       disabled "❌ इस बॉट इंस्टेंस पर solve कमांड अक्षम है।"
       rejected """
         ❌ Solve कमांड अस्वीकृत।
@@ -413,7 +413,7 @@ hi
           URL: {{url}}
           स्थिति: {{status}}
 
-          💡 कतार स्थिति देखने के लिए /solve_queue का उपयोग करें।
+          💡 कतार स्थिति देखने के लिए /queue का उपयोग करें।
         """
       session
         running """
@@ -422,7 +422,7 @@ hi
           URL: {{url}}
           सत्र: `{{session}}`
 
-          💡 वर्तमान सत्र के पूरा होने की प्रतीक्षा करें, या रद्द करने के लिए /solve\_stop का उपयोग करें।
+          💡 वर्तमान सत्र के पूरा होने की प्रतीक्षा करें, या रद्द करने के लिए /stop का उपयोग करें।
         """
       issues
         list
@@ -515,7 +515,7 @@ hi
           detail "Tool aliases `--tool <tool>` लगाते हैं: `/codex <github-url>` का अर्थ `/solve <github-url> --tool codex` है"
         reply "या GitHub लिंक वाले संदेश का उत्तर दें: `/solve`"
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ अक्षम"
-        queue "`/solve_queue` (उपनाम: `/queue`) - solve queue status दिखाएँ"
+        queue "`/queue` - solve queue status दिखाएँ"
       locked
         options "🔒 लॉक किए गए विकल्प: `{{options}}`"
       task
@@ -553,7 +553,7 @@ hi
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
+        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
       common
         options "🔧 *Common Options:*"
       model

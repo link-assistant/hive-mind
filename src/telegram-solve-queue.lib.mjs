@@ -250,7 +250,7 @@ export class SolveQueue {
    */
   log(message) {
     if (this.verbose) {
-      console.log(`[VERBOSE] /solve_queue: ${message}`);
+      console.log(`[VERBOSE] /queue: ${message}`);
     }
   }
 
@@ -1469,7 +1469,7 @@ export async function getRunningIsolatedSessions(verbose = false) {
     return await getRunningTrackedIsolationSessions(verbose);
   } catch (error) {
     if (verbose) {
-      console.error(`[VERBOSE] /solve_queue error getting isolated sessions:`, error.message);
+      console.error(`[VERBOSE] /queue error getting isolated sessions:`, error.message);
     }
     return { count: 0, sessions: [], byTool: {} };
   }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Tests for issue #1891: reduce duplication in the /queue (/solve_queue) detailed
+ * Tests for issue #1891: reduce duplication in the /queue detailed
  * display.
  *
  * The old format repeated "(processing, time)" / "(waiting, time)" on every line

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.0.28
+
+### Patch Changes
+
+- 5b4f3df: Recommend and accept `/queue` instead of the legacy solve-prefixed queue commands, and recommend `/stop` for cancelling running sessions.
+
 ## 2.0.27
 
 ### Patch Changes

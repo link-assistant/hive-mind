@@ -103,6 +103,22 @@ const getClaudeSessionFile = ({ repositoryPath, sessionId, homeDir }) => {
   return path.join(homeDir, '.claude', 'projects', projectDirName, `${sessionId}.jsonl`);
 };
 
+// Codex CLI stores its transcript ("rollout") under
+// ~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<sessionId>.jsonl. The date
+// path and timestamp are not derivable from the sessionId, so locate the file
+// by recursively matching the sessionId suffix instead.
+const findCodexSessionFile = async ({ sessionId, homeDir }) => {
+  if (!sessionId || !homeDir) return null;
+  const sessionsRoot = path.join(homeDir, '.codex', 'sessions');
+  try {
+    const entries = await fs.readdir(sessionsRoot, { recursive: true });
+    const match = entries.find(entry => typeof entry === 'string' && entry.includes('rollout-') && entry.endsWith(`-${sessionId}.jsonl`));
+    return match ? path.join(sessionsRoot, match) : null;
+  } catch {
+    return null;
+  }
+};
+
 const copyKnownSessionFiles = async ({ repositoryPath, relativeDirectory, logFile, sessionId, tool, homeDir }) => {
   if (!sessionId) return [];
 
@@ -123,6 +139,16 @@ const copyKnownSessionFiles = async ({ repositoryPath, relativeDirectory, logFil
       candidates.push({
         sourcePath: claudeSessionFile,
         destinationName: `claude-${sessionId}.jsonl`,
+      });
+    }
+  }
+
+  if (tool === 'codex') {
+    const codexSessionFile = await findCodexSessionFile({ sessionId, homeDir });
+    if (codexSessionFile) {
+      candidates.push({
+        sourcePath: codexSessionFile,
+        destinationName: `codex-${sessionId}.jsonl`,
       });
     }
   }

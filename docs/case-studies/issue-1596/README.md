@@ -17,7 +17,7 @@ Issue 1596 asks for a solve option that makes development logs first-class revie
 ## Research
 
 - Claude Code documents resumable sessions and local transcript handling. Its session page notes JSONL transcripts under `~/.claude/projects/<project>/<session-id>.jsonl`, which matches existing hive-mind Claude token/session lookup code.
-- OpenAI Codex CLI documents resumable sessions through `codex resume` and `codex exec resume`, but public docs do not promise a stable local transcript path. The implementation therefore always preserves hive-mind's solve log and leaves room for tool-specific collectors.
+- OpenAI Codex CLI documents resumable sessions through `codex resume` and `codex exec resume`. Codex persists each session as a rollout transcript under `~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<sessionId>.jsonl`; the date path and timestamp are not derivable from the session id, so the implementation locates the file by recursively matching the `-<sessionId>.jsonl` suffix. hive-mind's own solve log is always preserved as a fallback.
 - GitHub CLI supports downloading workflow logs with `gh run view --log`, which is the correct primitive for future `--development-log` sessions that need CI evidence.
 
 References:
@@ -42,7 +42,7 @@ The prompt-only option would satisfy the visible instruction text but would not 
 1. Generate stable development-log and case-study paths from issue and PR numbers.
 2. Detect the GitHub issue type (`gh issue view --json issueType`) once per run and inject only the matching instruction line: the bug "download all logs" wording for `Bug` issues, otherwise the universal data-collection wording.
 3. Provide one prompt block reused by all supported tools.
-4. Copy the solve log and known session files into `dev/log/.../sessions/`.
+4. Copy the solve log and known tool session files into `dev/log/.../sessions/` (the Claude `~/.claude/projects/.../<sessionId>.jsonl` transcript and the Codex `~/.codex/sessions/.../rollout-*-<sessionId>.jsonl` transcript, plus the per-tool solve log for every other `--tool`).
 5. Write `metadata.json` describing the run and artifact paths.
 6. Stage, commit, and push only the development-log subtree at the end of a successful solve run.
 
@@ -57,3 +57,4 @@ The reproducer test `tests/test-development-log-option-1596.mjs` verifies:
 - All six prompt builders include the shared development-log instructions.
 - Bug issues receive the "download all logs" wording while feature/task or unspecified issues receive the universal data-collection wording, and `fetchIssueType` parses the gh CLI output while tolerating failures.
 - Artifact writing creates the requested directory, copies the solve log, and records metadata.
+- Codex rollout transcripts under `~/.codex/sessions/.../rollout-*-<sessionId>.jsonl` are discovered and copied into the development-log `sessions/` folder.

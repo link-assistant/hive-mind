@@ -132,6 +132,28 @@ try {
   assert.equal(metadata.caseStudyDirectory, './docs/case-studies/issue-1596');
   assert.equal(metadata.artifacts.solveLog, './dev/log/issues/1596/pulls/1996/sessions/solve-2026-06-28T12-00-00-000Z.log');
 
+  // Issue #1596: codex rollout transcripts are discovered under ~/.codex/sessions
+  // (rollout-<timestamp>-<sessionId>.jsonl) and copied into the development log.
+  const fakeHome = join(tempRoot, 'home');
+  const codexSessionsDir = join(fakeHome, '.codex', 'sessions', '2026', '06', '28');
+  await mkdir(codexSessionsDir, { recursive: true });
+  await writeFile(join(codexSessionsDir, 'rollout-2026-06-28T12-00-00-codex-session-123.jsonl'), '{"type":"session"}\n', 'utf8');
+  const codexResult = await writeDevelopmentLogArtifacts({
+    repositoryPath: join(tempRoot, 'codex-repo'),
+    logFile: null,
+    issueNumber: 1596,
+    prNumber: 1996,
+    tool: 'codex',
+    sessionId: 'codex-session-123',
+    branchName: 'issue-1596-17953fa6e3af',
+    rawCommand: 'solve --development-log',
+    now: new Date('2026-06-28T12:00:00.000Z'),
+    homeDir: fakeHome,
+  });
+  assert.ok(codexResult.sessionFiles.includes('./dev/log/issues/1596/pulls/1996/sessions/codex-codex-session-123.jsonl'), 'codex rollout transcript should be copied into the development log');
+  const copiedCodex = await readFile(join(tempRoot, 'codex-repo', 'dev/log/issues/1596/pulls/1996/sessions/codex-codex-session-123.jsonl'), 'utf8');
+  assert.equal(copiedCodex, '{"type":"session"}\n');
+
   const calls = [];
   const fakeGit =
     ({ cwd }) =>

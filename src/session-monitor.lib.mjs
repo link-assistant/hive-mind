@@ -193,6 +193,15 @@ function isPersistableSession(sessionInfo) {
   return Boolean(sessionInfo?.isolationBackend && sessionInfo?.sessionId);
 }
 
+function persistSessionSnapshot(sessionName, sessionInfo) {
+  if (!sessionStore || !isPersistableSession(sessionInfo)) return;
+  try {
+    sessionStore.persist(sessionName, sessionInfo);
+  } catch {
+    /* best effort — persistence must never break monitoring */
+  }
+}
+
 /**
  * Look up the in-memory record for a session id (UUID for isolation sessions
  * or the screen session name for non-isolation sessions). Returns null when no
@@ -347,7 +356,6 @@ export async function buildDiskDiagnosticsExtraSection(logPath, { verbose = fals
   if (!logPath && !Number.isFinite(containerFilesystemStartBytes) && !Number.isFinite(containerFilesystemAfterBytes)) return '';
   try {
     const diskLib = await import('./solve.disk-diagnostics.lib.mjs');
-    const resourceLib = await import('./solve.resource-diagnostics.lib.mjs');
     let logText = '';
     if (logPath) {
       try {
@@ -359,17 +367,11 @@ export async function buildDiskDiagnosticsExtraSection(logPath, { verbose = fals
       }
     }
     const parsed = diskLib.parseDiskMarkers(logText);
-    const parsedResources = resourceLib.parseResourceMarkers(logText);
-    const bestResourceMarker = resourceLib.selectBestDiskResourceMarker(parsedResources);
-    const solveStartResourceMarker = parsedResources.byPhase?.[resourceLib.RESOURCE_PHASE_SOLVE_START] || null;
-    const useResourceFallback = String(isolationBackend || '').toLowerCase() === 'docker' && !Number.isFinite(containerFilesystemAfterBytes) && Number.isFinite(bestResourceMarker?.disk?.usedBytes);
-    const effectiveContainerFilesystemAfterBytes = useResourceFallback ? bestResourceMarker.disk.usedBytes : containerFilesystemAfterBytes;
-    const effectiveContainerFilesystemStartBytes = useResourceFallback && Number.isFinite(solveStartResourceMarker?.disk?.usedBytes) ? solveStartResourceMarker.disk.usedBytes : containerFilesystemStartBytes;
-    if (!parsed.afterClone && !parsed.afterAgent && !Number.isFinite(effectiveContainerFilesystemStartBytes) && !Number.isFinite(effectiveContainerFilesystemAfterBytes)) return '';
+    if (!parsed.afterClone && !parsed.afterAgent && !Number.isFinite(containerFilesystemStartBytes) && !Number.isFinite(containerFilesystemAfterBytes)) return '';
     return diskLib.formatDiskDiagnosticsBlock(parsed, {
       isolationBackend,
-      containerFilesystemStartBytes: effectiveContainerFilesystemStartBytes,
-      containerFilesystemAfterBytes: effectiveContainerFilesystemAfterBytes,
+      containerFilesystemStartBytes,
+      containerFilesystemAfterBytes,
     });
   } catch (error) {
     if (verbose) {
@@ -397,6 +399,19 @@ async function getDockerContainerFilesystemSizeForSession(sessionName, sessionIn
     }
     return null;
   }
+}
+
+async function refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
+  const bytes = await getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose, sizeProvider });
+  if (!Number.isFinite(bytes)) return null;
+  sessionInfo.containerFilesystemLastBytes = bytes;
+  sessionInfo.containerFilesystemLastObservedAt = new Date().toISOString();
+  persistSessionSnapshot(sessionName, sessionInfo);
+  return bytes;
+}
+
+function getLastKnownDockerContainerFilesystemSize(sessionInfo) {
+  return Number.isFinite(sessionInfo?.containerFilesystemLastBytes) ? sessionInfo.containerFilesystemLastBytes : null;
 }
 
 function isSuccessfulTaskCompletion({ exitCode = null, status = null } = {}) {
@@ -664,6 +679,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
     let exitCode = null;
     let statusResult = null;
     let resolvedStatus = null;
+    let observedContainerFilesystemBytes = null;
 
     if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
       // Isolation mode: use $ --status, with screen -ls only as a fallback
@@ -689,13 +705,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
       // the log footer to learn whether it was killed.
       if (statusResult?.logPath && sessionInfo.logPath !== statusResult.logPath) {
         sessionInfo.logPath = statusResult.logPath;
-        if (sessionStore) {
-          try {
-            sessionStore.persist(sessionName, sessionInfo);
-          } catch {
-            /* best effort — persistence must never break monitoring */
-          }
-        }
+        persistSessionSnapshot(sessionName, sessionInfo);
       }
     } else {
       // Issue #1586: Non-isolation screen sessions cannot reliably detect
@@ -715,6 +725,13 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           console.log(`[VERBOSE] Non-isolation session ${sessionName}: screen -ls says ${stillRunning ? 'running' : 'not found'} (timeout in ${remainingSec}s)`);
         }
       }
+    }
+
+    if (sessionInfo?.isolationBackend === 'docker') {
+      observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
+        verbose,
+        sizeProvider: options.dockerContainerSizeProvider,
+      });
     }
 
     if (!stillRunning) {
@@ -828,10 +845,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         const diskExtraSections = [];
         try {
           const diskLogPath = statusResult?.logPath || sessionInfo?.logPath || null;
-          const containerFilesystemAfterBytes = await getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
-            verbose,
-            sizeProvider: options.dockerContainerSizeProvider,
-          });
+          const containerFilesystemAfterBytes = Number.isFinite(observedContainerFilesystemBytes) ? observedContainerFilesystemBytes : getLastKnownDockerContainerFilesystemSize(sessionInfo);
           const diskBlock = await buildDiskDiagnosticsExtraSection(diskLogPath, {
             verbose,
             readFile: options.readFile,

@@ -14,7 +14,7 @@ const sampleChangelogBody = `### Patch Changes
   - Fix disk rejection not blocking queue placement when threshold exceeded
   - Restore "used" label on progress bars when below threshold
   - Show per-queue breakdown in /limits command
-  - Group queue items by tool and use human-readable time in /solve_queue
+  - Group queue items by tool and use human-readable time in /queue
 
 - aa42f3a: fix: improve merge queue error handling and debugging (Issue #1269)
   - Always log errors (not just in verbose mode) for critical merge queue failures

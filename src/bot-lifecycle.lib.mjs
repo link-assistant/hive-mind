@@ -12,6 +12,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1927
  */
 
+import { RESOURCE_PHASE_BOT_HEARTBEAT, captureResourceSnapshot, summarizeResourceSnapshot } from './solve.resource-diagnostics.lib.mjs';
+
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 60 * 1000;
 
 /**
@@ -26,14 +28,28 @@ const DEFAULT_HEARTBEAT_INTERVAL_MS = 60 * 1000;
  *
  * @returns {{ start: () => void, stop: () => void, beat: () => void, get timer(): any }}
  */
-export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS, processImpl = process, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval } = {}) {
+export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS, processImpl = process, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, captureResources = captureResourceSnapshot, resourceDiskPath = '/' } = {}) {
   let timer = null;
 
   const beat = () => {
     try {
+      let resources = null;
+      try {
+        if (typeof captureResources === 'function') {
+          resources = summarizeResourceSnapshot(
+            captureResources({
+              phase: RESOURCE_PHASE_BOT_HEARTBEAT,
+              diskPath: resourceDiskPath,
+            })
+          );
+        }
+      } catch {
+        resources = null;
+      }
       logger.heartbeat({
         activeSessions: typeof getActiveSessionCount === 'function' ? getActiveSessionCount(false) : undefined,
         uptimeSec: Math.floor(processImpl.uptime()),
+        resources,
       });
     } catch {
       /* heartbeat must never crash the bot */

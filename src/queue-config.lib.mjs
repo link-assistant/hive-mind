@@ -282,7 +282,7 @@ export const QUEUE_CONFIG = {
 
   // Display
   // Maximum number of items shown per section (pending/processing/completed/failed)
-  // in the /solve_queue (/queue) detailed status before collapsing into a
+  // in the /queue detailed status before collapsing into a
   // "... and N more" line. Keeps the Telegram message under the 4096-char cap.
   // See: https://github.com/link-assistant/hive-mind/issues/1837
   MAX_DISPLAY_ITEMS_PER_QUEUE: parseIntWithDefault('HIVE_MIND_MAX_DISPLAY_ITEMS_PER_QUEUE', 5),

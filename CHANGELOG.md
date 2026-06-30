@@ -1,5 +1,17 @@
 # @link-assistant/hive-mind
 
+## 2.0.29
+
+### Patch Changes
+
+- 0cafc64: Add solve resource diagnostics and Docker disk-usage fallback markers so Telegram completion messages can show full container filesystem usage even when the task container cannot be inspected after exit.
+
+## 2.0.28
+
+### Patch Changes
+
+- 5b4f3df: Recommend and accept `/queue` instead of the legacy solve-prefixed queue commands, and recommend `/stop` for cancelling running sessions.
+
 ## 2.0.27
 
 ### Patch Changes

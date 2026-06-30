@@ -49,7 +49,8 @@ const { runKeepWorkingUntilDone } = await import('./solve.keep-working.lib.mjs')
 const { runEscalation } = await import('./solve.escalate.lib.mjs');
 const { finalizeSolveProcess } = await import('./solve.finalize.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
-const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
+const { initializeExitHandler, installGlobalExitHandlers, safeExit: baseSafeExit, logActiveHandles } = exitHandler;
+const { RESOURCE_PHASE_AFTER_AGENT, RESOURCE_PHASE_AFTER_CLONE, RESOURCE_PHASE_SOLVE_EXIT, RESOURCE_PHASE_SOLVE_START, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 // Issue #1823: working-session guard for --do-not-shutdown-in-the-middle-of-working-session.
 const { configureWorkingSession, beginWorkingSession, endWorkingSession } = await import('./working-session.lib.mjs');
@@ -70,9 +71,7 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions 
 const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
-// Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
-// Log version and raw command IMMEDIATELY after log file initialization
 const versionInfo = await getVersionInfo();
 await log('');
 await log(`🚀 solve v${versionInfo}`);
@@ -80,6 +79,15 @@ const rawCommand = process.argv.join(' ');
 await log('🔧 Raw command executed:');
 await log(`   ${rawCommand}`);
 await log('');
+
+let finalResourceSnapshotRecorded = false;
+const safeExit = async (code = 0, reason = 'Process completed', options = {}) => {
+  if (!finalResourceSnapshotRecorded) {
+    finalResourceSnapshotRecorded = true;
+    await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_EXIT, log, diskPath: '/', label: `solve exit ${code}` });
+  }
+  return await baseSafeExit(code, reason, options);
+};
 
 let argv;
 try {
@@ -99,6 +107,7 @@ configureGitHubRateLimitLogging({
   enabled: argv.githubRateLimitsLogging === true,
   log,
 });
+await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start' });
 
 // Early logs go to cwd; custom log dir takes effect after argv is parsed
 // Conditionally import tool-specific functions after argv is parsed
@@ -508,6 +517,7 @@ try {
   });
 
   cleanupContext.diskDiagnostics = { beforeBytes: await recordAfterCloneSize({ tempDir, log }) };
+  await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_CLONE, log, diskPath: '/', label: 'after repository clone' });
 
   // Verify default branch and status using the new module
   // Pass argv, owner, repo, issueUrl for empty repository auto-initialization (--auto-init-repository)
@@ -831,6 +841,7 @@ try {
   } catch (diskError) {
     await log(`⚠️  Disk-size measurement failed: ${cleanErrorMessage(diskError)}`, { level: 'warning', verbose: true });
   }
+  await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_AGENT, log, diskPath: '/', label: 'after AI execution' });
 
   // Issue #1823: Mark the end of the AI working session. If a graceful-shutdown interrupt arrived
   // during the session (deferred by the working-session guard), honor it now: auto-commit any

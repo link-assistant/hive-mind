@@ -343,10 +343,11 @@ async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = fal
  * build the Telegram extraSection. Returns an empty string if there is no
  * repository or docker filesystem data to show.
  */
-async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, readFile = fs.readFile, isolationBackend = null, containerFilesystemStartBytes = null, containerFilesystemAfterBytes = null } = {}) {
+export async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, readFile = fs.readFile, isolationBackend = null, containerFilesystemStartBytes = null, containerFilesystemAfterBytes = null } = {}) {
   if (!logPath && !Number.isFinite(containerFilesystemStartBytes) && !Number.isFinite(containerFilesystemAfterBytes)) return '';
   try {
     const diskLib = await import('./solve.disk-diagnostics.lib.mjs');
+    const resourceLib = await import('./solve.resource-diagnostics.lib.mjs');
     let logText = '';
     if (logPath) {
       try {
@@ -358,11 +359,17 @@ async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, read
       }
     }
     const parsed = diskLib.parseDiskMarkers(logText);
-    if (!parsed.afterClone && !parsed.afterAgent && !Number.isFinite(containerFilesystemStartBytes) && !Number.isFinite(containerFilesystemAfterBytes)) return '';
+    const parsedResources = resourceLib.parseResourceMarkers(logText);
+    const bestResourceMarker = resourceLib.selectBestDiskResourceMarker(parsedResources);
+    const solveStartResourceMarker = parsedResources.byPhase?.[resourceLib.RESOURCE_PHASE_SOLVE_START] || null;
+    const useResourceFallback = String(isolationBackend || '').toLowerCase() === 'docker' && !Number.isFinite(containerFilesystemAfterBytes) && Number.isFinite(bestResourceMarker?.disk?.usedBytes);
+    const effectiveContainerFilesystemAfterBytes = useResourceFallback ? bestResourceMarker.disk.usedBytes : containerFilesystemAfterBytes;
+    const effectiveContainerFilesystemStartBytes = useResourceFallback && Number.isFinite(solveStartResourceMarker?.disk?.usedBytes) ? solveStartResourceMarker.disk.usedBytes : containerFilesystemStartBytes;
+    if (!parsed.afterClone && !parsed.afterAgent && !Number.isFinite(effectiveContainerFilesystemStartBytes) && !Number.isFinite(effectiveContainerFilesystemAfterBytes)) return '';
     return diskLib.formatDiskDiagnosticsBlock(parsed, {
       isolationBackend,
-      containerFilesystemStartBytes,
-      containerFilesystemAfterBytes,
+      containerFilesystemStartBytes: effectiveContainerFilesystemStartBytes,
+      containerFilesystemAfterBytes: effectiveContainerFilesystemAfterBytes,
     });
   } catch (error) {
     if (verbose) {
@@ -1274,7 +1281,7 @@ export async function getRunningTrackedIsolationSessions(verbose = false, option
 
 /**
  * Return the currently-executing tracked sessions with the details needed to
- * render them as a clickable list in `/solve_queue` (`/queue`): the issue/PR
+ * render them as a clickable list in `/queue`: the issue/PR
  * `url`, the `tool`, the start time, and (for isolation sessions) the backend
  * status. Both isolation and non-isolation screen sessions are included so the
  * list matches what is actually executing — the queue's own in-memory

@@ -32,6 +32,7 @@ const fs = (await use('fs')).promises;
 const lib = await import('./lib.mjs');
 const { log, formatAligned, extractToolErrorCore } = lib;
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
+const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -176,6 +177,13 @@ export const getUncommittedChangesDetails = async tempDir => {
  */
 export const executeToolIteration = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, mergeStateStatus, feedbackLines, argv } = params;
+
+  await recordResourceSnapshot({
+    phase: RESOURCE_PHASE_RESTART_BEFORE,
+    log,
+    diskPath: '/',
+    label: 'before AI restart iteration',
+  });
 
   // Import necessary modules for tool execution
   const memoryCheck = await import('./memory-check.mjs');
@@ -462,6 +470,12 @@ export const executeToolIteration = async params => {
   }
 
   await ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
+  await recordResourceSnapshot({
+    phase: RESOURCE_PHASE_RESTART_AFTER,
+    log,
+    diskPath: '/',
+    label: 'after AI restart iteration',
+  });
   return toolResult;
 };
 

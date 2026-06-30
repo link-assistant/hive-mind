@@ -25,20 +25,61 @@ export const buildCaseStudyDirectory = ({ issueNumber }) => {
   return `./docs/case-studies/issue-${issueSegment}`;
 };
 
-export const buildDevelopmentLogPrompt = ({ argv, issueNumber, prNumber }) => {
+// Normalize a GitHub issue type (or label) into one of the buckets the
+// development-log prompt distinguishes. Bug issues get the stronger
+// "download all logs" wording; everything else (feature, task, or an
+// unspecified/unknown type) gets the universal data-collection wording.
+export const isBugIssueType = issueType => {
+  if (issueType === null || issueType === undefined) return false;
+  const normalized = String(issueType).trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized === 'bug' || normalized === 'bugs' || normalized.includes('bug') || normalized === 'defect';
+};
+
+// True when the run requested the development log via --development-log
+// (yargs exposes both the camelCase and kebab-case keys).
+export const isDevelopmentLogEnabled = argv => argv?.developmentLog === true || argv?.['development-log'] === true;
+
+export const buildDevelopmentLogPrompt = ({ argv, issueNumber, prNumber, issueType }) => {
   if (!(argv?.developmentLog || argv?.['development-log'])) return '';
 
   const developmentLogDirectory = buildDevelopmentLogDirectory({ issueNumber, prNumber });
   const caseStudyDirectory = buildCaseStudyDirectory({ issueNumber });
 
+  // Automatic support for issue types: when the issue type is "bug" the
+  // instruction asks to download all logs as well; for feature/task issues, or
+  // when no issue type is selected, the universal data-collection wording is used.
+  const resolvedIssueType = issueType ?? argv?.issueType ?? null;
+  const collectionInstruction = isBugIssueType(resolvedIssueType) ? `Download all logs and collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.` : `Collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.`;
+
   return `
 Development log.
-   - Bug issues: Download all logs and collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.
-   - Feature, task, and unspecified issues: Collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.
+   - ${collectionInstruction}
    - Keep available tool session files for this run in ${developmentLogDirectory}/sessions/ (Claude, Codex, and equivalent files for other tools when possible).
    - Commit the collected development-log files before finishing.
    - Also create or update ${caseStudyDirectory}/ with requirements, issue data, timeline, analysis, root cause or design rationale, online/source research, known related tools/libraries, and proposed solution plans.
 `;
+};
+
+// Fetch the GitHub issue type (e.g. "Bug", "Feature", "Task") for an issue.
+// Returns null when the type cannot be determined (no type selected, command
+// failure, or non-issue targets). Accepts an injectable command runner so the
+// behavior can be unit tested without hitting the network.
+export const fetchIssueType = async ({ owner, repo, issueNumber, $, log }) => {
+  if (!owner || !repo || !issueNumber || typeof $ !== 'function') return null;
+  try {
+    // eslint-disable-next-line gh-rate-limit/no-direct-gh-exec -- $ is the injected, rate-limit-safe runner (wrapDollarWithGhRetry) passed in by the caller.
+    const result = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json issueType`;
+    if (result?.code && result.code !== 0) return null;
+    const stdout = result?.stdout?.toString?.() ?? String(result?.stdout ?? '');
+    if (!stdout.trim()) return null;
+    const parsed = JSON.parse(stdout);
+    const name = parsed?.issueType?.name;
+    return name ? String(name) : null;
+  } catch (error) {
+    await log?.(`ℹ️  Could not determine issue type: ${error.message}`, { verbose: true });
+    return null;
+  }
 };
 
 const fileExists = async filePath => {

@@ -31,6 +31,7 @@ No failing CI run was reported during implementation, so no workflow logs were d
 
 - Added `src/development-log.lib.mjs` for shared path generation, prompt text, artifact writing, and git commit/push handling.
 - Added `--development-log` to `SOLVE_OPTION_DEFINITIONS`.
+- Added automatic GitHub issue-type detection (`fetchIssueType`) so the injected prompt uses the bug "download all logs" wording for `Bug` issues and the universal data-collection wording for feature/task or unspecified issues.
 - Added shared prompt guidance to Claude, Codex, Gemini, OpenCode, Qwen, and Agent prompt builders.
 - Hooked solve finalization to write and commit artifacts after final cleanup.
 - Updated `docs/CONFIGURATION.md` and added a changeset.

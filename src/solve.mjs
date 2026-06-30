@@ -21,7 +21,7 @@ const fs = (await use('fs')).promises;
 const crypto = (await use('crypto')).default;
 const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
-const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getVersionInfo, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
+const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getVersionInfo, logSolveStartup, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
@@ -62,7 +62,7 @@ const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.dis
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
 const { attachFinalLogIfMissing } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952
-const { collectAndCommitDevelopmentLogArtifacts } = await import('./development-log.lib.mjs');
+const { collectAndCommitDevelopmentLogArtifacts, fetchIssueType, isDevelopmentLogEnabled } = await import('./development-log.lib.mjs');
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's
 // own usage-limit notifications (so they're excluded from the
 // "did the AI post anything?" check in --auto-attach-solution-summary).
@@ -73,12 +73,7 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const logFile = await initializeLogFile(null);
 const versionInfo = await getVersionInfo();
-await log('');
-await log(`🚀 solve v${versionInfo}`);
-const rawCommand = process.argv.join(' ');
-await log('🔧 Raw command executed:');
-await log(`   ${rawCommand}`);
-await log('');
+const rawCommand = await logSolveStartup(versionInfo);
 
 let finalResourceSnapshotRecorded = false;
 const safeExit = async (code = 0, reason = 'Process completed', options = {}) => {
@@ -490,6 +485,8 @@ if (isPrUrl) {
 }
 // Issues #1212, #1462: Store issueNumber globally for error handlers (attach failure logs to issue when no PR exists)
 global.issueNumber = issueNumber;
+// Issue #1596: detect the issue type so the development-log prompt automatically uses bug vs feature/task wording.
+if (isDevelopmentLogEnabled(argv) && issueNumber) argv.issueType = await fetchIssueType({ owner, repo, issueNumber, $, log });
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
 cleanupContext.tempDir = tempDir;
@@ -1463,8 +1460,7 @@ try {
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
 
   // prettier-ignore
-  await collectAndCommitDevelopmentLogArtifacts({ enabled: argv.developmentLog === true || argv['development-log'] === true, repositoryPath: tempDir, logFile: getLogFile(), issueNumber, prNumber, tool: argv.tool || 'claude', sessionId, branchName, rawCommand, $, log });
-
+  await collectAndCommitDevelopmentLogArtifacts({ enabled: isDevelopmentLogEnabled(argv), repositoryPath: tempDir, logFile: getLogFile(), issueNumber, prNumber, tool: argv.tool || 'claude', sessionId, branchName, rawCommand, $, log });
   // End work session using the new module
   await endWorkSession({
     isContinueMode,

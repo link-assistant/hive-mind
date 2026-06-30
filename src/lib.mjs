@@ -937,6 +937,19 @@ export default {
   setupStdioLogInterceptor,
 };
 
+// Issue #1596: log the solve startup banner (version + raw command) and return
+// the raw command string for reuse. Extracted from solve.mjs to keep that file
+// under the 1500-line limit enforced by scripts/check-file-line-limits.sh.
+export const logSolveStartup = async versionInfo => {
+  const rawCommand = process.argv.join(' ');
+  await log('');
+  await log(`🚀 solve v${versionInfo}`);
+  await log('🔧 Raw command executed:');
+  await log(`   ${rawCommand}`);
+  await log('');
+  return rawCommand;
+};
+
 /**
  * Get version information for logging
  * @returns {Promise<string>} Version string

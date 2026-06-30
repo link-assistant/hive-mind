@@ -24,16 +24,51 @@ assert.equal(option.default, false);
 assert.ok(getSolvePassthroughOptionNames().includes('development-log'), '--development-log should pass through hive');
 
 const developmentLog = await import('../src/development-log.lib.mjs');
-const { buildDevelopmentLogDirectory, buildCaseStudyDirectory, buildDevelopmentLogPrompt, writeDevelopmentLogArtifacts, collectAndCommitDevelopmentLogArtifacts } = developmentLog;
+const { buildDevelopmentLogDirectory, buildCaseStudyDirectory, buildDevelopmentLogPrompt, writeDevelopmentLogArtifacts, collectAndCommitDevelopmentLogArtifacts, isBugIssueType, fetchIssueType } = developmentLog;
 
 assert.equal(buildDevelopmentLogDirectory({ issueNumber: 1596, prNumber: 1996 }), './dev/log/issues/1596/pulls/1996');
 assert.equal(buildDevelopmentLogDirectory({ issueNumber: 1596, prNumber: null }), './dev/log/issues/1596/pulls/pending');
 assert.equal(buildCaseStudyDirectory({ issueNumber: 1596 }), './docs/case-studies/issue-1596');
 assert.equal(buildDevelopmentLogPrompt({ argv: {}, issueNumber: 1596, prNumber: 1996 }), '');
-const developmentLogPrompt = buildDevelopmentLogPrompt({ argv: { 'development-log': true }, issueNumber: 1596, prNumber: 1996 });
-assert.ok(developmentLogPrompt.includes('./dev/log/issues/1596/pulls/1996'));
-assert.ok(developmentLogPrompt.includes('Bug issues: Download all logs and collect data related about the issue to this repository'));
-assert.ok(developmentLogPrompt.includes('Feature, task, and unspecified issues: Collect data related about the issue to this repository'));
+
+// Issue #1596: bug-type classification.
+assert.equal(isBugIssueType('Bug'), true);
+assert.equal(isBugIssueType('bug'), true);
+assert.equal(isBugIssueType('Feature'), false);
+assert.equal(isBugIssueType('Task'), false);
+assert.equal(isBugIssueType(null), false);
+assert.equal(isBugIssueType(undefined), false);
+assert.equal(isBugIssueType(''), false);
+
+// Without an issue type the universal feature/task wording is used and the bug
+// "download all logs" wording is NOT injected.
+const universalPrompt = buildDevelopmentLogPrompt({ argv: { 'development-log': true }, issueNumber: 1596, prNumber: 1996 });
+assert.ok(universalPrompt.includes('./dev/log/issues/1596/pulls/1996'));
+assert.ok(universalPrompt.includes('Collect data related about the issue to this repository'));
+assert.ok(!universalPrompt.includes('Download all logs'), 'non-bug issues should not get the bug "download all logs" wording');
+
+// A feature/task issue type also gets the universal wording.
+const featurePrompt = buildDevelopmentLogPrompt({ argv: { 'development-log': true }, issueNumber: 1596, prNumber: 1996, issueType: 'Feature' });
+assert.ok(featurePrompt.includes('Collect data related about the issue to this repository'));
+assert.ok(!featurePrompt.includes('Download all logs'));
+
+// A bug issue type gets the stronger "download all logs" wording (via explicit
+// param and via argv.issueType, which is how solve threads the detected type).
+const bugPromptParam = buildDevelopmentLogPrompt({ argv: { 'development-log': true }, issueNumber: 1596, prNumber: 1996, issueType: 'Bug' });
+assert.ok(bugPromptParam.includes('Download all logs and collect data related about the issue to this repository'));
+const bugPromptArgv = buildDevelopmentLogPrompt({ argv: { 'development-log': true, issueType: 'Bug' }, issueNumber: 1596, prNumber: 1996 });
+assert.ok(bugPromptArgv.includes('Download all logs and collect data related about the issue to this repository'));
+
+// fetchIssueType parses the gh CLI JSON output and tolerates failures.
+const fakeIssueTypeRunner = async (strings, ...values) => {
+  const command = strings.reduce((text, part, index) => `${text}${part}${values[index] ?? ''}`, '');
+  assert.ok(command.includes('gh issue view'), 'fetchIssueType should call gh issue view');
+  return { code: 0, stdout: JSON.stringify({ issueType: { name: 'Bug' } }), stderr: '' };
+};
+assert.equal(await fetchIssueType({ owner: 'link-assistant', repo: 'hive-mind', issueNumber: 1596, $: fakeIssueTypeRunner }), 'Bug');
+assert.equal(await fetchIssueType({ owner: 'link-assistant', repo: 'hive-mind', issueNumber: 1596, $: async () => ({ code: 1, stdout: '', stderr: 'boom' }) }), null);
+assert.equal(await fetchIssueType({ owner: 'link-assistant', repo: 'hive-mind', issueNumber: 1596, $: async () => ({ code: 0, stdout: JSON.stringify({ issueType: null }) }) }), null);
+assert.equal(await fetchIssueType({ owner: 'link-assistant', repo: 'hive-mind', issueNumber: 1596 }), null);
 
 const promptParams = {
   owner: 'link-assistant',

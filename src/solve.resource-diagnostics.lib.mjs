@@ -34,6 +34,110 @@ function readLinuxMemAvailableBytes(readFileSync = fs.readFileSync, platform = p
   }
 }
 
+/**
+ * Detect where the current process is running so the solve command can scope
+ * per-task disk usage to the correct context (issue #2001).
+ *
+ * When solve runs inside a Docker/container isolation backend, the per-task
+ * disk measurement must come from container-scoped signals (the cloned working
+ * tree measured with `du` inside the container, plus the host-side
+ * `docker inspect --size` writable-layer size) rather than the whole-VM
+ * filesystem reported by `statfs('/')`. This helper makes that detection
+ * explicit and observable in the solve log.
+ *
+ * It is intentionally defensive: any injected `existsSync`/`readFileSync`
+ * implementation that lacks a method or throws is treated as "signal absent"
+ * rather than propagating an error, so callers never crash on detection.
+ *
+ * @returns {{ inContainer: boolean, runtime: string|null, indicators: string[] }}
+ */
+export function detectExecutionContext(options = {}) {
+  const { existsSync = fs.existsSync, readFileSync = fs.readFileSync, env = process.env, platform = process.platform } = options;
+
+  const indicators = [];
+  let runtime = null;
+
+  const safeExists = target => {
+    try {
+      return typeof existsSync === 'function' ? existsSync(target) === true : false;
+    } catch {
+      return false;
+    }
+  };
+
+  const safeRead = target => {
+    try {
+      return typeof readFileSync === 'function' ? String(readFileSync(target, 'utf8')) : '';
+    } catch {
+      return '';
+    }
+  };
+
+  if (safeExists('/.dockerenv')) {
+    indicators.push('/.dockerenv');
+    runtime = runtime || 'docker';
+  }
+  if (safeExists('/run/.containerenv')) {
+    indicators.push('/run/.containerenv');
+    runtime = runtime || 'podman';
+  }
+
+  if (platform === 'linux') {
+    const cgroup = safeRead('/proc/1/cgroup');
+    if (cgroup) {
+      if (/\bdocker\b/.test(cgroup)) {
+        indicators.push('cgroup:docker');
+        runtime = runtime || 'docker';
+      }
+      if (/kubepods/.test(cgroup)) {
+        indicators.push('cgroup:kubepods');
+        runtime = runtime || 'kubernetes';
+      }
+      if (/libpod|podman/.test(cgroup)) {
+        indicators.push('cgroup:podman');
+        runtime = runtime || 'podman';
+      }
+      if (/containerd/.test(cgroup)) {
+        indicators.push('cgroup:containerd');
+        runtime = runtime || 'containerd';
+      }
+    }
+  }
+
+  const envObj = env && typeof env === 'object' ? env : {};
+  if (envObj.HIVE_MIND_ISOLATION || envObj.HIVE_MIND_CONTAINER) {
+    indicators.push('env:hive-mind-isolation');
+    runtime = runtime || 'container';
+  }
+  if (envObj.KUBERNETES_SERVICE_HOST) {
+    indicators.push('env:kubernetes');
+    runtime = runtime || 'kubernetes';
+  }
+
+  return {
+    inContainer: indicators.length > 0,
+    runtime,
+    indicators,
+  };
+}
+
+/**
+ * Human-readable one-liner describing the detected execution context, used to
+ * make the disk-usage scope explicit in the solve log.
+ *
+ * @param {ReturnType<typeof detectExecutionContext>} context
+ * @returns {string}
+ */
+export function formatExecutionContextForLog(context) {
+  const ctx = context || detectExecutionContext();
+  if (ctx.inContainer) {
+    const runtime = ctx.runtime || 'container';
+    const detail = ctx.indicators.length ? ` (indicators: ${ctx.indicators.join(', ')})` : '';
+    return `🧭 Execution context: ${runtime} container${detail} — per-task disk usage is scoped to this container.`;
+  }
+  return '🧭 Execution context: host (no container isolation detected) — per-task disk usage is scoped to the working tree.';
+}
+
 export function captureResourceSnapshot(options = {}) {
   const { phase = 'snapshot', diskPath = '/', now = () => new Date(), osImpl = os, fsImpl = fs, processImpl = process } = options;
 
@@ -278,9 +382,18 @@ export function formatResourceSnapshotForLog(snapshot, label = null) {
   return lines.join('\n');
 }
 
-export async function recordResourceSnapshot({ phase, log, diskPath = '/', label = null, capture = captureResourceSnapshot } = {}) {
+export async function recordResourceSnapshot({ phase, log, diskPath = '/', label = null, capture = captureResourceSnapshot, logExecutionContext = false, detectContext = detectExecutionContext } = {}) {
   if (typeof log !== 'function') return null;
   try {
+    // Issue #2001: optionally report the execution context (host vs container)
+    // so it is explicit that per-task disk usage is scoped to the container.
+    if (logExecutionContext) {
+      try {
+        await log(formatExecutionContextForLog(detectContext()));
+      } catch {
+        /* context detection is best-effort and must never block the snapshot */
+      }
+    }
     const snapshot = capture({ phase, diskPath });
     await log(formatResourceSnapshotForLog(snapshot, label));
     return snapshot;

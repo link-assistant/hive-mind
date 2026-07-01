@@ -50,7 +50,13 @@ with `docker inspect --size`.
 ## Requirements
 
 - Calculate disk usage for the executing task, not the full root Hive Mind
-  deployment/container.
+  deployment/container. Show the Docker container filesystem size **per task**,
+  at task start and stop, instead of the full filesystem of the entire virtual
+  machine.
+- The solve command must detect where it is running and only take the context of
+  the container for its per-task disk measurement.
+- The Telegram bot's `/limits` command must still show the entire system disk
+  usage (that is deployment-capacity reporting, not per-task reporting).
 - Keep the disk-usage block useful for Docker-isolated sessions.
 - Preserve the issue data and analysis under `docs/case-studies/issue-2001`.
 - Reconstruct the timeline, requirements, root cause, and solution plan.
@@ -58,6 +64,15 @@ with `docker inspect --size`.
 - Add regression coverage so the incorrect 54+ GB fallback cannot return.
 - Apply the fix consistently across the monitor, durable session state, and
   disk-diagnostics tests.
+
+### Requirement-to-implementation map
+
+| Requirement                                                            | Where it is satisfied                                                                                                                                                                                             |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Per-task Docker filesystem size at start and stop (not whole VM)       | `src/isolation-runner.lib.mjs` samples `docker inspect --size` (`.SizeRw`) at start; `src/session-monitor.lib.mjs` samples it during the run and at completion; rendered by `src/solve.disk-diagnostics.lib.mjs`. |
+| Solve detects where it is running and takes only the container context | `detectExecutionContext()` / `formatExecutionContextForLog()` in `src/solve.resource-diagnostics.lib.mjs`, logged at solve start via `recordResourceSnapshot({ logExecutionContext: true })` in `src/solve.mjs`.  |
+| `/limits` still shows entire system disk usage                         | `src/limits.lib.mjs` `getDiskSpaceInfo()` runs `df -BM .` on the host bot process — unchanged, deliberately deployment-wide.                                                                                      |
+| `statfs('/')` must never be reported as per-task Docker usage          | `src/session-monitor.lib.mjs` no longer falls back to resource-marker `statfs` values; regression-locked by `tests/test-issue-2001-docker-disk-usage.mjs`.                                                        |
 
 ## External References
 
@@ -103,6 +118,16 @@ The fix keeps two diagnostics channels separate:
 - The durable session store now persists the last Docker filesystem sample and
   observation timestamp so a bot restart does not discard the last valid
   task-scoped measurement.
+- The solve command now explicitly detects its execution context
+  (`detectExecutionContext()`) and logs a `🧭 Execution context:` line at solve
+  start. This makes it observable that per-task disk usage is scoped to the
+  container context (the cloned working tree measured with `du` inside the
+  container plus the host-side `docker inspect --size` writable layer) rather
+  than the whole host/VM filesystem reported by `statfs('/')`.
+- The Telegram `/limits` command is intentionally left unchanged: it reports the
+  entire system disk usage of the bot's deployment via `df -BM .` in
+  `src/limits.lib.mjs`. That is capacity/health reporting for the whole VM and
+  is a separate concern from per-task disk usage.
 
 No external project issue is needed. The behavior is caused by Hive Mind's
 fallback logic, not by Docker or Node.
@@ -122,10 +147,16 @@ Automated tests added or updated:
   are not accepted as the fallback.
 - `tests/test-issue-1927-session-store.mjs` verifies the new persisted last
   Docker filesystem sample fields.
+- `tests/test-issue-2001-container-context.mjs` verifies that solve detects its
+  execution context (Docker/Kubernetes/host), stays defensive against injected
+  filesystem stubs, and that `recordResourceSnapshot({ logExecutionContext })`
+  logs the context line only when requested.
 
 Relevant local checks:
 
 - `node tests/test-issue-2001-docker-disk-usage.mjs`
+- `node tests/test-issue-2001-container-context.mjs`
+- `node tests/test-issue-1999-resource-diagnostics.mjs`
 - `node tests/test-issue-1999-session-monitor-disk-fallback.mjs`
 - `node tests/test-issue-1927-session-store.mjs`
 - `node tests/test-issue-1945-session-monitor-integration.mjs`

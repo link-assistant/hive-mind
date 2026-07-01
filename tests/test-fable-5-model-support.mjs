@@ -435,17 +435,18 @@ test('opus alias still maps to claude-opus-4-8', () => {
   assert.strictEqual(validateModelName('opus', 'claude').mappedModel, 'claude-opus-4-8', 'opus should still map to claude-opus-4-8');
 });
 
-test('sonnet alias still maps to claude-sonnet-4-6', () => {
-  assert.strictEqual(validateModelName('sonnet', 'claude').mappedModel, 'claude-sonnet-4-6', 'sonnet should still map to claude-sonnet-4-6');
+test('sonnet alias now maps to claude-sonnet-5 (Issue #2003)', () => {
+  assert.strictEqual(validateModelName('sonnet', 'claude').mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
 });
 
 test('opus-4-8 fallback still resolves to opus-4-7 (unchanged)', () => {
   assert.strictEqual(resolveDefaultFallbackModel('claude', 'opus-4-8'), 'opus-4-7', 'Opus 4.8 fallback unchanged');
 });
 
-test('supportsXHighEffortLevel still false for opus-4-6 and sonnet', () => {
+test('supportsXHighEffortLevel still false for opus-4-6, but true for sonnet (now Sonnet 5, Issue #2003)', () => {
   assert.strictEqual(supportsXHighEffortLevel('opus-4-6'), false, 'Opus 4.6 should not support xhigh');
-  assert.strictEqual(supportsXHighEffortLevel('sonnet'), false, 'Sonnet should not support xhigh');
+  assert.strictEqual(supportsXHighEffortLevel('sonnet'), true, 'Sonnet 5 should support xhigh');
+  assert.strictEqual(supportsXHighEffortLevel('sonnet-4-6'), false, 'Sonnet 4.6 should not support xhigh');
 });
 
 test('getMaxOutputTokensForModel still 64000 for haiku', () => {

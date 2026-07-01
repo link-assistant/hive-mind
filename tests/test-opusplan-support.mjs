@@ -210,7 +210,7 @@ test('opus alias still works after adding opusplan', () => {
 test('sonnet alias still works after adding opusplan', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should still be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6 (Issue #1329)');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5 (Issue #2003)');
 });
 
 test('haiku alias still works after adding opusplan', () => {

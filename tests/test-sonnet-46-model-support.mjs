@@ -27,31 +27,33 @@ const test = (name, fn) => {
 };
 
 // ============================================================
-// Section 1: Sonnet 4.6 Default Model Tests (Issue #1329)
+// Section 1: Bare `sonnet` alias now points to Sonnet 5 (Issue #2003)
+// The bare `sonnet` alias was remapped from Sonnet 4.6 to Sonnet 5.
+// The explicit `sonnet-4-6` aliases below keep pointing to Sonnet 4.6.
 // ============================================================
-console.log('\n=== 1. Sonnet 4.6 Default Model Tests (Issue #1329) ===');
+console.log('\n=== 1. Bare `sonnet` alias now points to Sonnet 5 (Issue #2003) ===');
 
-test('sonnet alias maps to claude-sonnet-4-6 in CLAUDE_MODELS', () => {
-  assert.strictEqual(CLAUDE_MODELS['sonnet'], 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6');
+test('sonnet alias maps to claude-sonnet-5 in CLAUDE_MODELS', () => {
+  assert.strictEqual(CLAUDE_MODELS['sonnet'], 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
 });
 
-test('sonnet alias maps to claude-sonnet-4-6 in availableModels (claude.lib.mjs)', () => {
-  assert.strictEqual(availableModels['sonnet'], 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6');
+test('sonnet alias maps to claude-sonnet-5 in availableModels (claude.lib.mjs)', () => {
+  assert.strictEqual(availableModels['sonnet'], 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
 });
 
-test('sonnet alias maps to claude-sonnet-4-6 in claudeModels (models/index.mjs)', () => {
-  assert.strictEqual(claudeModels['sonnet'], 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6');
+test('sonnet alias maps to claude-sonnet-5 in claudeModels (models/index.mjs)', () => {
+  assert.strictEqual(claudeModels['sonnet'], 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
 });
 
-test('validateModelName accepts sonnet and maps to claude-sonnet-4-6', () => {
+test('validateModelName accepts sonnet and maps to claude-sonnet-5', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
 });
 
-test('mapModelToId maps sonnet to claude-sonnet-4-6', () => {
+test('mapModelToId maps sonnet to claude-sonnet-5', () => {
   const result = mapModelToId('sonnet');
-  assert.strictEqual(result, 'claude-sonnet-4-6', 'mapModelToId should map sonnet to claude-sonnet-4-6');
+  assert.strictEqual(result, 'claude-sonnet-5', 'mapModelToId should map sonnet to claude-sonnet-5');
 });
 
 // ============================================================
@@ -134,10 +136,10 @@ test('supports1mContext returns true for claude-sonnet-4-6', () => {
   assert.strictEqual(supports1mContext('claude-sonnet-4-6', 'claude'), true, 'claude-sonnet-4-6 should support 1M context');
 });
 
-test('validateModelName accepts sonnet[1m] and maps to claude-sonnet-4-6[1m]', () => {
+test('validateModelName accepts sonnet[1m] and maps to claude-sonnet-5[1m] (Issue #2003)', () => {
   const result = validateModelName('sonnet[1m]', 'claude');
   assert(result.valid, `sonnet[1m] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6[1m]', 'sonnet[1m] should map to claude-sonnet-4-6[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5[1m]', 'sonnet[1m] should map to claude-sonnet-5[1m]');
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
@@ -155,9 +157,9 @@ test('validateModelName accepts claude-sonnet-4-6[1m]', () => {
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
-test('mapModelToId handles sonnet[1m]', () => {
+test('mapModelToId handles sonnet[1m] (now Sonnet 5, Issue #2003)', () => {
   const result = mapModelToId('sonnet[1m]');
-  assert.strictEqual(result, 'claude-sonnet-4-6[1m]', 'mapModelToId should handle sonnet[1m]');
+  assert.strictEqual(result, 'claude-sonnet-5[1m]', 'mapModelToId should handle sonnet[1m]');
 });
 
 test('mapModelToId handles sonnet-4-6[1m]', () => {
@@ -187,8 +189,8 @@ test('mapModelToId handles sonnet-4-5[1m]', () => {
 // ============================================================
 console.log('\n=== 6. Max Output Tokens and Thinking Budget Tests ===');
 
-test('getMaxOutputTokensForModel returns default max for sonnet (Sonnet 4.6)', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('sonnet'), claudeCode.maxOutputTokens, 'Sonnet 4.6 should have default max output tokens');
+test('getMaxOutputTokensForModel returns 128K for sonnet (now Sonnet 5, Issue #2003)', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('sonnet'), claudeCode.maxOutputTokensOpus46, 'Sonnet 5 should have 128K max output tokens');
 });
 
 test('getMaxOutputTokensForModel returns default max for sonnet-4-6', () => {
@@ -237,16 +239,16 @@ test('getAvailableModelNames includes claude-sonnet-4-5 alias for backward compa
 // ============================================================
 console.log('\n=== 8. Case Insensitivity Tests ===');
 
-test('validateModelName handles SONNET (uppercase)', () => {
+test('validateModelName handles SONNET (uppercase, now Sonnet 5)', () => {
   const result = validateModelName('SONNET', 'claude');
   assert(result.valid, `SONNET should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6', 'SONNET should map to claude-sonnet-4-6');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'SONNET should map to claude-sonnet-5');
 });
 
-test('validateModelName handles SONNET[1M] (uppercase)', () => {
+test('validateModelName handles SONNET[1M] (uppercase, now Sonnet 5)', () => {
   const result = validateModelName('SONNET[1M]', 'claude');
   assert(result.valid, `SONNET[1M] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6[1m]', 'SONNET[1M] should map to claude-sonnet-4-6[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5[1m]', 'SONNET[1M] should map to claude-sonnet-5[1m]');
 });
 
 test('validateModelName handles Sonnet-4-6 (mixed case)', () => {

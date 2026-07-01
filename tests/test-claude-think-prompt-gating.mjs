@@ -49,7 +49,7 @@ const effortModels = [
   ['claude-opus-4-7', 'Opus 4.7 full ID'],
   ['opus-4-6', 'Opus 4.6 short alias'],
   ['claude-opus-4-6', 'Opus 4.6 full ID'],
-  ['sonnet', 'Sonnet alias (maps to Sonnet 4.6)'],
+  ['sonnet', 'Sonnet alias (maps to Sonnet 5)'],
   ['sonnet-4-6', 'Sonnet 4.6 short alias'],
   ['claude-sonnet-4-6', 'Sonnet 4.6 full ID'],
   ['opus-4-5', 'Opus 4.5 short alias'],

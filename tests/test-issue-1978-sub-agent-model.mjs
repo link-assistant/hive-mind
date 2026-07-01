@@ -45,12 +45,12 @@ const telegramHiveUrl = await getFirstParsedPositionalArg(telegramHiveArgs, yarg
 const telegramHiveArgv = await parseArgsWithYargs(moveArgumentToFront(telegramHiveArgs, telegramHiveUrl), yargsFactory, createHiveYargsConfig);
 assert.equal(telegramHiveArgv.subAgentModel, 'sonnet');
 
-assert.equal(validateClaudeSubAgentModelName('SONNET').mappedModel, 'claude-sonnet-4-6');
+assert.equal(validateClaudeSubAgentModelName('SONNET').mappedModel, 'claude-sonnet-5');
 assert.equal(validateClaudeSubAgentModelName('inherit').mappedModel, 'inherit');
 assert.equal(validateClaudeSubAgentModelName('claude-future-9-20990101').mappedModel, 'claude-future-9-20990101');
 assert.equal(validateClaudeSubAgentModelName('anthropic/claude-future-9').mappedModel, 'anthropic/claude-future-9');
 assert.equal(validateClaudeSubAgentModelName('not-a-model').valid, false);
-assert.equal(mapClaudeSubAgentModelToEnvValue('sonnet'), 'claude-sonnet-4-6');
+assert.equal(mapClaudeSubAgentModelToEnvValue('sonnet'), 'claude-sonnet-5');
 assert.equal(mapClaudeSubAgentModelToEnvValue('INHERIT'), 'inherit');
 assert.equal(mapClaudeSubAgentModelToEnvValue('claude-future-9-20990101'), 'claude-future-9-20990101');
 
@@ -69,7 +69,7 @@ try {
 }
 
 const claudeToolOptions = buildAgentCommanderToolOptions({ subAgentModel: 'sonnet' }, 'claude');
-assert.equal(claudeToolOptions.extraEnv.CLAUDE_CODE_SUBAGENT_MODEL, 'claude-sonnet-4-6');
+assert.equal(claudeToolOptions.extraEnv.CLAUDE_CODE_SUBAGENT_MODEL, 'claude-sonnet-5');
 
 const codexToolOptions = buildAgentCommanderToolOptions({ subAgentModel: 'claude-opus-4-8' }, 'codex');
 assert.equal(codexToolOptions.extraEnv?.CLAUDE_CODE_SUBAGENT_MODEL, undefined, 'non-Claude tools must not receive Claude sub-agent env');

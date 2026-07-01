@@ -54,7 +54,7 @@ const claudeOptions = buildAgentCommanderControllerOptions({
 
 assert.equal(claudeOptions.tool, 'claude');
 assert.equal(claudeOptions.workingDirectory, '/tmp/repo');
-assert.equal(claudeOptions.model, 'claude-sonnet-4-6');
+assert.equal(claudeOptions.model, 'claude-sonnet-5');
 assert.equal(claudeOptions.resume, 'session-123');
 assert.equal(claudeOptions.json, true);
 assert.equal(claudeOptions.toolOptions.verbose, true);

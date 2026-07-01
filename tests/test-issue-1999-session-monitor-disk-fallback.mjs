@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 /**
- * Issue #1999 regression test: Docker completion messages must still show full
- * container filesystem usage when the monitor cannot inspect the exited task
- * container at completion time.
- *
- * The fallback comes from solve-log `📈 [RESOURCES]` snapshots, which measure
- * the whole filesystem from inside the task before the container exits.
+ * Issue #1999/#2001 regression test: Docker completion messages should show
+ * Docker-native task filesystem usage when it is available, but must not use
+ * solve-log `📈 [RESOURCES]` statfs snapshots as a per-task fallback.
  *
  * Run with: node tests/test-issue-1999-session-monitor-disk-fallback.mjs
  *
@@ -65,7 +62,7 @@ function writeFakeLog(lines) {
   return file;
 }
 
-await test('docker disk block falls back to solve_exit resource usage when Docker after-size is unavailable', async () => {
+await test('docker disk block does not use solve_exit statfs usage when Docker after-size is unavailable', async () => {
   const logFile = writeFakeLog([
     buildDiskMarker({ phase: DISK_PHASE_AFTER_CLONE, bytes: 250 * 1024 ** 2, path: '/tmp/gh-issue-solver-1999' }),
     buildResourceMarker(resourceSnapshot(RESOURCE_PHASE_SOLVE_START, 52 * 1024)),
@@ -91,8 +88,8 @@ await test('docker disk block falls back to solve_exit resource usage when Docke
     assert.match(block, /On completion:\s+750 MB \(\+500 MB\)/);
     assert.match(block, /Container filesystem size:/);
     assert.match(block, /On start:\s+52 KB/);
-    assert.match(block, /On completion:\s+7\.0 GB/);
-    assert.match(block, /⚠️ Total disk usage per task exceeds 5\.0 GB/);
+    assert.doesNotMatch(block, /On completion:\s+7\.0 GB/);
+    assert.doesNotMatch(block, /⚠️ Total disk usage per task exceeds 5\.0 GB/);
   } finally {
     fs.rmSync(logFile, { force: true });
   }

@@ -106,7 +106,7 @@ configureGitHubRateLimitLogging({
   enabled: argv.githubRateLimitsLogging === true,
   log,
 });
-await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start' });
+await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start', logExecutionContext: true }); // #2001: detect+report container context
 
 // Early logs go to cwd; custom log dir takes effect after argv is parsed
 // Conditionally import tool-specific functions after argv is parsed

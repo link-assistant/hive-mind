@@ -21,6 +21,7 @@ import { execFileSync } from 'node:child_process';
 
 import { extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
 import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
+import { buildSystemCleanupPlan, estimateSystemCleanupPlan, formatSystemCleanupEstimateLine, formatSystemCleanupTotalLine } from './system-cleanup-estimates.lib.mjs';
 
 /** Run a command, returning trimmed stdout or null on any failure. */
 function tryExec(cmd, args, options = {}) {
@@ -867,7 +868,7 @@ export function removeDockerContainer(containerName) {
 
 /**
  * System / Ubuntu cleanup actions. Each is opt-in. In dry-run mode the commands
- * are only described, never executed.
+ * are estimated and described, never executed.
  *
  * @param {Object} options
  * @param {boolean} [options.apt] - apt-get clean / autoclean / autoremove
@@ -877,41 +878,40 @@ export function removeDockerContainer(containerName) {
  * @param {string} [options.journalVacuumTime='2weeks']
  * @param {boolean} [options.dryRun]
  * @param {boolean} [options.useSudo] - prefix package commands with sudo
- * @param {(msg: string) => void} [options.logFn]
- * @returns {Array<{command: string, executed: boolean, ok: boolean|null}>}
+ * @param {(msg: string) => void|Promise<void>} [options.logFn]
+ * @returns {Promise<Array<{command: string, executed: boolean, ok: boolean|null, estimatedBytes?: number|null}>>}
  */
-export function runSystemCleanup(options = {}) {
-  const { apt = false, journal = false, docker = false, npm = false, journalVacuumTime = '2weeks', dryRun = false, useSudo = false, logFn = () => {} } = options;
-
-  const plan = [];
-  const sudo = useSudo ? ['sudo'] : [];
-  if (apt) {
-    plan.push([...sudo, 'apt-get', 'clean']);
-    plan.push([...sudo, 'apt-get', 'autoclean', '-y']);
-    plan.push([...sudo, 'apt-get', 'autoremove', '-y']);
-  }
-  if (journal) {
-    plan.push([...sudo, 'journalctl', `--vacuum-time=${journalVacuumTime}`]);
-  }
-  if (docker) {
-    plan.push(['docker', 'system', 'prune', '-f']);
-  }
-  if (npm) {
-    plan.push(['npm', 'cache', 'clean', '--force']);
-  }
-
+export async function runSystemCleanup(options = {}) {
+  const { apt = false, journal = false, docker = false, npm = false, journalVacuumTime = '2weeks', dryRun = false, useSudo = false, logFn = () => {}, execFn = tryExec } = options;
+  const plan = buildSystemCleanupPlan({ apt, journal, docker, npm, journalVacuumTime, useSudo });
   const results = [];
-  for (const argv of plan) {
-    const display = argv.join(' ');
-    if (dryRun) {
-      logFn(`   [dry-run] would run: ${display}`);
-      results.push({ command: display, executed: false, ok: null });
-      continue;
+
+  if (dryRun) {
+    const estimates = estimateSystemCleanupPlan(plan, {
+      execFn,
+      journalFiles: options.journalFiles,
+      now: options.now || new Date(),
+    });
+    for (const estimate of estimates) {
+      await logFn(formatSystemCleanupEstimateLine(estimate));
+      results.push({
+        command: estimate.command,
+        executed: false,
+        ok: null,
+        estimatedBytes: estimate.estimatedBytes,
+        detail: estimate.detail,
+      });
     }
-    logFn(`   running: ${display}`);
-    const out = tryExec(argv[0], argv.slice(1), { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] });
+    await logFn(formatSystemCleanupTotalLine(estimates));
+    return results;
+  }
+
+  for (const item of plan) {
+    const display = item.argv.join(' ');
+    await logFn(`   running: ${display}`);
+    const out = execFn(item.argv[0], item.argv.slice(1), { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] });
     const ok = out !== null;
-    logFn(ok ? `   ✓ ${display}` : `   ✗ ${display} (failed or unavailable)`);
+    await logFn(ok ? `   ✓ ${display}` : `   ✗ ${display} (failed or unavailable)`);
     results.push({ command: display, executed: true, ok });
   }
   return results;

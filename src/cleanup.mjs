@@ -422,8 +422,8 @@ async function main() {
 
   // 8. System / Ubuntu cleanup (opt-in).
   if (options.apt || options.journal || options.docker || options.npm) {
-    await log('\n🧴 System cleanup:');
-    runSystemCleanup({
+    await log(options.dryRun ? '\n🧴 System cleanup (dry-run, estimated reclaim):' : '\n🧴 System cleanup:');
+    await runSystemCleanup({
       apt: options.apt,
       journal: options.journal,
       docker: options.docker,

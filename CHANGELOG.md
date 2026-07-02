@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 2.1.1
+
+### Patch Changes
+
+- 26e3410: Report estimated reclaimable space for `hive-cleanup --dry-run` system cleanup
+  commands and await system-cleanup logging so dry-run output stays in order.
+
 ## 2.1.0
 
 ### Minor Changes

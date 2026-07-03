@@ -6,7 +6,7 @@ const { defaultModels, primaryModelNames, resolveDefaultFallbackModel, resolveMo
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
 const { parseCodexExecJsonOutput, getCodexErrorEventSummary, executeCodexCommand, buildCodexResultModelUsage, calculateCodexPricingFromModelInfo } = await import('../src/codex.lib.mjs');
 const { executeOpenCodeCommand } = await import('../src/opencode.lib.mjs');
-const { executeAgentCommand } = await import('../src/agent.lib.mjs');
+const { executeAgentCommand, agentCliSupportsLiveInput, getAgentCliVersion, MIN_AGENT_LIVE_INPUT_VERSION } = await import('../src/agent.lib.mjs');
 const { classifyRetryableError } = await import('../src/tool-retry.lib.mjs');
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
 const { buildAgentBudgetStats, buildBudgetStatsString } = await import('../src/claude.budget-stats.lib.mjs');
@@ -146,6 +146,13 @@ test('Claude default fallback model resolves from opus to opus-4-7', () => {
 test('Models without configured defaults keep fallback unset', () => {
   assert.equal(resolveDefaultFallbackModel('codex', 'gpt-5.4'), null);
   assert.equal(resolveDefaultFallbackModel('agent', 'opencode/grok-code'), null);
+});
+
+test('Agent live input version guard requires Agent 0.24.1 or newer', () => {
+  assert.equal(MIN_AGENT_LIVE_INPUT_VERSION, '0.24.1');
+  assert.equal(getAgentCliVersion('@link-assistant/agent 0.24.1'), '0.24.1');
+  assert.equal(agentCliSupportsLiveInput('@link-assistant/agent 0.24.0'), false);
+  assert.equal(agentCliSupportsLiveInput('@link-assistant/agent 0.24.1'), true);
 });
 
 test('Capacity errors are classified as retryable overloads', () => {
@@ -743,6 +750,13 @@ await asyncTest('Agent resume uses --resume with --no-fork to preserve the same 
     feedbackLines: [],
     agentPath: 'agent',
     $: fakeDollar,
+    calculatePricing: async (modelId, tokenUsage) => ({
+      modelId,
+      modelName: modelId,
+      provider: 'OpenCode Zen',
+      tokenUsage,
+      totalCostUSD: 0,
+    }),
   });
 
   assert.equal(result.success, true);
@@ -750,6 +764,96 @@ await asyncTest('Agent resume uses --resume with --no-fork to preserve the same 
     commands.some(command => command.includes('agent --model opencode/grok-code --resume session-agent-1666 --no-fork')),
     `Expected --resume --no-fork command, got: ${commands.join('\n')}`
   );
+});
+
+await asyncTest('Agent live input uses stream-json stdin and parses Agent 0.24 idle events', async () => {
+  const commands = [];
+  const stdinWrites = [];
+  const fakeStdin = {
+    destroyed: false,
+    writableEnded: false,
+    closed: false,
+    write(chunk) {
+      stdinWrites.push(String(chunk));
+      return true;
+    },
+  };
+  const fakeDollar = (first, ...rest) => {
+    const run = (strings, values) => {
+      const command = renderTaggedTemplateCommand(strings, values);
+      commands.push(command);
+
+      if (command.includes('gh api')) {
+        if (command.includes('--jq')) {
+          return Promise.resolve({ code: 0, stdout: JSON.stringify({ title: 'Existing title', body: 'Existing body' }) });
+        }
+        return Promise.resolve({ code: 0, stdout: '[]' });
+      }
+
+      return {
+        streams: { stdin: Promise.resolve(fakeStdin) },
+        async *stream() {
+          yield {
+            type: 'stdout',
+            data: Buffer.from(['{"type":"init","session_id":"agent_live_2007"}', '{"type":"message","session_id":"agent_live_2007","content":[{"type":"text","text":"Done live."}]}', '{"type":"result","status":"success","session_id":"agent_live_2007"}', '{"type":"idle","session_id":"agent_live_2007"}'].join('\n')),
+          };
+          yield { type: 'exit', code: 0 };
+        },
+        result: { code: 0 },
+      };
+    };
+
+    if (Array.isArray(first) && Object.prototype.hasOwnProperty.call(first, 'raw')) {
+      return run(first, rest);
+    }
+    return (strings, ...values) => run(strings, values);
+  };
+
+  const result = await executeAgentCommand({
+    tempDir: process.cwd(),
+    branchName: 'issue-2007-test',
+    prompt: 'user prompt',
+    systemPrompt: 'system prompt',
+    owner: 'o',
+    repo: 'r',
+    issueNumber: 11,
+    prNumber: 22,
+    argv: {
+      model: 'opencode/grok-code',
+      tool: 'agent',
+      verbose: false,
+      acceptIncommingCommentsAsInput: true,
+      queueCommentsToInput: true,
+      autoInputUntilMergeable: true,
+    },
+    log: async () => {},
+    formatAligned: (icon, label, value = '') => `${icon} ${label} ${value}`,
+    getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+    forkedRepo: null,
+    feedbackLines: [],
+    agentPath: 'agent',
+    $: fakeDollar,
+    calculatePricing: async (modelId, tokenUsage) => ({
+      modelId,
+      modelName: modelId,
+      provider: 'OpenCode Zen',
+      tokenUsage,
+      totalCostUSD: 0,
+    }),
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.sessionId, 'agent_live_2007');
+  assert.equal(result.resultSummary, 'Done live.');
+  const agentCommand = commands.find(command => command.includes('agent --model opencode/grok-code'));
+  assert.ok(agentCommand, `Expected Agent command, got: ${commands.join('\n')}`);
+  assert.ok(agentCommand.includes('--input-format stream-json'), `Expected stream-json input flag, got: ${agentCommand}`);
+  assert.ok(agentCommand.includes('--output-format stream-json'), `Expected stream-json output flag, got: ${agentCommand}`);
+  assert.ok(!agentCommand.includes('cat '), `Live input should not pipe a prompt file, got: ${agentCommand}`);
+  const stdinPayload = stdinWrites.join('');
+  assert.match(stdinPayload, /"type":"user"/);
+  assert.match(stdinPayload, /system prompt/);
+  assert.match(stdinPayload, /user prompt/);
 });
 
 test('Codex result model usage uses parsed token usage in shared budget-stats shape', () => {

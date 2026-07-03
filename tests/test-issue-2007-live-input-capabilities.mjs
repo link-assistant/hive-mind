@@ -7,9 +7,9 @@
  * possible", with a universal fallback for tools that lack a live input channel.
  * The executable contract is intentionally explicit:
  *   - Live event input is AVAILABLE for every tool.
- *   - Claude uses STREAM mode: events are written into the live process via the
- *     stream-json stdin pipe.
- *   - Codex/agent/others use FALLBACK mode: the restart/resume loop waits for the
+ *   - Claude and Agent use STREAM mode: events are written into the live process
+ *     via the stream-json stdin pipe.
+ *   - Codex/others use FALLBACK mode: the restart/resume loop waits for the
  *     current turn to finish, stops the process, and resumes with the new events.
  *   - The issue-specific case study must record how to test both modes.
  *
@@ -80,8 +80,16 @@ assertIncludes(codexCapability.fallback, 'restart', 'Codex records the universal
 assertIncludes(codexCapability.futureProtocol, 'turn/steer', 'Codex capability records app-server turn/steer as the candidate protocol');
 
 const agentCapability = getLiveInputCapability('agent');
-assert(agentCapability.mode === LIVE_INPUT_MODE_FALLBACK, 'Agent uses restart/resume fallback mode');
-assertIncludes(agentCapability.agentIssue, 'link-assistant/agent', 'Agent capability links the upstream agent-repo tracking issue');
+assert(agentCapability.available === true, 'Agent live input is available');
+assert(agentCapability.mode === LIVE_INPUT_MODE_STREAM, 'Agent uses stream mode after @link-assistant/agent 0.24.1');
+assert(getLiveInputMode('agent') === LIVE_INPUT_MODE_STREAM, 'getLiveInputMode reports stream for Agent');
+assert(isLiveInputSupported('agent') === true, 'isLiveInputSupported (streaming predicate) is true for Agent');
+assert(isLiveInputAvailable('agent') === true, 'isLiveInputAvailable is true for Agent');
+assertIncludes(agentCapability.protocol, '--input-format stream-json', 'Agent capability records input stream-json protocol');
+assertIncludes(agentCapability.protocol, '--output-format stream-json', 'Agent capability records output stream-json protocol');
+assertIncludes(agentCapability.currentRunner, 'src/agent.lib.mjs', 'Agent capability records the live runner');
+assertIncludes(agentCapability.agentIssue, 'link-assistant/agent/pull/274', 'Agent capability links the upstream merged live-stream contract PR');
+assertArrayIncludes(agentCapability.events, ISSUE_2007_REQUIRED_EVENT_IDS, 'Agent capability covers all issue #2007 required events');
 
 const unknownCapability = getLiveInputCapability('new-tool');
 assert(unknownCapability.available === true, 'unknown tools are available through the fallback');
@@ -155,7 +163,27 @@ assert(claudeOk === true, 'validator enables live input for Claude');
 assert(claudeArgv.acceptIncommingCommentsAsInput === true, 'validator enables live comment streaming for Claude');
 assert(claudeArgv.queueCommentsToInput === true, 'validator defaults Claude to queue delivery mode');
 
-console.log('\n=== Issue #2007 Claude comment surfaces ===\n');
+const agentLogs = [];
+const agentArgv = {
+  autoInputUntilMergeable: true,
+  tool: 'agent',
+  bidirectionalInteractiveMode: false,
+  interactiveMode: false,
+  acceptIncommingCommentsAsInput: false,
+  excludeAllOwnIncommingCommentsFromInput: false,
+  streamCommentsToInput: false,
+  queueCommentsToInput: false,
+  autoRestartUntilMergeable: true,
+};
+const agentOk = await validateBidirectionalModeConfig(agentArgv, async msg => {
+  agentLogs.push(String(msg));
+});
+assert(agentOk === true, 'validator enables live input for Agent');
+assert(agentArgv.acceptIncommingCommentsAsInput === true, 'validator enables live comment streaming for Agent');
+assert(agentArgv.queueCommentsToInput === true, 'validator defaults Agent to queue delivery mode');
+assertIncludes(agentLogs.join('\n'), 'Agent', 'Agent validator log names Agent as the feedback target');
+
+console.log('\n=== Issue #2007 stream comment surfaces ===\n');
 
 const writtenFrames = [];
 const commands = [];
@@ -264,7 +292,8 @@ console.log('\n=== Issue #2007 help text and case study ===\n');
 
 const autoInputOption = yargsOptions['auto-input-until-mergeable'];
 assert(autoInputOption.default === false, '--auto-input-until-mergeable remains opt-in');
-assertIncludes(autoInputOption.description, 'claude', '--auto-input-until-mergeable help text names the supported live-input tool');
+assertIncludes(autoInputOption.description, 'claude', '--auto-input-until-mergeable help text names Claude as a supported live-input tool');
+assertIncludes(autoInputOption.description, 'agent', '--auto-input-until-mergeable help text names Agent as a supported live-input tool');
 assertIncludes(autoInputOption.description, 'restart/resume fallback', '--auto-input-until-mergeable help text describes the universal fallback');
 assertIncludes(autoInputOption.description, 'Codex app-server', '--auto-input-until-mergeable help text points to the Codex follow-up path');
 
@@ -276,6 +305,7 @@ assertIncludes(caseStudy, 'issue comments', 'case study covers issue comments');
 assertIncludes(caseStudy, 'pull request comments', 'case study covers pull request comments');
 assertIncludes(caseStudy, 'codex exec', 'case study records the current Codex runner limitation');
 assertIncludes(caseStudy, 'turn/steer', 'case study records the Codex app-server follow-up protocol');
+assertIncludes(caseStudy, 'Agent live stream-json', 'case study records Agent live stream-json support');
 
 console.log(`\nIssue #2007 test results: ${passed} passed, ${failed} failed`);
 

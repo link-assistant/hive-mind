@@ -13,17 +13,18 @@ The testable option exists today: `--auto-input-until-mergeable`.
 After the reviewer feedback on PR #2008, live event input is now **available for
 every tool**. Tools differ only in the delivery mode:
 
-- **stream mode (Claude):** events are written into the live process. Hive Mind
-  starts Claude with `--input-format stream-json`, keeps stdin attached, and
-  writes user-feedback frames into the running process.
-- **fallback mode (Codex, agent, opencode, gemini, qwen, and any unknown tool):**
+- **stream mode (Claude, Agent):** events are written into the live process.
+  Hive Mind starts the tool with `--input-format stream-json`, keeps stdin
+  attached, and writes user-feedback frames into the running process. Agent uses
+  the live contract released in `@link-assistant/agent` 0.24.1.
+- **fallback mode (Codex, opencode, gemini, qwen, and any unknown tool):**
   the universal restart/resume fallback. Hive Mind waits for the current AI turn
   to finish in the JSON output, stops the process, then resumes/restarts the AI
   session with the new issue/PR events as feedback via
   `--auto-restart-until-mergeable` (`watchUntilMergeable`). This works for every
   tool even without a live stdin channel.
 
-Missing native live-streaming features for each tool are reported upstream in
+Remaining missing native live-streaming features are reported upstream in
 the [link-assistant/agent](https://github.com/link-assistant/agent) repository
 so they can be implemented, after which a tool can graduate from `fallback` to
 `stream`.
@@ -41,10 +42,10 @@ so they can be implemented, after which a tool can graduate from `fallback` to
 | --- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | R1  | Double check whether a separately enabled immediate/interactive input option exists.              | Done. The option is `--auto-input-until-mergeable`.                                                        |
 | R2  | Explain how the existing option works so it can be tested.                                        | Done. See "How to test".                                                                                   |
-| R3  | If the option is missing, implement an experimental option.                                       | Done. The experimental option now covers every tool (stream for Claude, fallback for the rest).            |
-| R4  | Notify the agent about issue title, issue description, issue comments, and pull request comments. | Done for Claude (live) and for every other tool (restart/resume fallback).                                 |
+| R3  | If the option is missing, implement an experimental option.                                       | Done. The experimental option now covers every tool (stream for Claude and Agent, fallback for the rest).  |
+| R4  | Notify the agent about issue title, issue description, issue comments, and pull request comments. | Done for Claude and Agent (live) and for every other tool (restart/resume fallback).                       |
 | R5  | Do not treat pull request description updates as user feedback.                                   | Done. PR description remains AI-owned and is not a required feedback source.                               |
-| R6  | Use direct JSON input streaming to Claude, Codex, and other tools in all ways possible.           | Claude uses live stream-json. Every other tool uses the universal restart/resume fallback.                 |
+| R6  | Use direct JSON input streaming to Claude, Codex, and other tools in all ways possible.           | Claude and Agent use live stream-json. Every other tool uses the universal restart/resume fallback.        |
 | R7  | Implement a fallback for all tools without input streaming.                                       | Done. `watchUntilMergeable` waits for the JSON turn to finish, stops the process, and resumes the session. |
 | R8  | Report missing live-input features to link-assistant/agent.                                       | Done. See "Upstream reports".                                                                              |
 | R9  | Collect issue data and do a case study with online research, requirements, and solution plans.    | Done in this folder.                                                                                       |
@@ -58,11 +59,12 @@ The issue-required user-feedback sources are:
 - issue comments
 - pull request comments
 
-### Stream mode (Claude)
+### Stream mode (Claude and Agent)
 
-For `--tool claude --auto-input-until-mergeable`, Hive Mind handles those
-through the bidirectional handler, writing NDJSON user frames into the live
-Claude process:
+For `--tool claude --auto-input-until-mergeable` and
+`--tool agent --auto-input-until-mergeable`, Hive Mind handles those through the
+bidirectional handler, writing NDJSON user frames into the live stream-json
+process:
 
 - PR conversation comments: `repos/{owner}/{repo}/issues/{prNumber}/comments`
 - PR inline review comments: `repos/{owner}/{repo}/pulls/{prNumber}/comments`
@@ -99,11 +101,14 @@ The relevant code paths are:
 - `src/live-input-capabilities.lib.mjs` records the capability matrix: each
   tool's `mode` (`stream` or `fallback`), whether it is `available`, and the
   upstream `agentIssue` tracking any missing native live-streaming feature.
-- `src/bidirectional-interactive.lib.mjs` builds Claude stream-json user frames
-  and, in `validateBidirectionalModeConfig`, routes non-streaming tools to the
-  restart/resume fallback instead of disabling the feature.
+- `src/bidirectional-interactive.lib.mjs` builds Claude-compatible stream-json
+  user frames and, in `validateBidirectionalModeConfig`, routes non-streaming
+  tools to the restart/resume fallback instead of disabling the feature.
 - `src/claude.lib.mjs` starts Claude with stdin as a pipe and
   `--input-format stream-json` when incoming-comment input is enabled.
+- `src/agent.lib.mjs` starts Agent with stdin as a pipe and
+  `--input-format stream-json --output-format stream-json` when incoming-comment
+  input is enabled.
 - `src/solve.auto-merge.lib.mjs` runs `watchUntilMergeable`, the universal
   fallback loop, and now also detects issue title/description edits.
 - `src/solve.auto-merge-helpers.lib.mjs` adds `checkForIssueMetadataChanges`,
@@ -111,9 +116,9 @@ The relevant code paths are:
 
 The most important composition rule is:
 
-For Claude, `--auto-input-until-mergeable` implies
+For Claude and Agent, `--auto-input-until-mergeable` implies
 `--accept-incomming-comments-as-input` plus `--queue-comments-to-input`.
-For every other tool, it keeps live streaming off and ensures
+For every fallback-mode tool, it keeps live streaming off and ensures
 `--auto-restart-until-mergeable` is enabled (unless explicitly disabled).
 
 It does not imply `--interactive-mode` or `--bidirectional-interactive-mode`.
@@ -148,6 +153,28 @@ When the poller sees a new non-system comment, it formats a stream-json user
 frame and writes it to Claude stdin immediately in stream mode or after the
 current Claude turn in queue mode.
 
+### Stream mode (Agent)
+
+```bash
+solve https://github.com/OWNER/REPO/issues/NUMBER \
+  --tool agent \
+  --auto-input-until-mergeable \
+  --verbose
+```
+
+Expected startup behavior:
+
+- The validator logs `Bidirectional Interactive Mode: ENABLED`.
+- The raw command includes
+  `agent --model ... --input-format stream-json --output-format stream-json`.
+- The delivery mode is `queue-comments-to-input`.
+- Verbose logs show the handler monitoring issue/PR comments.
+
+While Agent is still running, add feedback through the same issue and pull
+request comment surfaces. Agent 0.24.1 accepts the same user NDJSON frame shape
+as Claude, emits `result`/`idle` turn-boundary events, and keeps the stdin pipe
+available for additional user turns.
+
 ### Fallback mode (Codex and other tools)
 
 ```bash
@@ -177,6 +204,7 @@ Local regression coverage:
 node tests/test-issue-2007-live-input-capabilities.mjs
 node tests/test-auto-input-until-mergeable-1708.mjs
 node tests/test-bidirectional-interactive.mjs
+node tests/test-codex-support.mjs
 ```
 
 ## Upstream Reports
@@ -186,8 +214,10 @@ Missing native live-streaming features are reported in
 
 - link-assistant/agent#268 (completed): bidirectional NDJSON I/O via
   `--input-format stream-json` for the Agent CLI.
-- link-assistant/agent#273 (open): document session resume/steer semantics so
-  Hive Mind can graduate the `agent` tool from fallback to live streaming.
+- link-assistant/agent#273 (completed): document session resume/steer semantics.
+- link-assistant/agent#274 (merged, released in `@link-assistant/agent` 0.24.1):
+  explicit live stream-json idle events plus resume, replay, and interrupt
+  contract docs. This PR graduates Hive Mind's `agent` tool to stream mode.
 
 Codex live streaming is tracked as a future runner using Codex app-server
 `turn/steer` rather than the current one-shot `codex exec` stdin.
@@ -224,27 +254,34 @@ new app-server/SDK runner, not by pretending the current `codex exec` runner can
 accept mid-session JSON input. Until then, the restart/resume fallback covers
 Codex.
 
+### Agent
+
+The Agent CLI now ships bidirectional NDJSON stdin and explicit live idle events
+in `@link-assistant/agent` 0.24.1. Hive Mind starts it with
+`agent --input-format stream-json --output-format stream-json`, writes the
+initial prompt as a user frame, keeps stdin attached for new issue/PR events,
+and flushes queued frames when Agent emits `result`/`idle`.
+
 ### Other Tools
 
-Agent, OpenCode, Gemini, and Qwen use prompt-driven solve runners in this repo.
-The Agent CLI already ships bidirectional NDJSON stdin (link-assistant/agent#268),
-but solve does not wire that live channel yet, so all of these tools use the
-restart/resume fallback until a tool-specific live input channel is verified and
-wired.
+OpenCode, Gemini, and Qwen use prompt-driven solve runners in this repo. They
+use the restart/resume fallback until a tool-specific live input channel is
+verified and wired.
 
 ## Solution Plan By Requirement
 
 R1/R2: document and test the existing option.
 
 - Keep `--auto-input-until-mergeable` disabled by default.
-- Clarify the help text so users know Claude streams live and every other tool
-  uses the restart/resume fallback.
+- Clarify the help text so users know Claude and Agent stream live and every
+  other tool uses the restart/resume fallback.
 - Add a capability matrix and regression test that make both modes explicit.
 
 R4/R7: make event coverage match the issue for every tool.
 
-- Stream mode: the Claude poller covers PR conversation comments, PR inline
-  review comments, linked issue comments, and issue title/description diffs.
+- Stream mode: the shared poller covers PR conversation comments, PR inline
+  review comments, linked issue comments, and issue title/description diffs for
+  Claude and Agent.
 - Fallback mode: `watchUntilMergeable` covers new comments, issue
   title/description edits (`checkForIssueMetadataChanges`), CI failures, merge
   conflicts, and uncommitted changes, then resumes the session.
@@ -254,7 +291,7 @@ R4/R7: make event coverage match the issue for every tool.
 R6/R8: implement live streaming where possible and report the gaps.
 
 - Claude: live stream-json today.
+- Agent live stream-json today via `@link-assistant/agent` 0.24.1
+  (link-assistant/agent#268, #273, #274).
 - Codex: future app-server `turn/steer` runner; fallback today.
-- Agent: link-assistant/agent#268 done; resume/steer semantics tracked in
-  link-assistant/agent#273; fallback today.
 - Other tools: fallback today, report gaps upstream before wiring live input.

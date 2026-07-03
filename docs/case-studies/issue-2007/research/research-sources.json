@@ -30,6 +30,18 @@
     "findings": ["Streaming input mode is described as a persistent interactive session.", "It supports queued messages, real-time feedback, and context persistence across turns."]
   },
   {
+    "name": "link-assistant/agent js-v0.24.1 release",
+    "url": "https://github.com/link-assistant/agent/releases/tag/js-v0.24.1",
+    "accessedAt": "2026-07-03",
+    "findings": ["The release adds explicit live stream-json idle events.", "It documents resume, replay, and interrupt semantics for the Agent CLI live stream-json contract."]
+  },
+  {
+    "name": "link-assistant/agent PR #274",
+    "url": "https://github.com/link-assistant/agent/pull/274",
+    "accessedAt": "2026-07-03",
+    "findings": ["The merged PR maps Agent session_idle output to Claude-compatible idle events.", "It documents stdin frames, resume/no-fork behavior, replay acknowledgements, interrupts, queueing, and idle boundaries."]
+  },
+  {
     "name": "Local Codex app-server schema probe",
     "url": "local command: codex app-server generate-json-schema --out /tmp/codex-app-schema-2007",
     "accessedAt": "2026-07-02",

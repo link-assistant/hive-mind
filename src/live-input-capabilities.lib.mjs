@@ -12,7 +12,7 @@
  *
  *   - `stream`  : the tool exposes a live stdin/JSON channel, so new events are
  *                 written into the running process without restarting it. Claude
- *                 (`--input-format stream-json`) is the tool wired for this today.
+ *                 and Agent (`--input-format stream-json`) are wired for this today.
  *   - `fallback`: no verified mid-session input channel exists yet, so solve uses
  *                 the restart/resume loop (`--auto-restart-until-mergeable` /
  *                 `watchUntilMergeable`). It waits for the current session to end,
@@ -108,18 +108,18 @@ const CAPABILITIES = Object.freeze({
     tool: 'agent',
     label: 'Agent',
     available: true,
-    mode: LIVE_INPUT_MODE_FALLBACK,
-    liveStreaming: false,
-    supported: false,
+    mode: LIVE_INPUT_MODE_STREAM,
+    liveStreaming: true,
+    supported: true,
     option: '--auto-input-until-mergeable',
-    protocol: 'Restart/resume fallback (no live JSON input channel wired through solve for Agent yet).',
-    currentRunner: 'src/agent.lib.mjs uses a prompt-driven process invocation',
-    futureProtocol: 'Agent CLI --input-format stream-json (bidirectional NDJSON, link-assistant/agent#268 done); resume/steer semantics tracked in link-assistant/agent#273',
+    protocol: 'agent --input-format stream-json --output-format stream-json stdin/stdout NDJSON',
+    currentRunner: 'src/agent.lib.mjs keeps stdin as a pipe and attaches bidirectional-interactive.lib.mjs when live input is enabled',
+    futureProtocol: '',
     fallback: FALLBACK_DESCRIPTION,
     events: REQUIRED_EVENTS,
-    agentIssue: 'https://github.com/link-assistant/agent/issues/273',
-    unsupportedReason: 'The Agent CLI ships bidirectional NDJSON stdin (link-assistant/agent#268), but solve does not wire that live channel through src/agent.lib.mjs yet, so the restart/resume fallback is used. The remaining resume/steer semantics needed to graduate to live streaming are tracked in link-assistant/agent#273.',
-    testing: 'Passing --tool agent --auto-input-until-mergeable activates the restart/resume fallback.',
+    agentIssue: 'https://github.com/link-assistant/agent/pull/274',
+    unsupportedReason: '',
+    testing: 'Run solve with --tool agent --auto-input-until-mergeable, add an issue or PR comment while the Agent process is alive, and watch for the bidirectional handler to queue or stream a user frame into stdin.',
   }),
   opencode: Object.freeze({
     tool: 'opencode',

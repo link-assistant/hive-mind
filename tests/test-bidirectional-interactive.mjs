@@ -183,6 +183,12 @@ runTest('isBidirectionalModeSupported claude', () => {
   }
 });
 
+runTest('isBidirectionalModeSupported agent', () => {
+  if (!isBidirectionalModeSupported('agent')) {
+    throw new Error('Expected true for agent');
+  }
+});
+
 runTest('isBidirectionalModeSupported opencode', () => {
   if (isBidirectionalModeSupported('opencode')) {
     throw new Error('Expected false for opencode');
@@ -253,7 +259,7 @@ await runAsyncTest('validateBidirectionalModeConfig accept-incomming-comments-as
   if (argv.acceptIncommingCommentsAsInput) {
     throw new Error('Expected acceptIncommingCommentsAsInput to be disabled for unsupported tool');
   }
-  if (!logs.some(l => l.includes('only supported for --tool claude'))) {
+  if (!logs.some(l => l.includes('not supported for --tool opencode') && l.includes('--tool claude') && l.includes('--tool agent'))) {
     throw new Error('Expected warning log message');
   }
 });

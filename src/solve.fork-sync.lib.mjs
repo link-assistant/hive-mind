@@ -26,7 +26,80 @@ import { safeExit } from './exit-handler.lib.mjs';
 // Issue #1893: helpers that decide whether the fork's default branch may be
 // pushed and that distinguish a permission-denied rejection from a genuine
 // fork divergence.
-const { isPermissionDeniedPushError, shouldPushDefaultBranchToFork } = await import('./solve.branch-divergence.lib.mjs');
+const { buildForkDivergenceBlockedReason, buildForkDivergenceFailureActionSection, getForkDefaultBranchDivergenceSnapshot, isPermissionDeniedPushError, shouldPushDefaultBranchToFork } = await import('./solve.branch-divergence.lib.mjs');
+
+const firstNonEmptyLine = value =>
+  String(value || '')
+    .split('\n')
+    .map(line => line.trim())
+    .find(Boolean) || '';
+
+const resolveSolveCommand = argv => {
+  const issueUrl = argv.url || argv['issue-url'] || argv._?.[0] || '<issue-url>';
+  return `solve ${issueUrl}`;
+};
+
+const extractGitHubUrlNumber = argv => {
+  const url = String(argv.url || argv['issue-url'] || argv._?.[0] || '');
+  const match = url.match(/github\.com\/[^/]+\/[^/]+\/(issues|pull)\/(\d+)/i);
+  return match ? { type: match[1] === 'pull' ? 'pulls' : 'issues', number: match[2] } : null;
+};
+
+const resolveTaskRequester = async ({ $, owner, repo, argv }) => {
+  const target = extractGitHubUrlNumber(argv);
+  if (!target) return null;
+  const result = await $({ silent: true })`gh api repos/${owner}/${repo}/${target.type}/${target.number} --jq .user.login 2>&1`;
+  return result.code === 0 ? firstNonEmptyLine(result.stdout) : null;
+};
+
+const logForkDivergenceDetails = async ({ snapshot, currentUser, taskRequester, solveCommand, includeAction = true }) => {
+  await log('');
+  await log('  🔍 What happened:');
+  await log(`     Git rejected updating ${snapshot.forkedRepo}:${snapshot.branchName} after Hive Mind synced the local branch to ${snapshot.upstreamRepo}:${snapshot.branchName}.`);
+  await log('');
+  await log('  📦 Current state:');
+  await log(`     Fork: ${snapshot.forkedRepo}`);
+  await log(`     Upstream: ${snapshot.upstreamRepo}`);
+  await log(`     Branch: ${snapshot.branchName}`);
+  if (currentUser) await log(`     Authenticated user: ${currentUser}`);
+  if (taskRequester) await log(`     Task requester: ${taskRequester}`);
+  if (snapshot.compareUrl) await log(`     Compare: ${snapshot.compareUrl}`);
+
+  if (snapshot.fetchError || snapshot.inspectError) {
+    await log('');
+    await log('  ⚠️  Safety check incomplete:');
+    await log(`     ${snapshot.fetchError || snapshot.inspectError}`);
+    await log('     Hive Mind cannot prove whether force-with-lease would overwrite fork-only commits.');
+  } else {
+    await log(`     Fork-only commits: ${snapshot.forkUniqueCount ?? 'unknown'}`);
+    await log(`     Upstream-only commits missing from fork: ${snapshot.upstreamUniqueCount ?? 'unknown'}`);
+    if ((snapshot.forkUniqueCount ?? 0) > 0) {
+      await log('');
+      await log('  ⚠️  Commits that would be lost from the fork default branch:');
+      for (const commit of snapshot.uniqueCommits) {
+        await log(`     - ${commit.shortSha || commit.sha} ${commit.author || 'unknown author'} ${commit.subject || 'no subject'}`);
+      }
+      if (snapshot.uniqueCommits.length < snapshot.forkUniqueCount) {
+        await log(`     - ... ${snapshot.forkUniqueCount - snapshot.uniqueCommits.length} more commit(s) not shown`);
+      }
+    } else {
+      await log('');
+      await log('  ✅ Safety check:');
+      await log(`     No commits unique to ${snapshot.forkRef} were found.`);
+    }
+  }
+
+  const actionSection = buildForkDivergenceFailureActionSection({ snapshot, currentUser, taskRequester, solveCommand });
+  if (includeAction) {
+    await log('');
+    await log('  🔧 GitHub comment guidance:');
+    for (const line of actionSection.split('\n')) {
+      await log(`     ${line}`);
+    }
+  }
+  await log('');
+  return actionSection;
+};
 
 // Set up upstream remote and sync fork
 export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, owner, repo, argv) => {
@@ -170,16 +243,23 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                   // Fork has diverged from upstream
                   await log('');
                   await log(`${formatAligned('⚠️', 'FORK DIVERGENCE DETECTED', '')}`, { level: 'warn' });
-                  await log('');
-                  await log('  🔍 What happened:');
-                  await log(`     Your fork's ${upstreamDefaultBranch} branch has different commits than upstream`);
-                  await log('     This typically occurs when upstream had a force push (e.g., git reset --hard)');
-                  await log('');
-                  await log('  📦 Current state:');
-                  await log(`     • Fork: ${forkedRepo}`);
-                  await log(`     • Upstream: ${owner}/${repo}`);
-                  await log(`     • Branch: ${upstreamDefaultBranch}`);
-                  await log('');
+                  const taskRequester = await resolveTaskRequester({ $, owner, repo, argv });
+                  const solveCommand = resolveSolveCommand(argv);
+                  const divergenceSnapshot = await getForkDefaultBranchDivergenceSnapshot({
+                    $,
+                    tempDir,
+                    branchName: upstreamDefaultBranch,
+                    forkedRepo,
+                    upstreamRepo: `${owner}/${repo}`,
+                  });
+                  const failureActionSection = await logForkDivergenceDetails({
+                    snapshot: divergenceSnapshot,
+                    currentUser,
+                    taskRequester,
+                    solveCommand,
+                    includeAction: !argv.allowForkDivergenceResolutionUsingForcePushWithLease,
+                  });
+                  const blockedReason = buildForkDivergenceBlockedReason({ snapshot: divergenceSnapshot });
 
                   // Check if user has enabled automatic force push
                   if (argv.allowForkDivergenceResolutionUsingForcePushWithLease) {
@@ -225,36 +305,12 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                       await log('     3. Manually sync fork with upstream:');
                       await log('        git fetch upstream');
                       await log(`        git reset --hard upstream/${upstreamDefaultBranch}`);
-                      await log(`        git push --force origin ${upstreamDefaultBranch}`);
+                      await log(`        git push --force-with-lease origin ${upstreamDefaultBranch}`);
                       await log('');
-                      await safeExit(1, 'Repository setup failed - fork sync failed');
+                      await safeExit(1, 'Repository setup failed - fork sync failed', { failureActionSection });
                     }
                   } else {
-                    // Flag is not enabled - provide guidance
-                    await log('  💡 Your options:');
-                    await log('');
-                    await log('     Option 1: Delete your fork and recreate it (SIMPLEST)');
-                    await log(`              gh repo delete ${forkedRepo}`);
-                    await log('              Then run the solve command again - the fork will be recreated automatically');
-                    await log('              ⚠️  Only use this if your fork has no unique commits you need to preserve');
-                    await log('');
-                    await log('     Option 2: Enable automatic force-push (DANGEROUS)');
-                    await log('              Add --allow-fork-divergence-resolution-using-force-push-with-lease flag to your command');
-                    await log('              This will automatically sync your fork with upstream using force-with-lease');
-                    await log('              ⚠️  Overwrites fork history - any unique commits will be LOST');
-                    await log('');
-                    await log('     Option 3: Manually resolve the divergence');
-                    await log('              1. Decide if you need any commits unique to your fork');
-                    await log('              2. If yes, cherry-pick them after syncing');
-                    await log('              3. If no, manually force-push:');
-                    await log('                 git fetch upstream');
-                    await log(`                 git reset --hard upstream/${upstreamDefaultBranch}`);
-                    await log(`                 git push --force origin ${upstreamDefaultBranch}`);
-                    await log('');
-                    await log('  🔧 To proceed with auto-resolution, restart with:');
-                    await log(`     solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-fork-divergence-resolution-using-force-push-with-lease`);
-                    await log('');
-                    await safeExit(1, 'Repository setup halted - fork divergence requires user decision');
+                    await safeExit(1, blockedReason, { failureActionSection });
                   }
                 } else {
                   // Some other push error (not divergence-related)

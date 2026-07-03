@@ -41,8 +41,8 @@ await test('builds a pre-PR failure comment with the tracked failure marker', as
   assert.match(body, /fork divergence requires user decision/);
   assert.match(body, /xierongchuan\/TaskMateServer/);
   assert.match(body, /gpt-5\.4/);
-  assert.match(body, /ask a Hive Mind administrator/);
-  assert.match(body, /Administrator-only CLI details/);
+  assert.match(body, /Ask a Hive Mind administrator/);
+  assert.doesNotMatch(body, /Administrator-only CLI details/);
   assert.doesNotMatch(body, /```bash/);
   assert.doesNotMatch(body, /solve https:\/\/github.com\/xierongchuan\/TaskMateServer\/issues\/34/);
 });
@@ -57,11 +57,12 @@ await test('builds fork-specific user guidance without administrator commands', 
   assert.doesNotMatch(section, /gh repo delete/);
 });
 
-await test('builds fork-divergence guidance with only the reusable force-with-lease option', async () => {
+await test('builds fork-divergence guidance without recommending force-with-lease when inspection data is missing', async () => {
   const section = buildPrePullRequestFailureActionSection('Repository setup halted - fork divergence requires user decision');
 
-  assert.match(section, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
-  assert.match(section, /force-with-lease/);
+  assert.match(section, /No fork divergence inspection data was attached/);
+  assert.match(section, /did not recommend/);
+  assert.doesNotMatch(section, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
   assert.doesNotMatch(section, /```bash/);
   assert.doesNotMatch(section, /solve https:\/\/github.com/);
 });
@@ -87,7 +88,7 @@ await test('targets an existing pull request for nonzero pre-exit failures', asy
   });
 });
 
-await test('builds an existing-PR failure comment with fork-divergence option guidance', async () => {
+await test('builds an existing-PR failure comment with conservative fork-divergence guidance when inspection data is missing', async () => {
   const body = buildExistingPullRequestFailureComment({
     reason: 'Repository setup halted - fork divergence requires user decision',
     owner: 'ProverCoderAI',
@@ -102,7 +103,8 @@ await test('builds an existing-PR failure comment with fork-divergence option gu
   assert.match(body, /existing pull request/);
   assert.match(body, /Pull request\*\*: #280/);
   assert.match(body, /Linked issue\*\*: #274/);
-  assert.match(body, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
+  assert.match(body, /No fork divergence inspection data was attached/);
+  assert.doesNotMatch(body, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
   assert.doesNotMatch(body, /```bash/);
   assert.doesNotMatch(body, /solve https:\/\/github.com\/ProverCoderAI\/docker-git\/pull\/280/);
 });
@@ -133,7 +135,8 @@ await test('uploads logs to the issue when attach-logs is enabled', async () => 
   assert.equal(calls[0].targetType, 'issue');
   assert.equal(calls[0].targetNumber, 42);
   assert.match(calls[0].errorMessage, /before creating a pull request/);
-  assert.match(calls[0].failureActionSection, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
+  assert.match(calls[0].failureActionSection, /No fork divergence inspection data was attached/);
+  assert.doesNotMatch(calls[0].failureActionSection, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
   assert.doesNotMatch(calls[0].failureActionSection, /solve https:\/\/github.com/);
   assert.equal(globalState.prePullRequestFailureNotificationPosted, true);
 });
@@ -169,7 +172,8 @@ await test('uploads logs to the pull request with fork-divergence option guidanc
   assert.equal(calls[0].targetType, 'pr');
   assert.equal(calls[0].targetNumber, 280);
   assert.match(calls[0].errorMessage, /continuing pull request #280/);
-  assert.match(calls[0].failureActionSection, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
+  assert.match(calls[0].failureActionSection, /No fork divergence inspection data was attached/);
+  assert.doesNotMatch(calls[0].failureActionSection, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
   assert.doesNotMatch(calls[0].failureActionSection, /solve https:\/\/github.com/);
   assert.equal(globalState.pullRequestFailureNotificationPosted, true);
 });
@@ -204,7 +208,8 @@ await test('falls back to a plain pull request comment when log upload throws', 
   assert.equal(postedBodies.length, 1);
   assert.equal(postedBodies[0].targetNumber, 280);
   assert.match(postedBodies[0].body, /Log attachment was attempted but failed/);
-  assert.match(postedBodies[0].body, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
+  assert.match(postedBodies[0].body, /No fork divergence inspection data was attached/);
+  assert.doesNotMatch(postedBodies[0].body, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
   assert.equal(globalState.pullRequestFailureNotificationPosted, true);
 });
 
@@ -234,7 +239,8 @@ await test('falls back to a plain pull request comment when an existing PR fails
   assert.equal(postedBodies.length, 1);
   assert.equal(postedBodies[0].targetNumber, 280);
   assert.match(postedBodies[0].body, /existing pull request/);
-  assert.match(postedBodies[0].body, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
+  assert.match(postedBodies[0].body, /No fork divergence inspection data was attached/);
+  assert.doesNotMatch(postedBodies[0].body, /--allow-fork-divergence-resolution-using-force-push-with-lease/);
   assert.equal(globalState.pullRequestFailureNotificationPosted, true);
 });
 

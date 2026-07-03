@@ -163,7 +163,7 @@ const cleanupWrapper = async () => {
   }
 };
 const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
-initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper, ({ code, reason }) => notifyIssueAboutPrePullRequestFailure({ code, reason, argv, globalState: global, $, log, getLogFile, shouldAttachLogs, attachLogToGitHub, sanitizeLogContent, rawCommand }));
+initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper, ({ code, reason, failureActionSection }) => notifyIssueAboutPrePullRequestFailure({ code, reason, failureActionSection, argv, globalState: global, $, log, getLogFile, shouldAttachLogs, attachLogToGitHub, sanitizeLogContent, rawCommand }));
 installGlobalExitHandlers();
 // Issue #1823: Configure the working-session guard. When the experimental
 // --do-not-shutdown-in-the-middle-of-working-session flag is set (hive passes it to every

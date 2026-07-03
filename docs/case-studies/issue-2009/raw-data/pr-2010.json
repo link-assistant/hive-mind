@@ -1,0 +1,13 @@
+{
+  "number": 2010,
+  "titleBeforeImplementation": "[WIP] We need to improve our error message in GitHub and in logs",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2010",
+  "state": "OPEN",
+  "isDraftBeforeImplementation": true,
+  "author": "konard",
+  "headRefName": "issue-2009-41374fad2784",
+  "baseRefName": "main",
+  "createdAt": "2026-07-03T15:41:04Z",
+  "updatedAt": "2026-07-03T15:41:05Z",
+  "bodyBeforeImplementationSummary": "Generated AI-powered solution draft placeholder. It referenced Fixes #2009 and marked the PR as work in progress."
+}

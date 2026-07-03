@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.1.2
+
+### Patch Changes
+
+- 39164e5: Improve fork-divergence failure comments and logs with inspected branch state, actor-aware admin guidance, exact fork-only commit lists, and less generic repository setup wording.
+
 ## 2.1.1
 
 ### Patch Changes

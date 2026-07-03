@@ -59,7 +59,7 @@ import { limitReset } from './config.lib.mjs';
 
 // Import helper functions extracted for file size management (Issue #1593)
 const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
-const { checkForExistingComment, checkForNonBotComments, getMergeBlockers, shouldResetNoRunsCounter, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = autoMergeHelpers;
+const { checkForExistingComment, checkForNonBotComments, checkForIssueMetadataChanges, getMergeBlockers, shouldResetNoRunsCounter, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = autoMergeHelpers;
 
 // Issue #1769: cancelled/stale CI re-run failures need a human action stop, not polling forever.
 const cancelledCiRerunLib = await import('./cancelled-ci-rerun.lib.mjs');
@@ -137,7 +137,7 @@ export const watchUntilMergeable = async params => {
   await log(formatAligned('', 'Max limit resumes:', formatAutoIterationLimit(maxAutoResumeIterations), 2));
   await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (strict repo-wide safety)' : 'No (PR-scoped CI only)', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
-  await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
+  await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, issue title/description edits, CI failures, merge conflicts', 2));
   // Issue #1708: Surface that --auto-input-until-mergeable streamed feedback
   // into the prior session, so any restart triggered here is a fallback.
   if (argv.autoInputUntilMergeable) {
@@ -156,6 +156,11 @@ export const watchUntilMergeable = async params => {
 
   let iteration = 0;
   let lastCheckTime = new Date();
+
+  // Issue #2007: Track the issue title/body across iterations so the
+  // restart/resume fallback can detect user edits to those surfaces and deliver
+  // them as feedback to the next session. The first check seeds the baseline.
+  let issueMetadataSnapshot = null;
 
   while (true) {
     iteration++;
@@ -250,6 +255,14 @@ export const watchUntilMergeable = async params => {
         trustAuthenticatedUserComments: true,
       });
 
+      // Issue #2007: Detect issue title/description edits (user-owned feedback
+      // surfaces) so the fallback resumes the AI with them. The first iteration
+      // seeds the baseline and never reports a change.
+      const metadataCheck = await checkForIssueMetadataChanges(owner, repo, issueNumber, issueMetadataSnapshot, argv.verbose, $);
+      issueMetadataSnapshot = metadataCheck.snapshot || issueMetadataSnapshot;
+      const hasIssueMetadataChanges = metadataCheck.changed === true;
+      const issueMetadataChanges = metadataCheck.changes || [];
+
       // Check for uncommitted changes using shared utility
       const hasUncommittedChanges = await checkForUncommittedChanges(tempDir, argv);
 
@@ -264,8 +277,9 @@ export const watchUntilMergeable = async params => {
         }
       }
 
-      // If PR is mergeable, no blockers, no new comments, and no uncommitted changes
-      if (blockers.length === 0 && !hasNewComments && !hasUncommittedChanges) {
+      // If PR is mergeable, no blockers, no new comments, no issue metadata
+      // edits, and no uncommitted changes
+      if (blockers.length === 0 && !hasNewComments && !hasIssueMetadataChanges && !hasUncommittedChanges) {
         // Issue #1503 (enhanced): Multi-mechanism consensus + repo-wide action check.
         // Before declaring PR mergeable, run multiple independent CI detection mechanisms
         // and require all to agree. This catches race conditions where CI starts between
@@ -418,6 +432,21 @@ export const watchUntilMergeable = async params => {
         }
         feedbackLines.push('');
         feedbackLines.push('Please review and address the feedback from these comments.');
+      }
+
+      // Issue #2007: Reason 1b: Issue title/description edited by the user.
+      if (hasIssueMetadataChanges) {
+        shouldRestart = true;
+        const changedFields = issueMetadataChanges.map(c => (c.field === 'title' ? 'title' : 'description')).join(' and ');
+        restartReason = restartReason ? `${restartReason}; Issue ${changedFields} edited` : `Issue ${changedFields} edited`;
+        feedbackLines.push(`✏️ The issue ${changedFields} was edited after the last session:`);
+        for (const change of issueMetadataChanges) {
+          const label = change.field === 'title' ? 'Issue title' : 'Issue description';
+          const updated = String(change.to ?? '');
+          feedbackLines.push(`  - ${label} is now: "${updated.substring(0, 200)}${updated.length > 200 ? '...' : ''}"`);
+        }
+        feedbackLines.push('');
+        feedbackLines.push('Please re-read the updated issue and make sure your solution still matches the requirements.');
       }
 
       // Issue #1314: Check for billing limit errors BEFORE regular CI failures
@@ -581,7 +610,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
       // take the restart path rather than the cancelled-review path.
       const ciBlocker = ciFailureBlocker;
       const hasMergeConflictBlocker = blockers.some(b => b.type === 'not_mergeable' && b.message?.includes('conflicts'));
-      if (externalReviewLimitBlocker && !ciBlocker && !billingBlocker && !cancelledBlocker && !hasNewComments && !hasUncommittedChanges && !hasMergeConflictBlocker) {
+      if (externalReviewLimitBlocker && !ciBlocker && !billingBlocker && !cancelledBlocker && !hasNewComments && !hasIssueMetadataChanges && !hasUncommittedChanges && !hasMergeConflictBlocker) {
         await log('');
         await log(formatAligned('🟡', 'READY FOR REVIEW', 'External review quota/credit limit requires human decision'));
         for (const detail of externalReviewLimitBlocker.details || []) {

@@ -175,7 +175,7 @@ await validateBidirectionalModeConfig(explicitArgv, noLog);
 assertTrue(explicitArgv.streamCommentsToInput, 'explicit stream-comments-to-input stays on');
 assertFalse(explicitArgv.queueCommentsToInput, 'explicit stream choice is not overridden to queue');
 
-console.log('\n--- non-Claude tool: streaming pipe is disabled with a warning ---');
+console.log('\n--- non-Claude tool: restart/resume fallback is activated (issue #2007) ---');
 
 const codexLogs = [];
 const codexLog = async msg => {
@@ -190,16 +190,20 @@ const codexArgv = {
   excludeAllOwnIncommingCommentsFromInput: false,
   streamCommentsToInput: false,
   queueCommentsToInput: false,
+  autoRestartUntilMergeable: true,
 };
 const codexResult = await validateBidirectionalModeConfig(codexArgv, codexLog);
-assertEqual(codexResult, false, 'non-claude tool: validator returns false (existing tool-support behavior preserved)');
-assertFalse(codexArgv.acceptIncommingCommentsAsInput, 'streaming-input is disabled for codex (no NDJSON channel upstream)');
-assertFalse(codexArgv.excludeAllOwnIncommingCommentsFromInput, 'self-talk filter is disabled along with streaming-input');
-assertFalse(codexArgv.streamCommentsToInput, 'stream-comments-to-input is reset for non-claude tools');
-assertFalse(codexArgv.queueCommentsToInput, 'queue-comments-to-input is reset for non-claude tools');
+// Issue #2007: --auto-input-until-mergeable is now valid for every tool. Non-streaming
+// tools use the restart/resume fallback instead of the live NDJSON pipe.
+assertEqual(codexResult, true, 'non-claude tool: validator returns true (fallback activated)');
+assertFalse(codexArgv.acceptIncommingCommentsAsInput, 'live streaming-input stays off for codex (no NDJSON channel upstream)');
+assertFalse(codexArgv.excludeAllOwnIncommingCommentsFromInput, 'self-talk filter stays off along with streaming-input');
+assertFalse(codexArgv.streamCommentsToInput, 'stream-comments-to-input stays off for non-claude tools');
+assertFalse(codexArgv.queueCommentsToInput, 'queue-comments-to-input stays off for non-claude tools');
+assertTrue(codexArgv.autoRestartUntilMergeable, 'restart/resume fallback stays enabled for codex');
 assertTrue(
-  codexLogs.some(l => l.includes('only supported for --tool claude')),
-  'validator logs the standard "claude only" warning so users see why streaming is off'
+  codexLogs.some(l => l.includes('restart/resume fallback')),
+  'validator logs that the restart/resume fallback is used for non-claude tools'
 );
 
 console.log('\n--- without the flag, the validator is a strict no-op (R4) ---');

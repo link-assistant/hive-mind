@@ -2,13 +2,13 @@
 /**
  * Bidirectional Interactive Mode Library
  *
- * [EXPERIMENTAL] This module provides bidirectional real-time communication during Claude execution.
- * It monitors PR comments for user feedback and queues it for injection into the running Claude session.
+ * [EXPERIMENTAL] This module provides bidirectional real-time communication during tool execution.
+ * It monitors issue/PR comments for user feedback and queues them for injection into the running tool session.
  *
  * Key features:
- * - Monitors GitHub PR comments for new user feedback
- * - Queues feedback messages for injection into Claude's stdin
- * - Works with Claude CLI's --input-format stream-json mode
+ * - Monitors GitHub issue/PR comments for new user feedback
+ * - Queues feedback messages for injection into the tool stdin
+ * - Works with Claude/Agent CLI --input-format stream-json mode
  * - Filters out system-generated comments (from interactive mode itself)
  *
  * Usage:
@@ -23,6 +23,7 @@
  */
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { getLiveInputCapability, getLiveInputCapabilityRows, getLiveInputMode, isLiveInputSupported, LIVE_INPUT_MODE_FALLBACK, LIVE_INPUT_MODE_STREAM } from './live-input-capabilities.lib.mjs';
 // Configuration constants
 const CONFIG = {
   // Minimum time between comment checks to avoid rate limiting (in ms)
@@ -31,9 +32,9 @@ const CONFIG = {
   DEFAULT_POLL_INTERVAL: 15000,
   // Maximum queued feedback messages
   MAX_QUEUE_SIZE: 50,
-  // Default keep-alive for the headless Claude process between stream-json
-  // turns. Claude Code exits after this many ms with no new input once it
-  // has replied, so new PR comments have a window to flow in as additional
+  // Default keep-alive for a headless stream-json process between turns.
+  // Claude Code exits after this many ms with no new input once it
+  // has replied, so new issue/PR comments have a window to flow in as additional
   // user messages. Issue #817.
   DEFAULT_EXIT_AFTER_STOP_DELAY_MS: 60_000,
   // Signature to identify system-generated comments
@@ -54,12 +55,13 @@ const isSystemComment = body => {
 };
 
 /**
- * Format a user feedback message for Claude CLI's stream-json input
+ * Format a user feedback message for Claude-compatible stream-json input.
+ * Agent accepts the same `type: user` frame shape in stream-json mode.
  *
  * @param {string} feedbackText - The user's feedback text
  * @param {Object} [options]
  * @param {string} [options.kind='comment'] - Source kind: 'comment', 'ci', 'uncommitted', 'metadata'
- * @returns {string} JSON string ready to write to Claude's stdin
+ * @returns {string} JSON string ready to write to a stream-json stdin
  */
 const formatFeedbackForClaude = (feedbackText, options = {}) => {
   const kind = options.kind || 'comment';
@@ -98,10 +100,10 @@ const formatFeedbackForClaude = (feedbackText, options = {}) => {
 };
 
 /**
- * Build the first stream-json user frame for a Claude Code headless session.
+ * Build the first stream-json user frame for a headless tool session.
  *
  * Issue #817: When --accept-incomming-comments-as-input is enabled, solve
- * spawns Claude with `--input-format stream-json` and a pipe stdin. The
+ * spawns the tool with `--input-format stream-json` and a pipe stdin. The
  * initial user prompt must therefore be delivered as a NDJSON frame rather
  * than via `-p`. This matches the pattern from the reference gist
  * `claude-stream-persistent.mjs`.
@@ -125,7 +127,7 @@ const buildInitialUserFrame = (promptText, options = {}) => {
 };
 
 /**
- * Write one NDJSON frame into a live Claude stdin stream.
+ * Write one NDJSON frame into a live stream-json stdin stream.
  *
  * Returns true on a successful write, false when the stream is missing or
  * closed. Never throws — callers just log and continue. Internal helper used
@@ -147,7 +149,7 @@ const writeFrameToStdin = async (stream, jsonFrame, logFn, verbose = false) => {
   } catch (err) {
     if (logFn && verbose) {
       try {
-        await logFn(`⚠️ Bidirectional mode: Failed to write to Claude stdin: ${err.message}`, { verbose: true });
+        await logFn(`⚠️ Bidirectional mode: Failed to write to tool stdin: ${err.message}`, { verbose: true });
       } catch {
         /* ignore logger errors */
       }
@@ -173,10 +175,11 @@ const writeFrameToStdin = async (stream, jsonFrame, logFn, verbose = false) => {
  * @param {string} [options.deliveryMode='stream'] - 'stream' (immediate forward) or 'queue' (hold until AI idle). Issue #1708.
  * @param {boolean} [options.streamStatusToInput=false] - Also stream CI/uncommitted/PR-status changes as NDJSON frames. Issue #1708.
  * @param {number} [options.statusPollInterval=60000] - Status-poller interval (ms) when streamStatusToInput is on.
+ * @param {string} [options.toolLabel='AI tool'] - Human label for logging stdin writes.
  * @returns {Object} Handler object with monitoring methods
  */
 export const createBidirectionalHandler = options => {
-  const { owner, repo, prNumber, issueNumber, tempDir, $, log, verbose = false, pollInterval = CONFIG.DEFAULT_POLL_INTERVAL, excludeOwnComments = false, deliveryMode = 'stream', streamStatusToInput = false, statusPollInterval = 60000 } = options;
+  const { owner, repo, prNumber, issueNumber, tempDir, $, log, verbose = false, pollInterval = CONFIG.DEFAULT_POLL_INTERVAL, excludeOwnComments = false, deliveryMode = 'stream', streamStatusToInput = false, statusPollInterval = 60000, toolLabel = 'AI tool' } = options;
   // Resolved lazily on first check, cached for the lifetime of the handler
   let ownUserLogin = null;
   let ownUserResolved = false;
@@ -205,7 +208,7 @@ export const createBidirectionalHandler = options => {
     processedCommentIds: new Set(),
     totalCommentsProcessed: 0,
     totalFeedbackQueued: 0,
-    // Issue #817: Writable stdin of the live Claude process. When set, new
+    // Issue #817/#2007: Writable stdin of the live stream-json process. When set, new
     // non-system comments are written directly as NDJSON frames rather than
     // only accumulated in feedbackQueue.
     claudeStdin: null,
@@ -230,7 +233,36 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
-   * Fetch recent comments from the PR
+   * Fetch comments from a GitHub API endpoint.
+   *
+   * @param {string} apiPath
+   * @param {string} source
+   * @returns {Promise<Array>} Array of normalized comment objects
+   * @private
+   */
+  const fetchCommentsFromEndpoint = async (apiPath, source) => {
+    try {
+      const result = await $`gh api ${apiPath} --paginate --slurp`;
+      const parsed = JSON.parse(result.stdout?.toString() || '[]');
+      const comments = Array.isArray(parsed) && parsed.every(Array.isArray) ? parsed.flat() : parsed;
+      return comments.map(comment => ({
+        id: comment.id,
+        body: comment.body || '',
+        created_at: comment.created_at,
+        user: typeof comment.user === 'string' ? comment.user : comment.user?.login || '',
+        source,
+      }));
+    } catch (error) {
+      if (verbose) {
+        await log(`⚠️ Bidirectional mode: Failed to fetch ${source} comments: ${error.message}`, { verbose: true });
+      }
+      return [];
+    }
+  };
+
+  /**
+   * Fetch recent comments from PR conversation, PR review, and source issue.
+   *
    * @returns {Promise<Array>} Array of comment objects
    * @private
    */
@@ -242,24 +274,29 @@ export const createBidirectionalHandler = options => {
       return [];
     }
 
-    try {
-      // Fetch comments using gh api with pagination (GitHub defaults to 30/page), sorted by created_at desc
-      const result = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate --jq '[.[] | {id: .id, body: .body, created_at: .created_at, user: .user.login}] | sort_by(.created_at) | reverse'`;
-      const comments = JSON.parse(result.stdout.toString());
-      return comments;
-    } catch (error) {
-      if (verbose) {
-        await log(`⚠️ Bidirectional mode: Failed to fetch comments: ${error.message}`, { verbose: true });
-      }
-      return [];
+    const comments = [...(await fetchCommentsFromEndpoint(`repos/${owner}/${repo}/issues/${prNumber}/comments`, 'pull request conversation')), ...(await fetchCommentsFromEndpoint(`repos/${owner}/${repo}/pulls/${prNumber}/comments`, 'pull request review'))];
+
+    if (issueNumber && String(issueNumber) !== String(prNumber)) {
+      comments.push(...(await fetchCommentsFromEndpoint(`repos/${owner}/${repo}/issues/${issueNumber}/comments`, 'issue')));
     }
+
+    const seenKeys = new Set();
+    const uniqueComments = [];
+    for (const comment of comments) {
+      const key = comment.id == null ? `${comment.source}:${comment.created_at}:${comment.user}:${comment.body}` : String(comment.id);
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      uniqueComments.push(comment);
+    }
+
+    return uniqueComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   };
 
   /**
    * Issue #1708: Delivery-mode-aware frame dispatcher.
    *
    * - In stream mode (default for --accept-incomming-comments-as-input),
-   *   the frame is written to Claude stdin immediately.
+   *   the frame is written to the tool stdin immediately.
    * - In queue mode (default for --auto-input-until-mergeable), the frame
    *   is buffered in state.pendingFrames while the AI is busy; on idle
    *   (markAiIdle) the buffer is flushed to stdin in FIFO order.
@@ -295,7 +332,7 @@ export const createBidirectionalHandler = options => {
     if (ok) {
       state.totalFeedbackStreamed++;
       if (verbose) {
-        await log(`📤 Bidirectional mode: Streamed frame (${meta.kind || 'frame'}: ${meta.label || ''}) into Claude stdin`, { verbose: true });
+        await log(`📤 Bidirectional mode: Streamed frame (${meta.kind || 'frame'}: ${meta.label || ''}) into ${toolLabel} stdin`, { verbose: true });
       }
     }
     return ok;
@@ -339,7 +376,7 @@ export const createBidirectionalHandler = options => {
       state.totalFramesFlushed++;
       state.totalFeedbackStreamed++;
       if (verbose) {
-        await log(`📤 Bidirectional mode: Flushed pending frame (${meta?.kind || 'frame'}: ${meta?.label || ''}) into Claude stdin`, { verbose: true });
+        await log(`📤 Bidirectional mode: Flushed pending frame (${meta?.kind || 'frame'}: ${meta?.label || ''}) into ${toolLabel} stdin`, { verbose: true });
       }
     }
     return flushed;
@@ -399,14 +436,14 @@ export const createBidirectionalHandler = options => {
           state.totalFeedbackQueued++;
 
           if (verbose) {
-            await log(`📥 Bidirectional mode: Queued feedback from @${comment.user} (comment #${comment.id})`, { verbose: true });
+            await log(`📥 Bidirectional mode: Queued feedback from @${comment.user} (${comment.source || 'comment'} #${comment.id})`, { verbose: true });
           }
 
           // Issue #817 / #1708: Dispatch through the delivery-mode router so
           // queue-comments-to-input can hold the frame until the AI is idle.
           await dispatchFrame(formattedMessage, {
             kind: 'comment',
-            label: `comment #${comment.id} from @${comment.user}`,
+            label: `${comment.source || 'comment'} #${comment.id} from @${comment.user}`,
           });
         } else {
           if (verbose) {
@@ -484,7 +521,7 @@ export const createBidirectionalHandler = options => {
    * the same failing check doesn't re-emit on every poll.
    *
    * Failures in any sub-check are swallowed and logged — the poller must
-   * never break the live Claude session.
+   * never break the live tool session.
    *
    * @private
    */
@@ -573,7 +610,7 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
-   * Start monitoring PR comments for user feedback
+   * Start monitoring issue/PR comments for user feedback
    *
    * @returns {Promise<void>}
    */
@@ -604,7 +641,7 @@ export const createBidirectionalHandler = options => {
     }, interval);
 
     if (verbose) {
-      await log(`🔌 Bidirectional mode: Started monitoring PR #${prNumber} (polling every ${interval / 1000}s)`, { verbose: true });
+      await log(`🔌 Bidirectional mode: Started monitoring issue/PR comments for PR #${prNumber} (polling every ${interval / 1000}s)`, { verbose: true });
     }
 
     // Issue #1708: When --auto-input-until-mergeable enables status streaming,
@@ -632,7 +669,7 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
-   * Stop monitoring PR comments
+   * Stop monitoring issue/PR comments
    *
    * @returns {Promise<void>}
    */
@@ -756,28 +793,32 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
-   * Attach a live Claude stdin stream to the handler.
+   * Attach a live tool stdin stream to the handler.
    *
-   * Issue #817: Once attached, every new non-system comment detected by the
-   * polling loop is also written to this stream as a NDJSON `user` frame.
+   * Issue #817/#2007: Once attached, every new non-system comment detected by
+   * the polling loop is also written to this stream as a NDJSON `user` frame.
    * Safe to call before or after monitoring starts.
    *
    * @param {Object} stream - Writable stream (child.stdin)
    */
-  const attachClaudeStdin = stream => {
+  const attachToolStdin = stream => {
     state.claudeStdin = stream || null;
   };
 
   /**
-   * Detach the Claude stdin stream. After this call, comments are only queued.
+   * Detach the tool stdin stream. After this call, comments are only queued.
    */
-  const detachClaudeStdin = () => {
+  const detachToolStdin = () => {
     state.claudeStdin = null;
   };
 
+  // Compatibility aliases for the original Claude-only public surface.
+  const attachClaudeStdin = attachToolStdin;
+  const detachClaudeStdin = detachToolStdin;
+
   /**
    * Stream the initial user prompt as a stream-json frame into the attached
-   * Claude stdin. Use this when running Claude with `--input-format stream-json`.
+   * tool stdin. Use this when running a tool with `--input-format stream-json`.
    *
    * @param {string} promptText
    * @param {Object} [options]
@@ -791,7 +832,7 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
-   * Stream a non-comment feedback message into the attached Claude stdin.
+   * Stream a non-comment feedback message into the attached tool stdin.
    *
    * @param {string} feedbackText
    * @param {Object} [options]
@@ -839,6 +880,8 @@ export const createBidirectionalHandler = options => {
     markCommentAsProcessed,
     initializeWithExistingComments,
     initializeFromCurrentComments,
+    attachToolStdin,
+    detachToolStdin,
     attachClaudeStdin,
     detachClaudeStdin,
     streamInitialPrompt,
@@ -870,8 +913,7 @@ export const createBidirectionalHandler = options => {
  * @returns {boolean} Whether bidirectional interactive mode is supported
  */
 export const isBidirectionalModeSupported = tool => {
-  // Currently only supported for Claude due to --input-format stream-json support
-  return tool === 'claude';
+  return isLiveInputSupported(tool);
 };
 
 /**
@@ -891,18 +933,45 @@ export const isBidirectionalModeSupported = tool => {
  * @returns {Promise<boolean>} Whether configuration is valid for the chosen tool
  */
 export const validateBidirectionalModeConfig = async (argv, log) => {
-  // Issue #1708 Stage 1: --auto-input-until-mergeable enables only the
-  // input-side of bidirectional mode — accepting incoming PR/issue comments
-  // as new input — without enabling --interactive-mode (which would push
-  // tool output back as PR comments). The full streaming-aware
-  // watchUntilMergeable replacement is staged in subsequent PRs — until
-  // those land, this composition gives users on --tool claude the
-  // mid-session NDJSON input pipe that already exists for issue #817 and
-  // is a graceful no-op for non-Claude tools (the validator below disables
-  // it). The --auto-restart-until-mergeable / --auto-resume loops remain
-  // active as fallbacks; the goal is for them to stay dormant when input
-  // streaming keeps the session alive.
+  // Issue #1708/#2007: --auto-input-until-mergeable enables only the
+  // input-side of bidirectional mode without enabling --interactive-mode
+  // (which would push tool output back as PR comments).
+  //
+  // Live event input is available for every tool, but the delivery mode differs:
+  //   - stream-mode tools (Claude, Agent) get a live stdin pipe.
+  //   - fallback-mode tools (Codex, opencode, gemini, qwen, ...) use the
+  //     universal restart/resume fallback: the run finishes the current session
+  //     in the JSON output, stops, and resumes the AI with the new issue/PR
+  //     events as feedback via --auto-restart-until-mergeable.
   if (argv.autoInputUntilMergeable) {
+    if (getLiveInputMode(argv.tool) === LIVE_INPUT_MODE_FALLBACK) {
+      // No live stdin channel for this tool: activate the restart/resume
+      // fallback instead of disabling the feature. Live comment streaming
+      // stays off; the auto-restart loop delivers the same events at session
+      // boundaries.
+      const capability = getLiveInputCapability(argv.tool);
+      argv.acceptIncommingCommentsAsInput = false;
+      argv.excludeAllOwnIncommingCommentsFromInput = false;
+      argv.streamCommentsToInput = false;
+      argv.queueCommentsToInput = false;
+      // Ensure the fallback loop is actually running. It defaults to enabled,
+      // but --auto-input-until-mergeable relies on it entirely for these tools,
+      // so re-enable it unless the user explicitly opted out.
+      if (argv.autoRestartUntilMergeable !== false) {
+        argv.autoRestartUntilMergeable = true;
+      }
+      await log(`🔁 --auto-input-until-mergeable: live streaming input is not available for --tool ${argv.tool}; using the restart/resume fallback.`, { level: 'info' });
+      await log(`   ${capability.unsupportedReason}`, { level: 'info' });
+      if (capability.futureProtocol) {
+        await log(`   Candidate live-streaming protocol: ${capability.futureProtocol} (tracked in link-assistant/agent).`, { level: 'info' });
+      }
+      if (argv.autoRestartUntilMergeable === false) {
+        await log('   ⚠️ --no-auto-restart-until-mergeable disables the fallback, so no live input mechanism remains for this tool.', { level: 'warning' });
+      } else {
+        await log('   The auto-restart-until-mergeable loop will resume the session with new issue/PR events (comments, title/body changes, CI failures, conflicts).', { level: 'info' });
+      }
+      return true;
+    }
     if (!argv.acceptIncommingCommentsAsInput) argv.acceptIncommingCommentsAsInput = true;
     // Default delivery mode for --auto-input-until-mergeable is queue:
     // hold comments until the AI is idle so the model can finish the
@@ -935,10 +1004,24 @@ export const validateBidirectionalModeConfig = async (argv, log) => {
   // Nothing more to validate if no incoming-comment acceptance is requested
   if (!argv.acceptIncommingCommentsAsInput) return true;
 
-  // Tool support: currently only Claude (uses --input-format stream-json)
+  // Live comment *streaming* is only wired for stream-mode tools (uses
+  // --input-format stream-json). The universal restart/resume fallback is reached via
+  // --auto-input-until-mergeable (handled above), not through the standalone
+  // --accept-incomming-comments-as-input / --bidirectional-interactive-mode
+  // flags, which are specifically about live streaming.
   if (!isBidirectionalModeSupported(argv.tool)) {
-    await log(`⚠️ --accept-incomming-comments-as-input is only supported for --tool claude (current: ${argv.tool})`, { level: 'warning' });
-    await log('   Incoming-comment acceptance will be disabled for this session.', { level: 'warning' });
+    const capability = getLiveInputCapability(argv.tool);
+    const supportedTools = getLiveInputCapabilityRows()
+      .filter(row => row.mode === LIVE_INPUT_MODE_STREAM)
+      .map(row => `--tool ${row.tool}`)
+      .join(' or ');
+    await log(`⚠️ Live comment streaming is not supported for --tool ${argv.tool} in this build (supported: ${supportedTools}).`, { level: 'warning' });
+    await log(`   ${capability.unsupportedReason}`, { level: 'warning' });
+    if (capability.futureProtocol) {
+      await log(`   Candidate follow-up protocol: ${capability.futureProtocol}.`, { level: 'warning' });
+    }
+    await log('   Live incoming-comment streaming will be disabled for this session.', { level: 'warning' });
+    await log('   Tip: use --auto-input-until-mergeable to deliver the same issue/PR events through the restart/resume fallback instead.', { level: 'warning' });
     argv.acceptIncommingCommentsAsInput = false;
     argv.excludeAllOwnIncommingCommentsFromInput = false;
     argv.streamCommentsToInput = false;
@@ -947,10 +1030,11 @@ export const validateBidirectionalModeConfig = async (argv, log) => {
   }
 
   const deliveryMode = argv.queueCommentsToInput ? 'queue' : 'stream';
+  const capability = getLiveInputCapability(argv.tool);
   await log('🔌 Bidirectional Interactive Mode: ENABLED (experimental)', { level: 'info' });
   await log(`   accept-incomming-comments-as-input: true${argv.excludeAllOwnIncommingCommentsFromInput ? ', exclude-all-own-incomming-comments-from-input: true' : ''}`, { level: 'info' });
   await log(`   delivery mode: ${deliveryMode}-comments-to-input`, { level: 'info' });
-  await log('   PR comments will be monitored and queued as feedback for Claude.', { level: 'info' });
+  await log(`   Issue/PR comments will be monitored and queued as feedback for ${capability.label}.`, { level: 'info' });
 
   return true;
 };
@@ -979,6 +1063,8 @@ export const setupBidirectionalHandler = async ({ argv, owner, repo, prNumber, i
     await log('⚠️ Bidirectional mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     return null;
   }
+  const capability = getLiveInputCapability(argv.tool);
+  const toolLabel = capability.label || argv.tool || 'AI tool';
   // Issue #1708: Resolve delivery mode from argv. validateBidirectionalModeConfig
   // already enforces queue-wins-over-stream and the per-flag defaults; here we
   // just translate the booleans into the handler-side enum.
@@ -988,7 +1074,7 @@ export const setupBidirectionalHandler = async ({ argv, owner, repo, prNumber, i
   // --accept-incomming-comments-as-input path keeps the existing #817 behavior
   // of forwarding only comments.
   const streamStatusToInput = !!argv.autoInputUntilMergeable;
-  await log('🔌 Bidirectional mode: Creating handler to accept incoming PR comments as Claude input', { verbose: true });
+  await log(`🔌 Bidirectional mode: Creating handler to accept incoming issue/PR comments as ${toolLabel} input`, { verbose: true });
   const handler = createBidirectionalHandler({
     owner,
     repo,
@@ -1002,6 +1088,7 @@ export const setupBidirectionalHandler = async ({ argv, owner, repo, prNumber, i
     excludeOwnComments: !!argv.excludeAllOwnIncommingCommentsFromInput,
     deliveryMode,
     streamStatusToInput,
+    toolLabel,
   });
   await handler.initializeFromCurrentComments();
   await handler.startMonitoring();
@@ -1010,8 +1097,8 @@ export const setupBidirectionalHandler = async ({ argv, owner, repo, prNumber, i
 };
 
 /**
- * Attach a live Claude process to the handler so new comments stream into
- * its stdin as NDJSON frames. Also writes the initial user prompt as the
+ * Attach a live tool process to the handler so new comments stream into its
+ * stdin as NDJSON frames. Also writes the initial user prompt as the
  * first frame so the run starts normally. Issue #817.
  *
  * Safe to call with a null handler (no-op). Logs diagnostics but never throws.
@@ -1021,19 +1108,26 @@ export const setupBidirectionalHandler = async ({ argv, owner, repo, prNumber, i
  * @param {string} prompt - Initial user prompt text
  * @param {Function} log
  * @param {boolean} [verbose=false]
+ * @param {Object} [options]
+ * @param {string} [options.toolLabel='AI tool']
  * @returns {Promise<boolean>} Whether streaming input is active
  */
-export const attachStreamingInput = async (handler, execCommand, prompt, log, verbose = false) => {
+export const attachStreamingInput = async (handler, execCommand, prompt, log, verbose = false, options = {}) => {
   if (!handler || !execCommand) return false;
+  const toolLabel = options.toolLabel || 'AI tool';
   try {
     const stdinStream = await execCommand.streams.stdin;
     if (!stdinStream) {
-      if (verbose) await log('⚠️ Bidirectional mode: Could not acquire Claude stdin stream; falling back to queued-only feedback.', { verbose: true });
+      if (verbose) await log(`⚠️ Bidirectional mode: Could not acquire ${toolLabel} stdin stream; falling back to queued-only feedback.`, { verbose: true });
       return false;
     }
-    handler.attachClaudeStdin(stdinStream);
+    if (typeof handler.attachToolStdin === 'function') {
+      handler.attachToolStdin(stdinStream);
+    } else {
+      handler.attachClaudeStdin(stdinStream);
+    }
     const ok = await handler.streamInitialPrompt(prompt);
-    if (verbose) await log(`🔌 Bidirectional mode: Streaming input ${ok ? 'ENABLED' : 'FAILED'} (wrote initial user frame to Claude stdin).`, { verbose: true });
+    if (verbose) await log(`🔌 Bidirectional mode: Streaming input ${ok ? 'ENABLED' : 'FAILED'} (wrote initial user frame to ${toolLabel} stdin).`, { verbose: true });
     return ok;
   } catch (attachError) {
     await log(`⚠️ Bidirectional mode: Failed to attach stdin (${attachError.message}); continuing without live streaming.`, { verbose: true });
@@ -1052,7 +1146,11 @@ export const attachStreamingInput = async (handler, execCommand, prompt, log, ve
 export const finalizeBidirectionalHandler = async (handler, log) => {
   if (!handler) return [];
   try {
-    handler.detachClaudeStdin?.();
+    if (typeof handler.detachToolStdin === 'function') {
+      handler.detachToolStdin();
+    } else {
+      handler.detachClaudeStdin?.();
+    }
     await handler.stopMonitoring();
     const state = handler.getState();
     const queuedFeedback = handler.getAllQueuedFeedback();
@@ -1062,14 +1160,14 @@ export const finalizeBidirectionalHandler = async (handler, log) => {
         await log(`   • From @${feedback.user}: ${feedback.body.substring(0, 100)}${feedback.body.length > 100 ? '...' : ''}`, { level: 'info' });
       }
       if (state.totalFeedbackStreamed > 0) {
-        await log(`   📤 ${state.totalFeedbackStreamed} of these were streamed live into Claude stdin.`, { level: 'info' });
+        await log(`   📤 ${state.totalFeedbackStreamed} of these were streamed live into the tool stdin.`, { level: 'info' });
       } else {
         await log('   💡 This feedback will be available for the next continuation of this task.', { level: 'info' });
       }
     } else {
       await log('📊 Bidirectional mode: No new feedback received during execution', { verbose: true });
     }
-    await log(`📊 Bidirectional mode stats: ${state.totalCommentsProcessed} comments processed, ${state.totalFeedbackQueued} feedback queued, ${state.totalFeedbackStreamed} streamed into Claude stdin`, { verbose: true });
+    await log(`📊 Bidirectional mode stats: ${state.totalCommentsProcessed} comments processed, ${state.totalFeedbackQueued} feedback queued, ${state.totalFeedbackStreamed} streamed into tool stdin`, { verbose: true });
     return queuedFeedback;
   } catch (bidirectionalError) {
     await log(`⚠️ Bidirectional mode cleanup error: ${bidirectionalError.message}`, { verbose: true });

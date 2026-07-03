@@ -235,14 +235,16 @@ export const logActiveHandles = async (log = null) => {
  * @param {object} [options]
  * @param {boolean} [options.skipPreExit=false] - Issue #1823: skip the pre-exit failure notifier
  *   (e.g. on graceful shutdown, which is NOT a failure and must not post a "solver failed" comment).
+ * @param {string|null} [options.failureActionSection=null] - Optional prebuilt user-facing recovery
+ *   guidance for the pre-exit notifier.
  */
-export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false } = {}) => {
+export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false, failureActionSection = null } = {}) => {
   await showExitMessage(reason, code);
 
   if (!skipPreExit && code !== 0 && preExitFunction && !preExitHandlerRan) {
     preExitHandlerRan = true;
     try {
-      await preExitFunction({ code, reason });
+      await preExitFunction({ code, reason, failureActionSection });
     } catch (error) {
       const message = error && error.message ? error.message : String(error);
       if (logFunction) {

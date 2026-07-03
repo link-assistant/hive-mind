@@ -242,13 +242,13 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
     default: true,
   },
-  // Issue #1708: Stage 1 introduces this flag inert — it parses, appears in
-  // --help, and is read by validateAutoInputUntilMergeable below, but does not
-  // change the runtime loop yet. Stages 2-6 will wire it into watchUntilMergeable
-  // and the bidirectional NDJSON pipe (see docs/case-studies/issue-1708/).
+  // Issue #1708/#2007: streaming-first feedback into the running tool session.
+  // Claude is wired through the bidirectional stream-json stdin pipe; other
+  // tools warn and retain restart/resume fallback behavior until a verified
+  // mid-session input protocol is wired into their solve runners.
   'auto-input-until-mergeable': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Extend a single AI tool session as long as possible by streaming new input (uncommitted changes, CI/CD failures, PR/issue comments, issue title/body updates) directly into the running session, instead of restarting it. Implies --accept-incomming-comments-as-input and --queue-comments-to-input by default (comments are deferred until the AI finishes the current step and is waiting for input). Existing auto-restart/auto-resume loops remain enabled as a fallback, but the goal is to keep them dormant. The full streaming-aware watchUntilMergeable replacement and per-tool wiring is staged in subsequent PRs (see docs/case-studies/issue-1708/). Falls back gracefully on non-Claude tools and on streaming errors. Disabled by default.',
+    description: '[EXPERIMENTAL] For --tool claude, extend a single session as long as possible by streaming new input (uncommitted changes, CI/CD failures, PR/issue comments, issue title/body updates) directly into Claude via stream-json stdin instead of restarting. Implies --accept-incomming-comments-as-input and --queue-comments-to-input by default (comments are deferred until the AI finishes the current step and is waiting for input). Existing auto-restart/auto-resume loops remain enabled as a fallback. Other tools currently warn and fall back; Codex live input should be wired in a future runner through Codex app-server turn/steer rather than codex exec one-shot stdin. Disabled by default.',
     default: false,
   },
   'wait-for-all-actions-in-repository-before-mergeable': {

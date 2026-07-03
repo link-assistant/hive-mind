@@ -3,10 +3,10 @@
  * Bidirectional Interactive Mode Library
  *
  * [EXPERIMENTAL] This module provides bidirectional real-time communication during Claude execution.
- * It monitors PR comments for user feedback and queues it for injection into the running Claude session.
+ * It monitors issue/PR comments for user feedback and queues them for injection into the running Claude session.
  *
  * Key features:
- * - Monitors GitHub PR comments for new user feedback
+ * - Monitors GitHub issue/PR comments for new user feedback
  * - Queues feedback messages for injection into Claude's stdin
  * - Works with Claude CLI's --input-format stream-json mode
  * - Filters out system-generated comments (from interactive mode itself)
@@ -23,6 +23,7 @@
  */
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { getLiveInputCapability, isLiveInputSupported } from './live-input-capabilities.lib.mjs';
 // Configuration constants
 const CONFIG = {
   // Minimum time between comment checks to avoid rate limiting (in ms)
@@ -33,7 +34,7 @@ const CONFIG = {
   MAX_QUEUE_SIZE: 50,
   // Default keep-alive for the headless Claude process between stream-json
   // turns. Claude Code exits after this many ms with no new input once it
-  // has replied, so new PR comments have a window to flow in as additional
+  // has replied, so new issue/PR comments have a window to flow in as additional
   // user messages. Issue #817.
   DEFAULT_EXIT_AFTER_STOP_DELAY_MS: 60_000,
   // Signature to identify system-generated comments
@@ -230,7 +231,36 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
-   * Fetch recent comments from the PR
+   * Fetch comments from a GitHub API endpoint.
+   *
+   * @param {string} apiPath
+   * @param {string} source
+   * @returns {Promise<Array>} Array of normalized comment objects
+   * @private
+   */
+  const fetchCommentsFromEndpoint = async (apiPath, source) => {
+    try {
+      const result = await $`gh api ${apiPath} --paginate --slurp`;
+      const parsed = JSON.parse(result.stdout?.toString() || '[]');
+      const comments = Array.isArray(parsed) && parsed.every(Array.isArray) ? parsed.flat() : parsed;
+      return comments.map(comment => ({
+        id: comment.id,
+        body: comment.body || '',
+        created_at: comment.created_at,
+        user: typeof comment.user === 'string' ? comment.user : comment.user?.login || '',
+        source,
+      }));
+    } catch (error) {
+      if (verbose) {
+        await log(`⚠️ Bidirectional mode: Failed to fetch ${source} comments: ${error.message}`, { verbose: true });
+      }
+      return [];
+    }
+  };
+
+  /**
+   * Fetch recent comments from PR conversation, PR review, and source issue.
+   *
    * @returns {Promise<Array>} Array of comment objects
    * @private
    */
@@ -242,17 +272,22 @@ export const createBidirectionalHandler = options => {
       return [];
     }
 
-    try {
-      // Fetch comments using gh api with pagination (GitHub defaults to 30/page), sorted by created_at desc
-      const result = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate --jq '[.[] | {id: .id, body: .body, created_at: .created_at, user: .user.login}] | sort_by(.created_at) | reverse'`;
-      const comments = JSON.parse(result.stdout.toString());
-      return comments;
-    } catch (error) {
-      if (verbose) {
-        await log(`⚠️ Bidirectional mode: Failed to fetch comments: ${error.message}`, { verbose: true });
-      }
-      return [];
+    const comments = [...(await fetchCommentsFromEndpoint(`repos/${owner}/${repo}/issues/${prNumber}/comments`, 'pull request conversation')), ...(await fetchCommentsFromEndpoint(`repos/${owner}/${repo}/pulls/${prNumber}/comments`, 'pull request review'))];
+
+    if (issueNumber && String(issueNumber) !== String(prNumber)) {
+      comments.push(...(await fetchCommentsFromEndpoint(`repos/${owner}/${repo}/issues/${issueNumber}/comments`, 'issue')));
     }
+
+    const seenKeys = new Set();
+    const uniqueComments = [];
+    for (const comment of comments) {
+      const key = comment.id == null ? `${comment.source}:${comment.created_at}:${comment.user}:${comment.body}` : String(comment.id);
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      uniqueComments.push(comment);
+    }
+
+    return uniqueComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   };
 
   /**
@@ -399,14 +434,14 @@ export const createBidirectionalHandler = options => {
           state.totalFeedbackQueued++;
 
           if (verbose) {
-            await log(`📥 Bidirectional mode: Queued feedback from @${comment.user} (comment #${comment.id})`, { verbose: true });
+            await log(`📥 Bidirectional mode: Queued feedback from @${comment.user} (${comment.source || 'comment'} #${comment.id})`, { verbose: true });
           }
 
           // Issue #817 / #1708: Dispatch through the delivery-mode router so
           // queue-comments-to-input can hold the frame until the AI is idle.
           await dispatchFrame(formattedMessage, {
             kind: 'comment',
-            label: `comment #${comment.id} from @${comment.user}`,
+            label: `${comment.source || 'comment'} #${comment.id} from @${comment.user}`,
           });
         } else {
           if (verbose) {
@@ -573,7 +608,7 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
-   * Start monitoring PR comments for user feedback
+   * Start monitoring issue/PR comments for user feedback
    *
    * @returns {Promise<void>}
    */
@@ -604,7 +639,7 @@ export const createBidirectionalHandler = options => {
     }, interval);
 
     if (verbose) {
-      await log(`🔌 Bidirectional mode: Started monitoring PR #${prNumber} (polling every ${interval / 1000}s)`, { verbose: true });
+      await log(`🔌 Bidirectional mode: Started monitoring issue/PR comments for PR #${prNumber} (polling every ${interval / 1000}s)`, { verbose: true });
     }
 
     // Issue #1708: When --auto-input-until-mergeable enables status streaming,
@@ -632,7 +667,7 @@ export const createBidirectionalHandler = options => {
   };
 
   /**
-   * Stop monitoring PR comments
+   * Stop monitoring issue/PR comments
    *
    * @returns {Promise<void>}
    */
@@ -870,8 +905,7 @@ export const createBidirectionalHandler = options => {
  * @returns {boolean} Whether bidirectional interactive mode is supported
  */
 export const isBidirectionalModeSupported = tool => {
-  // Currently only supported for Claude due to --input-format stream-json support
-  return tool === 'claude';
+  return isLiveInputSupported(tool);
 };
 
 /**
@@ -891,17 +925,11 @@ export const isBidirectionalModeSupported = tool => {
  * @returns {Promise<boolean>} Whether configuration is valid for the chosen tool
  */
 export const validateBidirectionalModeConfig = async (argv, log) => {
-  // Issue #1708 Stage 1: --auto-input-until-mergeable enables only the
-  // input-side of bidirectional mode — accepting incoming PR/issue comments
-  // as new input — without enabling --interactive-mode (which would push
-  // tool output back as PR comments). The full streaming-aware
-  // watchUntilMergeable replacement is staged in subsequent PRs — until
-  // those land, this composition gives users on --tool claude the
-  // mid-session NDJSON input pipe that already exists for issue #817 and
-  // is a graceful no-op for non-Claude tools (the validator below disables
-  // it). The --auto-restart-until-mergeable / --auto-resume loops remain
-  // active as fallbacks; the goal is for them to stay dormant when input
-  // streaming keeps the session alive.
+  // Issue #1708/#2007: --auto-input-until-mergeable enables only the
+  // input-side of bidirectional mode without enabling --interactive-mode
+  // (which would push tool output back as PR comments). Today the live input
+  // pipe is implemented for Claude; other tools keep the restart/resume
+  // fallback until their solve runners have a verified mid-session input API.
   if (argv.autoInputUntilMergeable) {
     if (!argv.acceptIncommingCommentsAsInput) argv.acceptIncommingCommentsAsInput = true;
     // Default delivery mode for --auto-input-until-mergeable is queue:
@@ -935,9 +963,14 @@ export const validateBidirectionalModeConfig = async (argv, log) => {
   // Nothing more to validate if no incoming-comment acceptance is requested
   if (!argv.acceptIncommingCommentsAsInput) return true;
 
-  // Tool support: currently only Claude (uses --input-format stream-json)
+  // Tool support: currently only Claude (uses --input-format stream-json).
   if (!isBidirectionalModeSupported(argv.tool)) {
-    await log(`⚠️ --accept-incomming-comments-as-input is only supported for --tool claude (current: ${argv.tool})`, { level: 'warning' });
+    const capability = getLiveInputCapability(argv.tool);
+    await log(`⚠️ --accept-incomming-comments-as-input is only supported for --tool claude today (current: ${argv.tool})`, { level: 'warning' });
+    await log(`   ${capability.unsupportedReason}`, { level: 'warning' });
+    if (capability.futureProtocol) {
+      await log(`   Candidate follow-up protocol: ${capability.futureProtocol}.`, { level: 'warning' });
+    }
     await log('   Incoming-comment acceptance will be disabled for this session.', { level: 'warning' });
     argv.acceptIncommingCommentsAsInput = false;
     argv.excludeAllOwnIncommingCommentsFromInput = false;
@@ -950,7 +983,7 @@ export const validateBidirectionalModeConfig = async (argv, log) => {
   await log('🔌 Bidirectional Interactive Mode: ENABLED (experimental)', { level: 'info' });
   await log(`   accept-incomming-comments-as-input: true${argv.excludeAllOwnIncommingCommentsFromInput ? ', exclude-all-own-incomming-comments-from-input: true' : ''}`, { level: 'info' });
   await log(`   delivery mode: ${deliveryMode}-comments-to-input`, { level: 'info' });
-  await log('   PR comments will be monitored and queued as feedback for Claude.', { level: 'info' });
+  await log('   Issue/PR comments will be monitored and queued as feedback for Claude.', { level: 'info' });
 
   return true;
 };
@@ -988,7 +1021,7 @@ export const setupBidirectionalHandler = async ({ argv, owner, repo, prNumber, i
   // --accept-incomming-comments-as-input path keeps the existing #817 behavior
   // of forwarding only comments.
   const streamStatusToInput = !!argv.autoInputUntilMergeable;
-  await log('🔌 Bidirectional mode: Creating handler to accept incoming PR comments as Claude input', { verbose: true });
+  await log('🔌 Bidirectional mode: Creating handler to accept incoming issue/PR comments as Claude input', { verbose: true });
   const handler = createBidirectionalHandler({
     owner,
     repo,

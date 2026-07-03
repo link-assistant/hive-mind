@@ -1,0 +1,20 @@
+{
+  "number": 2008,
+  "title": "[WIP] Double check that we have an option for immediate or interactive input to the claude and codex and other tools as we get events about the issue and pull request",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2008",
+  "state": "OPEN",
+  "isDraft": true,
+  "createdAt": "2026-07-02T23:25:21Z",
+  "updatedAt": "2026-07-02T23:25:22Z",
+  "author": {
+    "login": "konard",
+    "name": "Konstantin Diachenko",
+    "is_bot": false
+  },
+  "headRefName": "issue-2007-bb2060a70da6",
+  "baseRefName": "main",
+  "headRepository": "link-assistant/hive-mind",
+  "reviewDecision": "",
+  "body": "## 🤖 AI-Powered Solution Draft\n\nThis pull request is being automatically generated to solve issue #2007.\n\n### 📋 Issue Reference\nFixes #2007\n\n### 🚧 Status\n**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.\n\n### 📝 Implementation Details\n_Details will be added as the solution draft is developed..._\n\n---\n*This PR was created automatically by the AI issue solver*",
+  "comments": []
+}

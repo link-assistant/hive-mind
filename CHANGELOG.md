@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.1.4
+
+### Patch Changes
+
+- acc3ea1: Simplify the `/limits` output with subscription headings and hide unused Codex limits and credits.
+
 ## 2.1.3
 
 ### Patch Changes

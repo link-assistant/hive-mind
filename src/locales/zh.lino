@@ -192,6 +192,11 @@ zh
         hour
           session "Claude 5 小时会话"
       limits "Claude 限额"
+      subscription
+        title "Claude{{plan}} 订阅"
+    chatgpt
+      subscription
+        title "ChatGPT{{plan}} 订阅"
     codex
       5
         hour
@@ -205,6 +210,7 @@ zh
     current
       time "当前时间"
       week
+        label "本周"
         all
           models "本周（所有模型）"
         sonnet
@@ -226,6 +232,8 @@ zh
     end "结束"
     five
       hour
+        limit
+          session "5 小时会话"
         session "5 小时会话"
       min
         load
@@ -314,6 +322,14 @@ zh
     session "会话"
     start "开始"
     subscription
+      detail
+        ends
+          label "结束于 {{time}}"
+          in "将在 {{duration}} 后结束；{{time}}"
+        trial
+          ends
+            label "试用结束于 {{time}}"
+            in "试用将在 {{duration}} 后结束；{{time}}"
       ends
         label "订阅结束于 {{time}}"
         in "订阅将在 {{duration}} 后结束 ({{time}})"

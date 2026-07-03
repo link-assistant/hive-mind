@@ -199,6 +199,12 @@
 
 **Примечание:** Подробности см. в [Issue #1143](https://github.com/link-assistant/hive-mind/issues/1143) и [Issue #1269](https://github.com/link-assistant/hive-mind/issues/1269).
 
+`/merge` принимает цели-репозитории, issue и pull request. Если цель issue или
+pull request ещё не mergeable, очередь слияния ждёт до
+`HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS` и опрашивает каждые
+`HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS`, после чего помечает цель как
+неуспешную.
+
 ### 13. Telegram-бот
 
 | Переменная окружения                       | По умолчанию  | Описание                                                                                    |

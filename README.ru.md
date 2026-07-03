@@ -512,6 +512,26 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/merge` — Слияние готовых Pull Request
+
+```
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+
+Examples:
+/merge https://github.com/owner/repo
+/merge https://github.com/owner/repo/issues/123
+/merge https://github.com/owner/repo/pull/456
+```
+
+Цель-репозиторий обрабатывает PR с меткой `ready` последовательно. Цели issue и
+pull request обрабатывают только связанный или выбранный PR. Также можно ответить
+командой `/merge` на сообщение с одной ссылкой на GitHub repository, issue или
+pull request, например на предыдущую команду `/codex ...issues/123`.
+
+Если целевой PR ещё не завершён, `/merge` ждёт, пока он станет mergeable, и затем
+выполняет слияние. Пропуск конфликтов слияния по-прежнему работает с
+`--auto-resolve`.
+
 #### `/limits` — Показать лимиты использования
 
 ```

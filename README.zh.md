@@ -508,6 +508,25 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/merge` - 合并就绪的 Pull Request
+
+```
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+
+Examples:
+/merge https://github.com/owner/repo
+/merge https://github.com/owner/repo/issues/123
+/merge https://github.com/owner/repo/pull/456
+```
+
+仓库目标会按顺序处理带有 `ready` 标签的 PR。Issue 和 Pull Request
+目标只处理关联或指定的 PR。你也可以回复一条包含单个 GitHub
+仓库、Issue 或 Pull Request 链接的消息并发送 `/merge`，例如之前的
+`/codex ...issues/123` 命令。
+
+如果目标 PR 尚未完成，`/merge` 会等待它变为可合并后再合并。合并冲突跳过仍可配合
+`--auto-resolve` 使用。
+
 #### `/limits` - 显示用量限制
 
 ```

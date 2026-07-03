@@ -522,7 +522,9 @@ Shows:
 - RAM usage (used vs total)
 - Disk space usage
 - GitHub API rate limits
-- Claude usage limits (session and weekly)
+- Claude and ChatGPT subscription usage windows
+- Non-zero Codex weekly limits and credits
+- Solve queue status
 ```
 
 #### `/terminal_watch` — Live Session Log

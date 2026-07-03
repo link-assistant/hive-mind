@@ -23,7 +23,7 @@
  */
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
-import { getLiveInputCapability, isLiveInputSupported } from './live-input-capabilities.lib.mjs';
+import { getLiveInputCapability, getLiveInputMode, isLiveInputSupported, LIVE_INPUT_MODE_FALLBACK } from './live-input-capabilities.lib.mjs';
 // Configuration constants
 const CONFIG = {
   // Minimum time between comment checks to avoid rate limiting (in ms)
@@ -927,10 +927,43 @@ export const isBidirectionalModeSupported = tool => {
 export const validateBidirectionalModeConfig = async (argv, log) => {
   // Issue #1708/#2007: --auto-input-until-mergeable enables only the
   // input-side of bidirectional mode without enabling --interactive-mode
-  // (which would push tool output back as PR comments). Today the live input
-  // pipe is implemented for Claude; other tools keep the restart/resume
-  // fallback until their solve runners have a verified mid-session input API.
+  // (which would push tool output back as PR comments).
+  //
+  // Live event input is available for every tool, but the delivery mode differs:
+  //   - stream-mode tools (Claude) get a live stdin pipe.
+  //   - fallback-mode tools (Codex, agent, opencode, gemini, qwen, ...) use the
+  //     universal restart/resume fallback: the run finishes the current session
+  //     in the JSON output, stops, and resumes the AI with the new issue/PR
+  //     events as feedback via --auto-restart-until-mergeable.
   if (argv.autoInputUntilMergeable) {
+    if (getLiveInputMode(argv.tool) === LIVE_INPUT_MODE_FALLBACK) {
+      // No live stdin channel for this tool: activate the restart/resume
+      // fallback instead of disabling the feature. Live comment streaming
+      // (which needs the Claude stream-json pipe) stays off; the auto-restart
+      // loop delivers the same events at session boundaries.
+      const capability = getLiveInputCapability(argv.tool);
+      argv.acceptIncommingCommentsAsInput = false;
+      argv.excludeAllOwnIncommingCommentsFromInput = false;
+      argv.streamCommentsToInput = false;
+      argv.queueCommentsToInput = false;
+      // Ensure the fallback loop is actually running. It defaults to enabled,
+      // but --auto-input-until-mergeable relies on it entirely for these tools,
+      // so re-enable it unless the user explicitly opted out.
+      if (argv.autoRestartUntilMergeable !== false) {
+        argv.autoRestartUntilMergeable = true;
+      }
+      await log(`🔁 --auto-input-until-mergeable: live streaming input is not available for --tool ${argv.tool}; using the restart/resume fallback.`, { level: 'info' });
+      await log(`   ${capability.unsupportedReason}`, { level: 'info' });
+      if (capability.futureProtocol) {
+        await log(`   Candidate live-streaming protocol: ${capability.futureProtocol} (tracked in link-assistant/agent).`, { level: 'info' });
+      }
+      if (argv.autoRestartUntilMergeable === false) {
+        await log('   ⚠️ --no-auto-restart-until-mergeable disables the fallback, so no live input mechanism remains for this tool.', { level: 'warning' });
+      } else {
+        await log('   The auto-restart-until-mergeable loop will resume the session with new issue/PR events (comments, title/body changes, CI failures, conflicts).', { level: 'info' });
+      }
+      return true;
+    }
     if (!argv.acceptIncommingCommentsAsInput) argv.acceptIncommingCommentsAsInput = true;
     // Default delivery mode for --auto-input-until-mergeable is queue:
     // hold comments until the AI is idle so the model can finish the
@@ -963,15 +996,20 @@ export const validateBidirectionalModeConfig = async (argv, log) => {
   // Nothing more to validate if no incoming-comment acceptance is requested
   if (!argv.acceptIncommingCommentsAsInput) return true;
 
-  // Tool support: currently only Claude (uses --input-format stream-json).
+  // Live comment *streaming* is only wired for Claude (uses --input-format
+  // stream-json). The universal restart/resume fallback is reached via
+  // --auto-input-until-mergeable (handled above), not through the standalone
+  // --accept-incomming-comments-as-input / --bidirectional-interactive-mode
+  // flags, which are specifically about live streaming.
   if (!isBidirectionalModeSupported(argv.tool)) {
     const capability = getLiveInputCapability(argv.tool);
-    await log(`⚠️ --accept-incomming-comments-as-input is only supported for --tool claude today (current: ${argv.tool})`, { level: 'warning' });
+    await log(`⚠️ Live comment streaming is only supported for --tool claude today (current: ${argv.tool})`, { level: 'warning' });
     await log(`   ${capability.unsupportedReason}`, { level: 'warning' });
     if (capability.futureProtocol) {
       await log(`   Candidate follow-up protocol: ${capability.futureProtocol}.`, { level: 'warning' });
     }
-    await log('   Incoming-comment acceptance will be disabled for this session.', { level: 'warning' });
+    await log('   Live incoming-comment streaming will be disabled for this session.', { level: 'warning' });
+    await log('   Tip: use --auto-input-until-mergeable to deliver the same issue/PR events through the restart/resume fallback instead.', { level: 'warning' });
     argv.acceptIncommingCommentsAsInput = false;
     argv.excludeAllOwnIncommingCommentsFromInput = false;
     argv.streamCommentsToInput = false;

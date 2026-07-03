@@ -192,6 +192,11 @@ en
         hour
           session "Claude 5 hour session"
       limits "Claude limits"
+      subscription
+        title "Claude{{plan}} subscription"
+    chatgpt
+      subscription
+        title "ChatGPT{{plan}} subscription"
     codex
       5
         hour
@@ -205,6 +210,7 @@ en
     current
       time "Current time"
       week
+        label "Current week"
         all
           models "Current week (all models)"
         sonnet
@@ -226,6 +232,8 @@ en
     end "End"
     five
       hour
+        limit
+          session "5 hour session"
         session "5h session"
       min
         load
@@ -314,6 +322,14 @@ en
     session "session"
     start "Start"
     subscription
+      detail
+        ends
+          label "ends {{time}}"
+          in "ends in {{duration}}; {{time}}"
+        trial
+          ends
+            label "trial ends {{time}}"
+            in "trial ends in {{duration}}; {{time}}"
       ends
         label "Subscription ends {{time}}"
         in "Subscription ends in {{duration}} ({{time}})"

@@ -10,7 +10,7 @@
  */
 
 import { CACHE_TTL, DEFAULT_CODEX_AUTH_PATH, DEFAULT_CREDENTIALS_PATH, decodeJwtPayload, getLimitCache, readCodexAuth, readCredentials } from './limits.lib.mjs';
-import { formatLocalizedRelativeTime, formatLocalizedResetTime, formatSubscriptionEnds, formatSubscriptionStatus, formatTrialEnds, resolveLimitLocale } from './limits-i18n.lib.mjs';
+import { formatLocalizedRelativeTime, formatLocalizedResetTime, formatSubscriptionEnds, formatSubscriptionStatus, formatTrialEnds, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 
 const PROFILE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/profile';
 
@@ -30,6 +30,45 @@ export function formatSubscriptionLines(subscription, options = {}) {
   else if (subscription.trialEndsAt) line = buildLine(subscription.trialEndsAt, formatTrialEnds);
   else if (subscription.status) line = formatSubscriptionStatus(subscription.status, { locale });
   return line ? `${line}\n` : '';
+}
+
+function humanizePlanType(planType, provider) {
+  if (!planType) return '';
+  const providerPrefix = provider === 'claude' ? /^claude[\s_-]*/i : /^(chatgpt|codex|openai)[\s_-]*/i;
+  const normalized = String(planType).trim().replace(providerPrefix, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  return normalized
+    .split(' ')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function formatSubscriptionDetail(subscription, options = {}) {
+  if (!subscription) return '';
+  const locale = resolveLimitLocale(options);
+  const buildDetail = (iso, inKey, atKey) => {
+    const resetTime = formatLocalizedResetTime(iso, true, { locale });
+    if (!resetTime) return '';
+    const duration = formatLocalizedRelativeTime(iso, { locale });
+    return duration ? lt(inKey, { duration, time: resetTime }, { locale }) : lt(atKey, { time: resetTime }, { locale });
+  };
+
+  if (subscription.endsAt) return buildDetail(subscription.endsAt, 'subscription_detail_ends_in', 'subscription_detail_ends');
+  if (subscription.trialEndsAt) return buildDetail(subscription.trialEndsAt, 'subscription_detail_trial_ends_in', 'subscription_detail_trial_ends');
+  return subscription.status ? String(subscription.status).trim() : '';
+}
+
+export function formatSubscriptionHeading(provider, subscription, options = {}) {
+  const locale = resolveLimitLocale(options);
+  const normalizedProvider = provider === 'claude' ? 'claude' : 'chatgpt';
+  const planType = subscription?.planType || options?.planType || null;
+  if (!subscription && !planType) return '';
+
+  const plan = humanizePlanType(planType, normalizedProvider);
+  const titleKey = normalizedProvider === 'claude' ? 'claude_subscription_title' : 'chatgpt_subscription_title';
+  const title = lt(titleKey, { plan: plan ? ` ${plan}` : '' }, { locale });
+  const detail = formatSubscriptionDetail(subscription, { locale });
+  return detail ? `${title} (${detail})` : title;
 }
 
 /**

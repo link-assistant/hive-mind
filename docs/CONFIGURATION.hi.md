@@ -199,6 +199,12 @@ Hive Mind एप्लिकेशन environment variables और command-line 
 
 **नोट:** विवरण के लिए [Issue #1143](https://github.com/link-assistant/hive-mind/issues/1143) और [Issue #1269](https://github.com/link-assistant/hive-mind/issues/1269) देखें।
 
+`/merge` repository, issue, और pull request targets स्वीकार करता है। जब कोई issue
+या pull request target अभी mergeable नहीं है, merge queue
+`HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS` तक प्रतीक्षा करती है और
+`HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS` पर poll करती है, उसके बाद target को
+failed माना जाता है।
+
 ### 13. Telegram Bot
 
 | Environment Variable                       | डिफ़ॉल्ट   | विवरण                                                                         |

@@ -17,6 +17,8 @@
  */
 
 import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus, syncReadyTags, closeLinkedIssueIfNotAutoClosed } from './github-merge.lib.mjs';
+import { resolveMergeTargetItems } from './github-merge-targets.lib.mjs';
+import { waitForPRReady as waitForPRReadyHelper } from './telegram-merge-wait.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
 import { getProgressBar } from './limits.lib.mjs';
 
@@ -38,6 +40,7 @@ export const MergeStatus = {
 export const MergeItemStatus = {
   PENDING: 'pending',
   CHECKING_CI: 'checking_ci',
+  WAITING_READY: 'waiting_ready',
   WAITING_CI: 'waiting_ci',
   READY_TO_MERGE: 'ready_to_merge',
   MERGING: 'merging',
@@ -144,6 +147,8 @@ class MergeQueueItem {
         return '⏳';
       case MergeItemStatus.CHECKING_CI:
         return '🔍';
+      case MergeItemStatus.WAITING_READY:
+        return '⏱️';
       case MergeItemStatus.WAITING_CI:
         return '⏱️';
       case MergeItemStatus.READY_TO_MERGE:
@@ -185,6 +190,8 @@ export class MergeQueueProcessor {
     // tests can run without touching the screen runtime.
     this.autoResolve = options.autoResolve === true;
     this.spawnSolveSession = typeof options.spawnSolveSession === 'function' ? options.spawnSolveSession : null;
+    this.target = options.target || { mode: 'repository', owner: this.owner, repo: this.repo, url: `https://github.com/${this.owner}/${this.repo}` };
+    this.waitForUnfinished = options.waitForUnfinished !== false;
 
     // State
     this.items = [];
@@ -208,6 +215,17 @@ export class MergeQueueProcessor {
     this.getPRStatus = typeof options.getPRStatus === 'function' ? options.getPRStatus : getPRStatus;
     // Same idea for `getMergeCommitSha` so tests don't need to stub gh.
     this.getMergeCommitSha = typeof options.getMergeCommitSha === 'function' ? options.getMergeCommitSha : getMergeCommitSha;
+    this.checkPRMergeable = typeof options.checkPRMergeable === 'function' ? options.checkPRMergeable : checkPRMergeable;
+    this.checkPRCIStatus = typeof options.checkPRCIStatus === 'function' ? options.checkPRCIStatus : checkPRCIStatus;
+    this.waitForCI = typeof options.waitForCI === 'function' ? options.waitForCI : waitForCI;
+    this.mergePullRequest = typeof options.mergePullRequest === 'function' ? options.mergePullRequest : mergePullRequest;
+    this.closeLinkedIssueIfNotAutoClosed = typeof options.closeLinkedIssueIfNotAutoClosed === 'function' ? options.closeLinkedIssueIfNotAutoClosed : closeLinkedIssueIfNotAutoClosed;
+    this.resolveMergeTargetItems = typeof options.resolveMergeTargetItems === 'function' ? options.resolveMergeTargetItems : resolveMergeTargetItems;
+    this.ensureReadyLabel = typeof options.ensureReadyLabel === 'function' ? options.ensureReadyLabel : ensureReadyLabel;
+    this.syncReadyTags = typeof options.syncReadyTags === 'function' ? options.syncReadyTags : syncReadyTags;
+    this.getAllReadyPRs = typeof options.getAllReadyPRs === 'function' ? options.getAllReadyPRs : getAllReadyPRs;
+    this.targetItemsTimeoutMs = options.targetItemsTimeoutMs ?? MERGE_QUEUE_CONFIG.CI_TIMEOUT_MS;
+    this.targetItemsPollIntervalMs = options.targetItemsPollIntervalMs ?? MERGE_QUEUE_CONFIG.CI_POLL_INTERVAL_MS;
 
     // Statistics
     this.stats = {
@@ -241,7 +259,7 @@ export class MergeQueueProcessor {
       this.log(`Initializing merge queue for ${this.owner}/${this.repo}`);
 
       // Ensure ready label exists
-      const labelResult = await ensureReadyLabel(this.owner, this.repo, this.verbose);
+      const labelResult = await this.ensureReadyLabel(this.owner, this.repo, this.verbose);
       if (!labelResult.success) {
         return { success: false, error: labelResult.error };
       }
@@ -249,21 +267,27 @@ export class MergeQueueProcessor {
         this.log("Created 'ready' label in repository");
       }
 
-      // Issue #1367: Sync 'ready' tags between linked PRs and issues before collecting the queue
-      // This ensures the final list reflects all ready work regardless of where the tag was applied
-      const syncResult = await syncReadyTags(this.owner, this.repo, this.verbose);
-      if (syncResult.synced > 0) {
-        this.log(`Synced 'ready' tag: ${syncResult.synced} item(s) updated`);
-      }
-      if (syncResult.errors > 0) {
-        this.log(`Tag sync had ${syncResult.errors} error(s) (non-fatal, proceeding)`);
-      }
+      let readyPRs;
+      if (this.target?.mode && this.target.mode !== 'repository') {
+        readyPRs = await this.resolveMergeTargetItemsWithWait();
+      } else {
+        // Issue #1367: Sync 'ready' tags between linked PRs and issues before collecting the queue
+        // This ensures the final list reflects all ready work regardless of where the tag was applied
+        const syncResult = await this.syncReadyTags(this.owner, this.repo, this.verbose);
+        if (syncResult.synced > 0) {
+          this.log(`Synced 'ready' tag: ${syncResult.synced} item(s) updated`);
+        }
+        if (syncResult.errors > 0) {
+          this.log(`Tag sync had ${syncResult.errors} error(s) (non-fatal, proceeding)`);
+        }
 
-      // Fetch all ready PRs
-      const readyPRs = await getAllReadyPRs(this.owner, this.repo, this.verbose);
+        // Fetch all ready PRs
+        readyPRs = await this.getAllReadyPRs(this.owner, this.repo, this.verbose);
+      }
 
       if (readyPRs.length === 0) {
-        return { success: true, error: null, message: "No PRs with 'ready' label found" };
+        const message = this.target?.mode === 'issue' ? `No open PRs linked to issue #${this.target.issueNumber} found` : this.target?.mode === 'pull' ? `Pull request #${this.target.prNumber} was not found` : "No PRs with 'ready' label found";
+        return { success: true, error: null, message };
       }
 
       // Limit to max PRs per session
@@ -279,6 +303,7 @@ export class MergeQueueProcessor {
         success: true,
         error: null,
         count: this.items.length,
+        targetMode: this.target?.mode || 'repository',
         truncated: readyPRs.length > MERGE_QUEUE_CONFIG.MAX_PRS_PER_SESSION,
       };
     } catch (error) {
@@ -420,6 +445,46 @@ export class MergeQueueProcessor {
   }
 
   /**
+   * Resolve targeted PR data, waiting for issue-linked PRs that may be created
+   * shortly after a replied `/codex <issue>` message.
+   *
+   * @returns {Promise<Array<{pr: Object, issue: Object|null, sortDate: Date}>>}
+   */
+  async resolveMergeTargetItemsWithWait() {
+    const maxPollInterval = Math.max(1, this.targetItemsPollIntervalMs || 1);
+    const maxAttempts = Math.max(1, Math.ceil((this.targetItemsTimeoutMs || 0) / maxPollInterval));
+
+    for (let attempt = 0; attempt <= maxAttempts; attempt++) {
+      if (this.isCancelled) {
+        return [];
+      }
+
+      const items = (await this.resolveMergeTargetItems(this.target, this.verbose)) || [];
+      if (items.length > 0 || this.target?.mode !== 'issue') {
+        return items;
+      }
+
+      if (attempt === maxAttempts) {
+        return [];
+      }
+
+      this.log(`Waiting for a linked PR to appear for issue #${this.target.issueNumber}`);
+      await this.sleep(this.targetItemsPollIntervalMs);
+    }
+
+    return [];
+  }
+
+  async waitForPRReady(item, initialCheck) {
+    return waitForPRReadyHelper(this, item, initialCheck, {
+      MergeItemStatus,
+      conflictSkipReason: MERGE_CONFLICT_SKIP_REASON,
+      timeoutMs: MERGE_QUEUE_CONFIG.CI_TIMEOUT_MS,
+      pollIntervalMs: MERGE_QUEUE_CONFIG.CI_POLL_INTERVAL_MS,
+    });
+  }
+
+  /**
    * Process a single merge queue item
    * @param {MergeQueueItem} item
    */
@@ -430,7 +495,7 @@ export class MergeQueueProcessor {
     try {
       // Step 1: Check if PR is mergeable
       item.status = MergeItemStatus.CHECKING_CI;
-      const mergeableCheck = await checkPRMergeable(this.owner, this.repo, item.pr.number, this.verbose);
+      const mergeableCheck = await this.checkPRMergeable(this.owner, this.repo, item.pr.number, this.verbose);
 
       if (mergeableCheck.terminal) {
         item.status = MergeItemStatus.FAILED;
@@ -441,15 +506,34 @@ export class MergeQueueProcessor {
       }
 
       if (!mergeableCheck.mergeable) {
-        item.status = MergeItemStatus.SKIPPED;
-        item.error = mergeableCheck.reason;
-        this.stats.skipped++;
-        this.log(`Skipped PR #${item.pr.number}: ${mergeableCheck.reason}`);
-        return;
+        if (!this.waitForUnfinished || mergeableCheck.reason === MERGE_CONFLICT_SKIP_REASON) {
+          item.status = MergeItemStatus.SKIPPED;
+          item.error = mergeableCheck.reason;
+          this.stats.skipped++;
+          this.log(`Skipped PR #${item.pr.number}: ${mergeableCheck.reason}`);
+          return;
+        }
+
+        const waitForReadyResult = await this.waitForPRReady(item, mergeableCheck);
+        if (!waitForReadyResult.success) {
+          if (waitForReadyResult.status === 'cancelled' || waitForReadyResult.status === 'conflict') {
+            item.status = MergeItemStatus.SKIPPED;
+            item.error = waitForReadyResult.error;
+            this.stats.skipped++;
+            this.log(`Skipped PR #${item.pr.number}: ${waitForReadyResult.error}`);
+            return;
+          }
+
+          item.status = MergeItemStatus.FAILED;
+          item.error = waitForReadyResult.error;
+          this.stats.failed++;
+          this.log(`Failed PR #${item.pr.number}: ${waitForReadyResult.error}`);
+          return;
+        }
       }
 
       // Step 2: Check CI status
-      const ciStatus = await checkPRCIStatus(this.owner, this.repo, item.pr.number, this.verbose);
+      const ciStatus = await this.checkPRCIStatus(this.owner, this.repo, item.pr.number, this.verbose);
       item.ciStatus = ciStatus;
 
       if (ciStatus.status === 'failure') {
@@ -472,7 +556,7 @@ export class MergeQueueProcessor {
       if (ciStatus.status === 'pending') {
         item.status = MergeItemStatus.WAITING_CI;
 
-        const waitResult = await waitForCI(
+        const waitResult = await this.waitForCI(
           this.owner,
           this.repo,
           item.pr.number,
@@ -512,7 +596,7 @@ export class MergeQueueProcessor {
       // Step 4: Merge the PR
       // Issue #1269: Pass the configured merge method to prevent "not running interactively" error
       item.status = MergeItemStatus.MERGING;
-      const mergeResult = await mergePullRequest(this.owner, this.repo, item.pr.number, { mergeMethod: MERGE_QUEUE_CONFIG.MERGE_METHOD }, this.verbose);
+      const mergeResult = await this.mergePullRequest(this.owner, this.repo, item.pr.number, { mergeMethod: MERGE_QUEUE_CONFIG.MERGE_METHOD }, this.verbose);
 
       if (!mergeResult.success) {
         item.status = MergeItemStatus.FAILED;
@@ -531,7 +615,7 @@ export class MergeQueueProcessor {
       // Issue #1895: GitHub does not auto-close linked issues for PRs merged into
       // a non-default branch. Close the linked issue explicitly in that case.
       try {
-        const closeResult = await closeLinkedIssueIfNotAutoClosed(this.owner, this.repo, item.pr.number, this.verbose);
+        const closeResult = await this.closeLinkedIssueIfNotAutoClosed(this.owner, this.repo, item.pr.number, this.verbose);
         if (closeResult.closed) {
           this.log(`Closed linked issue #${closeResult.issueNumber} for PR #${item.pr.number} (merged into non-default branch)`);
         }
@@ -542,7 +626,7 @@ export class MergeQueueProcessor {
       // Issue #1341: Get the merge commit SHA for post-merge CI tracking
       // Need a small delay to allow GitHub to update the PR state
       await this.sleep(5000);
-      const mergeCommitResult = await getMergeCommitSha(this.owner, this.repo, item.pr.number, this.verbose);
+      const mergeCommitResult = await this.getMergeCommitSha(this.owner, this.repo, item.pr.number, this.verbose);
       if (mergeCommitResult.sha) {
         item.mergeCommitSha = mergeCommitResult.sha;
         this.log(`PR #${item.pr.number} merge commit: ${mergeCommitResult.sha.substring(0, 7)}`);

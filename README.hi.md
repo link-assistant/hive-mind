@@ -511,6 +511,26 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/merge` - तैयार Pull Requests merge करें
+
+```
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+
+Examples:
+/merge https://github.com/owner/repo
+/merge https://github.com/owner/repo/issues/123
+/merge https://github.com/owner/repo/pull/456
+```
+
+Repository targets `ready` label वाले PRs को क्रम से process करते हैं। Issue और
+pull request targets केवल linked या selected PR process करते हैं। आप किसी ऐसे
+message पर `/merge` से reply भी कर सकते हैं जिसमें एक GitHub repository, issue,
+या pull request link हो, जैसे कोई पुराना `/codex ...issues/123` command.
+
+अगर target PR अभी finished नहीं है, तो `/merge` merge करने से पहले उसके
+mergeable होने तक wait करता है। Merge-conflict skips अभी भी `--auto-resolve` के
+साथ काम करते हैं।
+
 #### `/limits` - उपयोग सीमाएँ दिखाएँ
 
 ```

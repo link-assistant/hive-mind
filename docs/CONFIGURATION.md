@@ -199,6 +199,11 @@ These settings control the merge queue behavior for automated PR merging.
 
 **Note:** See [Issue #1143](https://github.com/link-assistant/hive-mind/issues/1143) and [Issue #1269](https://github.com/link-assistant/hive-mind/issues/1269) for details.
 
+`/merge` accepts repository, issue, and pull request targets. When an issue or
+pull request target is not mergeable yet, the merge queue waits up to
+`HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS` and polls every
+`HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS` before failing the target.
+
 ### 13. Telegram Bot
 
 | Environment Variable                       | Default    | Description                                                                  |

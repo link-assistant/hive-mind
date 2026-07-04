@@ -532,6 +532,25 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/merge` - Merge Ready Pull Requests
+
+```
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+
+Examples:
+/merge https://github.com/owner/repo
+/merge https://github.com/owner/repo/issues/123
+/merge https://github.com/owner/repo/pull/456
+```
+
+Repository targets process PRs with the `ready` label sequentially. Issue and
+pull request targets process only the linked or selected PR. You can also reply
+with `/merge` to a message containing one GitHub repository, issue, or pull
+request link, such as a previous `/codex ...issues/123` command.
+
+If a target PR is not finished yet, `/merge` waits for it to become mergeable
+before merging. Merge-conflict skips still work with `--auto-resolve`.
+
 #### `/limits` - Show Usage Limits
 
 ```

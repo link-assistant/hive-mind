@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.1.5
+
+### Patch Changes
+
+- 26b07f2: Extend Telegram `/merge` to accept repository, issue, and pull request targets, including reply-based GitHub link extraction, and wait for unfinished PRs to become mergeable before merging.
+
 ## 2.1.4
 
 ### Patch Changes

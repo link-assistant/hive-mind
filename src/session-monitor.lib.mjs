@@ -24,7 +24,7 @@ import fs from 'fs/promises';
 import { promisify } from 'util';
 import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifySessionOutcome } from './work-session-formatting.lib.mjs';
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
-import { classifyExitStatus } from './session-status.lib.mjs';
+import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import path from 'node:path';
 import { readLastSessionIdFromLog, findLatestSessionLogId, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 
@@ -504,6 +504,8 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) 
  * this, because a written "Exit Code:" footer is proof the command terminated.
  */
 export const STALE_EXECUTING_MIN_AGE_MS = 90 * 1000;
+export const DOCKER_BACKEND_GONE_GRACE_MS = 2 * 60 * 1000;
+const DOCKER_BACKEND_GONE_FIRST_SEEN_FIELD = 'dockerBackendGoneFirstSeenAt';
 
 function sessionStartMs(sessionInfo) {
   const start = sessionInfo?.startTime;
@@ -511,6 +513,23 @@ function sessionStartMs(sessionInfo) {
   const date = start instanceof Date ? start : new Date(start);
   const ms = date.getTime();
   return Number.isFinite(ms) ? ms : null;
+}
+
+function isDockerIsolation(sessionInfo, statusResult) {
+  return sessionInfo?.isolationBackend === 'docker' || statusResult?.isolation === 'docker';
+}
+
+function getDockerBackendGoneFirstSeenMs(sessionInfo) {
+  const raw = sessionInfo?.[DOCKER_BACKEND_GONE_FIRST_SEEN_FIELD];
+  if (!raw) return null;
+  const ms = new Date(raw).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function clearDockerBackendGoneMarker(sessionName, sessionInfo) {
+  if (!sessionInfo?.[DOCKER_BACKEND_GONE_FIRST_SEEN_FIELD]) return;
+  delete sessionInfo[DOCKER_BACKEND_GONE_FIRST_SEEN_FIELD];
+  persistSessionSnapshot(sessionName, sessionInfo);
 }
 
 /**
@@ -552,11 +571,58 @@ async function resolveStaleExecutingState(sessionName, sessionInfo, statusResult
     // Only `false` (definitively gone) counts as killed; `null` (unknown backend)
     // is treated as "no signal" so we don't kill on an indeterminate probe.
     if (alive === false) {
+      if (isDockerIsolation(sessionInfo, statusResult)) {
+        const nowMs = Date.now();
+        const firstSeenMs = getDockerBackendGoneFirstSeenMs(sessionInfo);
+        if (firstSeenMs === null) {
+          sessionInfo[DOCKER_BACKEND_GONE_FIRST_SEEN_FIELD] = new Date(nowMs).toISOString();
+          persistSessionSnapshot(sessionName, sessionInfo);
+          if (verbose) {
+            console.log(`[VERBOSE] Session ${sessionName} docker backend is gone but no terminal status/footer is available yet; deferring killed classification for ${DOCKER_BACKEND_GONE_GRACE_MS}ms`);
+          }
+          return null;
+        }
+        if (nowMs - firstSeenMs < DOCKER_BACKEND_GONE_GRACE_MS) {
+          if (verbose) {
+            console.log(`[VERBOSE] Session ${sessionName} docker backend is still gone; waiting for terminal status/footer before reporting killed`);
+          }
+          return null;
+        }
+      }
       return { exitCode: null, status: 'killed', reason: 'backend-gone' };
+    }
+    if (alive === true) {
+      clearDockerBackendGoneMarker(sessionName, sessionInfo);
     }
   }
 
   return null;
+}
+
+function resolveOomKilledState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog }) {
+  const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+  let footer = null;
+  if (logPath) {
+    const readFooter = exitFromLog || runner.readSessionExitFromLog;
+    footer = readFooter ? readFooter(logPath, { verbose }) : null;
+  }
+
+  const statusExitCode = normalizeExitCode(statusResult?.exitCode);
+  const footerExitCode = footer?.finished ? normalizeExitCode(footer.exitCode) : null;
+  let exitCode = 137;
+  if (statusExitCode !== null && statusExitCode > 0) {
+    exitCode = statusExitCode;
+  } else if (footerExitCode !== null && footerExitCode > 0) {
+    exitCode = footerExitCode;
+  }
+  const endTime = statusResult?.endTime || footer?.endTime || statusResult?.currentTime || null;
+  const corrected = { ...statusResult, status: 'oom-killed', exitCode, endTime };
+
+  if (verbose) {
+    console.log(`[VERBOSE] Session ${sessionName} status includes oomKilled=true; treating it as terminal oom-killed (exit ${exitCode})`);
+  }
+
+  return { running: false, exitCode, status: 'oom-killed', statusResult: corrected, stale: true };
 }
 
 async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
@@ -568,6 +634,9 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
     const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
 
     if (statusResult?.exists && statusResult.status) {
+      if (statusResult.oomKilled === true) {
+        return resolveOomKilledState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog });
+      }
       if (runner.isExecutingSessionStatus(statusResult.status)) {
         // Issue #1927: an `executing` status is not trusted blindly — verify the
         // process is really alive. start-command can keep reporting `executing`

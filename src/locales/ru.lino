@@ -623,6 +623,7 @@ ru
         executing "⏳ Выполняется..."
         finished "Рабочий сеанс успешно завершен"
         failed "Рабочий сеанс завершился с ошибкой (код выхода: {{exitCode}})"
+        killed "Рабочий сеанс остановлен: {{reason}}{{exitSuffix}}"
     duration
       label "Длительность"
     session

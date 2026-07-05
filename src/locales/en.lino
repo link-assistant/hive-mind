@@ -623,6 +623,7 @@ en
         executing "⏳ Executing..."
         finished "Work session finished successfully"
         failed "Work session failed (exit code: {{exitCode}})"
+        killed "Work session {{reason}}{{exitSuffix}}"
     duration
       label "Duration"
     session

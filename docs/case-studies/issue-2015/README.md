@@ -19,7 +19,9 @@ The fix teaches Hive Mind to parse `oomKilled`, treats that marker as terminal
 `oom-killed` even if start-command still says `executing`, restores localized
 killed-session copy, and adds a short Docker backend-gone grace period so a
 single stale liveness miss does not immediately create a false killed
-notification.
+notification. A follow-up hardens the solve queue against resource-recovery
+bursts by enforcing at least 10 minutes between task starts globally and by
+capping CPU/RAM/disk cache freshness at one minute.
 
 ## Preserved Data
 
@@ -54,6 +56,11 @@ notification.
 6. Open or reference an upstream `link-foundation/start` issue for the
    `oomKilled true` plus `status executing` contract gap.
 7. Add a reproducing automated test.
+8. Use the fixed upstream `start-command` release once it is available.
+9. Enforce a minimum 10-minute interval between task startups, including after
+   restrictions lift and when immediate starts are queued.
+10. Do not cache CPU, RAM, or disk usage for longer than one minute. API caches
+    remain separate.
 
 ## Findings
 
@@ -86,6 +93,12 @@ contributing risk, but it does not by itself explain every symptom:
 - The CI screenshot for task 1 showed GitHub checks passed; the relevant problem
   was that Hive Mind had already reported the work session as killed.
 
+The follow-up PR comment identified a second operational risk: when resource
+limits clear, a backlog of queued tasks can start together before host pressure
+has time to settle. Existing per-tool queue spacing could also allow a task from
+another tool queue to bypass the recent start from the first tool. For issue
+#2015, startup pacing needs to be global across tool queues.
+
 ## Root Causes
 
 1. `parseSessionStatusOutput` ignored `oomKilled` in both JSON and
@@ -97,6 +110,10 @@ contributing risk, but it does not by itself explain every symptom:
 3. Locale files were missing `telegram.work_session_killed`.
 4. Upstream start-command still has a contract gap: a Docker session can expose
    `oomKilled true` while the primary status remains `executing`.
+5. Queue startup pacing was too permissive for recovery from host resource
+   pressure: it allowed short intervals and was scoped by tool.
+6. CPU/RAM/disk cache configuration allowed stale host-pressure data for longer
+   than the follow-up requirement permits.
 
 ## Solution
 
@@ -116,6 +133,17 @@ The implementation changes:
   log footer exists. Screen and tmux backend-gone detection remains immediate
   after the existing age gate; explicit Docker `oomKilled true` also remains
   immediate.
+- Pin Docker images to `start-command@0.30.3`, which includes upstream start PR
+  #149 and reconciles detached Docker `OOMKilled=true` sessions as terminal in
+  `--status` / `--list`.
+- Clamp `HIVE_MIND_MIN_START_INTERVAL_MS` to a minimum of 10 minutes.
+- Apply that minimum interval globally across all tool queues, so an `agent`
+  start cannot bypass a recent `claude` start.
+- Return only the oldest startable item per queue consumer pass. Tool-specific
+  limits are still checked independently, but ready queues no longer launch as a
+  burst.
+- Cap `HIVE_MIND_SYSTEM_CACHE_TTL_MS` to one minute for CPU, RAM, and disk
+  metrics while leaving API cache TTLs unchanged.
 
 ## Verification
 
@@ -126,10 +154,14 @@ That output is saved in `logs/test-issue-2015-before-fix.log`.
 After the fix:
 
 - `node tests/test-issue-2015-oom-killed-status.mjs` passed with 17 assertions.
+- `node tests/test-issue-2015-queue-stability.mjs` passed with 12 assertions,
+  covering the 10-minute global start interval, immediate-start burst
+  prevention, and one-minute system cache cap.
 - `node tests/test-issue-1927-killed-detection.mjs` passed with 25 assertions,
   confirming the older screen-session killed detection still works.
 - Related targeted tests for completion labeling, log command behavior, Telegram
-  UI i18n, and i18n preload were also run and saved under `logs/test-runs/`.
+  UI i18n, i18n preload, queue config, solve queue behavior, and tool queue
+  tracking were also run and saved under `logs/test-runs/`.
 
 Full local CI logs are preserved under `logs/` as they are produced. This local
 workspace runs Node 20.20.2 while the repository declares Node `>=24.0.0`, so
@@ -148,6 +180,12 @@ A focused upstream follow-up was opened as
 `https://github.com/link-foundation/start/issues/148`. The body used to create
 that issue is preserved in `upstream-start-oomkilled-status.md`.
 
+That upstream follow-up has since been fixed by
+`https://github.com/link-foundation/start/pull/149` and released in
+`start-command@0.30.3`. Hive Mind still keeps the downstream `oomKilled` parser
+and terminal-state handling as defense in depth for older installed versions and
+partially stale status output.
+
 ## Source Links
 
 - Hive Mind issue #2015:
@@ -158,6 +196,8 @@ that issue is preserved in `upstream-start-oomkilled-status.md`.
   `https://github.com/link-foundation/start/issues/144`
 - Focused upstream start issue #148:
   `https://github.com/link-foundation/start/issues/148`
+- Upstream start PR #149:
+  `https://github.com/link-foundation/start/pull/149`
 - Docker Engine API v1.45 container state reference:
   `https://docs.docker.com/reference/api/engine/version/v1.45/`
 - GitHub REST check runs documentation:

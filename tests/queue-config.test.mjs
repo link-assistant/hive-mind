@@ -71,6 +71,8 @@ test('QUEUE_CONFIG has expected default values', () => {
   assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, 0.97, 'CLAUDE_WEEKLY_THRESHOLD should be 0.97');
   // Issue #1726: lowered default from 0.75 to 0.50 for safer headroom.
   assert.equal(QUEUE_CONFIG.GITHUB_API_THRESHOLD, 0.5, 'GITHUB_API_THRESHOLD should be 0.5');
+  // Issue #2015: startup pacing is global and needs enough time for metrics to settle.
+  assert.equal(QUEUE_CONFIG.MIN_START_INTERVAL_MS, 600000, 'MIN_START_INTERVAL_MS should be 10 minutes');
 });
 
 // ============================================================================

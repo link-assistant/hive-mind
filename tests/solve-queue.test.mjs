@@ -79,11 +79,10 @@ test('MESSAGE_UPDATE_INTERVAL_MS is reasonable', () => {
   assert.ok(QUEUE_CONFIG.MESSAGE_UPDATE_INTERVAL_MS <= 300000, 'MESSAGE_UPDATE_INTERVAL_MS should be at most 5 minutes');
 });
 
-test('MIN_START_INTERVAL_MS is 1 minute', () => {
-  // 1 minute allows enough time for solve command to start actual claude process
-  // This ensures when API limits are checked, the running process is counted
-  // See: https://github.com/link-assistant/hive-mind/issues/1078
-  assert.equal(QUEUE_CONFIG.MIN_START_INTERVAL_MS, 60000, 'MIN_START_INTERVAL_MS should be 1 minute (60000ms)');
+test('MIN_START_INTERVAL_MS is 10 minutes', () => {
+  // Issue #2015: startup pacing is global and intentionally slow so host
+  // resource metrics can settle after each task starts.
+  assert.equal(QUEUE_CONFIG.MIN_START_INTERVAL_MS, 600000, 'MIN_START_INTERVAL_MS should be 10 minutes (600000ms)');
 });
 
 test('CONSUMER_POLL_INTERVAL_MS is 1 minute', () => {
@@ -1112,7 +1111,7 @@ test('MIN_START_INTERVAL_MS prevents rapid consecutive starts', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
-  // Set lastStartTimeByTool for claude to just now (simulate a recent start)
+  // Set global lastStartTime to just now (simulate a recent start)
   queue.lastStartTimeByTool.claude = Date.now();
   queue.lastStartTime = Date.now();
 

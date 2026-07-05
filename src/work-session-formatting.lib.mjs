@@ -145,7 +145,7 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
     const reason = signal ? signal.reason : 'killed';
-    statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '' });
+    statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
   } else if (failed) {
     statusText = text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode });
   } else {

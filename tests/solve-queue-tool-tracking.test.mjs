@@ -80,14 +80,15 @@ test('separate queues are independent', () => {
   queue.stop();
 });
 
-await asyncTest('agent tasks can start when claude min interval is not reached', async () => {
+await asyncTest('agent tasks wait when global min interval is not reached after claude startup', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   queue.lastStartTimeByTool.claude = Date.now();
+  queue.lastStartTime = Date.now();
   const claudeCheck = await queue.canStartCommand({ tool: 'claude' });
   const agentCheck = await queue.canStartCommand({ tool: 'agent' });
   assert.ok(claudeCheck.reasons.some(r => r.includes('Minimum interval')));
-  assert.ok(!agentCheck.reasons.some(r => r.includes('Minimum interval')));
+  assert.ok(agentCheck.reasons.some(r => r.includes('Minimum interval')));
   queue.stop();
 });
 
@@ -152,6 +153,7 @@ await asyncTest('findStartableItem and findStartableItems work correctly', async
   assert.ok(result.item === null || result.item.tool === 'claude' || result.item.tool === 'agent');
   const startableItems = await queue.findStartableItems();
   assert.ok(Array.isArray(startableItems));
+  assert.ok(startableItems.length <= 1, 'global startup pacing should expose at most one startable item');
   queue.stop();
 });
 

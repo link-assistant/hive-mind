@@ -687,8 +687,9 @@ export const cacheTtl = {
   // because users still hit "Resets in 3m xs" rate-limit responses. The API
   // returns null values or 429 when called too frequently.
   usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 13 * 60 * 1000), // 13 minutes
-  // System metrics cache TTL (RAM, CPU, disk)
-  system: parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 2 * 60 * 1000), // 2 minutes
+  // System metrics cache TTL (RAM, CPU, disk). Issue #2015 caps this at
+  // 1 minute so queue decisions do not use stale host pressure data.
+  system: Math.min(parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 60 * 1000), 60 * 1000), // max 1 minute
 };
 
 // File and path configurations

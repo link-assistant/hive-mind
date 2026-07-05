@@ -83,45 +83,45 @@ runTest('QUEUE_CONFIG has required properties (ratio format)', () => {
 
 // Test 2: Check default thresholds match requirements (ratio format)
 runTest('Default thresholds match requirements (ratio format)', () => {
-  // From issue #1041 (converted to ratios):
-  // - RAM: 0.5 (50%)
-  // - CPU: 0.5 (50%)
-  // - Disk: 0.95 (95% usage, i.e., 5% free)
-  // - Claude 5 hour session: 0.9 (90%)
-  // - Claude weekly: 0.99 (99%)
-  // - GitHub API: 0.8 (80%)
-  // - Min interval: 2 minutes
+  // Current queue defaults:
+  // - RAM: 0.65 (65%)
+  // - CPU: 0.65 (65%)
+  // - Disk: 0.8 (80% usage)
+  // - Claude 5 hour session: 0.65 (65%)
+  // - Claude weekly: 0.97 (97%)
+  // - GitHub API: 0.5 (50%)
+  // - Min interval: 10 minutes
 
-  if (QUEUE_CONFIG.RAM_THRESHOLD !== 0.5) {
-    throw new Error(`RAM threshold should be 0.5, got ${QUEUE_CONFIG.RAM_THRESHOLD}`);
+  if (QUEUE_CONFIG.RAM_THRESHOLD !== 0.65) {
+    throw new Error(`RAM threshold should be 0.65, got ${QUEUE_CONFIG.RAM_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.CPU_THRESHOLD !== 0.5) {
-    throw new Error(`CPU threshold should be 0.5, got ${QUEUE_CONFIG.CPU_THRESHOLD}`);
+  if (QUEUE_CONFIG.CPU_THRESHOLD !== 0.65) {
+    throw new Error(`CPU threshold should be 0.65, got ${QUEUE_CONFIG.CPU_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.DISK_THRESHOLD !== 0.95) {
-    throw new Error(`Disk threshold should be 0.95, got ${QUEUE_CONFIG.DISK_THRESHOLD}`);
+  if (QUEUE_CONFIG.DISK_THRESHOLD !== 0.8) {
+    throw new Error(`Disk threshold should be 0.8, got ${QUEUE_CONFIG.DISK_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD !== 0.9) {
-    throw new Error(`Claude 5 hour session threshold should be 0.9, got ${QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD}`);
+  if (QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD !== 0.65) {
+    throw new Error(`Claude 5 hour session threshold should be 0.65, got ${QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD !== 0.99) {
-    throw new Error(`Claude weekly threshold should be 0.99, got ${QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD}`);
+  if (QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD !== 0.97) {
+    throw new Error(`Claude weekly threshold should be 0.97, got ${QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.GITHUB_API_THRESHOLD !== 0.8) {
-    throw new Error(`GitHub API threshold should be 0.8, got ${QUEUE_CONFIG.GITHUB_API_THRESHOLD}`);
+  if (QUEUE_CONFIG.GITHUB_API_THRESHOLD !== 0.5) {
+    throw new Error(`GitHub API threshold should be 0.5, got ${QUEUE_CONFIG.GITHUB_API_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.MIN_START_INTERVAL_MS !== 120000) {
-    throw new Error(`Min interval should be 120000ms, got ${QUEUE_CONFIG.MIN_START_INTERVAL_MS}`);
+  if (QUEUE_CONFIG.MIN_START_INTERVAL_MS !== 600000) {
+    throw new Error(`Min interval should be 600000ms, got ${QUEUE_CONFIG.MIN_START_INTERVAL_MS}`);
   }
 });
 
-// Test 3: CACHE_TTL has correct values (3min API, 2min system)
+// Test 3: CACHE_TTL has correct values (3min API, 1min system)
 runTest('CACHE_TTL has correct values', () => {
   if (CACHE_TTL.API !== 180000) {
     throw new Error(`API cache TTL should be 180000ms (3 minutes), got ${CACHE_TTL.API}`);
   }
-  if (CACHE_TTL.SYSTEM !== 120000) {
-    throw new Error(`System cache TTL should be 120000ms (2 minutes), got ${CACHE_TTL.SYSTEM}`);
+  if (CACHE_TTL.SYSTEM !== 60000) {
+    throw new Error(`System cache TTL should be 60000ms (1 minute), got ${CACHE_TTL.SYSTEM}`);
   }
 });
 

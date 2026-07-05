@@ -321,8 +321,17 @@ export function generateSessionId() {
 export function parseSessionStatusOutput(output) {
   const raw = (output || '').trim();
   if (!raw) {
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, raw: '' };
   }
+
+  const normalizeBooleanField = value => {
+    if (typeof value === 'boolean') return value;
+    if (value === null || value === undefined) return null;
+    const normalized = String(value).trim().toLowerCase();
+    if (['true', '1', 'yes'].includes(normalized)) return true;
+    if (['false', '0', 'no'].includes(normalized)) return false;
+    return null;
+  };
 
   try {
     const parsed = JSON.parse(raw);
@@ -350,6 +359,7 @@ export function parseSessionStatusOutput(output) {
       workingDirectory: data?.workingDirectory || null,
       sessionName: data?.sessionName || data?.options?.sessionName || null,
       processIds,
+      oomKilled: normalizeBooleanField(data?.oomKilled ?? data?.OOMKilled ?? data?.options?.oomKilled ?? data?.state?.oomKilled ?? data?.State?.OOMKilled),
       raw,
     };
   } catch {
@@ -365,6 +375,7 @@ export function parseSessionStatusOutput(output) {
     const match = raw.match(new RegExp(`^\\s*${name}\\s+"?([^"\\n]+)"?\\s*$`, 'mi'));
     return match ? match[1].trim() : null;
   };
+  const readBooleanField = name => normalizeBooleanField(readField(name));
 
   const status = readField('status')?.toLowerCase() || null;
   const exitCodeText = readField('exitCode');
@@ -396,6 +407,7 @@ export function parseSessionStatusOutput(output) {
     workingDirectory: readField('workingDirectory'),
     sessionName: readField('sessionName'),
     processIds,
+    oomKilled: readBooleanField('oomKilled'),
     raw,
   };
 }

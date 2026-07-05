@@ -1239,12 +1239,12 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
  * Configurable via environment variables:
  * - HIVE_MIND_API_CACHE_TTL_MS: General API cache TTL (default: 180000 = 3 minutes)
  * - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 780000 = 13 minutes)
- * - HIVE_MIND_SYSTEM_CACHE_TTL_MS: System metrics cache TTL (default: 120000 = 2 minutes)
+ * - HIVE_MIND_SYSTEM_CACHE_TTL_MS: System metrics cache TTL (default: 60000 = 1 minute, capped at 1 minute)
  */
 export const CACHE_TTL = {
   API: cacheTtl.api, // 3 minutes for regular API calls (GitHub)
   USAGE_API: cacheTtl.usageApi, // 13 minutes for Claude Usage API (rate limited)
-  SYSTEM: cacheTtl.system, // 2 minutes for system metrics (RAM, CPU, disk)
+  SYSTEM: cacheTtl.system, // max 1 minute for system metrics (RAM, CPU, disk)
 };
 
 /**

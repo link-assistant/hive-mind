@@ -374,9 +374,11 @@ export class SolveQueue {
   }
 
   /**
-   * Find startable items from each tool queue
-   * Returns the first item from each tool queue that can start.
-   * With separate queues, each tool is checked independently so they don't block each other.
+   * Find the next startable item across all tool queues.
+   * With separate queues, each tool is checked independently so tool-specific
+   * limits do not block unrelated tools. Issue #2015 adds a global startup
+   * interval, so even when multiple tools are startable this returns only the
+   * oldest startable item to prevent burst launches.
    *
    * Also immediately rejects all queued items when a 'reject' strategy threshold
    * is exceeded, instead of leaving them waiting indefinitely.
@@ -417,7 +419,8 @@ export class SolveQueue {
       }
     }
 
-    return startableItems;
+    startableItems.sort((a, b) => a.item.createdAt - b.item.createdAt);
+    return startableItems.slice(0, 1);
   }
 
   /**
@@ -571,10 +574,10 @@ export class SolveQueue {
     let rejected = false;
     let rejectReason = null;
 
-    // Check minimum interval since last start FOR THIS TOOL
-    // Each tool queue has independent timing to prevent cross-blocking
-    // See: https://github.com/link-assistant/hive-mind/issues/1159
-    const lastStartTime = this.lastStartTimeByTool[tool] || null;
+    // Check minimum interval since the last task start globally.
+    // Issue #2015: do not let another tool queue bypass startup pacing; host
+    // CPU/RAM/disk metrics need time to settle before any next task starts.
+    const lastStartTime = this.lastStartTime || null;
     if (lastStartTime) {
       const timeSinceLastStart = Date.now() - lastStartTime;
       if (timeSinceLastStart < QUEUE_CONFIG.MIN_START_INTERVAL_MS) {
@@ -765,7 +768,6 @@ export class SolveQueue {
     }
 
     // Check CPU using 5-minute load average (more stable than 1-minute)
-    // Cache TTL is 2 minutes, which is appropriate for this metric
     const cpuResult = await getCachedCpuInfo(this.verbose);
     if (cpuResult.success) {
       // Use loadAvg5 (5-minute average) instead of usagePercentage (1-minute based)

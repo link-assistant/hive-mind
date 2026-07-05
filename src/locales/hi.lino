@@ -623,6 +623,7 @@ hi
         executing "⏳ चल रहा है..."
         finished "कार्य सत्र सफलतापूर्वक पूरा हुआ"
         failed "कार्य सत्र विफल हुआ (exit code: {{exitCode}})"
+        killed "कार्य सत्र रोका गया: {{reason}}{{exitSuffix}}"
     duration
       label "अवधि"
     session

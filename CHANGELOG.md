@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.1.9
+
+### Patch Changes
+
+- 5559c5e: Check all replacement repository branch tips before deleting a non-fork fork replacement, and report concrete branch-only commits when deletion is unsafe.
+
 ## 2.1.8
 
 ### Patch Changes

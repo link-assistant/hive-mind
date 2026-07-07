@@ -1,5 +1,5 @@
 import { getTrackedToolCommentIds, postTrackedComment, SOLUTION_DRAFT_FAILED_MARKER } from './tool-comments.lib.mjs';
-import { extractForkReplacementBlockedDetails, isForkReplacementBlockedReason } from './solve.repository-recovery-message.lib.mjs';
+import { extractForkReplacementBlockedDetails, isForkReplacementBlockedReason, GITHUB_FORK_SUPPORT_URL } from './solve.repository-recovery-message.lib.mjs';
 import { FORK_DIVERGENCE_RESOLUTION_OPTION, buildForkDivergenceFailureActionSection } from './solve.branch-divergence.lib.mjs';
 
 export { FORK_DIVERGENCE_RESOLUTION_OPTION };
@@ -41,6 +41,7 @@ export function buildPrePullRequestFailureActionSection(reason = '') {
 - It could not prove whether the existing repository has unique commits, so it did not delete it automatically.
 
 ### What you can do
+- Recover the fork without deleting: if \`${repository}\` was a fork of \`${upstream}\` that GitHub detached (for example after a private/public visibility change), ask GitHub Support at ${GITHUB_FORK_SUPPORT_URL} ("Attach, detach or reroute forks") to re-attach it. Detachment from a visibility change is documented as permanent, so this is not guaranteed, and while detached the repository cannot open a cross-repository pull request to \`${upstream}\`.
 - Repository owner path: back up any needed work, then delete, rename, archive, or repair \`${repository}\` in GitHub and rerun the solver.
 - External-owner path: ask the repository owner or a Hive Mind administrator to clean it up and rerun the solver.
 - Use \`--allow-force-non-fork-repository-deletion\` only after confirming that deleting \`${repository}\` is acceptable and any unique commits can be lost.`;

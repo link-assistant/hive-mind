@@ -533,6 +533,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         let safeToDelete = false;
         let safetyCheckDescription = buildForkReplacementSafetyCheckDescription();
         let shouldRunBranchReachabilityCheck = false;
+        let likelyDetachedFork = false;
         try {
           const cmp = await $`gh api repos/${owner}/${repo}/compare/${owner}:HEAD...${existingForkName.split('/')[0]}:HEAD --paginate --jq '.ahead_by' 2>&1`;
           const aheadBy = parseInt(cmp.stdout.toString().trim(), 10);
@@ -568,6 +569,11 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             existingRepository: existingForkName,
           });
           safetyCheckDescription = branchSafety.safetyCheckDescription;
+          likelyDetachedFork = Boolean(branchSafety.likelyDetachedFork);
+
+          if (likelyDetachedFork) {
+            await log(`${formatAligned('🔗', 'Detached fork:', `${existingForkName} shares history with ${owner}/${repo} but is not a GitHub fork — this matches a fork detached by a private/public visibility change`)}`);
+          }
 
           if (branchSafety.safeToDelete) {
             await log(`${formatAligned('✅', 'Safe to delete:', `All ${branchSafety.branchCount} replacement branch tip(s) are reachable from upstream`)}`);
@@ -586,6 +592,9 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             // Force flag set — proceed with deletion despite the failed safety check.
             await log(`${formatAligned('⚠️', 'Force deletion ENABLED:', '--allow-force-non-fork-repository-deletion — proceeding despite potential data loss')}`, { level: 'warning' });
           } else {
+            if (likelyDetachedFork) {
+              await log(`  🔗 Recover without deletion: ask GitHub Support to re-attach ${existingForkName} to ${owner}/${repo} at https://support.github.com/request/fork ("Attach, detach or reroute forks")`);
+            }
             await log(`  💡 Manual fix required: back up work, then: gh repo delete ${existingForkName} --yes`);
             await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);
             await log(`  🔧 Or force deletion (DANGEROUS): solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-force-non-fork-repository-deletion`);
@@ -596,6 +605,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
                 expectedUpstream: `${owner}/${repo}`,
                 relationshipDescription,
                 safetyCheckDescription,
+                likelyDetachedFork,
               })
             );
           }

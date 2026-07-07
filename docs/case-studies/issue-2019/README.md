@@ -27,48 +27,93 @@ The actual risk was in side branches. The old code only checked the default
 branch through GitHub compare, so if compare had succeeded it could have deleted
 the repository while missing branch-only commits.
 
+## Follow-up question: can the repository be recovered as a fork without deletion?
+
+The issue author later added a decisive fact in
+[issue #2019 comment](https://github.com/link-assistant/hive-mind/issues/2019#issuecomment-4903768968):
+
+> User confessed, that he made repository private, and after that public again.
+> Is it possible to recover `konard/Payel-git-ol-Octra` as fork again without
+> deletion of repository?
+
+This explains the root state that made GitHub report `fork: false`:
+`konard/Payel-git-ol-Octra` was once a real fork of `Payel-git-ol/Octra`, but
+GitHub **detached it from the fork network when its visibility was toggled**
+(private, then public again). The local Git evidence agrees — the repository
+still shares upstream history (66 of 69 branch tips are reachable from upstream
+refs), which is the signature of a detached fork rather than an unrelated
+repository.
+
+**Answer: there is no API or self-service way to re-attach it.** GitHub
+documents visibility-change detachment as permanent. The only path that keeps
+the repository is a **GitHub Support request** at
+<https://support.github.com/request/fork> ("Attach, detach or reroute forks"),
+asking Support to re-attach `konard/Payel-git-ol-Octra` to
+`Payel-git-ol/Octra`. Reattachment is requested through Support and is not
+guaranteed.
+
+This also explains why Hive Mind wanted to delete and re-fork: **while detached,
+the repository cannot open a cross-repository pull request** to
+`Payel-git-ol/Octra`, because GitHub only allows cross-repo PRs inside one fork
+network. So the practical recovery options are:
+
+1. Ask GitHub Support to re-attach the fork — keeps the repository and its 3
+   unique branch commits, and restores cross-repo PR capability (not guaranteed).
+2. Back up the 3 unique branch commits, delete the repository, and let Hive Mind
+   create a fresh fork.
+
+Full research and sources are preserved in
+[`raw-data/github-fork-detachment-research.md`](raw-data/github-fork-detachment-research.md).
+
+Hive Mind now reports this directly. When the all-branch safety check finds the
+replacement shares upstream history but GitHub reports it as a non-fork, the
+solver labels it a likely detached fork and offers the GitHub Support re-attach
+path as the first recovery option — before any deletion suggestion.
+
 ## Preserved Data
 
 Raw evidence is stored in [`raw-data/`](raw-data):
 
-| File                                                                          | Purpose                                                                |
-| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `hive-mind-issue-2019.json`                                                   | Source Hive Mind issue metadata and body                               |
-| `hive-mind-issue-2019-comments.json`                                          | Source issue comments; none existed at capture time                    |
-| `octra-issue-124.json`                                                        | Linked Octra issue metadata and failure comment                        |
-| `octra-issue-124-comments.json`                                               | Linked Octra issue comments, including the solver failure log          |
-| `Payel-git-ol-Octra-repo.json`                                                | Upstream repository API snapshot                                       |
-| `konard-Payel-git-ol-Octra-repo.json`                                         | Existing replacement repository API snapshot                           |
-| `Payel-git-ol-Octra-branches.json`                                            | Upstream branch API snapshot                                           |
-| `konard-Payel-git-ol-Octra-branches.json`                                     | Replacement branch API snapshot                                        |
-| `github-compare-upstream-head-to-konard-head.txt`                             | Reproduced GitHub compare 404                                          |
-| `Payel-git-ol-Octra-ls-remote.txt`                                            | Upstream Git refs                                                      |
-| `konard-Payel-git-ol-Octra-ls-remote.txt`                                     | Replacement Git refs                                                   |
-| `local-git-default-branch-ahead-behind.txt`                                   | Default branch commit count comparison                                 |
-| `local-git-default-branch-merge-base.txt`                                     | Default branch merge base                                              |
-| `local-git-default-branch-cherry-pick-diff.txt`                               | Default branch left/right diff                                         |
-| `local-git-replacement-branch-reachability.txt`                               | All replacement branch reachability analysis                           |
-| `local-git-unique-replacement-branch-commits.txt`                             | Details for the three unique branch commits                            |
-| `live-helper-branch-safety-result.json`                                       | Output from the new branch-safety helper against the live repositories |
-| `octra-pr-10.json`, `octra-pr-26.json`, `octra-pr-88.json`                    | PR metadata for the unique branch names                                |
-| `octra-issue-9.json`, `octra-issue-25.json`, `octra-issue-87-fetch-error.txt` | Related issue lookup data                                              |
-| `related-merged-prs.json`                                                     | Merged Hive Mind PRs related to fork replacement and fork safety       |
-| `external-research.md`                                                        | Online references checked during analysis                              |
-| `test-*.log`, `npm-*.log`, `prettier-write.log`                               | Local reproduction, install, format, lint, and default-suite logs      |
+| File                                                                          | Purpose                                                                        |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `hive-mind-issue-2019.json`                                                   | Source Hive Mind issue metadata and body                                       |
+| `hive-mind-issue-2019-comments.json`                                          | Source issue comments; none existed at capture time                            |
+| `octra-issue-124.json`                                                        | Linked Octra issue metadata and failure comment                                |
+| `octra-issue-124-comments.json`                                               | Linked Octra issue comments, including the solver failure log                  |
+| `Payel-git-ol-Octra-repo.json`                                                | Upstream repository API snapshot                                               |
+| `konard-Payel-git-ol-Octra-repo.json`                                         | Existing replacement repository API snapshot                                   |
+| `Payel-git-ol-Octra-branches.json`                                            | Upstream branch API snapshot                                                   |
+| `konard-Payel-git-ol-Octra-branches.json`                                     | Replacement branch API snapshot                                                |
+| `github-compare-upstream-head-to-konard-head.txt`                             | Reproduced GitHub compare 404                                                  |
+| `Payel-git-ol-Octra-ls-remote.txt`                                            | Upstream Git refs                                                              |
+| `konard-Payel-git-ol-Octra-ls-remote.txt`                                     | Replacement Git refs                                                           |
+| `local-git-default-branch-ahead-behind.txt`                                   | Default branch commit count comparison                                         |
+| `local-git-default-branch-merge-base.txt`                                     | Default branch merge base                                                      |
+| `local-git-default-branch-cherry-pick-diff.txt`                               | Default branch left/right diff                                                 |
+| `local-git-replacement-branch-reachability.txt`                               | All replacement branch reachability analysis                                   |
+| `local-git-unique-replacement-branch-commits.txt`                             | Details for the three unique branch commits                                    |
+| `live-helper-branch-safety-result.json`                                       | Output from the new branch-safety helper against the live repositories         |
+| `octra-pr-10.json`, `octra-pr-26.json`, `octra-pr-88.json`                    | PR metadata for the unique branch names                                        |
+| `octra-issue-9.json`, `octra-issue-25.json`, `octra-issue-87-fetch-error.txt` | Related issue lookup data                                                      |
+| `related-merged-prs.json`                                                     | Merged Hive Mind PRs related to fork replacement and fork safety               |
+| `external-research.md`                                                        | Online references checked during analysis                                      |
+| `github-fork-detachment-research.md`                                          | Research answering whether a detached fork can be re-attached without deletion |
+| `test-*.log`, `npm-*.log`, `prettier-write.log`                               | Local reproduction, install, format, lint, and default-suite logs              |
 
 ## Timeline
 
-| Time (UTC)          | Event                                                                          |
-| ------------------- | ------------------------------------------------------------------------------ |
-| 2026-04-03 12:16:51 | `Payel-git-ol/Octra` was created.                                              |
-| 2026-05-13 14:02:20 | `konard/Payel-git-ol-Octra` was created as a non-fork repository.              |
-| 2026-07-07 11:57:47 | Octra issue #124 was opened.                                                   |
-| 2026-07-07 12:05:20 | Hive Mind solve run started for Octra issue #124.                              |
-| 2026-07-07 12:05:35 | Hive Mind entered fork mode and found `konard/Payel-git-ol-Octra`.             |
-| 2026-07-07 12:05:37 | Fork parent validation returned `fork: false`, `parent: null`, `source: null`. |
-| 2026-07-07 12:05:37 | GitHub compare returned 404 Not Found.                                         |
-| 2026-07-07 12:05:37 | Hive Mind stopped before deleting the repository or creating a PR.             |
-| 2026-07-07 12:10:54 | Hive Mind issue #2019 was opened to investigate whether the stop was correct.  |
+| Time (UTC)          | Event                                                                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-04-03 12:16:51 | `Payel-git-ol/Octra` was created.                                                                                                               |
+| 2026-05-13 14:02:20 | `konard/Payel-git-ol-Octra` was created as a non-fork repository.                                                                               |
+| 2026-07-07 11:57:47 | Octra issue #124 was opened.                                                                                                                    |
+| 2026-07-07 12:05:20 | Hive Mind solve run started for Octra issue #124.                                                                                               |
+| 2026-07-07 12:05:35 | Hive Mind entered fork mode and found `konard/Payel-git-ol-Octra`.                                                                              |
+| 2026-07-07 12:05:37 | Fork parent validation returned `fork: false`, `parent: null`, `source: null`.                                                                  |
+| 2026-07-07 12:05:37 | GitHub compare returned 404 Not Found.                                                                                                          |
+| 2026-07-07 12:05:37 | Hive Mind stopped before deleting the repository or creating a PR.                                                                              |
+| 2026-07-07 12:10:54 | Hive Mind issue #2019 was opened to investigate whether the stop was correct.                                                                   |
+| 2026-07-07 12:26:16 | Issue author reported the repository had been made private then public again, and asked whether it can be recovered as a fork without deletion. |
 
 ## Requirements
 
@@ -82,6 +127,8 @@ Raw evidence is stored in [`raw-data/`](raw-data):
 | R6  | Add diagnostics or code changes so the next run can identify the root cause instead of stopping with vague compare-404 evidence. | Done   |
 | R7  | Add a reproducing automated test before the fix.                                                                                 | Done   |
 | R8  | Keep the fix in PR #2020 on branch `issue-2019-51a3704b96d4`.                                                                    | Done   |
+| R9  | Answer the follow-up: can `konard/Payel-git-ol-Octra` be recovered as a fork without deletion?                                   | Done   |
+| R10 | Explain to the user exactly what happened (detached fork from a visibility change) and offer a non-deletion recovery path.       | Done   |
 
 ## Findings
 
@@ -155,6 +202,16 @@ compare fails, returns an unclear result, or reports the default branch is clean
 If unique replacement branch commits exist, the failure reason now includes the
 exact count and up to three concrete branch examples.
 
+The safety check also reports `likelyDetachedFork` when the replacement shares
+history with upstream (at least one branch tip is reachable) yet GitHub reports
+it as a non-fork. In that case `src/solve.repository-recovery-message.lib.mjs`
+adds a "Likely cause" line naming the detached-fork/visibility-change scenario
+and makes the **GitHub Support re-attach path the first recovery option**
+(`https://support.github.com/request/fork`), so the user is told how to recover
+the fork **without deleting** the repository. The same guidance is mirrored in
+the pre-pull-request failure notice (`src/solve.pre-pr-failure-notifier.lib.mjs`)
+and in the live solver log lines.
+
 ## Existing Components
 
 GitHub compare remains useful for same-network default-branch comparisons, but it
@@ -205,3 +262,6 @@ The live helper run against `Payel-git-ol/Octra` and
 - GitHub compare docs: https://docs.github.com/en/pull-requests/committing-changes-to-your-project/viewing-and-comparing-commits/comparing-commits
 - GitHub fork-name changelog: https://github.blog/changelog/2022-04-12-you-can-now-name-your-fork-when-creating-it/
 - GitHub CLI issue #6329: https://github.com/cli/cli/issues/6329
+- GitHub forks and visibility changes: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/what-happens-to-forks-when-a-repository-is-deleted-or-changes-visibility
+- GitHub detaching a fork: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/detaching-a-fork
+- GitHub Support fork request: https://support.github.com/request/fork

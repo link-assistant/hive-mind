@@ -136,9 +136,17 @@ export async function checkReplacementRepositoryBranchSafety({ $, owner, repo, e
       }
     }
 
+    const reachableBranchCount = replacementRefs.length - uniqueBranches.length;
+
     return {
       safeToDelete: uniqueBranches.length === 0,
       branchCount: replacementRefs.length,
+      reachableBranchCount,
+      // At least one branch tip is fully reachable from upstream refs, so the
+      // replacement shares history with upstream. Combined with GitHub reporting
+      // it as a non-fork, that matches a fork detached from its network (see
+      // issue #2019), typically after a private/public visibility change.
+      likelyDetachedFork: replacementRefs.length > 0 && reachableBranchCount > 0,
       uniqueBranches,
       safetyCheckDescription: buildReplacementBranchSafetyDescription({ uniqueBranches, branchCount: replacementRefs.length }),
     };

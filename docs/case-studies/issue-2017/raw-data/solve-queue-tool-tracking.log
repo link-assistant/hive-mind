@@ -1,0 +1,22 @@
+
+📋 Tool-Specific Queue Tracking Tests (Issue #1159)
+
+✅ getProcessingCountByTool counts items correctly by tool type
+✅ separate queues are independent
+✅ agent tasks wait when global min interval is not reached after claude startup
+✅ getStats and getQueueSummary show per-tool breakdown
+✅ formatStatus includes codex queue
+✅ formatStatus includes gemini queue
+✅ findStartableItem and findStartableItems work correctly
+✅ new tool queues are created dynamically and mixed tools work
+✅ canStartCommand returns claudeProcessingCount in result
+✅ checkApiLimits uses claudeProcessingCount correctly
+✅ default tool for queue item is claude
+
+📊 Test Results
+
+Tests passed: 11
+Tests failed: 0
+Total tests: 11
+
+✅ All tests passed!

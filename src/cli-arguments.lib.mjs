@@ -1,8 +1,10 @@
 import { getenv, makeConfig, yargs as linoYargs } from 'lino-arguments';
 
+import { normalizeCliArgs } from './argument-normalization.lib.mjs';
 import { enhanceUnknownArgumentError } from './option-suggestions.lib.mjs';
 
 export { getenv };
+export { normalizeCliArgs, normalizeTypographicOptionDashes, splitJoinedGitHubLongOptionArg } from './argument-normalization.lib.mjs';
 
 export const hideBin = argv => argv.slice(2);
 
@@ -53,7 +55,7 @@ export function addCliCompatibilityAliases(parsed, { positionalAliases = [] } = 
 }
 
 export function parseCliArgumentsWithLino({ argv = process.argv, commandName = 'cli', createYargsConfig, positionalAliases = [], lenv = { enabled: true }, env = { enabled: false }, getenv: getenvOptions = { enabled: true } } = {}) {
-  const fullArgv = ensureFullArgv(argv, commandName);
+  const fullArgv = normalizeCliArgs(ensureFullArgv(argv, commandName));
   let configuredParser = null;
   let parsed;
 

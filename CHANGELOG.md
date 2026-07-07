@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 2.1.7
+
+### Patch Changes
+
+- 0ce779b: Enforce the solve queue minimum start interval for immediate Telegram `/solve`
+  launches so direct starts consume the same global pacing slot as queued starts.
+
 ## 2.1.6
 
 ### Patch Changes

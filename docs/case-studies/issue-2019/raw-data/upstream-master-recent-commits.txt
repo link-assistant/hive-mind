@@ -1,0 +1,20 @@
+5f68256 (upstream/master) move postgres-init into octra-git/docker/
+303993f Reapply "feat: connect octra-git to shared PostgreSQL"
+3875f9c Reapply "feat: add octra-git (Gitea) service to docker-compose"
+dcf6ea9 Revert "feat: add octra-git (Gitea) service to docker-compose"
+1bbef92 Revert "feat: connect octra-git to shared PostgreSQL"
+2f1038a feat: connect octra-git to shared PostgreSQL
+80f079b feat: add octra-git (Gitea) service to docker-compose
+edca79c feat(ocawe): support codex CLI via Responses API proxy
+14bc7c9 remove antigravity CLI from the entire codebase
+979f089 chore: update ocawe submodule with anthropic compat endpoint and cli_provider fixes
+fa1ef66 feat: add brand icons and CLI color themes to canvas nodes
+dceaba3 fix: update CLI install commands for nix-shell compatibility
+73c468e fix: proxy claude-code through Ocawe, pass provider_model from backend
+7891c4b feat: add Cloud CLI catalog tab with openclaw/hermes and orange canvas nodes
+8972c11 fix(ocawe): sanitize null content in assistant messages with tool_calls
+b16bfe8 fix(ocawe): typed message hash for tool_calls
+34d17d6 fix(ocawe): tool calls in /v1/chat/completions compat endpoint
+2feab9a fix: return full Ocawe response (incl tool_calls) in non-streaming OpenAI chat
+1b8ddde docs: update README with new /api/openai/environments/chat/completions endpoint and workflow/octra/{id} model format
+de6c38a feat: env ID in model field workflow/octra/{uuid}

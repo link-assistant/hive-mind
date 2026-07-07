@@ -11,7 +11,7 @@ import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.
 import { defaultModels, buildModelOptionDescription, resolveDefaultFallbackModel, resolveRuntimeDefaultModel } from './models/index.mjs';
 import { validateBranchName } from './solve.branch.lib.mjs';
 import { resolveEscalationConfig, isEscalateEnabled, DEFAULT_ESCALATE_RANGE } from './solve.escalate.lib.mjs';
-import { getLinoYargsFactory, hideBin, parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
+import { getLinoYargsFactory, hideBin, normalizeCliArgs, parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -737,7 +737,7 @@ export const createYargsConfig = yargsInstance => {
 
 // Parse command line arguments - now needs yargs and hideBin passed in
 export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = hideBin) => {
-  const rawArgs = hideBinFn(process.argv);
+  const rawArgs = normalizeCliArgs(hideBinFn(process.argv));
 
   // Issue #1092: Detect malformed flag patterns BEFORE yargs parsing
   // This catches cases like "-- model" which yargs silently treats as positional arguments
@@ -776,7 +776,7 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     try {
       yargsInstance = createYargsConfig(yargs());
       argv = parseCliArgumentsWithLino({
-        argv: process.argv,
+        argv: ['node', 'solve', ...rawArgs],
         commandName: 'solve',
         createYargsConfig,
         positionalAliases: ['issue-url'],

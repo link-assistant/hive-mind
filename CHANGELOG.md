@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.1.8
+
+### Patch Changes
+
+- 11dab3c: Handle Telegram and CLI commands where a GitHub issue or pull request URL is immediately followed by a long option marker.
+
 ## 2.1.7
 
 ### Patch Changes

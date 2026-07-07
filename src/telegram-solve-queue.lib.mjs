@@ -20,6 +20,7 @@ export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, ge
 import { collectExecutingItems, formatDuration, formatQueueToolSection, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems, groupQueueItemsByTool } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
+import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
@@ -371,6 +372,16 @@ export class SolveQueue {
       }
     }
     return count;
+  }
+
+  recordStart(tool = 'claude', startTime = Date.now()) {
+    this.lastStartTimeByTool[tool] = startTime;
+    this.lastStartTime = startTime;
+    return startTime;
+  }
+
+  reserveStartSlot(options = {}) {
+    return reserveStartSlotForQueue(this, options);
   }
 
   /**
@@ -1074,7 +1085,7 @@ export class SolveQueue {
    * - Each tool queue is checked independently
    * - Claude limits only affect Claude queue
    * - Agent queue can proceed even when Claude is blocked (and vice versa)
-   * - Multiple items can start in the same cycle (one per tool)
+   * - The oldest startable item starts each cycle to preserve global pacing
    *
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
@@ -1088,9 +1099,6 @@ export class SolveQueue {
         continue;
       }
 
-      // Find startable items from each tool queue
-      // Each tool is checked independently so they don't block each other
-      // See: https://github.com/link-assistant/hive-mind/issues/1159
       const startableItems = await this.findStartableItems();
 
       if (startableItems.length === 0) {
@@ -1101,8 +1109,6 @@ export class SolveQueue {
         continue;
       }
 
-      // Start items from each tool that can proceed
-      // This allows parallel starts from different tool queues
       for (const startable of startableItems) {
         const { tool } = startable;
         const toolQueue = this.getToolQueue(tool);
@@ -1115,12 +1121,9 @@ export class SolveQueue {
         item.setStarting();
         this.processing.set(item.id, item);
 
-        // Update tool-specific last start time
-        this.lastStartTimeByTool[tool] = Date.now();
-        this.lastStartTime = Date.now(); // Legacy compatibility
+        this.recordStart(tool);
         this.stats.totalStarted++;
 
-        // Update message to show Starting status
         await this.updateItemMessage(item, formatStartingWorkSessionMessage({ infoBlock: item.infoBlock, locale: item.locale }));
 
         this.log(`Starting: ${item.toString()} from ${tool} queue`);

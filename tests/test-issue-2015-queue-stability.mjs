@@ -8,6 +8,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 
@@ -100,6 +101,47 @@ await test('minimum startup interval is global across tools', async () => {
   );
 
   queue.stop();
+});
+
+await test('reserved direct starts enforce the same minimum startup interval', async () => {
+  const queue = createStableQueue();
+
+  const firstCheck = await queue.reserveStartSlot({ tool: 'codex' });
+  assertEqual(firstCheck.canStart, true, 'first idle codex command should reserve an immediate direct start');
+  assertEqual(firstCheck.startReserved, true, 'successful direct start should report a reserved startup slot');
+  assertTrue(queue.lastStartTime !== null, 'reserved direct start should update the global last start timestamp');
+  assertTrue(queue.lastStartTimeByTool.codex !== null, 'reserved direct start should update the tool last start timestamp');
+
+  const secondCheck = await queue.reserveStartSlot({ tool: 'codex' });
+  assertEqual(secondCheck.canStart, false, 'second immediate codex command should be throttled by the reserved startup slot');
+  assertEqual(secondCheck.startReserved, false, 'throttled direct start should not reserve a startup slot');
+  assertTrue(
+    secondCheck.reasons.some(reason => reason.includes('Minimum interval')),
+    'second direct start should report the min-interval waiting reason'
+  );
+
+  queue.stop();
+});
+
+await test('concurrent direct start reservations still allow only one immediate startup', async () => {
+  const queue = createStableQueue();
+
+  const results = await Promise.all([queue.reserveStartSlot({ tool: 'codex' }), queue.reserveStartSlot({ tool: 'codex' })]);
+  const reservedCount = results.filter(result => result.startReserved).length;
+  const throttledCount = results.filter(result => !result.canStart && result.reasons.some(reason => reason.includes('Minimum interval'))).length;
+
+  assertEqual(reservedCount, 1, 'only one concurrent direct start should reserve the startup slot');
+  assertEqual(throttledCount, 1, 'the other concurrent direct start should be throttled by min interval');
+
+  queue.stop();
+});
+
+await test('telegram direct solve path uses reserved startup slots', async () => {
+  const source = readFileSync(resolve('src/telegram-bot.mjs'), 'utf8');
+
+  assertTrue(/reserveStartSlot\(\{\s*tool:\s*solveTool,\s*locale:\s*solveLocale\s*\}\)/.test(source), 'telegram direct solve path should reserve the startup slot before immediate execution');
+  assertTrue(/check\.canStart\s*&&\s*check\.startReserved/.test(source), 'telegram direct solve path should launch immediately only after a successful reservation');
+  assertTrue(!/check\.canStart\s*&&\s*toolQueuedCount\s*===\s*0/.test(source), 'telegram direct solve path should not bypass pacing based only on an empty tool queue');
 });
 
 await test('findStartableItems returns only one task across tool queues', async () => {

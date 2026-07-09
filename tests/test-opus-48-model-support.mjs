@@ -454,6 +454,15 @@ test('thinkLevelToEffortLevel maps max to max for Opus 4.8', () => {
   assert.strictEqual(thinkLevelToEffortLevel('max', { supportsXHigh: true, supportsMax: true }), 'max', 'max should stay max for Opus 4.8');
 });
 
+test('thinkLevelToEffortLevel maps ultra to max for Opus 4.8 (ultracode-class deepest tier)', () => {
+  // Issue #2027: ultra is the ultracode-class deepest effort; on Claude it maps to the max effort level.
+  assert.strictEqual(thinkLevelToEffortLevel('ultra', { supportsXHigh: true, supportsMax: true }), 'max', 'ultra should map to max for Opus 4.8');
+});
+
+test('thinkLevelToEffortLevel maps ultra to xhigh when max is unsupported but xhigh is', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('ultra', { supportsXHigh: true, supportsMax: false }), 'xhigh', 'ultra should degrade to xhigh when max is unavailable');
+});
+
 // ============================================================
 // Section 14: getClaudeEnv for Opus 4.8 (adaptive thinking inherited from 4.7)
 // ============================================================
@@ -610,6 +619,7 @@ test('getThinkingLevelToTokens: all levels produce expected tokens', () => {
   assert.strictEqual(tokens.medium, 15999);
   assert.strictEqual(tokens.high, 23999);
   assert.strictEqual(tokens.xhigh, 31999);
+  assert.strictEqual(tokens.ultra, 31999);
   assert.strictEqual(tokens.max, 31999);
 });
 
@@ -635,7 +645,7 @@ test('supportsEffortLevel returns true for Opus 4.5', () => {
 // ============================================================
 console.log('\n=== 20. getClaudeEnv Cross-Model Think Level Matrix ===');
 
-const thinkLevels = ['off', 'low', 'medium', 'high', 'xhigh', 'max'];
+const thinkLevels = ['off', 'low', 'medium', 'high', 'xhigh', 'ultra', 'max'];
 const testModels = [
   { name: 'opus (4.8)', alias: 'opus', adaptive: true, supportsEffort: true, supportsXHigh: true, supportsMax: true },
   { name: 'claude-opus-4-8', alias: 'claude-opus-4-8', adaptive: true, supportsEffort: true, supportsXHigh: true, supportsMax: true },
@@ -667,7 +677,7 @@ for (const model of testModels) {
         assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, undefined);
       });
     } else if (model.supportsEffort) {
-      const expectedEffort = level === 'xhigh' ? (model.supportsXHigh ? 'xhigh' : model.supportsMax ? 'max' : 'high') : level === 'max' ? (model.supportsMax ? 'max' : 'high') : level;
+      const expectedEffort = level === 'xhigh' ? (model.supportsXHigh ? 'xhigh' : model.supportsMax ? 'max' : 'high') : level === 'ultra' ? (model.supportsMax ? 'max' : model.supportsXHigh ? 'xhigh' : 'high') : level === 'max' ? (model.supportsMax ? 'max' : 'high') : level;
       test(`${model.name} + --think ${level}: effort=${expectedEffort}`, () => {
         assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, expectedEffort);
       });

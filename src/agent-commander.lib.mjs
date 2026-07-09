@@ -62,8 +62,13 @@ const buildClaudeToolOptions = (argv = {}) => {
 
 const buildCodexToolOptions = (argv = {}) => {
   const options = {};
-  const { reasoningEffort } = resolveCodexReasoningEffort(argv);
-  appendExtraArgs(options, ['-c', `model_reasoning_effort=${reasoningEffort}`, '-c', 'model_reasoning_summary=auto']);
+  const { reasoningEffort, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
+  const reasoningArgs = ['-c', `model_reasoning_effort=${reasoningEffort}`, '-c', 'model_reasoning_summary=auto'];
+  // Issue #2027: pair GPT-5.6 Sol's multi-agent `ultra` effort with a rollout token budget cap.
+  if (rolloutTokenBudget) {
+    reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
+  }
+  appendExtraArgs(options, reasoningArgs);
 
   appendExtraArgs(options, buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext));
   try {

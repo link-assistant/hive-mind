@@ -192,7 +192,7 @@ export const defaultModels = {
   claude: 'sonnet',
   agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'grok-code-fast-1',
-  codex: 'gpt-5.5',
+  codex: 'gpt-5.6-sol', // Issue #2027: GPT-5.6 Sol is the released Codex flagship; runtime falls back to gpt-5.5 when Sol is not in the local catalog
   qwen: 'qwen3-coder-plus',
   gemini: 'flash',
 };
@@ -366,7 +366,10 @@ export const getDefaultModelForTool = tool => {
 };
 
 let cachedInstalledCodexModelsPromise = null;
-const CODEX_DEFAULT_FALLBACK_CHAIN = ['openai.gpt-5.5', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'openai.gpt-5.6-sol', 'openai.gpt-5.6-terra', 'openai.gpt-5.6-luna', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+// Issue #2027: With gpt-5.6-sol as the preferred default, the fallback chain is only
+// consulted when Sol is absent from the local catalog. Prefer the previous stable
+// default (gpt-5.5) first, then the remaining GPT-5.6 preview tiers, then older models.
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.5', 'openai.gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'openai.gpt-5.6-sol', 'openai.gpt-5.6-terra', 'openai.gpt-5.6-luna', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
 
 export const getInstalledCodexModels = async () => {
   if (!cachedInstalledCodexModelsPromise) {
@@ -490,7 +493,7 @@ export const getValidModelsForTool = tool => {
 export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable'],
   opencode: ['grok', 'gpt4o'],
-  codex: ['gpt-5.5', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark'],
+  codex: ['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark'],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
   qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash'],
   gemini: ['flash', 'pro', 'flash-lite', 'auto'],

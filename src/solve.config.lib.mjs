@@ -299,13 +299,18 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   think: {
     type: 'string',
-    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, xhigh/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported. Fable 5/Mythos 5/Sonnet 5/Opus 4.8/4.7 support xhigh and max; Opus 4.6/Sonnet 4.6/Mythos Preview support max; Opus 4.5 uses high for xhigh/max. For Codex, mapped to reasoning effort (off=none, low=low, medium=medium, high=high, xhigh/max=xhigh).',
-    choices: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],
+    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, xhigh/ultra/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported. Fable 5/Mythos 5/Sonnet 5/Opus 4.8/4.7 support xhigh and max; Opus 4.6/Sonnet 4.6/Mythos Preview support max; Opus 4.5 uses high for xhigh/max. `ultra` maps to the highest supported Claude effort (Claude "ultracode"-class reasoning). For Codex (GPT-5.6 Sol), mapped 1:1 to reasoning effort (off=none, low=low, medium=medium, high=high, xhigh=xhigh, ultra=ultra, max=max); GPT-5.6 keeps xhigh and adds max above it, and ultra runs the multi-agent mode paired with a rollout token budget cap. Default: no thinking level is enforced (models run as-is).',
+    choices: ['off', 'low', 'medium', 'high', 'xhigh', 'ultra', 'max'],
     default: undefined,
   },
   'thinking-budget': {
     type: 'number',
-    description: 'Thinking token budget. For Claude Code, controls MAX_THINKING_TOKENS (0-31999 by default). For Codex, enables finer reasoning-effort mapping including minimal/low/medium/high/xhigh.',
+    description: 'Thinking token budget. For Claude Code, controls MAX_THINKING_TOKENS (0-31999 by default). For Codex, enables finer reasoning-effort mapping (minimal/low/medium/high) capped at xhigh; the deepest single-agent `max` and the multi-agent `ultra` effort must be requested explicitly via --think max / --think ultra.',
+    default: undefined,
+  },
+  'rollout-token-budget': {
+    type: 'number',
+    description: "Codex rollout token budget (turn-level cap) paired with the multi-agent `--think ultra` effort so GPT-5.6 Sol's ultra mode stays predictable and does not run away on cost. Default: 500000. Only applied when --think ultra selects the ultra reasoning effort.",
     default: undefined,
   },
   'thinking-budget-claude-minimum-version': {

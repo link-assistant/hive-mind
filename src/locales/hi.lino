@@ -578,7 +578,7 @@ hi
         branch
           option "• `--base-branch <branch>` या `-b` - PR के लिए target branch (default: repo default branch)"
       think
-        option "• `--think <level>` - thinking level (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - token budget (0-63999)"
+        option "• `--think <level>` - thinking level (off/low/medium/high/xhigh/ultra/max) | `--thinking-budget <num>` - token budget (0-63999)"
       verbose
         option "• `--verbose` या `-v` - verbose output | `--attach-logs` - logs को PR से attach करें"
       show

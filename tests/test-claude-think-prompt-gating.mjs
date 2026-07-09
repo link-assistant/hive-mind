@@ -55,7 +55,7 @@ const effortModels = [
   ['opus-4-5', 'Opus 4.5 short alias'],
 ];
 
-for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
+for (const level of ['low', 'medium', 'high', 'xhigh', 'ultra', 'max']) {
   for (const [model, desc] of effortModels) {
     test(`${desc} (${model}) + --think ${level}: no think prompt instruction`, () => {
       const prompt = buildClaudeUserPrompt({ ...baseParams, claudeVersion: '2.1.111', argv: { model, think: level } });
@@ -78,10 +78,11 @@ const expectedMessages = {
   medium: 'Think hard.',
   high: 'Think harder.',
   xhigh: 'Ultrathink.',
+  ultra: 'Ultrathink.',
   max: 'Ultrathink.',
 };
 
-for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
+for (const level of ['low', 'medium', 'high', 'xhigh', 'ultra', 'max']) {
   for (const [model, desc] of noEffortModels) {
     test(`${desc} (${model}) + --think ${level} + Claude Code 2.1.12: no think prompt instruction`, () => {
       const prompt = buildClaudeUserPrompt({ ...baseParams, claudeVersion: '2.1.12', argv: { model, think: level } });
@@ -93,7 +94,7 @@ for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
 // Legacy Claude Code without effort or token-budget support — SHOULD get think prompt instructions
 console.log('\n=== Legacy Claude Code fallback (SHOULD get think prompt instructions) ===');
 
-for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
+for (const level of ['low', 'medium', 'high', 'xhigh', 'ultra', 'max']) {
   for (const [model, desc] of noEffortModels) {
     test(`${desc} (${model}) + --think ${level} + Claude Code 2.1.11: includes "${expectedMessages[level]}"`, () => {
       const prompt = buildClaudeUserPrompt({ ...baseParams, claudeVersion: '2.1.11', argv: { model, think: level } });
@@ -105,7 +106,7 @@ for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
 // No model specified — defaults should not add prompt keywords
 console.log('\n=== No model specified (should NOT get think prompt instructions) ===');
 
-for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
+for (const level of ['low', 'medium', 'high', 'xhigh', 'ultra', 'max']) {
   test(`No model + --think ${level}: no think prompt instruction`, () => {
     const prompt = buildClaudeUserPrompt({ ...baseParams, claudeVersion: '2.1.111', argv: { think: level } });
     assert(!containsThinkInstruction(prompt), `Prompt should NOT contain think instruction when no model is specified, got:\n${prompt}`);
@@ -114,7 +115,7 @@ for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
 
 console.log('\n=== Non-Claude tools and structured reasoning (should NOT get think prompt instructions) ===');
 
-for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
+for (const level of ['low', 'medium', 'high', 'xhigh', 'ultra', 'max']) {
   test(`Agent default model + --think ${level}: no think prompt instruction`, () => {
     const prompt = buildAgentUserPrompt({ ...baseParams, argv: { model: 'nemotron-3-super-free', think: level } });
     assert(!containsThinkInstruction(prompt), `Agent prompt should not contain think instruction for non-Claude model, got:\n${prompt}`);
@@ -133,7 +134,7 @@ for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
 
 console.log('\n=== Legacy Claude models through non-Claude tools (SHOULD get think prompt instructions) ===');
 
-for (const level of ['low', 'medium', 'high', 'xhigh', 'max']) {
+for (const level of ['low', 'medium', 'high', 'xhigh', 'ultra', 'max']) {
   test(`Agent Claude 3 Opus + --think ${level}: includes "${expectedMessages[level]}"`, () => {
     const prompt = buildAgentUserPrompt({ ...baseParams, argv: { model: 'opus', think: level } });
     assert(prompt.includes(expectedMessages[level]), `Agent prompt should contain "${expectedMessages[level]}" for legacy Claude model`);

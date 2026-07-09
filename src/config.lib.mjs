@@ -397,6 +397,7 @@ export const getThinkingLevelToTokens = (maxBudget = DEFAULT_MAX_THINKING_BUDGET
   medium: Math.floor(maxBudget / 2), // ~16000 for default 31999
   high: Math.floor((maxBudget * 3) / 4), // ~24000 for default 31999
   xhigh: maxBudget, // same as max when represented as MAX_THINKING_TOKENS
+  ultra: maxBudget, // Issue #2027: ultra is max-class in token terms for Claude
   max: maxBudget, // 31999 by default
 });
 
@@ -482,10 +483,13 @@ export const OPUS_46_EFFORT_LEVELS = ['low', 'medium', 'high', 'max'];
 export const OPUS_47_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 /**
- * Convert thinking level to effort level (Issue #1238, Issue #1620)
+ * Convert thinking level to effort level (Issue #1238, Issue #1620, Issue #2027)
  * Models with max support keep max as max. Opus 4.7 keeps xhigh as xhigh.
  * Models with effort but without max support use high for max/xhigh.
- * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/xhigh/max)
+ * `ultra` (Issue #2027) requests Claude "ultracode"-class reasoning; Claude Code has no
+ * distinct `ultra`/`ultracode` effort value, so it clamps to the highest supported effort
+ * (max, else xhigh, else high).
+ * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/xhigh/ultra/max)
  * @param {Object} [options] - Options
  * @param {boolean} [options.isOpus47] - Backward-compatible shorthand for supportsXHigh
  * @param {boolean} [options.supportsXHigh] - Whether the model supports xhigh effort
@@ -509,6 +513,8 @@ export const thinkLevelToEffortLevel = (thinkLevel, options = {}) => {
       return 'high';
     case 'xhigh':
       return supportsXHigh ? 'xhigh' : supportsMax ? 'max' : 'high';
+    case 'ultra':
+      return supportsMax ? 'max' : supportsXHigh ? 'xhigh' : 'high';
     case 'max':
       return supportsMax ? 'max' : 'high';
     default:

@@ -26,6 +26,7 @@ Prepared PR: https://github.com/link-assistant/hive-mind/pull/2026
 - CI/CD template file trees: `template-snapshots/*-tree.json`
 - CI/CD template release workflows: `template-snapshots/workflows/*-release.yml`
 - CI/CD path comparison: `template-snapshots/ci-cd-paths.md`
+- Setup Helm release metadata: `metadata/setup-helm-latest.json`
 - Local check logs: `checks/*.log`, including the completed default-suite rerun in `checks/npm-test-rerun.log`
 
 ## Timeline
@@ -52,7 +53,13 @@ The Node.js ES module documentation confirms that top-level `await` participates
 
 Four workflow steps were named `Use Node.js 20.x`, but their `actions/setup-node` configuration was already `node-version: 24.x`. This did not cause the failure, but it was a CI log false signal because the package requires Node `>=24.0.0`.
 
-### 3. Existing warning noise
+### 3. Deprecated action runtime warning
+
+The fresh PR verification run for commit `afbc353c745cc4002d634cc350752b4f9270d34a` surfaced a GitHub Actions annotation that `azure/setup-helm@v4` targets Node 20 and is forced to run on Node 24. The latest upstream release metadata for `Azure/setup-helm` shows `v5.0.1`, and the action metadata for `v5` uses `node24`.
+
+This was not the original failing test root cause, but it was an actionable CI warning and was fixed in the same issue branch.
+
+### 4. Existing warning noise
 
 The saved run also contains:
 
@@ -80,6 +87,7 @@ GitHub's dependency caching documentation describes caches as an optimization th
 - Reset the cached loader promise after a load failure so a later command can retry.
 - Add a regression test that stubs `globalThis.fetch`, deletes `globalThis.use`, dynamically imports the isolation runner, and asserts the import made zero fetch calls.
 - Rename the four stale workflow steps from `Use Node.js 20.x` to `Use Node.js 24.x`.
+- Update `azure/setup-helm` from `v4` to `v5` to remove the Node 20 action-runtime warning.
 
 ## Verification
 

@@ -59,6 +59,13 @@ export const classifyRetryableError = value => {
     return { message, isRetryable: true, isCapacity: false, label: 'Stream disconnected before completion' };
   }
 
+  // Issue #2023: Claude Code can close a stream-json process after tool output
+  // (for example "Exit code 144") without emitting the terminal result event.
+  // The session is still resumable; failing immediately loses in-progress work.
+  if (lower.includes('claude stream ended without a terminal result event')) {
+    return { message, isRetryable: true, isCapacity: false, label: 'Claude stream ended without terminal result' };
+  }
+
   // Issue #1937: Stream idle timeout. When the Anthropic streaming response stalls
   // (no bytes for the SDK's idle window) after the model has already emitted part of
   // its answer, the Claude CLI aborts the turn and surfaces a synthetic assistant /

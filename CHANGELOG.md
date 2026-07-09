@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 2.1.10
+
+### Patch Changes
+
+- 9964e69: Retry Claude stream-json sessions with `--resume` when the stream ends without a terminal result event after tool output.
+- afbc353: Avoid fetching `use-m` at isolation-runner import time when tests only use pure helper exports.
+
 ## 2.1.9
 
 ### Patch Changes

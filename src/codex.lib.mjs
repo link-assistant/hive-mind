@@ -804,7 +804,7 @@ export const executeCodexCommand = async params => {
 
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
-    const { reasoningEffort, source: reasoningEffortSource } = resolveCodexReasoningEffort(argv);
+    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
     const isResumeMode = !!argv.resume;
     const codexEnv = getCodexExecEnv(argv.verbose);
 
@@ -839,7 +839,13 @@ export const executeCodexCommand = async params => {
     for (const arg of codexPlaywrightMcpDisableConfigArgs) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
-    codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')} --dangerously-bypass-approvals-and-sandbox`;
+    codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')}`;
+    // Issue #2027: GPT-5.6 Sol's multi-agent `ultra` effort must be paired with a rollout token
+    // budget cap so it stays predictable and does not run away on cost.
+    if (rolloutTokenBudget) {
+      codexArgs += ` -c ${shellQuote(`rollout_token_budget=${rolloutTokenBudget}`)}`;
+    }
+    codexArgs += ' --dangerously-bypass-approvals-and-sandbox';
 
     // Issue #1706: Append --disable-1m-context and --sub-session-size as Codex -c overrides.
     let parsedSubSessionSize;

@@ -8,6 +8,7 @@ export const THINK_PROMPT_MESSAGES = Object.freeze({
   medium: 'Think hard.',
   high: 'Think harder.',
   xhigh: 'Ultrathink.',
+  ultra: 'Ultrathink.',
   max: 'Ultrathink.',
 });
 

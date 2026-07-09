@@ -578,7 +578,7 @@ ru
         branch
           option "• `--base-branch <branch>` или `-b` - Целевая ветка для PR (по умолчанию ветка репозитория)"
       think
-        option "• `--think <level>` - уровень размышления (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - бюджет токенов (0-63999)"
+        option "• `--think <level>` - уровень размышления (off/low/medium/high/xhigh/ultra/max) | `--thinking-budget <num>` - бюджет токенов (0-63999)"
       verbose
         option "• `--verbose` или `-v` - подробный вывод | `--attach-logs` - прикрепить логи к PR"
       show

@@ -187,6 +187,21 @@ All runners are mocked, so the tests never touch the network, npm, or git.
 | Add debug/verbose output if data is insufficient                    | Not needed — root cause was fully determined from the logs. The new scripts additionally log the detected failure pattern and post-publish verification result for future runs.            |
 | Related to other GitHub repos → file issues                         | Trigger is upstream `npm/cli` (already tracked as #9722); `command-stream` silent-failure is already documented in this repo's `docs/dependencies-research/`.                              |
 
+## Additional CI false negative found while verifying the fix
+
+The first CI run of this PR (run 29038819633) failed in an **unrelated**
+suite, `tests/test-issue-467-terminal-watch.mjs`, with `editCount: 0`. The
+change-detection tests slept a fixed 55–80 ms and expected a real-timer polling
+loop (`intervalMs: 10`) to have fired within that window. Under CI load the loop
+was starved and the assertion ran too early — a classic **flaky false negative**
+(the code is correct; the test reports failure). A re-run passed, confirming the
+flake.
+
+Because the issue asks to fix _all_ CI false negatives, the fixed sleeps were
+replaced with a `waitUntil()` helper that polls the observable condition up to a
+generous timeout, so the assertion only runs once the watch loop has actually
+progressed. The test still exits quickly and passed 5/5 locally.
+
 ## Lessons / systemic notes
 
 - **Never `@latest` a release-gating tool.** Pin the major line and validate.

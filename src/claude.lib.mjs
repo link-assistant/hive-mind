@@ -1163,6 +1163,11 @@ export const executeClaudeCommand = async params => {
           queuedFeedback,
         };
       }
+      if (shouldFailClaudeStreamWithoutResult({ commandFailed, streamingInput, resultEventReceived })) {
+        commandFailed = true;
+        lastMessage = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage });
+        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
+      }
       const retryableLastError = classifyRetryableError(lastMessage);
       // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery
@@ -1290,11 +1295,6 @@ export const executeClaudeCommand = async params => {
           .map(e => `   ${e.substring(0, 200)}`)
           .join('\n');
         await log(`\n\n❌ Command failed: No messages processed and errors detected in stderr\nStderr errors:\n${errorsPreview}`, { level: 'error' });
-      }
-      if (shouldFailClaudeStreamWithoutResult({ commandFailed, streamingInput, resultEventReceived })) {
-        commandFailed = true;
-        lastMessage = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage });
-        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
       }
       if (commandFailed) {
         // Take resource snapshot after failure

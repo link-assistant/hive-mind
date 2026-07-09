@@ -1,0 +1,33 @@
+Testing stream idle timeout retry classification (Issue #1937)
+
+
+=== 1. Exact error message from issue #1937 ===
+  ✅ exact issue #1937 message is classified as retryable
+  ✅ exact issue #1937 message gets the stream idle timeout label
+  ✅ stream idle timeout is not treated as a capacity error (no model switch, resume same context)
+  ✅ stream idle timeout wrapped in a { result } object is retryable
+  ✅ stream idle timeout wrapped in a { message } object is retryable
+
+=== 2. Related casing / phrasing variants ===
+  ✅ retryable: "API Error: Stream idle timeout - partial response receiv"
+  ✅ retryable: "stream idle timeout"
+  ✅ retryable: "Stream Idle Timeout - Partial Response Received"
+  ✅ retryable: "API Error: idle timeout reached, partial response receiv"
+
+=== 3. Non-transient errors stay non-retryable ===
+  ✅ non-retryable: "Error: ENOENT: no such file or directory"
+  ✅ non-retryable: "SyntaxError: Unexpected token"
+  ✅ non-retryable: "Permission denied (publickey)."
+  ✅ non-retryable: "context_length_exceeded"
+
+=== 4. Pre-existing transient classifications still work ===
+  ✅ "Overloaded" remains retryable (Issue #1949: transient, not capacity)
+  ✅ "Request timed out" remains retryable
+  ✅ "stream disconnected before completion" remains retryable
+  ✅ socket-closed (Issue #1881) remains retryable
+
+============================================================
+Results: 17 passed, 0 failed
+============================================================
+
+✅ All stream idle timeout retry tests passed (Issue #1937)

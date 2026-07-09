@@ -20,11 +20,26 @@ import os from 'node:os';
 import path from 'node:path';
 import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
 
-if (typeof use === 'undefined') {
-  await ensureUseM();
-}
+let commandStreamDollarPromise = null;
 
-const { $ } = await use('command-stream');
+async function getCommandStreamDollar() {
+  if (!commandStreamDollarPromise) {
+    commandStreamDollarPromise = (async () => {
+      if (typeof globalThis.use === 'undefined') {
+        await ensureUseM();
+      }
+      const { $ } = await globalThis.use('command-stream');
+      return $;
+    })();
+  }
+
+  try {
+    return await commandStreamDollarPromise;
+  } catch (error) {
+    commandStreamDollarPromise = null;
+    throw error;
+  }
+}
 
 // Re-export the shared status predicates so existing callers that reach them via
 // the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`)
@@ -516,6 +531,7 @@ export function readSessionExitFromLog(logPath, options = {}) {
  */
 async function findStartCommandBinary() {
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`which $`;
     const path = result.stdout?.toString().trim() || '';
     return path || null;
@@ -677,6 +693,7 @@ export async function querySessionStatus(sessionId, verbose = false) {
   }
 
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`${binPath} --status ${sessionId} --output-format json`;
 
     const stdout = result.stdout?.toString().trim() || '';
@@ -755,6 +772,7 @@ export async function listIsolationSessions(verbose = false) {
     return [];
   }
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`${binPath} --list --output-format json`;
     const stdout = result.stdout?.toString().trim() || '';
     const sessions = parseSessionListOutput(stdout);
@@ -791,6 +809,7 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
   }
 
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`${binPath} --stop ${sessionId}`;
     const stdout = result.stdout?.toString() || '';
     const stderr = result.stderr?.toString() || '';
@@ -827,6 +846,7 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
  */
 export async function checkScreenSessionRunning(sessionName, verbose = false) {
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`screen -ls`;
     const output = result.stdout?.toString() || '';
     const exists = output.includes(sessionName);
@@ -857,6 +877,7 @@ export async function checkScreenSessionRunning(sessionName, verbose = false) {
  */
 export async function checkDockerContainerRunning(containerName, verbose = false) {
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`docker inspect -f ${'{{.State.Running}}'} ${containerName}`;
     const running = (result.stdout?.toString() || '').trim() === 'true';
     if (verbose) {
@@ -890,6 +911,7 @@ export function parseDockerContainerWritableLayerSizeOutput(output) {
 export async function getDockerContainerWritableLayerSize(containerName, verbose = false) {
   if (!containerName) return null;
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`docker inspect --size -f ${'{{.SizeRw}}'} ${containerName}`;
     const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout?.toString() || '');
     if (verbose) {
@@ -922,6 +944,7 @@ export async function releaseDockerContainerStartGate(containerName, verbose = f
 
   for (let attempt = 1; attempt <= 5; attempt++) {
     try {
+      const $ = await getCommandStreamDollar();
       await $({ mirror: false })`docker exec ${containerName} sh -c ${releaseCommand}`;
       if (verbose) {
         console.log(`[VERBOSE] isolation-runner: released docker start gate for '${containerName}'`);
@@ -960,6 +983,7 @@ export async function removeDockerContainer(containerName, verbose = false) {
   }
 
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`docker rm -f ${containerName}`;
     const stdout = result.stdout?.toString() || '';
     const stderr = result.stderr?.toString() || '';
@@ -992,6 +1016,7 @@ export async function removeDockerContainer(containerName, verbose = false) {
  */
 export async function checkTmuxSessionRunning(sessionName, verbose = false) {
   try {
+    const $ = await getCommandStreamDollar();
     await $({ mirror: false })`tmux has-session -t ${sessionName}`;
     if (verbose) console.log(`[VERBOSE] isolation-runner: tmux has-session '${sessionName}': running`);
     return true;
@@ -1035,6 +1060,7 @@ export async function checkBackendSessionAlive(sessionId, backend, verbose = fal
  */
 export async function checkDockerImagePresent(image, verbose = false) {
   try {
+    const $ = await getCommandStreamDollar();
     await $({ mirror: false })`docker image inspect ${image}`;
     if (verbose) console.log(`[VERBOSE] isolation-runner: docker image inspect '${image}': present`);
     return true;
@@ -1062,6 +1088,7 @@ export async function checkDockerImagePresent(image, verbose = false) {
  */
 export async function checkDockerStorageDriver(verbose = false) {
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`docker info --format ${'{{.Driver}}'}`;
     const driver = (result.stdout?.toString() || '').trim().toLowerCase() || null;
     if (verbose) console.log(`[VERBOSE] isolation-runner: docker storage driver: ${driver || '(unknown)'}`);
@@ -1091,6 +1118,7 @@ export async function checkDockerDiskSpace(verbose = false) {
   try {
     let dataRoot = '/var/lib/docker';
     try {
+      const $ = await getCommandStreamDollar();
       const info = await $({ mirror: false })`docker info --format ${'{{.DockerRootDir}}'}`;
       const root = (info.stdout?.toString() || '').trim();
       if (root) dataRoot = root;
@@ -1099,6 +1127,7 @@ export async function checkDockerDiskSpace(verbose = false) {
       // fails on it (e.g. the path does not exist) we return null below.
     }
 
+    const $ = await getCommandStreamDollar();
     const df = await $({ mirror: false })`df -Pk ${dataRoot}`;
     // `df -P` guarantees one logical line per filesystem (no wrapping). The last
     // line is the data row: Filesystem 1024-blocks Used Available Capacity Mount

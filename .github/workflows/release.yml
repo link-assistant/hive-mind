@@ -655,6 +655,11 @@ jobs:
       - name: Update npm for OIDC trusted publishing
         run: node scripts/setup-npm.mjs
 
+      - name: Sanitize npm user config
+        # Remove the deprecated always-auth entry setup-node writes, which npm 11
+        # warns about on every command (issue #2028).
+        run: node scripts/sanitize-npm-userconfig.mjs
+
       - name: Check for changesets
         id: check_changesets
         run: |
@@ -1070,6 +1075,11 @@ jobs:
 
       - name: Update npm for OIDC trusted publishing
         run: node scripts/setup-npm.mjs
+
+      - name: Sanitize npm user config
+        # Remove the deprecated always-auth entry setup-node writes, which npm 11
+        # warns about on every command (issue #2028).
+        run: node scripts/sanitize-npm-userconfig.mjs
 
       - name: Version packages and commit to main
         id: version

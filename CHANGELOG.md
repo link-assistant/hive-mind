@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.2.1
+
+### Patch Changes
+
+- e86a40e: Add a `--development-log` solve option that prompts agents to collect issue data, then preserves and commits resumable tool sessions under per-session UUID directories.
+
 ## 2.2.0
 
 ### Minor Changes

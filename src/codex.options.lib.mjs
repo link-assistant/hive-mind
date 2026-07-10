@@ -14,6 +14,8 @@ export const mapModelToId = model => codexModels[model] || model;
 // deepest single-agent effort. `off` disables reasoning (`none`). See docs/case-studies/issue-2027.
 const THINK_LEVEL_TO_CODEX_REASONING = {
   off: 'none',
+  // Issue #2038: Codex/GPT-5.x natively exposes a `minimal` reasoning effort below `low`.
+  minimal: 'minimal',
   low: 'low',
   medium: 'medium',
   high: 'high',

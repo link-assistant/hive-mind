@@ -522,14 +522,18 @@ export const executeGeminiCommand = async params => {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
           if (retryCount < maxRetries) {
-            const delay = getRetryDelayMs({
-              retryCount,
-              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
-              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
-            });
+            const switchResult = await maybeSwitchToFallbackModel({ tool: 'gemini', argv, log, errorMessage: retryableError.message });
+            // Issue #2037: after a capacity-driven model switch, retry quickly instead
+            // of waiting the full transient backoff — the new model may be available now.
+            const delay = switchResult?.switched
+              ? retryLimits.modelSwitchRetryDelayMs
+              : getRetryDelayMs({
+                  retryCount,
+                  initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+                  maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+                });
             const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
             await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-            await maybeSwitchToFallbackModel({ tool: 'gemini', argv, log, errorMessage: retryableError.message });
             await waitForRetryDelay(delay, log);
             await log('\n🔄 Retrying now...');
             retryCount++;

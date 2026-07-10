@@ -1047,7 +1047,7 @@ const doesRequestedMatchActual = (requestedModel, actualModelId, tool) => {
  * @param {Array<{modelId: string, modelInfo: Object|null}>|null} options.modelsUsed - Actual models used from CLI JSON output
  * @returns {string} Formatted markdown string for model info section
  */
-export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null, thinkingInfo = null } = {}) => {
+export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null, thinkingInfo = null, fallbackModel = null } = {}) => {
   const hasRequested = requestedModel !== null && requestedModel !== undefined;
   const hasModelsUsed = Array.isArray(modelsUsed) && modelsUsed.length > 0;
   const hasModelInfo = modelInfo !== null;
@@ -1090,11 +1090,21 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
     const mainModelName = mainModelMeta?.name || mainModelId;
     const modelLabel = supportingEntries.length > 0 ? 'Main model' : 'Model';
 
+    // Issue #2037: A mismatch between the requested model and the model that
+    // actually ran is *expected* when the run was deliberately downgraded to the
+    // configured fallback model (e.g. Codex reported the requested `gpt-5.6-sol`
+    // was "at capacity", so the retry loop switched to `gpt-5.5`). In that case
+    // the fallback did its job, so surface an informational note instead of an
+    // alarming \u26A0\uFE0F warning that reads like a defect.
+    const matchesFallback = hasRequested && !mainMatches && fallbackModel ? doesRequestedMatchActual(fallbackModel, mainModelId, tool) : false;
+
     if (mainMatches) {
       info += `\n- **${modelLabel}: ${mainModelName}** (\`${mainModelId}\`)`;
     } else {
       info += `\n- **${modelLabel}: ${mainModelName}** (\`${mainModelId}\`)`;
-      if (hasRequested) {
+      if (hasRequested && matchesFallback) {
+        info += `\n- \u2139\uFE0F Requested model \`${requestedModel}\` was unavailable; automatically fell back to \`${mainModelId}\``;
+      } else if (hasRequested) {
         info += `\n- \u26A0\uFE0F **Warning**: Main model \`${mainModelId}\` does not match requested model \`${requestedModel}\``;
       }
     }
@@ -1189,7 +1199,7 @@ export const resolveDefaultFallbackModel = (tool, model) => {
  * @param {Array<string>|null} options.actualModelIds - Actual model IDs from CLI JSON output
  * @returns {Promise<string>} Formatted markdown model info section
  */
-export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null, thinkingInfo = null } = {}) => {
+export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null, thinkingInfo = null, fallbackModel = null } = {}) => {
   let modelIds = [];
 
   if (Array.isArray(actualModelIds) && actualModelIds.length > 0) {
@@ -1221,5 +1231,6 @@ export const getModelInfoForComment = async ({ requestedModel = null, tool = nul
     modelInfo: modelsUsed.length === 0 ? firstModelInfo : null,
     modelsUsed: modelsUsed.length > 0 ? modelsUsed : null,
     thinkingInfo,
+    fallbackModel,
   });
 };

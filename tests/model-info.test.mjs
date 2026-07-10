@@ -214,6 +214,45 @@ test('buildModelInfoString shows warning when model does not match requested', (
   assert.ok(result.includes('does not match requested'), `Expected mismatch message but got: ${result}`);
 });
 
+// Issue #2037: an expected fallback (actual model == configured fallback) should be
+// surfaced as an informational note, not an alarming ⚠️ warning.
+test('buildModelInfoString shows informational fallback note (not a warning) when actual model matches the configured fallback', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'gpt-5.6-sol',
+    tool: 'codex',
+    fallbackModel: 'gpt-5.5',
+    modelsUsed: [
+      {
+        modelId: 'gpt-5.5',
+        modelInfo: { name: 'GPT-5.5', provider: 'OpenAI' },
+      },
+    ],
+  });
+  assert.ok(result.includes('**Model: GPT-5.5**'), `Expected bold model but got: ${result}`);
+  assert.ok(result.includes('ℹ️'), `Expected informational note but got: ${result}`);
+  assert.ok(result.includes('automatically fell back'), `Expected fallback note but got: ${result}`);
+  assert.ok(!result.includes('⚠️'), `Did not expect a warning for an expected fallback but got: ${result}`);
+  assert.ok(!result.includes('does not match requested'), `Did not expect mismatch warning but got: ${result}`);
+});
+
+// Issue #2037: when the actual model matches neither the requested model nor the
+// configured fallback, the ⚠️ warning must still appear.
+test('buildModelInfoString still warns when actual model matches neither requested nor fallback', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'gpt-5.6-sol',
+    tool: 'codex',
+    fallbackModel: 'gpt-5.4',
+    modelsUsed: [
+      {
+        modelId: 'gpt-5.5',
+        modelInfo: { name: 'GPT-5.5', provider: 'OpenAI' },
+      },
+    ],
+  });
+  assert.ok(result.includes('⚠️'), `Expected warning but got: ${result}`);
+  assert.ok(result.includes('does not match requested'), `Expected mismatch message but got: ${result}`);
+});
+
 test('buildModelInfoString shows additional models', () => {
   const result = buildModelInfoString({
     requestedModel: 'opus',

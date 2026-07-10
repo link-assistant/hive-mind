@@ -635,6 +635,10 @@ await asyncTest('Codex command retries with resume and fallback model after capa
       };
     };
 
+  // Issue #2037: capture the retry delays so we can assert the capacity-driven
+  // model switch retries almost immediately instead of stalling for the full
+  // transient backoff (2 min).
+  const delaysSeen = [];
   const result = await executeCodexCommand({
     tempDir: process.cwd(),
     branchName: 'issue-1666-test',
@@ -652,7 +656,9 @@ await asyncTest('Codex command retries with resume and fallback model after capa
     repo: null,
     prNumber: null,
     calculatePricing: async () => null,
-    waitForRetryDelay: async () => {},
+    waitForRetryDelay: async delay => {
+      delaysSeen.push(delay);
+    },
   });
 
   assert.equal(result.success, true);
@@ -660,6 +666,10 @@ await asyncTest('Codex command retries with resume and fallback model after capa
   assert.equal(commands.length, 2);
   assert.ok(commands[0].includes('--model "gpt-5.5"'), `Expected first attempt to use gpt-5.5, got: ${commands[0]}`);
   assert.ok(commands[1].includes('resume "thread_capacity_1666" --model "gpt-5.4"'), `Expected retry to resume with gpt-5.4, got: ${commands[1]}`);
+  // Issue #2037: the single retry followed a model switch, so its delay must be the
+  // short model-switch delay (5s), not the 2-min transient backoff.
+  assert.equal(delaysSeen.length, 1, `Expected exactly one retry delay, got: ${JSON.stringify(delaysSeen)}`);
+  assert.ok(delaysSeen[0] <= 30_000, `Expected a fast (<=30s) retry after a capacity model switch, got: ${delaysSeen[0]}ms`);
 });
 
 await asyncTest('Codex command retries stream disconnects by resuming the same session', async () => {

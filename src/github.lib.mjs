@@ -431,7 +431,7 @@ export async function attachLogToGitHub(options) {
         // Issue #1949: prefer an explicit thinkingInfo, otherwise derive it from argv
         // (e.g. "high (~24000 tokens)"). null when the run used the tool's default.
         const resolvedThinkingInfo = thinkingInfo ?? describeRequestedThinking(argv);
-        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo });
+        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo, fallbackModel: argv?.fallbackModel ?? null });
         if (verbose && modelInfoString) {
           await log('  🤖 Model info fetched for comment', { verbose: true });
         }

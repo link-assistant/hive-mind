@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.2.3
+
+### Patch Changes
+
+- 37303d7: Stop auto-restarting for stale failed check-runs when GitHub reports the pull request as clean and mergeable
+
 ## 2.2.2
 
 ### Patch Changes

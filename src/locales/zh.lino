@@ -578,7 +578,7 @@ zh
         branch
           option "• `--base-branch <branch>` 或 `-b` - PR 目标分支（默认：仓库默认分支）"
       think
-        option "• `--think <level>` - 思考级别（off/low/medium/high/xhigh/ultra/max）| `--thinking-budget <num>` - token 预算（0-63999）"
+        option "• `--think <level>` - 思考级别（off/minimal/low/medium/high/xhigh/ultra/max/adaptive）| `--thinking-budget <num>` - token 预算（0-63999）"
       verbose
         option "• `--verbose` 或 `-v` - 详细输出 | `--attach-logs` - 将日志附加到 PR"
       show

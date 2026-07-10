@@ -578,7 +578,7 @@ en
         branch
           option "• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)"
       think
-        option "• `--think <level>` - Thinking level (off/low/medium/high/xhigh/ultra/max) | `--thinking-budget <num>` - Token budget (0-63999)"
+        option "• `--think <level>` - Thinking level (off/minimal/low/medium/high/xhigh/ultra/max/adaptive) | `--thinking-budget <num>` - Token budget (0-63999)"
       verbose
         option "• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR"
       show

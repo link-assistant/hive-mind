@@ -206,7 +206,9 @@ export const resolveThinkingSettings = async (argv, log) => {
   let thinkLevel = argv.think;
   let translation = null;
   if (isNewVersion) {
-    if (thinkLevel !== undefined && thinkingBudget === undefined) {
+    // Issue #2038: `adaptive` is provider-managed and has no explicit token
+    // budget; skip the budget translation and let the model manage thinking.
+    if (thinkLevel !== undefined && thinkLevel !== 'adaptive' && thinkingBudget === undefined) {
       thinkingBudget = thinkingLevelToTokens[thinkLevel];
       translation = `--think ${thinkLevel} → --thinking-budget ${thinkingBudget}`;
       if (argv.verbose) {

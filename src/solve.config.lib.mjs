@@ -12,6 +12,9 @@ import { defaultModels, buildModelOptionDescription, resolveDefaultFallbackModel
 import { validateBranchName } from './solve.branch.lib.mjs';
 import { resolveEscalationConfig, isEscalateEnabled, DEFAULT_ESCALATE_RANGE } from './solve.escalate.lib.mjs';
 import { getLinoYargsFactory, hideBin, normalizeCliArgs, parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
+import { normalizeThinkLevel, ADAPTIVE_THINK_LEVEL } from './think-level.lib.mjs';
+import { supportsAdaptiveThinking } from './config.lib.mjs';
+import { resolvePromptModelForTool } from './thinking-prompt.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -299,8 +302,14 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   think: {
     type: 'string',
-    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, xhigh/ultra/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported. Adaptive-only models that cannot disable thinking use their lowest effort for off. Fable 5/Mythos 5/Sonnet 5/Opus 4.8/4.7 support xhigh and max; Opus 4.6/Sonnet 4.6/Mythos Preview support max; Opus 4.5 uses high for xhigh/max. `ultra` maps to the highest supported Claude effort (Claude "ultracode"-class reasoning). For Codex (GPT-5.6 Sol), mapped 1:1 to reasoning effort (off=none, low=low, medium=medium, high=high, xhigh=xhigh, ultra=ultra, max=max); GPT-5.6 keeps xhigh and adds max above it, and ultra runs the multi-agent mode paired with a rollout token budget cap. Default: off.',
-    choices: ['off', 'low', 'medium', 'high', 'xhigh', 'ultra', 'max'],
+    description:
+      'Thinking level hint. Levels (ascending): off, minimal, low, medium, high, xhigh, ultra, max, plus the special `adaptive` mode. ' +
+      'Off synonyms (all mean disabled, or the closest safe equivalent): off/disable/disabled/no/none. An omitted --think means off. ' +
+      'Numeric intensities are accepted for precision: percentages 0%..100%, fractions 0.0..1.0, and the integers 0 (off) and 1 (max). ' +
+      '`adaptive` requests provider-managed adaptive thinking and fails immediately for models/tools that do not support it (only adaptive-only Claude models: Opus 4.7+, Fable 5, Mythos 5, Sonnet 5). ' +
+      'For Claude, levels translate to --thinking-budget for Claude Code >= 2.1.12 (off=0, minimal=~4000, low=~8000, medium=~16000, high=~24000, xhigh/ultra/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported (minimal→low). Adaptive-only models that cannot disable thinking use their lowest effort for off. ' +
+      '`ultra` maps to the highest supported Claude effort (Claude "ultracode"-class reasoning). ' +
+      'For Codex (GPT-5.6 Sol), mapped 1:1 to reasoning effort (off=none, minimal=minimal, low=low, medium=medium, high=high, xhigh=xhigh, ultra=ultra, max=max); ultra runs the multi-agent mode paired with a rollout token budget cap. Default: off.',
     default: 'off',
   },
   'thinking-budget': {
@@ -745,6 +754,42 @@ export const createYargsConfig = yargsInstance => {
   return config;
 };
 
+/**
+ * Issue #2038: Normalize the parsed `--think` value into a single canonical
+ * vocabulary and validate the special `adaptive` mode. Mutates `argv.think` in
+ * place and throws (with `_enhanced` set so the error message is shown verbatim)
+ * for invalid values or unsupported adaptive requests. Shared by solve and hive
+ * so both commands fail fast identically.
+ * @param {Object} argv - Parsed CLI arguments (reads/writes `think`, reads `tool`/`model`)
+ */
+export const normalizeAndValidateThink = argv => {
+  if (!argv) return;
+
+  if (argv.think !== undefined) {
+    try {
+      argv.think = normalizeThinkLevel(argv.think);
+    } catch (thinkError) {
+      const err = new Error(thinkError.message);
+      err._enhanced = true;
+      throw err;
+    }
+  }
+
+  // `--think adaptive` requests provider-managed adaptive thinking and must fail
+  // immediately when the selected tool/model does not support it. Only
+  // adaptive-only Claude models expose an adaptive mode.
+  if (argv.think === ADAPTIVE_THINK_LEVEL) {
+    const tool = argv.tool || 'claude';
+    const resolvedModel = resolvePromptModelForTool(tool, argv.model);
+    const adaptiveSupported = tool === 'claude' && supportsAdaptiveThinking(resolvedModel);
+    if (!adaptiveSupported) {
+      const err = new Error(`--think adaptive is not supported by ${tool}${resolvedModel ? ` model "${resolvedModel}"` : ''}. ` + 'Adaptive thinking is only available on adaptive-only Claude models (Opus 4.7+, Fable 5, Mythos 5, Sonnet 5). ' + 'Use an explicit level instead (off, minimal, low, medium, high, xhigh, ultra, max).');
+      err._enhanced = true;
+      throw err;
+    }
+  }
+};
+
 // Parse command line arguments - now needs yargs and hideBin passed in
 export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = hideBin) => {
   const rawArgs = normalizeCliArgs(hideBinFn(process.argv));
@@ -851,6 +896,12 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
   if (!thinkExplicitlyProvided && thinkingBudgetExplicitlyProvided) {
     argv.think = undefined;
   }
+
+  // Issue #2038: normalize the --think value into a single canonical vocabulary
+  // (off synonyms, minimal, adaptive, percentages/fractions/0|1) and fail fast on
+  // an unsupported `adaptive` request. Shared by solve and hive so both commands
+  // behave identically.
+  normalizeAndValidateThink(argv);
 
   // --plan flag expansion (Issue #1223)
   // When --plan is set, it acts as a shortcut for --plan-model opus --worker-model sonnet

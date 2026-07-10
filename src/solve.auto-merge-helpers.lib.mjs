@@ -956,9 +956,75 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
   return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
 };
 
+/**
+ * Issue #2007: Detect issue title/description changes across auto-restart
+ * iterations so the restart/resume fallback can deliver them as feedback for
+ * tools without a live input channel.
+ *
+ * The issue title and body are user-owned feedback surfaces (unlike the PR
+ * description, which #2007 treats as AI-owned). When they change while the AI
+ * is not streaming input, the next session must be told, otherwise the update
+ * would be silently ignored until the agent happens to re-read the issue.
+ *
+ * The first call (previousSnapshot = null) establishes the baseline and reports
+ * no change. Subsequent calls diff against the prior snapshot.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} issueNumber - Linked issue number
+ * @param {Object|null} previousSnapshot - Prior { title, body } snapshot, or null on first call
+ * @param {boolean} [verbose=false]
+ * @param {Function} [commandRunner=$] - Tagged-template command runner (injectable for tests)
+ * @returns {Promise<{changed: boolean, snapshot: Object|null, changes: Array<{field: string, from: string, to: string}>}>}
+ */
+export const checkForIssueMetadataChanges = async (owner, repo, issueNumber, previousSnapshot, verbose = false, commandRunner = $) => {
+  const empty = { changed: false, snapshot: previousSnapshot || null, changes: [] };
+  if (!issueNumber) return empty;
+
+  let snapshot;
+  try {
+    const result = await commandRunner`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq '{title: .title, body: .body}'`;
+    if (result.code !== 0 || !result.stdout) return empty;
+    const parsed = JSON.parse(result.stdout.toString() || '{}');
+    snapshot = {
+      title: typeof parsed.title === 'string' ? parsed.title : '',
+      body: typeof parsed.body === 'string' ? parsed.body : '',
+    };
+  } catch (error) {
+    reportError(error, {
+      context: 'check_issue_metadata_changes',
+      owner,
+      repo,
+      issueNumber,
+      operation: 'fetch_issue_metadata',
+    });
+    return empty;
+  }
+
+  // First observation: establish the baseline without reporting a change.
+  if (!previousSnapshot) {
+    return { changed: false, snapshot, changes: [] };
+  }
+
+  const changes = [];
+  if (snapshot.title !== previousSnapshot.title) {
+    changes.push({ field: 'title', from: previousSnapshot.title, to: snapshot.title });
+  }
+  if (snapshot.body !== previousSnapshot.body) {
+    changes.push({ field: 'body', from: previousSnapshot.body, to: snapshot.body });
+  }
+
+  if (verbose && changes.length > 0) {
+    console.log(`[VERBOSE] Issue #${issueNumber} metadata changed: ${changes.map(c => c.field).join(', ')}`);
+  }
+
+  return { changed: changes.length > 0, snapshot, changes };
+};
+
 export default {
   checkForExistingComment,
   checkForNonBotComments,
+  checkForIssueMetadataChanges,
   getMergeBlockers,
   shouldResetNoRunsCounter,
 };

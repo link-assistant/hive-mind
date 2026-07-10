@@ -341,7 +341,9 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
     } else if (argv.tool === 'agent') {
       // Validate Agent connection
       const agentLib = await import('./agent.lib.mjs');
-      isToolConnected = await agentLib.validateAgentConnection(model);
+      isToolConnected = await agentLib.validateAgentConnection(model, {
+        requireLiveInput: !!(argv.autoInputUntilMergeable || argv.acceptIncommingCommentsAsInput),
+      });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Agent connection', { level: 'error' });
         return false;

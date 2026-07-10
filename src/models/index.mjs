@@ -29,10 +29,10 @@ const execFileAsync = promisify(execFile);
 // ─── MODEL DATA ──────────────────────────────────────────────────────────────
 
 // Claude models (Anthropic API)
-// Updated for Opus 4.5/4.6/4.7/4.8, Sonnet 4.6, and Fable 5 / Mythos 5 support
-// (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875)
+// Updated for Opus 4.5/4.6/4.7/4.8, Sonnet 4.6/5, and Fable 5 / Mythos 5 support
+// (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875, Issue #2003)
 export const claudeModels = {
-  sonnet: 'claude-sonnet-4-6', // Sonnet 4.6 (default, Issue #1329)
+  sonnet: 'claude-sonnet-5', // Sonnet 5 (default, Issue #2003)
   opus: 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
@@ -46,6 +46,7 @@ export const claudeModels = {
   'mythos-5': 'claude-mythos-5', // Mythos 5 short alias
   'claude-mythos-5': 'claude-mythos-5', // Mythos 5 full ID
   // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
+  'sonnet-5': 'claude-sonnet-5', // Sonnet 5 short alias (Issue #2003)
   'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
   'opus-4-8': 'claude-opus-4-8', // Opus 4.8 short alias (Issue #1832)
   'opus-4-7': 'claude-opus-4-7', // Opus 4.7 short alias (backward compatibility)
@@ -56,6 +57,7 @@ export const claudeModels = {
   // Version aliases for backward compatibility (Issue #1221, Issue #1329, Issue #1620, Issue #1832)
   'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
   'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 (backward compatibility)
+  'claude-sonnet-5': 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
   'claude-sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
   'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6 (backward compatibility)
   'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
@@ -190,7 +192,7 @@ export const defaultModels = {
   claude: 'sonnet',
   agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'grok-code-fast-1',
-  codex: 'gpt-5.5',
+  codex: 'gpt-5.6-sol', // Issue #2027: GPT-5.6 Sol is the released Codex flagship; runtime falls back to gpt-5.5 when Sol is not in the local catalog
   qwen: 'qwen3-coder-plus',
   gemini: 'flash',
 };
@@ -207,10 +209,12 @@ export const MODELS_SUPPORTING_1M_CONTEXT = [
   'claude-opus-4-7', // Opus 4.7 (Issue #1620)
   'claude-opus-4-6',
   'claude-opus-4-5-20251101',
+  'claude-sonnet-5', // Sonnet 5 — 1M context (Issue #2003)
   'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',
-  'sonnet', // Now maps to Sonnet 4.6 (Issue #1329)
+  'sonnet', // Now maps to Sonnet 5 (Issue #2003)
+  'sonnet-5', // Short alias (Issue #2003)
   'sonnet-4-6', // Short alias (Issue #1329)
   'opus', // Now maps to Opus 4.8 (Issue #1832)
   'opus-4-8', // Short alias (Issue #1832)
@@ -362,7 +366,10 @@ export const getDefaultModelForTool = tool => {
 };
 
 let cachedInstalledCodexModelsPromise = null;
-const CODEX_DEFAULT_FALLBACK_CHAIN = ['openai.gpt-5.5', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'openai.gpt-5.6-sol', 'openai.gpt-5.6-terra', 'openai.gpt-5.6-luna', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+// Issue #2027: With gpt-5.6-sol as the preferred default, the fallback chain is only
+// consulted when Sol is absent from the local catalog. Prefer the previous stable
+// default (gpt-5.5) first, then the remaining GPT-5.6 preview tiers, then older models.
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.5', 'openai.gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'openai.gpt-5.6-sol', 'openai.gpt-5.6-terra', 'openai.gpt-5.6-luna', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
 
 export const getInstalledCodexModels = async () => {
   if (!cachedInstalledCodexModelsPromise) {
@@ -486,7 +493,7 @@ export const getValidModelsForTool = tool => {
 export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable'],
   opencode: ['grok', 'gpt4o'],
-  codex: ['gpt-5.5', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark'],
+  codex: ['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark'],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
   qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash'],
   gemini: ['flash', 'pro', 'flash-lite', 'auto'],
@@ -1148,6 +1155,8 @@ export const defaultFallbackModels = {
     'claude-mythos-5': 'fable',
     'claude-opus-4-8': 'opus-4-7',
     'claude-opus-4-7': 'opus-4-6',
+    // Claude Sonnet 5 falls back to the prior Sonnet generation (Issue #2003).
+    'claude-sonnet-5': 'sonnet-4-6',
   },
   codex: {
     'gpt-5.6-sol': 'gpt-5.5',

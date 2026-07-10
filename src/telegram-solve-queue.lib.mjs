@@ -20,6 +20,7 @@ export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, ge
 import { collectExecutingItems, formatDuration, formatQueueToolSection, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems, groupQueueItemsByTool } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
+import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
@@ -373,10 +374,22 @@ export class SolveQueue {
     return count;
   }
 
+  recordStart(tool = 'claude', startTime = Date.now()) {
+    this.lastStartTimeByTool[tool] = startTime;
+    this.lastStartTime = startTime;
+    return startTime;
+  }
+
+  reserveStartSlot(options = {}) {
+    return reserveStartSlotForQueue(this, options);
+  }
+
   /**
-   * Find startable items from each tool queue
-   * Returns the first item from each tool queue that can start.
-   * With separate queues, each tool is checked independently so they don't block each other.
+   * Find the next startable item across all tool queues.
+   * With separate queues, each tool is checked independently so tool-specific
+   * limits do not block unrelated tools. Issue #2015 adds a global startup
+   * interval, so even when multiple tools are startable this returns only the
+   * oldest startable item to prevent burst launches.
    *
    * Also immediately rejects all queued items when a 'reject' strategy threshold
    * is exceeded, instead of leaving them waiting indefinitely.
@@ -417,7 +430,8 @@ export class SolveQueue {
       }
     }
 
-    return startableItems;
+    startableItems.sort((a, b) => a.item.createdAt - b.item.createdAt);
+    return startableItems.slice(0, 1);
   }
 
   /**
@@ -571,10 +585,10 @@ export class SolveQueue {
     let rejected = false;
     let rejectReason = null;
 
-    // Check minimum interval since last start FOR THIS TOOL
-    // Each tool queue has independent timing to prevent cross-blocking
-    // See: https://github.com/link-assistant/hive-mind/issues/1159
-    const lastStartTime = this.lastStartTimeByTool[tool] || null;
+    // Check minimum interval since the last task start globally.
+    // Issue #2015: do not let another tool queue bypass startup pacing; host
+    // CPU/RAM/disk metrics need time to settle before any next task starts.
+    const lastStartTime = this.lastStartTime || null;
     if (lastStartTime) {
       const timeSinceLastStart = Date.now() - lastStartTime;
       if (timeSinceLastStart < QUEUE_CONFIG.MIN_START_INTERVAL_MS) {
@@ -765,7 +779,6 @@ export class SolveQueue {
     }
 
     // Check CPU using 5-minute load average (more stable than 1-minute)
-    // Cache TTL is 2 minutes, which is appropriate for this metric
     const cpuResult = await getCachedCpuInfo(this.verbose);
     if (cpuResult.success) {
       // Use loadAvg5 (5-minute average) instead of usagePercentage (1-minute based)
@@ -1072,7 +1085,7 @@ export class SolveQueue {
    * - Each tool queue is checked independently
    * - Claude limits only affect Claude queue
    * - Agent queue can proceed even when Claude is blocked (and vice versa)
-   * - Multiple items can start in the same cycle (one per tool)
+   * - The oldest startable item starts each cycle to preserve global pacing
    *
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
@@ -1086,9 +1099,6 @@ export class SolveQueue {
         continue;
       }
 
-      // Find startable items from each tool queue
-      // Each tool is checked independently so they don't block each other
-      // See: https://github.com/link-assistant/hive-mind/issues/1159
       const startableItems = await this.findStartableItems();
 
       if (startableItems.length === 0) {
@@ -1099,8 +1109,6 @@ export class SolveQueue {
         continue;
       }
 
-      // Start items from each tool that can proceed
-      // This allows parallel starts from different tool queues
       for (const startable of startableItems) {
         const { tool } = startable;
         const toolQueue = this.getToolQueue(tool);
@@ -1113,12 +1121,9 @@ export class SolveQueue {
         item.setStarting();
         this.processing.set(item.id, item);
 
-        // Update tool-specific last start time
-        this.lastStartTimeByTool[tool] = Date.now();
-        this.lastStartTime = Date.now(); // Legacy compatibility
+        this.recordStart(tool);
         this.stats.totalStarted++;
 
-        // Update message to show Starting status
         await this.updateItemMessage(item, formatStartingWorkSessionMessage({ infoBlock: item.infoBlock, locale: item.locale }));
 
         this.log(`Starting: ${item.toString()} from ${tool} queue`);

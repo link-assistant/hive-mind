@@ -8,8 +8,6 @@
  * @see https://github.com/link-assistant/hive-mind/issues/380
  */
 
-import { generateSessionId, isValidIsolationBackend, VALID_ISOLATION_BACKENDS } from '../src/isolation-runner.lib.mjs';
-
 let passed = 0;
 let failed = 0;
 
@@ -23,8 +21,36 @@ function assert(condition, message) {
   }
 }
 
+const originalFetch = globalThis.fetch;
+const originalUse = globalThis.use;
+let importFetchCalls = 0;
+let isolationRunner;
+
+try {
+  globalThis.fetch = async url => {
+    importFetchCalls++;
+    throw new Error(`Unexpected network fetch during isolation-runner import: ${url}`);
+  };
+  delete globalThis.use;
+  isolationRunner = await import(`../src/isolation-runner.lib.mjs?issue2025=${Date.now()}`);
+} finally {
+  globalThis.fetch = originalFetch;
+  if (originalUse === undefined) {
+    delete globalThis.use;
+  } else {
+    globalThis.use = originalUse;
+  }
+}
+
+const { generateSessionId, isValidIsolationBackend, VALID_ISOLATION_BACKENDS } = isolationRunner;
+
 console.log('Testing isolation-runner.lib.mjs');
 console.log('='.repeat(60));
+
+// Import should not fetch use-m/command-stream for pure helper tests.
+console.log('\n  import side effects:');
+
+assert(importFetchCalls === 0, 'Importing pure helpers does not fetch use-m bootstrap');
 
 // Test generateSessionId
 console.log('\n  generateSessionId:');

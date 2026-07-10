@@ -192,6 +192,11 @@ ru
         hour
           session "5-часовой сеанс Claude"
       limits "Лимиты Claude"
+      subscription
+        title "Подписка Claude{{plan}}"
+    chatgpt
+      subscription
+        title "Подписка ChatGPT{{plan}}"
     codex
       5
         hour
@@ -205,6 +210,7 @@ ru
     current
       time "Текущее время"
       week
+        label "Текущая неделя"
         all
           models "Текущая неделя (все модели)"
         sonnet
@@ -226,6 +232,8 @@ ru
     end "Конец"
     five
       hour
+        limit
+          session "5-часовой сеанс"
         session "5-часовой сеанс"
       min
         load
@@ -314,6 +322,14 @@ ru
     session "сеанс"
     start "Начало"
     subscription
+      detail
+        ends
+          label "заканчивается {{time}}"
+          in "заканчивается через {{duration}}; {{time}}"
+        trial
+          ends
+            label "пробный период заканчивается {{time}}"
+            in "пробный период заканчивается через {{duration}}; {{time}}"
       ends
         label "Подписка заканчивается {{time}}"
         in "Подписка заканчивается через {{duration}} ({{time}})"
@@ -562,7 +578,7 @@ ru
         branch
           option "• `--base-branch <branch>` или `-b` - Целевая ветка для PR (по умолчанию ветка репозитория)"
       think
-        option "• `--think <level>` - уровень размышления (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - бюджет токенов (0-63999)"
+        option "• `--think <level>` - уровень размышления (off/low/medium/high/xhigh/ultra/max) | `--thinking-budget <num>` - бюджет токенов (0-63999)"
       verbose
         option "• `--verbose` или `-v` - подробный вывод | `--attach-logs` - прикрепить логи к PR"
       show
@@ -607,6 +623,7 @@ ru
         executing "⏳ Выполняется..."
         finished "Рабочий сеанс успешно завершен"
         failed "Рабочий сеанс завершился с ошибкой (код выхода: {{exitCode}})"
+        killed "Рабочий сеанс остановлен: {{reason}}{{exitSuffix}}"
     duration
       label "Длительность"
     session

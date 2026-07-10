@@ -31,10 +31,8 @@ const buildIssueFailureActionSection = targetType => {
 
 ### What you can do
 - Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.
-- If this requires elevated Hive Mind access, ask a Hive Mind administrator to handle the specific failure described above.
-- Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.
-
-Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this issue comment.`;
+- Repository owner or Hive Mind administrator path: handle manual recreation or fix of the repository when the required action is outside the requester access.
+- Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.`;
 };
 const normalizeFailureActionSection = section => {
   const text = section || '';

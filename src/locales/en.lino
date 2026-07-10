@@ -192,6 +192,11 @@ en
         hour
           session "Claude 5 hour session"
       limits "Claude limits"
+      subscription
+        title "Claude{{plan}} subscription"
+    chatgpt
+      subscription
+        title "ChatGPT{{plan}} subscription"
     codex
       5
         hour
@@ -205,6 +210,7 @@ en
     current
       time "Current time"
       week
+        label "Current week"
         all
           models "Current week (all models)"
         sonnet
@@ -226,6 +232,8 @@ en
     end "End"
     five
       hour
+        limit
+          session "5 hour session"
         session "5h session"
       min
         load
@@ -314,6 +322,14 @@ en
     session "session"
     start "Start"
     subscription
+      detail
+        ends
+          label "ends {{time}}"
+          in "ends in {{duration}}; {{time}}"
+        trial
+          ends
+            label "trial ends {{time}}"
+            in "trial ends in {{duration}}; {{time}}"
       ends
         label "Subscription ends {{time}}"
         in "Subscription ends in {{duration}} ({{time}})"
@@ -562,7 +578,7 @@ en
         branch
           option "• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)"
       think
-        option "• `--think <level>` - Thinking level (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - Token budget (0-63999)"
+        option "• `--think <level>` - Thinking level (off/low/medium/high/xhigh/ultra/max) | `--thinking-budget <num>` - Token budget (0-63999)"
       verbose
         option "• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR"
       show
@@ -607,6 +623,7 @@ en
         executing "⏳ Executing..."
         finished "Work session finished successfully"
         failed "Work session failed (exit code: {{exitCode}})"
+        killed "Work session {{reason}}{{exitSuffix}}"
     duration
       label "Duration"
     session

@@ -37,6 +37,8 @@ const serialized = serializeSessionInfo({
   isolationBackend: 'screen',
   sessionId: 'uuid-1',
   containerFilesystemStartBytes: 123456,
+  containerFilesystemLastBytes: 234567,
+  containerFilesystemLastObservedAt: '2026-06-30T22:10:00.000Z',
   tool: 'claude',
   logPath: '/var/log/session.log',
   // runtime-only fields that must NOT be persisted:
@@ -46,6 +48,8 @@ const serialized = serializeSessionInfo({
 assert(serialized.startTime === '2026-06-14T19:00:00.000Z', 'serializeSessionInfo converts startTime to an ISO string');
 assert(serialized.logPath === '/var/log/session.log', 'serializeSessionInfo keeps logPath (needed for footer recovery on resume)');
 assert(serialized.containerFilesystemStartBytes === 123456, 'serializeSessionInfo keeps docker filesystem start size');
+assert(serialized.containerFilesystemLastBytes === 234567, 'serializeSessionInfo keeps last observed docker filesystem size');
+assert(serialized.containerFilesystemLastObservedAt === '2026-06-30T22:10:00.000Z', 'serializeSessionInfo keeps last docker filesystem observation time');
 assert(!('bot' in serialized) && !('limitsSnapshot' in serialized), 'serializeSessionInfo drops runtime-only fields (bot, limitsSnapshot)');
 
 const round = deserializeSessionInfo(serialized);
@@ -62,7 +66,7 @@ try {
 
   store.persist('uuid-1', { chatId: 5, messageId: 7, startTime, url: 'https://github.com/acme/widgets/issues/42', command: 'solve', isolationBackend: 'screen', sessionId: 'uuid-1', logPath: '/var/log/s1.log' });
   clock = new Date('2026-06-14T19:01:00.000Z');
-  store.persist('uuid-2', { chatId: 6, startTime, url: 'https://github.com/acme/widgets/issues/43', command: 'hive', isolationBackend: 'docker', sessionId: 'uuid-2', containerFilesystemStartBytes: 234567 });
+  store.persist('uuid-2', { chatId: 6, startTime, url: 'https://github.com/acme/widgets/issues/43', command: 'hive', isolationBackend: 'docker', sessionId: 'uuid-2', containerFilesystemStartBytes: 234567, containerFilesystemLastBytes: 345678, containerFilesystemLastObservedAt: '2026-06-14T19:02:00.000Z' });
 
   assert(fs.existsSync(store.snapshotPath), 'persist writes sessions.json');
   const snapshot = JSON.parse(fs.readFileSync(store.snapshotPath, 'utf8'));
@@ -77,6 +81,8 @@ try {
   assert(one.sessionInfo.logPath === '/var/log/s1.log', 'load round-trips logPath');
   const two = loaded.find(s => s.sessionName === 'uuid-2');
   assert(two.sessionInfo.containerFilesystemStartBytes === 234567, 'load round-trips docker filesystem start size');
+  assert(two.sessionInfo.containerFilesystemLastBytes === 345678, 'load round-trips last observed docker filesystem size');
+  assert(two.sessionInfo.containerFilesystemLastObservedAt === '2026-06-14T19:02:00.000Z', 'load round-trips last docker filesystem observation time');
 
   // Remove one (completion) — it leaves the snapshot but the OTHER stays.
   clock = new Date('2026-06-14T19:10:49.822Z');

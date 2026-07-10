@@ -266,6 +266,22 @@ const isSonnet46OrLater = model => {
   return m === 'sonnet' || m === 'sonnet-4-6' || m.includes('sonnet-4-6') || m.includes('sonnet-5');
 };
 
+/**
+ * Check if a model is Claude Sonnet 5 (Issue #2003)
+ * Sonnet 5 (`claude-sonnet-5`) is the current default for `--tool claude` (the bare
+ * `sonnet` alias now resolves to it). Unlike Sonnet 4.6 it supports the `xhigh` effort
+ * level, up to 128k output tokens, and uses adaptive thinking only (extended/manual
+ * thinking with an explicit budget is unavailable), matching the Fable/Mythos 5 API
+ * constraints. See: https://www.anthropic.com/news/claude-sonnet-5
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model is Claude Sonnet 5
+ */
+export const isSonnet5 = model => {
+  if (!model) return false;
+  const m = model.toLowerCase();
+  return m === 'sonnet' || m === 'sonnet-5' || m.includes('sonnet-5');
+};
+
 const isMythosPreview = model => {
   if (!model) return false;
   return model.toLowerCase().includes('mythos');
@@ -328,11 +344,11 @@ export const supportsEffortLevel = model => {
 /**
  * Check if a model supports the xhigh effort level.
  * Official docs list xhigh for Claude Fable 5, Claude Mythos 5, Claude Opus 4.7,
- * and Opus 4.8 (Issue #1832, Issue #1875).
+ * Opus 4.8, and Sonnet 5 (Issue #1832, Issue #1875, Issue #2003).
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model supports xhigh effort
  */
-export const supportsXHighEffortLevel = model => isFable5OrMythos5(model) || isOpus47(model);
+export const supportsXHighEffortLevel = model => isFable5OrMythos5(model) || isOpus47(model) || isSonnet5(model);
 
 /**
  * Check if a model supports the max effort level.
@@ -344,14 +360,14 @@ export const supportsXHighEffortLevel = model => isFable5OrMythos5(model) || isO
 export const supportsMaxEffortLevel = model => isFable5OrMythos5(model) || isMythosPreview(model) || isOpus47OrLater(model) || isOpus46(model) || isSonnet46OrLater(model);
 
 /**
- * Get the max output tokens for a specific model (Issue #1221, Issue #1875)
- * Claude Fable 5 and Claude Mythos 5 support up to 128k output tokens, matching
- * the Opus 4.6+ ceiling.
+ * Get the max output tokens for a specific model (Issue #1221, Issue #1875, Issue #2003)
+ * Claude Fable 5, Claude Mythos 5, and Claude Sonnet 5 support up to 128k output tokens,
+ * matching the Opus 4.6+ ceiling.
  * @param {string} model - The model name or ID
  * @returns {number} The max output tokens for the model
  */
 export const getMaxOutputTokensForModel = model => {
-  if (isOpus46OrLater(model) || isFable5OrMythos5(model)) {
+  if (isOpus46OrLater(model) || isFable5OrMythos5(model) || isSonnet5(model)) {
     return claudeCode.maxOutputTokensOpus46;
   }
   return claudeCode.maxOutputTokens;
@@ -381,6 +397,7 @@ export const getThinkingLevelToTokens = (maxBudget = DEFAULT_MAX_THINKING_BUDGET
   medium: Math.floor(maxBudget / 2), // ~16000 for default 31999
   high: Math.floor((maxBudget * 3) / 4), // ~24000 for default 31999
   xhigh: maxBudget, // same as max when represented as MAX_THINKING_TOKENS
+  ultra: maxBudget, // Issue #2027: ultra is max-class in token terms for Claude
   max: maxBudget, // 31999 by default
 });
 
@@ -466,10 +483,13 @@ export const OPUS_46_EFFORT_LEVELS = ['low', 'medium', 'high', 'max'];
 export const OPUS_47_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 /**
- * Convert thinking level to effort level (Issue #1238, Issue #1620)
+ * Convert thinking level to effort level (Issue #1238, Issue #1620, Issue #2027)
  * Models with max support keep max as max. Opus 4.7 keeps xhigh as xhigh.
  * Models with effort but without max support use high for max/xhigh.
- * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/xhigh/max)
+ * `ultra` (Issue #2027) requests Claude "ultracode"-class reasoning; Claude Code has no
+ * distinct `ultra`/`ultracode` effort value, so it clamps to the highest supported effort
+ * (max, else xhigh, else high).
+ * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/xhigh/ultra/max)
  * @param {Object} [options] - Options
  * @param {boolean} [options.isOpus47] - Backward-compatible shorthand for supportsXHigh
  * @param {boolean} [options.supportsXHigh] - Whether the model supports xhigh effort
@@ -493,6 +513,8 @@ export const thinkLevelToEffortLevel = (thinkLevel, options = {}) => {
       return 'high';
     case 'xhigh':
       return supportsXHigh ? 'xhigh' : supportsMax ? 'max' : 'high';
+    case 'ultra':
+      return supportsMax ? 'max' : supportsXHigh ? 'xhigh' : 'high';
     case 'max':
       return supportsMax ? 'max' : 'high';
     default:
@@ -564,12 +586,12 @@ export const getClaudeEnv = (options = {}) => {
 
   // Opus 4.7+ always uses adaptive thinking — MAX_THINKING_TOKENS has no effect (Issue #1620, Issue #1832)
   // Opus 4.8 inherits this constraint: adaptive thinking is the only thinking mode.
-  // Claude Fable 5 and Claude Mythos 5 are adaptive-thinking-only too: extended/manual
-  // thinking is unavailable and `thinking: {type: "disabled"}` is rejected, so a
-  // MAX_THINKING_TOKENS=0 would be invalid for them (Issue #1875).
+  // Claude Fable 5, Claude Mythos 5, and Claude Sonnet 5 are adaptive-thinking-only too:
+  // extended/manual thinking is unavailable and `thinking: {type: "disabled"}` is rejected,
+  // so a MAX_THINKING_TOKENS=0 would be invalid for them (Issue #1875, Issue #2003).
   // For Opus 4.6 and earlier, MAX_THINKING_TOKENS controls extended thinking (Claude Code >= 2.1.12)
   // Default is 0 (thinking disabled) per Issue #1238.
-  const adaptiveThinkingOnly = options.model && (isOpus47OrLater(options.model) || isFable5OrMythos5(options.model));
+  const adaptiveThinkingOnly = options.model && (isOpus47OrLater(options.model) || isFable5OrMythos5(options.model) || isSonnet5(options.model));
   if (adaptiveThinkingOnly) {
     // Remove any inherited MAX_THINKING_TOKENS from process.env — these models ignore it
     delete env.MAX_THINKING_TOKENS;
@@ -671,8 +693,9 @@ export const cacheTtl = {
   // because users still hit "Resets in 3m xs" rate-limit responses. The API
   // returns null values or 429 when called too frequently.
   usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 13 * 60 * 1000), // 13 minutes
-  // System metrics cache TTL (RAM, CPU, disk)
-  system: parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 2 * 60 * 1000), // 2 minutes
+  // System metrics cache TTL (RAM, CPU, disk). Issue #2015 caps this at
+  // 1 minute so queue decisions do not use stale host pressure data.
+  system: Math.min(parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 60 * 1000), 60 * 1000), // max 1 minute
 };
 
 // File and path configurations

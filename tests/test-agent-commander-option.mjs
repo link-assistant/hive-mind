@@ -36,6 +36,18 @@ assert.equal(claudeToolOptions.fallbackModel, 'opus');
 const codexToolOptions = buildAgentCommanderToolOptions({ verbose: true, fallbackModel: 'opus' }, 'codex');
 assert.deepEqual(codexToolOptions.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto']);
 
+const codexXHighToolOptions = buildAgentCommanderToolOptions({ think: 'xhigh' }, 'codex');
+assert.deepEqual(codexXHighToolOptions.extraArgs, ['-c', 'model_reasoning_effort=xhigh', '-c', 'model_reasoning_summary=auto']);
+
+const codexMaxToolOptions = buildAgentCommanderToolOptions({ think: 'max' }, 'codex');
+assert.deepEqual(codexMaxToolOptions.extraArgs, ['-c', 'model_reasoning_effort=max', '-c', 'model_reasoning_summary=auto']);
+
+const codexUltraToolOptions = buildAgentCommanderToolOptions({ think: 'ultra' }, 'codex');
+assert.deepEqual(codexUltraToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=500000'], 'ultra reasoning effort must be paired with a rollout token budget cap');
+
+const codexUltraCustomBudgetToolOptions = buildAgentCommanderToolOptions({ think: 'ultra', rolloutTokenBudget: 250000 }, 'codex');
+assert.deepEqual(codexUltraCustomBudgetToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=250000']);
+
 const geminiToolOptions = buildAgentCommanderToolOptions({ verbose: true }, 'gemini');
 assert.deepEqual(geminiToolOptions, { debug: true });
 
@@ -54,7 +66,7 @@ const claudeOptions = buildAgentCommanderControllerOptions({
 
 assert.equal(claudeOptions.tool, 'claude');
 assert.equal(claudeOptions.workingDirectory, '/tmp/repo');
-assert.equal(claudeOptions.model, 'claude-sonnet-4-6');
+assert.equal(claudeOptions.model, 'claude-sonnet-5');
 assert.equal(claudeOptions.resume, 'session-123');
 assert.equal(claudeOptions.json, true);
 assert.equal(claudeOptions.toolOptions.verbose, true);

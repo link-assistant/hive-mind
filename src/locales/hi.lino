@@ -192,6 +192,11 @@ hi
         hour
           session "Claude 5 घंटे का सत्र"
       limits "Claude सीमाएँ"
+      subscription
+        title "Claude{{plan}} सदस्यता"
+    chatgpt
+      subscription
+        title "ChatGPT{{plan}} सदस्यता"
     codex
       5
         hour
@@ -205,6 +210,7 @@ hi
     current
       time "वर्तमान समय"
       week
+        label "वर्तमान सप्ताह"
         all
           models "वर्तमान सप्ताह (सभी मॉडल)"
         sonnet
@@ -226,6 +232,8 @@ hi
     end "समाप्ति"
     five
       hour
+        limit
+          session "5 घंटे का सत्र"
         session "5 घंटे का सत्र"
       min
         load
@@ -314,6 +322,14 @@ hi
     session "सत्र"
     start "शुरुआत"
     subscription
+      detail
+        ends
+          label "{{time}} को समाप्त होगी"
+          in "{{duration}} में समाप्त होगी; {{time}}"
+        trial
+          ends
+            label "ट्रायल {{time}} को समाप्त होगा"
+            in "ट्रायल {{duration}} में समाप्त होगा; {{time}}"
       ends
         label "सदस्यता समाप्त होगी {{time}}"
         in "सदस्यता {{duration}} में समाप्त होगी ({{time}})"
@@ -562,7 +578,7 @@ hi
         branch
           option "• `--base-branch <branch>` या `-b` - PR के लिए target branch (default: repo default branch)"
       think
-        option "• `--think <level>` - thinking level (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - token budget (0-63999)"
+        option "• `--think <level>` - thinking level (off/low/medium/high/xhigh/ultra/max) | `--thinking-budget <num>` - token budget (0-63999)"
       verbose
         option "• `--verbose` या `-v` - verbose output | `--attach-logs` - logs को PR से attach करें"
       show
@@ -607,6 +623,7 @@ hi
         executing "⏳ चल रहा है..."
         finished "कार्य सत्र सफलतापूर्वक पूरा हुआ"
         failed "कार्य सत्र विफल हुआ (exit code: {{exitCode}})"
+        killed "कार्य सत्र रोका गया: {{reason}}{{exitSuffix}}"
     duration
       label "अवधि"
     session

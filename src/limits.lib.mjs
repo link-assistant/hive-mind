@@ -14,7 +14,7 @@ import utc from 'dayjs/plugin/utc.js';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 import { formatLimitResetsAt, formatLimitResetsIn, formatLocalizedCurrentTime, formatLocalizedRelativeTime, formatLocalizedResetTime, localizeCompactDuration, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
-import { formatSubscriptionLines, getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo } from './limits-subscription.lib.mjs';
+import { formatSubscriptionHeading, formatSubscriptionLines, getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo } from './limits-subscription.lib.mjs';
 export { getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo };
 // Initialize dayjs plugins
 dayjs.extend(utc);
@@ -278,6 +278,61 @@ function getLocalizedResetTime(window, options = {}) {
 
 function getLocalizedRelativeReset(window, options = {}, fallbackRelative = null) {
   return formatRelativeTime(window?.resetsAt, options) || localizeCompactDuration(fallbackRelative, options);
+}
+
+function formatCodeBlock(content) {
+  const text = Array.isArray(content) ? content.join('\n') : String(content ?? '');
+  return '```\n' + (text.endsWith('\n') ? text : `${text}\n`) + '```';
+}
+
+function formatPlainTitledCodeSection(section) {
+  const text = String(section ?? '').trimEnd();
+  if (!text) return '';
+  if (text.includes('```')) return text;
+
+  const lines = text.split('\n');
+  const title = lines.shift();
+  const body = lines.join('\n');
+  if (!body) return formatCodeBlock(title);
+  return `${title}\n\n${formatCodeBlock(body)}`;
+}
+
+function formatLimitWindowSection(label, window, periodHours, threshold, options = {}) {
+  const locale = resolveLimitLocale(options);
+  let section = `${label}\n`;
+  if (hasLimitPercentage(window)) {
+    const timePassed = calculateTimePassedPercentage(window.resetsAt, periodHours);
+    if (timePassed !== null) {
+      section += `${getProgressBar(timePassed)} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
+    }
+
+    const pct = Math.floor(window.percentage);
+    const bar = getProgressBar(pct, threshold);
+    const suffix = pct >= threshold ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
+    section += `${bar} ${pct}%${suffix}\n`;
+
+    const resetTime = getLocalizedResetTime(window, { locale });
+    if (resetTime) {
+      const relativeTime = getLocalizedRelativeReset(window, { locale });
+      section += relativeTime ? `${formatLimitResetsIn(relativeTime, resetTime, { locale })}\n` : `${formatLimitResetsAt(resetTime, { locale })}\n`;
+    }
+  } else {
+    section += `${lt('na', {}, { locale })}\n`;
+  }
+  return section;
+}
+
+function hasPositivePercentage(value) {
+  if (value === null || value === undefined) return false;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0;
+}
+
+function hasPositiveCreditBalance(credits) {
+  if (!credits) return false;
+  if (credits.unlimited) return true;
+  const numeric = Number.parseFloat(String(credits.balance ?? '0'));
+  return Number.isFinite(numeric) && numeric > 0;
 }
 
 /**
@@ -1061,118 +1116,51 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     sections.push(section);
   }
 
-  // Claude limits section
-  // When there's an error (e.g., auth expired), show it once and skip empty subsections
+  const claudeHeading = formatSubscriptionHeading('claude', subscription, { locale });
+  const useShortClaudeLabels = Boolean(claudeHeading);
+  const claudeSections = [];
+
+  // Claude limits section. When there's an error (e.g., auth expired), show it once and skip empty subsections.
   if (claudeError) {
-    sections.push(`${lt('claude_limits', {}, { locale })}\n${claudeError}\n`);
+    claudeSections.push(useShortClaudeLabels ? `${claudeError}\n` : `${lt('claude_limits', {}, { locale })}\n${claudeError}\n`);
   } else {
-    // Claude 5 hour session (five_hour)
-    // Threshold: One-at-a-time mode when usage >= 65%
-    let sessionSection = `${lt('claude_5_hour_session', {}, { locale })}\n`;
-    if (hasLimitPercentage(usage?.currentSession)) {
-      const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
-      if (timePassed !== null) {
-        const timeBar = getProgressBar(timePassed);
-        sessionSection += `${timeBar} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
-      }
-
-      // Use Math.floor so 100% only appears when usage is exactly 100%
-      // See: https://github.com/link-assistant/hive-mind/issues/1133
-      const pct = Math.floor(usage.currentSession.percentage);
-      const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION);
-      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
-      sessionSection += `${bar} ${pct}%${suffix}\n`;
-
-      const sessionResetTime = getLocalizedResetTime(usage.currentSession, { locale });
-      if (sessionResetTime) {
-        const relativeTime = getLocalizedRelativeReset(usage.currentSession, { locale });
-        if (relativeTime) {
-          sessionSection += `${formatLimitResetsIn(relativeTime, sessionResetTime, { locale })}\n`;
-        } else {
-          sessionSection += `${formatLimitResetsAt(sessionResetTime, { locale })}\n`;
-        }
-      }
-    } else {
-      sessionSection += `${lt('na', {}, { locale })}\n`;
+    const hasSonnetOnly = hasLimitPercentage(usage?.sonnetOnly);
+    claudeSections.push(formatLimitWindowSection(useShortClaudeLabels ? lt('five_hour_limit_session', {}, { locale }) : lt('claude_5_hour_session', {}, { locale }), usage?.currentSession, 5, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, { locale }));
+    claudeSections.push(formatLimitWindowSection(useShortClaudeLabels && !hasSonnetOnly ? lt('current_week', {}, { locale }) : lt('current_week_all_models', {}, { locale }), usage?.allModels, 168, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, { locale }));
+    if (hasSonnetOnly || !useShortClaudeLabels) {
+      claudeSections.push(formatLimitWindowSection(lt('current_week_sonnet_only', {}, { locale }), usage?.sonnetOnly, 168, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, { locale }));
     }
-    sections.push(sessionSection);
 
-    // Current week (all models / seven_day)
-    // Threshold: One-at-a-time mode when usage >= 97%
-    let allModelsSection = `${lt('current_week_all_models', {}, { locale })}\n`;
-    if (hasLimitPercentage(usage?.allModels)) {
-      const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
-      if (timePassed !== null) {
-        const timeBar = getProgressBar(timePassed);
-        allModelsSection += `${timeBar} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
-      }
-
-      // Use Math.floor so 100% only appears when usage is exactly 100%
-      // See: https://github.com/link-assistant/hive-mind/issues/1133
-      const pct = Math.floor(usage.allModels.percentage);
-      const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
-      allModelsSection += `${bar} ${pct}%${suffix}\n`;
-
-      const allModelsResetTime = getLocalizedResetTime(usage.allModels, { locale });
-      if (allModelsResetTime) {
-        const relativeTime = getLocalizedRelativeReset(usage.allModels, { locale });
-        if (relativeTime) {
-          allModelsSection += `${formatLimitResetsIn(relativeTime, allModelsResetTime, { locale })}\n`;
-        } else {
-          allModelsSection += `${formatLimitResetsAt(allModelsResetTime, { locale })}\n`;
-        }
-      }
-    } else {
-      allModelsSection += `${lt('na', {}, { locale })}\n`;
+    if (!useShortClaudeLabels) {
+      const subscriptionLines = formatSubscriptionLines(subscription, { locale });
+      if (subscriptionLines) claudeSections.push(subscriptionLines);
     }
-    sections.push(allModelsSection);
-
-    // Current week (Sonnet only / seven_day_sonnet)
-    // Threshold: One-at-a-time mode when usage >= 97% (same as all models)
-    let sonnetSection = `${lt('current_week_sonnet_only', {}, { locale })}\n`;
-    if (hasLimitPercentage(usage?.sonnetOnly)) {
-      // Add time passed progress bar first (no threshold marker for time)
-      const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);
-      if (timePassed !== null) {
-        const timeBar = getProgressBar(timePassed);
-        sonnetSection += `${timeBar} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
-      }
-
-      // Add usage progress bar second with threshold marker
-      // Use Math.floor so 100% only appears when usage is exactly 100%
-      // See: https://github.com/link-assistant/hive-mind/issues/1133
-      const pct = Math.floor(usage.sonnetOnly.percentage);
-      const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
-      sonnetSection += `${bar} ${pct}%${suffix}\n`;
-
-      const sonnetResetTime = getLocalizedResetTime(usage.sonnetOnly, { locale });
-      if (sonnetResetTime) {
-        const relativeTime = getLocalizedRelativeReset(usage.sonnetOnly, { locale });
-        if (relativeTime) {
-          sonnetSection += `${formatLimitResetsIn(relativeTime, sonnetResetTime, { locale })}\n`;
-        } else {
-          sonnetSection += `${formatLimitResetsAt(sonnetResetTime, { locale })}\n`;
-        }
-      }
-    } else {
-      sonnetSection += `${lt('na', {}, { locale })}\n`;
-    }
-    sections.push(sonnetSection);
-
-    const subscriptionLines = formatSubscriptionLines(subscription, { locale });
-    if (subscriptionLines) sections.push(subscriptionLines);
   }
 
-  // Append any caller-provided extra sections (e.g. queue status) inside the code block
+  const hasFencedExtraSection = extraSections.some(extra => String(extra ?? '').includes('```'));
+  const useSplitLayout = Boolean(claudeHeading) || hasFencedExtraSection;
+
+  if (!useSplitLayout) {
+    sections.push(...claudeSections);
+    for (const extra of extraSections) {
+      sections.push(extra);
+    }
+    return formatCodeBlock(sections.join('\n'));
+  }
+
+  const markdownSections = [];
+  markdownSections.push(formatCodeBlock(claudeHeading ? sections.join('\n') : [...sections, ...claudeSections].join('\n')));
+  if (claudeHeading) {
+    markdownSections.push(claudeHeading);
+    markdownSections.push(formatCodeBlock(claudeSections.join('\n')));
+  }
+
   for (const extra of extraSections) {
-    sections.push(extra);
+    const formatted = formatPlainTitledCodeSection(extra);
+    if (formatted) markdownSections.push(formatted);
   }
 
-  // Wrap all sections in a single code block for monospace font / aligned progress bars.
-  // Sections are separated by blank lines; the trailing newline on each section provides spacing.
-  return '```\n' + sections.join('\n') + '```';
+  return markdownSections.join('\n\n');
 }
 
 /**
@@ -1185,64 +1173,33 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
  */
 export function formatCodexLimitsSection(codexLimits, codexError = null, options = {}) {
   const locale = resolveLimitLocale(options);
-  if (codexError) {
-    return `${lt('codex_limits', {}, { locale })}\n${codexError}\n`;
-  }
-
+  const subscription = options?.subscription || null;
   const usage = codexLimits?.usage || null;
   const additionalRateLimits = codexLimits?.additionalRateLimits || [];
   const credits = codexLimits?.credits || null;
-  const planType = codexLimits?.planType || null;
-  const subscription = options?.subscription || null;
+  const planType = subscription?.planType || codexLimits?.planType || null;
+  const heading = formatSubscriptionHeading('codex', subscription, { locale, planType });
+  const useTitledLayout = Boolean(heading);
 
-  let section = `${lt('codex_limits', {}, { locale })}\n`;
-  if (planType) {
+  if (codexError) {
+    const errorSection = useTitledLayout ? `${codexError}\n` : `${lt('codex_limits', {}, { locale })}\n${codexError}\n`;
+    return useTitledLayout ? `${heading}\n\n${formatCodeBlock(errorSection)}` : errorSection;
+  }
+
+  let section = useTitledLayout ? '' : `${lt('codex_limits', {}, { locale })}\n`;
+  if (planType && !useTitledLayout) {
     section += `${lt('plan', {}, { locale })}: ${planType}\n`;
   }
 
-  let sessionSection = `${lt('codex_5_hour_session', {}, { locale })}\n`;
-  if (hasLimitPercentage(usage?.currentSession)) {
-    const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
-    if (timePassed !== null) {
-      sessionSection += `${getProgressBar(timePassed)} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
-    }
-    const pct = Math.floor(usage.currentSession.percentage);
-    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
-    sessionSection += `${bar} ${pct}%${suffix}\n`;
-    const sessionResetTime = getLocalizedResetTime(usage.currentSession, { locale });
-    if (sessionResetTime) {
-      const relativeTime = getLocalizedRelativeReset(usage.currentSession, { locale });
-      sessionSection += relativeTime ? `${formatLimitResetsIn(relativeTime, sessionResetTime, { locale })}\n` : `${formatLimitResetsAt(sessionResetTime, { locale })}\n`;
-    }
-  } else {
-    sessionSection += `${lt('na', {}, { locale })}\n`;
-  }
-
-  let weeklySection = `${lt('current_week_all_models', {}, { locale })}\n`;
-  if (hasLimitPercentage(usage?.allModels)) {
-    const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
-    if (timePassed !== null) {
-      weeklySection += `${getProgressBar(timePassed)} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
-    }
-    const pct = Math.floor(usage.allModels.percentage);
-    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CODEX_WEEKLY);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_WEEKLY ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
-    weeklySection += `${bar} ${pct}%${suffix}\n`;
-    const weeklyResetTime = getLocalizedResetTime(usage.allModels, { locale });
-    if (weeklyResetTime) {
-      const relativeTime = getLocalizedRelativeReset(usage.allModels, { locale });
-      weeklySection += relativeTime ? `${formatLimitResetsIn(relativeTime, weeklyResetTime, { locale })}\n` : `${formatLimitResetsAt(weeklyResetTime, { locale })}\n`;
-    }
-  } else {
-    weeklySection += `${lt('na', {}, { locale })}\n`;
-  }
+  const sessionSection = formatLimitWindowSection(useTitledLayout ? lt('five_hour_limit_session', {}, { locale }) : lt('codex_5_hour_session', {}, { locale }), usage?.currentSession, 5, DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, { locale });
+  const weeklySection = formatLimitWindowSection(useTitledLayout ? lt('current_week', {}, { locale }) : lt('current_week_all_models', {}, { locale }), usage?.allModels, 168, DISPLAY_THRESHOLDS.CODEX_WEEKLY, { locale });
 
   section += `${sessionSection}\n${weeklySection}`;
 
-  if (additionalRateLimits.length > 0) {
+  const visibleAdditionalRateLimits = additionalRateLimits.filter(limit => hasPositivePercentage(limit.allModels?.percentage));
+  if (visibleAdditionalRateLimits.length > 0) {
     section += `\n${lt('additional_codex_limits', {}, { locale })}\n`;
-    for (const limit of additionalRateLimits) {
+    for (const limit of visibleAdditionalRateLimits) {
       const sessionPct = limit.currentSession?.percentage;
       const weeklyPct = limit.allModels?.percentage;
       const sessionText = sessionPct === null || sessionPct === undefined ? `${lt('session', {}, { locale })} ${lt('na', {}, { locale })}` : `${lt('session', {}, { locale })} ${Math.floor(sessionPct)}%`;
@@ -1251,15 +1208,17 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
     }
   }
 
-  if (credits) {
+  if (hasPositiveCreditBalance(credits)) {
     const creditSummary = credits.unlimited ? lt('unlimited', {}, { locale }) : `${credits.balance ?? '0'} ${lt('balance', {}, { locale })}`;
     section += `\n${lt('codex_credits', {}, { locale })}\n${creditSummary}\n`;
   }
 
-  const subscriptionLines = formatSubscriptionLines(subscription, { locale });
-  if (subscriptionLines) section += subscriptionLines;
+  if (!useTitledLayout) {
+    const subscriptionLines = formatSubscriptionLines(subscription, { locale });
+    if (subscriptionLines) section += subscriptionLines;
+  }
 
-  return section;
+  return useTitledLayout ? `${heading}\n\n${formatCodeBlock(section)}` : section;
 }
 
 // ============================================================================
@@ -1280,12 +1239,12 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
  * Configurable via environment variables:
  * - HIVE_MIND_API_CACHE_TTL_MS: General API cache TTL (default: 180000 = 3 minutes)
  * - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 780000 = 13 minutes)
- * - HIVE_MIND_SYSTEM_CACHE_TTL_MS: System metrics cache TTL (default: 120000 = 2 minutes)
+ * - HIVE_MIND_SYSTEM_CACHE_TTL_MS: System metrics cache TTL (default: 60000 = 1 minute, capped at 1 minute)
  */
 export const CACHE_TTL = {
   API: cacheTtl.api, // 3 minutes for regular API calls (GitHub)
   USAGE_API: cacheTtl.usageApi, // 13 minutes for Claude Usage API (rate limited)
-  SYSTEM: cacheTtl.system, // 2 minutes for system metrics (RAM, CPU, disk)
+  SYSTEM: cacheTtl.system, // max 1 minute for system metrics (RAM, CPU, disk)
 };
 
 /**

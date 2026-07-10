@@ -1,5 +1,87 @@
 # @link-assistant/hive-mind
 
+## 2.2.0
+
+### Minor Changes
+
+- d3b7c97: Default `--tool codex` to `gpt-5.6-sol` and make the `--think` levels map predictably to Codex reasoning efforts (`off`→`none`, `low`/`medium`/`high`/`xhigh`/`ultra`/`max` as an identity mapping). GPT-5.6 Sol's multi-agent `ultra` mode is always paired with a `rollout_token_budget` cap (default `500000`, overridable via `--rollout-token-budget`), and budget-derived effort stays capped at `xhigh`. Align `--tool claude` by adding the matching `ultra` level (equivalent to `ultracode`). By default both tools run the model as-is with no thinking level enforced.
+
+## 2.1.11
+
+### Patch Changes
+
+- 208e123: Fix false-positive npm releases (issue #2028). `setup-npm.mjs` now pins npm to the 11.x line and validates the result instead of installing `npm@latest` (which pulled in npm 12.0.0, whose sigstore regression crashes provenance publishes — npm/cli#9722). `publish-to-npm.mjs` no longer trusts the publish command's exit status alone: it observes the real exit code, scans output for failure patterns, and verifies the version is actually live on npm before reporting success, so a failed publish can no longer be reported as a successful release. Added `sanitize-npm-userconfig.mjs` to remove the deprecated `always-auth` npm warning from release logs.
+
+## 2.1.10
+
+### Patch Changes
+
+- 9964e69: Retry Claude stream-json sessions with `--resume` when the stream ends without a terminal result event after tool output.
+- afbc353: Avoid fetching `use-m` at isolation-runner import time when tests only use pure helper exports.
+
+## 2.1.9
+
+### Patch Changes
+
+- 5559c5e: Check all replacement repository branch tips before deleting a non-fork fork replacement, and report concrete branch-only commits when deletion is unsafe.
+
+## 2.1.8
+
+### Patch Changes
+
+- 11dab3c: Handle Telegram and CLI commands where a GitHub issue or pull request URL is immediately followed by a long option marker.
+
+## 2.1.7
+
+### Patch Changes
+
+- 0ce779b: Enforce the solve queue minimum start interval for immediate Telegram `/solve`
+  launches so direct starts consume the same global pacing slot as queued starts.
+
+## 2.1.6
+
+### Patch Changes
+
+- efcbcce: Handle Docker `oomKilled` status markers as terminal Telegram work-session failures, delay Docker backend-gone killed notifications long enough for start-command to publish a real terminal status or log footer, pace queued task startups at a minimum 10-minute interval, and cap system resource cache freshness at 1 minute.
+
+## 2.1.5
+
+### Patch Changes
+
+- 26b07f2: Extend Telegram `/merge` to accept repository, issue, and pull request targets, including reply-based GitHub link extraction, and wait for unfinished PRs to become mergeable before merging.
+
+## 2.1.4
+
+### Patch Changes
+
+- acc3ea1: Simplify the `/limits` output with subscription headings and hide unused Codex limits and credits.
+
+## 2.1.3
+
+### Patch Changes
+
+- 5c4150b: Make live issue/PR event input available for every tool via `--auto-input-until-mergeable` (issue #2007). Claude and Agent stream events into the live process through `--input-format stream-json`; codex, opencode, gemini, qwen, and unknown tools use a universal restart/resume fallback that waits for the current turn to finish in the JSON output, stops the process, and resumes the AI session with the new events. Adds issue title/description edit detection as a restart trigger, reworks the capability matrix to report each tool's delivery mode, and records the `@link-assistant/agent` 0.24.1 live stream-json contract.
+
+## 2.1.2
+
+### Patch Changes
+
+- 39164e5: Improve fork-divergence failure comments and logs with inspected branch state, actor-aware admin guidance, exact fork-only commit lists, and less generic repository setup wording.
+
+## 2.1.1
+
+### Patch Changes
+
+- 26e3410: Report estimated reclaimable space for `hive-cleanup --dry-run` system cleanup
+  commands and await system-cleanup logging so dry-run output stays in order.
+
+## 2.1.0
+
+### Minor Changes
+
+- 4e21d2a: Fix Docker task disk-usage reporting so Telegram completion messages use task container writable-layer samples instead of filesystem-capacity resource markers from the parent deployment.
+- fdbf448: Add full support for Claude Sonnet 5 (`claude-sonnet-5`) and make it the default model for `--tool claude`. The bare `sonnet` alias now resolves to `claude-sonnet-5` (previously `claude-sonnet-4-6`). Sonnet 5 supports 1M context (`[1m]`), the full effort ladder including `xhigh` and `max`, 128K max output tokens, and adaptive-thinking-only environment handling. The `sonnet-4-6`/`claude-sonnet-4-6` aliases are retained for backward compatibility. (Issue #2003)
+
 ## 2.0.29
 
 ### Patch Changes

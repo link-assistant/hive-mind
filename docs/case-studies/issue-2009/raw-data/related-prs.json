@@ -1,0 +1,38 @@
+[
+  {
+    "number": 459,
+    "title": "feat: Auto-resolve fork divergence with force-with-lease (fixes #445)",
+    "mergedAt": "2025-10-09T23:35:14Z",
+    "url": "https://github.com/link-assistant/hive-mind/pull/459"
+  },
+  {
+    "number": 973,
+    "title": "Improve fork divergence error message clarity",
+    "mergedAt": "2025-12-27T23:39:42Z",
+    "url": "https://github.com/link-assistant/hive-mind/pull/973"
+  },
+  {
+    "number": 1641,
+    "title": "fix: notify issues on pre-PR solve failures",
+    "mergedAt": "2026-04-18T15:29:42Z",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1641"
+  },
+  {
+    "number": 1790,
+    "title": "fix: notify existing PRs on pre-exit failures",
+    "mergedAt": "2026-05-12T16:46:59Z",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1790"
+  },
+  {
+    "number": 1894,
+    "title": "fix(solve): continue fork PRs instead of halting on permission-denied push (#1893)",
+    "mergedAt": "2026-06-11T07:11:03Z",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1894"
+  },
+  {
+    "number": 1977,
+    "title": "fix(solve): clarify fork replacement safety failures",
+    "mergedAt": "2026-06-24T10:22:49Z",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1977"
+  }
+]

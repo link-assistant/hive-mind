@@ -30,6 +30,7 @@ const { log, formatAligned } = lib;
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 import { parseForkFullNameFromGhOutput } from './github-repository-names.lib.mjs';
+import { checkReplacementRepositoryBranchSafety } from './solve.repository-safety.lib.mjs';
 import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescription } from './solve.repository-recovery-message.lib.mjs';
 
 // Import GitHub utilities for permission checks
@@ -525,34 +526,75 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         const relationshipDescription = !forkValidation.isFork ? `${existingForkName} is not a GitHub fork of ${owner}/${repo}.` : `${existingForkName} is a GitHub fork of ${forkValidation.parent || 'unknown parent'}, not ${owner}/${repo}.`;
         await log(`${formatAligned('', '', detail)}`);
         await log(`${formatAligned('', '', `Fork parent: ${forkValidation.parent || 'N/A (not a fork)'}, source: ${forkValidation.source || 'N/A'}, expected: ${owner}/${repo}`)}`);
-        // Safety check: compare commits before deleting to avoid data loss
-        await log(`${formatAligned('🔍', 'Safety check:', 'Comparing commits against upstream...')}`);
+        // Safety check: compare commits before deleting to avoid data loss.
+        // GitHub compare only answers for fork-network refs, so a local Git
+        // fallback checks every replacement branch tip before deletion.
+        await log(`${formatAligned('🔍', 'Safety check:', 'Comparing default branch against upstream...')}`);
         let safeToDelete = false;
         let safetyCheckDescription = buildForkReplacementSafetyCheckDescription();
+        let shouldRunBranchReachabilityCheck = false;
+        let likelyDetachedFork = false;
         try {
           const cmp = await $`gh api repos/${owner}/${repo}/compare/${owner}:HEAD...${existingForkName.split('/')[0]}:HEAD --paginate --jq '.ahead_by' 2>&1`;
           const aheadBy = parseInt(cmp.stdout.toString().trim(), 10);
           if (cmp.code === 0 && aheadBy === 0) {
-            await log(`${formatAligned('✅', 'Safe to delete:', 'No additional commits in non-fork repository')}`);
-            safeToDelete = true;
+            await log(`${formatAligned('✅', 'Default branch:', 'No additional commits in replacement repository')}`);
+            shouldRunBranchReachabilityCheck = true;
           } else if (cmp.code === 0) {
             safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ aheadBy });
-            const aheadDescription = Number.isFinite(aheadBy) ? `${aheadBy} commit(s)` : 'an unknown number of commit(s)';
-            await log(`${formatAligned('⚠️', 'UNSAFE:', `Repository has ${aheadDescription} ahead of upstream that would be lost`)}`, { level: 'warning' });
+            if (Number.isFinite(aheadBy)) {
+              await log(`${formatAligned('⚠️', 'UNSAFE:', `Default branch has ${aheadBy} commit(s) ahead of upstream that would be lost`)}`, { level: 'warning' });
+            } else {
+              await log(`${formatAligned('⚠️', 'Compare unclear:', 'GitHub compare did not return a numeric ahead_by value')}`, { level: 'warning' });
+              shouldRunBranchReachabilityCheck = true;
+            }
           } else {
             const compareOutput = (cmp.stderr?.toString() || '') + (cmp.stdout?.toString() || '');
             safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ compareFailureOutput: compareOutput });
             await log(`${formatAligned('⚠️', 'Compare failed:', compareOutput.split('\n')[0])}`, { level: 'warning' });
+            shouldRunBranchReachabilityCheck = true;
           }
         } catch (e) {
           safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ compareFailureOutput: e.message });
           await log(`${formatAligned('⚠️', 'Compare error:', e.message)}`, { level: 'warning' });
+          shouldRunBranchReachabilityCheck = true;
+        }
+
+        if (shouldRunBranchReachabilityCheck) {
+          await log(`${formatAligned('🔍', 'Safety check:', 'Checking all replacement branches against upstream refs...')}`);
+          const branchSafety = await checkReplacementRepositoryBranchSafety({
+            $,
+            owner,
+            repo,
+            existingRepository: existingForkName,
+          });
+          safetyCheckDescription = branchSafety.safetyCheckDescription;
+          likelyDetachedFork = Boolean(branchSafety.likelyDetachedFork);
+
+          if (likelyDetachedFork) {
+            await log(`${formatAligned('🔗', 'Detached fork:', `${existingForkName} shares history with ${owner}/${repo} but is not a GitHub fork — this matches a fork detached by a private/public visibility change`)}`);
+          }
+
+          if (branchSafety.safeToDelete) {
+            await log(`${formatAligned('✅', 'Safe to delete:', `All ${branchSafety.branchCount} replacement branch tip(s) are reachable from upstream`)}`);
+            safeToDelete = true;
+          } else if (branchSafety.uniqueBranches.length > 0) {
+            await log(`${formatAligned('⚠️', 'UNSAFE:', `${branchSafety.uniqueBranches.length} replacement branch tip(s) have commits not reachable from upstream`)}`, { level: 'warning' });
+            for (const branch of branchSafety.uniqueBranches.slice(0, 3)) {
+              await log(`${formatAligned('', '', `${branch.ref}: ${branch.uniqueCommitCount} commit(s), ${branch.sha.slice(0, 12)} ${branch.subject || ''}`)}`, { level: 'warning' });
+            }
+          } else {
+            await log(`${formatAligned('⚠️', 'Branch check failed:', safetyCheckDescription)}`, { level: 'warning' });
+          }
         }
         if (!safeToDelete) {
           if (argv.allowForceNonForkRepositoryDeletion) {
             // Force flag set — proceed with deletion despite the failed safety check.
             await log(`${formatAligned('⚠️', 'Force deletion ENABLED:', '--allow-force-non-fork-repository-deletion — proceeding despite potential data loss')}`, { level: 'warning' });
           } else {
+            if (likelyDetachedFork) {
+              await log(`  🔗 Recover without deletion: ask GitHub Support to re-attach ${existingForkName} to ${owner}/${repo} at https://support.github.com/request/fork ("Attach, detach or reroute forks")`);
+            }
             await log(`  💡 Manual fix required: back up work, then: gh repo delete ${existingForkName} --yes`);
             await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);
             await log(`  🔧 Or force deletion (DANGEROUS): solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-force-non-fork-repository-deletion`);
@@ -563,6 +605,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
                 expectedUpstream: `${owner}/${repo}`,
                 relationshipDescription,
                 safetyCheckDescription,
+                likelyDetachedFork,
               })
             );
           }

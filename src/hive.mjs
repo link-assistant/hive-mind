@@ -18,9 +18,9 @@ if (earlyArgs.includes('--version')) {
 if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   try {
     // Load minimal modules needed for help
-    const { getLinoYargsFactory, hideBin } = await import('./cli-arguments.lib.mjs');
+    const { getLinoYargsFactory, hideBin, normalizeCliArgs } = await import('./cli-arguments.lib.mjs');
     const yargs = getLinoYargsFactory();
-    const rawArgs = hideBin(process.argv);
+    const rawArgs = normalizeCliArgs(hideBin(process.argv));
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
@@ -62,7 +62,7 @@ if (isRunningDirectly) {
       30000, // 30 second timeout
       'loading command-stream'
     );
-    const { parseCliArgumentsWithLino, hideBin } = await import('./cli-arguments.lib.mjs');
+    const { parseCliArgumentsWithLino, hideBin, normalizeCliArgs } = await import('./cli-arguments.lib.mjs');
     const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions
@@ -225,7 +225,7 @@ if (isRunningDirectly) {
     }
 
     // Configure command line arguments - GitHub URL as positional argument
-    const rawArgs = hideBin(process.argv);
+    const rawArgs = normalizeCliArgs(hideBin(process.argv));
     // Use .parse() instead of .argv to ensure .strict() mode works correctly
     // When you use .argv, strict mode doesn't trigger properly
     // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
@@ -248,7 +248,7 @@ if (isRunningDirectly) {
 
     try {
       argv = parseCliArgumentsWithLino({
-        argv: process.argv,
+        argv: ['node', 'hive', ...rawArgs],
         commandName: 'hive',
         createYargsConfig,
         positionalAliases: ['github-url'],

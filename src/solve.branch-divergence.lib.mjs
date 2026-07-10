@@ -11,10 +11,242 @@ const outputOf = result => {
 
 const shortSha = sha => (sha ? String(sha).slice(0, 12) : null);
 
+export const FORK_DIVERGENCE_RESOLUTION_OPTION = '--allow-fork-divergence-resolution-using-force-push-with-lease';
+
 const encodeRefForGitHubUrl = ref =>
   encodeURI(String(ref || ''))
     .replaceAll('#', '%23')
     .replaceAll('?', '%3F');
+
+const firstLine = value =>
+  String(value || '')
+    .split('\n')
+    .map(line => line.trim())
+    .find(Boolean) || '';
+
+const sameLogin = (left, right) => Boolean(left && right && String(left).toLowerCase() === String(right).toLowerCase());
+
+const formatCommitLine = commit => {
+  const sha = commit?.shortSha || shortSha(commit?.sha) || 'unknown';
+  const author = String(commit?.author || 'unknown author').trim();
+  const subject = String(commit?.subject || 'no subject').trim();
+  return `${sha} ${author} ${subject}`;
+};
+
+const formatCommitBullets = commits => {
+  const safeCommits = Array.isArray(commits) ? commits : [];
+  if (safeCommits.length === 0) return ['- No fork-only commits were returned by the inspection.'];
+  return safeCommits.map(commit => `- \`${formatCommitLine(commit)}\``);
+};
+
+const buildForkCompareUrl = ({ upstreamRepo, forkedRepo, branchName }) => {
+  const [upstreamOwner, upstreamName] = String(upstreamRepo || '').split('/');
+  const [forkOwner] = String(forkedRepo || '').split('/');
+  if (!upstreamOwner || !upstreamName || !forkOwner || !branchName) return null;
+  return `https://github.com/${upstreamRepo}/compare/${encodeRefForGitHubUrl(branchName)}...${encodeRefForGitHubUrl(`${forkOwner}:${branchName}`)}`;
+};
+
+const normalizeForkDivergenceSnapshot = (snapshot = {}) => {
+  const branchName = snapshot.branchName || 'the default branch';
+  const upstreamRepo = snapshot.upstreamRepo || 'the upstream repository';
+  const forkedRepo = snapshot.forkedRepo || 'the fork repository';
+  const forkRef = snapshot.forkRef || `origin/${branchName}`;
+  const upstreamRef = snapshot.upstreamRef || `upstream/${branchName}`;
+  const compareUrl = snapshot.compareUrl || buildForkCompareUrl({ upstreamRepo, forkedRepo, branchName });
+  const uniqueCommits = Array.isArray(snapshot.uniqueCommits) ? snapshot.uniqueCommits : [];
+
+  return {
+    ...snapshot,
+    branchName,
+    upstreamRepo,
+    forkedRepo,
+    forkRef,
+    upstreamRef,
+    compareUrl,
+    uniqueCommits,
+    forkUniqueCount: Number.isFinite(snapshot.forkUniqueCount) ? snapshot.forkUniqueCount : null,
+    upstreamUniqueCount: Number.isFinite(snapshot.upstreamUniqueCount) ? snapshot.upstreamUniqueCount : null,
+  };
+};
+
+const buildActorLine = ({ currentUser, taskRequester }) => {
+  if (sameLogin(currentUser, taskRequester)) {
+    return `Hive Mind is authenticated as \`${currentUser}\`, the same GitHub user that requested this task.`;
+  }
+
+  if (currentUser && taskRequester) {
+    return `Hive Mind is authenticated as \`${currentUser}\`; the task requester is \`${taskRequester}\`.`;
+  }
+
+  if (currentUser) {
+    return `Hive Mind is authenticated as \`${currentUser}\`; the task requester could not be resolved.`;
+  }
+
+  if (taskRequester) {
+    return `The task requester is \`${taskRequester}\`; the authenticated Hive Mind user could not be resolved.`;
+  }
+
+  return 'Hive Mind could not resolve the authenticated user or task requester.';
+};
+
+const buildManualForkRepairCommands = ({ snapshot, solveCommand }) => {
+  const { branchName, forkedRepo, upstreamRef } = snapshot;
+  const commands = ['```bash', `gh repo delete ${forkedRepo} --yes`, `${solveCommand || 'solve <issue-url>'}`, '', '# Manual branch repair after preserving any fork-only commits:', 'git fetch upstream', `git reset --hard ${upstreamRef}`, `git push --force-with-lease origin ${branchName}`, '```'];
+  return commands.join('\n');
+};
+
+export async function getForkDefaultBranchDivergenceSnapshot({ $, tempDir, branchName, forkedRepo, upstreamRepo }) {
+  const forkRef = `origin/${branchName}`;
+  const upstreamRef = `upstream/${branchName}`;
+  const compareUrl = buildForkCompareUrl({ upstreamRepo, forkedRepo, branchName });
+
+  const forkFetchResult = await $({ cwd: tempDir, silent: true })`git fetch origin refs/heads/${branchName}:refs/remotes/origin/${branchName} 2>&1`;
+  if (forkFetchResult.code !== 0) {
+    return {
+      branchName,
+      forkedRepo,
+      upstreamRepo,
+      forkRef,
+      upstreamRef,
+      compareUrl,
+      forkUniqueCount: null,
+      upstreamUniqueCount: null,
+      uniqueCommits: [],
+      fetchError: outputOf(forkFetchResult) || `failed to fetch ${forkRef}`,
+    };
+  }
+
+  const upstreamFetchResult = await $({ cwd: tempDir, silent: true })`git fetch upstream refs/heads/${branchName}:refs/remotes/upstream/${branchName} 2>&1`;
+  if (upstreamFetchResult.code !== 0) {
+    return {
+      branchName,
+      forkedRepo,
+      upstreamRepo,
+      forkRef,
+      upstreamRef,
+      compareUrl,
+      forkUniqueCount: null,
+      upstreamUniqueCount: null,
+      uniqueCommits: [],
+      fetchError: outputOf(upstreamFetchResult) || `failed to fetch ${upstreamRef}`,
+    };
+  }
+
+  const forkUniqueResult = await $({ cwd: tempDir, silent: true })`git rev-list --count ${upstreamRef}..${forkRef} 2>&1`;
+  const upstreamUniqueResult = await $({ cwd: tempDir, silent: true })`git rev-list --count ${forkRef}..${upstreamRef} 2>&1`;
+  const forkHeadResult = await $({ cwd: tempDir, silent: true })`git rev-parse ${forkRef} 2>&1`;
+  const upstreamHeadResult = await $({ cwd: tempDir, silent: true })`git rev-parse ${upstreamRef} 2>&1`;
+  const commitsResult = await $({ cwd: tempDir, silent: true })`git log --format=%H%x09%an%x09%s --max-count=20 ${upstreamRef}..${forkRef} 2>&1`;
+
+  const uniqueCommits =
+    commitsResult.code === 0
+      ? commitsResult.stdout
+          .toString()
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+          .map(line => {
+            const [sha, author, ...subjectParts] = line.split('\t');
+            return {
+              sha,
+              shortSha: shortSha(sha),
+              author,
+              subject: subjectParts.join('\t'),
+            };
+          })
+      : [];
+
+  return {
+    branchName,
+    forkedRepo,
+    upstreamRepo,
+    forkRef,
+    upstreamRef,
+    compareUrl,
+    forkUniqueCount: forkUniqueResult.code === 0 ? toCount(forkUniqueResult.stdout) : null,
+    upstreamUniqueCount: upstreamUniqueResult.code === 0 ? toCount(upstreamUniqueResult.stdout) : null,
+    forkHead: forkHeadResult.code === 0 ? firstLine(forkHeadResult.stdout) : null,
+    upstreamHead: upstreamHeadResult.code === 0 ? firstLine(upstreamHeadResult.stdout) : null,
+    uniqueCommits,
+    inspectError: commitsResult.code === 0 ? null : outputOf(commitsResult),
+  };
+}
+
+export function buildForkDivergenceBlockedReason({ snapshot }) {
+  const details = normalizeForkDivergenceSnapshot(snapshot);
+  const lines = ['Repository setup halted - fork divergence requires user decision.', `Fork: ${details.forkedRepo}`, `Upstream: ${details.upstreamRepo}`, `Branch: ${details.branchName}`];
+
+  if (details.fetchError || details.inspectError) {
+    lines.push(`Inspection error: ${details.fetchError || details.inspectError}`);
+    lines.push('Hive Mind did not recommend automatic force-with-lease because it could not prove whether fork-only commits would be lost.');
+    return lines.join('\n');
+  }
+
+  lines.push(`Fork-only commits that would be overwritten: ${details.forkUniqueCount ?? 'unknown'}`);
+  lines.push(`Upstream-only commits missing from fork: ${details.upstreamUniqueCount ?? 'unknown'}`);
+  if (details.compareUrl) lines.push(`Compare: ${details.compareUrl}`);
+
+  if ((details.forkUniqueCount ?? 0) > 0) {
+    lines.push('Fork-only commit list:');
+    for (const commit of details.uniqueCommits) {
+      lines.push(`- ${formatCommitLine(commit)}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+export function buildForkDivergenceFailureActionSection({ snapshot = {}, currentUser = null, taskRequester = null, solveCommand = null } = {}) {
+  const details = normalizeForkDivergenceSnapshot(snapshot);
+  const actorLine = buildActorLine({ currentUser, taskRequester });
+  const sameUser = sameLogin(currentUser, taskRequester);
+  const hasInspectionError = Boolean(details.fetchError || details.inspectError);
+  const forkUniqueCount = details.forkUniqueCount;
+  const upstreamUniqueCount = details.upstreamUniqueCount;
+
+  const header = ['### What happened', `- Hive Mind checked \`${details.forkRef}\` in \`${details.forkedRepo}\` against \`${details.upstreamRef}\` in \`${details.upstreamRepo}\`.`, `- ${actorLine}`];
+  if (details.compareUrl) {
+    header.push(`- Compare the branch state: ${details.compareUrl}`);
+  }
+
+  if (hasInspectionError) {
+    header.push(`- The safety inspection failed: ${details.fetchError || details.inspectError}`);
+    return `${header.join('\n')}
+
+### What you can do
+- Hive Mind did not recommend automatic force-with-lease because it could not prove whether fork-only commits would be overwritten.
+- Ask a Hive Mind administrator to handle manual recreation or fix of the repository.
+- Repository owner path: inspect \`${details.forkedRepo}\`, preserve any needed commits, then recreate or repair the fork default branch.`;
+  }
+
+  if (forkUniqueCount === 0) {
+    const rerunLine = sameUser ? `Rerun with \`${FORK_DIVERGENCE_RESOLUTION_OPTION}\` to let Hive Mind update \`${details.forkedRepo}\` using \`git push --force-with-lease origin ${details.branchName}\`.` : `Ask a Hive Mind administrator to rerun with \`${FORK_DIVERGENCE_RESOLUTION_OPTION}\` so Hive Mind can update \`${details.forkedRepo}\` using \`git push --force-with-lease origin ${details.branchName}\`.`;
+
+    return `${header.join('\n')}
+- GitHub inspection found 0 commit(s) unique to \`${details.forkRef}\`; \`${details.forkRef}\` is ${upstreamUniqueCount ?? 'an unknown number of'} commit(s) behind \`${details.upstreamRef}\`.
+
+### What you can do
+- ${rerunLine}
+- Delete or recreate the fork repository, or fix the repository manually, using these commands when you own the fork or are acting as the Hive Mind administrator:
+
+${buildManualForkRepairCommands({ snapshot: details, solveCommand })}`;
+  }
+
+  const administratorLine = sameUser ? 'Delete or recreate the fork repository, or fix the repository manually, after preserving the fork-only commits listed above.' : 'Ask a Hive Mind administrator to handle manual recreation or fix of the repository.';
+
+  return `${header.join('\n')}
+- \`${details.forkRef}\` has ${forkUniqueCount ?? 'an unknown number of'} commit(s) unique to \`${details.forkRef}\`; replacing it with \`${details.upstreamRef}\` would remove them from the fork default branch history.
+
+### Commits that would be lost
+${formatCommitBullets(details.uniqueCommits).join('\n')}
+
+### What you can do
+- ${administratorLine}
+- Preserve the listed commit(s) first by moving them to another branch, cherry-picking them later, or confirming they are disposable.
+- Manual repair example after preserving the listed commits:
+
+${buildManualForkRepairCommands({ snapshot: details, solveCommand })}`;
+}
 
 export function classifyPushRejection(errorOutput = '') {
   const normalized = String(errorOutput || '').toLowerCase();
@@ -138,9 +370,7 @@ export function buildPushRejectionFailureActionSection({ owner, repo, branchName
 - Inspect the remote branch: ${links.branchUrl}
 - Compare the base and head branches: ${links.compareUrl}
 - If the remote branch already contains the intended commit, rerun the solver. Matching remote branches are treated as usable after this fix.
-- If the histories differ, merge or resolve \`${links.headBranchRef}\` against \`${links.baseBranchRef}\`, then rerun the solver.
-
-Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this GitHub comment.`;
+- Diverged-history path: merge or resolve \`${links.headBranchRef}\` against \`${links.baseBranchRef}\`, then rerun the solver.`;
 }
 
 export function buildPushRejectionExplanation({ branchName, isContinueMode, prNumber, divergence = null, owner = null, repo = null, defaultBranch = null, forkedRepo = null, classification = 'unknown' }) {

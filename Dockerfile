@@ -116,7 +116,7 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.30.2: 0.29.1 fixed detached docker
+# start-command is pinned to 0.30.3: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -129,6 +129,8 @@ RUN bun install -g @openai/codex && \
 # `OOMKilled` status and preserves abnormally-terminated container filesystems
 # under the default cleanup policy — the upstream defense-in-depth half of the
 # #1990 fix (the primary terminal-completion gate lives in this repo's solve).
+# 0.30.3 (start#148/#149) reconciles detached Docker `OOMKilled=true` as terminal
+# in upstream `--status`/`--list`, which directly covers issue #2015.
 RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
@@ -136,7 +138,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent && \
-    bun install -g start-command@0.30.2 && \
+    bun install -g start-command@0.30.3 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

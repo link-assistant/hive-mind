@@ -115,10 +115,10 @@ test('claude-opus-4-5 alias maps to claude-opus-4-5-20251101', () => {
   assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101', 'claude-opus-4-5 should map to claude-opus-4-5-20251101');
 });
 
-test('sonnet alias still works (maps to Sonnet 4.6)', () => {
+test('sonnet alias still works (now maps to Sonnet 5, Issue #2003)', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
 });
 
 test('haiku alias still works', () => {
@@ -437,8 +437,9 @@ test('supportsXHighEffortLevel returns false for opus-4-6', () => {
   assert.strictEqual(supportsXHighEffortLevel('opus-4-6'), false, 'Opus 4.6 should not support native xhigh');
 });
 
-test('supportsXHighEffortLevel returns false for sonnet', () => {
-  assert.strictEqual(supportsXHighEffortLevel('sonnet'), false, 'Sonnet should not support native xhigh');
+test('supportsXHighEffortLevel returns true for sonnet (now Sonnet 5, Issue #2003)', () => {
+  assert.strictEqual(supportsXHighEffortLevel('sonnet'), true, 'Sonnet 5 should support native xhigh');
+  assert.strictEqual(supportsXHighEffortLevel('sonnet-4-6'), false, 'Sonnet 4.6 should not support native xhigh');
 });
 
 test('supportsMaxEffortLevel returns true for claude-opus-4-8', () => {
@@ -451,6 +452,15 @@ test('thinkLevelToEffortLevel maps xhigh to xhigh for Opus 4.8', () => {
 
 test('thinkLevelToEffortLevel maps max to max for Opus 4.8', () => {
   assert.strictEqual(thinkLevelToEffortLevel('max', { supportsXHigh: true, supportsMax: true }), 'max', 'max should stay max for Opus 4.8');
+});
+
+test('thinkLevelToEffortLevel maps ultra to max for Opus 4.8 (ultracode-class deepest tier)', () => {
+  // Issue #2027: ultra is the ultracode-class deepest effort; on Claude it maps to the max effort level.
+  assert.strictEqual(thinkLevelToEffortLevel('ultra', { supportsXHigh: true, supportsMax: true }), 'max', 'ultra should map to max for Opus 4.8');
+});
+
+test('thinkLevelToEffortLevel maps ultra to xhigh when max is unsupported but xhigh is', () => {
+  assert.strictEqual(thinkLevelToEffortLevel('ultra', { supportsXHigh: true, supportsMax: false }), 'xhigh', 'ultra should degrade to xhigh when max is unavailable');
 });
 
 // ============================================================
@@ -478,9 +488,14 @@ test('getClaudeEnv DOES set MAX_THINKING_TOKENS for Opus 4.6', () => {
   assert.strictEqual(env.MAX_THINKING_TOKENS, '16000', 'MAX_THINKING_TOKENS should be set for Opus 4.6');
 });
 
-test('getClaudeEnv DOES set MAX_THINKING_TOKENS for Sonnet', () => {
+test('getClaudeEnv DOES set MAX_THINKING_TOKENS for Sonnet 4.6', () => {
+  const env = getClaudeEnv({ model: 'sonnet-4-6', thinkingBudget: 8000 });
+  assert.strictEqual(env.MAX_THINKING_TOKENS, '8000', 'MAX_THINKING_TOKENS should be set for Sonnet 4.6');
+});
+
+test('getClaudeEnv does NOT set MAX_THINKING_TOKENS for Sonnet (now Sonnet 5, adaptive-only, Issue #2003)', () => {
   const env = getClaudeEnv({ model: 'sonnet', thinkingBudget: 8000 });
-  assert.strictEqual(env.MAX_THINKING_TOKENS, '8000', 'MAX_THINKING_TOKENS should be set for Sonnet');
+  assert.strictEqual(env.MAX_THINKING_TOKENS, undefined, 'Sonnet 5 is adaptive-thinking-only; MAX_THINKING_TOKENS should not be set');
 });
 
 test('getClaudeEnv sets CLAUDE_CODE_EFFORT_LEVEL=max for Opus 4.8 with max think', () => {
@@ -604,6 +619,7 @@ test('getThinkingLevelToTokens: all levels produce expected tokens', () => {
   assert.strictEqual(tokens.medium, 15999);
   assert.strictEqual(tokens.high, 23999);
   assert.strictEqual(tokens.xhigh, 31999);
+  assert.strictEqual(tokens.ultra, 31999);
   assert.strictEqual(tokens.max, 31999);
 });
 
@@ -629,13 +645,14 @@ test('supportsEffortLevel returns true for Opus 4.5', () => {
 // ============================================================
 console.log('\n=== 20. getClaudeEnv Cross-Model Think Level Matrix ===');
 
-const thinkLevels = ['off', 'low', 'medium', 'high', 'xhigh', 'max'];
+const thinkLevels = ['off', 'low', 'medium', 'high', 'xhigh', 'ultra', 'max'];
 const testModels = [
   { name: 'opus (4.8)', alias: 'opus', adaptive: true, supportsEffort: true, supportsXHigh: true, supportsMax: true },
   { name: 'claude-opus-4-8', alias: 'claude-opus-4-8', adaptive: true, supportsEffort: true, supportsXHigh: true, supportsMax: true },
   { name: 'opus-4-7', alias: 'opus-4-7', adaptive: true, supportsEffort: true, supportsXHigh: true, supportsMax: true },
   { name: 'opus-4-6', alias: 'opus-4-6', adaptive: false, supportsEffort: true, supportsXHigh: false, supportsMax: true },
-  { name: 'sonnet (4.6)', alias: 'sonnet', adaptive: false, supportsEffort: true, supportsXHigh: false, supportsMax: true },
+  { name: 'sonnet (5)', alias: 'sonnet', adaptive: true, supportsEffort: true, supportsXHigh: true, supportsMax: true },
+  { name: 'sonnet-4-6', alias: 'sonnet-4-6', adaptive: false, supportsEffort: true, supportsXHigh: false, supportsMax: true },
   { name: 'haiku (4.5)', alias: 'haiku', adaptive: false, supportsEffort: false, supportsXHigh: false, supportsMax: false },
 ];
 
@@ -660,7 +677,7 @@ for (const model of testModels) {
         assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, undefined);
       });
     } else if (model.supportsEffort) {
-      const expectedEffort = level === 'xhigh' ? (model.supportsXHigh ? 'xhigh' : model.supportsMax ? 'max' : 'high') : level === 'max' ? (model.supportsMax ? 'max' : 'high') : level;
+      const expectedEffort = level === 'xhigh' ? (model.supportsXHigh ? 'xhigh' : model.supportsMax ? 'max' : 'high') : level === 'ultra' ? (model.supportsMax ? 'max' : model.supportsXHigh ? 'xhigh' : 'high') : level === 'max' ? (model.supportsMax ? 'max' : 'high') : level;
       test(`${model.name} + --think ${level}: effort=${expectedEffort}`, () => {
         assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, expectedEffort);
       });

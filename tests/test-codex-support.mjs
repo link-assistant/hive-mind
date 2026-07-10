@@ -6,7 +6,7 @@ const { defaultModels, primaryModelNames, resolveDefaultFallbackModel, resolveMo
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
 const { parseCodexExecJsonOutput, getCodexErrorEventSummary, executeCodexCommand, buildCodexResultModelUsage, calculateCodexPricingFromModelInfo } = await import('../src/codex.lib.mjs');
 const { executeOpenCodeCommand } = await import('../src/opencode.lib.mjs');
-const { executeAgentCommand } = await import('../src/agent.lib.mjs');
+const { executeAgentCommand, agentCliSupportsLiveInput, getAgentCliVersion, MIN_AGENT_LIVE_INPUT_VERSION } = await import('../src/agent.lib.mjs');
 const { classifyRetryableError } = await import('../src/tool-retry.lib.mjs');
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
 const { buildAgentBudgetStats, buildBudgetStatsString } = await import('../src/claude.budget-stats.lib.mjs');
@@ -40,8 +40,9 @@ const asyncTest = async (name, fn) => {
 
 const renderTaggedTemplateCommand = (strings, values) => strings.reduce((result, stringPart, index) => result + stringPart + (index < values.length ? String(values[index]) : ''), '');
 
-test('Codex preferred default model is gpt-5.5', () => {
-  assert.equal(defaultModels.codex, 'gpt-5.5');
+test('Codex preferred default model is gpt-5.6-sol', () => {
+  // Issue #2027: GPT-5.6 Sol is the released Codex flagship default.
+  assert.equal(defaultModels.codex, 'gpt-5.6-sol');
 });
 
 test('Codex resolves gpt-5.5 model id', () => {
@@ -82,26 +83,34 @@ test('Codex validates hidden codex-auto-review model id from CLI catalog', () =>
   assert.equal(result.mappedModel, 'codex-auto-review');
 });
 
-test('Codex primary model names prioritize gpt-5.5 and current visible catalog entries', () => {
-  assert.deepEqual(primaryModelNames.codex, ['gpt-5.5', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark']);
+test('Codex primary model names prioritize gpt-5.6-sol and current visible catalog entries', () => {
+  // Issue #2027: gpt-5.6-sol leads the primary catalog, with gpt-5.5 kept as the stable fallback.
+  assert.deepEqual(primaryModelNames.codex, ['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark']);
   assert.equal(primaryModelNames.codex.includes('codex-auto-review'), false);
 });
 
-await asyncTest('Codex runtime default stays on gpt-5.5 when the local catalog includes it', async () => {
+await asyncTest('Codex runtime default uses gpt-5.6-sol when the local catalog includes it', async () => {
+  const result = await resolveRuntimeDefaultModel('codex', {
+    availableCodexModels: ['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'],
+  });
+  assert.equal(result, 'gpt-5.6-sol');
+});
+
+await asyncTest('Codex runtime default falls back to gpt-5.5 when gpt-5.6-sol is missing from the local catalog', async () => {
   const result = await resolveRuntimeDefaultModel('codex', {
     availableCodexModels: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'],
   });
   assert.equal(result, 'gpt-5.5');
 });
 
-await asyncTest('Codex runtime default stays on gpt-5.5 for current CLI catalog including hidden auto-review model', async () => {
+await asyncTest('Codex runtime default falls back to gpt-5.5 for current CLI catalog including hidden auto-review model', async () => {
   const result = await resolveRuntimeDefaultModel('codex', {
     availableCodexModels: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark', 'codex-auto-review'],
   });
   assert.equal(result, 'gpt-5.5');
 });
 
-await asyncTest('Codex runtime default can fall forward to gpt-5.6 preview when gpt-5.5 is unavailable', async () => {
+await asyncTest('Codex runtime default keeps gpt-5.6-sol when only the preview tier is available', async () => {
   const result = await resolveRuntimeDefaultModel('codex', {
     availableCodexModels: ['gpt-5.6-sol', 'gpt-5.4', 'gpt-5.4-mini'],
   });
@@ -148,6 +157,13 @@ test('Models without configured defaults keep fallback unset', () => {
   assert.equal(resolveDefaultFallbackModel('agent', 'opencode/grok-code'), null);
 });
 
+test('Agent live input version guard requires Agent 0.24.1 or newer', () => {
+  assert.equal(MIN_AGENT_LIVE_INPUT_VERSION, '0.24.1');
+  assert.equal(getAgentCliVersion('@link-assistant/agent 0.24.1'), '0.24.1');
+  assert.equal(agentCliSupportsLiveInput('@link-assistant/agent 0.24.0'), false);
+  assert.equal(agentCliSupportsLiveInput('@link-assistant/agent 0.24.1'), true);
+});
+
 test('Capacity errors are classified as retryable overloads', () => {
   const classified = classifyRetryableError('Selected model is at capacity. Please try a different model.');
   assert.equal(classified.isRetryable, true);
@@ -182,14 +198,29 @@ test('Codex --think high maps to high reasoning', () => {
   assert.equal(result.reasoningEffort, 'high');
 });
 
-test('Codex --think xhigh maps to xhigh reasoning', () => {
+test('Codex --think xhigh maps to xhigh reasoning (natively supported by GPT-5.5/5.6)', () => {
   const result = resolveCodexReasoningEffort({ think: 'xhigh' });
   assert.equal(result.reasoningEffort, 'xhigh');
 });
 
-test('Codex --think max maps to xhigh reasoning', () => {
+test('Codex --think ultra maps to ultra reasoning (multi-agent tier) and pairs a rollout token budget', () => {
+  const result = resolveCodexReasoningEffort({ think: 'ultra' });
+  assert.equal(result.reasoningEffort, 'ultra');
+  // Issue #2027: ultra must be paired with a rollout token budget cap to stay predictable.
+  assert.equal(result.rolloutTokenBudget, 500000);
+});
+
+test('Codex --think ultra honors an explicit --rollout-token-budget override', () => {
+  const result = resolveCodexReasoningEffort({ think: 'ultra', rolloutTokenBudget: 250000 });
+  assert.equal(result.reasoningEffort, 'ultra');
+  assert.equal(result.rolloutTokenBudget, 250000);
+});
+
+test('Codex --think max maps to max reasoning (deepest single-agent effort, above xhigh)', () => {
   const result = resolveCodexReasoningEffort({ think: 'max' });
-  assert.equal(result.reasoningEffort, 'xhigh');
+  assert.equal(result.reasoningEffort, 'max');
+  // Only ultra carries a rollout token budget; max is single-agent.
+  assert.equal(result.rolloutTokenBudget, undefined);
 });
 
 test('Codex --thinking-budget exposes minimal reasoning tier', () => {
@@ -200,6 +231,16 @@ test('Codex --thinking-budget exposes minimal reasoning tier', () => {
 test('Codex --thinking-budget exposes high reasoning tier', () => {
   const result = resolveCodexReasoningEffort({ thinkingBudget: 7500, maxThinkingBudget: 10000 });
   assert.equal(result.reasoningEffort, 'high');
+});
+
+test('Codex --thinking-budget caps the budget-derived effort at xhigh (max/ultra stay explicit)', () => {
+  const result = resolveCodexReasoningEffort({ thinkingBudget: 10000, maxThinkingBudget: 10000 });
+  assert.equal(result.reasoningEffort, 'xhigh');
+});
+
+test('Codex --thinking-budget 0 disables reasoning', () => {
+  const result = resolveCodexReasoningEffort({ thinkingBudget: 0 });
+  assert.equal(result.reasoningEffort, 'none');
 });
 
 test('Codex defaults to none reasoning when no thinking flags are set', () => {
@@ -743,6 +784,13 @@ await asyncTest('Agent resume uses --resume with --no-fork to preserve the same 
     feedbackLines: [],
     agentPath: 'agent',
     $: fakeDollar,
+    calculatePricing: async (modelId, tokenUsage) => ({
+      modelId,
+      modelName: modelId,
+      provider: 'OpenCode Zen',
+      tokenUsage,
+      totalCostUSD: 0,
+    }),
   });
 
   assert.equal(result.success, true);
@@ -750,6 +798,96 @@ await asyncTest('Agent resume uses --resume with --no-fork to preserve the same 
     commands.some(command => command.includes('agent --model opencode/grok-code --resume session-agent-1666 --no-fork')),
     `Expected --resume --no-fork command, got: ${commands.join('\n')}`
   );
+});
+
+await asyncTest('Agent live input uses stream-json stdin and parses Agent 0.24 idle events', async () => {
+  const commands = [];
+  const stdinWrites = [];
+  const fakeStdin = {
+    destroyed: false,
+    writableEnded: false,
+    closed: false,
+    write(chunk) {
+      stdinWrites.push(String(chunk));
+      return true;
+    },
+  };
+  const fakeDollar = (first, ...rest) => {
+    const run = (strings, values) => {
+      const command = renderTaggedTemplateCommand(strings, values);
+      commands.push(command);
+
+      if (command.includes('gh api')) {
+        if (command.includes('--jq')) {
+          return Promise.resolve({ code: 0, stdout: JSON.stringify({ title: 'Existing title', body: 'Existing body' }) });
+        }
+        return Promise.resolve({ code: 0, stdout: '[]' });
+      }
+
+      return {
+        streams: { stdin: Promise.resolve(fakeStdin) },
+        async *stream() {
+          yield {
+            type: 'stdout',
+            data: Buffer.from(['{"type":"init","session_id":"agent_live_2007"}', '{"type":"message","session_id":"agent_live_2007","content":[{"type":"text","text":"Done live."}]}', '{"type":"result","status":"success","session_id":"agent_live_2007"}', '{"type":"idle","session_id":"agent_live_2007"}'].join('\n')),
+          };
+          yield { type: 'exit', code: 0 };
+        },
+        result: { code: 0 },
+      };
+    };
+
+    if (Array.isArray(first) && Object.prototype.hasOwnProperty.call(first, 'raw')) {
+      return run(first, rest);
+    }
+    return (strings, ...values) => run(strings, values);
+  };
+
+  const result = await executeAgentCommand({
+    tempDir: process.cwd(),
+    branchName: 'issue-2007-test',
+    prompt: 'user prompt',
+    systemPrompt: 'system prompt',
+    owner: 'o',
+    repo: 'r',
+    issueNumber: 11,
+    prNumber: 22,
+    argv: {
+      model: 'opencode/grok-code',
+      tool: 'agent',
+      verbose: false,
+      acceptIncommingCommentsAsInput: true,
+      queueCommentsToInput: true,
+      autoInputUntilMergeable: true,
+    },
+    log: async () => {},
+    formatAligned: (icon, label, value = '') => `${icon} ${label} ${value}`,
+    getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+    forkedRepo: null,
+    feedbackLines: [],
+    agentPath: 'agent',
+    $: fakeDollar,
+    calculatePricing: async (modelId, tokenUsage) => ({
+      modelId,
+      modelName: modelId,
+      provider: 'OpenCode Zen',
+      tokenUsage,
+      totalCostUSD: 0,
+    }),
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.sessionId, 'agent_live_2007');
+  assert.equal(result.resultSummary, 'Done live.');
+  const agentCommand = commands.find(command => command.includes('agent --model opencode/grok-code'));
+  assert.ok(agentCommand, `Expected Agent command, got: ${commands.join('\n')}`);
+  assert.ok(agentCommand.includes('--input-format stream-json'), `Expected stream-json input flag, got: ${agentCommand}`);
+  assert.ok(agentCommand.includes('--output-format stream-json'), `Expected stream-json output flag, got: ${agentCommand}`);
+  assert.ok(!agentCommand.includes('cat '), `Live input should not pipe a prompt file, got: ${agentCommand}`);
+  const stdinPayload = stdinWrites.join('');
+  assert.match(stdinPayload, /"type":"user"/);
+  assert.match(stdinPayload, /system prompt/);
+  assert.match(stdinPayload, /user prompt/);
 });
 
 test('Codex result model usage uses parsed token usage in shared budget-stats shape', () => {

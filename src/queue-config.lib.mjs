@@ -192,6 +192,8 @@ const parseIntWithDefault = (envVar, defaultValue) => {
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
+const MINIMUM_START_INTERVAL_MS = 10 * 60 * 1000;
+
 // Parse links notation config from environment variable (if provided)
 const linoConfig = parseQueueConfig(getenv('HIVE_MIND_QUEUE_CONFIG', ''));
 
@@ -271,9 +273,10 @@ export const QUEUE_CONFIG = {
   GITHUB_API_THRESHOLD: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 0.5, 'enqueue').value,
 
   // Timing
-  // MIN_START_INTERVAL_MS: Time to allow solve command to start actual claude process
-  // This ensures that when API limits are checked, the running process is counted
-  MIN_START_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_MS', 60000), // 1 minute between starts
+  // MIN_START_INTERVAL_MS: Minimum global spacing between task startups.
+  // Issue #2015: after resource thresholds clear, starting a backlog in a burst
+  // can kill the next batch before host metrics have time to settle.
+  MIN_START_INTERVAL_MS: Math.max(parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_MS', MINIMUM_START_INTERVAL_MS), MINIMUM_START_INTERVAL_MS), // at least 10 minutes between starts
   CONSUMER_POLL_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_CONSUMER_POLL_INTERVAL_MS', 60000), // 1 minute between queue checks
   MESSAGE_UPDATE_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_MESSAGE_UPDATE_INTERVAL_MS', 60000), // 1 minute between status message updates
 

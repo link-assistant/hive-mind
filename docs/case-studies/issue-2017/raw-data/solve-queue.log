@@ -1,0 +1,154 @@
+
+📋 Configuration Tests
+
+✅ QUEUE_CONFIG has all required fields
+✅ QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)
+✅ MESSAGE_UPDATE_INTERVAL_MS is reasonable
+✅ MIN_START_INTERVAL_MS is 10 minutes
+✅ CONSUMER_POLL_INTERVAL_MS is 1 minute
+
+📋 Queue Status Tests
+
+✅ QueueItemStatus has all required statuses
+
+📋 Queue Basic Operations Tests
+
+✅ SolveQueue initializes with empty state
+✅ enqueue adds items to queue
+✅ cancel removes items from queue
+✅ getQueueSummary returns correct structure
+
+📋 Duplicate URL Prevention Tests (Issue #1080)
+
+✅ findByUrl returns null for empty queue
+✅ findByUrl finds item in queue
+✅ findByUrl returns null for different URL
+✅ findByUrl finds item among multiple queued items
+✅ findByUrl does not find cancelled items
+
+📋 Message Update Tests
+
+✅ shouldUpdateMessage returns true for items without lastMessageUpdateTime
+✅ shouldUpdateMessage returns false when update interval not reached
+✅ shouldUpdateMessage returns true when update interval reached
+
+📋 Throttle Statistics Tests
+
+✅ recordThrottle increments throttle reason count
+
+📋 Format Tests
+
+✅ formatStatus returns correct string for empty queue
+✅ formatStatus returns correct string for non-empty queue
+✅ formatDetailedStatus includes all sections
+✅ formatDetailedStatus renders clickable links for queued/completed/failed items (issue #1837)
+
+📋 Claude Process Detection Tests
+
+✅ getRunningClaudeProcesses returns object with count and processes
+
+📋 Cache Tests
+
+✅ getLimitCache returns a cache instance
+✅ Cache set and get work correctly
+✅ Cache returns null for expired entries
+✅ CACHE_TTL has all required values
+✅ CACHE_TTL.USAGE_API default is at least 13 minutes (issue #1798)
+✅ CACHE_TTL.USAGE_API is longer than CACHE_TTL.API (rate-limit headroom)
+
+📋 Queue Item State Transitions Tests
+
+✅ Item transitions from QUEUED to WAITING
+✅ Item transitions from WAITING to STARTING
+✅ Item transitions from STARTING to STARTED
+✅ Item can be marked as failed
+✅ Item can be marked as failed with Error object
+
+📋 Wait Time Calculation Tests
+
+✅ getWaitTime returns elapsed time for queued items
+
+📋 Reason Message Ordering Tests (Issue #1078)
+
+✅ Claude process info should be at end of reasons
+
+📋 Total Processing Calculation Tests (Issue #1133)
+
+✅ totalProcessing is calculated as processing.size + Claude processes
+✅ canStartCommand returns totalProcessing in result
+✅ canStartCommand returns claudeProcesses count in result
+
+📋 System Resource Threshold Tests (Issue #1133)
+
+✅ checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode (Issue #1155)
+✅ checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode (Issue #1155)
+✅ QUEUE_CONFIG thresholds are valid positive ratios
+
+📋 API Threshold Behavior Tests (Issue #1133)
+
+✅ checkApiLimits accepts totalProcessing parameter
+✅ checkApiLimits with different totalProcessing values
+
+📋 One-At-A-Time Mode Tests (Issue #1133)
+
+✅ oneAtATime mode blocks when totalProcessing > 0
+✅ oneAtATime mode allows when totalProcessing === 0
+✅ normal mode allows parallel commands
+
+📋 Throttle Recording Tests
+
+✅ recordThrottle increments correct stats for all threshold types
+
+📋 Threshold Naming Tests (Issue #1133)
+
+✅ CLAUDE_5_HOUR_SESSION_THRESHOLD is correctly named
+
+📋 Queue Statistics Tests
+
+✅ getStats returns all required fields
+✅ getStats tracks enqueue correctly
+
+📋 Min Start Interval Tests
+
+✅ lastStartTime is updated when item moves to processing
+✅ MIN_START_INTERVAL_MS prevents rapid consecutive starts
+
+📋 Processing Map Tests
+
+✅ processing map correctly tracks items
+
+📋 Format Waiting Reason Tests
+
+✅ formatDetailedStatus shows the shared waiting reason once (issue #1891)
+
+📋 Queue Consumer Logic Tests
+
+✅ consumer does not start when queue is empty
+✅ multiple items maintain FIFO order within tool queue
+
+📋 Edge Case Tests
+
+✅ cancel returns false for non-existent or processing items
+✅ getQueueSummary handles empty queue correctly
+✅ queue item has correct tool property
+
+📋 Tool Agent Claude Limits Skip Tests (Issue #1159)
+
+✅ checkApiLimits accepts tool parameter
+✅ checkApiLimits with tool agent should not block on Claude limits
+✅ checkApiLimits with tool gemini should not block on Claude limits
+✅ checkApiLimits with tool codex applies Codex limits
+✅ checkApiLimits default tool is claude
+✅ canStartCommand accepts tool option
+✅ canStartCommand with tool agent skips Claude limits
+✅ canStartCommand default tool is claude
+✅ queue item tool property is used by consumer
+✅ gemini queue item tool property is used by consumer
+
+📊 Test Results
+
+Tests passed: 71
+Tests failed: 0
+Total tests: 71
+
+✅ All tests passed!

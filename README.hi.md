@@ -39,7 +39,7 @@ Hive Mind एक **सामान्यवादी AI** (मिनी-AGI) ह
 | सदस्यता                                                          | `--tool` के साथ     | डिफ़ॉल्ट मॉडल | किसके लिए बेहतर है                                |
 | ---------------------------------------------------------------- | ------------------- | ------------- | ------------------------------------------------- |
 | **Anthropic Claude MAX** (~$200/माह, अक्सर 50% छूट = $400 मूल्य) | `claude` (डिफ़ॉल्ट) | Sonnet/Haiku  | उच्चतम रचनात्मकता, मजबूत सामान्य कोड रीजनिंग      |
-| **OpenAI ChatGPT Pro** ($200/माह, Codex शामिल)                   | `codex`             | `gpt-5.5`     | भरोसेमंद deterministic refactors और तेज iteration |
+| **OpenAI ChatGPT Pro** ($200/माह, Codex शामिल)                   | `codex`             | `gpt-5.6-sol` | भरोसेमंद deterministic refactors और तेज iteration |
 
 दोनों टूल एक ही hive में साथ उपयोग किए जा सकते हैं। Worker अलग-अलग टूल समानांतर चला सकते हैं, और `/codex` या `/solve --tool codex` कार्यों को ChatGPT Pro पर भेजता है जबकि डिफ़ॉल्ट Claude MAX पर जाता है। किसी एक को चुनना आवश्यक नहीं है: किसी भी एक सदस्यता से संचालन संभव है, और दोनों का उपयोग per-tool/model concurrency mode (#1474) खोलता है।
 
@@ -511,6 +511,26 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/merge` - तैयार Pull Requests merge करें
+
+```
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+
+Examples:
+/merge https://github.com/owner/repo
+/merge https://github.com/owner/repo/issues/123
+/merge https://github.com/owner/repo/pull/456
+```
+
+Repository targets `ready` label वाले PRs को क्रम से process करते हैं। Issue और
+pull request targets केवल linked या selected PR process करते हैं। आप किसी ऐसे
+message पर `/merge` से reply भी कर सकते हैं जिसमें एक GitHub repository, issue,
+या pull request link हो, जैसे कोई पुराना `/codex ...issues/123` command.
+
+अगर target PR अभी finished नहीं है, तो `/merge` merge करने से पहले उसके
+mergeable होने तक wait करता है। Merge-conflict skips अभी भी `--auto-resolve` के
+साथ काम करते हैं।
+
 #### `/limits` - उपयोग सीमाएँ दिखाएँ
 
 ```
@@ -521,7 +541,9 @@ Shows:
 - RAM usage (used vs total)
 - Disk space usage
 - GitHub API rate limits
-- Claude usage limits (session and weekly)
+- Claude and ChatGPT subscription usage windows
+- Non-zero Codex weekly limits and credits
+- Solve queue status
 ```
 
 #### `/terminal_watch` - Live Session Log

@@ -263,7 +263,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
           node-version: 24.x
@@ -301,7 +301,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
           node-version: 24.x
@@ -389,7 +389,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
           node-version: 24.x
@@ -460,7 +460,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
           node-version: 24.x
@@ -604,7 +604,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: v3.14.0
 
@@ -654,6 +654,11 @@ jobs:
 
       - name: Update npm for OIDC trusted publishing
         run: node scripts/setup-npm.mjs
+
+      - name: Sanitize npm user config
+        # Remove the deprecated always-auth entry setup-node writes, which npm 11
+        # warns about on every command (issue #2028).
+        run: node scripts/sanitize-npm-userconfig.mjs
 
       - name: Check for changesets
         id: check_changesets
@@ -1029,7 +1034,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: v3.14.0
 
@@ -1070,6 +1075,11 @@ jobs:
 
       - name: Update npm for OIDC trusted publishing
         run: node scripts/setup-npm.mjs
+
+      - name: Sanitize npm user config
+        # Remove the deprecated always-auth entry setup-node writes, which npm 11
+        # warns about on every command (issue #2028).
+        run: node scripts/sanitize-npm-userconfig.mjs
 
       - name: Version packages and commit to main
         id: version
@@ -1414,7 +1424,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: v3.14.0
 

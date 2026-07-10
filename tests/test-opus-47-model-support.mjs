@@ -105,10 +105,10 @@ test('claude-opus-4-5 alias maps to claude-opus-4-5-20251101', () => {
   assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101', 'claude-opus-4-5 should map to claude-opus-4-5-20251101');
 });
 
-test('sonnet alias still works (maps to Sonnet 4.6)', () => {
+test('sonnet alias still works (now maps to Sonnet 5, Issue #2003)', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
 });
 
 test('haiku alias still works', () => {
@@ -367,9 +367,9 @@ test('getClaudeEnv DOES set MAX_THINKING_TOKENS for Opus 4.6', () => {
   assert.strictEqual(env.MAX_THINKING_TOKENS, '16000', 'MAX_THINKING_TOKENS should be set for Opus 4.6');
 });
 
-test('getClaudeEnv DOES set MAX_THINKING_TOKENS for Sonnet', () => {
-  const env = getClaudeEnv({ model: 'sonnet', thinkingBudget: 8000 });
-  assert.strictEqual(env.MAX_THINKING_TOKENS, '8000', 'MAX_THINKING_TOKENS should be set for Sonnet');
+test('getClaudeEnv DOES set MAX_THINKING_TOKENS for Sonnet 4.6', () => {
+  const env = getClaudeEnv({ model: 'sonnet-4-6', thinkingBudget: 8000 });
+  assert.strictEqual(env.MAX_THINKING_TOKENS, '8000', 'MAX_THINKING_TOKENS should be set for Sonnet 4.6');
 });
 
 test('getClaudeEnv sets CLAUDE_CODE_EFFORT_LEVEL=max for Opus 4.7 with max think', () => {
@@ -445,9 +445,9 @@ test('getClaudeEnv sets effort=max for Opus 4.6 with --think xhigh', () => {
   assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'max', 'Opus 4.6 with xhigh should degrade to max effort');
 });
 
-test('getClaudeEnv sets MAX_THINKING_TOKENS=31999 for Sonnet with --think xhigh', () => {
-  const env = getClaudeEnv({ model: 'sonnet', thinkLevel: 'xhigh', thinkingBudget: 31999 });
-  assert.strictEqual(env.MAX_THINKING_TOKENS, '31999', 'Sonnet should get full thinking budget for xhigh');
+test('getClaudeEnv sets MAX_THINKING_TOKENS=31999 for Sonnet 4.6 with --think xhigh', () => {
+  const env = getClaudeEnv({ model: 'sonnet-4-6', thinkLevel: 'xhigh', thinkingBudget: 31999 });
+  assert.strictEqual(env.MAX_THINKING_TOKENS, '31999', 'Sonnet 4.6 should get full thinking budget for xhigh');
 });
 
 // ============================================================
@@ -492,7 +492,7 @@ test('getClaudeEnv: --thinking-budget 31999 -> effort=max + MAX_THINKING_TOKENS=
 });
 
 test('getClaudeEnv: --thinking-budget 16000 → effort=medium + MAX_THINKING_TOKENS=16000 for Sonnet 4.6', () => {
-  const env = getClaudeEnv({ model: 'sonnet', thinkingBudget: 16000, maxBudget: 31999 });
+  const env = getClaudeEnv({ model: 'sonnet-4-6', thinkingBudget: 16000, maxBudget: 31999 });
   assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'medium', 'Sonnet 4.6 should get effort level');
   assert.strictEqual(env.MAX_THINKING_TOKENS, '16000');
 });
@@ -571,7 +571,7 @@ test('supportsXHighEffortLevel returns true for Opus 4.7 aliases and ids', () =>
 
 test('supportsXHighEffortLevel returns false for other effort-capable models', () => {
   assert.strictEqual(supportsXHighEffortLevel('opus-4-6'), false, 'Opus 4.6 should not support native xhigh');
-  assert.strictEqual(supportsXHighEffortLevel('sonnet'), false, 'Sonnet 4.6 should not support native xhigh');
+  assert.strictEqual(supportsXHighEffortLevel('sonnet-4-6'), false, 'Sonnet 4.6 should not support native xhigh');
   assert.strictEqual(supportsXHighEffortLevel('claude-opus-5'), false, 'Only Opus 4.7 has native xhigh in current docs');
 });
 
@@ -596,7 +596,8 @@ const testModels = [
   { name: 'opus (4.7)', alias: 'opus', isOpus47: true, supportsEffort: true, supportsXHigh: true, supportsMax: true },
   { name: 'opus-4-6', alias: 'opus-4-6', isOpus47: false, supportsEffort: true, supportsXHigh: false, supportsMax: true },
   { name: 'opus-4-5', alias: 'opus-4-5', isOpus47: false, supportsEffort: true, supportsXHigh: false, supportsMax: false },
-  { name: 'sonnet (4.6)', alias: 'sonnet', isOpus47: false, supportsEffort: true, supportsXHigh: false, supportsMax: true },
+  { name: 'sonnet-4-6', alias: 'sonnet-4-6', isOpus47: false, supportsEffort: true, supportsXHigh: false, supportsMax: true },
+  { name: 'sonnet (5)', alias: 'sonnet', isOpus47: true, supportsEffort: true, supportsXHigh: true, supportsMax: true },
   { name: 'haiku (4.5)', alias: 'haiku', isOpus47: false, supportsEffort: false, supportsXHigh: false, supportsMax: false },
 ];
 

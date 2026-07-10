@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.3.0
+
+### Minor Changes
+
+- 40cf185: Use Opus as the default model for the Claude tool while preserving explicit model overrides.
+
 ## 2.2.3
 
 ### Patch Changes

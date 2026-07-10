@@ -346,9 +346,9 @@ test('getClaudeEnv sets CLAUDE_CODE_EFFORT_LEVEL=xhigh for mythos-5 with xhigh t
   assert.strictEqual(env.MAX_THINKING_TOKENS, undefined, 'No MAX_THINKING_TOKENS for Mythos 5');
 });
 
-test('getClaudeEnv does not set effort level for fable with off think', () => {
+test('getClaudeEnv sets the lowest effort for fable with off think', () => {
   const env = getClaudeEnv({ model: 'fable', thinkLevel: 'off' });
-  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, undefined, 'No effort level when thinking is off');
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'low', 'Always-adaptive Fable 5 uses its lowest effort when thinking is off');
 });
 
 // ============================================================
@@ -478,8 +478,8 @@ for (const model of testModels) {
     });
 
     if (level === 'off') {
-      test(`${model.name} + --think off: no effort level`, () => {
-        assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, undefined);
+      test(`${model.name} + --think off: lowest effort`, () => {
+        assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'low');
       });
     } else {
       // Fable 5 / Mythos 5 support the full effort ladder including xhigh and max

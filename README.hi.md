@@ -173,6 +173,7 @@ claude
 # Use /config command and set:
 # Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
 # Thinking mode                             false # Anthropic models perform better and cheaper without thinking
+# `--think` न देने पर Hive Mind इसे `--think off` मानता है।
 # Model                                     haiku # chepear for connection testing manually
 # Claude in Chrome enabled by default       false # No need for Chrome support on server
 
@@ -346,11 +347,11 @@ solve <issue-url> [options]
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 
-| विकल्प          | संक्षिप्त | विवरण                                         | डिफ़ॉल्ट   |
-| --------------- | --------- | --------------------------------------------- | ---------- |
-| `--model`       | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku) | sonnet     |
-| `--think`       |           | सोचने का स्तर (low, medium, high, max)        | -          |
-| `--base-branch` | `-b`      | PR के लिए टार्गेट ब्रांच                      | (डिफ़ॉल्ट) |
+| विकल्प          | संक्षिप्त | विवरण                                                     | डिफ़ॉल्ट   |
+| --------------- | --------- | --------------------------------------------------------- | ---------- |
+| `--model`       | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku)             | sonnet     |
+| `--think`       |           | सोचने का स्तर (off, low, medium, high, xhigh, ultra, max) | off        |
+| `--base-branch` | `-b`      | PR के लिए टार्गेट ब्रांच                                  | (डिफ़ॉल्ट) |
 
 **अन्य उपयोगी विकल्प:**
 
@@ -372,12 +373,12 @@ hive <github-url> [options]
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 
-| विकल्प         | संक्षिप्त | विवरण                                         | डिफ़ॉल्ट |
-| -------------- | --------- | --------------------------------------------- | -------- |
-| `--model`      | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku) | sonnet   |
-| `--think`      |           | सोचने का स्तर (low, medium, high, max)        | -        |
-| `--all-issues` | `-a`      | सभी इश्यू निगरानी करें (लेबल अनदेखा करें)     | false    |
-| `--once`       |           | एकल रन (लगातार निगरानी न करें)                | false    |
+| विकल्प         | संक्षिप्त | विवरण                                                     | डिफ़ॉल्ट |
+| -------------- | --------- | --------------------------------------------------------- | -------- |
+| `--model`      | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku)             | sonnet   |
+| `--think`      |           | सोचने का स्तर (off, low, medium, high, xhigh, ultra, max) | off      |
+| `--all-issues` | `-a`      | सभी इश्यू निगरानी करें (लेबल अनदेखा करें)                 | false    |
+| `--once`       |           | एकल रन (लगातार निगरानी न करें)                            | false    |
 
 **अन्य उपयोगी विकल्प:**
 

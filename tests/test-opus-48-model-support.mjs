@@ -514,9 +514,9 @@ test('getClaudeEnv sets CLAUDE_CODE_EFFORT_LEVEL=high for Opus 4.8 with high thi
   assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'high', 'Opus 4.8 with high should get high effort');
 });
 
-test('getClaudeEnv does not set effort level for Opus 4.8 with off think', () => {
+test('getClaudeEnv sets the lowest effort for Opus 4.8 with off think', () => {
   const env = getClaudeEnv({ model: 'opus', thinkLevel: 'off' });
-  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, undefined, 'No effort level when thinking is off');
+  assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'low', 'Adaptive Opus 4.8 uses its lowest effort when thinking is off');
 });
 
 test('getClaudeEnv: explicit claude-opus-4-8 + xhigh -> effort=xhigh, no MAX_THINKING_TOKENS', () => {
@@ -673,8 +673,8 @@ for (const model of testModels) {
     }
 
     if (level === 'off') {
-      test(`${model.name} + --think off: no effort level`, () => {
-        assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, undefined);
+      test(`${model.name} + --think off: lowest effort when adaptive`, () => {
+        assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, model.adaptive ? 'low' : undefined);
       });
     } else if (model.supportsEffort) {
       const expectedEffort = level === 'xhigh' ? (model.supportsXHigh ? 'xhigh' : model.supportsMax ? 'max' : 'high') : level === 'ultra' ? (model.supportsMax ? 'max' : model.supportsXHigh ? 'xhigh' : 'high') : level === 'max' ? (model.supportsMax ? 'max' : 'high') : level;

@@ -446,7 +446,7 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{mergeable: boolean, reason: string|null, terminal?: boolean}>}
+ * @returns {Promise<{mergeable: boolean, mergeableState?: string|null, mergeStateStatus?: string|null, reason: string|null, terminal?: boolean}>}
  */
 export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
   // Issue #1339: GitHub computes mergeability asynchronously. When mergeStateStatus is
@@ -473,7 +473,7 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
         if (verbose) {
           console.log(`[VERBOSE] /merge: PR #${prNumber} mergeability still UNKNOWN after ${MAX_UNKNOWN_RETRIES} attempts`);
         }
-        return { mergeable: false, reason: `Merge state: UNKNOWN (GitHub could not compute mergeability after ${MAX_UNKNOWN_RETRIES} attempts)` };
+        return { mergeable: false, mergeableState: pr.mergeable, mergeStateStatus: pr.mergeStateStatus, reason: `Merge state: UNKNOWN (GitHub could not compute mergeability after ${MAX_UNKNOWN_RETRIES} attempts)` };
       }
 
       const mergeable = pr.mergeable === 'MERGEABLE';
@@ -505,7 +505,7 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
         console.log(`[VERBOSE] /merge: PR #${prNumber} mergeable: ${mergeable}, state: ${pr.mergeStateStatus}`);
       }
 
-      return { mergeable, reason };
+      return { mergeable, mergeableState: pr.mergeable, mergeStateStatus: pr.mergeStateStatus, reason };
     } catch (error) {
       if (isTerminalGitHubEntityError(error)) {
         const terminalError = getTerminalGitHubEntityErrorMessage(error);

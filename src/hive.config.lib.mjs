@@ -3,7 +3,7 @@
 // when only the yargs configuration is needed (e.g., in telegram-bot.mjs)
 // This module has no heavy dependencies to allow fast loading for --help
 
-import { SOLVE_OPTION_DEFINITIONS } from './solve.config.lib.mjs';
+import { SOLVE_OPTION_DEFINITIONS, normalizeAndValidateThink } from './solve.config.lib.mjs';
 import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
 
 // Hive-only options that are NOT solve options (hive-specific functionality).
@@ -223,6 +223,12 @@ export const createYargsConfig = yargsInstance => {
       'strip-dashed': false,
       'strip-aliased': false,
       'populate--': false,
+    })
+    // Issue #2038: normalize/validate --think identically to solve (off synonyms,
+    // minimal, adaptive, percentages/fractions/0|1; fail fast on unsupported adaptive).
+    .check(argv => {
+      normalizeAndValidateThink(argv);
+      return true;
     })
     .showHelpOnFail(false) // Don't show help on validation failures
     .strict()

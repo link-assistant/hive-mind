@@ -342,6 +342,20 @@ export const supportsEffortLevel = model => {
 };
 
 /**
+ * Issue #2038: Check whether a model uses provider-managed adaptive thinking.
+ * Adaptive-only Claude models (Opus 4.7+, Fable 5, Mythos 5, Sonnet 5) manage
+ * their own thinking depth and accept an unset effort/budget as "adaptive".
+ * These are exactly the models for which `--think adaptive` is meaningful; all
+ * other Claude models and non-Claude tools do not expose an adaptive mode.
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model supports adaptive thinking
+ */
+export const supportsAdaptiveThinking = model => {
+  if (!model) return false;
+  return isOpus47OrLater(model) || isFable5OrMythos5(model) || isSonnet5(model);
+};
+
+/**
  * Check if a model supports the xhigh effort level.
  * Official docs list xhigh for Claude Fable 5, Claude Mythos 5, Claude Opus 4.7,
  * Opus 4.8, and Sonnet 5 (Issue #1832, Issue #1875, Issue #2003).
@@ -393,6 +407,7 @@ export const getDefaultMaxThinkingBudgetForModel = model => {
  */
 export const getThinkingLevelToTokens = (maxBudget = DEFAULT_MAX_THINKING_BUDGET) => ({
   off: 0,
+  minimal: Math.floor(maxBudget / 8), // ~4000 for default 31999 (Issue #2038: below `low`)
   low: Math.floor(maxBudget / 4), // ~8000 for default 31999
   medium: Math.floor(maxBudget / 2), // ~16000 for default 31999
   high: Math.floor((maxBudget * 3) / 4), // ~24000 for default 31999
@@ -413,12 +428,14 @@ export const thinkingLevelToTokens = getThinkingLevelToTokens(DEFAULT_MAX_THINKI
 export const getTokensToThinkingLevel = (maxBudget = DEFAULT_MAX_THINKING_BUDGET) => {
   const levels = getThinkingLevelToTokens(maxBudget);
   // Calculate midpoints between levels for range determination
+  const minimalLowMidpoint = Math.floor((levels.minimal + levels.low) / 2);
   const lowMediumMidpoint = Math.floor((levels.low + levels.medium) / 2);
   const mediumHighMidpoint = Math.floor((levels.medium + levels.high) / 2);
   const highMaxMidpoint = Math.floor((levels.high + levels.max) / 2);
 
   return tokens => {
     if (tokens === 0) return 'off';
+    if (tokens <= minimalLowMidpoint) return 'minimal'; // Issue #2038
     if (tokens <= lowMediumMidpoint) return 'low';
     if (tokens <= mediumHighMidpoint) return 'medium';
     if (tokens <= highMaxMidpoint) return 'high';
@@ -505,6 +522,15 @@ export const thinkLevelToEffortLevel = (thinkLevel, options = {}) => {
   const supportsMax = options.supportsMax ?? true;
 
   switch (thinkLevel) {
+    case 'adaptive':
+      // Issue #2038: adaptive requests provider-managed thinking. Claude Code has
+      // no explicit `adaptive` effort value; leaving the effort unset lets the
+      // model manage its own thinking depth (its native adaptive behaviour).
+      return undefined;
+    case 'minimal':
+      // Issue #2038: Claude effort levels start at `low`; `minimal` maps to the
+      // lowest real effort so it stays strictly below `low` in intent but valid.
+      return 'low';
     case 'low':
       return 'low';
     case 'medium':

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.2.2
+
+### Patch Changes
+
+- f9f30d6: Treat an omitted `--think` option as `--think off` across tools, using a zero budget or the lowest supported effort when reasoning cannot be disabled.
+
 ## 2.2.1
 
 ### Patch Changes

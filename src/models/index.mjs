@@ -367,9 +367,11 @@ export const getDefaultModelForTool = tool => {
 
 let cachedInstalledCodexModelsPromise = null;
 // Issue #2027: With gpt-5.6-sol as the preferred default, the fallback chain is only
-// consulted when Sol is absent from the local catalog. Prefer the previous stable
-// default (gpt-5.5) first, then the remaining GPT-5.6 preview tiers, then older models.
-const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.5', 'openai.gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'openai.gpt-5.6-sol', 'openai.gpt-5.6-terra', 'openai.gpt-5.6-luna', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+// consulted when Sol is absent from the local catalog. Issue #2037 (review): order by
+// intelligence / size tier (closest first), not by generation — the flagship sibling
+// `gpt-5.6-terra` is closer to Sol than the previous-generation `gpt-5.5`, which in turn
+// is a larger, more capable model than the smaller GPT-5.6 `luna` tier.
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.6-terra', 'openai.gpt-5.6-terra', 'gpt-5.5', 'openai.gpt-5.5', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.2', 'gpt-5.6-luna', 'openai.gpt-5.6-luna', 'openai.gpt-5.6-sol', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
 
 export const getInstalledCodexModels = async () => {
   if (!cachedInstalledCodexModelsPromise) {
@@ -1200,21 +1202,25 @@ export const defaultFallbackModels = {
     'claude-sonnet-5': 'sonnet-4-6',
   },
   codex: {
-    // Issue #2037 (review): prefer the *closest* sibling in the same generation
-    // before dropping down a generation. When `gpt-5.6-sol` is at capacity the
-    // nearest replacement is another GPT-5.6 variant (`gpt-5.6-terra`), not the
-    // older `gpt-5.5`. Each step falls back to the next-closest model, so repeated
-    // capacity errors walk the chain sol -> terra -> luna -> gpt-5.5 -> gpt-5.4
-    // instead of jumping straight to the previous generation. This keeps the
-    // actually-used model as close as possible to what the user requested.
+    // Issue #2037 (review): order fallbacks by *intelligence / size tier*, not by
+    // generation. Within GPT-5.6, `sol` is the flagship and `terra` is the next tier
+    // down; `luna` is a smaller/cheaper variant. When `gpt-5.6-sol` is at capacity the
+    // closest replacement is `gpt-5.6-terra`, and the next-closest to `gpt-5.6-terra`
+    // is the previous generation's flagship `gpt-5.5` (a larger, more capable model
+    // than the smaller `gpt-5.6-luna`), then `gpt-5.5 -> gpt-5.4 -> gpt-5.2`, and so
+    // on. So the flagship chain walks sol -> terra -> gpt-5.5 -> gpt-5.4 -> gpt-5.2
+    // and never detours through the smaller `luna` tier. The smaller `luna` variant,
+    // if requested directly, steps down to the previous full generation as well.
     'gpt-5.6-sol': 'gpt-5.6-terra',
-    'gpt-5.6-terra': 'gpt-5.6-luna',
+    'gpt-5.6-terra': 'gpt-5.5',
     'gpt-5.6-luna': 'gpt-5.5',
     'openai.gpt-5.6-sol': 'openai.gpt-5.6-terra',
-    'openai.gpt-5.6-terra': 'openai.gpt-5.6-luna',
+    'openai.gpt-5.6-terra': 'openai.gpt-5.5',
     'openai.gpt-5.6-luna': 'openai.gpt-5.5',
     'openai.gpt-5.5': 'openai.gpt-5.4',
+    'openai.gpt-5.4': 'openai.gpt-5.2',
     'gpt-5.5': 'gpt-5.4',
+    'gpt-5.4': 'gpt-5.2',
   },
 };
 

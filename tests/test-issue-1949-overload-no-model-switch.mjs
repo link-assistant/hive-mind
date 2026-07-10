@@ -23,8 +23,9 @@
 // Reference: confusion in PR #1947's comment ("what does opus mean?").
 
 import assert from 'assert';
-import { classifyRetryableError, formatModelWithResolvedId, maybeSwitchToFallbackModel } from '../src/tool-retry.lib.mjs';
+import { classifyRetryableError, formatModelWithResolvedId, maybeSwitchToFallbackModel, prepareRetryAfterError } from '../src/tool-retry.lib.mjs';
 import { resolveModelId } from '../src/models/index.mjs';
+import { retryLimits } from '../src/config.lib.mjs';
 
 console.log('Testing overload → no --model switch (Issue #1949)\n');
 
@@ -195,7 +196,7 @@ test('a model that equals its resolved id renders without duplication', () => {
 // ============================================================
 console.log('\n=== 5. Multi-level fallback chain walks closest-first ===');
 
-await testAsync('repeated codex capacity errors walk gpt-5.6-sol -> terra -> luna -> gpt-5.5 -> gpt-5.4', async () => {
+await testAsync('repeated codex capacity errors walk gpt-5.6-sol -> terra -> gpt-5.5 -> gpt-5.4 -> gpt-5.2 (by intelligence tier)', async () => {
   // No explicit fallback pin: argv.fallbackModel starts unset, mirroring a run that
   // relies on the built-in default chain.
   const argv = { model: 'gpt-5.6-sol' };
@@ -211,7 +212,7 @@ await testAsync('repeated codex capacity errors walk gpt-5.6-sol -> terra -> lun
     if (!result.switched) break;
     path.push(argv.model);
   }
-  assert.deepStrictEqual(path, ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4']);
+  assert.deepStrictEqual(path, ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.5', 'gpt-5.4', 'gpt-5.2']);
 });
 
 await testAsync('an explicit --fallback-model pin is honoured exactly and never walked past', async () => {
@@ -225,6 +226,60 @@ await testAsync('an explicit --fallback-model pin is honoured exactly and never 
   const second = await maybeSwitchToFallbackModel({ tool: 'codex', argv, log, errorMessage: 'Selected model is at capacity. Please try a different model.' });
   assert.strictEqual(second.switched, false, 'must not walk past an explicit pin');
   assert.strictEqual(argv.model, 'gpt-5.5');
+});
+
+// ============================================================
+// Section 6: Same-model capacity retries before falling back (Issue #2037 review)
+// ============================================================
+console.log('\n=== 6. Retry same model before falling back on capacity ===');
+
+await testAsync('prepareRetryAfterError retries the same model for the first N capacity errors', async () => {
+  const argv = { model: 'gpt-5.6-sol' };
+  const log = makeLogSpy();
+  // The first capacityRetriesBeforeFallback capacity errors keep the same model.
+  for (let i = 0; i < retryLimits.capacityRetriesBeforeFallback; i++) {
+    const plan = await prepareRetryAfterError({
+      tool: 'codex',
+      argv,
+      log,
+      errorMessage: 'Selected model is at capacity. Please try a different model.',
+      retryCount: 0,
+      initialDelayMs: retryLimits.initialTransientErrorDelayMs,
+      maxDelayMs: retryLimits.maxTransientErrorDelayMs,
+    });
+    assert.strictEqual(plan.switched, false, `retry ${i + 1} must NOT switch the model yet`);
+    assert.strictEqual(argv.model, 'gpt-5.6-sol', 'model stays on the originally requested model during same-model retries');
+  }
+  // The next capacity error, having exhausted the same-model budget, switches.
+  const switchPlan = await prepareRetryAfterError({
+    tool: 'codex',
+    argv,
+    log,
+    errorMessage: 'Selected model is at capacity. Please try a different model.',
+    retryCount: 0,
+    initialDelayMs: retryLimits.initialTransientErrorDelayMs,
+    maxDelayMs: retryLimits.maxTransientErrorDelayMs,
+  });
+  assert.strictEqual(switchPlan.switched, true, 'after exhausting same-model retries it must switch');
+  assert.strictEqual(argv.model, 'gpt-5.6-terra', 'switch moves to the closest fallback');
+  assert.strictEqual(switchPlan.delay, retryLimits.modelSwitchRetryDelayMs, 'a switch uses the fast model-switch delay');
+});
+
+await testAsync('prepareRetryAfterError keeps the same model and uses standard backoff for non-capacity transient errors', async () => {
+  const argv = { model: 'opus', fallbackModel: 'opus-4-7' };
+  const log = makeLogSpy();
+  const plan = await prepareRetryAfterError({
+    tool: 'claude',
+    argv,
+    log,
+    errorMessage: 'API Error: 529 Overloaded. This is a server-side issue, usually temporary.',
+    retryCount: 0,
+    initialDelayMs: retryLimits.initialTransientErrorDelayMs,
+    maxDelayMs: retryLimits.maxTransientErrorDelayMs,
+  });
+  assert.strictEqual(plan.switched, false, 'overload must not switch models (Issue #1949)');
+  assert.strictEqual(argv.model, 'opus', 'model unchanged on overload');
+  assert.strictEqual(plan.delay, retryLimits.initialTransientErrorDelayMs, 'overload uses the standard transient backoff, not the capacity backoff');
 });
 
 // ============================================================

@@ -24,7 +24,10 @@ tokens produced on the fallback model. Separately, the retry loop waited a full
 **2 minutes** of transient-error backoff _before_ retrying on the freshly switched
 model, even though the switch itself makes the old backoff irrelevant. Finally, the
 default fallback for `gpt-5.6-sol` jumped straight to `gpt-5.5`; it now steps to the
-closest sibling `gpt-5.6-terra` first and walks the chain down from there.
+next model by **intelligence/size tier** (`gpt-5.6-sol → gpt-5.6-terra → gpt-5.5 →
+gpt-5.4 → gpt-5.2`, skipping the smaller `gpt-5.6-luna` sibling) and, before any
+fallback, retries the originally-requested model up to 5 times with exponential
+backoff.
 
 ## 2. Timeline of events (reconstructed from the log)
 
@@ -59,6 +62,19 @@ From the PR review ([comment 4939806551](https://github.com/link-assistant/hive-
    user requested in full detail — but a clear one.
 6. Report in what **percentage of output tokens** the fallback model was active, so
    user expectations are managed clearly.
+
+From the follow-up PR review
+([comment 4940…](https://github.com/link-assistant/hive-mind/pull/2040)):
+
+7. Order fallbacks by **level of intelligence or size of the model, not
+   generation**. `gpt-5.6-sol` should step to `gpt-5.6-terra`, then `gpt-5.5`,
+   `gpt-5.4`, `gpt-5.2` — and it must **not** jump to the smaller `gpt-5.6-luna`
+   variant (luna is a smaller model, so it is skipped in the sol chain and instead
+   falls back directly to `gpt-5.5`).
+8. **Retry the originally-requested model up to 5 times** with exponential backoff
+   _before_ doing any fallback, so a brief capacity blip does not lose the requested
+   model. Apply this to **all models and tools**, with priority for all claude and
+   codex models.
 
 ### Is this an actual bug, and how often does the fallback fire?
 
@@ -107,17 +123,34 @@ when the actual model matches _neither_ the requested model nor its configured
 fallback. `src/github.lib.mjs` passes `argv.fallbackModel` and the per-model
 `modelUsage` through to the comment builder.
 
-### Fix 1b — closest-first, multi-level fallback chain
+### Fix 1b — intelligence-tier, multi-level fallback chain
 
-`defaultFallbackModels.codex` (`src/models/index.mjs`) now forms a chain that stays
-within the same generation before dropping down:
-`gpt-5.6-sol → gpt-5.6-terra → gpt-5.6-luna → gpt-5.5 → gpt-5.4` (and the
-`openai.*` prefixed equivalents). `resolveConfiguredFallbackModel`
-(`src/tool-retry.lib.mjs`) walks this chain: on each successive capacity error it
-resolves the next hop from the _current_ model, so repeated errors step through the
-whole chain instead of getting stuck on the first fallback. An explicit
-`--fallback-model` pin (`argv._fallbackModelExplicit`, set in
+`defaultFallbackModels.codex` (`src/models/index.mjs`) now forms a chain ordered by
+**intelligence/size tier** rather than generation:
+`gpt-5.6-sol → gpt-5.6-terra → gpt-5.5 → gpt-5.4 → gpt-5.2` (and the `openai.*`
+prefixed equivalents). The smaller `gpt-5.6-luna` variant is **skipped** in the sol
+chain — luna is a lower-capability model, so jumping to it would be a downgrade past
+the more capable `gpt-5.5`; luna instead falls back directly to `gpt-5.5`.
+`resolveConfiguredFallbackModel` (`src/tool-retry.lib.mjs`) walks this chain: on each
+successive capacity error it resolves the next hop from the _current_ model, so
+repeated errors step through the whole chain instead of getting stuck on the first
+fallback. An explicit `--fallback-model` pin (`argv._fallbackModelExplicit`, set in
 `src/solve.config.lib.mjs`) is honoured exactly and never walked past.
+
+### Fix 1c — retry the requested model 5× before any fallback
+
+Added `retryLimits.capacityRetriesBeforeFallback` (env
+`HIVE_MIND_CAPACITY_RETRIES_BEFORE_FALLBACK`, default **5**),
+`initialCapacityRetryDelayMs` (default **15s**) and `maxCapacityRetryDelayMs`
+(default **4 min**) in `src/config.lib.mjs`. A new shared helper
+`prepareRetryAfterError` (`src/tool-retry.lib.mjs`) is called by every tool: on a
+capacity error it first retries the **same** originally-requested model up to
+`capacityRetriesBeforeFallback` times with exponential backoff
+(`initialCapacityRetryDelayMs … maxCapacityRetryDelayMs`), tracked via
+`argv._capacityRetryCount`. Only after that budget is exhausted does it call
+`maybeSwitchToFallbackModel` and switch to the next model in the chain, resetting the
+counter so every model in the chain gets its own 5-retry budget. This applies to all
+six tools (codex, claude, agent, opencode, qwen, gemini).
 
 ### Fix 2 — fast retry after a capacity-driven model switch
 
@@ -156,12 +189,14 @@ existing Issue #1949 no-model-switch test suite).
   fallback → `⚠️` + "automatically fell back"), the unchanged generic-warning case
   (actual matches neither), and the output-token-share case (`modelUsage` →
   "N% of output tokens").
-- `tests/test-codex-support.mjs` — capacity-error retry asserts a single fast delay
-  (`<= 30_000ms`) after the model switch, plus the closest-first codex fallback chain
-  (`gpt-5.6-sol → terra → luna → gpt-5.5 → gpt-5.4`).
+- `tests/test-codex-support.mjs` — asserts the requested model is retried
+  `capacityRetriesBeforeFallback` times before switching, then a fast delay
+  (`modelSwitchRetryDelayMs`) on the switch, plus the intelligence-tier codex
+  fallback chain (`gpt-5.6-sol → terra → gpt-5.5 → gpt-5.4 → gpt-5.2`).
 - `tests/test-issue-1949-overload-no-model-switch.mjs` — regression guard that
-  overload errors do **not** trigger a model switch, plus multi-level chain walking
-  and explicit-pin (no-walk-past) coverage.
+  overload errors do **not** trigger a model switch, plus multi-level chain walking,
+  explicit-pin (no-walk-past) coverage, and the `prepareRetryAfterError`
+  same-model-retry-then-switch behavior.
 
 ## 8. Upstream note
 

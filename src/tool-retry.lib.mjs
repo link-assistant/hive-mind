@@ -306,12 +306,51 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
   };
 };
 
+// Issue #2037 (review): Unified retry planner shared by every tool's retry loop.
+// On a genuine "model is at capacity" error it first retries the *originally
+// requested* model up to `capacityRetriesBeforeFallback` times with exponential
+// backoff — capacity errors are often short-lived, so the preferred model gets
+// several chances before we downgrade. Only once those same-model retries are
+// exhausted does it switch to the next-closest fallback model (fast 5s retry).
+// Non-capacity transient errors keep the current model and use the caller's
+// standard backoff, exactly as before.
+//
+// The same-model capacity retry count is stored on `argv._capacityRetryCount` so it
+// survives the recursive executeWithRetry calls without each tool tracking extra
+// state. It resets to 0 whenever we actually switch models, so every model in the
+// fallback chain gets its own batch of same-model retries before stepping down.
+export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, retryCount, initialDelayMs, maxDelayMs } = {}) => {
+  const classification = classifyRetryableError(errorMessage);
+  const isCapacity = classification.isCapacity === true && !!argv?.model;
+  const capacityRetryCount = argv?._capacityRetryCount || 0;
+
+  if (isCapacity && capacityRetryCount < retryLimits.capacityRetriesBeforeFallback) {
+    if (argv) argv._capacityRetryCount = capacityRetryCount + 1;
+    const delay = getRetryDelayMs({
+      retryCount: capacityRetryCount,
+      initialDelayMs: retryLimits.initialCapacityRetryDelayMs,
+      maxDelayMs: retryLimits.maxCapacityRetryDelayMs,
+    });
+    if (typeof log === 'function') {
+      await log(`   Model ${formatModelWithResolvedId(argv.model, tool)} at capacity — retrying same model (attempt ${capacityRetryCount + 1}/${retryLimits.capacityRetriesBeforeFallback}) before falling back`, { level: 'warning' });
+    }
+    return { delay, switched: false };
+  }
+
+  const switchResult = await maybeSwitchToFallbackModel({ tool, argv, log, errorMessage });
+  // A model switch starts a fresh batch of same-model retries for the new model.
+  if (switchResult?.switched && argv) argv._capacityRetryCount = 0;
+  const delay = switchResult?.switched ? retryLimits.modelSwitchRetryDelayMs : getRetryDelayMs({ retryCount, initialDelayMs, maxDelayMs });
+  return { delay, switched: switchResult?.switched === true };
+};
+
 export default {
   classifyRetryableError,
   getRetryDelayMs,
   waitWithCountdown,
   resolveConfiguredFallbackModel,
   maybeSwitchToFallbackModel,
+  prepareRetryAfterError,
   formatModelWithResolvedId,
   logExecutionContext,
 };

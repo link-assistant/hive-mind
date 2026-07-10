@@ -8,6 +8,7 @@ const { parseCodexExecJsonOutput, getCodexErrorEventSummary, executeCodexCommand
 const { executeOpenCodeCommand } = await import('../src/opencode.lib.mjs');
 const { executeAgentCommand, agentCliSupportsLiveInput, getAgentCliVersion, MIN_AGENT_LIVE_INPUT_VERSION } = await import('../src/agent.lib.mjs');
 const { classifyRetryableError } = await import('../src/tool-retry.lib.mjs');
+const { retryLimits } = await import('../src/config.lib.mjs');
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
 const { buildAgentBudgetStats, buildBudgetStatsString } = await import('../src/claude.budget-stats.lib.mjs');
 
@@ -135,17 +136,21 @@ test('Codex default fallback model resolves from gpt-5.5 to gpt-5.4', () => {
   assert.equal(resolveDefaultFallbackModel('codex', 'gpt-5.5'), 'gpt-5.4');
 });
 
-// Issue #2037 (review): the codex default fallback is a *closest-first* chain that
-// stays within the GPT-5.6 generation before dropping to GPT-5.5, then GPT-5.4.
+// Issue #2037 (review): the codex default fallback is a *closest-first* chain ordered
+// by intelligence / size tier, not by generation. The flagship sibling gpt-5.6-terra is
+// closest to Sol, and the next-closest to terra is the previous-generation flagship
+// gpt-5.5 (larger/more capable than the smaller gpt-5.6-luna tier), then 5.5 -> 5.4 -> 5.2.
 const codexChain = {
   'gpt-5.6-sol': 'gpt-5.6-terra',
-  'gpt-5.6-terra': 'gpt-5.6-luna',
+  'gpt-5.6-terra': 'gpt-5.5',
   'gpt-5.6-luna': 'gpt-5.5',
   'gpt-5.5': 'gpt-5.4',
+  'gpt-5.4': 'gpt-5.2',
   'openai.gpt-5.6-sol': 'openai.gpt-5.6-terra',
-  'openai.gpt-5.6-terra': 'openai.gpt-5.6-luna',
+  'openai.gpt-5.6-terra': 'openai.gpt-5.5',
   'openai.gpt-5.6-luna': 'openai.gpt-5.5',
   'openai.gpt-5.5': 'openai.gpt-5.4',
+  'openai.gpt-5.4': 'openai.gpt-5.2',
 };
 for (const [model, expected] of Object.entries(codexChain)) {
   test(`Codex default fallback model resolves from ${model} to ${expected}`, () => {
@@ -153,17 +158,18 @@ for (const [model, expected] of Object.entries(codexChain)) {
   });
 }
 
-// Walking the full chain step-by-step reaches the previous generations in order.
-test('Codex default fallback chain walks gpt-5.6-sol -> terra -> luna -> gpt-5.5 -> gpt-5.4', () => {
+// Walking the full chain step-by-step descends by intelligence tier, skipping the
+// smaller luna variant: sol -> terra -> gpt-5.5 -> gpt-5.4 -> gpt-5.2.
+test('Codex default fallback chain walks gpt-5.6-sol -> terra -> gpt-5.5 -> gpt-5.4 -> gpt-5.2', () => {
   const chain = ['gpt-5.6-sol'];
   let current = chain[0];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     const next = resolveDefaultFallbackModel('codex', current);
     if (!next) break;
     chain.push(next);
     current = next;
   }
-  assert.deepEqual(chain, ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4']);
+  assert.deepEqual(chain, ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.5', 'gpt-5.4', 'gpt-5.2']);
 });
 
 test('Claude default fallback model resolves from opus to opus-4-7', () => {
@@ -172,7 +178,7 @@ test('Claude default fallback model resolves from opus to opus-4-7', () => {
 });
 
 test('Models without configured defaults keep fallback unset', () => {
-  assert.equal(resolveDefaultFallbackModel('codex', 'gpt-5.4'), null);
+  assert.equal(resolveDefaultFallbackModel('codex', 'gpt-5.2'), null);
   assert.equal(resolveDefaultFallbackModel('agent', 'opencode/grok-code'), null);
 });
 
@@ -623,9 +629,15 @@ await asyncTest('Codex command parses compact diagnostics from stderr stream chu
   );
 });
 
-await asyncTest('Codex command retries with resume and fallback model after capacity error', async () => {
+await asyncTest('Codex retries the same model on capacity errors before falling back, then switches', async () => {
+  // Issue #2037 (review): a capacity error must first retry the *originally requested*
+  // model up to capacityRetriesBeforeFallback (default 5) times with exponential
+  // backoff. Only once those are exhausted does it switch to the next-closest fallback.
+  const capacityBudget = retryLimits.capacityRetriesBeforeFallback;
   const commands = [];
   let attempt = 0;
+  const capacityChunk = Buffer.from(['{"type":"thread.started","thread_id":"thread_capacity_1666"}', '{"type":"error","message":"Selected model is at capacity. Please try a different model."}', '{"type":"turn.failed","error":{"message":"Selected model is at capacity. Please try a different model."}}'].join('\n'));
+  const recoveredChunk = Buffer.from(['{"type":"thread.started","thread_id":"thread_capacity_1666"}', '{"type":"turn.started"}', '{"type":"item.completed","item":{"id":"msg_1","type":"agent_message","text":"Recovered after fallback."}}', '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}'].join('\n'));
   const fakeDollar =
     options =>
     (strings, ...values) => {
@@ -633,30 +645,16 @@ await asyncTest('Codex command retries with resume and fallback model after capa
       const currentAttempt = attempt++;
       return {
         async *stream() {
-          if (currentAttempt === 0) {
-            yield {
-              type: 'stdout',
-              data: Buffer.from(['{"type":"thread.started","thread_id":"thread_capacity_1666"}', '{"type":"error","message":"Selected model is at capacity. Please try a different model."}', '{"type":"turn.failed","error":{"message":"Selected model is at capacity. Please try a different model."}}'].join('\n')),
-            };
-            yield { type: 'exit', code: 0 };
-            return;
-          }
-
-          yield {
-            type: 'stdout',
-            // Issue #1990: a recovered codex turn always emits turn.completed; the
-            // completion-health gate requires it before reporting success.
-            data: Buffer.from(['{"type":"thread.started","thread_id":"thread_capacity_1666"}', '{"type":"turn.started"}', '{"type":"item.completed","item":{"id":"msg_1","type":"agent_message","text":"Recovered after fallback."}}', '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}'].join('\n')),
-          };
+          // Fail with a capacity error for the initial attempt plus every same-model
+          // retry (capacityBudget of them); the attempt after the switch succeeds.
+          const failCount = capacityBudget + 1;
+          yield { type: 'stdout', data: currentAttempt < failCount ? capacityChunk : recoveredChunk };
           yield { type: 'exit', code: 0 };
         },
         result: { code: 0 },
       };
     };
 
-  // Issue #2037: capture the retry delays so we can assert the capacity-driven
-  // model switch retries almost immediately instead of stalling for the full
-  // transient backoff (2 min).
   const delaysSeen = [];
   const result = await executeCodexCommand({
     tempDir: process.cwd(),
@@ -682,13 +680,18 @@ await asyncTest('Codex command retries with resume and fallback model after capa
 
   assert.equal(result.success, true);
   assert.equal(result.sessionId, 'thread_capacity_1666');
-  assert.equal(commands.length, 2);
+  // 1 initial + capacityBudget same-model retries + 1 switched retry = capacityBudget + 2.
+  assert.equal(commands.length, capacityBudget + 2);
   assert.ok(commands[0].includes('--model "gpt-5.5"'), `Expected first attempt to use gpt-5.5, got: ${commands[0]}`);
-  assert.ok(commands[1].includes('resume "thread_capacity_1666" --model "gpt-5.4"'), `Expected retry to resume with gpt-5.4, got: ${commands[1]}`);
-  // Issue #2037: the single retry followed a model switch, so its delay must be the
-  // short model-switch delay (5s), not the 2-min transient backoff.
-  assert.equal(delaysSeen.length, 1, `Expected exactly one retry delay, got: ${JSON.stringify(delaysSeen)}`);
-  assert.ok(delaysSeen[0] <= 30_000, `Expected a fast (<=30s) retry after a capacity model switch, got: ${delaysSeen[0]}ms`);
+  // All same-model retries stay on gpt-5.5 (the originally requested model).
+  for (let i = 1; i <= capacityBudget; i++) {
+    assert.ok(commands[i].includes('--model "gpt-5.5"'), `Expected same-model retry ${i} to stay on gpt-5.5, got: ${commands[i]}`);
+  }
+  // Only after exhausting the same-model retries do we switch to the closest fallback.
+  assert.ok(commands[capacityBudget + 1].includes('--model "gpt-5.4"'), `Expected the retry after exhausting same-model retries to switch to gpt-5.4, got: ${commands[capacityBudget + 1]}`);
+  // The same-model retries use exponential backoff; the post-switch retry is fast (5s).
+  assert.equal(delaysSeen.length, capacityBudget + 1, `Expected ${capacityBudget + 1} retry delays, got: ${JSON.stringify(delaysSeen)}`);
+  assert.equal(delaysSeen[delaysSeen.length - 1], retryLimits.modelSwitchRetryDelayMs, `Expected a fast model-switch delay after the switch, got: ${delaysSeen[delaysSeen.length - 1]}ms`);
 });
 
 await asyncTest('Codex command retries stream disconnects by resuming the same session', async () => {

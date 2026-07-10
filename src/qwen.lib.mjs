@@ -20,7 +20,7 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { qwenModels, defaultModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
-import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 
@@ -600,16 +600,19 @@ export const executeQwenCommand = async params => {
             const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
             if (retryCount < maxRetries) {
               if (sessionId && !argv.resume) argv.resume = sessionId;
-              const switchResult = await maybeSwitchToFallbackModel({ tool: 'qwen', argv, log, errorMessage: retryableError.message });
-              // Issue #2037: after a capacity-driven model switch, retry quickly instead
-              // of waiting the full transient backoff — the new model may be available now.
-              const delay = switchResult?.switched
-                ? retryLimits.modelSwitchRetryDelayMs
-                : getRetryDelayMs({
-                    retryCount,
-                    initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
-                    maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
-                  });
+              // Issue #2037: retry the same model on capacity errors before falling back;
+              // after a capacity-driven model switch, retry quickly instead of waiting the
+              // full transient backoff — the new model may be available now.
+              const retryPlan = await prepareRetryAfterError({
+                tool: 'qwen',
+                argv,
+                log,
+                errorMessage: retryableError.message,
+                retryCount,
+                initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+                maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+              });
+              const delay = retryPlan.delay;
               const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
               await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
               await waitForRetryDelay(delay, log);

@@ -131,6 +131,14 @@ export const retryLimits = {
   // fallback model, the long transient backoff is wasteful — the different model is
   // available now, so retry almost immediately instead of stalling for minutes.
   modelSwitchRetryDelayMs: parseIntWithDefault('HIVE_MIND_MODEL_SWITCH_RETRY_DELAY_MS', 5 * 1000), // 5 seconds
+  // Issue #2037 (review): On a "model is at capacity" error, retry the *originally
+  // requested* model a few times with exponential backoff before falling back to a
+  // different (less-preferred) model. Capacity errors are often short-lived, so giving
+  // the preferred model several chances keeps the run on the model the user asked for.
+  // Only once these retries are exhausted do we step to the next-closest fallback model.
+  capacityRetriesBeforeFallback: parseIntWithDefault('HIVE_MIND_CAPACITY_RETRIES_BEFORE_FALLBACK', 5),
+  initialCapacityRetryDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_CAPACITY_RETRY_DELAY_MS', 15 * 1000), // 15 seconds
+  maxCapacityRetryDelayMs: parseIntWithDefault('HIVE_MIND_MAX_CAPACITY_RETRY_DELAY_MS', 4 * 60 * 1000), // 4 minutes
   // Request timeout retry configuration (Issue #1353)
   // Network timeouts need longer waits than API errors — Claude CLI already exhausted its own retries
   maxRequestTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_RETRIES', 10),

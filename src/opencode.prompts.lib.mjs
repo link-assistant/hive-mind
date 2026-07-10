@@ -67,6 +67,11 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
+  const developmentLogPrompt = buildDevelopmentLogPrompt({ argv, issueNumber, prNumber }).trim();
+  if (developmentLogPrompt) {
+    promptLines.push(developmentLogPrompt, '');
+  }
+
   const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'opencode', argv });
   if (thinkingPromptInstruction) {
     promptLines.push(thinkingPromptInstruction);
@@ -157,7 +162,7 @@ Initial research.
       2. PR conversation comments (general discussion): gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate
       3. PR reviews (approve/request changes): gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate
       Note: The command "gh pr view --json comments" only returns conversation comments and misses review comments.
-   - When you need the latest comments on the issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.${buildDevelopmentLogPrompt({ argv, issueNumber, prNumber })}
+   - When you need the latest comments on the issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.
 
 Solution development and testing.
    - When issue is solvable, first create a test that reproduces the problem, then implement the fix.

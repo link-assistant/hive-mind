@@ -33,6 +33,6 @@ No failing CI run was reported during implementation, so no workflow logs were d
 - Added `--development-log` to `SOLVE_OPTION_DEFINITIONS`.
 - Added automatic GitHub issue-type detection (`fetchIssueType`) so the injected prompt uses the bug "download all logs" wording for `Bug` issues and the universal data-collection wording for feature/task or unspecified issues.
 - Added Codex rollout transcript discovery (`~/.codex/sessions/.../rollout-*-<sessionId>.jsonl`) alongside Claude transcript copying, with each session stored under `sessions/{UUID}` by solve rather than delegated to the agent.
-- Added shared prompt guidance to Claude, Codex, Gemini, OpenCode, Qwen, and Agent prompt builders.
+- Added the shared collection sentence to the regular user/start prompt for Claude, Codex, Gemini, OpenCode, Qwen, and Agent while keeping it out of their system prompts.
 - Hooked solve finalization to write and commit artifacts after final cleanup.
 - Updated `docs/CONFIGURATION.md` and added a changeset.

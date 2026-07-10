@@ -8,7 +8,7 @@ Issue 1596 asks for a solve option that makes development logs first-class, dura
 
 - Add a `--development-log` boolean option.
 - Use `./dev/log/issues/{issue-id}/pulls/{pull-id}` as the development-log path.
-- Append exactly the issue-type-specific data-collection sentence to the initial prompt.
+- Append exactly the issue-type-specific data-collection sentence to the regular user/start prompt, not the system prompt.
 - Automatically select the wording by GitHub issue type: stronger bug wording (download all logs and collect issue-related data) for `Bug` issues, and the universal feature/task wording (collect issue-related data) for feature/task issues or when no issue type is selected.
 - Make session persistence and committing the solve algorithm's responsibility, not the AI agent's.
 - Store each run under `sessions/{UUID}` so sessions remain distinct and can be reused for future resume operations.
@@ -43,7 +43,7 @@ The prompt-only option would satisfy the visible instruction text but would not 
 
 1. Generate stable development-log and case-study paths from issue and PR numbers.
 2. Detect the GitHub issue type (`gh issue view --json issueType`) once per run and inject only the matching instruction line: the bug "download all logs" wording for `Bug` issues, otherwise the universal data-collection wording.
-3. Append only that one sentence in every supported tool's initial prompt.
+3. Append only that one sentence in every supported tool's regular user/start prompt, keeping it out of the system prompt.
 4. Let solve copy the solve log and known native session files into `dev/log/.../sessions/{UUID}/` (Claude `~/.claude/projects/.../<sessionId>.jsonl` and Codex `~/.codex/sessions/.../rollout-*-<sessionId>.jsonl`; the solve log remains available for tools whose native store is unavailable or unknown).
 5. Write per-session `metadata.json` describing the tool, session UUID, run, and artifact paths.
 6. Stage, pathspec-commit, and push only the development-log subtree during solve finalization.
@@ -56,7 +56,7 @@ The reproducer test `tests/test-development-log-option-1596.mjs` verifies:
 
 - `--development-log` is registered and defaults to false.
 - Hive passthrough includes the option.
-- All six prompt builders include the one requested collection sentence and do not delegate persistence, commits, or case-study work to the agent.
+- All six user-prompt builders include the one requested collection sentence, all six system prompts exclude it, and none delegate persistence, commits, or case-study work to the agent.
 - Bug issues receive the "download all logs" wording while feature/task or unspecified issues receive the universal data-collection wording, and `fetchIssueType` parses the gh CLI output while tolerating failures.
 - Artifact writing creates `sessions/{UUID}`, copies the solve log, and records per-session metadata.
 - Claude and Codex native transcripts are discovered and copied into their respective UUID directories.

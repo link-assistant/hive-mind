@@ -9,12 +9,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 import { getSolvePassthroughOptionNames } from '../src/hive.config.lib.mjs';
-import { buildSystemPrompt as buildAgentSystemPrompt } from '../src/agent.prompts.lib.mjs';
-import { buildSystemPrompt as buildClaudeSystemPrompt } from '../src/claude.prompts.lib.mjs';
-import { buildSystemPrompt as buildCodexSystemPrompt } from '../src/codex.prompts.lib.mjs';
-import { buildSystemPrompt as buildGeminiSystemPrompt } from '../src/gemini.prompts.lib.mjs';
-import { buildSystemPrompt as buildOpenCodeSystemPrompt } from '../src/opencode.prompts.lib.mjs';
-import { buildSystemPrompt as buildQwenSystemPrompt } from '../src/qwen.prompts.lib.mjs';
+import { buildSystemPrompt as buildAgentSystemPrompt, buildUserPrompt as buildAgentUserPrompt } from '../src/agent.prompts.lib.mjs';
+import { buildSystemPrompt as buildClaudeSystemPrompt, buildUserPrompt as buildClaudeUserPrompt } from '../src/claude.prompts.lib.mjs';
+import { buildSystemPrompt as buildCodexSystemPrompt, buildUserPrompt as buildCodexUserPrompt } from '../src/codex.prompts.lib.mjs';
+import { buildSystemPrompt as buildGeminiSystemPrompt, buildUserPrompt as buildGeminiUserPrompt } from '../src/gemini.prompts.lib.mjs';
+import { buildSystemPrompt as buildOpenCodeSystemPrompt, buildUserPrompt as buildOpenCodeUserPrompt } from '../src/opencode.prompts.lib.mjs';
+import { buildSystemPrompt as buildQwenSystemPrompt, buildUserPrompt as buildQwenUserPrompt } from '../src/qwen.prompts.lib.mjs';
 import { createDevelopmentLogFinalizer } from '../src/development-log.finalize.lib.mjs';
 
 const option = SOLVE_OPTION_DEFINITIONS['development-log'];
@@ -95,23 +95,29 @@ const promptParams = {
   argv: { developmentLog: true },
   modelSupportsVision: false,
   forkedRepo: null,
+  issueUrl: 'https://github.com/link-assistant/hive-mind/issues/1596',
+  tempDir: '/tmp/hive-mind',
+  isContinueMode: false,
+  feedbackLines: [],
 };
 
 const promptBuilders = {
-  agent: buildAgentSystemPrompt,
-  claude: buildClaudeSystemPrompt,
-  codex: buildCodexSystemPrompt,
-  gemini: buildGeminiSystemPrompt,
-  opencode: buildOpenCodeSystemPrompt,
-  qwen: buildQwenSystemPrompt,
+  agent: { system: buildAgentSystemPrompt, user: buildAgentUserPrompt },
+  claude: { system: buildClaudeSystemPrompt, user: buildClaudeUserPrompt },
+  codex: { system: buildCodexSystemPrompt, user: buildCodexUserPrompt },
+  gemini: { system: buildGeminiSystemPrompt, user: buildGeminiUserPrompt },
+  opencode: { system: buildOpenCodeSystemPrompt, user: buildOpenCodeUserPrompt },
+  qwen: { system: buildQwenSystemPrompt, user: buildQwenUserPrompt },
 };
 
-for (const [tool, buildPrompt] of Object.entries(promptBuilders)) {
-  const prompt = buildPrompt(promptParams);
-  assert.ok(prompt.includes('./dev/log/issues/1596/pulls/1996'), `${tool} prompt should include the development-log directory`);
-  assert.ok(!prompt.includes('Keep available tool session files'), `${tool} prompt must not delegate session persistence to the agent`);
-  assert.ok(!prompt.includes('Commit the collected development-log files'), `${tool} prompt must not delegate log commits to the agent`);
-  assert.ok(!prompt.includes('./docs/case-studies/issue-1596'), `${tool} prompt must contain only the issue-requested collection sentence`);
+for (const [tool, builders] of Object.entries(promptBuilders)) {
+  const userPrompt = builders.user(promptParams);
+  const systemPrompt = builders.system(promptParams);
+  assert.ok(userPrompt.includes('./dev/log/issues/1596/pulls/1996'), `${tool} user prompt should include the development-log directory`);
+  assert.ok(!systemPrompt.includes('./dev/log/issues/1596/pulls/1996'), `${tool} system prompt must not include the development-log instruction`);
+  assert.ok(!userPrompt.includes('Keep available tool session files'), `${tool} prompt must not delegate session persistence to the agent`);
+  assert.ok(!userPrompt.includes('Commit the collected development-log files'), `${tool} prompt must not delegate log commits to the agent`);
+  assert.ok(!userPrompt.includes('./docs/case-studies/issue-1596'), `${tool} prompt must contain only the issue-requested collection sentence`);
 }
 
 const tempRoot = await mkdtemp(join(tmpdir(), 'hive-development-log-'));

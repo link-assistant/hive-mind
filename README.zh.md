@@ -173,6 +173,7 @@ claude
 # Use /config command and set:
 # Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
 # Thinking mode                             false # Anthropic models perform better and cheaper without thinking
+# 未指定 `--think` 时，Hive Mind 按 `--think off` 处理。
 # Model                                     haiku # chepear for connection testing manually
 # Claude in Chrome enabled by default       false # No need for Chrome support on server
 
@@ -346,11 +347,11 @@ solve <issue-url> [options]
 
 **最常用选项：**
 
-| 选项            | 简写 | 描述                                  | 默认值   |
-| --------------- | ---- | ------------------------------------- | -------- |
-| `--model`       | `-m` | 使用的 AI 模型（sonnet、opus、haiku） | opus     |
-| `--think`       |      | 思考级别（low、medium、high、max）    | -        |
-| `--base-branch` | `-b` | PR 的目标分支                         | （默认） |
+| 选项            | 简写 | 描述                                                  | 默认值   |
+| --------------- | ---- | ----------------------------------------------------- | -------- |
+| `--model`       | `-m` | 使用的 AI 模型（sonnet、opus、haiku）                 | opus     |
+| `--think`       |      | 思考级别（off、low、medium、high、xhigh、ultra、max） | off      |
+| `--base-branch` | `-b` | PR 的目标分支                                         | （默认） |
 
 **其他常用选项：**
 
@@ -372,12 +373,12 @@ hive <github-url> [options]
 
 **最常用选项：**
 
-| 选项           | 简写 | 描述                                  | 默认值 |
-| -------------- | ---- | ------------------------------------- | ------ |
-| `--model`      | `-m` | 使用的 AI 模型（sonnet、opus、haiku） | opus   |
-| `--think`      |      | 思考级别（low、medium、high、max）    | -      |
-| `--all-issues` | `-a` | 监控所有 Issue（忽略标签）            | false  |
-| `--once`       |      | 单次运行（不持续监控）                | false  |
+| 选项           | 简写 | 描述                                                  | 默认值 |
+| -------------- | ---- | ----------------------------------------------------- | ------ |
+| `--model`      | `-m` | 使用的 AI 模型（sonnet、opus、haiku）                 | opus   |
+| `--think`      |      | 思考级别（off、low、medium、high、xhigh、ultra、max） | off    |
+| `--all-issues` | `-a` | 监控所有 Issue（忽略标签）                            | false  |
+| `--once`       |      | 单次运行（不持续监控）                                | false  |
 
 **其他常用选项：**
 

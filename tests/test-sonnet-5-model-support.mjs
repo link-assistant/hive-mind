@@ -241,8 +241,8 @@ for (const level of thinkLevels) {
     assert.strictEqual(env.MAX_THINKING_TOKENS, undefined);
   });
   if (level === 'off') {
-    test(`sonnet + --think off: no effort level`, () => {
-      assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, undefined);
+    test(`sonnet + --think off: lowest effort`, () => {
+      assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'low');
     });
   } else {
     test(`sonnet + --think ${level}: effort=${level}`, () => {

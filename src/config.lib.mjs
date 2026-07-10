@@ -614,6 +614,10 @@ export const getClaudeEnv = (options = {}) => {
 
     if (effortLevel) {
       env.CLAUDE_CODE_EFFORT_LEVEL = effortLevel;
+    } else if (options.thinkLevel === 'off' && adaptiveThinkingOnly) {
+      // Issue #2032: adaptive-only models reject/ignore a zero manual-thinking budget.
+      // Use the lowest supported effort as the strongest safe best-effort equivalent.
+      env.CLAUDE_CODE_EFFORT_LEVEL = 'low';
     }
   }
 

@@ -299,9 +299,9 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   think: {
     type: 'string',
-    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, xhigh/ultra/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported. Fable 5/Mythos 5/Sonnet 5/Opus 4.8/4.7 support xhigh and max; Opus 4.6/Sonnet 4.6/Mythos Preview support max; Opus 4.5 uses high for xhigh/max. `ultra` maps to the highest supported Claude effort (Claude "ultracode"-class reasoning). For Codex (GPT-5.6 Sol), mapped 1:1 to reasoning effort (off=none, low=low, medium=medium, high=high, xhigh=xhigh, ultra=ultra, max=max); GPT-5.6 keeps xhigh and adds max above it, and ultra runs the multi-agent mode paired with a rollout token budget cap. Default: no thinking level is enforced (models run as-is).',
+    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, xhigh/ultra/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported. Adaptive-only models that cannot disable thinking use their lowest effort for off. Fable 5/Mythos 5/Sonnet 5/Opus 4.8/4.7 support xhigh and max; Opus 4.6/Sonnet 4.6/Mythos Preview support max; Opus 4.5 uses high for xhigh/max. `ultra` maps to the highest supported Claude effort (Claude "ultracode"-class reasoning). For Codex (GPT-5.6 Sol), mapped 1:1 to reasoning effort (off=none, low=low, medium=medium, high=high, xhigh=xhigh, ultra=ultra, max=max); GPT-5.6 keeps xhigh and adds max above it, and ultra runs the multi-agent mode paired with a rollout token budget cap. Default: off.',
     choices: ['off', 'low', 'medium', 'high', 'xhigh', 'ultra', 'max'],
-    default: undefined,
+    default: 'off',
   },
   'thinking-budget': {
     type: 'number',
@@ -843,6 +843,14 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
   const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
   const fallbackModelExplicitlyProvided = rawArgs.includes('--fallback-model');
   const planModelExplicitlyProvided = rawArgs.includes('--plan-model');
+  const thinkExplicitlyProvided = hasRawOption(rawArgs, '--think');
+  const thinkingBudgetExplicitlyProvided = hasRawOption(rawArgs, '--thinking-budget');
+
+  // Issue #2032: an omitted --think is equivalent to --think off, except when
+  // an explicit token budget is the user's chosen reasoning control.
+  if (!thinkExplicitlyProvided && thinkingBudgetExplicitlyProvided) {
+    argv.think = undefined;
+  }
 
   // --plan flag expansion (Issue #1223)
   // When --plan is set, it acts as a shortcut for --plan-model opus --worker-model sonnet

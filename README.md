@@ -507,15 +507,15 @@ Free Models via Kilo Gateway (with --tool agent):
 
 Current tool defaults in Hive Mind:
 
-| Tool       | Default model                                                               | Default reasoning behavior                                                               |
-| ---------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `claude`   | `opus`                                                                      | No extra thinking is requested unless you pass `--think` or `--thinking-budget`          |
-| `codex`    | `gpt-5.6-sol` preferred, with runtime fallback to local catalog (`gpt-5.5`) | Codex runs with `reasoning_effort=none` unless you pass `--think` or `--thinking-budget` |
-| `opencode` | `grok-code-fast-1`                                                          | No extra thinking prompt is added for the default model                                  |
-| `agent`    | `nemotron-3-super-free`                                                     | No extra thinking prompt is added for the default model                                  |
-| `gemini`   | `flash`                                                                     | No extra thinking prompt is added for the default model                                  |
-| `qwen`     | `qwen3-coder-plus`                                                          | No extra thinking prompt is added for the default model                                  |
-| `gemini`   | `gemini-2.5-flash`                                                          | No extra thinking prompt is added for the default model                                  |
+| Tool       | Default model                                                               | Default reasoning behavior                                                         |
+| ---------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `claude`   | `opus`                                                                      | Defaults to `--think off`: zero budget when supported, otherwise the lowest effort |
+| `codex`    | `gpt-5.6-sol` preferred, with runtime fallback to local catalog (`gpt-5.5`) | Defaults to `--think off`, mapped to `reasoning_effort=none`                       |
+| `opencode` | `grok-code-fast-1`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `agent`    | `nemotron-3-super-free`                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `gemini`   | `flash`                                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `qwen`     | `qwen3-coder-plus`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `gemini`   | `gemini-2.5-flash`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
 
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 

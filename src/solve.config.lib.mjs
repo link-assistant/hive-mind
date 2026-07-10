@@ -504,6 +504,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Supported for --tool claude and --tool codex.',
     default: false,
   },
+  'development-log': {
+    type: 'boolean',
+    description: 'Prompt for issue-data collection under ./dev/log/issues/{issue-id}/pulls/{pull-id}, preserve native tool state under sessions/{UUID}, and commit the artifacts when solve finishes. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, --tool qwen, and --tool gemini.',
+    default: false,
+  },
   'use-handoff': {
     type: 'boolean',
     description: '[EXPERIMENTAL] Enable the HANDOFF.md continuity Agent Skill so a session can continue the work of a previous session — even when a different AI tool is used (e.g. Claude and Codex continuing each other in the same pull request). A real SKILL.md (the open Agent Skills standard) is deployed into the working directory so each tool loads it natively (.claude/skills/handoff/ for Claude, .agents/skills/handoff/ for Codex). The AI reads HANDOFF.md (repository root) first when present and keeps it updated with task, current state, decisions, next steps, gotchas, and critical files. HANDOFF.md is committed to the PR branch so it persists across the ephemeral per-session working directories; the SKILL.md itself is re-deployed each session and git-excluded so it never pollutes the PR. The same skill file is used identically for --tool claude and --tool codex. Disabled by default (issue #1877).',

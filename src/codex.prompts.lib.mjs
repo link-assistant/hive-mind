@@ -9,6 +9,7 @@ import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
+import { buildDevelopmentLogPrompt } from './development-log.lib.mjs';
 
 /**
  * Build the user prompt for Codex
@@ -65,6 +66,11 @@ export const buildUserPrompt = params => {
     // Add each feedback line directly
     feedbackLines.forEach(line => promptLines.push(line));
     promptLines.push('');
+  }
+
+  const developmentLogPrompt = buildDevelopmentLogPrompt({ argv, issueNumber, prNumber }).trim();
+  if (developmentLogPrompt) {
+    promptLines.push(developmentLogPrompt, '');
   }
 
   const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'codex', argv });

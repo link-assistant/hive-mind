@@ -21,7 +21,7 @@ const fs = (await use('fs')).promises;
 const crypto = (await use('crypto')).default;
 const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
-const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getVersionInfo, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
+const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getVersionInfo, logSolveStartup, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
@@ -62,6 +62,8 @@ const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.dis
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
 const { attachFinalLogIfMissing } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952
+const { collectAndCommitDevelopmentLogArtifacts, fetchIssueType, isDevelopmentLogEnabled } = await import('./development-log.lib.mjs');
+const { createDevelopmentLogFinalizer } = await import('./development-log.finalize.lib.mjs');
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's
 // own usage-limit notifications (so they're excluded from the
 // "did the AI post anything?" check in --auto-attach-solution-summary).
@@ -72,12 +74,7 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const logFile = await initializeLogFile(null);
 const versionInfo = await getVersionInfo();
-await log('');
-await log(`🚀 solve v${versionInfo}`);
-const rawCommand = process.argv.join(' ');
-await log('🔧 Raw command executed:');
-await log(`   ${rawCommand}`);
-await log('');
+const rawCommand = await logSolveStartup(versionInfo);
 
 let finalResourceSnapshotRecorded = false;
 const safeExit = async (code = 0, reason = 'Process completed', options = {}) => {
@@ -489,6 +486,8 @@ if (isPrUrl) {
 }
 // Issues #1212, #1462: Store issueNumber globally for error handlers (attach failure logs to issue when no PR exists)
 global.issueNumber = issueNumber;
+// Issue #1596: detect the issue type so the development-log prompt automatically uses bug vs feature/task wording.
+if (isDevelopmentLogEnabled(argv) && issueNumber) argv.issueType = await fetchIssueType({ owner, repo, issueNumber, $, log });
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
 cleanupContext.tempDir = tempDir;
@@ -497,6 +496,12 @@ cleanupContext.owner = owner;
 cleanupContext.repo = repo;
 if (prNumber) cleanupContext.prNumber = prNumber;
 let limitReached = false;
+let sessionId = null;
+let branchName = null;
+const finalizeDevelopmentLog = createDevelopmentLogFinalizer({
+  collect: collectAndCommitDevelopmentLogArtifacts,
+  getParams: () => ({ enabled: isDevelopmentLogEnabled(argv), repositoryPath: tempDir, logFile: getLogFile(), issueNumber, prNumber, tool: argv.tool || 'claude', sessionId, branchName, rawCommand, $, log }), // prettier-ignore
+});
 try {
   // Set up repository and clone using the new module
   // If --working-directory points to existing repo, needsClone is false and we skip cloning
@@ -531,7 +536,7 @@ try {
     issueUrl,
   });
   // Create or checkout branch using the new module
-  const branchName = await createOrCheckoutBranch({
+  branchName = await createOrCheckoutBranch({
     isContinueMode,
     prBranch,
     issueNumber,
@@ -861,7 +866,7 @@ try {
   }
 
   const { success } = toolResult;
-  let sessionId = toolResult.sessionId;
+  sessionId = toolResult.sessionId;
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
   let publicPricingEstimate = toolResult.publicPricingEstimate; // Used by agent tool
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
@@ -1461,17 +1466,10 @@ try {
   // Issue #1516: Cleanup after all signals (was before verifyResults, caused premature commits)
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
 
-  // End work session using the new module
-  await endWorkSession({
-    isContinueMode,
-    prNumber,
-    argv,
-    log,
-    formatAligned,
-    $,
-    logsAttached,
-  });
+  await finalizeDevelopmentLog(); // Issue #1596: preserve session before ending work.
+  await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
 } catch (error) {
+  await finalizeDevelopmentLog(); // Preserve failed/interrupted sessions too.
   // Don't report authentication errors to Sentry as they are user configuration issues
   if (!error.isAuthError) {
     reportError(error, {

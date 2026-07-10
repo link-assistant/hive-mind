@@ -464,6 +464,22 @@ export const shouldResetNoRunsCounter = (ciStatus, noWorkflowRunsForCommit = fal
   return Boolean(ciStatus && ciStatus.status !== 'no_checks');
 };
 
+/**
+ * Issue #2031: GitHub can retain a failed check-run from an older workflow run
+ * alongside a newer successful run for the same job and HEAD SHA. The raw
+ * check-run rollup then says "failure" even though GitHub's live PR state is
+ * CLEAN/MERGEABLE. Only this explicit pair is strong enough to override the
+ * rollup; every other merge state remains conservative.
+ */
+export const isAuthoritativeCleanMergeState = mergeStatus => mergeStatus?.mergeable === true && mergeStatus?.mergeableState === 'MERGEABLE' && mergeStatus?.mergeStateStatus === 'CLEAN';
+
+export const reconcileStaleCIBlockers = (blockers, ciStatus, mergeStatus) => {
+  if (ciStatus?.status !== 'failure' || !isAuthoritativeCleanMergeState(mergeStatus)) {
+    return blockers;
+  }
+  return blockers.filter(blocker => blocker.type !== 'ci_failure' && blocker.type !== 'ci_cancelled');
+};
+
 export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCount = 1, prBranchRef = null) => {
   const blockers = [];
 
@@ -943,6 +959,16 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
       details: [],
     });
     return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
+  }
+
+  if (ciStatus.status === 'failure' && isAuthoritativeCleanMergeState(mergeStatus)) {
+    const staleFailureBlockers = blockers.filter(blocker => blocker.type === 'ci_failure' || blocker.type === 'ci_cancelled');
+    if (staleFailureBlockers.length > 0) {
+      if (verbose) {
+        await log(`[VERBOSE] /merge: PR #${prNumber} is CLEAN/MERGEABLE according to GitHub; ignoring ${staleFailureBlockers.length} stale CI failure/cancellation blocker(s) from the raw check-run rollup`);
+      }
+      blockers.splice(0, blockers.length, ...reconcileStaleCIBlockers(blockers, ciStatus, mergeStatus));
+    }
   }
 
   if (!mergeStatus.mergeable) {

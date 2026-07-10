@@ -745,6 +745,14 @@ export const createYargsConfig = yargsInstance => {
     .parserConfiguration({
       'boolean-negation': true,
     })
+    // Issue #2038 + #2041: normalize/validate --think during parsing (off synonyms,
+    // minimal, adaptive, percentages/fractions/0|1; fail fast on unsupported adaptive)
+    // so callers that parse via yargs directly (e.g. the Telegram bot) reject invalid
+    // --think values instead of silently accepting them. Mirrors hive.config.
+    .check(argv => {
+      normalizeAndValidateThink(argv);
+      return true;
+    })
     // Use yargs built-in strict mode to reject unrecognized options
     // This prevents issues like #453 and #482 where unknown options are silently ignored
     .strict()
@@ -849,6 +857,14 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
       }
     }
   } catch (error) {
+    // Issue #2041: the yargs `.check()` for --think (added to createYargsConfig so
+    // non-CLI consumers like the Telegram bot reject invalid values) throws an
+    // already-enhanced error. Propagate it verbatim instead of swallowing it into
+    // `error.argv`, otherwise the CLI would silently drop the invalid --think and
+    // crash later during normalization.
+    if (error && error._enhanced && !(error.message && /Unknown argument/.test(error.message))) {
+      throw error;
+    }
     // Yargs throws errors for validation issues
     // If the error is about unknown arguments (strict mode), enhance it with suggestions
     // Check if this error has already been enhanced to avoid re-processing

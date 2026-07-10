@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 2.4.0
+
+### Minor Changes
+
+- dc28004: Fix `--think` validation asymmetry between `solve` and `hive` (Issue #2041). After the #2038 vocabulary refactor, `solve.config` only validated `--think` in the CLI `parseArguments()` path, so consumers that parse solve options directly through the yargs config — most notably the Telegram bot — silently accepted invalid `--think` values (a CI false-negative that failed `test-telegram-options-before-url`). `createYargsConfig` now runs the same `normalizeAndValidateThink` `.check()` that `hive.config` already used, and `parseArguments` propagates that validation error verbatim instead of swallowing it. Invalid `--think` values are now rejected consistently on the CLI and Telegram paths.
+- d92c772: `--think` now accepts a richer, provider-neutral vocabulary (Issue #2038): the off synonyms `off`/`disable`/`disabled`/`no`/`none` all mean disabled (or the closest safe equivalent when a model cannot truly disable thinking), a new `minimal` tier below `low` (Codex `minimal` reasoning; Claude lowest effort with a ~4000-token budget), a first-class `adaptive` mode that requests provider-managed adaptive thinking and fails fast for `solve`/`hive` on models/tools that do not support it (only adaptive-only Claude models: Opus 4.7+, Fable 5, Mythos 5, Sonnet 5), and numeric intensities for precision — percentages `0%`..`100%`, fractions `0.0`..`1.0`, and the integers `0` (off) and `1` (max). Normalization is applied consistently for both `solve` and `hive`.
+
 ## 2.3.0
 
 ### Minor Changes

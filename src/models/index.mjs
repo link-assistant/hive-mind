@@ -189,7 +189,7 @@ export const geminiModels = {
 
 // Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
 export const defaultModels = {
-  claude: 'sonnet',
+  claude: 'opus', // Issue #2033: Opus is the preferred default for Claude; sonnet remains available explicitly
   agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'grok-code-fast-1',
   codex: 'gpt-5.6-sol', // Issue #2027: GPT-5.6 Sol is the released Codex flagship; runtime falls back to gpt-5.5 when Sol is not in the local catalog

@@ -32,7 +32,7 @@ const test = (name, fn) => {
 };
 
 // ============================================================
-// Section 1: `sonnet` is the default and now points to Sonnet 5
+// Section 1: `sonnet` remains an explicit alias for Sonnet 5
 // ============================================================
 console.log('\n=== 1. Bare `sonnet` alias resolves to Claude Sonnet 5 ===');
 
@@ -48,14 +48,14 @@ test('availableModels.sonnet (claude.lib.mjs) maps to claude-sonnet-5', () => {
   assert.strictEqual(availableModels['sonnet'], 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
 });
 
-test('defaultModels.claude is sonnet (default model for --tool claude)', () => {
-  assert.strictEqual(defaultModels['claude'], 'sonnet', 'claude default should be sonnet');
+test('defaultModels.claude is opus (Issue #2033)', () => {
+  assert.strictEqual(defaultModels['claude'], 'opus', 'claude default should be opus');
 });
 
-test('default claude model resolves to claude-sonnet-5', () => {
+test('default claude model resolves to the current Opus model (Issue #2033)', () => {
   const result = validateModelName(defaultModels['claude'], 'claude');
   assert(result.valid, `default should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'default sonnet should map to claude-sonnet-5');
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-8', 'default opus should map to claude-opus-4-8');
 });
 
 test('validateModelName maps sonnet to claude-sonnet-5', () => {

@@ -1047,7 +1047,30 @@ const doesRequestedMatchActual = (requestedModel, actualModelId, tool) => {
  * @param {Array<{modelId: string, modelInfo: Object|null}>|null} options.modelsUsed - Actual models used from CLI JSON output
  * @returns {string} Formatted markdown string for model info section
  */
-export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null, thinkingInfo = null, fallbackModel = null } = {}) => {
+/**
+ * Compute the share (0-100) of total output tokens that a given model produced.
+ * Used to report how much of the run actually ran on the fallback model, so the
+ * PR/issue comment can manage expectations precisely (Issue #2037 review).
+ * @param {Object|null} modelUsage - map of modelId -> { outputTokens } (or output_tokens)
+ * @param {string} modelId - the model whose share to compute
+ * @returns {number|null} integer percentage, or null when no output-token data
+ */
+const computeOutputTokenSharePercent = (modelUsage, modelId) => {
+  if (!modelUsage || typeof modelUsage !== 'object' || !modelId) return null;
+  const target = normalizeForComparison(modelId);
+  let total = 0;
+  let matched = 0;
+  for (const [id, usage] of Object.entries(modelUsage)) {
+    const out = Number(usage?.outputTokens ?? usage?.output_tokens ?? 0) || 0;
+    if (out <= 0) continue;
+    total += out;
+    if (normalizeForComparison(id) === target) matched += out;
+  }
+  if (total <= 0) return null;
+  return Math.round((matched / total) * 100);
+};
+
+export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null, thinkingInfo = null, fallbackModel = null, modelUsage = null } = {}) => {
   const hasRequested = requestedModel !== null && requestedModel !== undefined;
   const hasModelsUsed = Array.isArray(modelsUsed) && modelsUsed.length > 0;
   const hasModelInfo = modelInfo !== null;
@@ -1091,21 +1114,29 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
     const modelLabel = supportingEntries.length > 0 ? 'Main model' : 'Model';
 
     // Issue #2037: A mismatch between the requested model and the model that
-    // actually ran is *expected* when the run was deliberately downgraded to the
-    // configured fallback model (e.g. Codex reported the requested `gpt-5.6-sol`
-    // was "at capacity", so the retry loop switched to `gpt-5.5`). In that case
-    // the fallback did its job, so surface an informational note instead of an
-    // alarming \u26A0\uFE0F warning that reads like a defect.
+    // actually ran happens when the run was downgraded to the configured fallback
+    // model (e.g. Codex reported the requested `gpt-5.6-sol` was "at capacity", so
+    // the retry loop switched to `gpt-5.6-terra`). Even though the fallback did its
+    // job, the user did *not* get the model they asked for in full detail, so this
+    // is still surfaced as a \u26A0\uFE0F warning (Issue #2037 review) \u2014 but a
+    // clearer one that explains it was an automatic capacity fallback rather than an
+    // unexplained mismatch. When output-token data is available we also report the
+    // share of output tokens produced by the fallback model, so expectations are set
+    // precisely.
     const matchesFallback = hasRequested && !mainMatches && fallbackModel ? doesRequestedMatchActual(fallbackModel, mainModelId, tool) : false;
 
     if (mainMatches) {
       info += `\n- **${modelLabel}: ${mainModelName}** (\`${mainModelId}\`)`;
     } else {
       info += `\n- **${modelLabel}: ${mainModelName}** (\`${mainModelId}\`)`;
-      if (hasRequested && matchesFallback) {
-        info += `\n- \u2139\uFE0F Requested model \`${requestedModel}\` was unavailable; automatically fell back to \`${mainModelId}\``;
-      } else if (hasRequested) {
-        info += `\n- \u26A0\uFE0F **Warning**: Main model \`${mainModelId}\` does not match requested model \`${requestedModel}\``;
+      if (hasRequested) {
+        const sharePercent = computeOutputTokenSharePercent(modelUsage, mainModelId);
+        const shareSuffix = sharePercent !== null ? ` (fallback model produced ${sharePercent}% of output tokens)` : '';
+        if (matchesFallback) {
+          info += `\n- \u26A0\uFE0F **Warning**: Requested model \`${requestedModel}\` was unavailable (at capacity); automatically fell back to \`${mainModelId}\`${shareSuffix}`;
+        } else {
+          info += `\n- \u26A0\uFE0F **Warning**: Main model \`${mainModelId}\` does not match requested model \`${requestedModel}\`${shareSuffix}`;
+        }
       }
     }
 
@@ -1169,11 +1200,18 @@ export const defaultFallbackModels = {
     'claude-sonnet-5': 'sonnet-4-6',
   },
   codex: {
-    'gpt-5.6-sol': 'gpt-5.5',
-    'gpt-5.6-terra': 'gpt-5.5',
+    // Issue #2037 (review): prefer the *closest* sibling in the same generation
+    // before dropping down a generation. When `gpt-5.6-sol` is at capacity the
+    // nearest replacement is another GPT-5.6 variant (`gpt-5.6-terra`), not the
+    // older `gpt-5.5`. Each step falls back to the next-closest model, so repeated
+    // capacity errors walk the chain sol -> terra -> luna -> gpt-5.5 -> gpt-5.4
+    // instead of jumping straight to the previous generation. This keeps the
+    // actually-used model as close as possible to what the user requested.
+    'gpt-5.6-sol': 'gpt-5.6-terra',
+    'gpt-5.6-terra': 'gpt-5.6-luna',
     'gpt-5.6-luna': 'gpt-5.5',
-    'openai.gpt-5.6-sol': 'openai.gpt-5.5',
-    'openai.gpt-5.6-terra': 'openai.gpt-5.5',
+    'openai.gpt-5.6-sol': 'openai.gpt-5.6-terra',
+    'openai.gpt-5.6-terra': 'openai.gpt-5.6-luna',
     'openai.gpt-5.6-luna': 'openai.gpt-5.5',
     'openai.gpt-5.5': 'openai.gpt-5.4',
     'gpt-5.5': 'gpt-5.4',
@@ -1199,7 +1237,7 @@ export const resolveDefaultFallbackModel = (tool, model) => {
  * @param {Array<string>|null} options.actualModelIds - Actual model IDs from CLI JSON output
  * @returns {Promise<string>} Formatted markdown model info section
  */
-export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null, thinkingInfo = null, fallbackModel = null } = {}) => {
+export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null, thinkingInfo = null, fallbackModel = null, modelUsage = null } = {}) => {
   let modelIds = [];
 
   if (Array.isArray(actualModelIds) && actualModelIds.length > 0) {
@@ -1232,5 +1270,6 @@ export const getModelInfoForComment = async ({ requestedModel = null, tool = nul
     modelsUsed: modelsUsed.length > 0 ? modelsUsed : null,
     thinkingInfo,
     fallbackModel,
+    modelUsage,
   });
 };

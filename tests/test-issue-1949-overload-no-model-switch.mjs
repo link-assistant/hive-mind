@@ -191,6 +191,43 @@ test('a model that equals its resolved id renders without duplication', () => {
 });
 
 // ============================================================
+// Section 5: Multi-level fallback chain (Issue #2037 review)
+// ============================================================
+console.log('\n=== 5. Multi-level fallback chain walks closest-first ===');
+
+await testAsync('repeated codex capacity errors walk gpt-5.6-sol -> terra -> luna -> gpt-5.5 -> gpt-5.4', async () => {
+  // No explicit fallback pin: argv.fallbackModel starts unset, mirroring a run that
+  // relies on the built-in default chain.
+  const argv = { model: 'gpt-5.6-sol' };
+  const log = makeLogSpy();
+  const path = [argv.model];
+  for (let i = 0; i < 6; i++) {
+    const result = await maybeSwitchToFallbackModel({
+      tool: 'codex',
+      argv,
+      log,
+      errorMessage: 'Selected model is at capacity. Please try a different model.',
+    });
+    if (!result.switched) break;
+    path.push(argv.model);
+  }
+  assert.deepStrictEqual(path, ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4']);
+});
+
+await testAsync('an explicit --fallback-model pin is honoured exactly and never walked past', async () => {
+  // _fallbackModelExplicit = true => the user pinned gpt-5.5, so after switching to
+  // it a second capacity error must NOT step further down the chain.
+  const argv = { model: 'gpt-5.6-sol', fallbackModel: 'gpt-5.5', _fallbackModelExplicit: true };
+  const log = makeLogSpy();
+  const first = await maybeSwitchToFallbackModel({ tool: 'codex', argv, log, errorMessage: 'Selected model is at capacity. Please try a different model.' });
+  assert.strictEqual(first.switched, true);
+  assert.strictEqual(argv.model, 'gpt-5.5', 'first switch jumps straight to the pinned model');
+  const second = await maybeSwitchToFallbackModel({ tool: 'codex', argv, log, errorMessage: 'Selected model is at capacity. Please try a different model.' });
+  assert.strictEqual(second.switched, false, 'must not walk past an explicit pin');
+  assert.strictEqual(argv.model, 'gpt-5.5');
+});
+
+// ============================================================
 // Summary
 // ============================================================
 console.log(`\n${'='.repeat(60)}`);

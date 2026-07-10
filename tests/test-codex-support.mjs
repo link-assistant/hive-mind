@@ -135,17 +135,36 @@ test('Codex default fallback model resolves from gpt-5.5 to gpt-5.4', () => {
   assert.equal(resolveDefaultFallbackModel('codex', 'gpt-5.5'), 'gpt-5.4');
 });
 
-for (const model of ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']) {
-  test(`Codex default fallback model resolves from ${model} to gpt-5.5`, () => {
-    assert.equal(resolveDefaultFallbackModel('codex', model), 'gpt-5.5');
+// Issue #2037 (review): the codex default fallback is a *closest-first* chain that
+// stays within the GPT-5.6 generation before dropping to GPT-5.5, then GPT-5.4.
+const codexChain = {
+  'gpt-5.6-sol': 'gpt-5.6-terra',
+  'gpt-5.6-terra': 'gpt-5.6-luna',
+  'gpt-5.6-luna': 'gpt-5.5',
+  'gpt-5.5': 'gpt-5.4',
+  'openai.gpt-5.6-sol': 'openai.gpt-5.6-terra',
+  'openai.gpt-5.6-terra': 'openai.gpt-5.6-luna',
+  'openai.gpt-5.6-luna': 'openai.gpt-5.5',
+  'openai.gpt-5.5': 'openai.gpt-5.4',
+};
+for (const [model, expected] of Object.entries(codexChain)) {
+  test(`Codex default fallback model resolves from ${model} to ${expected}`, () => {
+    assert.equal(resolveDefaultFallbackModel('codex', model), expected);
   });
 }
 
-for (const model of ['openai.gpt-5.6-sol', 'openai.gpt-5.6-terra', 'openai.gpt-5.6-luna']) {
-  test(`Codex default fallback model resolves from ${model} to openai.gpt-5.5`, () => {
-    assert.equal(resolveDefaultFallbackModel('codex', model), 'openai.gpt-5.5');
-  });
-}
+// Walking the full chain step-by-step reaches the previous generations in order.
+test('Codex default fallback chain walks gpt-5.6-sol -> terra -> luna -> gpt-5.5 -> gpt-5.4', () => {
+  const chain = ['gpt-5.6-sol'];
+  let current = chain[0];
+  for (let i = 0; i < 5; i++) {
+    const next = resolveDefaultFallbackModel('codex', current);
+    if (!next) break;
+    chain.push(next);
+    current = next;
+  }
+  assert.deepEqual(chain, ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4']);
+});
 
 test('Claude default fallback model resolves from opus to opus-4-7', () => {
   // Updated for Issue #1832: opus is now claude-opus-4-8 with fallback to opus-4-7

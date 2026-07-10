@@ -388,6 +388,9 @@ export async function attachLogToGitHub(options) {
     }
     let totalCostUSD = publicPricingEstimate; // Issue #1225: token usage + actual model IDs
     let actualModelIds = null;
+    // Issue #2037 (review): per-model output-token map, used to report the share of
+    // output tokens produced by the fallback model in the "Models used:" section.
+    let modelUsageForComment = null;
     if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
@@ -399,6 +402,7 @@ export async function attachLogToGitHub(options) {
           }
           if (tokenUsage.modelUsage && Object.keys(tokenUsage.modelUsage).length > 0) {
             actualModelIds = Object.keys(tokenUsage.modelUsage);
+            modelUsageForComment = tokenUsage.modelUsage;
             if (verbose) await log(`  🤖 Actual models used: ${actualModelIds.join(', ')}`, { verbose: true });
           }
         }
@@ -412,6 +416,7 @@ export async function attachLogToGitHub(options) {
       if (ids.length > 0 && (!actualModelIds || ids.length > actualModelIds.length)) {
         ids.sort((a, b) => (resultModelUsage[b]?.costUSD ?? 0) - (resultModelUsage[a]?.costUSD ?? 0));
         actualModelIds = ids;
+        if (!modelUsageForComment) modelUsageForComment = resultModelUsage;
         if (verbose) await log(`  🤖 Using result JSON modelUsage (${ids.length} models): ${ids.join(', ')}`, { verbose: true });
       }
     }
@@ -431,7 +436,7 @@ export async function attachLogToGitHub(options) {
         // Issue #1949: prefer an explicit thinkingInfo, otherwise derive it from argv
         // (e.g. "high (~24000 tokens)"). null when the run used the tool's default.
         const resolvedThinkingInfo = thinkingInfo ?? describeRequestedThinking(argv);
-        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo, fallbackModel: argv?.fallbackModel ?? null });
+        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo, fallbackModel: argv?.fallbackModel ?? null, modelUsage: modelUsageForComment });
         if (verbose && modelInfoString) {
           await log('  🤖 Model info fetched for comment', { verbose: true });
         }

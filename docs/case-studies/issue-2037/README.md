@@ -16,10 +16,15 @@ comment then rendered:
 
 > ⚠️ **Warning**: Main model `gpt-5.5` does not match requested model `gpt-5.6-sol`
 
-This warning is **misleading**: the mismatch was the intended, designed behaviour
-(a capacity-driven fallback), not an error. Separately, the retry loop waited a
-full **2 minutes** of transient-error backoff _before_ retrying on the freshly
-switched model, even though the switch itself makes the old backoff irrelevant.
+This warning was **unclear**: it read like an unexplained defect rather than the
+intended, capacity-driven fallback it actually was. Per the PR review the message
+stays a warning (the user did not get the model they requested in full detail) but
+is reworded to explain the automatic fallback and to report the share of output
+tokens produced on the fallback model. Separately, the retry loop waited a full
+**2 minutes** of transient-error backoff _before_ retrying on the freshly switched
+model, even though the switch itself makes the old backoff irrelevant. Finally, the
+default fallback for `gpt-5.6-sol` jumped straight to `gpt-5.5`; it now steps to the
+closest sibling `gpt-5.6-terra` first and walks the chain down from there.
 
 ## 2. Timeline of events (reconstructed from the log)
 
@@ -34,16 +39,37 @@ switched model, even though the switch itself makes the old backoff irrelevant.
 | 19:07:44            | `🔄 Retrying now...` — retry attempt 1/10 on `gpt-5.5`                                                            | retry block   |
 | (later)             | Run completes successfully; comment shows the misleading `⚠️ Warning`                                             | —             |
 
-## 3. Requirements extracted from the issue
+## 3. Requirements extracted from the issue (and PR review)
 
-1. The `⚠️ Warning` must not fire when the actual model equals the _configured
-   fallback_ of the requested model — that is expected behaviour, so it should be
-   an informational note, not a warning.
+From the issue:
+
+1. The misleading fallback warning must be addressed.
 2. The 2-minute wait before retrying on the switched model is wasted time — a
    capacity-driven model switch should retry quickly (the new model is likely
    available now).
 3. Apply the fixes across the entire codebase — every tool that performs a
    capacity fallback (codex, claude, agent, opencode, qwen, gemini), not just codex.
+
+From the PR review ([comment 4939806551](https://github.com/link-assistant/hive-mind/pull/2040#issuecomment-4939806551)):
+
+4. Fall back from `gpt-5.6-sol` to the **closest** model first (`gpt-5.6-terra` or
+   similar), and only after that down to `gpt-5.5`. The default fallback for a
+   `5.6` model must not jump straight to the previous generation.
+5. The comment should **still be a warning** — a capacity fallback is not what the
+   user requested in full detail — but a clear one.
+6. Report in what **percentage of output tokens** the fallback model was active, so
+   user expectations are managed clearly.
+
+### Is this an actual bug, and how often does the fallback fire?
+
+The fallback path is a genuine, load-dependent event: it only triggers when OpenAI
+returns `Selected model is at capacity. Please try a different model.` for the
+requested model (see `classifyRetryableError`, `isCapacity === true`). It is **not**
+triggered by ordinary transient overload/timeout errors — those keep the requested
+model (Issue #1949). Frequency therefore tracks OpenAI's capacity for the newest
+`gpt-5.6-*` preview tier and is expected to be intermittent and highest right after
+a new model launches. The reporting/timing defects, by contrast, fired **every**
+time a capacity fallback occurred — those are the deterministic bugs fixed here.
 
 ## 4. Root cause analysis
 
@@ -64,17 +90,34 @@ switch was meant to unblock the run immediately.
 
 ## 5. Fixes implemented (this PR)
 
-### Fix 1 — informational fallback note instead of warning
+### Fix 1 — clearer capacity-fallback warning (kept as a warning) with output-token share
 
-`buildModelInfoString` / `getModelInfoForComment` now accept a `fallbackModel`
-parameter. When the actual model does not match the requested model **but does
-match the configured fallback**, the comment shows:
+`buildModelInfoString` / `getModelInfoForComment` accept `fallbackModel` and
+`modelUsage` parameters. When the actual model does not match the requested model
+**but does match the configured fallback**, the comment shows a warning that
+explains the automatic capacity fallback (per the PR review, this stays a `⚠️`
+warning because the user did not get their requested model in full detail):
 
-> ℹ️ Requested model `gpt-5.6-sol` was unavailable; automatically fell back to `gpt-5.5`
+> ⚠️ **Warning**: Requested model `gpt-5.6-sol` was unavailable (at capacity); automatically fell back to `gpt-5.6-terra` (fallback model produced 100% of output tokens)
 
-The `⚠️ Warning` is still emitted when the actual model matches _neither_ the
-requested model nor its configured fallback (a genuinely unexpected mismatch).
-`src/github.lib.mjs` passes `argv.fallbackModel` through to the comment builder.
+The output-token share is computed from the per-model `modelUsage` map
+(`computeOutputTokenSharePercent`) and is omitted when no per-model token data is
+available. The generic `⚠️ Warning` ("does not match requested") is still emitted
+when the actual model matches _neither_ the requested model nor its configured
+fallback. `src/github.lib.mjs` passes `argv.fallbackModel` and the per-model
+`modelUsage` through to the comment builder.
+
+### Fix 1b — closest-first, multi-level fallback chain
+
+`defaultFallbackModels.codex` (`src/models/index.mjs`) now forms a chain that stays
+within the same generation before dropping down:
+`gpt-5.6-sol → gpt-5.6-terra → gpt-5.6-luna → gpt-5.5 → gpt-5.4` (and the
+`openai.*` prefixed equivalents). `resolveConfiguredFallbackModel`
+(`src/tool-retry.lib.mjs`) walks this chain: on each successive capacity error it
+resolves the next hop from the _current_ model, so repeated errors step through the
+whole chain instead of getting stuck on the first fallback. An explicit
+`--fallback-model` pin (`argv._fallbackModelExplicit`, set in
+`src/solve.config.lib.mjs`) is honoured exactly and never walked past.
 
 ### Fix 2 — fast retry after a capacity-driven model switch
 
@@ -109,13 +152,16 @@ existing Issue #1949 no-model-switch test suite).
 
 ## 7. Tests
 
-- `tests/model-info.test.mjs` — informational-note case (actual == configured
-  fallback → `ℹ️`, no `⚠️`) and the unchanged-warning case (actual matches
-  neither → `⚠️`).
-- `tests/test-codex-support.mjs` — capacity-error retry now asserts a single fast
-  delay (`<= 30_000ms`) after the model switch.
+- `tests/model-info.test.mjs` — capacity-fallback warning case (actual == configured
+  fallback → `⚠️` + "automatically fell back"), the unchanged generic-warning case
+  (actual matches neither), and the output-token-share case (`modelUsage` →
+  "N% of output tokens").
+- `tests/test-codex-support.mjs` — capacity-error retry asserts a single fast delay
+  (`<= 30_000ms`) after the model switch, plus the closest-first codex fallback chain
+  (`gpt-5.6-sol → terra → luna → gpt-5.5 → gpt-5.4`).
 - `tests/test-issue-1949-overload-no-model-switch.mjs` — regression guard that
-  overload errors do **not** trigger a model switch (still passes).
+  overload errors do **not** trigger a model switch, plus multi-level chain walking
+  and explicit-pin (no-walk-past) coverage.
 
 ## 8. Upstream note
 

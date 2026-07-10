@@ -199,8 +199,30 @@ export const waitWithCountdown = async (delayMs, log) => {
   clearInterval(timer);
 };
 
-export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredFallbackModel = undefined } = {}) => {
-  if (configuredFallbackModel) return configuredFallbackModel;
+// Issue #2037 (review): Support a *multi-level* fallback chain (e.g.
+// gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.6-luna -> gpt-5.5 -> gpt-5.4) so repeated
+// capacity errors keep stepping to the next-closest model instead of getting stuck
+// on the first fallback. `configuredFallbackModel` (from --fallback-model, or the
+// default resolved once at config time) is honoured only while it still differs from
+// the current model; once the run has already switched onto it, we resolve the next
+// hop from the default chain of the *current* model. An explicitly user-pinned
+// fallback (`explicit: true`) is never walked past — the user chose that model on
+// purpose, so it stays put.
+export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredFallbackModel = undefined, explicit = false } = {}) => {
+  // A user-pinned fallback (--fallback-model) is honoured as-is and never walked
+  // past: the user chose that exact model on purpose. Return it while it still
+  // differs from the current model; once the run is already on it, stop switching.
+  if (explicit && configuredFallbackModel) {
+    const current = normalizeModelKey(resolveModelId(currentModel, tool));
+    const configured = normalizeModelKey(resolveModelId(configuredFallbackModel, tool));
+    if (configured && configured !== current) return configuredFallbackModel;
+    return null;
+  }
+  // Otherwise resolve the next hop from the default chain of the *current* model,
+  // so repeated capacity errors walk the whole chain
+  // (e.g. gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.6-luna -> gpt-5.5 -> gpt-5.4).
+  // The auto-set argv.fallbackModel is intentionally ignored here — it only ever
+  // holds the first default hop and would otherwise pin the chain to one step.
   return resolveDefaultFallbackModel(tool, currentModel);
 };
 
@@ -237,6 +259,7 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
     tool,
     currentModel: argv?.model,
     configuredFallbackModel: argv?.fallbackModel,
+    explicit: argv?._fallbackModelExplicit === true,
   });
 
   const classification = classifyRetryableError(errorMessage);
@@ -262,7 +285,12 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
 
   const previousModel = argv.model;
   argv.model = fallbackModel;
-  if (!argv.fallbackModel) argv.fallbackModel = fallbackModel;
+  // Issue #2037 (review): record the model we actually switched to as the current
+  // fallback target. For a multi-hop chain (sol -> terra -> luna -> ...) this keeps
+  // argv.fallbackModel pointing at the model that is now running, so the PR comment
+  // correctly reports it as the automatic capacity fallback. An explicit user pin
+  // already equals `fallbackModel` here, so this is a no-op in that case.
+  argv.fallbackModel = fallbackModel;
 
   if (typeof log === 'function') {
     // Issue #1949: show the resolved full model IDs so the switch is unambiguous,

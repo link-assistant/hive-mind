@@ -38,7 +38,7 @@ Hive Mind is a **generalist AI** (mini-AGI) capable of working on a wide range o
 
 | Subscription                                                       | Pairs with `--tool` | Default model | Best for                                                |
 | ------------------------------------------------------------------ | ------------------- | ------------- | ------------------------------------------------------- |
-| **Anthropic Claude MAX** (~$200/month, often 50% off = $400 value) | `claude` (default)  | Sonnet/Haiku  | Highest creativity, strongest general code reasoning    |
+| **Anthropic Claude MAX** (~$200/month, often 50% off = $400 value) | `claude` (default)  | Opus          | Highest creativity, strongest general code reasoning    |
 | **OpenAI ChatGPT Pro** ($200/month, includes Codex)                | `codex`             | `gpt-5.6-sol` | Strong deterministic refactors and fast iteration loops |
 
 Both tools can be combined in the same hive. Workers can run different tools in parallel, and `/codex` or `/solve --tool codex` routes tasks to ChatGPT Pro while the default routes to Claude MAX. There is no requirement to pick one: either single subscription is enough to operate, and using both unlocks per-tool/model concurrency mode (#1474).
@@ -357,7 +357,7 @@ solve <issue-url> [options]
 
 | Option          | Alias | Description                             | Default   |
 | --------------- | ----- | --------------------------------------- | --------- |
-| `--model`       | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet    |
+| `--model`       | `-m`  | AI model to use (sonnet, opus, haiku)   | opus      |
 | `--think`       |       | Thinking level (low, medium, high, max) | -         |
 | `--base-branch` | `-b`  | Target branch for PR                    | (default) |
 
@@ -383,7 +383,7 @@ hive <github-url> [options]
 
 | Option         | Alias | Description                             | Default |
 | -------------- | ----- | --------------------------------------- | ------- |
-| `--model`      | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet  |
+| `--model`      | `-m`  | AI model to use (sonnet, opus, haiku)   | opus    |
 | `--think`      |       | Thinking level (low, medium, high, max) | -       |
 | `--all-issues` | `-a`  | Monitor all issues (ignore labels)      | false   |
 | `--once`       |       | Single run (don't monitor continuously) | false   |
@@ -509,7 +509,7 @@ Current tool defaults in Hive Mind:
 
 | Tool       | Default model                                                               | Default reasoning behavior                                                         |
 | ---------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `claude`   | `sonnet`                                                                    | Defaults to `--think off`: zero budget when supported, otherwise the lowest effort |
+| `claude`   | `opus`                                                                      | Defaults to `--think off`: zero budget when supported, otherwise the lowest effort |
 | `codex`    | `gpt-5.6-sol` preferred, with runtime fallback to local catalog (`gpt-5.5`) | Defaults to `--think off`, mapped to `reasoning_effort=none`                       |
 | `opencode` | `grok-code-fast-1`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
 | `agent`    | `nemotron-3-super-free`                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |

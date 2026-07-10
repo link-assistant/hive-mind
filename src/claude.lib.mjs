@@ -26,7 +26,7 @@ import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
-import { classifyRetryableError, logExecutionContext, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
@@ -1212,7 +1212,11 @@ export const executeClaudeCommand = async params => {
           };
         }
         if (retryCount < maxRetries) {
-          const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
+          // Activity timeout preserves session (work was started), startup timeout does not (no session created)
+          if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
+          // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: retryableLastError.message || lastMessage, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay });
+          const delay = retryPlan.delay;
           const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : retryableLastError.label || (isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : isRateLimitError ? 'Server rate limited (429)' : '503 network error');
           const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
           const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
@@ -1232,9 +1236,6 @@ export const executeClaudeCommand = async params => {
               await log(`   Warning: Could not post force-kill comment to PR: ${commentError.message}`, { verbose: true });
             }
           }
-          // Activity timeout preserves session (work was started), startup timeout does not (no session created)
-          if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
-          await maybeSwitchToFallbackModel({ tool: 'claude', argv, log, errorMessage: retryableLastError.message || lastMessage });
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;
@@ -1389,11 +1390,13 @@ export const executeClaudeCommand = async params => {
         const initialDelay = isTimeoutException ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
         const maxDelay = isTimeoutException ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
         if (retryCount < maxRetries) {
-          const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
-          const errorLabel = isTimeoutException ? 'Request timeout' : retryableException.label || (errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
-          await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
           if (sessionId && !argv.resume) argv.resume = sessionId;
-          await maybeSwitchToFallbackModel({ tool: 'claude', argv, log, errorMessage: errorStr });
+          // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: errorStr, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay });
+          const delay = retryPlan.delay;
+          const errorLabel = isTimeoutException ? 'Request timeout' : retryableException.label || (errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
+          const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+          await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel} (session preserved)...`, { level: 'warning' });
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;

@@ -199,8 +199,30 @@ export const waitWithCountdown = async (delayMs, log) => {
   clearInterval(timer);
 };
 
-export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredFallbackModel = undefined } = {}) => {
-  if (configuredFallbackModel) return configuredFallbackModel;
+// Issue #2037 (review): Support a *multi-level* fallback chain (e.g.
+// gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.6-luna -> gpt-5.5 -> gpt-5.4) so repeated
+// capacity errors keep stepping to the next-closest model instead of getting stuck
+// on the first fallback. `configuredFallbackModel` (from --fallback-model, or the
+// default resolved once at config time) is honoured only while it still differs from
+// the current model; once the run has already switched onto it, we resolve the next
+// hop from the default chain of the *current* model. An explicitly user-pinned
+// fallback (`explicit: true`) is never walked past — the user chose that model on
+// purpose, so it stays put.
+export const resolveConfiguredFallbackModel = ({ tool, currentModel, configuredFallbackModel = undefined, explicit = false } = {}) => {
+  // A user-pinned fallback (--fallback-model) is honoured as-is and never walked
+  // past: the user chose that exact model on purpose. Return it while it still
+  // differs from the current model; once the run is already on it, stop switching.
+  if (explicit && configuredFallbackModel) {
+    const current = normalizeModelKey(resolveModelId(currentModel, tool));
+    const configured = normalizeModelKey(resolveModelId(configuredFallbackModel, tool));
+    if (configured && configured !== current) return configuredFallbackModel;
+    return null;
+  }
+  // Otherwise resolve the next hop from the default chain of the *current* model,
+  // so repeated capacity errors walk the whole chain
+  // (e.g. gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.6-luna -> gpt-5.5 -> gpt-5.4).
+  // The auto-set argv.fallbackModel is intentionally ignored here — it only ever
+  // holds the first default hop and would otherwise pin the chain to one step.
   return resolveDefaultFallbackModel(tool, currentModel);
 };
 
@@ -237,6 +259,7 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
     tool,
     currentModel: argv?.model,
     configuredFallbackModel: argv?.fallbackModel,
+    explicit: argv?._fallbackModelExplicit === true,
   });
 
   const classification = classifyRetryableError(errorMessage);
@@ -262,7 +285,12 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
 
   const previousModel = argv.model;
   argv.model = fallbackModel;
-  if (!argv.fallbackModel) argv.fallbackModel = fallbackModel;
+  // Issue #2037 (review): record the model we actually switched to as the current
+  // fallback target. For a multi-hop chain (sol -> terra -> luna -> ...) this keeps
+  // argv.fallbackModel pointing at the model that is now running, so the PR comment
+  // correctly reports it as the automatic capacity fallback. An explicit user pin
+  // already equals `fallbackModel` here, so this is a no-op in that case.
+  argv.fallbackModel = fallbackModel;
 
   if (typeof log === 'function') {
     // Issue #1949: show the resolved full model IDs so the switch is unambiguous,
@@ -278,12 +306,51 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
   };
 };
 
+// Issue #2037 (review): Unified retry planner shared by every tool's retry loop.
+// On a genuine "model is at capacity" error it first retries the *originally
+// requested* model up to `capacityRetriesBeforeFallback` times with exponential
+// backoff — capacity errors are often short-lived, so the preferred model gets
+// several chances before we downgrade. Only once those same-model retries are
+// exhausted does it switch to the next-closest fallback model (fast 5s retry).
+// Non-capacity transient errors keep the current model and use the caller's
+// standard backoff, exactly as before.
+//
+// The same-model capacity retry count is stored on `argv._capacityRetryCount` so it
+// survives the recursive executeWithRetry calls without each tool tracking extra
+// state. It resets to 0 whenever we actually switch models, so every model in the
+// fallback chain gets its own batch of same-model retries before stepping down.
+export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, retryCount, initialDelayMs, maxDelayMs } = {}) => {
+  const classification = classifyRetryableError(errorMessage);
+  const isCapacity = classification.isCapacity === true && !!argv?.model;
+  const capacityRetryCount = argv?._capacityRetryCount || 0;
+
+  if (isCapacity && capacityRetryCount < retryLimits.capacityRetriesBeforeFallback) {
+    if (argv) argv._capacityRetryCount = capacityRetryCount + 1;
+    const delay = getRetryDelayMs({
+      retryCount: capacityRetryCount,
+      initialDelayMs: retryLimits.initialCapacityRetryDelayMs,
+      maxDelayMs: retryLimits.maxCapacityRetryDelayMs,
+    });
+    if (typeof log === 'function') {
+      await log(`   Model ${formatModelWithResolvedId(argv.model, tool)} at capacity — retrying same model (attempt ${capacityRetryCount + 1}/${retryLimits.capacityRetriesBeforeFallback}) before falling back`, { level: 'warning' });
+    }
+    return { delay, switched: false };
+  }
+
+  const switchResult = await maybeSwitchToFallbackModel({ tool, argv, log, errorMessage });
+  // A model switch starts a fresh batch of same-model retries for the new model.
+  if (switchResult?.switched && argv) argv._capacityRetryCount = 0;
+  const delay = switchResult?.switched ? retryLimits.modelSwitchRetryDelayMs : getRetryDelayMs({ retryCount, initialDelayMs, maxDelayMs });
+  return { delay, switched: switchResult?.switched === true };
+};
+
 export default {
   classifyRetryableError,
   getRetryDelayMs,
   waitWithCountdown,
   resolveConfiguredFallbackModel,
   maybeSwitchToFallbackModel,
+  prepareRetryAfterError,
   formatModelWithResolvedId,
   logExecutionContext,
 };

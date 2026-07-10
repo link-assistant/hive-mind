@@ -367,9 +367,11 @@ export const getDefaultModelForTool = tool => {
 
 let cachedInstalledCodexModelsPromise = null;
 // Issue #2027: With gpt-5.6-sol as the preferred default, the fallback chain is only
-// consulted when Sol is absent from the local catalog. Prefer the previous stable
-// default (gpt-5.5) first, then the remaining GPT-5.6 preview tiers, then older models.
-const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.5', 'openai.gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'openai.gpt-5.6-sol', 'openai.gpt-5.6-terra', 'openai.gpt-5.6-luna', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+// consulted when Sol is absent from the local catalog. Issue #2037 (review): order by
+// intelligence / size tier (closest first), not by generation — the flagship sibling
+// `gpt-5.6-terra` is closer to Sol than the previous-generation `gpt-5.5`, which in turn
+// is a larger, more capable model than the smaller GPT-5.6 `luna` tier.
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.6-terra', 'openai.gpt-5.6-terra', 'gpt-5.5', 'openai.gpt-5.5', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.2', 'gpt-5.6-luna', 'openai.gpt-5.6-luna', 'openai.gpt-5.6-sol', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
 
 export const getInstalledCodexModels = async () => {
   if (!cachedInstalledCodexModelsPromise) {
@@ -1047,7 +1049,30 @@ const doesRequestedMatchActual = (requestedModel, actualModelId, tool) => {
  * @param {Array<{modelId: string, modelInfo: Object|null}>|null} options.modelsUsed - Actual models used from CLI JSON output
  * @returns {string} Formatted markdown string for model info section
  */
-export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null, thinkingInfo = null } = {}) => {
+/**
+ * Compute the share (0-100) of total output tokens that a given model produced.
+ * Used to report how much of the run actually ran on the fallback model, so the
+ * PR/issue comment can manage expectations precisely (Issue #2037 review).
+ * @param {Object|null} modelUsage - map of modelId -> { outputTokens } (or output_tokens)
+ * @param {string} modelId - the model whose share to compute
+ * @returns {number|null} integer percentage, or null when no output-token data
+ */
+const computeOutputTokenSharePercent = (modelUsage, modelId) => {
+  if (!modelUsage || typeof modelUsage !== 'object' || !modelId) return null;
+  const target = normalizeForComparison(modelId);
+  let total = 0;
+  let matched = 0;
+  for (const [id, usage] of Object.entries(modelUsage)) {
+    const out = Number(usage?.outputTokens ?? usage?.output_tokens ?? 0) || 0;
+    if (out <= 0) continue;
+    total += out;
+    if (normalizeForComparison(id) === target) matched += out;
+  }
+  if (total <= 0) return null;
+  return Math.round((matched / total) * 100);
+};
+
+export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null, thinkingInfo = null, fallbackModel = null, modelUsage = null } = {}) => {
   const hasRequested = requestedModel !== null && requestedModel !== undefined;
   const hasModelsUsed = Array.isArray(modelsUsed) && modelsUsed.length > 0;
   const hasModelInfo = modelInfo !== null;
@@ -1090,12 +1115,30 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
     const mainModelName = mainModelMeta?.name || mainModelId;
     const modelLabel = supportingEntries.length > 0 ? 'Main model' : 'Model';
 
+    // Issue #2037: A mismatch between the requested model and the model that
+    // actually ran happens when the run was downgraded to the configured fallback
+    // model (e.g. Codex reported the requested `gpt-5.6-sol` was "at capacity", so
+    // the retry loop switched to `gpt-5.6-terra`). Even though the fallback did its
+    // job, the user did *not* get the model they asked for in full detail, so this
+    // is still surfaced as a \u26A0\uFE0F warning (Issue #2037 review) \u2014 but a
+    // clearer one that explains it was an automatic capacity fallback rather than an
+    // unexplained mismatch. When output-token data is available we also report the
+    // share of output tokens produced by the fallback model, so expectations are set
+    // precisely.
+    const matchesFallback = hasRequested && !mainMatches && fallbackModel ? doesRequestedMatchActual(fallbackModel, mainModelId, tool) : false;
+
     if (mainMatches) {
       info += `\n- **${modelLabel}: ${mainModelName}** (\`${mainModelId}\`)`;
     } else {
       info += `\n- **${modelLabel}: ${mainModelName}** (\`${mainModelId}\`)`;
       if (hasRequested) {
-        info += `\n- \u26A0\uFE0F **Warning**: Main model \`${mainModelId}\` does not match requested model \`${requestedModel}\``;
+        const sharePercent = computeOutputTokenSharePercent(modelUsage, mainModelId);
+        const shareSuffix = sharePercent !== null ? ` (fallback model produced ${sharePercent}% of output tokens)` : '';
+        if (matchesFallback) {
+          info += `\n- \u26A0\uFE0F **Warning**: Requested model \`${requestedModel}\` was unavailable (at capacity); automatically fell back to \`${mainModelId}\`${shareSuffix}`;
+        } else {
+          info += `\n- \u26A0\uFE0F **Warning**: Main model \`${mainModelId}\` does not match requested model \`${requestedModel}\`${shareSuffix}`;
+        }
       }
     }
 
@@ -1159,14 +1202,25 @@ export const defaultFallbackModels = {
     'claude-sonnet-5': 'sonnet-4-6',
   },
   codex: {
-    'gpt-5.6-sol': 'gpt-5.5',
+    // Issue #2037 (review): order fallbacks by *intelligence / size tier*, not by
+    // generation. Within GPT-5.6, `sol` is the flagship and `terra` is the next tier
+    // down; `luna` is a smaller/cheaper variant. When `gpt-5.6-sol` is at capacity the
+    // closest replacement is `gpt-5.6-terra`, and the next-closest to `gpt-5.6-terra`
+    // is the previous generation's flagship `gpt-5.5` (a larger, more capable model
+    // than the smaller `gpt-5.6-luna`), then `gpt-5.5 -> gpt-5.4 -> gpt-5.2`, and so
+    // on. So the flagship chain walks sol -> terra -> gpt-5.5 -> gpt-5.4 -> gpt-5.2
+    // and never detours through the smaller `luna` tier. The smaller `luna` variant,
+    // if requested directly, steps down to the previous full generation as well.
+    'gpt-5.6-sol': 'gpt-5.6-terra',
     'gpt-5.6-terra': 'gpt-5.5',
     'gpt-5.6-luna': 'gpt-5.5',
-    'openai.gpt-5.6-sol': 'openai.gpt-5.5',
+    'openai.gpt-5.6-sol': 'openai.gpt-5.6-terra',
     'openai.gpt-5.6-terra': 'openai.gpt-5.5',
     'openai.gpt-5.6-luna': 'openai.gpt-5.5',
     'openai.gpt-5.5': 'openai.gpt-5.4',
+    'openai.gpt-5.4': 'openai.gpt-5.2',
     'gpt-5.5': 'gpt-5.4',
+    'gpt-5.4': 'gpt-5.2',
   },
 };
 
@@ -1189,7 +1243,7 @@ export const resolveDefaultFallbackModel = (tool, model) => {
  * @param {Array<string>|null} options.actualModelIds - Actual model IDs from CLI JSON output
  * @returns {Promise<string>} Formatted markdown model info section
  */
-export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null, thinkingInfo = null } = {}) => {
+export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null, thinkingInfo = null, fallbackModel = null, modelUsage = null } = {}) => {
   let modelIds = [];
 
   if (Array.isArray(actualModelIds) && actualModelIds.length > 0) {
@@ -1221,5 +1275,7 @@ export const getModelInfoForComment = async ({ requestedModel = null, tool = nul
     modelInfo: modelsUsed.length === 0 ? firstModelInfo : null,
     modelsUsed: modelsUsed.length > 0 ? modelsUsed : null,
     thinkingInfo,
+    fallbackModel,
+    modelUsage,
   });
 };

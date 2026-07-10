@@ -24,7 +24,7 @@ import semver from 'semver';
 import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
-import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
@@ -898,15 +898,22 @@ export const executeAgentCommand = async params => {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
           if (retryCount < maxRetries) {
-            const delay = getRetryDelayMs({
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            // Issue #2037: retry the same model on capacity errors before falling back;
+            // after a capacity-driven model switch, retry quickly instead of waiting the
+            // full transient backoff — the new model may be available now.
+            const retryPlan = await prepareRetryAfterError({
+              tool: 'agent',
+              argv,
+              log,
+              errorMessage: retryableError.message,
               retryCount,
               initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
               maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
             });
+            const delay = retryPlan.delay;
             const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
             await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            await maybeSwitchToFallbackModel({ tool: 'agent', argv, log, errorMessage: retryableError.message });
             await finalizeAgentBidirectionalHandler();
             await waitForRetryDelay(delay, log);
             await log('\n🔄 Retrying now...');

@@ -31,7 +31,7 @@ import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels } from './models/index.mjs';
-import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
@@ -1175,15 +1175,13 @@ export const executeCodexCommand = async params => {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
           if (retryCount < maxRetries) {
-            const delay = getRetryDelayMs({
-              retryCount,
-              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
-              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
-            });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            // Issue #2037: retry same model on capacity errors before falling back; a
+            // capacity-driven switch retries fast, other transient errors use standard backoff.
+            const retryPlan = await prepareRetryAfterError({ tool: 'codex', argv, log, errorMessage: retryableError.message, retryCount, initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs, maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs });
+            const delay = retryPlan.delay;
             const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
             await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            await maybeSwitchToFallbackModel({ tool: 'codex', argv, log, errorMessage: retryableError.message });
             await waitForRetryDelay(delay, log);
             await log('\n🔄 Retrying now...');
             retryCount++;
@@ -1222,15 +1220,13 @@ export const executeCodexCommand = async params => {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
           if (retryCount < maxRetries) {
-            const delay = getRetryDelayMs({
-              retryCount,
-              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
-              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
-            });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            // Issue #2037: retry same model on capacity errors before falling back; a
+            // capacity-driven switch retries fast, other transient errors use standard backoff.
+            const retryPlan = await prepareRetryAfterError({ tool: 'codex', argv, log, errorMessage: retryableError.message, retryCount, initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs, maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs });
+            const delay = retryPlan.delay;
             const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
             await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            await maybeSwitchToFallbackModel({ tool: 'codex', argv, log, errorMessage: retryableError.message });
             await waitForRetryDelay(delay, log);
             await log('\n🔄 Retrying now...');
             retryCount++;

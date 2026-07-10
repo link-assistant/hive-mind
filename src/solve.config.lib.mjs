@@ -344,7 +344,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'fallback-model': {
     type: 'string',
-    description: 'Fallback model to switch to on model capacity/overload errors (and, for Fable 5, on safety-classifier refusals). When supported, retries resume the same session with this model. Defaults: claude fable/claude-fable-5 -> opus (Opus 4.8); claude mythos-5/claude-mythos-5 -> fable; claude opus/opus-4-8 -> opus-4-7; claude opus-4-7 -> opus-4-6; codex gpt-5.6-sol/gpt-5.6-terra/gpt-5.6-luna -> gpt-5.5; codex gpt-5.5 -> gpt-5.4; all others unset.',
+    description: 'Fallback model to switch to on model capacity/overload errors (and, for Fable 5, on safety-classifier refusals). When supported, retries resume the same session with this model. An explicit value is pinned exactly; the built-in defaults form a chain that steps to the next-closest model on repeated capacity errors. Defaults: claude fable/claude-fable-5 -> opus (Opus 4.8); claude mythos-5/claude-mythos-5 -> fable; claude opus/opus-4-8 -> opus-4-7; claude opus-4-7 -> opus-4-6; codex gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.6-luna -> gpt-5.5 -> gpt-5.4; all others unset.',
     default: undefined,
   },
   'sub-agent-model': {
@@ -1062,6 +1062,11 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     const defaultFallbackModel = resolveDefaultFallbackModel(argv.tool, argv.model);
     argv.fallbackModel = defaultFallbackModel || undefined;
   }
+  // Issue #2037 (review): remember whether the fallback model was pinned by the user.
+  // An explicit --fallback-model is honoured exactly and never walked past; an
+  // implicit (default) fallback is allowed to step down the full default chain on
+  // repeated capacity errors. See resolveConfiguredFallbackModel().
+  argv._fallbackModelExplicit = fallbackModelExplicitlyProvided;
 
   // Validate mutual exclusivity of --claude-file and --gitkeep-file
   // Check if both are explicitly enabled (user passed both --claude-file and --gitkeep-file)

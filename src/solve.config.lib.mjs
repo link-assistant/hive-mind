@@ -501,7 +501,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'development-log': {
     type: 'boolean',
-    description: 'Collect issue and session artifacts into ./dev/log/issues/{issue-id}/pulls/{pull-id}, prompt for a case study under ./docs/case-studies/issue-{id}, and commit the collected development-log artifacts when the session finishes. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, --tool qwen, and --tool gemini.',
+    description: 'Prompt for issue-data collection under ./dev/log/issues/{issue-id}/pulls/{pull-id}, preserve native tool state under sessions/{UUID}, and commit the artifacts when solve finishes. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, --tool qwen, and --tool gemini.',
     default: false,
   },
   'use-handoff': {

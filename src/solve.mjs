@@ -63,6 +63,7 @@ const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
 const { attachFinalLogIfMissing } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952
 const { collectAndCommitDevelopmentLogArtifacts, fetchIssueType, isDevelopmentLogEnabled } = await import('./development-log.lib.mjs');
+const { createDevelopmentLogFinalizer } = await import('./development-log.finalize.lib.mjs');
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's
 // own usage-limit notifications (so they're excluded from the
 // "did the AI post anything?" check in --auto-attach-solution-summary).
@@ -495,6 +496,12 @@ cleanupContext.owner = owner;
 cleanupContext.repo = repo;
 if (prNumber) cleanupContext.prNumber = prNumber;
 let limitReached = false;
+let sessionId = null;
+let branchName = null;
+const finalizeDevelopmentLog = createDevelopmentLogFinalizer({
+  collect: collectAndCommitDevelopmentLogArtifacts,
+  getParams: () => ({ enabled: isDevelopmentLogEnabled(argv), repositoryPath: tempDir, logFile: getLogFile(), issueNumber, prNumber, tool: argv.tool || 'claude', sessionId, branchName, rawCommand, $, log }), // prettier-ignore
+});
 try {
   // Set up repository and clone using the new module
   // If --working-directory points to existing repo, needsClone is false and we skip cloning
@@ -529,7 +536,7 @@ try {
     issueUrl,
   });
   // Create or checkout branch using the new module
-  const branchName = await createOrCheckoutBranch({
+  branchName = await createOrCheckoutBranch({
     isContinueMode,
     prBranch,
     issueNumber,
@@ -859,7 +866,7 @@ try {
   }
 
   const { success } = toolResult;
-  let sessionId = toolResult.sessionId;
+  sessionId = toolResult.sessionId;
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
   let publicPricingEstimate = toolResult.publicPricingEstimate; // Used by agent tool
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
@@ -1459,19 +1466,10 @@ try {
   // Issue #1516: Cleanup after all signals (was before verifyResults, caused premature commits)
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
 
-  // prettier-ignore
-  await collectAndCommitDevelopmentLogArtifacts({ enabled: isDevelopmentLogEnabled(argv), repositoryPath: tempDir, logFile: getLogFile(), issueNumber, prNumber, tool: argv.tool || 'claude', sessionId, branchName, rawCommand, $, log });
-  // End work session using the new module
-  await endWorkSession({
-    isContinueMode,
-    prNumber,
-    argv,
-    log,
-    formatAligned,
-    $,
-    logsAttached,
-  });
+  await finalizeDevelopmentLog(); // Issue #1596: preserve session before ending work.
+  await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
 } catch (error) {
+  await finalizeDevelopmentLog(); // Preserve failed/interrupted sessions too.
   // Don't report authentication errors to Sentry as they are user configuration issues
   if (!error.isAuthError) {
     reportError(error, {

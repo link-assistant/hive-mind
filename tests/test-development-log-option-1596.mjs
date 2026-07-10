@@ -15,6 +15,7 @@ import { buildSystemPrompt as buildCodexSystemPrompt } from '../src/codex.prompt
 import { buildSystemPrompt as buildGeminiSystemPrompt } from '../src/gemini.prompts.lib.mjs';
 import { buildSystemPrompt as buildOpenCodeSystemPrompt } from '../src/opencode.prompts.lib.mjs';
 import { buildSystemPrompt as buildQwenSystemPrompt } from '../src/qwen.prompts.lib.mjs';
+import { createDevelopmentLogFinalizer } from '../src/development-log.finalize.lib.mjs';
 
 const option = SOLVE_OPTION_DEFINITIONS['development-log'];
 assert.ok(option, '--development-log should be defined');
@@ -22,6 +23,20 @@ assert.equal(option.type, 'boolean');
 assert.equal(option.default, false);
 
 assert.ok(getSolvePassthroughOptionNames().includes('development-log'), '--development-log should pass through hive');
+
+let finalizerCalls = 0;
+let finalizerSessionId = 'initial';
+const finalizeDevelopmentLog = createDevelopmentLogFinalizer({
+  collect: async params => {
+    finalizerCalls++;
+    return params.sessionId;
+  },
+  getParams: () => ({ sessionId: finalizerSessionId }),
+});
+finalizerSessionId = 'completed-session';
+assert.equal(await finalizeDevelopmentLog(), 'completed-session');
+assert.equal(await finalizeDevelopmentLog(), 'completed-session');
+assert.equal(finalizerCalls, 1, 'success and error paths must share one development-log finalization');
 
 const developmentLog = await import('../src/development-log.lib.mjs');
 const { buildDevelopmentLogDirectory, buildCaseStudyDirectory, buildDevelopmentLogPrompt, writeDevelopmentLogArtifacts, collectAndCommitDevelopmentLogArtifacts, isBugIssueType, fetchIssueType } = developmentLog;
@@ -93,10 +108,10 @@ const promptBuilders = {
 
 for (const [tool, buildPrompt] of Object.entries(promptBuilders)) {
   const prompt = buildPrompt(promptParams);
-  assert.ok(prompt.includes('Development log.'), `${tool} prompt should include the development-log section`);
   assert.ok(prompt.includes('./dev/log/issues/1596/pulls/1996'), `${tool} prompt should include the development-log directory`);
-  assert.ok(prompt.includes('./docs/case-studies/issue-1596'), `${tool} prompt should include the case-study directory`);
-  assert.ok(prompt.includes('Commit the collected development-log files'), `${tool} prompt should require committing the development log`);
+  assert.ok(!prompt.includes('Keep available tool session files'), `${tool} prompt must not delegate session persistence to the agent`);
+  assert.ok(!prompt.includes('Commit the collected development-log files'), `${tool} prompt must not delegate log commits to the agent`);
+  assert.ok(!prompt.includes('./docs/case-studies/issue-1596'), `${tool} prompt must contain only the issue-requested collection sentence`);
 }
 
 const tempRoot = await mkdtemp(join(tmpdir(), 'hive-development-log-'));
@@ -119,18 +134,19 @@ try {
   });
 
   assert.equal(result.relativeDirectory, 'dev/log/issues/1596/pulls/1996');
-  assert.ok(result.copiedLogRelativePath.startsWith('dev/log/issues/1596/pulls/1996/sessions/solve-'));
+  assert.equal(result.sessionRelativeDirectory, 'dev/log/issues/1596/pulls/1996/sessions/codex-session-123');
+  assert.equal(result.copiedLogRelativePath, 'dev/log/issues/1596/pulls/1996/sessions/codex-session-123/solve.log');
 
   const copiedLog = await readFile(join(repositoryPath, result.copiedLogRelativePath), 'utf8');
   assert.equal(copiedLog, 'raw solve log\n');
 
   const metadata = JSON.parse(await readFile(join(repositoryPath, result.metadataRelativePath), 'utf8'));
-  assert.equal(metadata.schemaVersion, 1);
+  assert.equal(metadata.schemaVersion, 2);
   assert.equal(metadata.tool, 'codex');
   assert.equal(metadata.sessionId, 'codex-session-123');
   assert.equal(metadata.developmentLogDirectory, './dev/log/issues/1596/pulls/1996');
   assert.equal(metadata.caseStudyDirectory, './docs/case-studies/issue-1596');
-  assert.equal(metadata.artifacts.solveLog, './dev/log/issues/1596/pulls/1996/sessions/solve-2026-06-28T12-00-00-000Z.log');
+  assert.equal(metadata.artifacts.solveLog, './dev/log/issues/1596/pulls/1996/sessions/codex-session-123/solve.log');
 
   // Issue #1596: codex rollout transcripts are discovered under ~/.codex/sessions
   // (rollout-<timestamp>-<sessionId>.jsonl) and copied into the development log.
@@ -150,9 +166,36 @@ try {
     now: new Date('2026-06-28T12:00:00.000Z'),
     homeDir: fakeHome,
   });
-  assert.ok(codexResult.sessionFiles.includes('./dev/log/issues/1596/pulls/1996/sessions/codex-codex-session-123.jsonl'), 'codex rollout transcript should be copied into the development log');
-  const copiedCodex = await readFile(join(tempRoot, 'codex-repo', 'dev/log/issues/1596/pulls/1996/sessions/codex-codex-session-123.jsonl'), 'utf8');
+  assert.ok(codexResult.sessionFiles.includes('./dev/log/issues/1596/pulls/1996/sessions/codex-session-123/codex-codex-session-123.jsonl'), 'codex rollout transcript should be copied into its UUID directory');
+  const copiedCodex = await readFile(join(tempRoot, 'codex-repo', 'dev/log/issues/1596/pulls/1996/sessions/codex-session-123/codex-codex-session-123.jsonl'), 'utf8');
   assert.equal(copiedCodex, '{"type":"session"}\n');
+
+  const claudeRepositoryPath = join(tempRoot, 'claude-repo');
+  const claudeProjectDirectory = join(fakeHome, '.claude', 'projects', claudeRepositoryPath.replace(/\//g, '-'));
+  await mkdir(claudeProjectDirectory, { recursive: true });
+  await writeFile(join(claudeProjectDirectory, 'claude-session-456.jsonl'), '{"type":"assistant"}\n', 'utf8');
+  const claudeResult = await writeDevelopmentLogArtifacts({
+    repositoryPath: claudeRepositoryPath,
+    logFile: null,
+    issueNumber: 1596,
+    prNumber: 1996,
+    tool: 'claude',
+    sessionId: 'claude-session-456',
+    now: new Date('2026-06-28T12:00:00.000Z'),
+    homeDir: fakeHome,
+  });
+  assert.ok(claudeResult.sessionFiles.includes('./dev/log/issues/1596/pulls/1996/sessions/claude-session-456/claude-claude-session-456.jsonl'), 'Claude transcript should be copied into its UUID directory');
+
+  const fallbackResult = await writeDevelopmentLogArtifacts({
+    repositoryPath: join(tempRoot, 'fallback-repo'),
+    logFile: null,
+    issueNumber: 1596,
+    prNumber: 1996,
+    tool: 'gemini',
+    sessionId: null,
+    now: new Date('2026-06-28T12:00:00.000Z'),
+  });
+  assert.equal(fallbackResult.sessionRelativeDirectory, 'dev/log/issues/1596/pulls/1996/sessions/run-2026-06-28T12-00-00-000Z');
 
   const calls = [];
   const fakeGit =
@@ -181,6 +224,7 @@ try {
   assert.equal(commitResult.pushed, true);
   assert.equal(calls[0].command, 'git add -f -- dev/log/issues/1596/pulls/1996');
   assert.equal(calls[1].command, 'git diff --cached --quiet -- dev/log/issues/1596/pulls/1996');
+  assert.equal(calls[2].command, 'git commit -m Add development log for issue #1596 PR #1996 -- dev/log/issues/1596/pulls/1996');
 } finally {
   await rm(tempRoot, { recursive: true, force: true });
 }

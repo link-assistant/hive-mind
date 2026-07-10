@@ -6,7 +6,7 @@ Issue: <https://github.com/link-assistant/hive-mind/issues/1596>
 PR: <https://github.com/link-assistant/hive-mind/pull/1996>
 Branch: `issue-1596-17953fa6e3af`
 
-The requested feature is a `--development-log` option that instructs solve runs to gather issue data, logs, tool session files when available, and case-study material into repository paths that can be committed with the solution.
+The requested feature is a `--development-log` option that gives the agent one issue-type-specific data-collection sentence while the solve algorithm independently preserves resumable native tool sessions under per-UUID repository paths.
 
 ## Collected Artifacts
 
@@ -29,10 +29,10 @@ No failing CI run was reported during implementation, so no workflow logs were d
 
 ## Implementation Summary
 
-- Added `src/development-log.lib.mjs` for shared path generation, prompt text, artifact writing, and git commit/push handling.
+- Added `src/development-log.lib.mjs` for shared path generation, the single-line prompt, per-session artifact writing, and path-scoped git commit/push handling.
 - Added `--development-log` to `SOLVE_OPTION_DEFINITIONS`.
 - Added automatic GitHub issue-type detection (`fetchIssueType`) so the injected prompt uses the bug "download all logs" wording for `Bug` issues and the universal data-collection wording for feature/task or unspecified issues.
-- Added Codex rollout transcript discovery (`~/.codex/sessions/.../rollout-*-<sessionId>.jsonl`) alongside the existing Claude transcript copy, so both named tools' session files are committed into the development log.
+- Added Codex rollout transcript discovery (`~/.codex/sessions/.../rollout-*-<sessionId>.jsonl`) alongside Claude transcript copying, with each session stored under `sessions/{UUID}` by solve rather than delegated to the agent.
 - Added shared prompt guidance to Claude, Codex, Gemini, OpenCode, Qwen, and Agent prompt builders.
 - Hooked solve finalization to write and commit artifacts after final cleanup.
 - Updated `docs/CONFIGURATION.md` and added a changeset.

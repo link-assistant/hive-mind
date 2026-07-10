@@ -2,17 +2,19 @@
 
 ## Problem Statement
 
-Issue 1596 asks for a solve option that makes development logs first-class review artifacts. A run should collect issue and PR data into `./dev/log/issues/{issue-id}/pulls/{pull-id}`, create case-study material under `./docs/case-studies/issue-{id}`, and preserve tool session files when possible.
+Issue 1596 asks for a solve option that makes development logs first-class, durable artifacts. The agent receives one issue-type-aware data-collection sentence. Independently, the solve algorithm preserves the native tool session under `./dev/log/issues/{issue-id}/pulls/{pull-id}/sessions/{UUID}` and commits it so a stateless server restart does not destroy resumable context.
 
 ## Requirements
 
 - Add a `--development-log` boolean option.
 - Use `./dev/log/issues/{issue-id}/pulls/{pull-id}` as the development-log path.
-- Append clear data-collection instructions to the initial prompt.
+- Append exactly the issue-type-specific data-collection sentence to the initial prompt.
 - Automatically select the wording by GitHub issue type: stronger bug wording (download all logs and collect issue-related data) for `Bug` issues, and the universal feature/task wording (collect issue-related data) for feature/task issues or when no issue type is selected.
-- Track and commit available Claude, Codex, or equivalent session files when possible.
+- Make session persistence and committing the solve algorithm's responsibility, not the AI agent's.
+- Store each run under `sessions/{UUID}` so sessions remain distinct and can be reused for future resume operations.
+- Track and commit available Claude, Codex, or equivalent native session files when possible, with the solve log as a fallback/supporting artifact.
 - Support all solve tools where practical.
-- Create case-study documentation in `./docs/case-studies/issue-{id}` with requirements, analysis, known components/libraries, and solution plans.
+- Create the requested implementation case study in `./docs/case-studies/issue-{id}` as repository documentation, without bloating the runtime agent prompt.
 
 ## Research
 
@@ -37,14 +39,14 @@ References:
 
 ## Solution Plan
 
-The prompt-only option would satisfy the visible instruction text but would not preserve artifacts automatically. The selected plan adds a shared helper that does both:
+The prompt-only option would satisfy the visible instruction text but would not preserve artifacts automatically. Conversely, asking the agent to locate and commit its own session is unreliable: it may not know its native storage layout, may terminate before doing so, and cannot guarantee completion during failures. The selected plan separates these responsibilities:
 
 1. Generate stable development-log and case-study paths from issue and PR numbers.
 2. Detect the GitHub issue type (`gh issue view --json issueType`) once per run and inject only the matching instruction line: the bug "download all logs" wording for `Bug` issues, otherwise the universal data-collection wording.
-3. Provide one prompt block reused by all supported tools.
-4. Copy the solve log and known tool session files into `dev/log/.../sessions/` (the Claude `~/.claude/projects/.../<sessionId>.jsonl` transcript and the Codex `~/.codex/sessions/.../rollout-*-<sessionId>.jsonl` transcript, plus the per-tool solve log for every other `--tool`).
-5. Write `metadata.json` describing the run and artifact paths.
-6. Stage, commit, and push only the development-log subtree at the end of a successful solve run.
+3. Append only that one sentence in every supported tool's initial prompt.
+4. Let solve copy the solve log and known native session files into `dev/log/.../sessions/{UUID}/` (Claude `~/.claude/projects/.../<sessionId>.jsonl` and Codex `~/.codex/sessions/.../rollout-*-<sessionId>.jsonl`; the solve log remains available for tools whose native store is unavailable or unknown).
+5. Write per-session `metadata.json` describing the tool, session UUID, run, and artifact paths.
+6. Stage, pathspec-commit, and push only the development-log subtree during solve finalization.
 
 This keeps the new behavior isolated from the earlier uncommitted-change auto-restart flow and avoids tool-specific duplication.
 
@@ -54,7 +56,8 @@ The reproducer test `tests/test-development-log-option-1596.mjs` verifies:
 
 - `--development-log` is registered and defaults to false.
 - Hive passthrough includes the option.
-- All six prompt builders include the shared development-log instructions.
+- All six prompt builders include the one requested collection sentence and do not delegate persistence, commits, or case-study work to the agent.
 - Bug issues receive the "download all logs" wording while feature/task or unspecified issues receive the universal data-collection wording, and `fetchIssueType` parses the gh CLI output while tolerating failures.
-- Artifact writing creates the requested directory, copies the solve log, and records metadata.
-- Codex rollout transcripts under `~/.codex/sessions/.../rollout-*-<sessionId>.jsonl` are discovered and copied into the development-log `sessions/` folder.
+- Artifact writing creates `sessions/{UUID}`, copies the solve log, and records per-session metadata.
+- Claude and Codex native transcripts are discovered and copied into their respective UUID directories.
+- Runs without an emitted session UUID receive a timestamped `sessions/run-*` fallback directory rather than overwriting another run.

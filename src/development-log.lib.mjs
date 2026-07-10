@@ -44,21 +44,13 @@ export const buildDevelopmentLogPrompt = ({ argv, issueNumber, prNumber, issueTy
   if (!(argv?.developmentLog || argv?.['development-log'])) return '';
 
   const developmentLogDirectory = buildDevelopmentLogDirectory({ issueNumber, prNumber });
-  const caseStudyDirectory = buildCaseStudyDirectory({ issueNumber });
-
   // Automatic support for issue types: when the issue type is "bug" the
   // instruction asks to download all logs as well; for feature/task issues, or
   // when no issue type is selected, the universal data-collection wording is used.
   const resolvedIssueType = issueType ?? argv?.issueType ?? null;
   const collectionInstruction = isBugIssueType(resolvedIssueType) ? `Download all logs and collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.` : `Collect data related about the issue to this repository, make sure we compile that data into the ${developmentLogDirectory} folder.`;
 
-  return `
-Development log.
-   - ${collectionInstruction}
-   - Keep available tool session files for this run in ${developmentLogDirectory}/sessions/ (Claude, Codex, and equivalent files for other tools when possible).
-   - Commit the collected development-log files before finishing.
-   - Also create or update ${caseStudyDirectory}/ with requirements, issue data, timeline, analysis, root cause or design rationale, online/source research, known related tools/libraries, and proposed solution plans.
-`;
+  return `\n${collectionInstruction}\n`;
 };
 
 // Fetch the GitHub issue type (e.g. "Bug", "Feature", "Task") for an issue.
@@ -119,10 +111,10 @@ const findCodexSessionFile = async ({ sessionId, homeDir }) => {
   }
 };
 
-const copyKnownSessionFiles = async ({ repositoryPath, relativeDirectory, logFile, sessionId, tool, homeDir }) => {
+const copyKnownSessionFiles = async ({ repositoryPath, sessionRelativeDirectory, logFile, sessionId, tool, homeDir }) => {
   if (!sessionId) return [];
 
-  const sessionsDirectory = path.join(repositoryPath, relativeDirectory, 'sessions');
+  const sessionDirectory = path.join(repositoryPath, sessionRelativeDirectory);
   const candidates = [];
   const logDirectory = logFile ? path.dirname(logFile) : null;
 
@@ -159,8 +151,8 @@ const copyKnownSessionFiles = async ({ repositoryPath, relativeDirectory, logFil
     if (!candidate.sourcePath || seenSources.has(candidate.sourcePath)) continue;
     seenSources.add(candidate.sourcePath);
 
-    const relativePath = `${relativeDirectory}/sessions/${safeFileName(candidate.destinationName)}`;
-    const copiedPath = path.join(sessionsDirectory, safeFileName(candidate.destinationName));
+    const relativePath = `${sessionRelativeDirectory}/${safeFileName(candidate.destinationName)}`;
+    const copiedPath = path.join(sessionDirectory, safeFileName(candidate.destinationName));
     if (await copyIfExists({ sourcePath: candidate.sourcePath, destinationPath: copiedPath })) {
       copied.push(addDotSlash(toPosixPath(relativePath)));
     }
@@ -177,30 +169,31 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
   const developmentLogDirectory = buildDevelopmentLogDirectory({ issueNumber, prNumber });
   const caseStudyDirectory = buildCaseStudyDirectory({ issueNumber });
   const relativeDirectory = stripDotSlash(developmentLogDirectory);
-  const absoluteDirectory = path.join(repositoryPath, relativeDirectory);
-  const sessionsDirectory = path.join(absoluteDirectory, 'sessions');
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
+  const sessionDirectoryName = safeFileName(sessionId || `run-${timestamp}`);
+  const sessionRelativeDirectory = `${relativeDirectory}/sessions/${sessionDirectoryName}`;
+  const sessionDirectory = path.join(repositoryPath, sessionRelativeDirectory);
 
-  await fs.mkdir(sessionsDirectory, { recursive: true });
+  await fs.mkdir(sessionDirectory, { recursive: true });
 
   let copiedLogRelativePath = null;
   if (logFile) {
-    copiedLogRelativePath = `${relativeDirectory}/sessions/solve-${timestamp}.log`;
+    copiedLogRelativePath = `${sessionRelativeDirectory}/solve.log`;
     await fs.copyFile(logFile, path.join(repositoryPath, copiedLogRelativePath));
   }
 
   const sessionFiles = await copyKnownSessionFiles({
     repositoryPath,
-    relativeDirectory,
+    sessionRelativeDirectory,
     logFile,
     sessionId,
     tool,
     homeDir,
   });
 
-  const metadataRelativePath = `${relativeDirectory}/metadata.json`;
+  const metadataRelativePath = `${sessionRelativeDirectory}/metadata.json`;
   const metadata = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     collectedAt: now.toISOString(),
     issueNumber: issueNumber ?? null,
     prNumber: prNumber ?? null,
@@ -222,6 +215,7 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
     developmentLogDirectory,
     caseStudyDirectory,
     relativeDirectory,
+    sessionRelativeDirectory,
     copiedLogRelativePath: copiedLogRelativePath ? toPosixPath(copiedLogRelativePath) : null,
     metadataRelativePath: toPosixPath(metadataRelativePath),
     sessionFiles,
@@ -275,7 +269,7 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
     }
 
     const commitMessage = prNumber ? `Add development log for issue #${issueNumber} PR #${prNumber}` : `Add development log for issue #${issueNumber}`;
-    const commitResult = await $({ cwd: repositoryPath })`git commit -m ${commitMessage}`;
+    const commitResult = await $({ cwd: repositoryPath })`git commit -m ${commitMessage} -- ${artifacts.relativeDirectory}`;
     if (commitResult.code !== 0) {
       await log?.(`⚠️  Could not commit development log: ${getCommandOutput(commitResult)}`, { level: 'warning' });
       return { ...artifacts, committed: false, pushed: false };

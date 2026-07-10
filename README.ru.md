@@ -173,6 +173,7 @@ claude
 # Use /config command and set:
 # Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
 # Thinking mode                             false # Anthropic models perform better and cheaper without thinking
+# Если `--think` не указан, Hive Mind трактует это как `--think off`.
 # Model                                     haiku # chepear for connection testing manually
 # Claude in Chrome enabled by default       false # No need for Chrome support on server
 
@@ -346,11 +347,11 @@ solve <issue-url> [options]
 
 **Наиболее часто используемые параметры:**
 
-| Параметр        | Сокр. | Описание                                     | По умолчанию   |
-| --------------- | ----- | -------------------------------------------- | -------------- |
-| `--model`       | `-m`  | Используемая модель ИИ (sonnet, opus, haiku) | sonnet         |
-| `--think`       |       | Уровень мышления (low, medium, high, max)    | -              |
-| `--base-branch` | `-b`  | Целевая ветка для PR                         | (по умолчанию) |
+| Параметр        | Сокр. | Описание                                                     | По умолчанию   |
+| --------------- | ----- | ------------------------------------------------------------ | -------------- |
+| `--model`       | `-m`  | Используемая модель ИИ (sonnet, opus, haiku)                 | sonnet         |
+| `--think`       |       | Уровень мышления (off, low, medium, high, xhigh, ultra, max) | off            |
+| `--base-branch` | `-b`  | Целевая ветка для PR                                         | (по умолчанию) |
 
 **Другие полезные параметры:**
 
@@ -372,12 +373,12 @@ hive <github-url> [options]
 
 **Наиболее часто используемые параметры:**
 
-| Параметр       | Сокр. | Описание                                        | По умолчанию |
-| -------------- | ----- | ----------------------------------------------- | ------------ |
-| `--model`      | `-m`  | Используемая модель ИИ (sonnet, opus, haiku)    | sonnet       |
-| `--think`      |       | Уровень мышления (low, medium, high, max)       | -            |
-| `--all-issues` | `-a`  | Мониторинг всех задач (игнорировать метки)      | false        |
-| `--once`       |       | Одиночный запуск (без непрерывного мониторинга) | false        |
+| Параметр       | Сокр. | Описание                                                     | По умолчанию |
+| -------------- | ----- | ------------------------------------------------------------ | ------------ |
+| `--model`      | `-m`  | Используемая модель ИИ (sonnet, opus, haiku)                 | sonnet       |
+| `--think`      |       | Уровень мышления (off, low, medium, high, xhigh, ultra, max) | off          |
+| `--all-issues` | `-a`  | Мониторинг всех задач (игнорировать метки)                   | false        |
+| `--once`       |       | Одиночный запуск (без непрерывного мониторинга)              | false        |
 
 **Другие полезные параметры:**
 

@@ -149,13 +149,13 @@ for (const level of ['low', 'medium', 'high', 'xhigh', 'ultra', 'max']) {
 // No --think flag — should never have think prompt instructions
 console.log('\n=== No --think flag (should never have think prompt instructions) ===');
 
-test('opus with no --think: no think prompt instruction', () => {
-  const prompt = buildClaudeUserPrompt({ ...baseParams, argv: { model: 'opus' } });
+test('opus with default --think off: no think prompt instruction', () => {
+  const prompt = buildClaudeUserPrompt({ ...baseParams, argv: { model: 'opus', think: 'off' } });
   assert(!containsThinkInstruction(prompt), 'Prompt should not contain think instruction when --think is not set');
 });
 
-test('haiku with no --think: no think prompt instruction', () => {
-  const prompt = buildClaudeUserPrompt({ ...baseParams, argv: { model: 'haiku' } });
+test('haiku with default --think off: no think prompt instruction', () => {
+  const prompt = buildClaudeUserPrompt({ ...baseParams, argv: { model: 'haiku', think: 'off' } });
   assert(!containsThinkInstruction(prompt), 'Prompt should not contain think instruction when --think is not set');
 });
 

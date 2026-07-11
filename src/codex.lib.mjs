@@ -914,6 +914,11 @@ export const executeCodexCommand = async params => {
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
       await log(formatAligned('🤖', 'Model:', `Codex ${argv.model.toUpperCase()}`, 2));
       await log(formatAligned('🧠', 'Reasoning effort:', `${reasoningEffort} (${reasoningEffortSource})`, 2));
+      // Issue #2047: warn when Codex runs with reasoning disabled (--think off). On complex tasks
+      // this default produced shallow work and mid-run give-ups. See docs/case-studies/issue-2047.
+      if (reasoningEffort === 'none') {
+        await log(formatAligned('⚠️', 'Low reasoning:', 'Codex reasoning is disabled (--think off); complex tasks may stall — pass --think medium/high/max for deeper reasoning.', 2));
+      }
       if (argv.fork && forkedRepo) {
         await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
       }

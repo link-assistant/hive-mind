@@ -1227,6 +1227,8 @@ try {
 
   await enforceRequestedBaseBranch();
 
+  // Issue #2048: commit+push dev log BEFORE any PR readiness signal so its CI gates readiness (was last, breaking CI post-signal; PR #2046, docs/case-studies/issue-2048). Idempotent: trailing call is a no-op. prettier-ignore
+  await finalizeDevelopmentLog();
   // Issue #1263 / #1728: Working session summary attachment.
   // Routed through the shared maybeAttachWorkingSessionSummary helper so that
   // top-level solve, auto-restart-until-mergeable, and watch-mode iterations
@@ -1466,7 +1468,7 @@ try {
   // Issue #1516: Cleanup after all signals (was before verifyResults, caused premature commits)
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
 
-  await finalizeDevelopmentLog(); // Issue #1596: preserve session before ending work.
+  await finalizeDevelopmentLog(); // Issue #1596/#2048: idempotent no-op on the success path (already committed before readiness signal); still preserves late/error work.
   await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
 } catch (error) {
   await finalizeDevelopmentLog(); // Preserve failed/interrupted sessions too.

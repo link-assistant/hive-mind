@@ -234,6 +234,9 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
     return { skipped: 'missing-repository-path' };
   }
 
+  // Issue #2048: verbose trace so the commit timing (relative to PR readiness signals) is diagnosable from logs.
+  await log?.(`🔍 Development log finalize: issue #${issueNumber ?? '?'}, PR #${prNumber ?? 'pending'}, branch ${branchName ?? 'none'}, session ${sessionId ?? 'none'}`, { verbose: true });
+
   try {
     const artifacts = await writeDevelopmentLogArtifacts({
       repositoryPath,

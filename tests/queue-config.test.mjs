@@ -65,8 +65,8 @@ test('QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)', () => {
 test('QUEUE_CONFIG has expected default values', () => {
   assert.equal(QUEUE_CONFIG.RAM_THRESHOLD, 0.65, 'RAM_THRESHOLD should be 0.65');
   assert.equal(QUEUE_CONFIG.CPU_THRESHOLD, 0.65, 'CPU_THRESHOLD should be 0.65');
-  // Issue #1981: start backing off disk-heavy work at 80% used.
-  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.8, 'DISK_THRESHOLD should be 0.8');
+  // Issue #2045: start backing off disk-heavy work at 65% used.
+  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.65, 'DISK_THRESHOLD should be 0.65');
   assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.65, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 0.65');
   assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, 0.97, 'CLAUDE_WEEKLY_THRESHOLD should be 0.97');
   // Issue #1726: lowered default from 0.75 to 0.50 for safer headroom.
@@ -106,7 +106,7 @@ test('DISPLAY_THRESHOLDS values are percentages (0 - 100)', () => {
 test('DISPLAY_THRESHOLDS has expected default values', () => {
   assert.equal(DISPLAY_THRESHOLDS.RAM, 65, 'RAM should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CPU, 65, 'CPU should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.DISK, 80, 'DISK should be 80');
+  assert.equal(DISPLAY_THRESHOLDS.DISK, 65, 'DISK should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, 65, 'CLAUDE_5_HOUR_SESSION should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY should be 97');
   assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, 65, 'CODEX_5_HOUR_SESSION should be 65');

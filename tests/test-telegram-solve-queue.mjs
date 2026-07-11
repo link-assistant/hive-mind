@@ -86,7 +86,7 @@ runTest('Default thresholds match requirements (ratio format)', () => {
   // Current queue defaults:
   // - RAM: 0.65 (65%)
   // - CPU: 0.65 (65%)
-  // - Disk: 0.8 (80% usage)
+  // - Disk: 0.65 (65% usage)
   // - Claude 5 hour session: 0.65 (65%)
   // - Claude weekly: 0.97 (97%)
   // - GitHub API: 0.5 (50%)
@@ -98,8 +98,8 @@ runTest('Default thresholds match requirements (ratio format)', () => {
   if (QUEUE_CONFIG.CPU_THRESHOLD !== 0.65) {
     throw new Error(`CPU threshold should be 0.65, got ${QUEUE_CONFIG.CPU_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.DISK_THRESHOLD !== 0.8) {
-    throw new Error(`Disk threshold should be 0.8, got ${QUEUE_CONFIG.DISK_THRESHOLD}`);
+  if (QUEUE_CONFIG.DISK_THRESHOLD !== 0.65) {
+    throw new Error(`Disk threshold should be 0.65, got ${QUEUE_CONFIG.DISK_THRESHOLD}`);
   }
   if (QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD !== 0.65) {
     throw new Error(`Claude 5 hour session threshold should be 0.65, got ${QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD}`);

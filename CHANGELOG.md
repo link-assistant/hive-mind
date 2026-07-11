@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.5.2
+
+### Patch Changes
+
+- da84b0c: Lower the default disk queue-admission threshold to 65% so isolation tasks retain safer free-space headroom.
+
 ## 2.5.1
 
 ### Patch Changes

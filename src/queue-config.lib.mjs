@@ -239,7 +239,7 @@ function getThresholdConfig(linoKey, envVarThreshold, envVarStrategy, defaultThr
  * - 'enqueue': Block and wait in queue
  * - 'dequeue-one-at-a-time': Allow one command, block subsequent
  *
- * Issue #1981: disk now defaults to the normal wait/enqueue path at 80% used.
+ * Issue #2045: disk now defaults to the normal wait/enqueue path at 65% used.
  * Operators can still choose immediate rejection with HIVE_MIND_DISK_STRATEGY=reject.
  */
 export const QUEUE_CONFIG = {
@@ -248,8 +248,8 @@ export const QUEUE_CONFIG = {
   thresholds: {
     ram: getThresholdConfig('ram', 'HIVE_MIND_RAM_THRESHOLD', 'HIVE_MIND_RAM_STRATEGY', 0.65, 'enqueue'),
     cpu: getThresholdConfig('cpu', 'HIVE_MIND_CPU_THRESHOLD', 'HIVE_MIND_CPU_STRATEGY', 0.65, 'enqueue'),
-    // Issue #1981: wait instead of immediately rejecting when disk crosses 80%.
-    disk: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.8, 'enqueue'),
+    // Issue #2045: wait instead of immediately rejecting when disk crosses 65%.
+    disk: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.65, 'enqueue'),
     claude5Hour: getThresholdConfig('claude5Hour', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time'),
     claudeWeekly: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time'),
     codex5Hour: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time'),
@@ -265,7 +265,7 @@ export const QUEUE_CONFIG = {
   // These are derived from thresholds.{metric}.value
   RAM_THRESHOLD: getThresholdConfig('ram', 'HIVE_MIND_RAM_THRESHOLD', 'HIVE_MIND_RAM_STRATEGY', 0.65, 'enqueue').value,
   CPU_THRESHOLD: getThresholdConfig('cpu', 'HIVE_MIND_CPU_THRESHOLD', 'HIVE_MIND_CPU_STRATEGY', 0.65, 'enqueue').value,
-  DISK_THRESHOLD: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.8, 'enqueue').value,
+  DISK_THRESHOLD: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.65, 'enqueue').value,
   CLAUDE_5_HOUR_SESSION_THRESHOLD: getThresholdConfig('claude5Hour', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time').value,
   CLAUDE_WEEKLY_THRESHOLD: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time').value,
   CODEX_5_HOUR_SESSION_THRESHOLD: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time').value,

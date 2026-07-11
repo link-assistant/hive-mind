@@ -109,10 +109,10 @@ function runTelegramDryRun(args = []) {
 
 console.log('\nIssue #1981 default safety checks\n');
 
-test('queue disk threshold defaults to 80% used and display stays in sync', () => {
-  assert.equal(QUEUE_CONFIG.thresholds.disk.value, 0.8);
-  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.8);
-  assert.equal(DISPLAY_THRESHOLDS.DISK, 80);
+test('queue disk threshold defaults to 65% used and display stays in sync', () => {
+  assert.equal(QUEUE_CONFIG.thresholds.disk.value, 0.65);
+  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.65);
+  assert.equal(DISPLAY_THRESHOLDS.DISK, 65);
 });
 
 test('queue disk strategy defaults to enqueue/wait instead of reject', () => {

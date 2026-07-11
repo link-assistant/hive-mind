@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.5.0
+
+### Minor Changes
+
+- 152f55a: Add generation-relative `sol`, `terra`, and `luna` Codex aliases and accept `openai/` and `openai.` prefixes for every known OpenAI model.
+
 ## 2.4.1
 
 ### Patch Changes

@@ -151,6 +151,47 @@ export const codexModels = {
   'gpt-4o': 'gpt-4o',
 };
 
+const CODEX_GENERATION_ALIAS_PATTERN = /^gpt-(\d+(?:\.\d+)?)-(sol|terra|luna)$/;
+const OPENAI_MODEL_PREFIX_PATTERN = /^openai([/.])/;
+
+/**
+ * Resolve sol/terra/luna to the newest generation that contains the complete
+ * alias family. A complete family prevents a partially rolled-out catalog from
+ * moving only some aliases to a newer generation.
+ */
+export const getLatestCodexGenerationAliases = (models = codexModels) => {
+  const generations = new Map();
+
+  for (const modelId of Object.values(models)) {
+    const bareModelId = modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '');
+    const match = bareModelId.match(CODEX_GENERATION_ALIAS_PATTERN);
+    if (!match) continue;
+
+    const [, generation, alias] = match;
+    if (!generations.has(generation)) generations.set(generation, {});
+    generations.get(generation)[alias] = bareModelId;
+  }
+
+  const latestCompleteGeneration = [...generations.entries()].filter(([, aliases]) => ['sol', 'terra', 'luna'].every(alias => aliases[alias])).sort(([left], [right]) => right.localeCompare(left, undefined, { numeric: true }))[0];
+
+  return latestCompleteGeneration?.[1] || {};
+};
+
+const getCodexModelVariants = () => {
+  const bareModels = [...new Set(Object.values(codexModels).map(modelId => modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '')))];
+  const aliases = getLatestCodexGenerationAliases();
+  const variants = { ...codexModels, ...aliases };
+
+  for (const [name, modelId] of Object.entries({ ...Object.fromEntries(bareModels.map(modelId => [modelId, modelId])), ...aliases })) {
+    variants[`openai/${name}`] = `openai/${modelId}`;
+    variants[`openai.${name}`] = `openai.${modelId}`;
+  }
+
+  return variants;
+};
+
+export const CODEX_MODEL_VARIANTS = getCodexModelVariants();
+
 // Qwen Code models
 export const qwenModels = {
   qwen: 'qwen3-coder-plus',
@@ -269,7 +310,7 @@ export const OPENCODE_MODELS = {
 };
 
 export const CODEX_MODELS = {
-  ...codexModels,
+  ...CODEX_MODEL_VARIANTS,
   'gpt-5': 'gpt-5',
   'gpt-5.5': 'gpt-5.5',
   'gpt-5.5-mini': 'gpt-5.5-mini',
@@ -346,7 +387,7 @@ export const getModelMapForTool = tool => {
     case 'opencode':
       return opencodeModels;
     case 'codex':
-      return codexModels;
+      return CODEX_MODEL_VARIANTS;
     case 'gemini':
       return geminiModels;
     case 'qwen':
@@ -429,7 +470,7 @@ export const mapModelForTool = (tool, model) => {
     case 'opencode':
       return opencodeModels[model] || model;
     case 'codex':
-      return codexModels[model] || model;
+      return CODEX_MODEL_VARIANTS[model] || model;
     case 'gemini':
       return geminiModels[model] || model;
     case 'qwen':
@@ -456,7 +497,7 @@ export const isModelCompatibleWithTool = (tool, model) => {
     case 'opencode':
       return mappedModel.includes('/') || Object.keys(opencodeModels).includes(model);
     case 'codex':
-      return Object.keys(codexModels).includes(model) || mappedModel.startsWith('gpt-');
+      return Object.hasOwn(CODEX_MODEL_VARIANTS, model);
     case 'gemini':
       return Object.keys(geminiModels).includes(model) || mappedModel.startsWith('gemini-');
     case 'qwen':
@@ -480,7 +521,7 @@ export const getValidModelsForTool = tool => {
     case 'opencode':
       return Object.keys(opencodeModels);
     case 'codex':
-      return Object.keys(codexModels);
+      return Object.keys(CODEX_MODEL_VARIANTS);
     case 'gemini':
       return Object.keys(geminiModels);
     case 'qwen':

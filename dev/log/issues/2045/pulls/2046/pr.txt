@@ -1,0 +1,29 @@
+title:	fix(#2045): lower default disk admission threshold
+state:	OPEN
+author:	konard (Konstantin Diachenko)
+labels:	
+assignees:	konard (Konstantin Diachenko)
+reviewers:	
+projects:	
+milestone:	
+number:	2046
+url:	https://github.com/link-assistant/hive-mind/pull/2046
+additions:	360
+deletions:	14
+auto-merge:	disabled
+--
+Fixes #2045
+
+## Summary
+
+- lower the built-in `HIVE_MIND_DISK_THRESHOLD` default from `0.8` to `0.65` for both the structured disk threshold and legacy `DISK_THRESHOLD` alias
+- preserve the `enqueue` strategy and all environment-variable overrides
+- update regression coverage for the ratio and derived 65% display threshold
+
+## Verification
+
+- `node tests/queue-config.test.mjs`
+- `node tests/test-issue-1981-disk-defaults.mjs`
+- `node tests/test-telegram-solve-queue.mjs`
+
+The full lint/default test commands could not run in this workspace because its Node version is `20.20.2`, while the project requires Node `>=24`; npm installed packages but did not create executable shims (`eslint: not found`).

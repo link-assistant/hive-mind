@@ -285,6 +285,24 @@ export function registerStartStopCommands(bot, options) {
     return mod.getTrackedSessionInfo(sessionId);
   }
 
+  // Issue #2052: record that this stop was operator-initiated, so the eventual
+  // SIGTERM/SIGKILL exit (delivered by `docker stop`) is reported as
+  // "🛑 Stopped by user" instead of "out of memory or forced kill (SIGKILL)".
+  // Tolerant of a sync or async stub, and never lets a marking failure block
+  // the actual stop.
+  async function markSessionStopRequestedSafe(sessionId, requestedBy) {
+    try {
+      if (typeof options.markSessionStopRequested === 'function') {
+        return await options.markSessionStopRequested(sessionId, { requestedBy, verbose: VERBOSE });
+      }
+      const mod = await import('./session-monitor.lib.mjs');
+      return mod.markSessionStopRequested(sessionId, { requestedBy, verbose: VERBOSE });
+    } catch (error) {
+      console.error('[ERROR] /stop: markSessionStopRequested failed:', error);
+      return false;
+    }
+  }
+
   // Issue #1871: look a URL up in the session-monitor registry of running
   // detached sessions. A /solve or /codex that started immediately (queue
   // empty) is dispatched straight to an isolation session and removed from the
@@ -424,6 +442,12 @@ export function registerStartStopCommands(bot, options) {
       parse_mode: 'Markdown',
       reply_to_message_id: message.message_id,
     });
+
+    // Issue #2052: mark the stop as user-initiated BEFORE forwarding CTRL+C, so
+    // even a fast SIGKILL race still finds the flag when the completion message
+    // is formatted.
+    const requestedBy = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name || null;
+    await markSessionStopRequestedSafe(sessionId, requestedBy);
 
     let result;
     try {

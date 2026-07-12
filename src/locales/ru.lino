@@ -624,6 +624,7 @@ ru
         finished "Рабочий сеанс успешно завершен"
         failed "Рабочий сеанс завершился с ошибкой (код выхода: {{exitCode}})"
         killed "Рабочий сеанс остановлен: {{reason}}{{exitSuffix}}"
+        stopped "Рабочий сеанс остановлен пользователем{{requestedBy}}{{exitSuffix}}"
     duration
       label "Длительность"
     session

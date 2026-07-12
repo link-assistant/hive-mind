@@ -22,10 +22,24 @@ export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChan
     const ctx = cleanupContext;
     if (!ctx.tempDir || !ctx.argv) return;
 
+    // Issue #2052: the interrupt handler races the isolation backend's grace
+    // period — `docker stop` sends SIGTERM, waits ~10s, then SIGKILL. Auto-commit
+    // is fast, but attaching a multi-MB log to a Gist/PR can take several seconds
+    // and may be cut off by SIGKILL, which is exactly "no log uploaded on stop".
+    // These verbose timing traces make the race measurable on the next iteration
+    // (they are silent unless --verbose is set).
+    const verbose = ctx.argv.verbose || false;
+    const startedAt = Date.now();
+    const trace = async message => {
+      if (verbose) await log(`[interrupt] +${Date.now() - startedAt}ms ${message}`, { verbose: true });
+    };
+    await trace('handler entered');
+
     await log('\n⚠️  Session interrupted by user (CTRL+C)');
 
     // Always auto-commit uncommitted changes on CTRL+C to preserve work
     if (ctx.branchName) {
+      await trace('auto-commit: start');
       try {
         await checkForUncommittedChanges(
           ctx.tempDir,
@@ -37,6 +51,7 @@ export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChan
           true, // always autoCommit on CTRL+C to preserve work
           false // no autoRestart
         );
+        await trace('auto-commit: done');
       } catch (commitError) {
         await log(`⚠️  Could not auto-commit changes on interrupt: ${commitError.message}`, {
           level: 'warning',
@@ -47,6 +62,7 @@ export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChan
     // Upload logs if --attach-logs is enabled and we have a PR
     if (shouldAttachLogs && ctx.prNumber && ctx.owner && ctx.repo) {
       await log('📎 Uploading interrupted session logs to Pull Request...');
+      await trace('log-upload: start');
       try {
         await attachLogToGitHub({
           logFile: getLogFile(),
@@ -63,6 +79,7 @@ export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChan
           requestedModel: ctx.argv.model,
           tool: ctx.argv.tool || 'claude',
         });
+        await trace('log-upload: done');
       } catch (uploadError) {
         await log(`⚠️  Could not upload logs on interrupt: ${uploadError.message}`, {
           level: 'warning',

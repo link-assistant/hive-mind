@@ -624,6 +624,7 @@ en
         finished "Work session finished successfully"
         failed "Work session failed (exit code: {{exitCode}})"
         killed "Work session {{reason}}{{exitSuffix}}"
+        stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
     duration
       label "Duration"
     session

@@ -132,13 +132,25 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
   const { failed, killed, signal } = outcome;
-  const statusEmoji = failed ? '❌' : '✅';
   const messageLocale = locale || sessionInfo?.locale || null;
   // Issue #1927: a killed session (OOM/SIGKILL/SIGTERM) must never read as a
   // success, and the signal/reason is surfaced explicitly so an operator can
   // tell an out-of-memory kill apart from an ordinary non-zero exit.
+  // Issue #2052: when the operator explicitly requested a stop (e.g. Telegram
+  // `/stop <uuid>` → `docker stop` → SIGTERM then SIGKILL), the resulting signal
+  // exit (143/137) must NOT read as "out of memory or forced kill". A user stop
+  // is an orderly, intentional termination, so surface it as such regardless of
+  // which signal actually delivered the kill.
+  const stopRequestedByUser = Boolean(sessionInfo?.stopRequestedByUser);
+  let statusEmojiOverride = null;
   let statusText;
-  if (killed) {
+  if (killed && stopRequestedByUser) {
+    const showCode = finalExitCode !== null && !(!signal && finalExitCode === 1);
+    const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
+    const requestedBy = sessionInfo?.stopRequestedBy ? ` by ${sessionInfo.stopRequestedBy}` : '';
+    statusEmojiOverride = '🛑';
+    statusText = text(messageLocale, 'telegram.work_session_stopped', `Work session stopped by user${requestedBy}${exitSuffix}`, { requestedBy, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
+  } else if (killed) {
     // A real signal exit is always >128; an exit code of exactly 1 on a
     // status-only kill (process vanished, code unknown) is a synthesized failure
     // sentinel, so suppress the misleading "(exit code: 1)" in that case.
@@ -164,6 +176,7 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   if (pullRequestUrl) resolvedInfoBlock = appendPullRequestLine(resolvedInfoBlock, pullRequestUrl, { locale: messageLocale });
   const details = resolvedInfoBlock ? `\n\n${resolvedInfoBlock}` : '';
 
+  const statusEmoji = statusEmojiOverride || (failed ? '❌' : '✅');
   let message = `${statusEmoji} *${statusText}*\n\n`;
   message += `⏱️ ${durationLabel}: ${formatSessionDurationSeconds(durationSeconds)}\n`;
   message += `📊 ${sessionLabel}: \`${sessionName || 'unknown'}\`${isolationInfo}${details}`;

@@ -218,6 +218,33 @@ export function getTrackedSessionInfo(sessionName) {
 }
 
 /**
+ * Issue #2052: record that an operator explicitly requested a session stop
+ * (e.g. Telegram `/stop <uuid>`). The subsequent SIGTERM/SIGKILL exit (143/137,
+ * delivered by `docker stop`) is then reported as "🛑 Stopped by user" instead
+ * of the misleading "out of memory or forced kill (SIGKILL)". Matches by
+ * tracking key OR by the isolation `sessionId` UUID (which is how `/stop`
+ * addresses sessions).
+ * @param {string} sessionId - UUID or session name of the session being stopped
+ * @param {{requestedBy?: string|null, verbose?: boolean}} [opts]
+ * @returns {boolean} True when a tracked session was marked.
+ */
+export function markSessionStopRequested(sessionId, { requestedBy = null, verbose = false } = {}) {
+  if (!sessionId) return false;
+  const target = activeSessions.get(sessionId) || Array.from(activeSessions.values()).find(info => info?.sessionId === sessionId) || null;
+  if (!target) {
+    if (verbose) console.log(`[VERBOSE] markSessionStopRequested: no tracked session found for ${sessionId}`);
+    return false;
+  }
+  target.stopRequestedByUser = true;
+  if (requestedBy) target.stopRequestedBy = requestedBy;
+  const key = target.sessionId || sessionId;
+  persistSessionSnapshot(key, target);
+  if (verbose) console.log(`[VERBOSE] markSessionStopRequested: ${sessionId} marked stopped by user${requestedBy ? ` (${requestedBy})` : ''}`);
+  logEvent('session_stop_requested', { sessionName: key, sessionId, requestedBy: requestedBy || null });
+  return true;
+}
+
+/**
  * Stop tracking a session that was registered optimistically but never actually
  * started (e.g. the start-command launch failed). Removes it from the in-memory
  * map and the durable store without emitting a `session_completed` audit event —

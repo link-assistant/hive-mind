@@ -624,6 +624,7 @@ hi
         finished "कार्य सत्र सफलतापूर्वक पूरा हुआ"
         failed "कार्य सत्र विफल हुआ (exit code: {{exitCode}})"
         killed "कार्य सत्र रोका गया: {{reason}}{{exitSuffix}}"
+        stopped "कार्य सत्र उपयोगकर्ता द्वारा रोका गया{{requestedBy}}{{exitSuffix}}"
     duration
       label "अवधि"
     session

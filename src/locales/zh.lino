@@ -624,6 +624,7 @@ zh
         finished "工作会话已成功完成"
         failed "工作会话失败（退出代码：{{exitCode}}）"
         killed "工作会话已终止：{{reason}}{{exitSuffix}}"
+        stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
     duration
       label "耗时"
     session

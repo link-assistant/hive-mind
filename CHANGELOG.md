@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.5.5
+
+### Patch Changes
+
+- e6ccdc1: Allow operators to lower the queue startup interval safety floor with `HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS` while preserving the 10-minute default.
+
 ## 2.5.4
 
 ### Patch Changes

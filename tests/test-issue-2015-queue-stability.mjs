@@ -81,11 +81,27 @@ await test('queue startup interval defaults to a 10-minute minimum', async () =>
   assertEqual(QUEUE_CONFIG.MIN_START_INTERVAL_MS, 10 * 60 * 1000, 'default startup interval should be 10 minutes');
 });
 
-await test('queue startup interval cannot be configured below 10 minutes', async () => {
+await test('queue startup interval uses a 10-minute floor by default', async () => {
   const value = readSpawnedNumber('src/queue-config.lib.mjs', 'mod.QUEUE_CONFIG.MIN_START_INTERVAL_MS', {
     HIVE_MIND_MIN_START_INTERVAL_MS: '60000',
   });
   assertEqual(value, 10 * 60 * 1000, 'configured startup interval should be clamped to 10 minutes');
+});
+
+await test('queue startup interval floor can be lowered explicitly', async () => {
+  const value = readSpawnedNumber('src/queue-config.lib.mjs', 'mod.QUEUE_CONFIG.MIN_START_INTERVAL_MS', {
+    HIVE_MIND_MIN_START_INTERVAL_MS: '300000',
+    HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS: '300000',
+  });
+  assertEqual(value, 5 * 60 * 1000, 'configured startup interval should use the operator-selected floor');
+});
+
+await test('queue startup interval is clamped to the configured floor', async () => {
+  const value = readSpawnedNumber('src/queue-config.lib.mjs', 'mod.QUEUE_CONFIG.MIN_START_INTERVAL_MS', {
+    HIVE_MIND_MIN_START_INTERVAL_MS: '60000',
+    HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS: '300000',
+  });
+  assertEqual(value, 5 * 60 * 1000, 'configured startup interval should not go below the operator-selected floor');
 });
 
 await test('minimum startup interval is global across tools', async () => {

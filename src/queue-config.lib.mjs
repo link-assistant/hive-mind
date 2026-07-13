@@ -192,7 +192,8 @@ const parseIntWithDefault = (envVar, defaultValue) => {
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
-const MINIMUM_START_INTERVAL_MS = 10 * 60 * 1000;
+const DEFAULT_MINIMUM_START_INTERVAL_MS = 10 * 60 * 1000;
+const minimumStartIntervalMs = parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS', DEFAULT_MINIMUM_START_INTERVAL_MS);
 
 // Parse links notation config from environment variable (if provided)
 const linoConfig = parseQueueConfig(getenv('HIVE_MIND_QUEUE_CONFIG', ''));
@@ -276,7 +277,9 @@ export const QUEUE_CONFIG = {
   // MIN_START_INTERVAL_MS: Minimum global spacing between task startups.
   // Issue #2015: after resource thresholds clear, starting a backlog in a burst
   // can kill the next batch before host metrics have time to settle.
-  MIN_START_INTERVAL_MS: Math.max(parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_MS', MINIMUM_START_INTERVAL_MS), MINIMUM_START_INTERVAL_MS), // at least 10 minutes between starts
+  // Issue #2053: operators can explicitly lower the safety floor on hosts where
+  // resource metrics settle sooner. The default remains 10 minutes.
+  MIN_START_INTERVAL_MS: Math.max(parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_MS', DEFAULT_MINIMUM_START_INTERVAL_MS), minimumStartIntervalMs),
   CONSUMER_POLL_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_CONSUMER_POLL_INTERVAL_MS', 60000), // 1 minute between queue checks
   MESSAGE_UPDATE_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_MESSAGE_UPDATE_INTERVAL_MS', 60000), // 1 minute between status message updates
 

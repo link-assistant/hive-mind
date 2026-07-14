@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 2.5.6
+
+### Patch Changes
+
+- e501237: Warn when malformed or safety-clamped numeric environment settings fall back to a different effective value.
+- 10ddbca: Document same-session live input support and the Codex app-server integration plan for issue #2057.
+
 ## 2.5.5
 
 ### Patch Changes

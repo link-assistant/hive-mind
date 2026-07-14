@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.6.0
+
+### Minor Changes
+
+- c031b7b: Handle weekly-only Codex usage windows and add Telegram Bot API rolling rate-limit telemetry to `/limits`.
+
 ## 2.5.6
 
 ### Patch Changes

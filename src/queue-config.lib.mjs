@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { clampEnvValue, parseIntegerEnv, parseNumberEnv } from './env-config.lib.mjs';
 
 /**
  * Queue Configuration Module
@@ -178,19 +179,8 @@ export function parseQueueConfig(linoConfig) {
   }
 }
 
-// Helper function to safely parse floats with fallback
-const parseFloatWithDefault = (envVar, defaultValue) => {
-  const value = getenv(envVar, defaultValue.toString());
-  const parsed = parseFloat(value);
-  return isNaN(parsed) ? defaultValue : parsed;
-};
-
-// Helper function to safely parse integers with fallback
-const parseIntWithDefault = (envVar, defaultValue) => {
-  const value = getenv(envVar, defaultValue.toString());
-  const parsed = parseInt(value);
-  return isNaN(parsed) ? defaultValue : parsed;
-};
+const parseFloatWithDefault = (envVar, defaultValue) => parseNumberEnv(envVar, defaultValue, { scope: 'queue-config' });
+const parseIntWithDefault = (envVar, defaultValue) => parseIntegerEnv(envVar, defaultValue, { scope: 'queue-config' });
 
 const DEFAULT_MINIMUM_START_INTERVAL_MS = 10 * 60 * 1000;
 const minimumStartIntervalMs = parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS', DEFAULT_MINIMUM_START_INTERVAL_MS);
@@ -279,7 +269,11 @@ export const QUEUE_CONFIG = {
   // can kill the next batch before host metrics have time to settle.
   // Issue #2053: operators can explicitly lower the safety floor on hosts where
   // resource metrics settle sooner. The default remains 10 minutes.
-  MIN_START_INTERVAL_MS: Math.max(parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_MS', DEFAULT_MINIMUM_START_INTERVAL_MS), minimumStartIntervalMs),
+  MIN_START_INTERVAL_MS: clampEnvValue('HIVE_MIND_MIN_START_INTERVAL_MS', parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_MS', DEFAULT_MINIMUM_START_INTERVAL_MS), {
+    minimum: minimumStartIntervalMs,
+    scope: 'queue-config',
+    hint: 'Set HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS to lower the minimum.',
+  }),
   CONSUMER_POLL_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_CONSUMER_POLL_INTERVAL_MS', 60000), // 1 minute between queue checks
   MESSAGE_UPDATE_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_MESSAGE_UPDATE_INTERVAL_MS', 60000), // 1 minute between status message updates
 

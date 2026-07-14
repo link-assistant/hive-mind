@@ -30,23 +30,13 @@ const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.
 // Use semver package for version comparison (see issue #1146)
 import semver from 'semver';
 import { buildClaudeQuietEnv } from './claude-quiet-config.lib.mjs';
+import { clampEnvValue, parseIntegerEnv, parseNumberEnv } from './env-config.lib.mjs';
 
 // Import lino for parsing Links Notation format
 const { lino } = await import('./lino.lib.mjs');
 
-// Helper function to safely parse integers with fallback
-const parseIntWithDefault = (envVar, defaultValue) => {
-  const value = getenv(envVar, defaultValue.toString());
-  const parsed = parseInt(value);
-  return isNaN(parsed) ? defaultValue : parsed;
-};
-
-// Helper function to safely parse floats with fallback
-const parseFloatWithDefault = (envVar, defaultValue) => {
-  const value = getenv(envVar, defaultValue.toString());
-  const parsed = parseFloat(value);
-  return isNaN(parsed) ? defaultValue : parsed;
-};
+const parseIntWithDefault = (envVar, defaultValue) => parseIntegerEnv(envVar, defaultValue);
+const parseFloatWithDefault = (envVar, defaultValue) => parseNumberEnv(envVar, defaultValue);
 
 // Timeout configurations (in milliseconds)
 export const timeouts = {
@@ -737,7 +727,7 @@ export const cacheTtl = {
   usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 13 * 60 * 1000), // 13 minutes
   // System metrics cache TTL (RAM, CPU, disk). Issue #2015 caps this at
   // 1 minute so queue decisions do not use stale host pressure data.
-  system: Math.min(parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 60 * 1000), 60 * 1000), // max 1 minute
+  system: clampEnvValue('HIVE_MIND_SYSTEM_CACHE_TTL_MS', parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 60 * 1000), { maximum: 60 * 1000 }), // max 1 minute
 };
 
 // File and path configurations

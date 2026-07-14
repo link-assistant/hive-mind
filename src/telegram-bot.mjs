@@ -329,6 +329,7 @@ const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMess
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 const { installTelegramFormattingFallback, isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
+const { installTelegramRateLimitTracker } = await import('./telegram-rate-limit.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 const { trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
@@ -352,12 +353,11 @@ await preloadAllLocales();
 
 const telegrafModule = await use('telegraf');
 const { Telegraf } = telegrafModule;
-
 const bot = new Telegraf(BOT_TOKEN, {
   handlerTimeout: Infinity, // Remove default 90s timeout; command handlers like /solve spawn long-running processes
 });
 installTelegramFormattingFallback(bot.telegram, { verbose: VERBOSE });
-
+installTelegramRateLimitTracker(bot.telegram, { verbose: VERBOSE });
 // Track bot startup time (Unix seconds to match Telegram's message.date format)
 const BOT_START_TIME = Math.floor(Date.now() / 1000);
 
@@ -635,7 +635,7 @@ bot.command('limits', async ctx => {
   const claudeSubscription = limits.claudeSubscription?.success ? limits.claudeSubscription.subscription : null;
   const codexSubscription = limits.codexSubscription?.success ? limits.codexSubscription.subscription : null;
   const codexSection = formatCodexLimitsSection(limits.codex.success ? limits.codex : null, codexError, { locale: userLocale, subscription: codexSubscription });
-  const message = t('telegram.usage_limits_title', {}, { locale: userLocale }) + '\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus], { locale: userLocale, subscription: claudeSubscription });
+  const message = t('telegram.usage_limits_title', {}, { locale: userLocale }) + '\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [codexSection, queueStatus], { locale: userLocale, subscription: claudeSubscription, telegramRateLimit: limits.telegram.telegramRateLimit });
   await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown', fallbackLocale: userLocale, verbose: VERBOSE });
 });
 bot.command('version', async ctx => {

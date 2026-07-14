@@ -334,6 +334,20 @@ hi
         label "सदस्यता समाप्त होगी {{time}}"
         in "सदस्यता {{duration}} में समाप्त होगी ({{time}})"
       status "सदस्यता: {{status}}"
+    telegram
+      api "Telegram Bot API (स्थानीय रोलिंग टेलीमेट्री)"
+      global
+        window "1 सेकंड में {{used}}/{{limit}} संदेश"
+      group
+        window "सबसे व्यस्त समूह में 1 मिनट में {{used}}/{{limit}} संदेश"
+      last
+        rate
+          limit "अंतिम 429: {{method}}"
+      rate
+        limit
+          responses "स्टार्टअप के बाद 429 प्रतिक्रियाएँ: {{count}}"
+      retry
+        in "{{seconds}} सेकंड में पुनः प्रयास"
     trial
       ends
         label "ट्रायल समाप्त होगा {{time}}"

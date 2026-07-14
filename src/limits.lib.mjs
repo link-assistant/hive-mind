@@ -12,9 +12,11 @@ import { promisify } from 'node:util';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 
+import { classifyCodexRateLimitWindows } from './codex-rate-limit-windows.lib.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 import { formatLimitResetsAt, formatLimitResetsIn, formatLocalizedCurrentTime, formatLocalizedRelativeTime, formatLocalizedResetTime, localizeCompactDuration, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 import { formatSubscriptionHeading, formatSubscriptionLines, getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo } from './limits-subscription.lib.mjs';
+import { getTelegramRateLimits } from './telegram-rate-limit.lib.mjs';
 export { getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo };
 // Initialize dayjs plugins
 dayjs.extend(utc);
@@ -72,6 +74,15 @@ function mapCodexWindow(window) {
     resetsAt,
     windowSeconds: window?.limit_window_seconds ?? null,
     resetAfterSeconds: window?.reset_after_seconds ?? null,
+  };
+}
+
+export function mapCodexRateLimitWindows(rateLimit) {
+  const { sessionWindow, weeklyWindow } = classifyCodexRateLimitWindows(rateLimit);
+
+  return {
+    currentSession: mapCodexWindow(sessionWindow),
+    allModels: mapCodexWindow(weeklyWindow),
   };
 }
 
@@ -936,8 +947,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
     }
 
     const usage = {
-      currentSession: mapCodexWindow(data?.rate_limit?.primary_window),
-      allModels: mapCodexWindow(data?.rate_limit?.secondary_window),
+      ...mapCodexRateLimitWindows(data?.rate_limit),
       sonnetOnly: {
         percentage: null,
         resetTime: null,
@@ -949,8 +959,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       ? data.additional_rate_limits.map(limit => ({
           limitId: limit?.metered_feature || null,
           limitName: limit?.limit_name || limit?.metered_feature || 'additional',
-          currentSession: mapCodexWindow(limit?.rate_limit?.primary_window),
-          allModels: mapCodexWindow(limit?.rate_limit?.secondary_window),
+          ...mapCodexRateLimitWindows(limit?.rate_limit),
           allowed: limit?.rate_limit?.allowed ?? null,
           limitReached: limit?.rate_limit?.limit_reached ?? null,
         }))
@@ -1116,6 +1125,24 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     sections.push(section);
   }
 
+  const telegramRateLimit = options?.telegramRateLimit || null;
+  if (telegramRateLimit) {
+    let section = `${lt('telegram_api', {}, { locale })}\n`;
+    const global = telegramRateLimit.global;
+    section += `${getProgressBar(global.usedPercentage)} ${global.usedPercentage}% ${lt('used', {}, { locale })}\n`;
+    section += `${lt('telegram_global_window', { used: global.used, limit: global.limit }, { locale })}\n`;
+    const group = telegramRateLimit.busiestGroup;
+    section += `${getProgressBar(group.usedPercentage)} ${group.usedPercentage}% ${lt('used', {}, { locale })}\n`;
+    section += `${lt('telegram_group_window', { used: group.used, limit: group.limit }, { locale })}\n`;
+    section += `${lt('telegram_rate_limit_responses', { count: telegramRateLimit.rateLimitResponses }, { locale })}\n`;
+    if (telegramRateLimit.lastRateLimit) {
+      const retry = telegramRateLimit.lastRateLimit.retryRemainingSeconds;
+      const retryText = retry === null ? '' : `, ${lt('telegram_retry_in', { seconds: retry }, { locale })}`;
+      section += `${lt('telegram_last_rate_limit', { method: telegramRateLimit.lastRateLimit.method }, { locale })}${retryText}\n`;
+    }
+    sections.push(section);
+  }
+
   const claudeHeading = formatSubscriptionHeading('claude', subscription, { locale });
   const useShortClaudeLabels = Boolean(claudeHeading);
   const claudeSections = [];
@@ -1194,7 +1221,7 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
   const sessionSection = formatLimitWindowSection(useTitledLayout ? lt('five_hour_limit_session', {}, { locale }) : lt('codex_5_hour_session', {}, { locale }), usage?.currentSession, 5, DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, { locale });
   const weeklySection = formatLimitWindowSection(useTitledLayout ? lt('current_week', {}, { locale }) : lt('current_week_all_models', {}, { locale }), usage?.allModels, 168, DISPLAY_THRESHOLDS.CODEX_WEEKLY, { locale });
 
-  section += `${sessionSection}\n${weeklySection}`;
+  section += [sessionSection, weeklySection].filter((_, index) => (index === 0 ? hasLimitPercentage(usage?.currentSession) : hasLimitPercentage(usage?.allModels))).join('\n');
 
   const visibleAdditionalRateLimits = additionalRateLimits.filter(limit => hasPositivePercentage(limit.allModels?.percentage));
   if (visibleAdditionalRateLimits.length > 0) {
@@ -1202,9 +1229,10 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
     for (const limit of visibleAdditionalRateLimits) {
       const sessionPct = limit.currentSession?.percentage;
       const weeklyPct = limit.allModels?.percentage;
-      const sessionText = sessionPct === null || sessionPct === undefined ? `${lt('session', {}, { locale })} ${lt('na', {}, { locale })}` : `${lt('session', {}, { locale })} ${Math.floor(sessionPct)}%`;
-      const weeklyText = weeklyPct === null || weeklyPct === undefined ? `${lt('week', {}, { locale })} ${lt('na', {}, { locale })}` : `${lt('week', {}, { locale })} ${Math.floor(weeklyPct)}%`;
-      section += `${limit.limitName}: ${sessionText}, ${weeklyText}\n`;
+      const windowTexts = [];
+      if (sessionPct !== null && sessionPct !== undefined) windowTexts.push(`${lt('session', {}, { locale })} ${Math.floor(sessionPct)}%`);
+      if (weeklyPct !== null && weeklyPct !== undefined) windowTexts.push(`${lt('week', {}, { locale })} ${Math.floor(weeklyPct)}%`);
+      section += `${limit.limitName}: ${windowTexts.join(', ')}\n`;
     }
   }
 
@@ -1409,8 +1437,8 @@ export async function getCachedDiskInfo(verbose = false) {
 }
 
 export async function getAllCachedLimits(verbose = false) {
-  const [claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription] = await Promise.all([getCachedClaudeLimits(verbose), getCachedCodexLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose), getCachedClaudeSubscription(verbose), getCachedCodexSubscription(verbose)]);
-  return { claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription };
+  const [claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription, telegram] = await Promise.all([getCachedClaudeLimits(verbose), getCachedCodexLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose), getCachedClaudeSubscription(verbose), getCachedCodexSubscription(verbose), getTelegramRateLimits(verbose)]);
+  return { claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription, telegram };
 }
 
 export default {

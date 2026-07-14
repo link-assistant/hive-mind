@@ -334,6 +334,20 @@ ru
         label "Подписка заканчивается {{time}}"
         in "Подписка заканчивается через {{duration}} ({{time}})"
       status "Подписка: {{status}}"
+    telegram
+      api "Telegram Bot API (локальная скользящая статистика)"
+      global
+        window "{{used}}/{{limit}} сообщений за 1 с"
+      group
+        window "{{used}}/{{limit}} сообщений в самой активной группе за 1 мин"
+      last
+        rate
+          limit "Последний ответ 429: {{method}}"
+      rate
+        limit
+          responses "Ответов 429 с момента запуска: {{count}}"
+      retry
+        in "повтор через {{seconds}} с"
     trial
       ends
         label "Пробный период заканчивается {{time}}"

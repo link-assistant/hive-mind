@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, formatCodexLimitsSection, formatRetryAfterMessage, getCodexSubscriptionInfo, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
+import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, formatCodexLimitsSection, formatRetryAfterMessage, getCodexSubscriptionInfo, mapCodexRateLimitWindows, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
 import { preloadAllLocales } from '../src/i18n.lib.mjs';
 
 await preloadAllLocales();
@@ -223,6 +223,56 @@ test('formatCodexLimitsSection uses ChatGPT subscription heading and hides unuse
   assert.ok(!section.includes('Zero Weekly Feature'), 'Should hide additional limits with 0% weekly usage');
   assert.ok(!section.includes('Plan: pro'), 'Should not render a separate Plan line');
   assert.ok(!section.includes('Codex credits'), 'Should hide zero-balance Codex credits');
+});
+
+test('formatCodexLimitsSection omits the unavailable 5 hour window for weekly-only accounts', () => {
+  const section = formatCodexLimitsSection({
+    usage: {
+      currentSession: { percentage: null, resetTime: null, resetsAt: null },
+      allModels: {
+        percentage: 44,
+        resetTime: 'Jul 19, 6:58pm UTC',
+        resetsAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    },
+    planType: 'pro',
+  });
+
+  assert.ok(section.includes('Current week'), 'Should retain the available weekly window');
+  assert.ok(section.includes('44% used'), 'Should render weekly utilization');
+  assert.ok(!section.includes('5 hour session'), 'Should omit the unavailable session window');
+  assert.ok(!section.includes('N/A'), 'Should not emit a placeholder for an absent optional window');
+});
+
+test('mapCodexRateLimitWindows recognizes a weekly-only primary window by duration', () => {
+  const usage = mapCodexRateLimitWindows({
+    primary_window: {
+      used_percent: 44,
+      limit_window_seconds: 7 * 24 * 60 * 60,
+      reset_at: Math.floor(Date.now() / 1000) + 5 * 24 * 60 * 60,
+    },
+    secondary_window: null,
+  });
+
+  assert.equal(usage.currentSession.percentage, null, 'Should not mislabel a seven-day primary window as a session');
+  assert.equal(usage.allModels.percentage, 44, 'Should map the seven-day primary window to current week');
+});
+
+test('formatCodexLimitsSection omits N/A sessions from weekly-only additional limits', () => {
+  const section = formatCodexLimitsSection({
+    usage: { currentSession: { percentage: null }, allModels: { percentage: 44 } },
+    planType: 'pro',
+    additionalRateLimits: [
+      {
+        limitName: 'GPT-5.3-Codex-Spark',
+        currentSession: { percentage: null },
+        allModels: { percentage: 12 },
+      },
+    ],
+  });
+
+  assert.ok(section.includes('GPT-5.3-Codex-Spark: week 12%'));
+  assert.ok(!section.includes('session N/A'));
 });
 
 test('formatCodexLimitsSection renders error state', () => {

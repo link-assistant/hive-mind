@@ -334,6 +334,20 @@ en
         label "Subscription ends {{time}}"
         in "Subscription ends in {{duration}} ({{time}})"
       status "Subscription: {{status}}"
+    telegram
+      api "Telegram Bot API (local rolling telemetry)"
+      global
+        window "{{used}}/{{limit}} messages in 1s"
+      group
+        window "{{used}}/{{limit}} messages in busiest group over 1m"
+      last
+        rate
+          limit "Last 429: {{method}}"
+      rate
+        limit
+          responses "429 responses since startup: {{count}}"
+      retry
+        in "retry in {{seconds}}s"
     trial
       ends
         label "Trial ends {{time}}"

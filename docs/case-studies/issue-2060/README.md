@@ -1,7 +1,9 @@
 # Issue 2060: weekly-only Codex limits and Telegram Bot API telemetry
 
-Issue: [link-assistant/hive-mind#2060](https://github.com/link-assistant/hive-mind/issues/2060)  
-Prepared PR: [link-assistant/hive-mind#2063](https://github.com/link-assistant/hive-mind/pull/2063)  
+Issue: [link-assistant/hive-mind#2060](https://github.com/link-assistant/hive-mind/issues/2060)
+
+Prepared PR: [link-assistant/hive-mind#2063](https://github.com/link-assistant/hive-mind/pull/2063)
+
 Observed and reported: 2026-07-14
 
 ## Executive summary

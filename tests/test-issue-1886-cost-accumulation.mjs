@@ -24,7 +24,8 @@
 
 import { calculateModelCost } from '../src/claude.cost.lib.mjs';
 import { displayCostComparison } from '../src/claude.budget-stats.lib.mjs';
-import { seedCumulativeAnthropicCost, addAnthropicRunCost, getCumulativeAnthropicCost, hasCumulativeAnthropicCost, resetCumulativeAnthropicCost } from '../src/anthropic-cost-accumulator.lib.mjs';
+import { beginAnthropicCostScope, seedCumulativeAnthropicCost, addAnthropicRunCost, getCumulativeAnthropicCost, hasCumulativeAnthropicCost, resetCumulativeAnthropicCost } from '../src/anthropic-cost-accumulator.lib.mjs';
+import { readFile } from 'node:fs/promises';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -139,7 +140,55 @@ await runTest('seed sanitizes invalid carried-forward values to 0', () => {
   assertEqual(seedCumulativeAnthropicCost(-5), 0, 'Negative --previous-anthropic-cost becomes 0');
 });
 
-// --- Part 3: the fix closes the gap on a cross-process resume ----------------
+// --- Part 3: working-session boundaries (issue #2056) -----------------------
+
+await runTest('a fresh auto-restart starts a separate cost scope', () => {
+  resetCumulativeAnthropicCost();
+
+  beginAnthropicCostScope({ resume: false });
+  assertEqual(addAnthropicRunCost(33.488057), 33.488057, 'initial working session cost');
+
+  beginAnthropicCostScope({ resume: false });
+  assertEqual(addAnthropicRunCost(0.902298), 0.902298, 'fresh auto-restart must not include the initial working session');
+  assertEqual(getCumulativeAnthropicCost(), 0.902298, 'the active scope contains only the fresh working session');
+});
+
+await runTest('a true resume keeps accumulating within the same logical session', () => {
+  resetCumulativeAnthropicCost();
+
+  beginAnthropicCostScope({ resume: false });
+  addAnthropicRunCost(11.422795);
+  beginAnthropicCostScope({ resume: true });
+
+  assertEqual(addAnthropicRunCost(24.66222).toFixed(6), '36.085015', 'a limit-reset resume keeps the earlier process cost');
+});
+
+await runTest('a cross-process resume seeds its carried-forward cost', () => {
+  resetCumulativeAnthropicCost();
+  beginAnthropicCostScope({ resume: true, previousAnthropicCost: 11.422795 });
+  assertEqual(addAnthropicRunCost(24.66222).toFixed(6), '36.085015', 'a resumed process restores the logical-session total');
+});
+
+await runTest('a fresh session ignores stale carried-forward cost defensively', () => {
+  resetCumulativeAnthropicCost();
+  beginAnthropicCostScope({ resume: false, previousAnthropicCost: 33.488057 });
+  assertEqual(addAnthropicRunCost(0.902298), 0.902298, 'fresh execution cannot inherit a previous transcript cost');
+});
+
+await runTest('the shared Claude executor starts every working-session cost scope', async () => {
+  const source = await readFile(new URL('../src/claude.lib.mjs', import.meta.url), 'utf8');
+  const executeClaudeBody = source.slice(source.indexOf('export const executeClaude ='), source.indexOf('export const calculateSessionTokens ='));
+  assertContains(executeClaudeBody, 'beginAnthropicCostScope({', 'top-level, watch, and mergeability callers all pass through the shared lifecycle hook');
+  assertContains(executeClaudeBody, 'resume: argv.resume', 'the hook distinguishes a true resume from a fresh restart');
+  assertEqual(source.split('beginAnthropicCostScope({').length - 1, 3, 'the initial execution and both corrupted-transcript recovery paths apply the lifecycle hook');
+});
+
+await runTest('fresh cross-process restarts do not carry the prior cost', async () => {
+  const source = await readFile(new URL('../src/solve.auto-continue.lib.mjs', import.meta.url), 'utf8');
+  assertContains(source, 'if (!isRestart && carriedAnthropicCost > 0)', 'only a true cross-process resume may receive --previous-anthropic-cost');
+});
+
+// --- Part 4: the fix closes the gap on a cross-process resume ----------------
 
 await runTest('accumulation makes the resumed-run Anthropic figure match the full-session estimate', () => {
   const resultCost = calculateModelCost(RESULT_SCOPE, FABLE5); // run2 (resumed process)
@@ -180,7 +229,7 @@ await runTest('limit-hit run1 cost (non-success result fallback) is still carrie
   assertEqual(cumulative.toFixed(6), fullCost.toFixed(6), 'Cumulative matches the full-session public estimate even when run1 hit the limit');
 });
 
-// --- Part 4: display integration ---------------------------------------------
+// --- Part 5: display integration ---------------------------------------------
 
 await runTest('displayCostComparison collapses to the short form once accumulated (matches estimate)', async () => {
   const fullCost = calculateModelCost(FULL_SCOPE, FABLE5);

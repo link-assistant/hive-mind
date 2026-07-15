@@ -17,7 +17,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { createEmptySubSessionUsage, accumulateModelUsage, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage, getRawRequestInputTokens, displaySessionTokenUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
-import { seedCumulativeAnthropicCost, addAnthropicRunCost } from './anthropic-cost-accumulator.lib.mjs'; // Issue #1886
+import { beginAnthropicCostScope, seedCumulativeAnthropicCost, addAnthropicRunCost } from './anthropic-cost-accumulator.lib.mjs'; // Issues #1886, #2056
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
@@ -236,6 +236,8 @@ export const resolveThinkingSettings = async (argv, log) => {
 export const checkPlaywrightMcpAvailability = ensureClaudePlaywrightMcpServer;
 export const executeClaude = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
+  // Issue #2056: reset fresh sessions while retaining issue #1886's true-resume accumulation.
+  beginAnthropicCostScope({ resume: argv.resume, previousAnthropicCost: argv.previousAnthropicCost });
   if (argv.promptSubagentsViaAgentCommander) {
     try {
       await $`which start-agent`;
@@ -304,11 +306,9 @@ export const executeClaude = async params => {
   }
   const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
   const escapedSystemPrompt = systemPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Claude loads
   // it natively from .claude/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
-
   return await withAgentsMdAsClaudeMd({ tempDir, branchName, argv, prompt, fs, path, $, log, formatAligned }, () =>
     executeClaudeCommand({
       tempDir,
@@ -1176,6 +1176,7 @@ export const executeClaudeCommand = async params => {
       // logs the failure and returns false; we fall through to the normal commandFailed return below
       // (the 400 is not a transient pattern, so it is not retried).
       if (commandFailed && retryableLastError.requiresFreshSession && (await tryThinkingBlockRecovery({ classified: retryableLastError, source: 'result', sessionId }))) {
+        beginAnthropicCostScope({ resume: argv.resume, previousAnthropicCost: argv.previousAnthropicCost });
         return await executeWithRetry();
       }
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
@@ -1376,6 +1377,7 @@ export const executeClaudeCommand = async params => {
       // Issue #1834: Corrupted extended-thinking blocks surfaced as a thrown exception. Same recovery
       // as the streamed-result path: resume the session first, then fall back to a fresh restart.
       if (retryableException.requiresFreshSession && (await tryThinkingBlockRecovery({ classified: retryableException, source: 'exception', sessionId }))) {
+        beginAnthropicCostScope({ resume: argv.resume, previousAnthropicCost: argv.previousAnthropicCost });
         retryCount++;
         return await executeWithRetry();
       }

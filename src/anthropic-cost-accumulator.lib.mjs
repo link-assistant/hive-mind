@@ -29,12 +29,11 @@
  * shown next to the full-session public estimate covers the same scope. This
  * module is the single source of truth for that running total:
  *
- *   - Each `solve` process seeds the accumulator once from
- *     `--previous-anthropic-cost` (0 for the first run; the carried-forward
- *     total for an auto-resumed run).
- *   - Every finished Claude process adds its own `total_cost_usd` via
- *     `addAnthropicRunCost`, which also covers the in-process auto-merge loop
- *     (each iteration is a separate Claude process in the same node process).
+ *   - Each `executeClaude` call starts a scope. Fresh sessions reset it; true
+ *     resumes retain it or seed it from `--previous-anthropic-cost` when the
+ *     resume crosses a process boundary.
+ *   - Every finished Claude process in that logical session adds its own
+ *     `total_cost_usd` via `addAnthropicRunCost`.
  *   - The display and the cross-process spawn both read the cumulative total,
  *     so "Calculated by Anthropic" tracks the full session.
  *
@@ -43,12 +42,12 @@
  * future model. See docs/case-studies/issue-1886/ for the full analysis.
  */
 
-// Module-level singleton: the cumulative Anthropic cost for the current logical
-// session (this node process plus everything seeded from prior processes).
+// Module-level singleton: the cumulative Anthropic cost for the active logical
+// session (including anything seeded by a true resume from a prior process).
 let cumulativeAnthropicCostUSD = 0;
-// Seeding must happen exactly once per node process. The auto-merge loop calls
-// runClaude (and therefore the seed helper) repeatedly within a single process;
-// re-seeding from the same CLI flag each time would wipe out accumulation.
+// Seeding must happen exactly once per active scope. Resume retries may call the
+// seed helper repeatedly; re-seeding from the same CLI flag would wipe out the
+// costs already accumulated in this process.
 let seeded = false;
 
 /**
@@ -62,9 +61,33 @@ const toCostAmount = value => {
 };
 
 /**
+ * Start accounting for one logical Claude session.
+ *
+ * A fresh execution owns a new transcript and therefore a new cost scope. A
+ * true `--resume` execution continues the active scope (or restores it from
+ * `--previous-anthropic-cost` when the resume happens in a child process).
+ * Calling this at the public `executeClaude` boundary keeps retries inside one
+ * scope while preventing watch-mode and mergeability auto-restarts from
+ * inheriting the preceding working session's cost.
+ *
+ * @param {Object} [options]
+ * @param {boolean|string} [options.resume=false] - whether this execution resumes an existing Claude session
+ * @param {number|string|null} [options.previousAnthropicCost=0] - cumulative cost restored by a resumed child process
+ * @returns {number} the cumulative cost at the start of this execution
+ */
+export const beginAnthropicCostScope = ({ resume = false, previousAnthropicCost = 0 } = {}) => {
+  if (!resume) {
+    cumulativeAnthropicCostUSD = 0;
+    seeded = true;
+    return cumulativeAnthropicCostUSD;
+  }
+  return seedCumulativeAnthropicCost(previousAnthropicCost);
+};
+
+/**
  * Seed the accumulator from the carried-forward previous-run cost, exactly once
- * per node process. Subsequent calls are no-ops so the in-process auto-merge
- * loop does not reset the running total.
+ * per active scope. Subsequent calls are no-ops so resume retries do not reset
+ * the running total.
  * @param {number|string|null|undefined} previousAnthropicCostUSD
  * @returns {number} the cumulative total after seeding
  */
@@ -98,8 +121,8 @@ export const getCumulativeAnthropicCost = () => cumulativeAnthropicCostUSD;
 export const hasCumulativeAnthropicCost = () => cumulativeAnthropicCostUSD > 0;
 
 /**
- * Reset the accumulator. Intended for tests — production code seeds once and
- * accumulates for the lifetime of the process.
+ * Reset the accumulator. Intended for tests; production code starts scopes via
+ * `beginAnthropicCostScope`.
  */
 export const resetCumulativeAnthropicCost = () => {
   cumulativeAnthropicCostUSD = 0;

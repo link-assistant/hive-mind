@@ -16,6 +16,19 @@ function readExplicitEnv(envVar) {
   return rawValue === undefined ? null : rawValue;
 }
 
+/**
+ * Emit a warning once when an environment variable was explicitly configured.
+ *
+ * @param {string} envVar
+ * @param {string} warningKey
+ * @param {string} message
+ */
+export function warnExplicitEnv(envVar, warningKey, message) {
+  if (readExplicitEnv(envVar) !== null) {
+    warnOnce(`${warningKey}:${envVar}`, message);
+  }
+}
+
 function warnInvalid(envVar, rawValue, type, defaultValue, scope) {
   warnOnce(`invalid:${envVar}`, `[${scope}] ${envVar}=${JSON.stringify(rawValue)} is not a valid ${type}; using default ${defaultValue}.`);
 }

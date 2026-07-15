@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
-import { clampEnvValue, parseIntegerEnv, parseNumberEnv } from './env-config.lib.mjs';
+import { parseIntegerEnv, parseNumberEnv, warnExplicitEnv } from './env-config.lib.mjs';
 
 /**
  * Queue Configuration Module
@@ -183,7 +183,32 @@ const parseFloatWithDefault = (envVar, defaultValue) => parseNumberEnv(envVar, d
 const parseIntWithDefault = (envVar, defaultValue) => parseIntegerEnv(envVar, defaultValue, { scope: 'queue-config' });
 
 const DEFAULT_MINIMUM_START_INTERVAL_MS = 10 * 60 * 1000;
-const minimumStartIntervalMs = parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS', DEFAULT_MINIMUM_START_INTERVAL_MS);
+const START_INTERVAL_ENV = 'HIVE_MIND_MIN_START_INTERVAL_MS';
+const LEGACY_START_INTERVAL_FLOOR_ENV = 'HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS';
+
+function resolveMinimumStartIntervalMs() {
+  const hasExplicitInterval = process.env[START_INTERVAL_ENV] !== undefined;
+  const hasLegacyFloor = process.env[LEGACY_START_INTERVAL_FLOOR_ENV] !== undefined;
+
+  if (hasLegacyFloor) {
+    warnExplicitEnv(LEGACY_START_INTERVAL_FLOOR_ENV, 'deprecated', `[queue-config] ${LEGACY_START_INTERVAL_FLOOR_ENV} is deprecated; use ${START_INTERVAL_ENV} instead.`);
+  }
+
+  let interval = DEFAULT_MINIMUM_START_INTERVAL_MS;
+  if (hasExplicitInterval) {
+    interval = parseIntWithDefault(START_INTERVAL_ENV, DEFAULT_MINIMUM_START_INTERVAL_MS);
+  } else if (hasLegacyFloor) {
+    interval = parseIntWithDefault(LEGACY_START_INTERVAL_FLOOR_ENV, DEFAULT_MINIMUM_START_INTERVAL_MS);
+  }
+
+  if (hasExplicitInterval && interval < DEFAULT_MINIMUM_START_INTERVAL_MS) {
+    warnExplicitEnv(START_INTERVAL_ENV, 'recommendation', `[queue-config] ${START_INTERVAL_ENV}=${interval} is below the recommended ${DEFAULT_MINIMUM_START_INTERVAL_MS} ms; short intervals can start a backlog before host metrics settle (#2015).`);
+  }
+
+  return interval;
+}
+
+const minimumStartIntervalMs = resolveMinimumStartIntervalMs();
 
 // Parse links notation config from environment variable (if provided)
 const linoConfig = parseQueueConfig(getenv('HIVE_MIND_QUEUE_CONFIG', ''));
@@ -267,13 +292,10 @@ export const QUEUE_CONFIG = {
   // MIN_START_INTERVAL_MS: Minimum global spacing between task startups.
   // Issue #2015: after resource thresholds clear, starting a backlog in a burst
   // can kill the next batch before host metrics have time to settle.
-  // Issue #2053: operators can explicitly lower the safety floor on hosts where
-  // resource metrics settle sooner. The default remains 10 minutes.
-  MIN_START_INTERVAL_MS: clampEnvValue('HIVE_MIND_MIN_START_INTERVAL_MS', parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_MS', DEFAULT_MINIMUM_START_INTERVAL_MS), {
-    minimum: minimumStartIntervalMs,
-    scope: 'queue-config',
-    hint: 'Set HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS to lower the minimum.',
-  }),
+  // Issue #2065: an explicit interval is authoritative. The deprecated floor
+  // remains a fallback for existing deployments, while the default remains the
+  // safe 10-minute interval introduced for issue #2015.
+  MIN_START_INTERVAL_MS: minimumStartIntervalMs,
   CONSUMER_POLL_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_CONSUMER_POLL_INTERVAL_MS', 60000), // 1 minute between queue checks
   MESSAGE_UPDATE_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_MESSAGE_UPDATE_INTERVAL_MS', 60000), // 1 minute between status message updates
 

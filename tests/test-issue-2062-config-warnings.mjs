@@ -46,9 +46,16 @@ function countMatches(value, pattern) {
 const queueFloor = importWithEnv('src/queue-config.lib.mjs', 'mod.QUEUE_CONFIG.MIN_START_INTERVAL_MS', {
   HIVE_MIND_MIN_START_INTERVAL_MS: '300000',
 });
-assertEqual(queueFloor.value, 600000, 'startup interval should retain its safety floor');
-assertMatch(queueFloor.stderr, /\[queue-config\] HIVE_MIND_MIN_START_INTERVAL_MS=300000 is below the minimum \(600000\); using 600000\./, 'startup interval clamp should explain the discarded value');
-assertMatch(queueFloor.stderr, /Set HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS to lower the minimum\./, 'startup interval warning should explain how to lower the floor');
+assertEqual(queueFloor.value, 300000, 'explicit startup interval should be authoritative');
+assertMatch(queueFloor.stderr, /\[queue-config\] HIVE_MIND_MIN_START_INTERVAL_MS=300000 is below the recommended 600000 ms;/, 'short startup interval should explain the recommended safety value');
+assertMatch(queueFloor.stderr, /short intervals can start a backlog before host metrics settle \(#2015\)\./, 'short startup interval should explain the operational risk');
+
+const deprecatedFloor = importWithEnv('src/queue-config.lib.mjs', 'mod.QUEUE_CONFIG.MIN_START_INTERVAL_MS', {
+  HIVE_MIND_MIN_START_INTERVAL_MS: '60000',
+  HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS: '300000',
+});
+assertEqual(deprecatedFloor.value, 60000, 'deprecated floor should not override the authoritative interval');
+assertMatch(deprecatedFloor.stderr, /\[queue-config\] HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS is deprecated; use HIVE_MIND_MIN_START_INTERVAL_MS instead\./, 'deprecated floor should explain its replacement');
 
 const cacheCeiling = importWithEnv('src/config.lib.mjs', 'mod.cacheTtl.system', {
   HIVE_MIND_SYSTEM_CACHE_TTL_MS: '300000',

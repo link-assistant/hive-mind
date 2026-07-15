@@ -40,6 +40,8 @@ export const isBugIssueType = issueType => {
 // (yargs exposes both the camelCase and kebab-case keys).
 export const isDevelopmentLogEnabled = argv => argv?.developmentLog === true || argv?.['development-log'] === true;
 
+export const isIssueTypeAwarePromptEnabled = argv => isDevelopmentLogEnabled(argv) || argv?.deepAnalysis === true || argv?.['deep-analysis'] === true;
+
 export const buildDevelopmentLogPrompt = ({ argv, issueNumber, prNumber, issueType }) => {
   if (!(argv?.developmentLog || argv?.['development-log'])) return '';
 

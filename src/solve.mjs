@@ -62,7 +62,7 @@ const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.dis
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
 const { attachFinalLogIfMissing } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952
-const { collectAndCommitDevelopmentLogArtifacts, fetchIssueType, isDevelopmentLogEnabled } = await import('./development-log.lib.mjs');
+const { collectAndCommitDevelopmentLogArtifacts, fetchIssueType, isDevelopmentLogEnabled, isIssueTypeAwarePromptEnabled } = await import('./development-log.lib.mjs');
 const { createDevelopmentLogFinalizer } = await import('./development-log.finalize.lib.mjs');
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's
 // own usage-limit notifications (so they're excluded from the
@@ -486,8 +486,8 @@ if (isPrUrl) {
 }
 // Issues #1212, #1462: Store issueNumber globally for error handlers (attach failure logs to issue when no PR exists)
 global.issueNumber = issueNumber;
-// Issue #1596: detect the issue type so the development-log prompt automatically uses bug vs feature/task wording.
-if (isDevelopmentLogEnabled(argv) && issueNumber) argv.issueType = await fetchIssueType({ owner, repo, issueNumber, $, log });
+// Issues #1595 and #1596: detect the issue type so analysis and logging prompts use bug vs feature/task wording.
+if (isIssueTypeAwarePromptEnabled(argv) && issueNumber) argv.issueType = await fetchIssueType({ owner, repo, issueNumber, $, log });
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
 cleanupContext.tempDir = tempDir;
